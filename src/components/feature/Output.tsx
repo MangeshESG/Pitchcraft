@@ -2180,28 +2180,35 @@ const Output: React.FC<OutputInterface> = ({
                             <button
                               id="regenerate-email-body-tooltip"
                               onClick={() => {
-  if (!combinedResponses[currentIndex]) {
-    alert("No contact selected to regenerate pitch for.");
-    return;
-  }
-  if (!onRegenerateContact) {
-    alert("Regenerate logic not wired up! Consult admin.");
-    return;
-  }
-  setIsRegenerating(true);
-  setRegenerationTargetId(combinedResponses[currentIndex].id);
+                                if (!combinedResponses[currentIndex]) {
+                                  alert(
+                                    "No contact selected to regenerate pitch for."
+                                  );
+                                  return;
+                                }
+                                if (!onRegenerateContact) {
+                                  alert(
+                                    "Regenerate logic not wired up! Consult admin."
+                                  );
+                                  return;
+                                }
+                                setIsRegenerating(true);
+                                setRegenerationTargetId(
+                                  combinedResponses[currentIndex].id
+                                );
 
-  
-  const regenerateIndex = currentIndex;
+                                const regenerateIndex = currentIndex;
 
-  onRegenerateContact("Output", {
-    regenerate: true,
-    regenerateIndex: regenerateIndex, // Use currentIndex instead of 0
-    
-  });
+                                onRegenerateContact("Output", {
+                                  regenerate: true,
+                                  regenerateIndex: regenerateIndex, // Use currentIndex instead of 0
+                                });
 
-  setTimeout(() => setIsRegenerating(false), 2500);
-}}
+                                setTimeout(
+                                  () => setIsRegenerating(false),
+                                  2500
+                                );
+                              }}
                               disabled={
                                 !combinedResponses[currentIndex] ||
                                 !isResetEnabled ||

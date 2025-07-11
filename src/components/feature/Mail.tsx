@@ -36,7 +36,7 @@ import {
 import Time from "react-datepicker/dist/time";
 interface DailyStats {
   date: string;
-  requests: number;
+  sent: number;
   opens: number;
   clicks: number;
 }
@@ -1283,7 +1283,7 @@ const Mail: React.FC<OutputInterface & SettingsProps> = ({
   const [clientStats, setClientStats] = useState<ClientStats>({});
   const [dailyStats, setDailyStats] = useState<DailyStats[]>([]);
   const [totalStats, setTotalStats] = useState({
-    requests: 0,
+    sent: 0,
     opens: 0,
     clicks: 0,
   });
@@ -1298,11 +1298,6 @@ const Mail: React.FC<OutputInterface & SettingsProps> = ({
   const [filteredEventType, setFilteredEventType] = useState<
     "Open" | "Click" | null
   >(null);
-
-  useEffect(() => {
-    fetchEventData();
-    fetchRequestCount(); // Add this line
-  }, [effectiveUserId]);
 
   const fetchEventData = async () => {
     try {
@@ -1342,7 +1337,7 @@ const Mail: React.FC<OutputInterface & SettingsProps> = ({
         if (!statsMap[date]) {
           statsMap[date] = {
             date,
-            requests: 0,
+            sent: 0,
             opens: 0,
             clicks: 0,
           };
@@ -1356,7 +1351,7 @@ const Mail: React.FC<OutputInterface & SettingsProps> = ({
           statsMap[date].clicks++;
           totalClicks++;
         } else if (item.eventType === "Request") {
-          statsMap[date].requests++;
+          statsMap[date].sent++;
           totalRequests++;
         }
       });
@@ -1368,7 +1363,7 @@ const Mail: React.FC<OutputInterface & SettingsProps> = ({
 
       setDailyStats(sortedStats);
       setTotalStats({
-        requests: totalRequests,
+        sent: totalRequests,
         opens: totalOpens,
         clicks: totalClicks,
       });
@@ -1382,20 +1377,25 @@ const Mail: React.FC<OutputInterface & SettingsProps> = ({
     }
   };
 
-  const fetchRequestCount = async () => {
+  // Rename your function to be more descriptive
+  const fetchEmailLogs = async (clientId: number, zohoViewName: string) => {
     try {
       const response = await axios.get(
-        `${API_BASE_URL}/api/email/success-count?clientId=${effectiveUserId}`,
+        `${API_BASE_URL}/track/logs`, // Make sure this matches your API endpoint
         {
+          params: {
+            clientId,
+            zohoViewName,
+          },
           headers: {
             ...(token && { Authorization: `Bearer ${token}` }),
           },
         }
       );
-      setRequestCount(response.data);
+      return response.data;
     } catch (error) {
-      console.error("Error fetching request count:", error);
-      setRequestCount(0);
+      console.error("Error fetching email logs:", error);
+      return [];
     }
   };
 
@@ -1454,31 +1454,6 @@ const Mail: React.FC<OutputInterface & SettingsProps> = ({
   // Add this loading state for refresh functionality
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Add refresh function
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    try {
-      // Refresh all data
-      await Promise.all([
-        fetchEventData(),
-        fetchRequestCount(),
-        // Add any other data fetching functions you need to refresh
-      ]);
-
-      // If a filter is currently applied, reapply it with fresh data
-      if (filteredEventType) {
-        const filtered = allEventData.filter(
-          (event) => event.eventType === filteredEventType
-        );
-        setFilteredEventData(filtered);
-      }
-    } catch (error) {
-      console.error("Error refreshing data:", error);
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
   const [dashboardTab, setDashboardTab] = useState("Overview");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -1501,6 +1476,203 @@ const Mail: React.FC<OutputInterface & SettingsProps> = ({
     }
   }, [tab, dashboardTab]);
 
+  // Update your fetchLogsByClientAndView function
+  const fetchLogsByClientAndView = async (
+    clientId: number,
+    zohoViewId: string
+  ) => {
+    try {
+      // Fetch tracking logs (opens and clicks)
+      const response = await axios.get(
+        `${API_BASE_URL}/track/logs/by-client-viewid`,
+        {
+          params: {
+            clientId,
+            zohoViewName: zohoViewId,
+          },
+          headers: {
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      // Fetch email logs for sent count
+      const emailLogs = await fetchEmailLogs(clientId, zohoViewId);
+
+      // Store ALL data without filtering
+      const allTrackingData: EventItem[] = response.data.logs || [];
+      const allEmailLogsData = emailLogs || [];
+
+      // Store the raw data
+      setAllEventData(allTrackingData);
+      setAllEmailLogs(allEmailLogsData); // You'll need to add this state
+
+      // Process data without date filtering
+      processDataWithDateFilter(
+        allTrackingData,
+        allEmailLogsData,
+        startDate,
+        endDate
+      );
+    } catch (error) {
+      console.error("Error fetching logs:", error);
+      setAllEventData([]);
+      setAllEmailLogs([]);
+      setFilteredEventData([]);
+      setRequestCount(0);
+      setDailyStats([]);
+      setTotalStats({ sent: 0, opens: 0, clicks: 0 });
+      setClientStats({});
+    }
+  };
+  const [allEmailLogs, setAllEmailLogs] = useState<any[]>([]);
+  const processDataWithDateFilter = (
+    trackingData: EventItem[],
+    emailLogs: any[],
+    startDate?: string,
+    endDate?: string
+  ) => {
+    // Apply date filtering
+    let filteredTrackingData = trackingData;
+    let filteredEmailLogs = emailLogs;
+
+    if (startDate || endDate) {
+      filteredTrackingData = trackingData.filter((item) => {
+        const itemDate = item.timestamp.split("T")[0];
+        const isAfterStart = !startDate || itemDate >= startDate;
+        const isBeforeEnd = !endDate || itemDate <= endDate;
+        return isAfterStart && isBeforeEnd;
+      });
+
+      filteredEmailLogs = emailLogs.filter((log: any) => {
+        const sentDate = log.sentAt.split("T")[0];
+        const isAfterStart = !startDate || sentDate >= startDate;
+        const isBeforeEnd = !endDate || sentDate <= endDate;
+        return isAfterStart && isBeforeEnd;
+      });
+    }
+
+    // Track unique opens and clicks per day
+    const dailyTracking: Record<
+      string,
+      {
+        uniqueOpens: Set<string>;
+        uniqueClicks: Set<string>;
+        sentCount: number;
+      }
+    > = {};
+
+    // Process email logs
+    filteredEmailLogs.forEach((log: any) => {
+      if (log.isSuccess) {
+        const date = log.sentAt.split("T")[0];
+
+        if (!dailyTracking[date]) {
+          dailyTracking[date] = {
+            uniqueOpens: new Set(),
+            uniqueClicks: new Set(),
+            sentCount: 0,
+          };
+        }
+
+        dailyTracking[date].sentCount++;
+      }
+    });
+
+    // Global unique tracking
+    const uniqueOpensInDateRange = new Set<string>();
+    const uniqueClicksInDateRange = new Set<string>();
+
+    // Process opens and clicks
+    filteredTrackingData.forEach((item) => {
+      const date = item.timestamp.split("T")[0];
+
+      if (!dailyTracking[date]) {
+        dailyTracking[date] = {
+          uniqueOpens: new Set(),
+          uniqueClicks: new Set(),
+          sentCount: 0,
+        };
+      }
+
+      if (item.eventType === "Open") {
+        dailyTracking[date].uniqueOpens.add(item.email);
+        uniqueOpensInDateRange.add(item.email);
+      } else if (item.eventType === "Click") {
+        dailyTracking[date].uniqueClicks.add(item.email);
+        uniqueClicksInDateRange.add(item.email);
+      }
+    });
+
+    // Create stats for graph
+    const statsMap: Record<string, DailyStats> = {};
+
+    Object.keys(dailyTracking).forEach((date) => {
+      statsMap[date] = {
+        date,
+        sent: dailyTracking[date].sentCount,
+        opens: dailyTracking[date].uniqueOpens.size,
+        clicks: dailyTracking[date].uniqueClicks.size,
+      };
+    });
+
+    const sortedStats = Object.values(statsMap).sort((a, b) =>
+      a.date.localeCompare(b.date)
+    );
+
+    setDailyStats(sortedStats);
+
+    // Calculate totals
+    const totalSentCount = filteredEmailLogs.filter(
+      (log: any) => log.isSuccess
+    ).length;
+
+    setRequestCount(totalSentCount);
+    setTotalStats({
+      sent: totalSentCount,
+      opens: uniqueOpensInDateRange.size,
+      clicks: uniqueClicksInDateRange.size,
+    });
+
+    // Update filtered event data
+    setFilteredEventData(filteredTrackingData);
+
+    // Apply event type filter if one is selected
+    if (filteredEventType) {
+      const typeFiltered = filteredTrackingData.filter(
+        (event: EventItem) => event.eventType === filteredEventType
+      );
+      setFilteredEventData(typeFiltered);
+    }
+  };
+
+  // Update your refresh function to use the new fetchEmailLogs
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      if (!selectedView) {
+        console.warn("Cannot refresh without selected view");
+        return;
+      }
+
+      // Refresh all data
+      await fetchLogsByClientAndView(Number(effectiveUserId), selectedView);
+
+      // Reapply event type filter if it exists
+      if (filteredEventType) {
+        const filtered = allEventData.filter(
+          (event) => event.eventType === filteredEventType
+        );
+        setFilteredEventData(filtered);
+      }
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Update the useEffect that initializes data
   useEffect(() => {
     const initializeData = async () => {
       setLoading(true);
@@ -1516,13 +1688,10 @@ const Mail: React.FC<OutputInterface & SettingsProps> = ({
         );
         setAvailableViews(response.data);
 
-        // Automatically select and fetch data for the first view
-        if (response.data.length > 0) {
-          const firstViewId = response.data[0].zohoviewId;
-          setSelectedView(firstViewId);
-          // Fetch data for the first view
-          await fetchLogsByClientAndView(Number(effectiveUserId), firstViewId);
-        }
+        // Don't automatically select or fetch data
+        // Let the user select a view first
+        setSelectedView(""); // Ensure no view is selected initially
+        setRequestCount(0); // Ensure request count is 0 initially
       } catch (error) {
         console.error("Error initializing data:", error);
       } finally {
@@ -1533,166 +1702,93 @@ const Mail: React.FC<OutputInterface & SettingsProps> = ({
     initializeData();
   }, [effectiveUserId]);
 
-  const fetchLogsByClientAndView = async (
-    clientId: number,
-    zohoViewId: string,
-    startDate?: string,
-    endDate?: string
-  ) => {
-    try {
-      const response = await axios.get(
-        `${API_BASE_URL}/track/logs/by-client-viewid`,
-        {
-          params: {
-            clientId,
-            zohoViewName: zohoViewId,
-          },
-          headers: {
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        }
-      );
-
-      // Get all data from API
-      const allData: EventItem[] = response.data.logs || [];
-
-      // Apply date filtering to the data
-      let filteredData = allData;
-      if (startDate || endDate) {
-        filteredData = allData.filter((item) => {
-          const itemDate = item.timestamp.split("T")[0]; // Get date part only (YYYY-MM-DD)
-
-          // Check if item date is within the selected range
-          const isAfterStart = !startDate || itemDate >= startDate;
-          const isBeforeEnd = !endDate || itemDate <= endDate;
-
-          return isAfterStart && isBeforeEnd;
-        });
-      }
-
-      setAllEventData(filteredData); // Store filtered data
-
-      // Calculate stats from filtered data
-      const uniqueOpens = new Set<string>();
-      const uniqueClicks = new Set<string>();
-      let filteredRequestCount = 0;
-
-      const statsMap: Record<string, DailyStats> = {};
-      let totalOpens = 0,
-        totalClicks = 0;
-
-      filteredData.forEach((item) => {
-        const date = item.timestamp.split("T")[0];
-
-        if (!statsMap[date]) {
-          statsMap[date] = { date, requests: 0, opens: 0, clicks: 0 };
-        }
-
-        if (item.eventType === "Open") {
-          statsMap[date].opens++;
-          totalOpens++;
-          uniqueOpens.add(item.email);
-        } else if (item.eventType === "Click") {
-          statsMap[date].clicks++;
-          totalClicks++;
-          uniqueClicks.add(item.email);
-        } else if (item.eventType === "Request") {
-          statsMap[date].requests++;
-          filteredRequestCount++;
-        }
-      });
-
-      // For request count, we need to calculate it based on the date filter
-      // Since the API gives us successCount for all data, we need to estimate
-      // the filtered count based on the ratio of filtered vs total events
-      if (startDate || endDate) {
-        // If we have date filters, calculate request count from the filtered data
-        // This is an approximation since we don't have request events in the logs
-        const filterRatio = filteredData.length / Math.max(allData.length, 1);
-        filteredRequestCount = Math.round(
-          (response.data.successCount || 0) * filterRatio
-        );
-        setRequestCount(filteredRequestCount);
-      } else {
-        // No date filter, use the full count from API
-        setRequestCount(response.data.successCount || 0);
-      }
-
-      const sortedStats = Object.values(statsMap).sort((a, b) =>
-        a.date.localeCompare(b.date)
-      );
-
-      setDailyStats(sortedStats);
-
-      // Update total stats with counts from filtered data
-      setTotalStats({
-        requests: filteredRequestCount || response.data.successCount || 0,
-        opens: uniqueOpens.size,
-        clicks: uniqueClicks.size,
-      });
-
-      // Update client stats with filtered data
-      const stats: ClientStats = {};
-      stats[clientId] = {
-        Open: uniqueOpens.size,
-        Click: uniqueClicks.size,
-      };
-      setClientStats(stats);
-
-      // Apply event type filter if one is selected
-      if (filteredEventType) {
-        const typeFiltered = filteredData.filter(
-          (event: EventItem) => event.eventType === filteredEventType
-        );
-        setFilteredEventData(typeFiltered);
-      } else {
-        setFilteredEventData(filteredData);
-      }
-    } catch (error) {
-      console.error("Error fetching logs:", error);
-      setAllEventData([]);
-      setFilteredEventData([]);
-      setRequestCount(0);
-      setDailyStats([]);
-      setTotalStats({ requests: 0, opens: 0, clicks: 0 });
-      setClientStats({});
-    }
-  };
-
+  // Update the useEffect that fetches data based on selectedView
   useEffect(() => {
     if (selectedView && tab === "Dashboard") {
-      fetchLogsByClientAndView(
-        Number(effectiveUserId),
-        selectedView,
-        startDate,
-        endDate
-      );
+      fetchLogsByClientAndView(Number(effectiveUserId), selectedView);
+    } else if (!selectedView) {
+      // Clear all data when no view is selected
+      setRequestCount(0);
+      setAllEventData([]);
+      setFilteredEventData([]);
+      setDailyStats([]);
+      setTotalStats({ sent: 0, opens: 0, clicks: 0 });
+      setClientStats({});
     }
-  }, [selectedView, tab, startDate, endDate, effectiveUserId]);
+  }, [selectedView, tab, effectiveUserId]);
 
+  // Add this function inside your component (before the return statement)
   const handleViewChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newViewId = e.target.value;
     setSelectedView(newViewId);
 
-    // Clear current data to show loading state
+    // Clear all data
     setLoading(true);
     setAllEventData([]);
+    setAllEmailLogs([]);
     setFilteredEventData([]);
     setDailyStats([]);
-    setTotalStats({ requests: 0, opens: 0, clicks: 0 });
+    setTotalStats({ sent: 0, opens: 0, clicks: 0 });
     setClientStats({});
+    setRequestCount(0);
 
     if (newViewId) {
-      await fetchLogsByClientAndView(
-        Number(effectiveUserId),
-        newViewId,
-        startDate,
-        endDate
-      );
+      await fetchLogsByClientAndView(Number(effectiveUserId), newViewId);
     }
 
     setLoading(false);
   };
+
+  useEffect(() => {
+    if (allEventData.length > 0 || allEmailLogs.length > 0) {
+      processDataWithDateFilter(allEventData, allEmailLogs, startDate, endDate);
+    }
+  }, [startDate, endDate]);
+
+  useEffect(() => {
+    const initializeData = async () => {
+      setLoading(true);
+      try {
+        // Clear previous user's data
+        setAvailableViews([]);
+        setSelectedView("");
+        setAllEventData([]);
+        setAllEmailLogs([]);
+        setFilteredEventData([]);
+        setDailyStats([]);
+        setTotalStats({ sent: 0, opens: 0, clicks: 0 });
+        setRequestCount(0);
+
+        // Fetch available views for new user
+        const response = await axios.get(
+          `${API_BASE_URL}/api/auth/zohoclientid/${effectiveUserId}`,
+          {
+            headers: {
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+          }
+        );
+        setAvailableViews(response.data);
+      } catch (error) {
+        console.error("Error initializing data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (effectiveUserId) {
+      initializeData();
+    }
+  }, [effectiveUserId]);
+
+  const openRate =
+    requestCount > 0
+      ? ((totalStats.opens / requestCount) * 100).toFixed(1)
+      : "0.0";
+  const clickRate =
+    requestCount > 0
+      ? ((totalStats.clicks / requestCount) * 100).toFixed(1)
+      : "0.0";
 
   return (
     <div className="login-box gap-down">
@@ -1762,12 +1858,17 @@ const Mail: React.FC<OutputInterface & SettingsProps> = ({
             style={{ margin: "20px 0", gap: "10px" }}
           >
             <div>
-              <label>Zoho View:</label>
+              <label>
+                Zoho View: <span style={{ color: "red" }}>*</span>
+              </label>
               <select
                 value={selectedView}
-                onChange={(e) => setSelectedView(e.target.value)}
+                onChange={handleViewChange}
+                style={{
+                  border: !selectedView ? "1px solid red" : "1px solid #ccc",
+                }}
               >
-                <option value="">Select View</option>
+                <option value="">-- Please Select a View --</option>
                 {availableViews.map((view) => (
                   <option key={view.zohoviewId} value={view.zohoviewId}>
                     {view.zohoviewName}
@@ -1806,37 +1907,81 @@ const Mail: React.FC<OutputInterface & SettingsProps> = ({
               </button>
             )}
           </div>
+          <div className="stats-cards">
+            <div className="card">
+              <h3>Sent</h3>
+              {loading ? (
+                <p>Loading...</p>
+              ) : !selectedView ? (
+                <p style={{ fontSize: 24 }}>-</p>
+              ) : (
+                <p style={{ fontSize: 24 }}>{requestCount}</p>
+              )}
+            </div>
+            <div className="card orange">
+              <h3>Unique Opens</h3>
+              {loading ? (
+                <p>Loading...</p>
+              ) : !selectedView ? (
+                <p style={{ fontSize: 24 }}>-</p>
+              ) : (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "baseline",
+                    justifyContent: "center",
+                  }}
+                >
+                  <p style={{ fontSize: 24, margin: 0 }}>{totalStats.opens}</p>
+                  <p
+                    style={{
+                      fontSize: 16,
+                      color: "#FF8042",
+                      marginLeft: 8,
+                      margin: 0,
+                      fontWeight: "normal",
+                    }}
+                  >
+                    ({openRate}%)
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="card blue">
+              <h3>Unique Clicks</h3>
+              {loading ? (
+                <p>Loading...</p>
+              ) : !selectedView ? (
+                <p style={{ fontSize: 24 }}>-</p>
+              ) : (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "baseline",
+                    justifyContent: "center",
+                  }}
+                >
+                  <p style={{ fontSize: 24, margin: 0 }}>{totalStats.clicks}</p>
+                  <p
+                    style={{
+                      fontSize: 16,
+                      color: "#8884d8",
+                      marginLeft: 8,
+                      margin: 0,
+                      fontWeight: "normal",
+                    }}
+                  >
+                    ({clickRate}%)
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
 
           {dashboardTab === "Overview" && (
             <>
               {/* Stats cards */}
               {/* Stats cards */}
-              <div className="stats-cards">
-                <div className="card">
-                  <h3>Requests</h3>
-                  {loading ? (
-                    <p>Loading...</p>
-                  ) : (
-                    <p style={{ fontSize: 24 }}>{requestCount}</p>
-                  )}
-                </div>
-                <div className="card orange">
-                  <h3>Unique Opens</h3>
-                  {loading ? (
-                    <p>Loading...</p>
-                  ) : (
-                    <p style={{ fontSize: 24 }}>{totalStats.opens}</p>
-                  )}
-                </div>
-                <div className="card blue">
-                  <h3>Unique Clicks</h3>
-                  {loading ? (
-                    <p>Loading...</p>
-                  ) : (
-                    <p style={{ fontSize: 24 }}>{totalStats.clicks}</p>
-                  )}
-                </div>
-              </div>
 
               {/* Line chart */}
               <div className="chart-container">
@@ -1847,7 +1992,7 @@ const Mail: React.FC<OutputInterface & SettingsProps> = ({
                       data={
                         filteredStats.length
                           ? filteredStats
-                          : [{ date: "", requests: 0, opens: 0, clicks: 0 }]
+                          : [{ date: "", sent: 0, opens: 0, clicks: 0 }]
                       }
                       margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                     >
@@ -1858,7 +2003,7 @@ const Mail: React.FC<OutputInterface & SettingsProps> = ({
                       <Legend verticalAlign="top" height={36} />
                       <Line
                         type="monotone"
-                        dataKey="requests"
+                        dataKey="sent"
                         stroke="#00C49F"
                         strokeWidth={2}
                         dot={{ r: 3 }}

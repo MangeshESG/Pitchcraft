@@ -29,7 +29,6 @@ import { useModel } from "../ModelContext";
 import { fetchClientSettings } from "../slices/clientSettingsSlice"; // adjust path if needed
 import { AppDispatch } from "../Redux/store"; // ✅ import AppDispatch
 
-
 interface Prompt {
   id: number;
   name: string;
@@ -244,15 +243,15 @@ const MainPage: React.FC = () => {
     browserVersion,
   } = useSelector((state: RootState) => state.auth);
 
-interface DataFile {
-  id: number;
-  client_id: number;
-  name: string;
-  data_file_name: string;
-  description: string;
-  created_at: string;
-  contacts: any[];
-}
+  interface DataFile {
+    id: number;
+    client_id: number;
+    name: string;
+    data_file_name: string;
+    description: string;
+    created_at: string;
+    contacts: any[];
+  }
   const handleClearContent = useCallback((clearContent: () => void) => {
     setClearContentFunction(() => clearContent);
   }, []);
@@ -320,32 +319,31 @@ interface DataFile {
   };
 
   // Handle change event for the select element
-const handleZohoModelChange = async (
-  event: React.ChangeEvent<HTMLSelectElement>
-) => {
-  const selectedId = event.target.value;
-  
-  // Switch to manual mode when selecting a data file
-  if (selectedId) {
-    setSelectionMode("manual");
-    setSelectedCampaign(""); // Clear campaign selection
-  }
-  
-  setSelectedZohoviewId(selectedId); // Update the global state
+  const handleZohoModelChange = async (
+    event: React.ChangeEvent<HTMLSelectElement>
+  ) => {
+    const selectedId = event.target.value;
 
-  // Call the clear function when a new data file is selected
-  handleNewDataFileSelection();
-
-  if (selectedId && clientID) {
-    try {
-      // Pass the data file ID instead of zoho view ID
-      await fetchAndDisplayEmailBodies(`${clientID},${selectedId}`);
-    } catch (error) {
-      console.error("Error fetching email bodies:", error);
+    // Switch to manual mode when selecting a data file
+    if (selectedId) {
+      setSelectionMode("manual");
+      setSelectedCampaign(""); // Clear campaign selection
     }
-  }
-};
 
+    setSelectedZohoviewId(selectedId); // Update the global state
+
+    // Call the clear function when a new data file is selected
+    handleNewDataFileSelection();
+
+    if (selectedId && clientID) {
+      try {
+        // Pass the data file ID instead of zoho view ID
+        await fetchAndDisplayEmailBodies(`${clientID},${selectedId}`);
+      } catch (error) {
+        console.error("Error fetching email bodies:", error);
+      }
+    }
+  };
 
   const handleSelectChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedLabel = event.target.value;
@@ -718,7 +716,7 @@ const handleZohoModelChange = async (
   const [currentEmailIndex, setCurrentEmailIndex] = useState<number>(0);
   const [emailData, setEmailData] = useState<any[]>([]);
 
-const fetchAndDisplayEmailBodies = useCallback(
+  const fetchAndDisplayEmailBodies = useCallback(
     async (
       zohoviewId: string, // This will now be used as "clientId,dataFileId" format
       pageToken: string | null = null,
@@ -726,48 +724,46 @@ const fetchAndDisplayEmailBodies = useCallback(
     ) => {
       try {
         setEmailLoading(true);
-        
+
         // Parse zohoviewId to get clientId and dataFileId
-        const [clientId, dataFileId] = zohoviewId.split(',');
-        
+        const [clientId, dataFileId] = zohoviewId.split(",");
+
         let url = `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${clientId}&dataFileId=${dataFileId}`;
-        
+
         const response = await fetch(url);
         if (!response.ok) {
           throw new Error("Failed to fetch email bodies");
         }
 
         const fetchedEmailData = await response.json();
-        
+
         // Adapt to new API response structure
         const contactsData = fetchedEmailData.contacts || [];
-        
+
         if (!Array.isArray(contactsData)) {
           console.error("Invalid data format");
           return;
         }
 
         // Map fetched data to the desired format
-        const emailResponses = contactsData.map(
-          (entry: any) => ({
-            id: entry.id,
-            name: entry.full_name || "N/A",
-            title: entry.job_title || "N/A",
-            company: entry.company_name || "N/A",
-            location: entry.country_or_address || "N/A",
-            website: entry.website || "N/A",
-            linkedin: entry.linkedin_url || "N/A",
-            pitch: entry.email_body || "No email body found",
-            timestamp: entry.created_at || new Date().toISOString(),
-            nextPageToken: null, // No pagination in new API
-            prevPageToken: null, // No pagination in new API
-            generated: false,
-            subject: entry.email_subject || "N/A",
-            email: entry.email || "N/A",
-            lastemailupdateddate: entry.updated_at || "N/A",
-            emailsentdate: entry.email_sent_at || "N/A",
-          })
-        );
+        const emailResponses = contactsData.map((entry: any) => ({
+          id: entry.id,
+          name: entry.full_name || "N/A",
+          title: entry.job_title || "N/A",
+          company: entry.company_name || "N/A",
+          location: entry.country_or_address || "N/A",
+          website: entry.website || "N/A",
+          linkedin: entry.linkedin_url || "N/A",
+          pitch: entry.email_body || "No email body found",
+          timestamp: entry.created_at || new Date().toISOString(),
+          nextPageToken: null, // No pagination in new API
+          prevPageToken: null, // No pagination in new API
+          generated: false,
+          subject: entry.email_subject || "N/A",
+          email: entry.email || "N/A",
+          lastemailupdateddate: entry.updated_at || "N/A",
+          emailsentdate: entry.email_sent_at || "N/A",
+        }));
 
         // Create placeholders for new items
         const newItemsCount = emailResponses.length;
@@ -791,7 +787,6 @@ const fetchAndDisplayEmailBodies = useCallback(
         // Update pagination tokens (both null since no pagination)
         setNextPageToken(null);
         setPrevPageToken(null);
-        
       } catch (error) {
         console.error("Error fetching email bodies:", error);
       } finally {
@@ -981,7 +976,7 @@ const fetchAndDisplayEmailBodies = useCallback(
     return { original: originalCount, assisted: assistedCount };
   };
 
-const goToTab = async (
+  const goToTab = async (
     tab: string,
     options?: {
       regenerate?: boolean;
@@ -1041,32 +1036,35 @@ const goToTab = async (
       }
 
       if (options?.regenerate) {
-  // Parse selectedZohoviewId to get clientId and dataFileId
-  const [clientIdStr, dataFileIdStr] = selectedZohoviewId.split(',');
-  
-  // Use the regenerateIndex to get the specific contact from allResponses
-  const index = typeof options.regenerateIndex === "number" ? options.regenerateIndex : 0;
-  
-  // Get the entry directly from allResponses instead of fetching again
-  const entry = allResponses[index];
-  
-  if (!entry) {
-    setIsProcessing(false);
-    setIsPitchUpdateCompleted(true);
-    setIsPaused(true);
-    return;
-  }
+        // Parse selectedZohoviewId to get clientId and dataFileId
+        const [clientIdStr, dataFileIdStr] = selectedZohoviewId.split(",");
+
+        // Use the regenerateIndex to get the specific contact from allResponses
+        const index =
+          typeof options.regenerateIndex === "number"
+            ? options.regenerateIndex
+            : 0;
+
+        // Get the entry directly from allResponses instead of fetching again
+        const entry = allResponses[index];
+
+        if (!entry) {
+          setIsProcessing(false);
+          setIsPitchUpdateCompleted(true);
+          setIsPaused(true);
+          return;
+        }
 
         // Map new API fields to existing variables
         const company_name_friendly = entry.company_name || entry.company;
-  const full_name = entry.full_name || entry.name;
-  const job_title = entry.job_title || entry.title;
-  const location = entry.country_or_address || entry.location;
-  const linkedin_url = entry.linkedin_url || entry.linkedin;
-  const website = entry.website;
-  const company_name = entry.company_name || entry.company;
-  const emailbody = entry.email_body || entry.pitch;
-  const id = entry.id;
+        const full_name = entry.full_name || entry.name;
+        const job_title = entry.job_title || entry.title;
+        const location = entry.country_or_address || entry.location;
+        const linkedin_url = entry.linkedin_url || entry.linkedin;
+        const website = entry.website;
+        const company_name = entry.company_name || entry.company;
+        const emailbody = entry.email_body || entry.pitch;
+        const id = entry.id;
 
         // --- Generate new pitch as per your normal contact process ---
         const searchTermBody = searchterm
@@ -1318,7 +1316,7 @@ const goToTab = async (
                   DataFileId: parseInt(dataFileIdStr),
                   ContactId: id,
                   EmailSubject: subjectLine,
-                  EmailBody: pitchData.response.content
+                  EmailBody: pitchData.response.content,
                 }),
               }
             );
@@ -1455,7 +1453,7 @@ const goToTab = async (
 
       const data = await response.json();
       const contacts = data.contacts || [];
-      
+
       if (!Array.isArray(contacts)) {
         console.error("Invalid data format");
         moreRecords = false;
@@ -1529,10 +1527,7 @@ const goToTab = async (
               ...prevSearchResults,
               [],
             ]);
-            seteveryscrapedData((prevScrapedData) => [
-              ...prevScrapedData,
-              "",
-            ]);
+            seteveryscrapedData((prevScrapedData) => [...prevScrapedData, ""]);
             setallsummery((prevSummery) => [...prevSummery, ""]);
             setallSearchTermBodies((prevSearchTermBodies) => [
               ...prevSearchTermBodies,
@@ -1603,8 +1598,8 @@ const goToTab = async (
                   entry.email
                 }</span><br/>` + prevOutputForm.generatedContent,
             }));
-			
-			   const scrapeResponse = await fetch(
+
+            const scrapeResponse = await fetch(
               `${API_BASE_URL}/api/auth/process?instructions=${instructionsParam}&modelName=${encodeURIComponent(
                 selectedModelNameA
               )}&searchCount=${encodeURIComponent(searchCount)}`,
@@ -1614,7 +1609,7 @@ const goToTab = async (
                 body: JSON.stringify(searchTermBody),
               }
             );
-			            if (!scrapeResponse.ok) {
+            if (!scrapeResponse.ok) {
               scrapfailedreq += 1;
               setOutputForm((prevOutputForm) => ({
                 ...prevOutputForm,
@@ -1799,7 +1794,7 @@ const goToTab = async (
           cost += parseFloat(pitchData?.response?.currentCost);
           totaltokensused += parseFloat(pitchData?.response?.totalTokens);
           console.log(`Cosstdata ${pitchData}`);
-          
+
           // Success: Update UI with the generated pitch
           setOutputForm((prevOutputForm) => ({
             ...prevOutputForm,
@@ -1986,12 +1981,16 @@ const goToTab = async (
             searchTermBody,
           ]);
           setRecentlyAddedOrUpdatedId(newResponse.id);
-                  const dataFileIdStr = selectedZohoviewId;
+          const dataFileIdStr = selectedZohoviewId;
 
           // Update database with new API
           try {
-            
-            if (entry.id && pitchData.response.content && clientID && dataFileIdStr) {
+            if (
+              entry.id &&
+              pitchData.response.content &&
+              clientID &&
+              dataFileIdStr
+            ) {
               const updateContactResponse = await fetch(
                 `${API_BASE_URL}/api/crm/contacts/update-email`,
                 {
@@ -2004,7 +2003,7 @@ const goToTab = async (
                     DataFileId: parseInt(dataFileIdStr),
                     ContactId: entry.id,
                     EmailSubject: subjectLine,
-                    EmailBody: pitchData.response.content
+                    EmailBody: pitchData.response.content,
                   }),
                 }
               );
@@ -2075,10 +2074,7 @@ const goToTab = async (
               `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
               `Total Tokens Used: ${totaltokensused}   `,
           }));
-          console.error(
-            `Error processing entry ${entry.email}:`,
-            error
-          );
+          console.error(`Error processing entry ${entry.email}:`, error);
           generatedPitches.push({
             ...entry,
             pitch: "Error generating pitch",
@@ -2143,7 +2139,6 @@ const goToTab = async (
     }
   };
 
-  
   const [outputForm, setOutputForm] = useState<OutputInterface["outputForm"]>({
     generatedContent: "",
     linkLabel: "",
@@ -2372,45 +2367,45 @@ const goToTab = async (
   }
   const IsAdmin = sessionStorage.getItem("IsAdmin");
 
-// State for data files
-const [dataFiles, setDataFiles] = useState<DataFile[]>([]);
-// Fetch data files when client changes
-useEffect(() => {
-  const fetchDataFiles = async () => {
-    if (!selectedClient && !clientID) {
-      setDataFiles([]);
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const clientIdToUse = selectedClient || clientID;
-      const url = `${API_BASE_URL}/api/Crm/by-client?clientId=${clientIdToUse}`;
-      
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          console.log(`No data files found for client: ${clientIdToUse}`);
-          setDataFiles([]);
-          return;
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
+  // State for data files
+  const [dataFiles, setDataFiles] = useState<DataFile[]>([]);
+  // Fetch data files when client changes
+  useEffect(() => {
+    const fetchDataFiles = async () => {
+      if (!selectedClient && !clientID) {
+        setDataFiles([]);
+        return;
       }
 
-      const data: DataFile[] = await response.json();
-      setDataFiles(data);
-    } catch (error) {
-      console.error("Error fetching data files:", error);
-      setDataFiles([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+      setLoading(true);
 
-  fetchDataFiles();
-}, [selectedClient, clientID]);
+      try {
+        const clientIdToUse = selectedClient || clientID;
+        const url = `${API_BASE_URL}/api/Crm/by-client?clientId=${clientIdToUse}`;
+
+        const response = await fetch(url);
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            console.log(`No data files found for client: ${clientIdToUse}`);
+            setDataFiles([]);
+            return;
+          }
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data: DataFile[] = await response.json();
+        setDataFiles(data);
+      } catch (error) {
+        console.error("Error fetching data files:", error);
+        setDataFiles([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDataFiles();
+  }, [selectedClient, clientID]);
 
   const handleModelChange = async (
     event: React.ChangeEvent<HTMLSelectElement>
@@ -2730,39 +2725,39 @@ useEffect(() => {
     }
   };
 
+  const handleExcelDataProcessed = async (processedData: any[]) => {
+    console.log("Excel data processed:", processedData);
 
-const handleExcelDataProcessed = async (processedData: any[]) => {
-  console.log("Excel data processed:", processedData);
-  
-  if (processedData.length > 0) {
-    // Convert Excel data to your expected format
-    const formattedData: EmailEntry[] = processedData.map((contact, index) => ({
-      id: `excel_${index + 1}`,
-      full_Name: contact.name,
-      email: contact.email,
-      email_subject: subjectMode === "With Placeholder" ? subjectText : '', // Use your subject logic
-      job_Title: contact.job_title || '',
-      account_name_friendlySingle_Line_12: contact.company || '',
-      mailing_Country: contact.location || '',
-      linkedIn_URL: contact.linkedin || '',
-      website: '', // Optional fields
-      sample_email_body: '',
-      generated: false,
-      last_Email_Body_updated: '',
-      pG_Processed_on1: '',
-    }));
-    
-    // Update your existing state with the Excel data
-    setexistingResponse(formattedData);
-    setPitchGenData({ data: formattedData });
-    
-    // Optionally switch to Output tab to show the data
-    // setTab("Output");
-  }
-};
+    if (processedData.length > 0) {
+      // Convert Excel data to your expected format
+      const formattedData: EmailEntry[] = processedData.map(
+        (contact, index) => ({
+          id: `excel_${index + 1}`,
+          full_Name: contact.name,
+          email: contact.email,
+          email_subject: subjectMode === "With Placeholder" ? subjectText : "", // Use your subject logic
+          job_Title: contact.job_title || "",
+          account_name_friendlySingle_Line_12: contact.company || "",
+          mailing_Country: contact.location || "",
+          linkedIn_URL: contact.linkedin || "",
+          website: "", // Optional fields
+          sample_email_body: "",
+          generated: false,
+          last_Email_Body_updated: "",
+          pG_Processed_on1: "",
+        })
+      );
 
-const [selectedDataFileId, setSelectedDataFileId] = useState("");
+      // Update your existing state with the Excel data
+      setexistingResponse(formattedData);
+      setPitchGenData({ data: formattedData });
 
+      // Optionally switch to Output tab to show the data
+      // setTab("Output");
+    }
+  };
+
+  const [selectedDataFileId, setSelectedDataFileId] = useState("");
 
   return (
     <div className="login-container pitch-page flex-col d-flex">
@@ -2810,7 +2805,6 @@ const [selectedDataFileId, setSelectedDataFileId] = useState("");
                     </button>
                   </li>
                 )}
-                
               </ul>
             </div>
             {/* White box container for buttons */}
@@ -2959,328 +2953,309 @@ const [selectedDataFileId, setSelectedDataFileId] = useState("");
       </div>
       {tab === "Template" && (
         <>
-        <div className="login-box gap-down d-flex mb-20">
-      <DataFile
-        selectedClient={selectedClient}
-        onDataProcessed={handleExcelDataProcessed}
-        isProcessing={isProcessing}
-      />
-    </div>
-        
-        <div className="login-box gap-down d-flex">
-          <div className="input-section edit-section">
-            <div className="row flex-col-768">
-              <div className="col col-3  col-12-768">
-                <div className="form-group">
-                  <label>
-                    Campaign <span className="required">*</span>{" "}
-                  </label>
-                  <select
-                    onChange={handleCampaignChange}
-                    value={selectedCampaign}
-                    disabled={
-                      selectionMode === "manual" &&
-                      (!!selectedPrompt?.name || !!selectedZohoviewId)
-                    } // Disable if prompt or data file is manually selected
-                  >
-                    <option value="">Select a campaign</option>
-                    {campaigns.map((campaign) => (
-                      <option key={campaign.id} value={campaign.id.toString()}>
-                        {campaign.campaignName}
-                      </option>
-                    ))}
-                  </select>
-                  {!selectedCampaign && (
-                    <small className="error-text">
-                      Please select a campaign
-                    </small>
-                  )}
-                </div>
-                {selectedCampaign &&
-                  campaigns.find((c) => c.id.toString() === selectedCampaign)
-                    ?.description && (
-                    <div className="campaign-description-container">
-                      <small className="campaign-description">
-                        {
-                          campaigns.find(
-                            (c) => c.id.toString() === selectedCampaign
-                          )?.description
-                        }
-                      </small>
-                    </div>
-                  )}
-              </div>
+          <div className="login-box gap-down d-flex mb-20">
+            <DataFile
+              selectedClient={selectedClient}
+              onDataProcessed={handleExcelDataProcessed}
+              isProcessing={isProcessing}
+            />
+          </div>
 
-              <div className="col col-3 col-12-768">
-                <div className="form-group">
-                  <label>Original non-personalized email templates </label>
-                  <select
-                    onChange={handleSelectChange}
-                    value={selectedPrompt?.name || ""}
-                    className={
-                      !selectedPrompt?.name ? "highlight-required" : ""
-                    }
-                    disabled={
-                      userRole !== "ADMIN" || selectionMode === "campaign"
-                    } // Disable if not admin or if campaign is selected
-                  >
-                    <option value="">Please select a template</option>
-                    {promptList.map((prompt: Prompt) => (
-                      <option key={prompt.id} value={prompt.name}>
-                        {prompt.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="col col-3 col-12-768">
-  <div className="form-group">
-    <label>Data files of contacts</label>
-    <select
-      name="model"
-      id="model"
-      onChange={handleZohoModelChange} // You might want to rename this to handleDataFileChange
-      value={selectedZohoviewId} // You might want to rename this to selectedDataFileId
-      className={!selectedZohoviewId ? "highlight-required" : ""}
-      disabled={
-        userRole !== "ADMIN" || selectionMode === "campaign"
-      } // Disable if not admin or if campaign is selected
-    >
-      <option value="">Please select a data file</option>
-      {dataFiles.map((file) => (
-        <option key={file.id} value={file.id}>
-          {file.name} - {file.data_file_name}
-        </option>
-      ))}
-    </select>
-  </div>
-  {emailLoading && (
-    <div className="loader-overlay">
-      <div className="loader"></div>
-    </div>
-  )}
-</div>
-
-              <div className="col col-3  col-12-768">
-                <div className="form-group">
-                  <label>Language</label>
-                  <select
-                    onChange={handleLanguageChange}
-                    value={selectedLanguage}
-                  >
-                    <option value="">Select a language</option>
-                    {Object.values(Languages)
-                      .sort((a, b) => a.localeCompare(b)) // Sort languages alphabetically
-                      .map((language, index) => (
-                        <option key={index} value={language}>
-                          {language}
+          <div className="login-box gap-down d-flex">
+            <div className="input-section edit-section">
+              <div className="row flex-col-768">
+                <div className="col col-3  col-12-768">
+                  <div className="form-group">
+                    <label>
+                      Campaign <span className="required">*</span>{" "}
+                    </label>
+                    <select
+                      onChange={handleCampaignChange}
+                      value={selectedCampaign}
+                      disabled={
+                        selectionMode === "manual" &&
+                        (!!selectedPrompt?.name || !!selectedZohoviewId)
+                      } // Disable if prompt or data file is manually selected
+                    >
+                      <option value="">Select a campaign</option>
+                      {campaigns.map((campaign) => (
+                        <option
+                          key={campaign.id}
+                          value={campaign.id.toString()}
+                        >
+                          {campaign.campaignName}
                         </option>
                       ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-            <div className="row flex-col-768">
-              <div className="col col-3 col-12-768">
-                <div className="form-group d-flex align-center">
-                  <label
-                    style={{ minWidth: 66, marginRight: 10, marginBottom: 0 }}
-                  >
-                    Subject <span className="required">*</span>
-                  </label>
-                  <select
-                    onChange={(e) => setSubjectMode(e.target.value)}
-                    value={subjectMode}
-                    className="height-35"
-                    style={{ minWidth: 150 }}
-                  >
-                    <option value="AI generated">AI generated</option>
-                    <option value="With Placeholder">With placeholder</option>
-                  </select>
-                  <input
-                    type="text"
-                    placeholder="Enter subject here"
-                    value={subjectText}
-                    onChange={(e) => setSubjectText(e.target.value)}
-                    disabled={subjectMode !== "With Placeholder"}
-                    className="height-35 ml-10"
-                    style={{
-                      minWidth: 700,
-                      flex: "1 1 auto",
-                      boxSizing: "border-box",
-                      marginLeft: 16,
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="row">
-              <div className="col-12 col">
-                {userRole === "ADMIN" && (
-                  <div className="tabs secondary d-flex justify-between-991 flex-col-768 bb-0-768">
-                    <ul className="d-flex bb-1-768">
-                      <li>
-                        <button
-                          type="button"
-                          onClick={tabHandler2}
-                          className={`button ${
-                            tab2 === "Template" ? "active" : ""
-                          }`}
-                        >
-                          Template
-                        </button>
-                      </li>
-
-                      <li>
-                        <button
-                          type="button"
-                          onClick={tabHandler2}
-                          className={`button ${
-                            tab2 === "Instructions" ? "active" : ""
-                          }`}
-                        >
-                          Instructions
-                        </button>
-                      </li>
-                    </ul>
-                    <div className="d-flex align-self-center ml-10 ml-768-0 mt-10-768 flex-col-480 full-width">
-                      <ReactTooltip
-                        anchorSelect="#output-edit-prompt-tooltip"
-                        place="top"
-                      >
-                        Edit prompt
-                      </ReactTooltip>
-                      <button
-                        id="output-edit-prompt-tooltip"
-                        className={`save-button button justify-center square-40 d-flex align-center button-full-width-480 mb-10-480 ${
-                          selectedPrompt?.name !== "Select a prompt"
-                            ? ""
-                            : "disabled" // Simplified conditional
-                        }`}
-                        disabled={
-                          !selectedPrompt?.name ||
-                          selectedPrompt?.name === "Select a prompt"
-                        }
-                        onClick={() => {
-                          handleModalOpen("modal-edit-prompt");
-                          setEditHandler();
-                        }} // Improved disabled logic
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="22px"
-                          height="22px"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                        >
-                          <path
-                            d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
-                            stroke="#ffffff"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                        {/* <span>Edit prompt</span> */}
-                      </button>
-
-                      <span className="d-flex justify-right ml-10 ml-0-480 ">
-                        <Modal
-                          show={openModals["modal-add-prompt"]}
-                          closeModal={() =>
-                            handleModalClose("modal-add-prompt")
+                    </select>
+                    {!selectedCampaign && (
+                      <small className="error-text">
+                        Please select a campaign
+                      </small>
+                    )}
+                  </div>
+                  {selectedCampaign &&
+                    campaigns.find((c) => c.id.toString() === selectedCampaign)
+                      ?.description && (
+                      <div className="campaign-description-container">
+                        <small className="campaign-description">
+                          {
+                            campaigns.find(
+                              (c) => c.id.toString() === selectedCampaign
+                            )?.description
                           }
-                          buttonLabel="Close"
-                        >
-                          <form
-                            onSubmit={addPromptSubmitHandler}
-                            className="full-height"
+                        </small>
+                      </div>
+                    )}
+                </div>
+
+                <div className="col col-3 col-12-768">
+                  <div className="form-group">
+                    <label>Original non-personalized email templates </label>
+                    <select
+                      onChange={handleSelectChange}
+                      value={selectedPrompt?.name || ""}
+                      className={
+                        !selectedPrompt?.name ? "highlight-required" : ""
+                      }
+                      disabled={
+                        userRole !== "ADMIN" || selectionMode === "campaign"
+                      } // Disable if not admin or if campaign is selected
+                    >
+                      <option value="">Please select a template</option>
+                      {promptList.map((prompt: Prompt) => (
+                        <option key={prompt.id} value={prompt.name}>
+                          {prompt.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="col col-3 col-12-768">
+                  <div className="form-group">
+                    <label>Data files of contacts</label>
+                    <select
+                      name="model"
+                      id="model"
+                      onChange={handleZohoModelChange} // You might want to rename this to handleDataFileChange
+                      value={selectedZohoviewId} // You might want to rename this to selectedDataFileId
+                      className={
+                        !selectedZohoviewId ? "highlight-required" : ""
+                      }
+                      disabled={
+                        userRole !== "ADMIN" || selectionMode === "campaign"
+                      } // Disable if not admin or if campaign is selected
+                    >
+                      <option value="">Please select a data file</option>
+                      {dataFiles.map((file) => (
+                        <option key={file.id} value={file.id}>
+                          {file.name} - {file.data_file_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {emailLoading && (
+                    <div className="loader-overlay">
+                      <div className="loader"></div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="col col-3  col-12-768">
+                  <div className="form-group">
+                    <label>Language</label>
+                    <select
+                      onChange={handleLanguageChange}
+                      value={selectedLanguage}
+                    >
+                      <option value="">Select a language</option>
+                      {Object.values(Languages)
+                        .sort((a, b) => a.localeCompare(b)) // Sort languages alphabetically
+                        .map((language, index) => (
+                          <option key={index} value={language}>
+                            {language}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+              <div className="row flex-col-768">
+                <div className="col col-3 col-12-768">
+                  <div className="form-group d-flex align-center">
+                    <label
+                      style={{ minWidth: 66, marginRight: 10, marginBottom: 0 }}
+                    >
+                      Subject <span className="required">*</span>
+                    </label>
+                    <select
+                      onChange={(e) => setSubjectMode(e.target.value)}
+                      value={subjectMode}
+                      className="height-35"
+                      style={{ minWidth: 150 }}
+                    >
+                      <option value="AI generated">AI generated</option>
+                      <option value="With Placeholder">With placeholder</option>
+                    </select>
+                    <input
+                      type="text"
+                      placeholder="Enter subject here"
+                      value={subjectText}
+                      onChange={(e) => setSubjectText(e.target.value)}
+                      disabled={subjectMode !== "With Placeholder"}
+                      className="height-35 ml-10"
+                      style={{
+                        minWidth: 700,
+                        flex: "1 1 auto",
+                        boxSizing: "border-box",
+                        marginLeft: 16,
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="row">
+                <div className="col-12 col">
+                  {userRole === "ADMIN" && (
+                    <div className="tabs secondary d-flex justify-between-991 flex-col-768 bb-0-768">
+                      <ul className="d-flex bb-1-768">
+                        <li>
+                          <button
+                            type="button"
+                            onClick={tabHandler2}
+                            className={`button ${
+                              tab2 === "Template" ? "active" : ""
+                            }`}
                           >
-                            <h2 className="left">Add a prompt</h2>
-                            <div className="form-group">
-                              <label>Prompt name</label>
-                              <input
-                                type="text"
-                                name="promptName"
-                                placeholder="Enter prompt name"
-                                value={addPrompt.promptName}
-                                onChange={addPromptHandler}
-                              />
-                            </div>
+                            Template
+                          </button>
+                        </li>
 
-                            {userRole === "ADMIN" && (
-                              <div className="tabs secondary">
-                                <ul className="d-flex">
-                                  <li>
-                                    <button
-                                      type="button"
-                                      onClick={tabHandler4}
-                                      className={`button ${
-                                        tab4 === "Template" ? "active" : ""
-                                      }`}
-                                    >
-                                      Template
-                                    </button>
-                                  </li>
+                        <li>
+                          <button
+                            type="button"
+                            onClick={tabHandler2}
+                            className={`button ${
+                              tab2 === "Instructions" ? "active" : ""
+                            }`}
+                          >
+                            Instructions
+                          </button>
+                        </li>
+                      </ul>
+                      <div className="d-flex align-self-center ml-10 ml-768-0 mt-10-768 flex-col-480 full-width">
+                        <ReactTooltip
+                          anchorSelect="#output-edit-prompt-tooltip"
+                          place="top"
+                        >
+                          Edit prompt
+                        </ReactTooltip>
+                        <button
+                          id="output-edit-prompt-tooltip"
+                          className={`save-button button justify-center square-40 d-flex align-center button-full-width-480 mb-10-480 ${
+                            selectedPrompt?.name !== "Select a prompt"
+                              ? ""
+                              : "disabled" // Simplified conditional
+                          }`}
+                          disabled={
+                            !selectedPrompt?.name ||
+                            selectedPrompt?.name === "Select a prompt"
+                          }
+                          onClick={() => {
+                            handleModalOpen("modal-edit-prompt");
+                            setEditHandler();
+                          }} // Improved disabled logic
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="22px"
+                            height="22px"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                          >
+                            <path
+                              d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
+                              stroke="#ffffff"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                          {/* <span>Edit prompt</span> */}
+                        </button>
 
-                                  <li>
-                                    <button
-                                      type="button"
-                                      onClick={tabHandler4}
-                                      className={`button ${
-                                        tab4 === "Instructions" ? "active" : ""
-                                      }`}
-                                    >
-                                      Instructions
-                                    </button>
-                                  </li>
-                                </ul>
+                        <span className="d-flex justify-right ml-10 ml-0-480 ">
+                          <Modal
+                            show={openModals["modal-add-prompt"]}
+                            closeModal={() =>
+                              handleModalClose("modal-add-prompt")
+                            }
+                            buttonLabel="Close"
+                          >
+                            <form
+                              onSubmit={addPromptSubmitHandler}
+                              className="full-height"
+                            >
+                              <h2 className="left">Add a prompt</h2>
+                              <div className="form-group">
+                                <label>Prompt name</label>
+                                <input
+                                  type="text"
+                                  name="promptName"
+                                  placeholder="Enter prompt name"
+                                  value={addPrompt.promptName}
+                                  onChange={addPromptHandler}
+                                />
                               </div>
-                            )}
-                            {tab4 === "Template" && (
-                              <div className="form-group edit-prompt-form-height">
-                                <label>Template</label>
-                                <span className="pos-relative">
-                                  <ReactQuill
-                                    className="adjust-quill-height"
-                                    theme="snow"
-                                    value={
-                                      addPrompt?.promptTemplate
-                                        ? formatTextForDisplay(
-                                            addPrompt?.promptTemplate
-                                          )
-                                        : ""
-                                    }
-                                    defaultValue={addPrompt?.promptTemplate}
-                                    onChange={(value: string) =>
-                                      handleAddPromptTemplateRTE(
-                                        formatTextForEditor(value)
-                                      )
-                                    }
-                                    modules={modules}
-                                  />
-                                </span>
-                              </div>
-                            )}
-                            {tab4 === "Instructions" &&
-                              userRole === "ADMIN" && (
+
+                              {userRole === "ADMIN" && (
+                                <div className="tabs secondary">
+                                  <ul className="d-flex">
+                                    <li>
+                                      <button
+                                        type="button"
+                                        onClick={tabHandler4}
+                                        className={`button ${
+                                          tab4 === "Template" ? "active" : ""
+                                        }`}
+                                      >
+                                        Template
+                                      </button>
+                                    </li>
+
+                                    <li>
+                                      <button
+                                        type="button"
+                                        onClick={tabHandler4}
+                                        className={`button ${
+                                          tab4 === "Instructions"
+                                            ? "active"
+                                            : ""
+                                        }`}
+                                      >
+                                        Instructions
+                                      </button>
+                                    </li>
+                                  </ul>
+                                </div>
+                              )}
+                              {tab4 === "Template" && (
                                 <div className="form-group edit-prompt-form-height">
-                                  <label>Instructions</label>
+                                  <label>Template</label>
                                   <span className="pos-relative">
                                     <ReactQuill
                                       className="adjust-quill-height"
                                       theme="snow"
                                       value={
-                                        addPrompt?.promptInput
+                                        addPrompt?.promptTemplate
                                           ? formatTextForDisplay(
-                                              addPrompt?.promptInput
+                                              addPrompt?.promptTemplate
                                             )
                                           : ""
                                       }
-                                      defaultValue={addPrompt?.promptInput}
+                                      defaultValue={addPrompt?.promptTemplate}
                                       onChange={(value: string) =>
-                                        handleAddPromptInPutRTE(
+                                        handleAddPromptTemplateRTE(
                                           formatTextForEditor(value)
                                         )
                                       }
@@ -3289,382 +3264,411 @@ const [selectedDataFileId, setSelectedDataFileId] = useState("");
                                   </span>
                                 </div>
                               )}
+                              {tab4 === "Instructions" &&
+                                userRole === "ADMIN" && (
+                                  <div className="form-group edit-prompt-form-height">
+                                    <label>Instructions</label>
+                                    <span className="pos-relative">
+                                      <ReactQuill
+                                        className="adjust-quill-height"
+                                        theme="snow"
+                                        value={
+                                          addPrompt?.promptInput
+                                            ? formatTextForDisplay(
+                                                addPrompt?.promptInput
+                                              )
+                                            : ""
+                                        }
+                                        defaultValue={addPrompt?.promptInput}
+                                        onChange={(value: string) =>
+                                          handleAddPromptInPutRTE(
+                                            formatTextForEditor(value)
+                                          )
+                                        }
+                                        modules={modules}
+                                      />
+                                    </span>
+                                  </div>
+                                )}
 
-                            <div className="form-group d-flex">
-                              <button
-                                type="submit"
-                                className="action-button button mr-10"
-                              >
-                                Save prompt
-                              </button>
-                              {addPromptAlert && (
-                                <span className="alert alert-success ml-10">
-                                  Prompt added successfully.
-                                </span>
-                              )}
-                            </div>
-                          </form>
-                        </Modal>
-                        <>
-                          <ReactTooltip
-                            anchorSelect="#output-add-a-prompt-tooltip"
-                            place="top"
-                          >
-                            Add a prompt
-                          </ReactTooltip>
-                          <button
-                            id="output-add-a-prompt-tooltip"
-                            className="save-button button square-40 d-flex justify-center align-center button-full-width-480"
-                            onClick={() => handleModalOpen("modal-add-prompt")}
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              fill="#FFFFFF"
-                              viewBox="0 0 30 30"
-                              width="22px"
-                              height="22px"
+                              <div className="form-group d-flex">
+                                <button
+                                  type="submit"
+                                  className="action-button button mr-10"
+                                >
+                                  Save prompt
+                                </button>
+                                {addPromptAlert && (
+                                  <span className="alert alert-success ml-10">
+                                    Prompt added successfully.
+                                  </span>
+                                )}
+                              </div>
+                            </form>
+                          </Modal>
+                          <>
+                            <ReactTooltip
+                              anchorSelect="#output-add-a-prompt-tooltip"
+                              place="top"
                             >
-                              <path d="M15,3C8.373,3,3,8.373,3,15c0,6.627,5.373,12,12,12s12-5.373,12-12C27,8.373,21.627,3,15,3z M21,16h-5v5 c0,0.553-0.448,1-1,1s-1-0.447-1-1v-5H9c-0.552,0-1-0.447-1-1s0.448-1,1-1h5V9c0-0.553,0.448-1,1-1s1,0.447,1,1v5h5 c0.552,0,1,0.447,1,1S21.552,16,21,16z" />
-                            </svg>
-                            {/* <span className="ml-5">Add a prompt</span> */}
-                          </button>
-                        </>
-                        <>
-                          <ReactTooltip
-                            anchorSelect="#output-delete-prompt-tooltip"
-                            place="top"
-                          >
-                            Delete prompt
-                          </ReactTooltip>
-                          <button
-                            id="output-delete-prompt-tooltip"
-                            className="secondary button square-40 d-flex justify-center align-center ml-10 button-full-width-480"
-                            //onClick={deletePromptHandler}
-                            disabled={
-                              !selectedPrompt?.name ||
-                              selectedPrompt?.name === "Select a prompt"
-                            }
-                            onClick={() =>
-                              handleModalOpen("modal-confirm-delete")
-                            }
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              fill="#FFFFFF"
-                              viewBox="0 0 50 50"
-                              width="18px"
-                              height="18px"
-                              style={{
-                                position: "relative",
-                                marginTop: "-2px",
-                              }}
-                            >
-                              <path d="M 21 2 C 19.354545 2 18 3.3545455 18 5 L 18 7 L 8 7 A 1.0001 1.0001 0 1 0 8 9 L 9 9 L 9 45 C 9 46.654 10.346 48 12 48 L 38 48 C 39.654 48 41 46.654 41 45 L 41 9 L 42 9 A 1.0001 1.0001 0 1 0 42 7 L 32 7 L 32 5 C 32 3.3545455 30.645455 2 29 2 L 21 2 z M 21 4 L 29 4 C 29.554545 4 30 4.4454545 30 5 L 30 7 L 20 7 L 20 5 C 20 4.4454545 20.445455 4 21 4 z M 19 14 C 19.552 14 20 14.448 20 15 L 20 40 C 20 40.553 19.552 41 19 41 C 18.448 41 18 40.553 18 40 L 18 15 C 18 14.448 18.448 14 19 14 z M 25 14 C 25.552 14 26 14.448 26 15 L 26 40 C 26 40.553 25.552 41 25 41 C 24.448 41 24 40.553 24 40 L 24 15 C 24 14.448 24.448 14 25 14 z M 31 14 C 31.553 14 32 14.448 32 15 L 32 40 C 32 40.553 31.553 41 31 41 C 30.447 41 30 40.553 30 40 L 30 15 C 30 14.448 30.447 14 31 14 z" />
-                            </svg>
-                            {/* <span className="ml-5">Delete prompt</span> */}
-                          </button>
-                        </>
-                        <Modal
-                          show={openModals["modal-confirm-delete"]}
-                          closeModal={() =>
-                            handleModalClose("modal-confirm-delete")
-                          }
-                          buttonLabel=""
-                          size="auto-width"
-                        >
-                          <h3 className="center text-center mt-0">
-                            Are you sure want to delete?
-                          </h3>
-                          <div className="button-group mb-0 d-flex justify-center">
+                              Add a prompt
+                            </ReactTooltip>
                             <button
-                              className="button save-button small"
-                              onClick={deletePromptHandler}
-                            >
-                              Yes
-                            </button>
-                            <button
-                              className="button button secondary small ml-5"
+                              id="output-add-a-prompt-tooltip"
+                              className="save-button button square-40 d-flex justify-center align-center button-full-width-480"
                               onClick={() =>
-                                handleModalClose("modal-confirm-delete")
+                                handleModalOpen("modal-add-prompt")
                               }
                             >
-                              No
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="#FFFFFF"
+                                viewBox="0 0 30 30"
+                                width="22px"
+                                height="22px"
+                              >
+                                <path d="M15,3C8.373,3,3,8.373,3,15c0,6.627,5.373,12,12,12s12-5.373,12-12C27,8.373,21.627,3,15,3z M21,16h-5v5 c0,0.553-0.448,1-1,1s-1-0.447-1-1v-5H9c-0.552,0-1-0.447-1-1s0.448-1,1-1h5V9c0-0.553,0.448-1,1-1s1,0.447,1,1v5h5 c0.552,0,1,0.447,1,1S21.552,16,21,16z" />
+                              </svg>
+                              {/* <span className="ml-5">Add a prompt</span> */}
                             </button>
-                          </div>
+                          </>
+                          <>
+                            <ReactTooltip
+                              anchorSelect="#output-delete-prompt-tooltip"
+                              place="top"
+                            >
+                              Delete prompt
+                            </ReactTooltip>
+                            <button
+                              id="output-delete-prompt-tooltip"
+                              className="secondary button square-40 d-flex justify-center align-center ml-10 button-full-width-480"
+                              //onClick={deletePromptHandler}
+                              disabled={
+                                !selectedPrompt?.name ||
+                                selectedPrompt?.name === "Select a prompt"
+                              }
+                              onClick={() =>
+                                handleModalOpen("modal-confirm-delete")
+                              }
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="#FFFFFF"
+                                viewBox="0 0 50 50"
+                                width="18px"
+                                height="18px"
+                                style={{
+                                  position: "relative",
+                                  marginTop: "-2px",
+                                }}
+                              >
+                                <path d="M 21 2 C 19.354545 2 18 3.3545455 18 5 L 18 7 L 8 7 A 1.0001 1.0001 0 1 0 8 9 L 9 9 L 9 45 C 9 46.654 10.346 48 12 48 L 38 48 C 39.654 48 41 46.654 41 45 L 41 9 L 42 9 A 1.0001 1.0001 0 1 0 42 7 L 32 7 L 32 5 C 32 3.3545455 30.645455 2 29 2 L 21 2 z M 21 4 L 29 4 C 29.554545 4 30 4.4454545 30 5 L 30 7 L 20 7 L 20 5 C 20 4.4454545 20.445455 4 21 4 z M 19 14 C 19.552 14 20 14.448 20 15 L 20 40 C 20 40.553 19.552 41 19 41 C 18.448 41 18 40.553 18 40 L 18 15 C 18 14.448 18.448 14 19 14 z M 25 14 C 25.552 14 26 14.448 26 15 L 26 40 C 26 40.553 25.552 41 25 41 C 24.448 41 24 40.553 24 40 L 24 15 C 24 14.448 24.448 14 25 14 z M 31 14 C 31.553 14 32 14.448 32 15 L 32 40 C 32 40.553 31.553 41 31 41 C 30.447 41 30 40.553 30 40 L 30 15 C 30 14.448 30.447 14 31 14 z" />
+                              </svg>
+                              {/* <span className="ml-5">Delete prompt</span> */}
+                            </button>
+                          </>
+                          <Modal
+                            show={openModals["modal-confirm-delete"]}
+                            closeModal={() =>
+                              handleModalClose("modal-confirm-delete")
+                            }
+                            buttonLabel=""
+                            size="auto-width"
+                          >
+                            <h3 className="center text-center mt-0">
+                              Are you sure want to delete?
+                            </h3>
+                            <div className="button-group mb-0 d-flex justify-center">
+                              <button
+                                className="button save-button small"
+                                onClick={deletePromptHandler}
+                              >
+                                Yes
+                              </button>
+                              <button
+                                className="button button secondary small ml-5"
+                                onClick={() =>
+                                  handleModalClose("modal-confirm-delete")
+                                }
+                              >
+                                No
+                              </button>
+                            </div>
+                          </Modal>
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  {tab2 === "Template" && (
+                    <div className="form-group">
+                      <label>Template</label>
+                      <span className="pos-relative">
+                        <pre
+                          className={`no-content height-400 ql-editor ${
+                            !selectedPrompt?.template ? "text-light" : ""
+                          }`}
+                          dangerouslySetInnerHTML={{
+                            __html:
+                              selectedPrompt?.template ??
+                              "Template will appear here",
+                          }}
+                        ></pre>
+
+                        <Modal
+                          show={openModals["modal-addInput"]}
+                          closeModal={() => handleModalClose("modal-addInput")}
+                          buttonLabel="Ok"
+                        >
+                          <label>Template</label>
+                          <ReactQuill
+                            theme="snow"
+                            className="adjust-quill-height"
+                            value={
+                              selectedPrompt
+                                ? formatTextForDisplay(selectedPrompt.text)
+                                : ""
+                            }
+                            defaultValue={selectedPrompt?.text}
+                            onChange={(value: string) =>
+                              handleViewPromptRTE(formatTextForEditor(value))
+                            }
+                            modules={modules}
+                          />
                         </Modal>
+                        <button
+                          className="full-view-icon d-flex align-center justify-center"
+                          type="button"
+                          onClick={() => handleModalOpen("modal-addInput")}
+                        >
+                          <svg width="40px" height="40px" viewBox="0 0 512 512">
+                            <polyline
+                              points="304 96 416 96 416 208"
+                              fill="none"
+                              stroke="#000000"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="32"
+                            />
+                            <line
+                              x1="405.77"
+                              y1="106.2"
+                              x2="111.98"
+                              y2="400.02"
+                              fill="none"
+                              stroke="#000000"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="32"
+                            />
+                            <polyline
+                              points="208 416 96 416 96 304"
+                              fill="none"
+                              stroke="#000000"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="32"
+                            />
+                          </svg>
+                        </button>
                       </span>
                     </div>
-                  </div>
-                )}
-                {tab2 === "Template" && (
-                  <div className="form-group">
-                    <label>Template</label>
-                    <span className="pos-relative">
-                      <pre
-                        className={`no-content height-400 ql-editor ${
-                          !selectedPrompt?.template ? "text-light" : ""
-                        }`}
-                        dangerouslySetInnerHTML={{
-                          __html:
-                            selectedPrompt?.template ??
-                            "Template will appear here",
-                        }}
-                      ></pre>
+                  )}
+                  {tab2 === "Instructions" && userRole === "ADMIN" && (
+                    <div className="form-group">
+                      <label>Instructions</label>
+                      <span className="pos-relative">
+                        <pre
+                          className={`no-content height-400 ql-editor ${
+                            !selectedPrompt?.text ? "text-light" : ""
+                          }`}
+                          dangerouslySetInnerHTML={{
+                            __html:
+                              selectedPrompt?.text ??
+                              "Template will appear here",
+                          }}
+                        ></pre>
 
-                      <Modal
-                        show={openModals["modal-addInput"]}
-                        closeModal={() => handleModalClose("modal-addInput")}
-                        buttonLabel="Ok"
-                      >
-                        <label>Template</label>
-                        <ReactQuill
-                          theme="snow"
-                          className="adjust-quill-height"
-                          value={
-                            selectedPrompt
-                              ? formatTextForDisplay(selectedPrompt.text)
-                              : ""
-                          }
-                          defaultValue={selectedPrompt?.text}
-                          onChange={(value: string) =>
-                            handleViewPromptRTE(formatTextForEditor(value))
-                          }
-                          modules={modules}
-                        />
-                      </Modal>
-                      <button
-                        className="full-view-icon d-flex align-center justify-center"
-                        type="button"
-                        onClick={() => handleModalOpen("modal-addInput")}
-                      >
-                        <svg width="40px" height="40px" viewBox="0 0 512 512">
-                          <polyline
-                            points="304 96 416 96 416 208"
-                            fill="none"
-                            stroke="#000000"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="32"
-                          />
-                          <line
-                            x1="405.77"
-                            y1="106.2"
-                            x2="111.98"
-                            y2="400.02"
-                            fill="none"
-                            stroke="#000000"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="32"
-                          />
-                          <polyline
-                            points="208 416 96 416 96 304"
-                            fill="none"
-                            stroke="#000000"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="32"
-                          />
-                        </svg>
-                      </button>
-                    </span>
-                  </div>
-                )}
-                {tab2 === "Instructions" && userRole === "ADMIN" && (
-                  <div className="form-group">
-                    <label>Instructions</label>
-                    <span className="pos-relative">
-                      <pre
-                        className={`no-content height-400 ql-editor ${
-                          !selectedPrompt?.text ? "text-light" : ""
-                        }`}
-                        dangerouslySetInnerHTML={{
-                          __html:
-                            selectedPrompt?.text ?? "Template will appear here",
-                        }}
-                      ></pre>
-
-                      <Modal
-                        show={openModals["modal-addInput"]}
-                        closeModal={() => handleModalClose("modal-addInput")}
-                        buttonLabel="Ok"
-                      >
-                        <label>Instructions</label>
-                        <ReactQuill
-                          theme="snow"
-                          className="adjust-quill-height"
-                          value={
-                            selectedPrompt
-                              ? formatTextForDisplay(selectedPrompt.text)
-                              : ""
-                          }
-                          defaultValue={selectedPrompt?.text}
-                          onChange={(value: string) =>
-                            handleViewPromptRTE(formatTextForEditor(value))
-                          }
-                          modules={modules}
-                        />
-                      </Modal>
-                      <button
-                        className="full-view-icon d-flex align-center justify-center"
-                        type="button"
-                        onClick={() => handleModalOpen("modal-addInput")}
-                      >
-                        <svg width="40px" height="40px" viewBox="0 0 512 512">
-                          <polyline
-                            points="304 96 416 96 416 208"
-                            fill="none"
-                            stroke="#000000"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="32"
-                          />
-                          <line
-                            x1="405.77"
-                            y1="106.2"
-                            x2="111.98"
-                            y2="400.02"
-                            fill="none"
-                            stroke="#000000"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="32"
-                          />
-                          <polyline
-                            points="208 416 96 416 96 304"
-                            fill="none"
-                            stroke="#000000"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="32"
-                          />
-                        </svg>
-                      </button>
-                    </span>
-                  </div>
-                )}
-                <div className="form-group d-flex justify-between mb-0">
-                  <Modal // Edit Prompt Modal
-                    show={openModals["modal-edit-prompt"]}
-                    closeModal={() => handleModalClose("modal-edit-prompt")}
-                    buttonLabel="Close"
-                  >
-                    <form
-                      onSubmit={editPromptSubmitHandler}
-                      className="full-height"
-                    >
-                      <h2 className="left">Edit Prompt</h2>
-                      <div className="form-group">
-                        <label>Prompt name</label>
-                        <input
-                          type="text"
-                          name="promptName"
-                          placeholder="Enter prompt name"
-                          value={editPrompt?.promptName}
-                          onChange={editPromptHandler}
-                        />
-                      </div>
-
-                      {userRole === "ADMIN" && (
-                        <div className="tabs secondary">
-                          <ul className="d-flex">
-                            <li>
-                              <button
-                                type="button"
-                                onClick={tabHandler3}
-                                className={`button ${
-                                  tab3 === "Template" ? "active" : ""
-                                }`}
-                              >
-                                Template
-                              </button>
-                            </li>
-
-                            <li>
-                              <button
-                                type="button"
-                                onClick={tabHandler3}
-                                className={`button ${
-                                  tab3 === "Instructions" ? "active" : ""
-                                }`}
-                              >
-                                Instructions
-                              </button>
-                            </li>
-                          </ul>
-                        </div>
-                      )}
-                      {tab3 === "Template" && (
-                        <div className="form-group edit-prompt-form-height">
-                          <label>Template</label>
-                          <span className="pos-relative">
-                            <ReactQuill
-                              className="height-350 adjust-quill-height"
-                              theme="snow"
-                              value={
-                                editPrompt?.promptTemplate
-                                  ? formatTextForDisplay(
-                                      editPrompt?.promptTemplate
-                                    )
-                                  : ""
-                              }
-                              defaultValue={editPrompt?.promptTemplate}
-                              onChange={(value: string) =>
-                                handleEditPromptTemplateRTE(
-                                  formatTextForEditor(value)
-                                )
-                              }
-                              modules={modules}
-                            />
-                          </span>
-                        </div>
-                      )}
-                      {tab3 === "Instructions" && userRole === "ADMIN" && (
-                        <div className="form-group edit-prompt-form-height">
-                          <label>Instructions</label>
-                          <span className="pos-relative">
-                            <ReactQuill
-                              className="height-350 adjust-quill-height"
-                              theme="snow"
-                              value={
-                                editPrompt?.promptInput
-                                  ? formatTextForDisplay(
-                                      editPrompt?.promptInput
-                                    )
-                                  : ""
-                              }
-                              defaultValue={editPrompt?.promptInput}
-                              onChange={(value: string) =>
-                                handleEditPromptInputRTE(
-                                  formatTextForEditor(value)
-                                )
-                              }
-                              modules={modules}
-                            />
-                          </span>
-                        </div>
-                      )}
-                      <div className="form-group d-flex">
-                        <button
-                          type="submit"
-                          className="action-button button mr-10"
+                        <Modal
+                          show={openModals["modal-addInput"]}
+                          closeModal={() => handleModalClose("modal-addInput")}
+                          buttonLabel="Ok"
                         >
-                          Save changes
+                          <label>Instructions</label>
+                          <ReactQuill
+                            theme="snow"
+                            className="adjust-quill-height"
+                            value={
+                              selectedPrompt
+                                ? formatTextForDisplay(selectedPrompt.text)
+                                : ""
+                            }
+                            defaultValue={selectedPrompt?.text}
+                            onChange={(value: string) =>
+                              handleViewPromptRTE(formatTextForEditor(value))
+                            }
+                            modules={modules}
+                          />
+                        </Modal>
+                        <button
+                          className="full-view-icon d-flex align-center justify-center"
+                          type="button"
+                          onClick={() => handleModalOpen("modal-addInput")}
+                        >
+                          <svg width="40px" height="40px" viewBox="0 0 512 512">
+                            <polyline
+                              points="304 96 416 96 416 208"
+                              fill="none"
+                              stroke="#000000"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="32"
+                            />
+                            <line
+                              x1="405.77"
+                              y1="106.2"
+                              x2="111.98"
+                              y2="400.02"
+                              fill="none"
+                              stroke="#000000"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="32"
+                            />
+                            <polyline
+                              points="208 416 96 416 96 304"
+                              fill="none"
+                              stroke="#000000"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="32"
+                            />
+                          </svg>
                         </button>
-                        {editPromptAlert && (
-                          <span className="alert alert-success ml-10">
-                            Prompt edited successfully.
-                          </span>
+                      </span>
+                    </div>
+                  )}
+                  <div className="form-group d-flex justify-between mb-0">
+                    <Modal // Edit Prompt Modal
+                      show={openModals["modal-edit-prompt"]}
+                      closeModal={() => handleModalClose("modal-edit-prompt")}
+                      buttonLabel="Close"
+                    >
+                      <form
+                        onSubmit={editPromptSubmitHandler}
+                        className="full-height"
+                      >
+                        <h2 className="left">Edit Prompt</h2>
+                        <div className="form-group">
+                          <label>Prompt name</label>
+                          <input
+                            type="text"
+                            name="promptName"
+                            placeholder="Enter prompt name"
+                            value={editPrompt?.promptName}
+                            onChange={editPromptHandler}
+                          />
+                        </div>
+
+                        {userRole === "ADMIN" && (
+                          <div className="tabs secondary">
+                            <ul className="d-flex">
+                              <li>
+                                <button
+                                  type="button"
+                                  onClick={tabHandler3}
+                                  className={`button ${
+                                    tab3 === "Template" ? "active" : ""
+                                  }`}
+                                >
+                                  Template
+                                </button>
+                              </li>
+
+                              <li>
+                                <button
+                                  type="button"
+                                  onClick={tabHandler3}
+                                  className={`button ${
+                                    tab3 === "Instructions" ? "active" : ""
+                                  }`}
+                                >
+                                  Instructions
+                                </button>
+                              </li>
+                            </ul>
+                          </div>
                         )}
-                      </div>
-                    </form>
-                  </Modal>
-                  {/* Form Buttons */}
+                        {tab3 === "Template" && (
+                          <div className="form-group edit-prompt-form-height">
+                            <label>Template</label>
+                            <span className="pos-relative">
+                              <ReactQuill
+                                className="height-350 adjust-quill-height"
+                                theme="snow"
+                                value={
+                                  editPrompt?.promptTemplate
+                                    ? formatTextForDisplay(
+                                        editPrompt?.promptTemplate
+                                      )
+                                    : ""
+                                }
+                                defaultValue={editPrompt?.promptTemplate}
+                                onChange={(value: string) =>
+                                  handleEditPromptTemplateRTE(
+                                    formatTextForEditor(value)
+                                  )
+                                }
+                                modules={modules}
+                              />
+                            </span>
+                          </div>
+                        )}
+                        {tab3 === "Instructions" && userRole === "ADMIN" && (
+                          <div className="form-group edit-prompt-form-height">
+                            <label>Instructions</label>
+                            <span className="pos-relative">
+                              <ReactQuill
+                                className="height-350 adjust-quill-height"
+                                theme="snow"
+                                value={
+                                  editPrompt?.promptInput
+                                    ? formatTextForDisplay(
+                                        editPrompt?.promptInput
+                                      )
+                                    : ""
+                                }
+                                defaultValue={editPrompt?.promptInput}
+                                onChange={(value: string) =>
+                                  handleEditPromptInputRTE(
+                                    formatTextForEditor(value)
+                                  )
+                                }
+                                modules={modules}
+                              />
+                            </span>
+                          </div>
+                        )}
+                        <div className="form-group d-flex">
+                          <button
+                            type="submit"
+                            className="action-button button mr-10"
+                          >
+                            Save changes
+                          </button>
+                          {editPromptAlert && (
+                            <span className="alert alert-success ml-10">
+                              Prompt edited successfully.
+                            </span>
+                          )}
+                        </div>
+                      </form>
+                    </Modal>
+                    {/* Form Buttons */}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
         </>
       )}
 
