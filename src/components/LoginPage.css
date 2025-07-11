@@ -1,0 +1,81 @@
+.page.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  /*background-color: #f4f4f4;*/
+  background: url('../assets/images/loginbg.jpeg') center center/cover no-repeat #f4f4f4;
+}
+
+.page.login-container .login-box {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  width: 400px;
+}
+
+.login-box h2 {
+  margin-bottom: 1rem;
+  color: #4c2d72;
+}
+
+.login-box form {
+  display: flex;
+  flex-direction: column;
+}
+
+.login-box label {
+  margin-bottom: 0.5rem;
+  font-weight: bold;
+}
+
+.login-box input {
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin: 0;
+}
+
+.options {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.reset-link {
+  color: #d74e89;
+  text-decoration: none;
+}
+
+.login-button {
+  background: linear-gradient(to right, #d74e89, #4c2d72);
+  color: white;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  min-width: 100px;
+}
+
+.login-button:hover {
+  opacity: 0.9;
+}
+
+.register-link {
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.register-link a {
+  color: #d74e89;
+  text-decoration: none;
+}
+
+.error-message {
+  color: red;
+  margin-bottom: 1rem;
+}
+
+

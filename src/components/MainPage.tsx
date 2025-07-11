@@ -1,0 +1,3776 @@
+import React, { useRef, useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import "./MainPage.css";
+import Modal from "./common/Modal";
+import Tabs from "./common/Tabs";
+import { getPrompts, createPrompts, deletePrompt } from "../api/axios";
+import { useSelector } from "react-redux";
+import ReactQuill from "react-quill-new";
+import { Tooltip as ReactTooltip } from "react-tooltip";
+import Mail from "./feature/Mail";
+import "react-quill-new/dist/quill.snow.css";
+import { RootState } from "../Redux/store";
+import {
+  copyToClipboard,
+  generateSystemPrompt,
+  sortByAscending,
+} from "../utils/utils";
+import { systemPrompt, Languages } from "../utils/label";
+import Output from "./feature/Output";
+import Settings from "./feature/Settings";
+import DataFile from "./feature/datafile";
+import axios from "axios";
+import Header from "./common/Header";
+import * as FileSaver from "file-saver";
+import * as XLSX from "xlsx";
+import API_BASE_URL from "../config";
+import { useDispatch } from "react-redux";
+import { useModel } from "../ModelContext";
+import { fetchClientSettings } from "../slices/clientSettingsSlice"; // adjust path if needed
+import { AppDispatch } from "../Redux/store"; // ✅ import AppDispatch
+
+
+interface Prompt {
+  id: number;
+  name: string;
+  text: string;
+  userId?: number; // userId might not always be returned from the API
+  createdAt?: string;
+  template?: string;
+}
+
+const modules = {
+  toolbar: [
+    [
+      { header: "1" },
+      { header: "2" },
+      { header: "3" },
+      { header: "4" },
+      { header: "5" },
+      { header: "6" },
+      [{ size: ["14px", "16px", "18px"] }],
+      { font: [] },
+    ],
+    ["bold", "italic", "underline", "strike"],
+    [{ color: [] }, { background: [] }],
+    [{ align: [] }],
+    [{ list: "ordered" }, { list: "bullet" }],
+    // ["blockquote", "code-block"],
+    [{ script: "sub" }, { script: "super" }],
+    // ["link", "image", "video"],
+    ["clean"],
+  ],
+};
+
+interface SearchTermForm {
+  searchCount: string;
+  searchTerm: string;
+  instructions: string;
+  output: string;
+  [key: string]: string; // For any additional properties
+}
+
+interface Client {
+  firstName: string;
+  lastName: string;
+  clientID: number;
+  companyName: string;
+}
+
+interface PitchGenDataResponse {
+  data: EmailEntry[];
+  nextPageToken?: string;
+  more_records?: boolean;
+}
+interface Campaign {
+  id: number;
+  campaignName: string;
+  promptId: number;
+  zohoViewId: string;
+  clientId: number;
+  description?: string;
+}
+
+interface OutputInterface {
+  outputForm: {
+    generatedContent: string;
+    linkLabel: string;
+    usage: string;
+    currentPrompt: string;
+    searchResults: string[];
+    allScrapedData: string;
+    onClearContent?: (clearContent: () => void) => void; // Add this line
+  };
+
+  onRegenerateContact?: (
+    tab: string,
+    options: {
+      regenerate: boolean;
+      regenerateIndex: number;
+      nextPageToken?: string | null;
+      prevPageToken?: string | null;
+    }
+  ) => void;
+
+  outputFormHandler: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  setOutputForm: React.Dispatch<
+    React.SetStateAction<{
+      generatedContent: string;
+      linkLabel: string;
+      usage: string;
+      currentPrompt: string;
+      searchResults: string[];
+      allScrapedData: string;
+    }>
+  >;
+  allResponses: any[];
+  isPaused: boolean;
+  setAllResponses: React.Dispatch<React.SetStateAction<any[]>>;
+  currentIndex: number;
+  setCurrentIndex: React.Dispatch<React.SetStateAction<number>>;
+  onClearOutput: () => void; // Add this line
+  allprompt: any[];
+  setallprompt: React.Dispatch<React.SetStateAction<any[]>>;
+  allsearchResults: any[];
+  setallsearchResults: React.Dispatch<React.SetStateAction<any[]>>;
+  everyscrapedData: any[];
+  seteveryscrapedData: React.Dispatch<React.SetStateAction<any[]>>;
+  allSearchTermBodies: string[];
+  setallSearchTermBodies: React.Dispatch<React.SetStateAction<string[]>>;
+  allsummery: any[];
+  setallsummery: React.Dispatch<React.SetStateAction<any[]>>;
+  existingResponse: any[];
+  setexistingResponse: React.Dispatch<React.SetStateAction<any[]>>;
+  handleNextPage: () => Promise<void>;
+  handlePrevPage: () => Promise<void>;
+}
+interface EmailEntry {
+  email_subject: string;
+  id?: string;
+  full_Name?: string;
+  job_Title?: string;
+  account_name_friendlySingle_Line_12?: string;
+  mailing_Country?: string;
+  website?: string;
+  linkedIn_URL?: string;
+  sample_email_body?: string;
+  generated: boolean;
+  email?: string;
+  last_Email_Body_updated?: string; // Add this line
+  pG_Processed_on1?: string; // Add this line
+}
+
+interface SettingsFormType {
+  overwriteDatabase: boolean;
+  // Add any other properties that your settingsForm has
+}
+
+const MainPage: React.FC = () => {
+  const [formData, setFormData] = useState({
+    Server: "",
+    Port: "",
+    Username: "",
+    Password: "",
+    useSsl: "",
+  });
+
+  const [showPopup, setShowPopup] = useState(false);
+  const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
+  const [userRole, setUserRole] = useState<string>(""); // Store user role
+  const userId = useSelector((state: RootState) => state.auth.userId);
+  const [selectedDataFile, setSelectedDataFile] = useState(null);
+  const [allsearchResults, setallsearchResults] = useState<any[]>([]);
+  const [isPaused, setIsPaused] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState<number>(0);
+  const [allResponses, setAllResponses] = useState<any[]>([]);
+  const [everyscrapedData, seteveryscrapedData] = useState<any[]>([]);
+  const [allprompt, setallprompt] = useState<any[]>([]);
+  const [allSearchTermBodies, setallSearchTermBodies] = useState<string[]>([]);
+  const [clearContentFunction, setClearContentFunction] = useState<
+    (() => void) | null
+  >(null);
+  const [allsummery, setallsummery] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true); // Initial loading state for fetching Zoho clients
+  const [emailLoading, setEmailLoading] = useState(false); // Loading state for fetching email data
+
+  const [nextPageToken, setNextPageToken] = useState<string | null>(null);
+  const [prevPageToken, setPrevPageToken] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [existingResponse, setexistingResponse] = useState<any[]>([]);
+  const [clearExistingResponse, setClearExistingResponse] = useState<
+    () => void
+  >(() => {});
+  const [selectedClient, setSelectedClient] = useState<string>("");
+  const [clientNames, setClientNames] = useState<Client[]>([]);
+
+  const processCacheRef = useRef<Record<string, any>>({});
+  const [allRecordsProcessed, setAllRecordsProcessed] = useState(false);
+
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [selectedCampaign, setSelectedCampaign] = useState<string>("");
+  const [selectionMode, setSelectionMode] = useState<"manual" | "campaign">(
+    "manual"
+  );
+
+  const [lastProcessedToken, setLastProcessedToken] = useState(null);
+  const [lastProcessedIndex, setLastProcessedIndex] = useState(0);
+  const stopRef = useRef(false);
+  const [isStarted, setIsStarted] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isPitchUpdateCompleted, setIsPitchUpdateCompleted] = useState(false);
+  const [pitchGenData, setPitchGenData] = useState<PitchGenDataResponse>({
+    data: [],
+  }); // Store the entire response
+
+  const apiUrl = `${API_BASE_URL}/api/auth/getprompts/${userId}`;
+  const [promptList, setPromptList]: any = useState([]);
+  const [pitchResponses, setPitchResponses] = useState([]);
+  const [, forceUpdate] = useState(false); // Force re-render
+  const [subjectMode, setSubjectMode] = useState("AI generated");
+  const [subjectText, setSubjectText] = useState("");
+  const [recentlyAddedOrUpdatedId, setRecentlyAddedOrUpdatedId] = useState<
+    string | number | null
+  >(null);
+
+  const dispatch = useDispatch<AppDispatch>(); // ✅ type the dispatch
+  const { selectedModelName } = useModel(); // Selected model name
+  const [selectedZohoviewId, setSelectedZohoviewId] = useState<string>("");
+  const {
+    username,
+    firstName,
+    lastName,
+    ipAddress,
+    browserName,
+    browserVersion,
+  } = useSelector((state: RootState) => state.auth);
+
+interface DataFile {
+  id: number;
+  client_id: number;
+  name: string;
+  data_file_name: string;
+  description: string;
+  created_at: string;
+  contacts: any[];
+}
+  const handleClearContent = useCallback((clearContent: () => void) => {
+    setClearContentFunction(() => clearContent);
+  }, []);
+
+  // Async stop function to allow context switching
+  const stop = () => {
+    stopRef.current = !stopRef.current;
+    forceUpdate((prev) => !prev);
+    setIsPaused(!isPaused);
+    // Don't reset lastProcessedToken and lastProcessedIndex here
+    // They will be used when resuming
+  };
+
+  const reset = () => {
+    stopRef.current = false;
+    setIsPaused(false);
+    setLastProcessedToken(null);
+    setLastProcessedIndex(0);
+  };
+
+  //Dropdown Of Client
+  useEffect(() => {
+    const fetchClientData = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/allUserDetails`);
+        const data: Client[] = await response.json();
+        setClientNames(data);
+      } catch (error) {
+        console.error("Error fetching client details:", error);
+      }
+    };
+
+    if (userRole === "ADMIN") {
+      fetchClientData();
+    }
+  }, [userRole, API_BASE_URL]);
+
+  // Function to handle user's response
+  const handlePopupResponse = (shouldStop: boolean) => {
+    setShowPopup(false);
+    if (!shouldStop) {
+      stopRef.current = false; // Reset stop request if user cancels
+    }
+  };
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      if (selectedClient) {
+        const settings = await fetchClientSettings(Number(selectedClient));
+        // do something with the settings here
+        console.log(settings);
+      }
+    };
+
+    fetchSettings();
+  }, [selectedClient]);
+
+  const handleNewDataFileSelection = () => {
+    // Call the clear function when a new data file is selected
+    if (clearExistingResponse) {
+      clearExistingResponse();
+    }
+
+    // Additional logic for handling new data file selection can be added here
+  };
+
+  // Handle change event for the select element
+const handleZohoModelChange = async (
+  event: React.ChangeEvent<HTMLSelectElement>
+) => {
+  const selectedId = event.target.value;
+  
+  // Switch to manual mode when selecting a data file
+  if (selectedId) {
+    setSelectionMode("manual");
+    setSelectedCampaign(""); // Clear campaign selection
+  }
+  
+  setSelectedZohoviewId(selectedId); // Update the global state
+
+  // Call the clear function when a new data file is selected
+  handleNewDataFileSelection();
+
+  if (selectedId && clientID) {
+    try {
+      // Pass the data file ID instead of zoho view ID
+      await fetchAndDisplayEmailBodies(`${clientID},${selectedId}`);
+    } catch (error) {
+      console.error("Error fetching email bodies:", error);
+    }
+  }
+};
+
+
+  const handleSelectChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedLabel = event.target.value;
+    // Switch to manual mode when selecting a prompt
+    if (selectedLabel) {
+      setSelectionMode("manual");
+      setSelectedCampaign(""); // Clear campaign selection
+    }
+
+    const prompt = promptList.find((p: Prompt) => p.name === selectedLabel);
+    console.log(prompt, "pitch");
+    setSelectedPrompt(prompt || null);
+  };
+
+  const handleDescriptionChange = (
+    e: React.ChangeEvent<HTMLTextAreaElement>
+  ) => {
+    setSelectedPrompt((prev) => ({
+      ...prev!,
+      body: e.target.value,
+    }));
+    console.log(setSelectedPrompt, "selectedPitch");
+  };
+
+  const [selectedLanguage, setSelectedLanguage] = useState<Languages>(
+    Object.values(Languages).includes("English" as Languages)
+      ? ("English" as Languages)
+      : Object.values(Languages)[0]
+  );
+
+  const clientID = sessionStorage.getItem("clientId");
+  const [zohoClient, setZohoClient] = useState<ZohoClient[]>([]);
+
+  const handleLanguageChange = (
+    event: React.ChangeEvent<HTMLSelectElement>
+  ) => {
+    setSelectedLanguage(event.target.value as Languages);
+  };
+
+  const [openModals, setOpenModals] = useState<{ [key: string]: boolean }>({});
+
+  const handleModalOpen = (id: string) => {
+    setOpenModals((prev) => ({ ...prev, [id]: true }));
+  };
+
+  const handleModalClose = (id: string) => {
+    setOpenModals((prev) => ({ ...prev, [id]: false }));
+  };
+
+  const fetchPromptsList = useCallback(async () => {
+    setEmailLoading(true); // Start loading indicator
+
+    try {
+      let url = apiUrl; // Default to current user's prompts
+
+      // If a client is selected, modify the URL to fetch prompts for that client
+      if (selectedClient !== "") {
+        url = `${API_BASE_URL}/api/auth/getprompts/${selectedClient}`;
+      }
+
+      const response = await fetch(url);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `HTTP error! status: ${response.status}, message: ${errorText}`
+        );
+      }
+      const data: Prompt[] = await response.json();
+      console.log("Fetched prompts:", data);
+      setPromptList(data);
+    } catch (err) {
+      console.error("Error fetching prompts:", err);
+      setPromptList([]); // Ensure the list is empty in case of an error
+    } finally {
+      setEmailLoading(false); // Set loading to false when fetching is done
+    }
+  }, [selectedClient, apiUrl, API_BASE_URL]);
+
+  useEffect(() => {
+    // Clear the prompt list immediately when a new client is selected
+    setPromptList([]);
+    fetchPromptsList();
+  }, [selectedClient, fetchPromptsList]);
+
+  const handleClientChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedClient(event.target.value);
+
+    // Clear existing selections when client changes
+    // Clear existing selections when client changes
+    setSelectedPrompt(null);
+    setSelectedZohoviewId("");
+    setSelectedCampaign("");
+    setSelectionMode("manual");
+
+    // Clear the prompt list immediately when a new client is selected
+    setPromptList([]);
+  };
+
+  useEffect(() => {
+    const isAdminString = sessionStorage.getItem("isAdmin");
+    const isAdmin = isAdminString === "true"; // Correct comparison
+    setUserRole(isAdmin ? "ADMIN" : "USER");
+  }, []);
+
+  // Add a prompt
+  const [addPrompt, setAddPrompt] = useState({
+    promptName: "",
+    promptInput: "",
+    promptTemplate: "",
+  });
+  const [editPrompt, setEditPrompt] = useState({
+    promptName: "",
+    promptInput: "",
+    promptTemplate: "",
+  }) as any;
+
+  const addPromptHandler = (
+    e:
+      | React.ChangeEvent<HTMLInputElement>
+      | React.ChangeEvent<HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+
+    setAddPrompt({
+      ...addPrompt,
+      [name]: value,
+    });
+  };
+  const editPromptHandler = (
+    e:
+      | React.ChangeEvent<HTMLInputElement>
+      | React.ChangeEvent<HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+
+    setEditPrompt({
+      ...editPrompt,
+      [name]: value,
+    });
+  };
+  const addPromptSubmitHandler = (e: any) => {
+    e.preventDefault();
+    createPromptList();
+  };
+  const setEditHandler = () => {
+    setEditPrompt({
+      promptName: selectedPrompt?.name,
+      promptInput: selectedPrompt?.text,
+      promptTemplate: selectedPrompt?.template,
+    });
+  };
+  const editPromptSubmitHandler = (e: any) => {
+    e.preventDefault();
+    editPromptList();
+  };
+
+  const [editPromptAlert, setEditPromptAlert] = useState(false);
+
+  const editPromptList = useCallback(async () => {
+    if (
+      !editPrompt?.promptName ||
+      !editPrompt?.promptInput ||
+      !editPrompt?.promptTemplate
+    )
+      return;
+
+    // Determine which ID to use for the update
+    const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
+
+    if (!effectiveUserId || Number(effectiveUserId) <= 0) {
+      console.error("Invalid userId or clientID:", effectiveUserId);
+      return;
+    }
+
+    const id = selectedPrompt?.id; // Get the ID from selectedPrompt
+
+    if (!id || Number(id) <= 0) {
+      console.error("Invalid prompt ID:", id);
+      return;
+    }
+
+    const dataToSend = {
+      id: id, // Include the ID for the update
+      name: editPrompt?.promptName,
+      text: editPrompt?.promptInput,
+      userId: effectiveUserId, // Use the determined ID
+      createdAt: "2025-02-12T15:15:53.666Z", // This should be updated or removed based on your backend requirements
+      template: editPrompt?.promptTemplate,
+    };
+
+    try {
+      const res = await axios.post(
+        `${API_BASE_URL}/api/auth/updateprompt`,
+        dataToSend,
+        { headers: { "Content-Type": "application/json" } }
+      );
+
+      console.log("Prompt updated successfully:", res);
+      setEditPrompt({ promptName: "", promptInput: "", promptTemplate: "" }); // Reset the form
+      setEditPromptAlert((prev) => !prev);
+      setTimeout(() => {
+        setEditPromptAlert((prev) => !prev);
+      }, 3000);
+      await fetchPromptsList(); // Refresh the prompt list
+    } catch (error: any) {
+      console.error(
+        "Error updating prompt:",
+        error.response?.data || error.message
+      );
+      // Handle error, display message to user, etc.
+    }
+  }, [
+    editPrompt?.promptInput,
+    editPrompt?.promptName,
+    editPrompt?.promptTemplate,
+    selectedPrompt?.id,
+    userId,
+    selectedClient,
+    fetchPromptsList,
+    setEditPrompt,
+    setEditPromptAlert,
+  ]);
+
+  const [addPromptAlert, setAddPromptAlert] = useState(false);
+
+  const createPromptList = useCallback(async () => {
+    if (!addPrompt?.promptName || !addPrompt?.promptInput) return;
+
+    // Determine which ID to use for the creation
+    const effectiveUserId =
+      selectedClient !== "" ? Number(selectedClient) : Number(userId);
+
+    if (!effectiveUserId || effectiveUserId <= 0) {
+      console.error("Invalid userId or clientID:", effectiveUserId);
+      return;
+    }
+
+    const dataToSend = {
+      name: addPrompt.promptName,
+      text: addPrompt.promptInput,
+      userId: effectiveUserId, // Use the determined ID
+      createdAt: new Date().toISOString(),
+      template: addPrompt.promptTemplate,
+    };
+
+    try {
+      const res = await axios.post(
+        `${API_BASE_URL}/api/auth/addprompt`,
+        dataToSend,
+        { headers: { "Content-Type": "application/json" } }
+      );
+
+      console.log("Prompt created successfully:", res);
+      setAddPrompt({ promptName: "", promptInput: "", promptTemplate: "" });
+      setAddPromptAlert((prev) => !prev);
+      setTimeout(() => {
+        setAddPromptAlert((prev) => !prev);
+      }, 3000);
+      await fetchPromptsList();
+    } catch (error) {
+      console.error("Error creating prompt:", error);
+    }
+  }, [
+    addPrompt,
+    userId,
+    selectedClient,
+    fetchPromptsList,
+    setAddPrompt,
+    setAddPromptAlert,
+  ]);
+
+  const deletePromptHandler = async () => {
+    if (!selectedPrompt) {
+      console.error("No prompt selected to delete.");
+      return;
+    }
+
+    // Determine which ID to use for the deletion
+    const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
+
+    if (!effectiveUserId || Number(effectiveUserId) <= 0) {
+      console.error("Invalid userId or clientID:", effectiveUserId);
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/auth/deleteprompt/${selectedPrompt.id}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ userId: Number(effectiveUserId) }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `HTTP error! status: ${response.status}, message: ${errorText}`
+        );
+      }
+
+      // Get the updated prompt list from the API
+      let updatedPromptsResponse;
+      if (selectedClient !== "") {
+        updatedPromptsResponse = await fetch(
+          `${API_BASE_URL}/api/auth/getprompts/${selectedClient}`
+        );
+      } else {
+        updatedPromptsResponse = await fetch(apiUrl);
+      }
+
+      if (!updatedPromptsResponse.ok) {
+        const errorText = await updatedPromptsResponse.text();
+        throw new Error(
+          `HTTP error fetching prompts: ${updatedPromptsResponse.status}, message: ${errorText}`
+        );
+      }
+
+      const updatedPromptList = await updatedPromptsResponse.json();
+      setPromptList(updatedPromptList); // Update the promptList state
+      handleModalClose("modal-confirm-delete");
+
+      console.log("Prompt deleted and prompt list updated:", updatedPromptList);
+      setSelectedPrompt(null); // Clear the selected prompt
+    } catch (error) {
+      console.error("Error deleting prompt or fetching updated list:", error);
+      // Handle error, e.g., show message to user
+    }
+  };
+
+  const [tab, setTab] = useState("Template");
+
+  const tabHandler = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const { innerText } = e.currentTarget;
+    setTab(innerText);
+  };
+
+  const [tab2, setTab2] = useState("Template");
+  const tabHandler2 = (e: React.ChangeEvent<any>) => {
+    const { innerText } = e.target;
+    console.log(innerText, "innerText");
+    setTab2(innerText);
+  };
+
+  const [tab3, setTab3] = useState("Template");
+  const tabHandler3 = (e: React.ChangeEvent<any>) => {
+    const { innerText } = e.target;
+    console.log(innerText, "innerText");
+    setTab3(innerText);
+  };
+
+  const [tab4, setTab4] = useState("Template");
+  const tabHandler4 = (e: React.ChangeEvent<any>) => {
+    const { innerText } = e.target;
+    console.log(innerText, "innerText");
+    setTab4(innerText);
+  };
+
+  const [delayTime, setDelay] = useState<number>(0);
+  const delay = (ms: number) =>
+    new Promise((resolve) => setTimeout(resolve, ms));
+
+  const [startTime, setStartTime] = useState<Date | null>(null);
+  const [endTime, setEndTime] = useState<Date | null>(null);
+  const [timeSpent, setTimeSpent] = useState<string>("");
+
+  const [currentEmailIndex, setCurrentEmailIndex] = useState<number>(0);
+  const [emailData, setEmailData] = useState<any[]>([]);
+
+const fetchAndDisplayEmailBodies = useCallback(
+    async (
+      zohoviewId: string, // This will now be used as "clientId,dataFileId" format
+      pageToken: string | null = null,
+      direction: "next" | "previous" | null = null
+    ) => {
+      try {
+        setEmailLoading(true);
+        
+        // Parse zohoviewId to get clientId and dataFileId
+        const [clientId, dataFileId] = zohoviewId.split(',');
+        
+        let url = `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${clientId}&dataFileId=${dataFileId}`;
+        
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error("Failed to fetch email bodies");
+        }
+
+        const fetchedEmailData = await response.json();
+        
+        // Adapt to new API response structure
+        const contactsData = fetchedEmailData.contacts || [];
+        
+        if (!Array.isArray(contactsData)) {
+          console.error("Invalid data format");
+          return;
+        }
+
+        // Map fetched data to the desired format
+        const emailResponses = contactsData.map(
+          (entry: any) => ({
+            id: entry.id,
+            name: entry.full_name || "N/A",
+            title: entry.job_title || "N/A",
+            company: entry.company_name || "N/A",
+            location: entry.country_or_address || "N/A",
+            website: entry.website || "N/A",
+            linkedin: entry.linkedin_url || "N/A",
+            pitch: entry.email_body || "No email body found",
+            timestamp: entry.created_at || new Date().toISOString(),
+            nextPageToken: null, // No pagination in new API
+            prevPageToken: null, // No pagination in new API
+            generated: false,
+            subject: entry.email_subject || "N/A",
+            email: entry.email || "N/A",
+            lastemailupdateddate: entry.updated_at || "N/A",
+            emailsentdate: entry.email_sent_at || "N/A",
+          })
+        );
+
+        // Create placeholders for new items
+        const newItemsCount = emailResponses.length;
+        const naPlaceholders = new Array(newItemsCount).fill("NA");
+        const emptyArrayPlaceholders = new Array(newItemsCount).fill([]);
+
+        // Since no pagination, always replace all data (like initial load)
+        setexistingResponse(emailResponses);
+        setAllResponses(emailResponses);
+
+        // Initialize arrays with placeholders
+        setallprompt(naPlaceholders);
+        setallsearchResults(emptyArrayPlaceholders);
+        seteveryscrapedData(naPlaceholders);
+        setallsummery(naPlaceholders);
+        setallSearchTermBodies(naPlaceholders);
+
+        // Reset to first item
+        setCurrentIndex(0);
+
+        // Update pagination tokens (both null since no pagination)
+        setNextPageToken(null);
+        setPrevPageToken(null);
+        
+      } catch (error) {
+        console.error("Error fetching email bodies:", error);
+      } finally {
+        setEmailLoading(false);
+      }
+    },
+    []
+  );
+
+  const sendEmail = async (
+    cost: number,
+    failedReq: number,
+    successReq: number,
+    scrapfailedReq: number,
+    totaltokensused: number,
+    timeSpent: string,
+    startTime: Date | null,
+    endTime: Date | null,
+    generatedPitches: any[] = [],
+    promptText: string = "No prompt template was selected",
+    isPauseReport: boolean = false
+  ) => {
+    // use the values from the top of your component!
+    const formattedStartTime = startTime ? startTime.toLocaleString() : "N/A";
+    const formattedEndTime = endTime ? endTime.toLocaleString() : "N/A";
+    const lastPitch =
+      generatedPitches.length > 0
+        ? generatedPitches[generatedPitches.length - 1].pitch
+        : "No pitches were generated in this session";
+    const ipLink =
+      ipAddress && ipAddress !== "Unavailable"
+        ? `<a href="https://whatismyipaddress.com/ip/${ipAddress}" target="_blank">${ipAddress}</a>`
+        : ipAddress || "Unavailable";
+
+    // Modify the subject line to indicate if this is a pause report
+    const reportType = isPauseReport ? "Pause Report" : "Processing Report";
+
+    const emailData = {
+      To: "info@groupji.co, rushikeshg@groupji.co",
+      Subject: reportType,
+      Body: `
+        <html>
+        <head>
+            <style>
+                body, html { margin: 0 !important; padding: 0 !important; line-height: 1.4 !important; font-family: Arial, sans-serif; }
+                div { margin: 0 0 10px 0 !important; }
+                .section { margin-bottom: 20px !important; padding-bottom: 10px !important; border-bottom: 1px solid #eee; }
+                .pitch { background-color: #f9f9f9; padding: 15px; border-left: 4px solid #4CAF50; margin: 10px 0; }
+                .report-type { color: ${
+                  isPauseReport ? "orange" : "green"
+                }; font-weight: bold; }
+            </style>
+        </head>
+        <body>
+            <div class="section">
+                <h2><span class="report-type">${reportType}</span></h2>
+                ${
+                  isPauseReport
+                    ? "<p><strong>Status:</strong> Process was paused by the user</p>"
+                    : ""
+                }
+            </div>
+            <div class="section">
+                <h2>User Info:</h2>
+                <p><strong>Username:</strong> ${username || "N/A"}</p>
+                <p><strong>User ID:</strong> ${userId || "N/A"}</p>
+                <p><strong>User Role:</strong> ${userRole || "N/A"}</p>
+                <p><strong>First Name:</strong> ${firstName || "N/A"}</p>
+                <p><strong>Last Name:</strong> ${lastName || "N/A"}</p>
+            </div>
+            <div class="section">
+                <h2>Device Info:</h2>
+                <p><strong>IP Address:</strong> ${ipLink}</p>
+                <p><strong>Browser:</strong> ${browserName || "N/A"}</p>
+                <p><strong>Browser Version:</strong> ${
+                  browserVersion || "N/A"
+                }</p>
+            </div>
+            <div class="section">
+                <h2>Timings:</h2>
+                <p><strong>Start time of the process:</strong> ${formattedStartTime}</p>
+                <p><strong>End time of the process:</strong> ${formattedEndTime}</p>
+                <p><strong>Time spent:</strong> ${timeSpent}</p>
+            </div>
+            <div class="section">
+                <h2>Costs:</h2>
+                <p><strong>Total records successfully processed:</strong> ${successReq}</p>
+                <p><strong>Total records failed to process:</strong> ${failedReq}</p>
+                <p><strong>Total scrap data failed requests:</strong> ${scrapfailedReq}</p>
+                <p><strong>Total tokens used:</strong> ${totaltokensused}</p>
+                <p><strong>Total cost of the transaction:</strong> $${cost.toFixed(
+                  2
+                )}</p>
+            </div>
+            <div class="section">
+                <h2>Prompt Template Used:</h2>
+                <div class="prompt">${promptText}</div>
+            </div>
+            <div class="section">
+                <h2>Last Generated Pitch:</h2>
+                <div class="pitch">${lastPitch}</div>
+            </div>
+            <div class="section">
+                <h2>Generated Pitches Count:</h2>
+                <p>${generatedPitches.length}</p>
+            </div>
+        </body>
+        </html>
+      `,
+    };
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/sendemail`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(emailData),
+      });
+
+      if (!response.ok)
+        throw new Error(`Failed to send email: ${response.statusText}`);
+
+      const result = await response.json();
+      console.log(`${reportType} email sent successfully:`, result);
+    } catch (error) {
+      console.error(`Error sending ${reportType.toLowerCase()}:`, error);
+    }
+  };
+  var cost = 0;
+  var failedReq = 0;
+  var successReq = 0;
+  var scrapfailedreq = 0;
+  var totaltokensused = 0;
+
+  // Helper function to format date and time
+  function formatDateTime(date: Date): string {
+    const day = String(date.getDate()).padStart(2, "0");
+    const month = String(date.getMonth() + 1).padStart(2, "0"); // Months are zero-based
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    const seconds = String(date.getSeconds()).padStart(2, "0");
+
+    return `${day}.${month}.${year} ${hours}:${minutes}:${seconds}`;
+  }
+
+  const fetchClientSettings = async (clientID: number): Promise<any> => {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/auth/clientSettings/${clientID}`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch client settings");
+      }
+      const settings = await response.json();
+
+      if (!settings || settings.length === 0) {
+        console.warn("No settings found for the given Client ID");
+        return {}; // Return an empty object if no settings are found
+      }
+
+      // Assuming the first object in the array is the relevant settings
+      const clientSettings = settings[0];
+
+      return {
+        modelName: clientSettings.model_name,
+        searchCount: clientSettings.search_URL_count,
+        searchTerm: clientSettings.search_term,
+        instructions: clientSettings.instruction,
+        systemInstructions: clientSettings.system_instruction,
+        subjectInstructions: clientSettings.subject_instruction,
+      };
+    } catch (error) {
+      console.error("Error fetching client settings:", error);
+      return {}; // Return an empty object in case of an error
+    }
+  };
+
+  const analyzeScrapedData = (
+    scrapedData: string
+  ): { original: number; assisted: number } => {
+    if (!scrapedData) return { original: 0, assisted: 0 };
+
+    // Count occurrences of text1 (original) and text2 (assisted)
+    const originalCount = (scrapedData.match(/text1\s*=/g) || []).length;
+    const assistedCount = (scrapedData.match(/text2\s*=/g) || []).length;
+
+    return { original: originalCount, assisted: assistedCount };
+  };
+
+const goToTab = async (
+    tab: string,
+    options?: {
+      regenerate?: boolean;
+      regenerateIndex?: number;
+      nextPageToken?: string | null;
+      prevPageToken?: string | null;
+    }
+  ) => {
+    setTab(tab);
+    // If already processing, show loader and prevent multiple starts
+    if (isProcessing) {
+      return;
+    }
+    // Fetch default values from API
+    const defaultValues = await fetchClientSettings(Number(clientID));
+    // Determine which values to use
+    const selectedModelNameA = selectedModelName || defaultValues.modelName;
+    const searchterm = searchTermForm.searchTerm || defaultValues.searchTerm;
+    const searchCount = searchTermForm.searchCount || defaultValues.searchCount;
+    const instructionsParamA =
+      searchTermForm.instructions || defaultValues.instructions;
+    const systemInstructionsA =
+      settingsForm.systemInstructions || defaultValues.systemInstructions;
+    const subject_instruction =
+      settingsForm.subjectInstructions || defaultValues.subjectInstructions;
+
+    const startTime = new Date();
+    setStartTime(startTime);
+    let generatedPitches: any[] = []; // Declare and initialize generatedPitches
+
+    try {
+      setIsProcessing(true);
+      // ======= REGENERATION BLOCK START =======
+      if (!selectedPrompt) {
+        // Determine which variables are missing
+        const missingVars = [];
+        if (!selectedPrompt) missingVars.push("prompt template");
+
+        // Create error message
+        const errorMessage = `<span style="color: red">[${formatDateTime(
+          new Date()
+        )}] Error: Cannot generate pitch  Missing required parameters: ${missingVars.join(
+          ", "
+        )}</span>`;
+
+        // Update the form with error message
+        setOutputForm((prev) => ({
+          ...prev,
+          generatedContent: errorMessage + "<br/>" + prev.generatedContent,
+        }));
+
+        // Set states to stop processing
+        setIsProcessing(false);
+        setIsPitchUpdateCompleted(true);
+        setIsPaused(true);
+        return;
+      }
+
+      if (options?.regenerate) {
+  // Parse selectedZohoviewId to get clientId and dataFileId
+  const [clientIdStr, dataFileIdStr] = selectedZohoviewId.split(',');
+  
+  // Use the regenerateIndex to get the specific contact from allResponses
+  const index = typeof options.regenerateIndex === "number" ? options.regenerateIndex : 0;
+  
+  // Get the entry directly from allResponses instead of fetching again
+  const entry = allResponses[index];
+  
+  if (!entry) {
+    setIsProcessing(false);
+    setIsPitchUpdateCompleted(true);
+    setIsPaused(true);
+    return;
+  }
+
+        // Map new API fields to existing variables
+        const company_name_friendly = entry.company_name || entry.company;
+  const full_name = entry.full_name || entry.name;
+  const job_title = entry.job_title || entry.title;
+  const location = entry.country_or_address || entry.location;
+  const linkedin_url = entry.linkedin_url || entry.linkedin;
+  const website = entry.website;
+  const company_name = entry.company_name || entry.company;
+  const emailbody = entry.email_body || entry.pitch;
+  const id = entry.id;
+
+        // --- Generate new pitch as per your normal contact process ---
+        const searchTermBody = searchterm
+          .replace("{company_name}", company_name)
+          .replace("{website}", website);
+
+        const filledInstructions = instructionsParamA
+          .replace("{company_name}", company_name)
+          .replace("{job_title}", job_title)
+          .replace("{location}", location)
+          .replace("{full_name}", full_name)
+          .replace("{linkedin_url}", linkedin_url)
+          .replace("{linkedin_url}", company_name_friendly)
+          .replace("{website}", website);
+
+        const cacheKey = JSON.stringify({
+          searchTerm: searchTermBody,
+          instructions: filledInstructions,
+          modelName: selectedModelNameA,
+          searchCount,
+        });
+
+        let scrapeData: any;
+        let cacheHit = false;
+        if (processCacheRef.current[cacheKey]) {
+          scrapeData = processCacheRef.current[cacheKey];
+          cacheHit = true;
+        } else {
+          const instructionsParam = encodeURIComponent(instructionsParamA);
+
+          setOutputForm((prev) => ({
+            ...prev,
+            generatedContent:
+              `<span style="color: orange">[${formatDateTime(
+                new Date()
+              )}] Crafting phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${
+                entry.email
+              }</span><br/>` + prev.generatedContent,
+          }));
+          const scrapeResponse = await fetch(
+            `${API_BASE_URL}/api/auth/process?instructions=${instructionsParam}&modelName=${encodeURIComponent(
+              selectedModelNameA
+            )}&searchCount=${encodeURIComponent(searchCount)}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(searchTermBody),
+            }
+          );
+          if (!scrapeResponse.ok) {
+            setIsProcessing(false);
+            setIsPitchUpdateCompleted(true);
+            setIsPaused(true);
+            return;
+          }
+          scrapeData = await scrapeResponse.json();
+          processCacheRef.current[cacheKey] = scrapeData;
+        }
+
+        if (cacheHit) {
+          setOutputForm((prev) => ({
+            ...prev,
+            generatedContent:
+              `<span style="color: #b38f00">[${formatDateTime(
+                new Date()
+              )}] Loading phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${
+                entry.email
+              }</span><br/>` + prev.generatedContent,
+          }));
+        }
+
+        const summary = scrapeData.pitchResponse || {};
+        const searchResults = scrapeData.searchResults || [];
+        const scrappedData = summary.content || "";
+
+        if (!scrappedData) {
+          setIsProcessing(false);
+          setIsPitchUpdateCompleted(true);
+          setIsPaused(true);
+          return;
+        }
+
+        let systemPrompt = systemInstructionsA;
+        const replacedPromptText = (selectedPrompt?.text || "")
+          .replace("{search_output_summary}", scrappedData)
+          .replace("{company_name}", company_name)
+          .replace("{job_title}", job_title)
+          .replace("{location}", location)
+          .replace("{full_name}", full_name)
+          .replace("{linkedin_url}", company_name_friendly)
+          .replace("{linkedin_url}", linkedin_url)
+          .replace("{website}", website);
+
+        const promptToSend = `\n${systemPrompt}\n${replacedPromptText}`;
+
+        setOutputForm((prev) => ({
+          ...prev,
+          currentPrompt: promptToSend,
+          searchResults: scrapeData.searchResults || [],
+          allScrapedData: scrapeData.allScrapedData || "",
+        }));
+
+        const requestBody = {
+          scrappedData: systemPrompt,
+          prompt: `${selectedPrompt?.text}`
+            .replace("{company_name}", company_name)
+            .replace("{job_title}", job_title)
+            .replace("{location}", location)
+            .replace("{full_name}", full_name)
+            .replace("{linkedin_url}", linkedin_url)
+            .replace("{linkedin_url}", company_name_friendly)
+            .replace("{search_output_summary}", scrappedData)
+            .replace("{website}", website),
+          ModelName: selectedModelNameA,
+        };
+
+        const pitchResponse = await fetch(
+          `${API_BASE_URL}/api/auth/generatepitch`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(requestBody),
+          }
+        );
+
+        const pitchData = await pitchResponse.json();
+        if (!pitchResponse.ok) {
+          setIsProcessing(false);
+          setIsPitchUpdateCompleted(true);
+          setIsPaused(true);
+          return;
+        }
+
+        const dataAnalysis = analyzeScrapedData(
+          scrapeData.allScrapedData || ""
+        );
+        setOutputForm((prev) => ({
+          ...prev,
+          searchResults: searchResults,
+          allScrapedData: scrapeData.allScrapedData || "",
+          generatedContent:
+            `<span style="color: green">[${formatDateTime(
+              new Date()
+            )}] Pitch successfully crafted(att:${searchCount} org:${
+              dataAnalysis.original
+            } ass:${
+              dataAnalysis.assisted
+            }), for contact ${full_name} with company name ${company_name} and domain ${
+              entry.email
+            }</span><br/>` + prev.generatedContent,
+          linkLabel: pitchData.response.content,
+        }));
+
+        //----------------------------------------------------------------------------------------
+        let subjectLine = "";
+        if (subjectMode === "AI generated") {
+          const filledSubjectInstruction = subject_instruction
+            .replace("{company_name}", company_name)
+            .replace("{job_title}", job_title)
+            .replace("{location}", location)
+            .replace("{full_name}", full_name)
+            .replace("{linkedin_url}", linkedin_url)
+            .replace("{search_output_summary}", scrappedData)
+            .replace("{generated_pitch}", pitchData.response.content)
+            .replace("{website}", website);
+
+          const subjectRequestBody = {
+            scrappedData: filledSubjectInstruction,
+            prompt: pitchData.response.content,
+            ModelName: selectedModelNameA,
+          };
+
+          setOutputForm((prev) => ({
+            ...prev,
+            generatedContent:
+              `<span style="color: blue">[${formatDateTime(
+                new Date()
+              )}]  Crafting phase #3 concinnus, for contact ${full_name} with company name ${company_name} and domain ${
+                entry.email
+              }</span><br/>` + prev.generatedContent,
+          }));
+
+          const subjectResponse = await fetch(
+            `${API_BASE_URL}/api/auth/generatepitch`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(subjectRequestBody),
+            }
+          );
+
+          if (subjectResponse.ok) {
+            const subjectData = await subjectResponse.json();
+            subjectLine = subjectData.response?.content || "";
+
+            setOutputForm((prev) => ({
+              ...prev,
+              generatedContent:
+                `<span style="color: green">[${formatDateTime(
+                  new Date()
+                )}] Subject successfully crafted, for contact ${full_name} with company name ${company_name} and domain ${
+                  entry.email
+                }</span><br/>` + prev.generatedContent,
+              emailSubject: subjectLine,
+            }));
+          } else {
+            setOutputForm((prev) => ({
+              ...prev,
+              generatedContent:
+                `<span style="color: orange">[${formatDateTime(
+                  new Date()
+                )}] Email subject generation failed for contact ${full_name}, using default</span><br/>` +
+                prev.generatedContent,
+            }));
+          }
+        } else if (subjectMode === "With Placeholder") {
+          subjectLine = (subjectText || "")
+            .replace("{company_name}", company_name)
+            .replace("{job_title}", job_title)
+            .replace("{location}", location)
+            .replace("{full_name}", full_name)
+            .replace("{linkedin_url}", linkedin_url)
+            .replace("{search_output_summary}", scrappedData)
+            .replace("{generated_pitch}", pitchData.response?.content || "")
+            .replace("{website}", website);
+          setOutputForm((prev) => ({
+            ...prev,
+            generatedContent:
+              `<span style="color: green">[${formatDateTime(
+                new Date()
+              )}] Subject using user placeholder for contact ${full_name} with company name ${company_name} and domain ${
+                entry.email
+              }</span><br/>` + prev.generatedContent,
+            emailSubject: subjectLine,
+          }));
+        }
+
+        try {
+          if (id && pitchData.response?.content && clientID && dataFileIdStr) {
+            const updateContactResponse = await fetch(
+              `${API_BASE_URL}/api/crm/contacts/update-email`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  ClientId: parseInt(clientID),
+                  DataFileId: parseInt(dataFileIdStr),
+                  ContactId: id,
+                  EmailSubject: subjectLine,
+                  EmailBody: pitchData.response.content
+                }),
+              }
+            );
+
+            if (!updateContactResponse.ok) {
+              const updateContactError = await updateContactResponse.json();
+              setOutputForm((prevOutputForm) => ({
+                ...prevOutputForm,
+                generatedContent:
+                  `<span style="color: orange">[${formatDateTime(
+                    new Date()
+                  )}] Updating contact in database incomplete for contact ${full_name} with company name ${company_name} and domain ${
+                    entry.email
+                  }. Error: ${updateContactError.Message}</span><br/>` +
+                  prevOutputForm.generatedContent,
+              }));
+            } else {
+              setOutputForm((prevOutputForm) => ({
+                ...prevOutputForm,
+                generatedContent:
+                  `<span style="color: green">[${formatDateTime(
+                    new Date()
+                  )}] Updated pitch in database for contact ${full_name} with company name ${company_name} and domain ${
+                    entry.email
+                  }.</span><br/>` + prevOutputForm.generatedContent,
+              }));
+            }
+          }
+        } catch (zohoError) {
+          setOutputForm((prevOutputForm) => ({
+            ...prevOutputForm,
+            generatedContent:
+              `<span style="color: orange">[${formatDateTime(
+                new Date()
+              )}] Updating contact in database incomplete for contact ${full_name} with company name ${company_name} and domain ${
+                entry.email
+              }. Error: </span><br/>` + prevOutputForm.generatedContent,
+          }));
+        }
+
+        const newResponse = {
+          ...entry,
+          name: full_name || "N/A",
+          title: job_title || "N/A",
+          company: company_name_friendly || "N/A",
+          location: location || "N/A",
+          website: website || "N/A",
+          linkedin: linkedin_url || "N/A",
+          pitch: pitchData.response.content,
+          subject: subjectLine,
+          timestamp: new Date().toISOString(),
+          id,
+          nextPageToken: null,
+          prevPageToken: null,
+          generated: true,
+          lastemailupdateddate: new Date().toISOString(),
+          emailsentdate: entry.email_sent_at || "N/A",
+        };
+        const regenIndex = allResponses.findIndex((r) => r.id === id);
+
+        // ---- Update all relevant state arrays by id ----
+        setexistingResponse((prev) =>
+          prev.map((resp) => (resp.id === id ? newResponse : resp))
+        );
+
+        setAllResponses((prev) =>
+          prev.map((resp) => (resp.id === id ? newResponse : resp))
+        );
+
+        setallprompt((prev) => {
+          const updated = [...prev];
+          if (regenIndex > -1) updated[regenIndex] = promptToSend;
+          else updated.push(promptToSend);
+          return updated;
+        });
+        setallsearchResults((prev) => {
+          const updated = [...prev];
+          if (regenIndex > -1) updated[regenIndex] = searchResults;
+          else updated.push(searchResults);
+          return updated;
+        });
+        seteveryscrapedData((prev) => {
+          const updated = [...prev];
+          if (regenIndex > -1)
+            updated[regenIndex] = scrapeData.allScrapedData || "";
+          else updated.push(scrapeData.allScrapedData || "");
+          return updated;
+        });
+        setallsummery((prev) => {
+          const updated = [...prev];
+          if (regenIndex > -1)
+            updated[regenIndex] = scrapeData.pitchResponse?.content || "";
+          else updated.push(scrapeData.pitchResponse?.content || "");
+          return updated;
+        });
+        setallSearchTermBodies((prev) => {
+          const updated = [...prev];
+          if (regenIndex > -1) updated[regenIndex] = searchTermBody;
+          else updated.push(searchTermBody);
+          return updated;
+        });
+
+        setRecentlyAddedOrUpdatedId(id);
+
+        setIsProcessing(false);
+        setIsPitchUpdateCompleted(true);
+        setIsPaused(true);
+        return;
+      }
+      // ======= REGENERATION BLOCK END =======
+
+      // Main processing loop - fetch all contacts at once
+      let moreRecords = true;
+      let currentIndex = isPaused ? lastProcessedIndex : 0;
+      let foundRecordWithoutPitch = false;
+
+      // Show loader
+      setOutputForm((prevForm) => ({
+        ...prevForm,
+        generatedContent:
+          '<span style="color: blue">Processing initiated...please wait...</span><br/>' +
+          prevForm.generatedContent,
+      }));
+      const dataFileIdStr = selectedZohoviewId;
+
+      // Fetch all contacts from new API
+      const response = await fetch(
+        `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${clientID}&dataFileId=${dataFileIdStr}`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch email bodies");
+      }
+
+      const data = await response.json();
+      const contacts = data.contacts || [];
+      
+      if (!Array.isArray(contacts)) {
+        console.error("Invalid data format");
+        moreRecords = false;
+      }
+
+      // Process all contacts
+      for (let i = currentIndex; i < contacts.length; i++) {
+        const entry = contacts[i];
+
+        if (stopRef.current === true) {
+          setLastProcessedToken(null);
+          setLastProcessedIndex(i);
+          return;
+        }
+
+        // Process the entry
+        const urlParam: string = `https://www.${entry.email.split("@")[1]}`;
+        try {
+          var company_name_friendly = entry.company_name;
+          var full_name = entry.full_name;
+          var job_title = entry.job_title;
+          var location = entry.country_or_address;
+          var linkedin_url = entry.linkedin_url;
+          var emailbody = entry.email_body;
+          var website = entry.website;
+          var company_name = entry.company_name;
+
+          // Check if email already exists and if we should overwrite
+          if (entry.email_body && !settingsForm.overwriteDatabase) {
+            setOutputForm((prevOutputForm) => ({
+              ...prevOutputForm,
+              generatedContent:
+                `<span style="color: orange">[${formatDateTime(
+                  new Date()
+                )}] Pitch crafted for contact ${full_name} with company name ${company_name} and domain ${
+                  entry.email
+                } </span><br/>` + prevOutputForm.generatedContent,
+              linkLabel: entry.email_body,
+            }));
+
+            await delay(delayTime * 1000);
+
+            const existingResponse = {
+              ...entry,
+              name: entry.full_name || "N/A",
+              title: entry.job_title || "N/A",
+              company: entry.company_name || "N/A",
+              location: entry.country_or_address || "N/A",
+              website: entry.website || "N/A",
+              linkedin: entry.linkedin_url || "N/A",
+              pitch: entry.email_body,
+              timestamp: new Date().toISOString(),
+              generated: false,
+              nextPageToken: null,
+              prevPageToken: null,
+              id: entry.id,
+              subject: entry.email_subject || "N/A",
+              lastemailupdateddate: entry.updated_at || "N/A",
+              emailsentdate: entry.email_sent_at || "N/A",
+            };
+
+            setAllResponses((prevResponses) => {
+              const newResponses = [...prevResponses, existingResponse];
+              setCurrentIndex(newResponses.length - 1);
+              return newResponses;
+            });
+            generatedPitches.push(existingResponse);
+
+            setallprompt((prevPrompts) => [...prevPrompts, ""]);
+            setallsearchResults((prevSearchResults) => [
+              ...prevSearchResults,
+              [],
+            ]);
+            seteveryscrapedData((prevScrapedData) => [
+              ...prevScrapedData,
+              "",
+            ]);
+            setallsummery((prevSummery) => [...prevSummery, ""]);
+            setallSearchTermBodies((prevSearchTermBodies) => [
+              ...prevSearchTermBodies,
+              "",
+            ]);
+
+            continue;
+          } else {
+            foundRecordWithoutPitch = true;
+
+            if (isDemoAccount) {
+              setOutputForm((prevOutputForm) => ({
+                ...prevOutputForm,
+                generatedContent:
+                  `<span style="color: blue">[${formatDateTime(
+                    new Date()
+                  )}] Subscription: Trial mode. Processing is paused. Contact support on Live Chat (bottom right) or London: +44 (0) 207 660 4243 | New York: +1 (0) 315 400 2402 or email info@dataji.co </span><br/>` +
+                  prevOutputForm.generatedContent,
+              }));
+
+              moreRecords = false;
+              stopRef.current = true;
+              setLastProcessedToken(null);
+              setLastProcessedIndex(i);
+              break;
+            }
+          }
+
+          // Step 1: Scrape Website with caching
+          const searchTermBody = searchterm
+            .replace("{company_name}", company_name)
+            .replace("{website}", website);
+          const filledInstructions = instructionsParamA
+            .replace("{company_name}", company_name)
+            .replace("{job_title}", job_title)
+            .replace("{location}", location)
+            .replace("{full_name}", full_name)
+            .replace("{linkedin_url}", linkedin_url)
+            .replace("{linkedin_url}", company_name_friendly)
+            .replace("{website}", website);
+
+          const cacheKey = JSON.stringify({
+            searchTerm: searchTermBody,
+            instructions: filledInstructions,
+            modelName: selectedModelNameA,
+            searchCount,
+          });
+
+          let scrapeData: any;
+          let cacheHit = false;
+
+          if (processCacheRef.current[cacheKey]) {
+            scrapeData = processCacheRef.current[cacheKey];
+            cacheHit = true;
+          } else {
+            const instructionsParam = encodeURIComponent(instructionsParamA);
+            const modelNameParam = encodeURIComponent(selectedModelNameA);
+            const searchCountParam = encodeURIComponent(
+              searchTermForm.searchCount
+            );
+
+            setOutputForm((prevOutputForm) => ({
+              ...prevOutputForm,
+              generatedContent:
+                `<span style="color: orange">[${formatDateTime(
+                  new Date()
+                )}] Crafting phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${
+                  entry.email
+                }</span><br/>` + prevOutputForm.generatedContent,
+            }));
+			
+			   const scrapeResponse = await fetch(
+              `${API_BASE_URL}/api/auth/process?instructions=${instructionsParam}&modelName=${encodeURIComponent(
+                selectedModelNameA
+              )}&searchCount=${encodeURIComponent(searchCount)}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(searchTermBody),
+              }
+            );
+			            if (!scrapeResponse.ok) {
+              scrapfailedreq += 1;
+              setOutputForm((prevOutputForm) => ({
+                ...prevOutputForm,
+                searchResults: [],
+                allScrapedData: "",
+                generatedContent:
+                  `<span style="color: red">[${formatDateTime(
+                    new Date()
+                  )}] Centum nulla analysis incomplete for contact ${full_name} with company name ${company_name} and domain ${
+                    entry.email
+                  }</span><br/>` + prevOutputForm.generatedContent,
+                usage:
+                  `Cost: $${cost.toFixed(6)}    ` +
+                  `Failed Requests: ${failedReq}    ` +
+                  `Success Requests: ${successReq}              ` +
+                  `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
+                  `Total Tokens Used: ${totaltokensused}   `,
+              }));
+              generatedPitches.push({
+                ...entry,
+                pitch: "Error scraping website",
+              });
+              continue;
+            }
+            scrapeData = await scrapeResponse.json();
+            processCacheRef.current[cacheKey] = scrapeData;
+          }
+
+          // Always show if data is from cache or not
+          if (cacheHit) {
+            setOutputForm((prevOutputForm) => ({
+              ...prevOutputForm,
+              generatedContent:
+                `<span style="color: #b38f00">[${formatDateTime(
+                  new Date()
+                )}] Loading phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${
+                  entry.email
+                }</span><br/>` + prevOutputForm.generatedContent,
+            }));
+          }
+
+          console.log("All cached values:", processCacheRef.current);
+
+          const summary = scrapeData.pitchResponse || {};
+          const searchResults = scrapeData.searchResults || [];
+          const scrappedData = summary.content || "";
+
+          if (!scrappedData) {
+            const formattedTime = formatDateTime(new Date());
+            scrapfailedreq += 1;
+            setOutputForm((prevOutputForm) => ({
+              ...prevOutputForm,
+              searchResults: scrapeData.searchResults || [],
+              allScrapedData: scrapeData.allScrapedData || "",
+              generatedContent:
+                `<span style="color: red">[${formatDateTime(
+                  new Date()
+                )}] Centum nulla analysis incomplete for contact ${full_name} with company name ${company_name} and domain ${
+                  entry.email
+                }</span><br/>` + prevOutputForm.generatedContent,
+              usage:
+                `Cost: $${cost.toFixed(6)}    ` +
+                `Failed Requests: ${failedReq}    ` +
+                `Success Requests: ${successReq}              ` +
+                `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
+                `Total Tokens Used: ${totaltokensused}   `,
+            }));
+            generatedPitches.push({
+              ...entry,
+              pitch: "Error scraping website",
+            });
+            continue;
+          }
+
+          let systemPrompt = systemInstructionsA;
+
+          const replacedPromptText = (selectedPrompt?.text || "")
+            .replace("{search_output_summary}", scrappedData)
+            .replace("{company_name}", company_name)
+            .replace("{job_title}", job_title)
+            .replace("{location}", location)
+            .replace("{full_name}", full_name)
+            .replace("{linkedin_url}", company_name_friendly)
+            .replace("{linkedin_url}", linkedin_url)
+            .replace("{website}", website);
+
+          const promptToSend = `
+          
+          ${systemPrompt}
+           
+          ${replacedPromptText}`
+            .replace("{search_output_summary}", scrappedData)
+            .replace("{company_name}", company_name)
+            .replace("{job_title}", job_title)
+            .replace("{location}", location)
+            .replace("{full_name}", full_name)
+            .replace("{linkedin_url}", company_name_friendly)
+            .replace("{linkedin_url}", linkedin_url)
+            .replace("{website}", website);
+
+          setOutputForm((prevState) => ({
+            ...prevState,
+            currentPrompt: promptToSend,
+            searchResults: scrapeData.searchResults || [],
+            allScrapedData: scrapeData.allScrapedData || "",
+          }));
+
+          const dataAnalysis = analyzeScrapedData(
+            scrapeData.allScrapedData || ""
+          );
+
+          setOutputForm((prevOutputForm) => ({
+            ...prevOutputForm,
+            searchResults: scrapeData.searchResults || [],
+            allScrapedData: scrapeData.allScrapedData || "",
+            generatedContent:
+              `<span style="color: blue">[${formatDateTime(
+                new Date()
+              )}] Crafting phase #2 integritas (att:${searchCount} org:${
+                dataAnalysis.original
+              } ass:${
+                dataAnalysis.assisted
+              }), for contact ${full_name} with company name ${company_name} and domain ${
+                entry.email
+              }</span><br/>` + prevOutputForm.generatedContent,
+          }));
+
+          const requestBody = {
+            scrappedData: systemPrompt,
+            prompt: `${selectedPrompt?.text}`
+              .replace("{company_name}", company_name)
+              .replace("{job_title}", job_title)
+              .replace("{location}", location)
+              .replace("{full_name}", full_name)
+              .replace("{linkedin_url}", linkedin_url)
+              .replace("{linkedin_url}", company_name_friendly)
+              .replace("{search_output_summary}", scrappedData)
+              .replace("{website}", website),
+            ModelName: selectedModelNameA,
+          };
+
+          const pitchResponse = await fetch(
+            `${API_BASE_URL}/api/auth/generatepitch`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(requestBody),
+            }
+          );
+
+          const pitchData = await pitchResponse.json();
+          if (!pitchResponse.ok) {
+            const formattedTime = formatDateTime(new Date());
+            failedReq += 1;
+            cost += parseFloat(pitchData?.response?.currentCost);
+            totaltokensused += parseFloat(pitchData?.response?.totalTokens);
+            setOutputForm((prevOutputForm) => ({
+              ...prevOutputForm,
+              searchResults: scrapeData.searchResults || [],
+              allScrapedData: scrapeData.allScrapedData || "",
+              generatedContent:
+                `<span style="color: red">[${formatDateTime(
+                  new Date()
+                )}] Phase #2 integritas incomplete for contact ${full_name} with company name ${company_name} and domain ${
+                  entry.email
+                }</span><br/>` + prevOutputForm.generatedContent,
+              usage:
+                `Cost: $${cost.toFixed(6)}    ` +
+                `Failed Requests: ${failedReq}    ` +
+                `Success Requests: ${successReq}                ` +
+                `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
+                `Total Tokens Used: ${totaltokensused}   `,
+            }));
+            generatedPitches.push({
+              ...entry,
+              pitch: "Error Crafting pitch",
+            });
+            continue;
+          }
+
+          successReq += 1;
+          cost += parseFloat(pitchData?.response?.currentCost);
+          totaltokensused += parseFloat(pitchData?.response?.totalTokens);
+          console.log(`Cosstdata ${pitchData}`);
+          
+          // Success: Update UI with the generated pitch
+          setOutputForm((prevOutputForm) => ({
+            ...prevOutputForm,
+            searchResults: scrapeData.searchResults || [],
+            allScrapedData: scrapeData.allScrapedData || "",
+            generatedContent:
+              `<span style="color: green">[${formatDateTime(
+                new Date()
+              )}] Pitch successfully crafted for contact ${full_name} with company name ${company_name} and domain ${
+                entry.email
+              }</span><br/>` + prevOutputForm.generatedContent,
+            usage:
+              `Cost: $${cost.toFixed(6)}    ` +
+              `Failed Requests: ${failedReq}    ` +
+              `Success Requests: ${successReq}                  ` +
+              `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
+              `Total Tokens Used: ${totaltokensused}   `,
+          }));
+
+          setOutputForm((prevOutputForm) => ({
+            ...prevOutputForm,
+            linkLabel: pitchData.response.content,
+          }));
+
+          generatedPitches.push({
+            ...entry,
+            name: entry.full_name || "N/A",
+            title: entry.job_title || "N/A",
+            company: entry.company_name || "N/A",
+            location: entry.country_or_address || "N/A",
+            website: entry.website || "N/A",
+            linkedin: entry.linkedin_url || "N/A",
+            pitch: pitchData.response.content,
+            subject: entry.email_subject || "N/A",
+            lastemailupdateddate: entry.updated_at || "N/A",
+            emailsentdate: entry.email_sent_at || "N/A",
+          });
+
+          // Generate subject line
+          let subjectLine = "";
+          if (subjectMode === "AI generated") {
+            const filledSubjectInstruction = subject_instruction
+              .replace("{company_name}", company_name)
+              .replace("{job_title}", job_title)
+              .replace("{location}", location)
+              .replace("{full_name}", full_name)
+              .replace("{linkedin_url}", linkedin_url)
+              .replace("{search_output_summary}", scrappedData)
+              .replace("{generated_pitch}", pitchData.response.content)
+              .replace("{website}", website);
+
+            const subjectRequestBody = {
+              scrappedData: filledSubjectInstruction,
+              prompt: pitchData.response.content,
+              ModelName: selectedModelNameA,
+            };
+
+            setOutputForm((prev) => ({
+              ...prev,
+              generatedContent:
+                `<span style="color: blue">[${formatDateTime(
+                  new Date()
+                )}] Crafting phase #3 concinnus, for contact ${full_name} with company name ${company_name} and domain ${
+                  entry.email
+                }</span><br/>` + prev.generatedContent,
+            }));
+
+            const subjectResponse = await fetch(
+              `${API_BASE_URL}/api/auth/generatepitch`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(subjectRequestBody),
+              }
+            );
+
+            if (subjectResponse.ok) {
+              const subjectData = await subjectResponse.json();
+              subjectLine = subjectData.response?.content || "";
+
+              setOutputForm((prev) => ({
+                ...prev,
+                generatedContent:
+                  `<span style="color: green">[${formatDateTime(
+                    new Date()
+                  )}] Subject successfully crafted, for contact ${full_name} with company name ${company_name} and domain ${
+                    entry.email
+                  }</span><br/>` + prev.generatedContent,
+                emailSubject: subjectLine,
+              }));
+            } else {
+              setOutputForm((prev) => ({
+                ...prev,
+                generatedContent:
+                  `<span style="color: orange">[${formatDateTime(
+                    new Date()
+                  )}] Subject generation failed for contact ${full_name} with company name ${company_name} and domain ${
+                    entry.email
+                  }</span><br/>` + prev.generatedContent,
+              }));
+            }
+          } else if (subjectMode === "With Placeholder") {
+            subjectLine = (subjectText || "")
+              .replace("{company_name}", company_name)
+              .replace("{job_title}", job_title)
+              .replace("{location}", location)
+              .replace("{full_name}", full_name)
+              .replace("{linkedin_url}", linkedin_url)
+              .replace("{search_output_summary}", scrappedData)
+              .replace("{generated_pitch}", pitchData.response?.content || "")
+              .replace("{website}", website);
+
+            setOutputForm((prev) => ({
+              ...prev,
+              generatedContent:
+                `<span style="color: green">[${formatDateTime(
+                  new Date()
+                )}] Subject using user placeholder for contact ${full_name} with company name ${company_name} and domain ${
+                  entry.email
+                }</span><br/>` + prev.generatedContent,
+              emailSubject: subjectLine,
+            }));
+          }
+
+          // Update the linkLabel to show both subject and pitch
+          setOutputForm((prevOutputForm) => ({
+            ...prevOutputForm,
+            linkLabel: pitchData.response.content,
+            emailSubject: subjectLine,
+          }));
+
+          // Update generatedPitches to include subject
+          generatedPitches.push({
+            ...entry,
+            name: entry.full_name || "N/A",
+            title: entry.job_title || "N/A",
+            company: entry.company_name || "N/A",
+            location: entry.country_or_address || "N/A",
+            website: entry.website || "N/A",
+            linkedin: entry.linkedin_url || "N/A",
+            pitch: pitchData.response.content,
+            subject: subjectLine,
+            lastemailupdateddate: entry.updated_at || "N/A",
+            emailsentdate: entry.email_sent_at || "N/A",
+          });
+
+          // Update newResponse to include subject
+          const newResponse = {
+            ...entry,
+            name: entry.full_name || "N/A",
+            title: entry.job_title || "N/A",
+            company: entry.company_name || "N/A",
+            location: entry.country_or_address || "N/A",
+            website: entry.website || "N/A",
+            linkedin: entry.linkedin_url || "N/A",
+            pitch: pitchData.response.content,
+            subject: subjectLine,
+            timestamp: new Date().toISOString(),
+            id: entry.id,
+            nextPageToken: null,
+            prevPageToken: null,
+            generated: true,
+            lastemailupdateddate: new Date().toISOString(),
+            emailsentdate: entry.email_sent_at || "N/A",
+          };
+
+          setAllResponses((prevResponses) => [...prevResponses, newResponse]);
+          generatedPitches.push(newResponse);
+          setallprompt((prevPrompts) => [...prevPrompts, promptToSend]);
+          setallsearchResults((prevSearchResults) => [
+            ...prevSearchResults,
+            scrapeData.searchResults || [],
+          ]);
+          seteveryscrapedData((prevScrapedData) => [
+            ...prevScrapedData,
+            scrapeData.allScrapedData || "",
+          ]);
+          setallsummery((prevSummery) => [
+            ...prevSummery,
+            scrapeData.pitchResponse.content || [],
+          ]);
+          setallSearchTermBodies((prevSearchTermBodies) => [
+            ...prevSearchTermBodies,
+            searchTermBody,
+          ]);
+          setRecentlyAddedOrUpdatedId(newResponse.id);
+                  const dataFileIdStr = selectedZohoviewId;
+
+          // Update database with new API
+          try {
+            
+            if (entry.id && pitchData.response.content && clientID && dataFileIdStr) {
+              const updateContactResponse = await fetch(
+                `${API_BASE_URL}/api/crm/contacts/update-email`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    ClientId: parseInt(clientID),
+                    DataFileId: parseInt(dataFileIdStr),
+                    ContactId: entry.id,
+                    EmailSubject: subjectLine,
+                    EmailBody: pitchData.response.content
+                  }),
+                }
+              );
+
+              if (!updateContactResponse.ok) {
+                const updateContactError = await updateContactResponse.json();
+                setOutputForm((prevOutputForm) => ({
+                  ...prevOutputForm,
+                  generatedContent:
+                    `<span style="color: orange">[${formatDateTime(
+                      new Date()
+                    )}] Updating contact in database incomplete for contact ${full_name} with company name ${company_name} and domain ${
+                      entry.email
+                    }. Error: ${updateContactError.Message}</span><br/>` +
+                    prevOutputForm.generatedContent,
+                }));
+              } else {
+                setOutputForm((prevOutputForm) => ({
+                  ...prevOutputForm,
+                  generatedContent:
+                    `<span style="color: green">[${formatDateTime(
+                      new Date()
+                    )}] Updated pitch in database for contact ${full_name} with company name ${company_name} and domain ${
+                      entry.email
+                    }.</span><br/>` + prevOutputForm.generatedContent,
+                }));
+              }
+            } else {
+              setOutputForm((prevOutputForm) => ({
+                ...prevOutputForm,
+                generatedContent:
+                  `<span style="color: orange">[${formatDateTime(
+                    new Date()
+                  )}] Updating contact in database incomplete for contact ${full_name} with company name ${company_name} and domain ${
+                    entry.email
+                  }</span><br/>` + prevOutputForm.generatedContent,
+              }));
+            }
+          } catch (zohoError) {
+            setOutputForm((prevOutputForm) => ({
+              ...prevOutputForm,
+              generatedContent:
+                `<span style="color: orange">[${formatDateTime(
+                  new Date()
+                )}] Updating contact in database incomplete for contact ${full_name} with company name ${company_name} and domain ${
+                  entry.email
+                }. Error: </span><br/>` + prevOutputForm.generatedContent,
+            }));
+          }
+
+          console.log("Delaying " + delayTime + " secs");
+          // await delay(delayTime * 1000); // 1-second delay
+        } catch (error) {
+          setOutputForm((prevOutputForm: any) => ({
+            ...prevOutputForm,
+            generatedContent:
+              `<span style="color: red">[${formatDateTime(
+                new Date()
+              )}] Phase #2 integritas incomplete for contact ${
+                entry.full_name
+              } with company name ${entry.company_name} and domain ${
+                entry.email
+              }</span><br/>` + prevOutputForm.generatedContent,
+            usage:
+              `Cost: $${cost.toFixed(6)}    ` +
+              `Failed Requests: ${failedReq}    ` +
+              `Success Requests: ${successReq}                ` +
+              `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
+              `Total Tokens Used: ${totaltokensused}   `,
+          }));
+          console.error(
+            `Error processing entry ${entry.email}:`,
+            error
+          );
+          generatedPitches.push({
+            ...entry,
+            pitch: "Error generating pitch",
+          });
+        }
+      }
+
+      // Set processing to false when completely done
+      if (!moreRecords) {
+        setAllRecordsProcessed(true);
+      }
+
+      moreRecords = false; // No pagination in new API
+
+      // Process completed successfully
+      if (!stopRef.current) {
+        // Reset all tracking variables
+        setLastProcessedToken(null);
+        setLastProcessedIndex(0);
+        stopRef.current = false;
+        setIsPaused(true);
+      }
+
+      // Capture the end time after processing all entries
+      const endTime = new Date();
+      setEndTime(endTime);
+
+      // Calculate time spent
+      const timeSpent = endTime.getTime() - startTime.getTime();
+      const hours = Math.floor((timeSpent % 86400000) / 3600000);
+      const minutes = Math.floor(((timeSpent % 86400000) % 3600000) / 60000);
+      const formattedTimeSpent = `${hours} hours ${minutes} minutes`;
+
+      // Send email report
+      sendEmail(
+        cost,
+        failedReq,
+        successReq,
+        scrapfailedreq,
+        totaltokensused,
+        formattedTimeSpent,
+        startTime,
+        endTime,
+        generatedPitches,
+        selectedPrompt?.text
+      );
+    } catch (error) {
+      // Ensure processing is set to false even if there's an error
+      setIsProcessing(false);
+      console.error("Error:", error);
+      setOutputForm((prevForm) => ({
+        ...prevForm,
+        generatedContent:
+          `<span style="color: red"> Error: </span><br/>` +
+          prevForm.generatedContent,
+      }));
+    } finally {
+      // Ensure processing is set to false
+      setIsProcessing(false);
+      setIsPitchUpdateCompleted(true); // Set to true when pitch is updated
+      setIsPaused(true);
+    }
+  };
+
+  
+  const [outputForm, setOutputForm] = useState<OutputInterface["outputForm"]>({
+    generatedContent: "",
+    linkLabel: "",
+    usage: "",
+    currentPrompt: "",
+    searchResults: [],
+    allScrapedData: "",
+  });
+
+  const outputFormHandler = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      if (!e || !e.target) {
+        console.error("Event is undefined or missing target:", e);
+        return;
+      }
+
+      const { name, value } = e.target;
+      setOutputForm((prevOutputForm) => ({
+        ...prevOutputForm,
+        [name]: value,
+      }));
+    },
+    []
+  );
+
+  const clearOutputForm = () => {
+    setOutputForm((prevForm) => ({
+      ...prevForm,
+      generatedContent: "",
+    }));
+  };
+
+  const searchTermFormHandler = useCallback(
+    (e: {
+      target: {
+        name: string;
+        value: string;
+      };
+    }) => {
+      const { name, value } = e.target;
+      console.log("Handling form update:", { name, value });
+
+      setSearchTermForm((prev: SearchTermForm) => ({
+        ...prev,
+        [name]: value,
+      }));
+    },
+    []
+  );
+
+  // Also update the state declaration
+  const [searchTermForm, setSearchTermForm] = useState<SearchTermForm>({
+    searchCount: "",
+    searchTerm: "",
+    instructions: "",
+    output: "",
+  });
+
+  const searchTermFormOnSubmit = async (e: any) => {
+    e.preventDefault();
+    try {
+      console.log(searchTermForm.searchTerm, "searchTermForm");
+      console.log(searchTermForm.instructions);
+      console.log(searchTermForm.searchCount); // Log the number value
+
+      const requestBody = searchTermForm.searchTerm; // Send only the search term in the body
+
+      const instructionsParam = encodeURIComponent(searchTermForm.instructions); // Encode to prevent URL issues
+      const modelNameParam = encodeURIComponent(selectedModelName);
+      const searchCountParam = encodeURIComponent(searchTermForm.searchCount);
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/auth/process?instructions=${instructionsParam}&modelName=${modelNameParam}&searchCount=${searchCountParam}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(requestBody), // Send searchTerm in the body
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error("API Error:", data);
+        setSearchTermForm((prevForm: any) => ({
+          ...prevForm,
+          output: "Error processing request",
+        }));
+      } else {
+        setSearchTermForm((prevForm: any) => ({
+          ...prevForm,
+          output: data.response.content, // Store the API response
+        }));
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      setSearchTermForm((prevForm: any) => ({
+        ...prevForm,
+        output: "Error processing request",
+      }));
+    }
+  };
+  const [settingsForm, setSettingsForm] = useState({
+    emailTemplate: "",
+    viewId: "",
+    overwriteDatabase: false,
+    tkInput: "",
+    tkOutput: "",
+    systemInstructions: systemPrompt,
+  }) as any;
+
+  const settingsFormHandler = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      const { name, value } = e.target;
+      let newValue: string | boolean = value;
+
+      // Check if the target is an HTMLInputElement and type is checkbox
+      if ("type" in e.target && e.target.type === "checkbox") {
+        newValue = (e.target as HTMLInputElement).checked;
+      }
+
+      console.log(
+        `settingsFormHandler called for ${name} with value: ${newValue}`
+      ); // Debug log
+
+      setSettingsForm((prevSettings: any) => ({
+        ...prevSettings,
+        [name]: newValue,
+      }));
+    },
+    [] // Empty dependency array
+  );
+  const settingsFormOnSubmit = (e: any) => {
+    e.preventDefault();
+    console.log(outputForm, "outputForm");
+    console.log(settingsForm, "settingForm");
+  };
+
+  // To handle RTE change
+  const handleViewPromptRTE = useCallback(
+    (value: string) => {
+      if (selectedPrompt) {
+        setSelectedPrompt((prev) => ({
+          ...prev!,
+          text: value,
+        }));
+      }
+    },
+    [selectedPrompt]
+  );
+
+  const handleEditPromptInputRTE = useCallback(
+    (value: string) => {
+      if (editPrompt) {
+        setEditPrompt((prev: any) => ({
+          ...prev!,
+          promptInput: value,
+        }));
+      }
+    },
+    [editPrompt]
+  );
+  const handleEditPromptTemplateRTE = useCallback(
+    (value: string) => {
+      if (editPrompt) {
+        setEditPrompt((prev: any) => ({
+          ...prev!,
+          promptTemplate: value,
+        }));
+      }
+    },
+    [editPrompt]
+  );
+  const handleAddPromptInPutRTE = useCallback(
+    (value: string) => {
+      if (addPrompt) {
+        setAddPrompt((prev) => ({
+          ...prev!,
+          promptInput: value,
+        }));
+      }
+    },
+    [addPrompt]
+  );
+  const handleAddPromptTemplateRTE = useCallback(
+    (value: string) => {
+      if (addPrompt) {
+        setAddPrompt((prev) => ({
+          ...prev!,
+          promptTemplate: value,
+        }));
+      }
+    },
+    [addPrompt]
+  );
+
+  // Convert line break to br
+  const formatTextForDisplay = (text: string) => {
+    return text.replace(/\n/g, "<br/>");
+  };
+
+  // Convert br tag to line break
+  const formatTextForEditor = (text: string) => {
+    return text.replace(/<br\/>/g, "\n");
+  };
+
+  interface ZohoClient {
+    id: number;
+    zohoviewId: string;
+    zohoviewName: string;
+    clientId: number;
+    totalContact: number;
+  }
+
+  interface Contact {
+    name: string;
+    title: string;
+    company: string;
+    location: string;
+    website: string;
+    linkedin: string;
+    pitch: string;
+    timestamp: string;
+  }
+  const IsAdmin = sessionStorage.getItem("IsAdmin");
+
+// State for data files
+const [dataFiles, setDataFiles] = useState<DataFile[]>([]);
+// Fetch data files when client changes
+useEffect(() => {
+  const fetchDataFiles = async () => {
+    if (!selectedClient && !clientID) {
+      setDataFiles([]);
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const clientIdToUse = selectedClient || clientID;
+      const url = `${API_BASE_URL}/api/Crm/by-client?clientId=${clientIdToUse}`;
+      
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          console.log(`No data files found for client: ${clientIdToUse}`);
+          setDataFiles([]);
+          return;
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data: DataFile[] = await response.json();
+      setDataFiles(data);
+    } catch (error) {
+      console.error("Error fetching data files:", error);
+      setDataFiles([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchDataFiles();
+}, [selectedClient, clientID]);
+
+  const handleModelChange = async (
+    event: React.ChangeEvent<HTMLSelectElement>
+  ) => {
+    const modelName = event.target.value;
+    const selectedId = event.target.value;
+    setSelectedZohoviewId(selectedId);
+    if (selectedId) {
+      await fetchAndDisplayEmailBodies(selectedId);
+    }
+  };
+
+  const handleStart = async () => {
+    //await handleReset();   // Now this is valid
+    await handleClearAll();
+
+    if (!selectedPrompt) return;
+    setAllRecordsProcessed(false);
+    setIsStarted(true);
+    setIsPaused(false);
+    stopRef.current = false;
+    goToTab("Output");
+  };
+
+  const handlePauseResume = async () => {
+    if (isStarted) {
+      if (isPaused) {
+        // Check if we've processed all records
+        if (allRecordsProcessed) {
+          // If all records are processed and user clicks "Start", reset first then start new process
+          handleReset(); // Reset everything
+          handleStart(); // Start a new process
+          return;
+        }
+        // Only allow resume if pitch update is completed
+        if (isPitchUpdateCompleted && !isProcessing) {
+          setIsPaused(false);
+          stopRef.current = false;
+          setIsPitchUpdateCompleted(false); // Reset the completion status
+          goToTab("Output");
+        }
+      } else {
+        // Pause logic
+        setIsPaused(true);
+        stopRef.current = true;
+
+        // Calculate time spent so far
+        const currentTime = new Date();
+        let timeSpent = "";
+
+        if (startTime) {
+          const timeDiff = currentTime.getTime() - startTime.getTime();
+          const hours = Math.floor((timeDiff % 86400000) / 3600000);
+          const minutes = Math.floor(((timeDiff % 86400000) % 3600000) / 60000);
+          timeSpent = `${hours} hours ${minutes} minutes`;
+        }
+
+        // Get the current values from the usage string
+        const usageText = outputForm.usage;
+
+        // Extract values using regex
+        const costMatch = usageText.match(/Cost: \$([0-9.]+)/);
+        const failedReqMatch = usageText.match(/Failed Requests: ([0-9]+)/);
+        const successReqMatch = usageText.match(/Success Requests: ([0-9]+)/);
+        const scrapfailedReqMatch = usageText.match(
+          /Scraped Data Failed Requests: ([0-9]+)/
+        );
+        const totaltokensusedMatch = usageText.match(
+          /Total Tokens Used: ([0-9]+)/
+        );
+
+        const currentCost = costMatch ? parseFloat(costMatch[1]) : cost;
+        const currentFailedReq = failedReqMatch
+          ? parseInt(failedReqMatch[1])
+          : failedReq;
+        const currentSuccessReq = successReqMatch
+          ? parseInt(successReqMatch[1])
+          : successReq;
+        const currentScrapfailedReq = scrapfailedReqMatch
+          ? parseInt(scrapfailedReqMatch[1])
+          : scrapfailedreq; // Fixed variable name
+        const currentTotaltokensused = totaltokensusedMatch
+          ? parseInt(totaltokensusedMatch[1])
+          : totaltokensused;
+
+        // Send email with the values from the usage display
+        await sendEmail(
+          currentCost,
+          currentFailedReq,
+          currentSuccessReq,
+          currentScrapfailedReq,
+          currentTotaltokensused,
+          timeSpent,
+          startTime,
+          currentTime, // Use current time as the end time
+          allResponses, // Use all responses gathered so far
+          selectedPrompt?.text || "No prompt template was selected",
+          true // Add a flag to indicate this is a pause report
+        );
+      }
+    }
+  };
+
+  const handleReset = () => {
+    // Only allow reset if paused
+    if (!isPaused) return;
+    // Stop any ongoing generation process
+    stopRef.current = true;
+
+    // Reset all state variables
+    setIsStarted(false);
+    setIsPaused(false);
+    setIsProcessing(false);
+    setIsPitchUpdateCompleted(false);
+
+    // Reset last processed token and index
+    setLastProcessedToken(null);
+    setLastProcessedIndex(0);
+
+    // Clear all accumulated data
+    setAllResponses([]);
+    setallsearchResults([]);
+    seteveryscrapedData([]);
+    setallprompt([]);
+    setallSearchTermBodies([]);
+    setallsummery([]);
+
+    // Reset output form
+    setOutputForm({
+      generatedContent: "",
+      linkLabel: "",
+      usage: "",
+      currentPrompt: "",
+      searchResults: [],
+      allScrapedData: "",
+    });
+
+    // Clear any existing content
+    clearContentFunction?.();
+
+    // Reset cost and request tracking variables
+    cost = 0;
+    failedReq = 0;
+    successReq = 0;
+    scrapfailedreq = 0;
+    totaltokensused = 0;
+
+    // Reset existingResponse and related index in Output.tsx
+    clearExistingResponse(); // Call the function to clear existingResponse
+    setCurrentIndex(0); // Reset currentIndex in Output.tsx
+    setCurrentPage(0); // Resetting the current page to 0
+
+    setNextPageToken(null);
+    setPrevPageToken(null);
+    setRecentlyAddedOrUpdatedId(null); // Optional if you're using it
+  };
+
+  // Get the demo account status directly from session storage
+  const isDemoAccount = sessionStorage.getItem("isDemoAccount") === "true";
+
+  // Set default delay for demo users
+  // Set default delay for demo users
+  useEffect(() => {
+    if (isDemoAccount) {
+      setDelay(5); // Set default delay value for demo users
+      // Set overwriteDatabase to false for demo users:
+      setSettingsForm((prev: SettingsFormType) => ({
+        ...prev,
+        overwriteDatabase: false, // Set default value for demo users
+      }));
+    }
+  }, [isDemoAccount]);
+
+  useEffect(() => {
+    const fetchCampaigns = async () => {
+      // Only proceed if there's a client selected
+      if (!selectedClient && !clientID) {
+        setCampaigns([]); // Clear campaigns when no client is selected
+        return;
+      }
+
+      setLoading(true);
+      try {
+        let url = `${API_BASE_URL}/api/auth/campaigns/client`;
+        if (selectedClient) {
+          url += `/${selectedClient}`;
+        } else if (clientID) {
+          url += `/${clientID}`;
+        }
+
+        console.log(
+          `Fetching campaigns for client: ${
+            selectedClient || clientID
+          } from ${url}`
+        );
+
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log(
+          `Received ${data.length} campaigns for client ${
+            selectedClient || clientID
+          }`,
+          data
+        );
+
+        setCampaigns(data);
+      } catch (error) {
+        console.error("Error fetching campaigns:", error);
+        setCampaigns([]); // Clear campaigns on error
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCampaigns();
+  }, [selectedClient, clientID]);
+
+  const handleCampaignChange = async (
+    event: React.ChangeEvent<HTMLSelectElement>
+  ) => {
+    const campaignId = event.target.value;
+    setSelectedCampaign(campaignId);
+
+    if (campaignId) {
+      setSelectionMode("campaign");
+
+      // Find the selected campaign
+      const campaign = campaigns.find((c) => c.id.toString() === campaignId);
+      if (campaign) {
+        // Automatically set the corresponding prompt and zoho view
+        const promptMatch = promptList.find(
+          (p: Prompt) => p.id === campaign.promptId
+        );
+        if (promptMatch) {
+          setSelectedPrompt(promptMatch);
+        }
+
+        // Set the ZohoViewId
+        setSelectedZohoviewId(campaign.zohoViewId);
+
+        // Fetch data for this zoho view
+        try {
+          await fetchAndDisplayEmailBodies(campaign.zohoViewId);
+        } catch (error) {
+          console.error("Error fetching email bodies:", error);
+        }
+      }
+    } else {
+      // If no campaign is selected, switch back to manual mode
+      setSelectionMode("manual");
+
+      // IMPORTANT: Clear the prompt and zohoviewId to prevent the dropdown from being disabled
+      if (selectionMode === "campaign") {
+        setSelectedPrompt(null);
+        setSelectedZohoviewId("");
+      }
+    }
+  };
+
+  const handleClearAll = () => {
+    // Confirm before proceeding
+    {
+      stopRef.current = true;
+
+      processCacheRef.current = {}; // Clear the process cache
+      setAllRecordsProcessed(false); // Reset all records processed flag
+
+      // Reset all state variables
+      setIsStarted(false);
+      setIsPaused(false);
+      setIsProcessing(false);
+      setIsPitchUpdateCompleted(false);
+
+      // Reset last processed token and index
+      setLastProcessedToken(null);
+      setLastProcessedIndex(0);
+
+      // Clear all accumulated data
+      setAllResponses([]);
+      setallsearchResults([]);
+      seteveryscrapedData([]);
+      setallprompt([]);
+      setallSearchTermBodies([]);
+      setallsummery([]);
+
+      // Reset output form
+      setOutputForm({
+        generatedContent: "",
+        linkLabel: "",
+        usage: "",
+        currentPrompt: "",
+        searchResults: [],
+        allScrapedData: "",
+      });
+
+      // Clear any existing content
+      clearContentFunction?.();
+
+      // Reset cost and request tracking variables
+      cost = 0;
+      failedReq = 0;
+      successReq = 0;
+      scrapfailedreq = 0;
+      totaltokensused = 0;
+
+      // Reset existingResponse and related index in Output.tsx
+      setexistingResponse([]); // Use the state setter directly
+      setCurrentIndex(0); // Reset currentIndex in Output.tsx
+      setCurrentPage(0); // Resetting the current page to 0
+
+      localStorage.removeItem("cachedResponses");
+      localStorage.removeItem("currentIndex");
+    }
+  };
+
+
+const handleExcelDataProcessed = async (processedData: any[]) => {
+  console.log("Excel data processed:", processedData);
+  
+  if (processedData.length > 0) {
+    // Convert Excel data to your expected format
+    const formattedData: EmailEntry[] = processedData.map((contact, index) => ({
+      id: `excel_${index + 1}`,
+      full_Name: contact.name,
+      email: contact.email,
+      email_subject: subjectMode === "With Placeholder" ? subjectText : '', // Use your subject logic
+      job_Title: contact.job_title || '',
+      account_name_friendlySingle_Line_12: contact.company || '',
+      mailing_Country: contact.location || '',
+      linkedIn_URL: contact.linkedin || '',
+      website: '', // Optional fields
+      sample_email_body: '',
+      generated: false,
+      last_Email_Body_updated: '',
+      pG_Processed_on1: '',
+    }));
+    
+    // Update your existing state with the Excel data
+    setexistingResponse(formattedData);
+    setPitchGenData({ data: formattedData });
+    
+    // Optionally switch to Output tab to show the data
+    // setTab("Output");
+  }
+};
+
+const [selectedDataFileId, setSelectedDataFileId] = useState("");
+
+
+  return (
+    <div className="login-container pitch-page flex-col d-flex">
+      <Header connectTo={true} />
+      <div className="d-flex justify-between main-head tab-head">
+        <div className="d-flex align-start justify-between full-width inner">
+          <div className="d-flex group-inner justify-start full-width">
+            <div className="tabs">
+              <ul className="d-flex">
+                <li>
+                  <button
+                    onClick={tabHandler}
+                    className={`button ${tab === "Template" ? "active" : ""}`}
+                    title="Click to view the original non-personalized email template"
+                  >
+                    Template
+                  </button>
+                </li>
+                <li>
+                  <button
+                    onClick={tabHandler}
+                    className={`button ${tab === "Output" ? "active" : ""}`}
+                    title="Click to view the hyper-personalized emails being generated"
+                  >
+                    Output
+                  </button>
+                </li>
+                {userRole === "ADMIN" && (
+                  <li>
+                    <button
+                      onClick={tabHandler}
+                      className={`button ${tab === "Mail" ? "active" : ""}`}
+                    >
+                      Mail
+                    </button>
+                  </li>
+                )}
+                {userRole === "ADMIN" && (
+                  <li>
+                    <button
+                      onClick={tabHandler}
+                      className={`button ${tab === "Settings" ? "active" : ""}`}
+                    >
+                      Settings
+                    </button>
+                  </li>
+                )}
+                
+              </ul>
+            </div>
+            {/* White box container for buttons */}
+            <div className="ml-10 mr-10 mt-10">
+              {!isStarted ? (
+                <button
+                  className="white-button"
+                  onClick={handleStart}
+                  disabled={
+                    (!selectedPrompt?.name || !selectedZohoviewId) &&
+                    !selectedCampaign
+                  }
+                  title="Click to generate hyper-personalized emails using the selected template for contacts in the selected data file"
+                >
+                  Start
+                </button>
+              ) : (
+                <>
+                  <button
+                    className="white-button"
+                    onClick={handlePauseResume}
+                    disabled={
+                      isPaused && (!isPitchUpdateCompleted || isProcessing)
+                    }
+                    title={
+                      isPaused
+                        ? allRecordsProcessed
+                          ? "Click to start a new process"
+                          : "Click to resume the generation of emails"
+                        : "Click to pause the generation of emails"
+                    }
+                  >
+                    {isPaused
+                      ? allRecordsProcessed
+                        ? "Start"
+                        : "Resume"
+                      : "Pause"}
+                  </button>
+
+                  {/* Reset button next to Start when visible */}
+                  {isPaused && (
+                    <button
+                      className="white-button reset ml-10"
+                      onClick={handleReset}
+                      disabled={
+                        !isPitchUpdateCompleted || isProcessing || !isPaused
+                      }
+                      title="Click to reset so that the generation of emails begins again from the first of the contacts in the selected data file"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+          <div className="button-group justify-between mb-0 full-width-1200 full-width">
+            <div className="d-flex justify-between align-center radio-group flex-col-768 pad-9 full-width">
+              <div className="row mb-2">
+                <div className="col">
+                  {userRole === "ADMIN" && (
+                    <div className="form-group d-flex align-center mb-0 ml-10 mr-10">
+                      <label className="font-size-medium font-500 mb-0 mr-10 nowrap">
+                        Select Client:
+                      </label>
+                      <select
+                        value={selectedClient}
+                        onChange={handleClientChange}
+                        className="height-35 max-width-200"
+                      >
+                        <option value="">--Please choose a client--</option>
+                        {clientNames.map((client: Client, index: number) => (
+                          <option key={index} value={client.clientID}>
+                            {`${client.firstName} ${client.lastName} - ${client.companyName} - ${client.clientID}`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="d-flex mt-10-768 flex-wrap-640 justify-center">
+                {/* Add the checkbox here */}
+                {!isDemoAccount && (
+                  <div className="row mb-2 mb-2">
+                    <div className="col align-center d-flex">
+                      <div className="options checkbox-options">
+                        <ul className="d-flex row">
+                          <li className="col">
+                            <label>
+                              <input
+                                type="checkbox"
+                                checked={settingsForm.overwriteDatabase}
+                                name="overwriteDatabase"
+                                id="overwriteDatabase"
+                                onChange={settingsFormHandler}
+                              />
+                              <span>Overwrite database</span>
+                            </label>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {!isDemoAccount && (
+                  <div className="form-group d-flex align-center mb-0">
+                    <label className="font-size-medium font-500 ml-5 mb-0 mr-10">
+                      Delay(secs)
+                    </label>
+                    <input
+                      type="number"
+                      value={delayTime}
+                      onChange={(e: any) => setDelay(e.target.value)}
+                      className="height-35"
+                      style={{ width: "55px", paddingRight: "3px" }}
+                    />
+                  </div>
+                )}
+
+                {userRole === "ADMIN" && (
+                  <button
+                    className="secondary button ml-10 nowrap"
+                    onClick={handleClearAll}
+                    disabled={
+                      !isPitchUpdateCompleted || isProcessing || !isPaused
+                    }
+                    title="Clear all data and reset the application state"
+                  >
+                    Reset all
+                  </button>
+                )}
+              </div>
+              {/* Stop Confirmation Popup */}
+              {showPopup && (
+                <div className="popup">
+                  <p>Do you want to stop the process?</p>
+                  <button onClick={() => handlePopupResponse(true)}>Yes</button>
+                  <button onClick={() => handlePopupResponse(false)}>No</button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+      {tab === "Template" && (
+        <>
+        <div className="login-box gap-down d-flex mb-20">
+      <DataFile
+        selectedClient={selectedClient}
+        onDataProcessed={handleExcelDataProcessed}
+        isProcessing={isProcessing}
+      />
+    </div>
+        
+        <div className="login-box gap-down d-flex">
+          <div className="input-section edit-section">
+            <div className="row flex-col-768">
+              <div className="col col-3  col-12-768">
+                <div className="form-group">
+                  <label>
+                    Campaign <span className="required">*</span>{" "}
+                  </label>
+                  <select
+                    onChange={handleCampaignChange}
+                    value={selectedCampaign}
+                    disabled={
+                      selectionMode === "manual" &&
+                      (!!selectedPrompt?.name || !!selectedZohoviewId)
+                    } // Disable if prompt or data file is manually selected
+                  >
+                    <option value="">Select a campaign</option>
+                    {campaigns.map((campaign) => (
+                      <option key={campaign.id} value={campaign.id.toString()}>
+                        {campaign.campaignName}
+                      </option>
+                    ))}
+                  </select>
+                  {!selectedCampaign && (
+                    <small className="error-text">
+                      Please select a campaign
+                    </small>
+                  )}
+                </div>
+                {selectedCampaign &&
+                  campaigns.find((c) => c.id.toString() === selectedCampaign)
+                    ?.description && (
+                    <div className="campaign-description-container">
+                      <small className="campaign-description">
+                        {
+                          campaigns.find(
+                            (c) => c.id.toString() === selectedCampaign
+                          )?.description
+                        }
+                      </small>
+                    </div>
+                  )}
+              </div>
+
+              <div className="col col-3 col-12-768">
+                <div className="form-group">
+                  <label>Original non-personalized email templates </label>
+                  <select
+                    onChange={handleSelectChange}
+                    value={selectedPrompt?.name || ""}
+                    className={
+                      !selectedPrompt?.name ? "highlight-required" : ""
+                    }
+                    disabled={
+                      userRole !== "ADMIN" || selectionMode === "campaign"
+                    } // Disable if not admin or if campaign is selected
+                  >
+                    <option value="">Please select a template</option>
+                    {promptList.map((prompt: Prompt) => (
+                      <option key={prompt.id} value={prompt.name}>
+                        {prompt.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="col col-3 col-12-768">
+  <div className="form-group">
+    <label>Data files of contacts</label>
+    <select
+      name="model"
+      id="model"
+      onChange={handleZohoModelChange} // You might want to rename this to handleDataFileChange
+      value={selectedZohoviewId} // You might want to rename this to selectedDataFileId
+      className={!selectedZohoviewId ? "highlight-required" : ""}
+      disabled={
+        userRole !== "ADMIN" || selectionMode === "campaign"
+      } // Disable if not admin or if campaign is selected
+    >
+      <option value="">Please select a data file</option>
+      {dataFiles.map((file) => (
+        <option key={file.id} value={file.id}>
+          {file.name} - {file.data_file_name}
+        </option>
+      ))}
+    </select>
+  </div>
+  {emailLoading && (
+    <div className="loader-overlay">
+      <div className="loader"></div>
+    </div>
+  )}
+</div>
+
+              <div className="col col-3  col-12-768">
+                <div className="form-group">
+                  <label>Language</label>
+                  <select
+                    onChange={handleLanguageChange}
+                    value={selectedLanguage}
+                  >
+                    <option value="">Select a language</option>
+                    {Object.values(Languages)
+                      .sort((a, b) => a.localeCompare(b)) // Sort languages alphabetically
+                      .map((language, index) => (
+                        <option key={index} value={language}>
+                          {language}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div className="row flex-col-768">
+              <div className="col col-3 col-12-768">
+                <div className="form-group d-flex align-center">
+                  <label
+                    style={{ minWidth: 66, marginRight: 10, marginBottom: 0 }}
+                  >
+                    Subject <span className="required">*</span>
+                  </label>
+                  <select
+                    onChange={(e) => setSubjectMode(e.target.value)}
+                    value={subjectMode}
+                    className="height-35"
+                    style={{ minWidth: 150 }}
+                  >
+                    <option value="AI generated">AI generated</option>
+                    <option value="With Placeholder">With placeholder</option>
+                  </select>
+                  <input
+                    type="text"
+                    placeholder="Enter subject here"
+                    value={subjectText}
+                    onChange={(e) => setSubjectText(e.target.value)}
+                    disabled={subjectMode !== "With Placeholder"}
+                    className="height-35 ml-10"
+                    style={{
+                      minWidth: 700,
+                      flex: "1 1 auto",
+                      boxSizing: "border-box",
+                      marginLeft: 16,
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="row">
+              <div className="col-12 col">
+                {userRole === "ADMIN" && (
+                  <div className="tabs secondary d-flex justify-between-991 flex-col-768 bb-0-768">
+                    <ul className="d-flex bb-1-768">
+                      <li>
+                        <button
+                          type="button"
+                          onClick={tabHandler2}
+                          className={`button ${
+                            tab2 === "Template" ? "active" : ""
+                          }`}
+                        >
+                          Template
+                        </button>
+                      </li>
+
+                      <li>
+                        <button
+                          type="button"
+                          onClick={tabHandler2}
+                          className={`button ${
+                            tab2 === "Instructions" ? "active" : ""
+                          }`}
+                        >
+                          Instructions
+                        </button>
+                      </li>
+                    </ul>
+                    <div className="d-flex align-self-center ml-10 ml-768-0 mt-10-768 flex-col-480 full-width">
+                      <ReactTooltip
+                        anchorSelect="#output-edit-prompt-tooltip"
+                        place="top"
+                      >
+                        Edit prompt
+                      </ReactTooltip>
+                      <button
+                        id="output-edit-prompt-tooltip"
+                        className={`save-button button justify-center square-40 d-flex align-center button-full-width-480 mb-10-480 ${
+                          selectedPrompt?.name !== "Select a prompt"
+                            ? ""
+                            : "disabled" // Simplified conditional
+                        }`}
+                        disabled={
+                          !selectedPrompt?.name ||
+                          selectedPrompt?.name === "Select a prompt"
+                        }
+                        onClick={() => {
+                          handleModalOpen("modal-edit-prompt");
+                          setEditHandler();
+                        }} // Improved disabled logic
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="22px"
+                          height="22px"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                        >
+                          <path
+                            d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
+                            stroke="#ffffff"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                        {/* <span>Edit prompt</span> */}
+                      </button>
+
+                      <span className="d-flex justify-right ml-10 ml-0-480 ">
+                        <Modal
+                          show={openModals["modal-add-prompt"]}
+                          closeModal={() =>
+                            handleModalClose("modal-add-prompt")
+                          }
+                          buttonLabel="Close"
+                        >
+                          <form
+                            onSubmit={addPromptSubmitHandler}
+                            className="full-height"
+                          >
+                            <h2 className="left">Add a prompt</h2>
+                            <div className="form-group">
+                              <label>Prompt name</label>
+                              <input
+                                type="text"
+                                name="promptName"
+                                placeholder="Enter prompt name"
+                                value={addPrompt.promptName}
+                                onChange={addPromptHandler}
+                              />
+                            </div>
+
+                            {userRole === "ADMIN" && (
+                              <div className="tabs secondary">
+                                <ul className="d-flex">
+                                  <li>
+                                    <button
+                                      type="button"
+                                      onClick={tabHandler4}
+                                      className={`button ${
+                                        tab4 === "Template" ? "active" : ""
+                                      }`}
+                                    >
+                                      Template
+                                    </button>
+                                  </li>
+
+                                  <li>
+                                    <button
+                                      type="button"
+                                      onClick={tabHandler4}
+                                      className={`button ${
+                                        tab4 === "Instructions" ? "active" : ""
+                                      }`}
+                                    >
+                                      Instructions
+                                    </button>
+                                  </li>
+                                </ul>
+                              </div>
+                            )}
+                            {tab4 === "Template" && (
+                              <div className="form-group edit-prompt-form-height">
+                                <label>Template</label>
+                                <span className="pos-relative">
+                                  <ReactQuill
+                                    className="adjust-quill-height"
+                                    theme="snow"
+                                    value={
+                                      addPrompt?.promptTemplate
+                                        ? formatTextForDisplay(
+                                            addPrompt?.promptTemplate
+                                          )
+                                        : ""
+                                    }
+                                    defaultValue={addPrompt?.promptTemplate}
+                                    onChange={(value: string) =>
+                                      handleAddPromptTemplateRTE(
+                                        formatTextForEditor(value)
+                                      )
+                                    }
+                                    modules={modules}
+                                  />
+                                </span>
+                              </div>
+                            )}
+                            {tab4 === "Instructions" &&
+                              userRole === "ADMIN" && (
+                                <div className="form-group edit-prompt-form-height">
+                                  <label>Instructions</label>
+                                  <span className="pos-relative">
+                                    <ReactQuill
+                                      className="adjust-quill-height"
+                                      theme="snow"
+                                      value={
+                                        addPrompt?.promptInput
+                                          ? formatTextForDisplay(
+                                              addPrompt?.promptInput
+                                            )
+                                          : ""
+                                      }
+                                      defaultValue={addPrompt?.promptInput}
+                                      onChange={(value: string) =>
+                                        handleAddPromptInPutRTE(
+                                          formatTextForEditor(value)
+                                        )
+                                      }
+                                      modules={modules}
+                                    />
+                                  </span>
+                                </div>
+                              )}
+
+                            <div className="form-group d-flex">
+                              <button
+                                type="submit"
+                                className="action-button button mr-10"
+                              >
+                                Save prompt
+                              </button>
+                              {addPromptAlert && (
+                                <span className="alert alert-success ml-10">
+                                  Prompt added successfully.
+                                </span>
+                              )}
+                            </div>
+                          </form>
+                        </Modal>
+                        <>
+                          <ReactTooltip
+                            anchorSelect="#output-add-a-prompt-tooltip"
+                            place="top"
+                          >
+                            Add a prompt
+                          </ReactTooltip>
+                          <button
+                            id="output-add-a-prompt-tooltip"
+                            className="save-button button square-40 d-flex justify-center align-center button-full-width-480"
+                            onClick={() => handleModalOpen("modal-add-prompt")}
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="#FFFFFF"
+                              viewBox="0 0 30 30"
+                              width="22px"
+                              height="22px"
+                            >
+                              <path d="M15,3C8.373,3,3,8.373,3,15c0,6.627,5.373,12,12,12s12-5.373,12-12C27,8.373,21.627,3,15,3z M21,16h-5v5 c0,0.553-0.448,1-1,1s-1-0.447-1-1v-5H9c-0.552,0-1-0.447-1-1s0.448-1,1-1h5V9c0-0.553,0.448-1,1-1s1,0.447,1,1v5h5 c0.552,0,1,0.447,1,1S21.552,16,21,16z" />
+                            </svg>
+                            {/* <span className="ml-5">Add a prompt</span> */}
+                          </button>
+                        </>
+                        <>
+                          <ReactTooltip
+                            anchorSelect="#output-delete-prompt-tooltip"
+                            place="top"
+                          >
+                            Delete prompt
+                          </ReactTooltip>
+                          <button
+                            id="output-delete-prompt-tooltip"
+                            className="secondary button square-40 d-flex justify-center align-center ml-10 button-full-width-480"
+                            //onClick={deletePromptHandler}
+                            disabled={
+                              !selectedPrompt?.name ||
+                              selectedPrompt?.name === "Select a prompt"
+                            }
+                            onClick={() =>
+                              handleModalOpen("modal-confirm-delete")
+                            }
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              fill="#FFFFFF"
+                              viewBox="0 0 50 50"
+                              width="18px"
+                              height="18px"
+                              style={{
+                                position: "relative",
+                                marginTop: "-2px",
+                              }}
+                            >
+                              <path d="M 21 2 C 19.354545 2 18 3.3545455 18 5 L 18 7 L 8 7 A 1.0001 1.0001 0 1 0 8 9 L 9 9 L 9 45 C 9 46.654 10.346 48 12 48 L 38 48 C 39.654 48 41 46.654 41 45 L 41 9 L 42 9 A 1.0001 1.0001 0 1 0 42 7 L 32 7 L 32 5 C 32 3.3545455 30.645455 2 29 2 L 21 2 z M 21 4 L 29 4 C 29.554545 4 30 4.4454545 30 5 L 30 7 L 20 7 L 20 5 C 20 4.4454545 20.445455 4 21 4 z M 19 14 C 19.552 14 20 14.448 20 15 L 20 40 C 20 40.553 19.552 41 19 41 C 18.448 41 18 40.553 18 40 L 18 15 C 18 14.448 18.448 14 19 14 z M 25 14 C 25.552 14 26 14.448 26 15 L 26 40 C 26 40.553 25.552 41 25 41 C 24.448 41 24 40.553 24 40 L 24 15 C 24 14.448 24.448 14 25 14 z M 31 14 C 31.553 14 32 14.448 32 15 L 32 40 C 32 40.553 31.553 41 31 41 C 30.447 41 30 40.553 30 40 L 30 15 C 30 14.448 30.447 14 31 14 z" />
+                            </svg>
+                            {/* <span className="ml-5">Delete prompt</span> */}
+                          </button>
+                        </>
+                        <Modal
+                          show={openModals["modal-confirm-delete"]}
+                          closeModal={() =>
+                            handleModalClose("modal-confirm-delete")
+                          }
+                          buttonLabel=""
+                          size="auto-width"
+                        >
+                          <h3 className="center text-center mt-0">
+                            Are you sure want to delete?
+                          </h3>
+                          <div className="button-group mb-0 d-flex justify-center">
+                            <button
+                              className="button save-button small"
+                              onClick={deletePromptHandler}
+                            >
+                              Yes
+                            </button>
+                            <button
+                              className="button button secondary small ml-5"
+                              onClick={() =>
+                                handleModalClose("modal-confirm-delete")
+                              }
+                            >
+                              No
+                            </button>
+                          </div>
+                        </Modal>
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {tab2 === "Template" && (
+                  <div className="form-group">
+                    <label>Template</label>
+                    <span className="pos-relative">
+                      <pre
+                        className={`no-content height-400 ql-editor ${
+                          !selectedPrompt?.template ? "text-light" : ""
+                        }`}
+                        dangerouslySetInnerHTML={{
+                          __html:
+                            selectedPrompt?.template ??
+                            "Template will appear here",
+                        }}
+                      ></pre>
+
+                      <Modal
+                        show={openModals["modal-addInput"]}
+                        closeModal={() => handleModalClose("modal-addInput")}
+                        buttonLabel="Ok"
+                      >
+                        <label>Template</label>
+                        <ReactQuill
+                          theme="snow"
+                          className="adjust-quill-height"
+                          value={
+                            selectedPrompt
+                              ? formatTextForDisplay(selectedPrompt.text)
+                              : ""
+                          }
+                          defaultValue={selectedPrompt?.text}
+                          onChange={(value: string) =>
+                            handleViewPromptRTE(formatTextForEditor(value))
+                          }
+                          modules={modules}
+                        />
+                      </Modal>
+                      <button
+                        className="full-view-icon d-flex align-center justify-center"
+                        type="button"
+                        onClick={() => handleModalOpen("modal-addInput")}
+                      >
+                        <svg width="40px" height="40px" viewBox="0 0 512 512">
+                          <polyline
+                            points="304 96 416 96 416 208"
+                            fill="none"
+                            stroke="#000000"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="32"
+                          />
+                          <line
+                            x1="405.77"
+                            y1="106.2"
+                            x2="111.98"
+                            y2="400.02"
+                            fill="none"
+                            stroke="#000000"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="32"
+                          />
+                          <polyline
+                            points="208 416 96 416 96 304"
+                            fill="none"
+                            stroke="#000000"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="32"
+                          />
+                        </svg>
+                      </button>
+                    </span>
+                  </div>
+                )}
+                {tab2 === "Instructions" && userRole === "ADMIN" && (
+                  <div className="form-group">
+                    <label>Instructions</label>
+                    <span className="pos-relative">
+                      <pre
+                        className={`no-content height-400 ql-editor ${
+                          !selectedPrompt?.text ? "text-light" : ""
+                        }`}
+                        dangerouslySetInnerHTML={{
+                          __html:
+                            selectedPrompt?.text ?? "Template will appear here",
+                        }}
+                      ></pre>
+
+                      <Modal
+                        show={openModals["modal-addInput"]}
+                        closeModal={() => handleModalClose("modal-addInput")}
+                        buttonLabel="Ok"
+                      >
+                        <label>Instructions</label>
+                        <ReactQuill
+                          theme="snow"
+                          className="adjust-quill-height"
+                          value={
+                            selectedPrompt
+                              ? formatTextForDisplay(selectedPrompt.text)
+                              : ""
+                          }
+                          defaultValue={selectedPrompt?.text}
+                          onChange={(value: string) =>
+                            handleViewPromptRTE(formatTextForEditor(value))
+                          }
+                          modules={modules}
+                        />
+                      </Modal>
+                      <button
+                        className="full-view-icon d-flex align-center justify-center"
+                        type="button"
+                        onClick={() => handleModalOpen("modal-addInput")}
+                      >
+                        <svg width="40px" height="40px" viewBox="0 0 512 512">
+                          <polyline
+                            points="304 96 416 96 416 208"
+                            fill="none"
+                            stroke="#000000"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="32"
+                          />
+                          <line
+                            x1="405.77"
+                            y1="106.2"
+                            x2="111.98"
+                            y2="400.02"
+                            fill="none"
+                            stroke="#000000"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="32"
+                          />
+                          <polyline
+                            points="208 416 96 416 96 304"
+                            fill="none"
+                            stroke="#000000"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="32"
+                          />
+                        </svg>
+                      </button>
+                    </span>
+                  </div>
+                )}
+                <div className="form-group d-flex justify-between mb-0">
+                  <Modal // Edit Prompt Modal
+                    show={openModals["modal-edit-prompt"]}
+                    closeModal={() => handleModalClose("modal-edit-prompt")}
+                    buttonLabel="Close"
+                  >
+                    <form
+                      onSubmit={editPromptSubmitHandler}
+                      className="full-height"
+                    >
+                      <h2 className="left">Edit Prompt</h2>
+                      <div className="form-group">
+                        <label>Prompt name</label>
+                        <input
+                          type="text"
+                          name="promptName"
+                          placeholder="Enter prompt name"
+                          value={editPrompt?.promptName}
+                          onChange={editPromptHandler}
+                        />
+                      </div>
+
+                      {userRole === "ADMIN" && (
+                        <div className="tabs secondary">
+                          <ul className="d-flex">
+                            <li>
+                              <button
+                                type="button"
+                                onClick={tabHandler3}
+                                className={`button ${
+                                  tab3 === "Template" ? "active" : ""
+                                }`}
+                              >
+                                Template
+                              </button>
+                            </li>
+
+                            <li>
+                              <button
+                                type="button"
+                                onClick={tabHandler3}
+                                className={`button ${
+                                  tab3 === "Instructions" ? "active" : ""
+                                }`}
+                              >
+                                Instructions
+                              </button>
+                            </li>
+                          </ul>
+                        </div>
+                      )}
+                      {tab3 === "Template" && (
+                        <div className="form-group edit-prompt-form-height">
+                          <label>Template</label>
+                          <span className="pos-relative">
+                            <ReactQuill
+                              className="height-350 adjust-quill-height"
+                              theme="snow"
+                              value={
+                                editPrompt?.promptTemplate
+                                  ? formatTextForDisplay(
+                                      editPrompt?.promptTemplate
+                                    )
+                                  : ""
+                              }
+                              defaultValue={editPrompt?.promptTemplate}
+                              onChange={(value: string) =>
+                                handleEditPromptTemplateRTE(
+                                  formatTextForEditor(value)
+                                )
+                              }
+                              modules={modules}
+                            />
+                          </span>
+                        </div>
+                      )}
+                      {tab3 === "Instructions" && userRole === "ADMIN" && (
+                        <div className="form-group edit-prompt-form-height">
+                          <label>Instructions</label>
+                          <span className="pos-relative">
+                            <ReactQuill
+                              className="height-350 adjust-quill-height"
+                              theme="snow"
+                              value={
+                                editPrompt?.promptInput
+                                  ? formatTextForDisplay(
+                                      editPrompt?.promptInput
+                                    )
+                                  : ""
+                              }
+                              defaultValue={editPrompt?.promptInput}
+                              onChange={(value: string) =>
+                                handleEditPromptInputRTE(
+                                  formatTextForEditor(value)
+                                )
+                              }
+                              modules={modules}
+                            />
+                          </span>
+                        </div>
+                      )}
+                      <div className="form-group d-flex">
+                        <button
+                          type="submit"
+                          className="action-button button mr-10"
+                        >
+                          Save changes
+                        </button>
+                        {editPromptAlert && (
+                          <span className="alert alert-success ml-10">
+                            Prompt edited successfully.
+                          </span>
+                        )}
+                      </div>
+                    </form>
+                  </Modal>
+                  {/* Form Buttons */}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        </>
+      )}
+
+      {tab === "Settings" && userRole === "ADMIN" && (
+        <Settings
+          settingsForm={settingsForm}
+          settingsFormHandler={settingsFormHandler}
+          settingsFormOnSubmit={settingsFormOnSubmit}
+          searchTermForm={searchTermForm}
+          searchTermFormHandler={searchTermFormHandler}
+          searchTermFormOnSubmit={searchTermFormOnSubmit}
+          selectedClient={selectedClient}
+          fetchClientSettings={fetchClientSettings}
+        />
+      )}
+
+      {tab === "Output" && (
+        <>
+          <Output
+            outputForm={outputForm}
+            outputFormHandler={outputFormHandler}
+            setOutputForm={setOutputForm}
+            allResponses={allResponses}
+            isPaused={isPaused}
+            setAllResponses={setAllResponses}
+            currentIndex={currentIndex}
+            setCurrentIndex={setCurrentIndex}
+            //onOutputChange={outputFormHandler}
+            onClearOutput={clearOutputForm}
+            allprompt={allprompt}
+            setallprompt={setallprompt}
+            allsearchResults={allsearchResults}
+            setallsearchResults={setallsearchResults}
+            everyscrapedData={everyscrapedData}
+            seteveryscrapedData={seteveryscrapedData}
+            allSearchTermBodies={allSearchTermBodies}
+            setallSearchTermBodies={setallSearchTermBodies}
+            onClearContent={handleClearContent}
+            setallsummery={setallsummery}
+            allsummery={allsummery}
+            existingResponse={existingResponse}
+            setexistingResponse={setexistingResponse}
+            currentPage={currentPage}
+            setCurrentPage={setCurrentPage}
+            prevPageToken={prevPageToken}
+            nextPageToken={nextPageToken}
+            fetchAndDisplayEmailBodies={fetchAndDisplayEmailBodies}
+            selectedZohoviewId={selectedZohoviewId}
+            onClearExistingResponse={setClearExistingResponse}
+            isResetEnabled={!isProcessing} // Pass isResetEnabled as a separate prop
+            zohoClient={zohoClient} // Add this new prop
+            onRegenerateContact={goToTab}
+            recentlyAddedOrUpdatedId={recentlyAddedOrUpdatedId}
+            setRecentlyAddedOrUpdatedId={setRecentlyAddedOrUpdatedId}
+            selectedClient={selectedClient}
+          />
+        </>
+      )}
+
+      {tab === "Mail" && (
+        <>
+          <Mail
+            selectedClient={selectedClient}
+            outputForm={outputForm}
+            outputFormHandler={outputFormHandler}
+            setOutputForm={setOutputForm}
+            allResponses={allResponses}
+            isPaused={isPaused}
+            setAllResponses={setAllResponses}
+            currentIndex={currentIndex}
+            setCurrentIndex={setCurrentIndex}
+            //onOutputChange={outputFormHandler}
+            onClearOutput={clearOutputForm}
+            allprompt={allprompt}
+            setallprompt={setallprompt}
+            allsearchResults={allsearchResults}
+            setallsearchResults={setallsearchResults}
+            everyscrapedData={everyscrapedData}
+            seteveryscrapedData={seteveryscrapedData}
+            allSearchTermBodies={allSearchTermBodies}
+            setallSearchTermBodies={setallSearchTermBodies}
+            onClearContent={handleClearContent}
+            setallsummery={setallsummery}
+            allsummery={allsummery}
+            existingResponse={existingResponse}
+            setexistingResponse={setexistingResponse}
+            currentPage={currentPage}
+            setCurrentPage={setCurrentPage}
+            prevPageToken={prevPageToken}
+            nextPageToken={nextPageToken}
+            fetchAndDisplayEmailBodies={fetchAndDisplayEmailBodies}
+            selectedZohoviewId={selectedZohoviewId}
+            onClearExistingResponse={setClearExistingResponse}
+            isResetEnabled={!isProcessing} // Pass isResetEnabled as a separate prop
+            zohoClient={zohoClient} // Add this new prop
+          />
+        </>
+      )}
+      {tab === "Excel" && (
+        <DataFile
+          selectedClient={selectedClient}
+          onDataProcessed={handleExcelDataProcessed}
+          isProcessing={isProcessing}
+        />
+      )}
+    </div>
+  );
+};
+export default MainPage;

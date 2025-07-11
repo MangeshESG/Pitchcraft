@@ -1,0 +1,9 @@
+node_modules/
+# Ignore build artifacts
+dist/
+build/
+.cache/
+
+# Ignore system files
+.DS_Store
+Thumbs.db
