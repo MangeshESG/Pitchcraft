@@ -717,83 +717,82 @@ const MainPage: React.FC = () => {
   const [emailData, setEmailData] = useState<any[]>([]);
 
   const fetchAndDisplayEmailBodies = useCallback(
-  async (
-    zohoviewId: string, // Format: "clientId,dataFileId"
-    pageToken: string | null = null,
-    direction: "next" | "previous" | null = null
-  ) => {
-    try {
-      setEmailLoading(true);
+    async (
+      zohoviewId: string, // Format: "clientId,dataFileId"
+      pageToken: string | null = null,
+      direction: "next" | "previous" | null = null
+    ) => {
+      try {
+        setEmailLoading(true);
 
-      const effectiveUserId =
-        selectedClient !== "" ? Number(selectedClient) : Number(userId);
+        const effectiveUserId =
+          selectedClient !== "" ? Number(selectedClient) : Number(userId);
 
-      if (!effectiveUserId || effectiveUserId <= 0) {
-        console.error("Invalid userId or clientID:", effectiveUserId);
-        return;
+        if (!effectiveUserId || effectiveUserId <= 0) {
+          console.error("Invalid userId or clientID:", effectiveUserId);
+          return;
+        }
+
+        // Parse zohoviewId to get clientId and dataFileId
+        const [clientId, dataFileId] = zohoviewId.split(",");
+
+        // ✅ Use effectiveUserId instead of selectedClient in URL
+        const url = `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${dataFileId}`;
+
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error("Failed to fetch email bodies");
+        }
+
+        const fetchedEmailData = await response.json();
+        const contactsData = fetchedEmailData.contacts || [];
+
+        if (!Array.isArray(contactsData)) {
+          console.error("Invalid data format");
+          return;
+        }
+
+        const emailResponses = contactsData.map((entry: any) => ({
+          id: entry.id,
+          name: entry.full_name || "N/A",
+          title: entry.job_title || "N/A",
+          company: entry.company_name || "N/A",
+          location: entry.country_or_address || "N/A",
+          website: entry.website || "N/A",
+          linkedin: entry.linkedin_url || "N/A",
+          pitch: entry.email_body || "No email body found",
+          timestamp: entry.created_at || new Date().toISOString(),
+          nextPageToken: null,
+          prevPageToken: null,
+          generated: false,
+          subject: entry.email_subject || "N/A",
+          email: entry.email || "N/A",
+          lastemailupdateddate: entry.updated_at || "N/A",
+          emailsentdate: entry.email_sent_at || "N/A",
+        }));
+
+        const newItemsCount = emailResponses.length;
+        const naPlaceholders = new Array(newItemsCount).fill("NA");
+        const emptyArrayPlaceholders = new Array(newItemsCount).fill([]);
+
+        setexistingResponse(emailResponses);
+        setAllResponses(emailResponses);
+        setallprompt(naPlaceholders);
+        setallsearchResults(emptyArrayPlaceholders);
+        seteveryscrapedData(naPlaceholders);
+        setallsummery(naPlaceholders);
+        setallSearchTermBodies(naPlaceholders);
+        setCurrentIndex(0);
+        setNextPageToken(null);
+        setPrevPageToken(null);
+      } catch (error) {
+        console.error("Error fetching email bodies:", error);
+      } finally {
+        setEmailLoading(false);
       }
-
-      // Parse zohoviewId to get clientId and dataFileId
-      const [clientId, dataFileId] = zohoviewId.split(",");
-
-      // ✅ Use effectiveUserId instead of selectedClient in URL
-      const url = `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${dataFileId}`;
-
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error("Failed to fetch email bodies");
-      }
-
-      const fetchedEmailData = await response.json();
-      const contactsData = fetchedEmailData.contacts || [];
-
-      if (!Array.isArray(contactsData)) {
-        console.error("Invalid data format");
-        return;
-      }
-
-      const emailResponses = contactsData.map((entry: any) => ({
-        id: entry.id,
-        name: entry.full_name || "N/A",
-        title: entry.job_title || "N/A",
-        company: entry.company_name || "N/A",
-        location: entry.country_or_address || "N/A",
-        website: entry.website || "N/A",
-        linkedin: entry.linkedin_url || "N/A",
-        pitch: entry.email_body || "No email body found",
-        timestamp: entry.created_at || new Date().toISOString(),
-        nextPageToken: null,
-        prevPageToken: null,
-        generated: false,
-        subject: entry.email_subject || "N/A",
-        email: entry.email || "N/A",
-        lastemailupdateddate: entry.updated_at || "N/A",
-        emailsentdate: entry.email_sent_at || "N/A",
-      }));
-
-      const newItemsCount = emailResponses.length;
-      const naPlaceholders = new Array(newItemsCount).fill("NA");
-      const emptyArrayPlaceholders = new Array(newItemsCount).fill([]);
-
-      setexistingResponse(emailResponses);
-      setAllResponses(emailResponses);
-      setallprompt(naPlaceholders);
-      setallsearchResults(emptyArrayPlaceholders);
-      seteveryscrapedData(naPlaceholders);
-      setallsummery(naPlaceholders);
-      setallSearchTermBodies(naPlaceholders);
-      setCurrentIndex(0);
-      setNextPageToken(null);
-      setPrevPageToken(null);
-    } catch (error) {
-      console.error("Error fetching email bodies:", error);
-    } finally {
-      setEmailLoading(false);
-    }
-  },
-  [selectedClient, userId, API_BASE_URL]
-);
-
+    },
+    [selectedClient, userId, API_BASE_URL]
+  );
 
   const sendEmail = async (
     cost: number,
@@ -1004,9 +1003,9 @@ const MainPage: React.FC = () => {
 
     const startTime = new Date();
 
-     let parsedClientId: number;
+    let parsedClientId: number;
     let parsedDataFileId: number;
-    
+
     if (selectedZohoviewId && selectedZohoviewId.includes(",")) {
       const [clientIdStr, dataFileIdStr] = selectedZohoviewId.split(",");
       parsedClientId = parseInt(clientIdStr);
@@ -1014,12 +1013,15 @@ const MainPage: React.FC = () => {
     } else {
       // Fallback if format is different
       parsedDataFileId = parseInt(selectedZohoviewId);
-      parsedClientId = selectedClient !== "" ? Number(selectedClient) : Number(userId);
+      parsedClientId =
+        selectedClient !== "" ? Number(selectedClient) : Number(userId);
     }
 
     // Use the parsed client ID consistently throughout
-    const effectiveUserId = parsedClientId || (selectedClient !== "" ? Number(selectedClient) : Number(userId));
-    
+    const effectiveUserId =
+      parsedClientId ||
+      (selectedClient !== "" ? Number(selectedClient) : Number(userId));
+
     if (!effectiveUserId || effectiveUserId <= 0) {
       console.error("Invalid userId or clientID:", effectiveUserId);
       return;
@@ -1027,7 +1029,7 @@ const MainPage: React.FC = () => {
 
     setStartTime(startTime);
     let generatedPitches: any[] = []; // Declare and initialize generatedPitches
-    
+
     try {
       setIsProcessing(true);
       // ======= REGENERATION BLOCK START =======
@@ -1114,8 +1116,6 @@ const MainPage: React.FC = () => {
           scrapeData = processCacheRef.current[cacheKey];
           cacheHit = true;
         } else {
-          const instructionsParam = encodeURIComponent(instructionsParamA);
-
           setOutputForm((prev) => ({
             ...prev,
             generatedContent:
@@ -1126,13 +1126,16 @@ const MainPage: React.FC = () => {
               }</span><br/>` + prev.generatedContent,
           }));
           const scrapeResponse = await fetch(
-            `${API_BASE_URL}/api/auth/process?instructions=${instructionsParam}&modelName=${encodeURIComponent(
-              selectedModelNameA
-            )}&searchCount=${encodeURIComponent(searchCount)}`,
+            `${API_BASE_URL}/api/auth/process`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(searchTermBody),
+              body: JSON.stringify({
+                searchTerm: searchTermBody,
+                instructions: filledInstructions,
+                modelName: selectedModelNameA,
+                searchCount: searchCount,
+              }),
             }
           );
           if (!scrapeResponse.ok) {
@@ -1323,9 +1326,7 @@ const MainPage: React.FC = () => {
           }));
         }
 
-
-
-    try {
+        try {
           if (id && pitchData.response?.content && parsedDataFileId) {
             const updateContactResponse = await fetch(
               `${API_BASE_URL}/api/crm/contacts/update-email`,
@@ -1343,7 +1344,6 @@ const MainPage: React.FC = () => {
                 }),
               }
             );
-
 
             if (!updateContactResponse.ok) {
               const updateContactError = await updateContactResponse.json();
@@ -1607,12 +1607,6 @@ const MainPage: React.FC = () => {
             scrapeData = processCacheRef.current[cacheKey];
             cacheHit = true;
           } else {
-            const instructionsParam = encodeURIComponent(instructionsParamA);
-            const modelNameParam = encodeURIComponent(selectedModelNameA);
-            const searchCountParam = encodeURIComponent(
-              searchTermForm.searchCount
-            );
-
             setOutputForm((prevOutputForm) => ({
               ...prevOutputForm,
               generatedContent:
@@ -1624,13 +1618,16 @@ const MainPage: React.FC = () => {
             }));
 
             const scrapeResponse = await fetch(
-              `${API_BASE_URL}/api/auth/process?instructions=${instructionsParam}&modelName=${encodeURIComponent(
-                selectedModelNameA
-              )}&searchCount=${encodeURIComponent(searchCount)}`,
+              `${API_BASE_URL}/api/auth/process`,
               {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(searchTermBody),
+                body: JSON.stringify({
+                  searchTerm: searchTermBody,
+                  instructions: filledInstructions,
+                  modelName: selectedModelNameA,
+                  searchCount: searchCount,
+                }),
               }
             );
             if (!scrapeResponse.ok) {
@@ -2008,24 +2005,24 @@ const MainPage: React.FC = () => {
           const dataFileIdStr = selectedZohoviewId;
 
           // Update database with new API
-           try {
-                    if (entry.id && pitchData.response.content && parsedDataFileId) {
-                      const updateContactResponse = await fetch(
-                        `${API_BASE_URL}/api/crm/contacts/update-email`,
-                        {
-                          method: "POST",
-                          headers: {
-                            "Content-Type": "application/json",
-                          },
-                          body: JSON.stringify({
-                            ClientId: effectiveUserId, // Use consistent value
-                            DataFileId: parsedDataFileId, // Use parsed value
-                            ContactId: entry.id,
-                            EmailSubject: subjectLine,
-                            EmailBody: pitchData.response.content,
-                          }),
-                        }
-                      );
+          try {
+            if (entry.id && pitchData.response.content && parsedDataFileId) {
+              const updateContactResponse = await fetch(
+                `${API_BASE_URL}/api/crm/contacts/update-email`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    ClientId: effectiveUserId, // Use consistent value
+                    DataFileId: parsedDataFileId, // Use parsed value
+                    ContactId: entry.id,
+                    EmailSubject: subjectLine,
+                    EmailBody: pitchData.response.content,
+                  }),
+                }
+              );
 
               if (!updateContactResponse.ok) {
                 const updateContactError = await updateContactResponse.json();

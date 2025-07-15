@@ -1807,7 +1807,9 @@ const Output: React.FC<OutputInterface> = ({
                           await handleSendEmail(subject); // 👈 Pass subject here
                         }}
                         disabled={
-                          !combinedResponses[currentIndex] || sendingEmail
+                          !combinedResponses[currentIndex] ||
+                          sendingEmail ||
+                          sessionStorage.getItem("isDemoAccount") === "true"
                         }
                         style={{
                           cursor:
