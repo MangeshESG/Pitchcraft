@@ -28,6 +28,7 @@ import { useDispatch } from "react-redux";
 import { useModel } from "../ModelContext";
 import { fetchClientSettings } from "../slices/clientSettingsSlice"; // adjust path if needed
 import { AppDispatch } from "../Redux/store"; // ✅ import AppDispatch
+import DataCampaigns from "./feature/DataCampaigns"; // Adjust the path based on your file structure
 
 interface Prompt {
   id: number;
@@ -2777,430 +2778,557 @@ const MainPage: React.FC = () => {
 
   return (
     <div className="login-container pitch-page flex-col d-flex">
-      <Header connectTo={true} />
-      <div className="d-flex justify-between main-head tab-head">
-        <div className="d-flex align-start justify-between full-width inner">
-          <div className="d-flex group-inner justify-start full-width">
-            <div className="tabs">
-              <ul className="d-flex">
-                <li>
-                  <button
-                    onClick={tabHandler}
-                    className={`button ${tab === "Template" ? "active" : ""}`}
-                    title="Click to view the original non-personalized email template"
-                  >
-                    Template
-                  </button>
-                </li>
-                <li>
-                  <button
-                    onClick={tabHandler}
-                    className={`button ${tab === "Output" ? "active" : ""}`}
-                    title="Click to view the hyper-personalized emails being generated"
-                  >
-                    Output
-                  </button>
-                </li>
-                {userRole === "ADMIN" && (
-                  <li>
-                    <button
-                      onClick={tabHandler}
-                      className={`button ${tab === "Mail" ? "active" : ""}`}
-                    >
-                      Mail
-                    </button>
-                  </li>
-                )}
-                {userRole === "ADMIN" && (
-                  <li>
-                    <button
-                      onClick={tabHandler}
-                      className={`button ${tab === "Settings" ? "active" : ""}`}
-                    >
-                      Settings
-                    </button>
-                  </li>
-                )}
-              </ul>
-            </div>
-            {/* White box container for buttons */}
-            <div className="ml-10 mr-10 mt-10">
-              {!isStarted ? (
+        <Header 
+      connectTo={true}
+      selectedClient={selectedClient}
+      handleClientChange={handleClientChange}
+      clientNames={clientNames}
+      userRole={userRole}
+    />
+
+      <div className="main-content-wrapper d-flex">
+        {/* Side Menu */}
+        <div className="side-menu">
+          <div className="side-menu-inner">
+            <ul className="side-menu-list">
+              <li className={tab === "Template" ? "active" : ""}>
                 <button
-                  className="white-button"
-                  onClick={handleStart}
-                  disabled={
-                    (!selectedPrompt?.name || !selectedZohoviewId) &&
-                    !selectedCampaign
-                  }
-                  title="Click to generate hyper-personalized emails using the selected template for contacts in the selected data file"
+                  onClick={() => setTab("Template")}
+                  className="side-menu-button"
+                  title="Click to view the original non-personalized email template"
                 >
-                  Start
+                  <span className="menu-icon">📄</span>
+                  <span className="menu-text">Template</span>
                 </button>
-              ) : (
-                <>
+              </li>
+              <li className={tab === "DataCampaigns" ? "active" : ""}>
+                <button
+                  onClick={() => setTab("DataCampaigns")}
+                  className="side-menu-button"
+                  title="Manage data files and campaigns"
+                >
+                  <span className="menu-icon">📊</span>
+                  <span className="menu-text">Lists</span>
+                </button>
+              </li>
+              <li className={tab === "Output" ? "active" : ""}>
+                <button
+                  onClick={() => setTab("Output")}
+                  className="side-menu-button"
+                  title="Click to view the hyper-personalized emails being generated"
+                >
+                  <span className="menu-icon">📤</span>
+                  <span className="menu-text">Output</span>
+                </button>
+              </li>
+              {userRole === "ADMIN" && (
+                <li className={tab === "Mail" ? "active" : ""}>
                   <button
-                    className="white-button"
-                    onClick={handlePauseResume}
-                    disabled={
-                      isPaused && (!isPitchUpdateCompleted || isProcessing)
-                    }
-                    title={
-                      isPaused
-                        ? allRecordsProcessed
-                          ? "Click to start a new process"
-                          : "Click to resume the generation of emails"
-                        : "Click to pause the generation of emails"
-                    }
+                    onClick={() => setTab("Mail")}
+                    className="side-menu-button"
                   >
-                    {isPaused
-                      ? allRecordsProcessed
-                        ? "Start"
-                        : "Resume"
-                      : "Pause"}
+                    <span className="menu-icon">✉️</span>
+                    <span className="menu-text">Mail</span>
                   </button>
-
-                  {/* Reset button next to Start when visible */}
-                  {isPaused && (
-                    <button
-                      className="white-button reset ml-10"
-                      onClick={handleReset}
-                      disabled={
-                        !isPitchUpdateCompleted || isProcessing || !isPaused
-                      }
-                      title="Click to reset so that the generation of emails begins again from the first of the contacts in the selected data file"
-                    >
-                      Reset
-                    </button>
-                  )}
-                </>
+                </li>
               )}
-            </div>
-          </div>
-          <div className="button-group justify-between mb-0 full-width-1200 full-width">
-            <div className="d-flex justify-between align-center radio-group flex-col-768 pad-9 full-width">
-              <div className="row mb-2">
-                <div className="col">
-                  {userRole === "ADMIN" && (
-                    <div className="form-group d-flex align-center mb-0 ml-10 mr-10">
-                      <label className="font-size-medium font-500 mb-0 mr-10 nowrap">
-                        Select Client:
-                      </label>
-                      <select
-                        value={selectedClient}
-                        onChange={handleClientChange}
-                        className="height-35 max-width-200"
-                      >
-                        <option value="">--Please choose a client--</option>
-                        {clientNames.map((client: Client, index: number) => (
-                          <option key={index} value={client.clientID}>
-                            {`${client.firstName} ${client.lastName} - ${client.companyName} - ${client.clientID}`}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="d-flex mt-10-768 flex-wrap-640 justify-center">
-                {/* Add the checkbox here */}
-                {!isDemoAccount && (
-                  <div className="row mb-2 mb-2">
-                    <div className="col align-center d-flex">
-                      <div className="options checkbox-options">
-                        <ul className="d-flex row">
-                          <li className="col">
-                            <label>
-                              <input
-                                type="checkbox"
-                                checked={settingsForm.overwriteDatabase}
-                                name="overwriteDatabase"
-                                id="overwriteDatabase"
-                                onChange={settingsFormHandler}
-                              />
-                              <span>Overwrite database</span>
-                            </label>
-                          </li>
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {!isDemoAccount && (
-                  <div className="form-group d-flex align-center mb-0">
-                    <label className="font-size-medium font-500 ml-5 mb-0 mr-10">
-                      Delay(secs)
-                    </label>
-                    <input
-                      type="number"
-                      value={delayTime}
-                      onChange={(e: any) => setDelay(e.target.value)}
-                      className="height-35"
-                      style={{ width: "55px", paddingRight: "3px" }}
-                    />
-                  </div>
-                )}
-
-                {userRole === "ADMIN" && (
+              {userRole === "ADMIN" && (
+                <li className={tab === "Settings" ? "active" : ""}>
                   <button
-                    className="secondary button ml-10 nowrap"
-                    onClick={handleClearAll}
-                    disabled={
-                      !isPitchUpdateCompleted || isProcessing || !isPaused
-                    }
-                    title="Clear all data and reset the application state"
+                    onClick={() => setTab("Settings")}
+                    className="side-menu-button"
                   >
-                    Reset all
+                    <span className="menu-icon">⚙️</span>
+                    <span className="menu-text">Settings</span>
                   </button>
-                )}
-              </div>
-              {/* Stop Confirmation Popup */}
-              {showPopup && (
-                <div className="popup">
-                  <p>Do you want to stop the process?</p>
-                  <button onClick={() => handlePopupResponse(true)}>Yes</button>
-                  <button onClick={() => handlePopupResponse(false)}>No</button>
-                </div>
+                </li>
               )}
-            </div>
+            </ul>
           </div>
         </div>
-      </div>
-      {tab === "Template" && (
-        <>
-          <div className="login-box gap-down d-flex mb-20">
-            <DataFile
-              selectedClient={selectedClient}
-              onDataProcessed={handleExcelDataProcessed}
-              isProcessing={isProcessing}
-            />
-          </div>
 
-          <div className="login-box gap-down d-flex">
-            <div className="input-section edit-section">
-              <div className="row flex-col-768">
-                <div className="col col-3  col-12-768">
-                  <div className="form-group">
-                    <label>
-                      Campaign <span className="required">*</span>{" "}
-                    </label>
-                    <select
-                      onChange={handleCampaignChange}
-                      value={selectedCampaign}
-                      disabled={
-                        selectionMode === "manual" &&
-                        (!!selectedPrompt?.name || !!selectedZohoviewId)
-                      } // Disable if prompt or data file is manually selected
-                    >
-                      <option value="">Select a campaign</option>
-                      {campaigns.map((campaign) => (
-                        <option
-                          key={campaign.id}
-                          value={campaign.id.toString()}
-                        >
-                          {campaign.campaignName}
-                        </option>
-                      ))}
-                    </select>
-                    {!selectedCampaign && (
-                      <small className="error-text">
-                        Please select a campaign
-                      </small>
-                    )}
-                  </div>
-                  {selectedCampaign &&
-                    campaigns.find((c) => c.id.toString() === selectedCampaign)
-                      ?.description && (
-                      <div className="campaign-description-container">
-                        <small className="campaign-description">
-                          {
-                            campaigns.find(
-                              (c) => c.id.toString() === selectedCampaign
-                            )?.description
-                          }
-                        </small>
+        {/* Main Content Area */}
+        <div className="main-content">
+         
+
+          {/* Tab Content */}
+          <div className="tab-content">
+            {tab === "Template" && (
+              <>
+                <div className="login-box gap-down d-flex">
+                  <div className="input-section edit-section">
+                    <div className="row flex-col-768">
+                      <div className="col col-3 col-12-768">
+                        <div className="form-group">
+                          <label>
+                            Campaign <span className="required">*</span>
+                          </label>
+                          <select
+                            onChange={handleCampaignChange}
+                            value={selectedCampaign}
+                            disabled={
+                              selectionMode === "manual" &&
+                              (!!selectedPrompt?.name || !!selectedZohoviewId)
+                            }
+                          >
+                            <option value="">Select a campaign</option>
+                            {campaigns.map((campaign) => (
+                              <option
+                                key={campaign.id}
+                                value={campaign.id.toString()}
+                              >
+                                {campaign.campaignName}
+                              </option>
+                            ))}
+                          </select>
+                          {!selectedCampaign && (
+                            <small className="error-text">
+                              Please select a campaign
+                            </small>
+                          )}
+                        </div>
+                        {selectedCampaign &&
+                          campaigns.find(
+                            (c) => c.id.toString() === selectedCampaign
+                          )?.description && (
+                            <div className="campaign-description-container">
+                              <small className="campaign-description">
+                                {
+                                  campaigns.find(
+                                    (c) => c.id.toString() === selectedCampaign
+                                  )?.description
+                                }
+                              </small>
+                            </div>
+                          )}
                       </div>
-                    )}
-                </div>
 
-                <div className="col col-3 col-12-768">
-                  <div className="form-group">
-                    <label>Original non-personalized email templates </label>
-                    <select
-                      onChange={handleSelectChange}
-                      value={selectedPrompt?.name || ""}
-                      className={
-                        !selectedPrompt?.name ? "highlight-required" : ""
-                      }
-                      disabled={
-                        userRole !== "ADMIN" || selectionMode === "campaign"
-                      } // Disable if not admin or if campaign is selected
-                    >
-                      <option value="">Please select a template</option>
-                      {promptList.map((prompt: Prompt) => (
-                        <option key={prompt.id} value={prompt.name}>
-                          {prompt.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
+                      <div className="col col-3 col-12-768">
+                        <div className="form-group">
+                          <label>
+                            Original non-personalized email templates
+                          </label>
+                          <select
+                            onChange={handleSelectChange}
+                            value={selectedPrompt?.name || ""}
+                            className={
+                              !selectedPrompt?.name ? "highlight-required" : ""
+                            }
+                            disabled={
+                              userRole !== "ADMIN" ||
+                              selectionMode === "campaign"
+                            }
+                          >
+                            <option value="">Please select a template</option>
+                            {promptList.map((prompt: Prompt) => (
+                              <option key={prompt.id} value={prompt.name}>
+                                {prompt.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
 
-                <div className="col col-3 col-12-768">
-                  <div className="form-group">
-                    <label>Data files of contacts</label>
-                    <select
-                      name="model"
-                      id="model"
-                      onChange={handleZohoModelChange} // You might want to rename this to handleDataFileChange
-                      value={selectedZohoviewId} // You might want to rename this to selectedDataFileId
-                      className={
-                        !selectedZohoviewId ? "highlight-required" : ""
-                      }
-                      disabled={
-                        userRole !== "ADMIN" || selectionMode === "campaign"
-                      } // Disable if not admin or if campaign is selected
-                    >
-                      <option value="">Please select a data file</option>
-                      {dataFiles.map((file) => (
-                        <option key={file.id} value={file.id}>
-                          {file.name} - {file.data_file_name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  {emailLoading && (
-                    <div className="loader-overlay">
-                      <div className="loader"></div>
+                      <div className="col col-3 col-12-768">
+                        <div className="form-group">
+                          <label>Data files of contacts</label>
+                          <select
+                            name="model"
+                            id="model"
+                            onChange={handleZohoModelChange}
+                            value={selectedZohoviewId}
+                            className={
+                              !selectedZohoviewId ? "highlight-required" : ""
+                            }
+                            disabled={
+                              userRole !== "ADMIN" ||
+                              selectionMode === "campaign"
+                            }
+                          >
+                            <option value="">Please select a data file</option>
+                            {dataFiles.map((file) => (
+                              <option key={file.id} value={file.id}>
+                                {file.name} - {file.data_file_name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        {emailLoading && (
+                          <div className="loader-overlay">
+                            <div className="loader"></div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="col col-3 col-12-768">
+                        <div className="form-group">
+                          <label>Language</label>
+                          <select
+                            onChange={handleLanguageChange}
+                            value={selectedLanguage}
+                          >
+                            <option value="">Select a language</option>
+                            {Object.values(Languages)
+                              .sort((a, b) => a.localeCompare(b))
+                              .map((language, index) => (
+                                <option key={index} value={language}>
+                                  {language}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+                      </div>
                     </div>
-                  )}
-                </div>
 
-                <div className="col col-3  col-12-768">
-                  <div className="form-group">
-                    <label>Language</label>
-                    <select
-                      onChange={handleLanguageChange}
-                      value={selectedLanguage}
-                    >
-                      <option value="">Select a language</option>
-                      {Object.values(Languages)
-                        .sort((a, b) => a.localeCompare(b)) // Sort languages alphabetically
-                        .map((language, index) => (
-                          <option key={index} value={language}>
-                            {language}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-              <div className="row flex-col-768">
-                <div className="col col-3 col-12-768">
-                  <div className="form-group d-flex align-center">
-                    <label
-                      style={{ minWidth: 66, marginRight: 10, marginBottom: 0 }}
-                    >
-                      Subject <span className="required">*</span>
-                    </label>
-                    <select
-                      onChange={(e) => setSubjectMode(e.target.value)}
-                      value={subjectMode}
-                      className="height-35"
-                      style={{ minWidth: 150 }}
-                    >
-                      <option value="AI generated">AI generated</option>
-                      <option value="With Placeholder">With placeholder</option>
-                    </select>
-                    <input
-                      type="text"
-                      placeholder="Enter subject here"
-                      value={subjectText}
-                      onChange={(e) => setSubjectText(e.target.value)}
-                      disabled={subjectMode !== "With Placeholder"}
-                      className="height-35 ml-10"
-                      style={{
-                        minWidth: 700,
-                        flex: "1 1 auto",
-                        boxSizing: "border-box",
-                        marginLeft: 16,
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="row">
-                <div className="col-12 col">
-                  {userRole === "ADMIN" && (
-                    <div className="tabs secondary d-flex justify-between-991 flex-col-768 bb-0-768">
-                      <ul className="d-flex bb-1-768">
-                        <li>
-                          <button
-                            type="button"
-                            onClick={tabHandler2}
-                            className={`button ${
-                              tab2 === "Template" ? "active" : ""
-                            }`}
+                    <div className="row flex-col-768">
+                      <div className="col col-12">
+                        <div className="form-group d-flex align-center">
+                          <label
+                            style={{
+                              minWidth: 66,
+                              marginRight: 10,
+                              marginBottom: 0,
+                            }}
                           >
-                            Template
-                          </button>
-                        </li>
+                            Subject <span className="required">*</span>
+                          </label>
+                          <select
+                            onChange={(e) => setSubjectMode(e.target.value)}
+                            value={subjectMode}
+                            className="height-35"
+                            style={{ minWidth: 150 }}
+                          >
+                            <option value="AI generated">AI generated</option>
+                            <option value="With Placeholder">
+                              With placeholder
+                            </option>
+                          </select>
+                          <input
+                            type="text"
+                            placeholder="Enter subject here"
+                            value={subjectText}
+                            onChange={(e) => setSubjectText(e.target.value)}
+                            disabled={subjectMode !== "With Placeholder"}
+                            className="height-35 ml-10"
+                            style={{
+                              minWidth: 700,
+                              flex: "1 1 auto",
+                              boxSizing: "border-box",
+                              marginLeft: 16,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </div>
 
-                        <li>
-                          <button
-                            type="button"
-                            onClick={tabHandler2}
-                            className={`button ${
-                              tab2 === "Instructions" ? "active" : ""
-                            }`}
-                          >
-                            Instructions
-                          </button>
-                        </li>
-                      </ul>
-                      <div className="d-flex align-self-center ml-10 ml-768-0 mt-10-768 flex-col-480 full-width">
-                        <ReactTooltip
-                          anchorSelect="#output-edit-prompt-tooltip"
-                          place="top"
-                        >
-                          Edit prompt
-                        </ReactTooltip>
-                        <button
-                          id="output-edit-prompt-tooltip"
-                          className={`save-button button justify-center square-40 d-flex align-center button-full-width-480 mb-10-480 ${
-                            selectedPrompt?.name !== "Select a prompt"
-                              ? ""
-                              : "disabled" // Simplified conditional
-                          }`}
-                          disabled={
-                            !selectedPrompt?.name ||
-                            selectedPrompt?.name === "Select a prompt"
-                          }
-                          onClick={() => {
-                            handleModalOpen("modal-edit-prompt");
-                            setEditHandler();
-                          }} // Improved disabled logic
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="22px"
-                            height="22px"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                          >
-                            <path
-                              d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
-                              stroke="#ffffff"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            />
-                          </svg>
-                          {/* <span>Edit prompt</span> */}
-                        </button>
+                    <div className="row">
+                      <div className="col-12 col">
+                        {userRole === "ADMIN" && (
+                          <div className="tabs secondary d-flex justify-between-991 flex-col-768 bb-0-768">
+                            <ul className="d-flex bb-1-768">
+                              <li>
+                                <button
+                                  type="button"
+                                  onClick={tabHandler2}
+                                  className={`button ${
+                                    tab2 === "Template" ? "active" : ""
+                                  }`}
+                                >
+                                  Template
+                                </button>
+                              </li>
+                              <li>
+                                <button
+                                  type="button"
+                                  onClick={tabHandler2}
+                                  className={`button ${
+                                    tab2 === "Instructions" ? "active" : ""
+                                  }`}
+                                >
+                                  Instructions
+                                </button>
+                              </li>
+                            </ul>
 
-                        <span className="d-flex justify-right ml-10 ml-0-480 ">
+                            <div className="d-flex align-self-center ml-10 ml-768-0 mt-10-768 flex-col-480 full-width">
+                              <ReactTooltip
+                                anchorSelect="#output-edit-prompt-tooltip"
+                                place="top"
+                              >
+                                Edit prompt
+                              </ReactTooltip>
+                              <button
+                                id="output-edit-prompt-tooltip"
+                                className={`save-button button justify-center square-40 d-flex align-center button-full-width-480 mb-10-480 ${
+                                  selectedPrompt?.name !== "Select a prompt"
+                                    ? ""
+                                    : "disabled"
+                                }`}
+                                disabled={
+                                  !selectedPrompt?.name ||
+                                  selectedPrompt?.name === "Select a prompt"
+                                }
+                                onClick={() => {
+                                  handleModalOpen("modal-edit-prompt");
+                                  setEditHandler();
+                                }}
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  width="22px"
+                                  height="22px"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                >
+                                  <path
+                                    d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
+                                    stroke="#ffffff"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                              </button>
+
+                              <span className="d-flex justify-right ml-10 ml-0-480">
+                                <ReactTooltip
+                                  anchorSelect="#output-add-a-prompt-tooltip"
+                                  place="top"
+                                >
+                                  Add a prompt
+                                </ReactTooltip>
+                                <button
+                                  id="output-add-a-prompt-tooltip"
+                                  className="save-button button square-40 d-flex justify-center align-center button-full-width-480"
+                                  onClick={() =>
+                                    handleModalOpen("modal-add-prompt")
+                                  }
+                                >
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    fill="#FFFFFF"
+                                    viewBox="0 0 30 30"
+                                    width="22px"
+                                    height="22px"
+                                  >
+                                    <path d="M15,3C8.373,3,3,8.373,3,15c0,6.627,5.373,12,12,12s12-5.373,12-12C27,8.373,21.627,3,15,3z M21,16h-5v5 c0,0.553-0.448,1-1,1s-1-0.447-1-1v-5H9c-0.552,0-1-0.447-1-1s0.448-1,1-1h5V9c0-0.553,0.448-1,1-1s1,0.447,1,1v5h5 c0.552,0,1,0.447,1,1S21.552,16,21,16z" />
+                                  </svg>
+                                </button>
+
+                                <ReactTooltip
+                                  anchorSelect="#output-delete-prompt-tooltip"
+                                  place="top"
+                                >
+                                  Delete prompt
+                                </ReactTooltip>
+                                <button
+                                  id="output-delete-prompt-tooltip"
+                                  className="secondary button square-40 d-flex justify-center align-center ml-10 button-full-width-480"
+                                  disabled={
+                                    !selectedPrompt?.name ||
+                                    selectedPrompt?.name === "Select a prompt"
+                                  }
+                                  onClick={() =>
+                                    handleModalOpen("modal-confirm-delete")
+                                  }
+                                >
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    fill="#FFFFFF"
+                                    viewBox="0 0 50 50"
+                                    width="18px"
+                                    height="18px"
+                                    style={{
+                                      position: "relative",
+                                      marginTop: "-2px",
+                                    }}
+                                  >
+                                    <path d="M 21 2 C 19.354545 2 18 3.3545455 18 5 L 18 7 L 8 7 A 1.0001 1.0001 0 1 0 8 9 L 9 9 L 9 45 C 9 46.654 10.346 48 12 48 L 38 48 C 39.654 48 41 46.654 41 45 L 41 9 L 42 9 A 1.0001 1.0001 0 1 0 42 7 L 32 7 L 32 5 C 32 3.3545455 30.645455 2 29 2 L 21 2 z M 21 4 L 29 4 C 29.554545 4 30 4.4454545 30 5 L 30 7 L 20 7 L 20 5 C 20 4.4454545 20.445455 4 21 4 z M 19 14 C 19.552 14 20 14.448 20 15 L 20 40 C 20 40.553 19.552 41 19 41 C 18.448 41 18 40.553 18 40 L 18 15 C 18 14.448 18.448 14 19 14 z M 25 14 C 25.552 14 26 14.448 26 15 L 26 40 C 26 40.553 25.552 41 25 41 C 24.448 41 24 40.553 24 40 L 24 15 C 24 14.448 24.448 14 25 14 z M 31 14 C 31.553 14 32 14.448 32 15 L 32 40 C 32 40.553 31.553 41 31 41 C 30.447 41 30 40.553 30 40 L 30 15 C 30 14.448 30.447 14 31 14 z" />
+                                  </svg>
+                                </button>
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {tab2 === "Template" && (
+                          <div className="form-group">
+                            <label>Template</label>
+                            <span className="pos-relative">
+                              <pre
+                                className={`no-content height-400 ql-editor ${
+                                  !selectedPrompt?.template ? "text-light" : ""
+                                }`}
+                                dangerouslySetInnerHTML={{
+                                  __html:
+                                    selectedPrompt?.template ??
+                                    "Template will appear here",
+                                }}
+                              ></pre>
+
+                              <Modal
+                                show={openModals["modal-addInput"]}
+                                closeModal={() =>
+                                  handleModalClose("modal-addInput")
+                                }
+                                buttonLabel="Ok"
+                              >
+                                <label>Template</label>
+                                <ReactQuill
+                                  theme="snow"
+                                  className="adjust-quill-height"
+                                  value={
+                                    selectedPrompt
+                                      ? formatTextForDisplay(
+                                          selectedPrompt.text
+                                        )
+                                      : ""
+                                  }
+                                  defaultValue={selectedPrompt?.text}
+                                  onChange={(value: string) =>
+                                    handleViewPromptRTE(
+                                      formatTextForEditor(value)
+                                    )
+                                  }
+                                  modules={modules}
+                                />
+                              </Modal>
+                              <button
+                                className="full-view-icon d-flex align-center justify-center"
+                                type="button"
+                                onClick={() =>
+                                  handleModalOpen("modal-addInput")
+                                }
+                              >
+                                <svg
+                                  width="40px"
+                                  height="40px"
+                                  viewBox="0 0 512 512"
+                                >
+                                  <polyline
+                                    points="304 96 416 96 416 208"
+                                    fill="none"
+                                    stroke="#000000"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth="32"
+                                  />
+                                  <line
+                                    x1="405.77"
+                                    y1="106.2"
+                                    x2="111.98"
+                                    y2="400.02"
+                                    fill="none"
+                                    stroke="#000000"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth="32"
+                                  />
+                                  <polyline
+                                    points="208 416 96 416 96 304"
+                                    fill="none"
+                                    stroke="#000000"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth="32"
+                                  />
+                                </svg>
+                              </button>
+                            </span>
+                          </div>
+                        )}
+
+                        {tab2 === "Instructions" && userRole === "ADMIN" && (
+                          <div className="form-group">
+                            <label>Instructions</label>
+                            <span className="pos-relative">
+                              <pre
+                                className={`no-content height-400 ql-editor ${
+                                  !selectedPrompt?.text ? "text-light" : ""
+                                }`}
+                                dangerouslySetInnerHTML={{
+                                  __html:
+                                    selectedPrompt?.text ??
+                                    "Template will appear here",
+                                }}
+                              ></pre>
+
+                              <Modal
+                                show={openModals["modal-addInput"]}
+                                closeModal={() =>
+                                  handleModalClose("modal-addInput")
+                                }
+                                buttonLabel="Ok"
+                              >
+                                <label>Instructions</label>
+                                <ReactQuill
+                                  theme="snow"
+                                  className="adjust-quill-height"
+                                  value={
+                                    selectedPrompt
+                                      ? formatTextForDisplay(
+                                          selectedPrompt.text
+                                        )
+                                      : ""
+                                  }
+                                  defaultValue={selectedPrompt?.text}
+                                  onChange={(value: string) =>
+                                    handleViewPromptRTE(
+                                      formatTextForEditor(value)
+                                    )
+                                  }
+                                  modules={modules}
+                                />
+                              </Modal>
+                              <button
+                                className="full-view-icon d-flex align-center justify-center"
+                                type="button"
+                                onClick={() =>
+                                  handleModalOpen("modal-addInput")
+                                }
+                              >
+                                <svg
+                                  width="40px"
+                                  height="40px"
+                                  viewBox="0 0 512 512"
+                                >
+                                  <polyline
+                                    points="304 96 416 96 416 208"
+                                    fill="none"
+                                    stroke="#000000"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth="32"
+                                  />
+                                  <line
+                                    x1="405.77"
+                                    y1="106.2"
+                                    x2="111.98"
+                                    y2="400.02"
+                                    fill="none"
+                                    stroke="#000000"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth="32"
+                                  />
+                                  <polyline
+                                    points="208 416 96 416 96 304"
+                                    fill="none"
+                                    stroke="#000000"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth="32"
+                                  />
+                                </svg>
+                              </button>
+                            </span>
+                          </div>
+                        )}
+
+                        <div className="form-group d-flex justify-between mb-0">
+                          {/* Modals */}
+
+                          {/* Add Prompt Modal */}
                           <Modal
                             show={openModals["modal-add-prompt"]}
                             closeModal={() =>
@@ -3238,7 +3366,6 @@ const MainPage: React.FC = () => {
                                         Template
                                       </button>
                                     </li>
-
                                     <li>
                                       <button
                                         type="button"
@@ -3255,6 +3382,7 @@ const MainPage: React.FC = () => {
                                   </ul>
                                 </div>
                               )}
+
                               {tab4 === "Template" && (
                                 <div className="form-group edit-prompt-form-height">
                                   <label>Template</label>
@@ -3280,6 +3408,7 @@ const MainPage: React.FC = () => {
                                   </span>
                                 </div>
                               )}
+
                               {tab4 === "Instructions" &&
                                 userRole === "ADMIN" && (
                                   <div className="form-group edit-prompt-form-height">
@@ -3322,67 +3451,132 @@ const MainPage: React.FC = () => {
                               </div>
                             </form>
                           </Modal>
-                          <>
-                            <ReactTooltip
-                              anchorSelect="#output-add-a-prompt-tooltip"
-                              place="top"
+
+                          {/* Edit Prompt Modal */}
+                          <Modal
+                            show={openModals["modal-edit-prompt"]}
+                            closeModal={() =>
+                              handleModalClose("modal-edit-prompt")
+                            }
+                            buttonLabel="Close"
+                          >
+                            <form
+                              onSubmit={editPromptSubmitHandler}
+                              className="full-height"
                             >
-                              Add a prompt
-                            </ReactTooltip>
-                            <button
-                              id="output-add-a-prompt-tooltip"
-                              className="save-button button square-40 d-flex justify-center align-center button-full-width-480"
-                              onClick={() =>
-                                handleModalOpen("modal-add-prompt")
-                              }
-                            >
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="#FFFFFF"
-                                viewBox="0 0 30 30"
-                                width="22px"
-                                height="22px"
-                              >
-                                <path d="M15,3C8.373,3,3,8.373,3,15c0,6.627,5.373,12,12,12s12-5.373,12-12C27,8.373,21.627,3,15,3z M21,16h-5v5 c0,0.553-0.448,1-1,1s-1-0.447-1-1v-5H9c-0.552,0-1-0.447-1-1s0.448-1,1-1h5V9c0-0.553,0.448-1,1-1s1,0.447,1,1v5h5 c0.552,0,1,0.447,1,1S21.552,16,21,16z" />
-                              </svg>
-                              {/* <span className="ml-5">Add a prompt</span> */}
-                            </button>
-                          </>
-                          <>
-                            <ReactTooltip
-                              anchorSelect="#output-delete-prompt-tooltip"
-                              place="top"
-                            >
-                              Delete prompt
-                            </ReactTooltip>
-                            <button
-                              id="output-delete-prompt-tooltip"
-                              className="secondary button square-40 d-flex justify-center align-center ml-10 button-full-width-480"
-                              //onClick={deletePromptHandler}
-                              disabled={
-                                !selectedPrompt?.name ||
-                                selectedPrompt?.name === "Select a prompt"
-                              }
-                              onClick={() =>
-                                handleModalOpen("modal-confirm-delete")
-                              }
-                            >
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="#FFFFFF"
-                                viewBox="0 0 50 50"
-                                width="18px"
-                                height="18px"
-                                style={{
-                                  position: "relative",
-                                  marginTop: "-2px",
-                                }}
-                              >
-                                <path d="M 21 2 C 19.354545 2 18 3.3545455 18 5 L 18 7 L 8 7 A 1.0001 1.0001 0 1 0 8 9 L 9 9 L 9 45 C 9 46.654 10.346 48 12 48 L 38 48 C 39.654 48 41 46.654 41 45 L 41 9 L 42 9 A 1.0001 1.0001 0 1 0 42 7 L 32 7 L 32 5 C 32 3.3545455 30.645455 2 29 2 L 21 2 z M 21 4 L 29 4 C 29.554545 4 30 4.4454545 30 5 L 30 7 L 20 7 L 20 5 C 20 4.4454545 20.445455 4 21 4 z M 19 14 C 19.552 14 20 14.448 20 15 L 20 40 C 20 40.553 19.552 41 19 41 C 18.448 41 18 40.553 18 40 L 18 15 C 18 14.448 18.448 14 19 14 z M 25 14 C 25.552 14 26 14.448 26 15 L 26 40 C 26 40.553 25.552 41 25 41 C 24.448 41 24 40.553 24 40 L 24 15 C 24 14.448 24.448 14 25 14 z M 31 14 C 31.553 14 32 14.448 32 15 L 32 40 C 32 40.553 31.553 41 31 41 C 30.447 41 30 40.553 30 40 L 30 15 C 30 14.448 30.447 14 31 14 z" />
-                              </svg>
-                              {/* <span className="ml-5">Delete prompt</span> */}
-                            </button>
-                          </>
+                              <h2 className="left">Edit Prompt</h2>
+                              <div className="form-group">
+                                <label>Prompt name</label>
+                                <input
+                                  type="text"
+                                  name="promptName"
+                                  placeholder="Enter prompt name"
+                                  value={editPrompt?.promptName}
+                                  onChange={editPromptHandler}
+                                />
+                              </div>
+
+                              {userRole === "ADMIN" && (
+                                <div className="tabs secondary">
+                                  <ul className="d-flex">
+                                    <li>
+                                      <button
+                                        type="button"
+                                        onClick={tabHandler3}
+                                        className={`button ${
+                                          tab3 === "Template" ? "active" : ""
+                                        }`}
+                                      >
+                                        Template
+                                      </button>
+                                    </li>
+                                    <li>
+                                      <button
+                                        type="button"
+                                        onClick={tabHandler3}
+                                        className={`button ${
+                                          tab3 === "Instructions"
+                                            ? "active"
+                                            : ""
+                                        }`}
+                                      >
+                                        Instructions
+                                      </button>
+                                    </li>
+                                  </ul>
+                                </div>
+                              )}
+
+                              {tab3 === "Template" && (
+                                <div className="form-group edit-prompt-form-height">
+                                  <label>Template</label>
+                                  <span className="pos-relative">
+                                    <ReactQuill
+                                      className="height-350 adjust-quill-height"
+                                      theme="snow"
+                                      value={
+                                        editPrompt?.promptTemplate
+                                          ? formatTextForDisplay(
+                                              editPrompt?.promptTemplate
+                                            )
+                                          : ""
+                                      }
+                                      defaultValue={editPrompt?.promptTemplate}
+                                      onChange={(value: string) =>
+                                        handleEditPromptTemplateRTE(
+                                          formatTextForEditor(value)
+                                        )
+                                      }
+                                      modules={modules}
+                                    />
+                                  </span>
+                                </div>
+                              )}
+
+                              {tab3 === "Instructions" &&
+                                userRole === "ADMIN" && (
+                                  <div className="form-group edit-prompt-form-height">
+                                    <label>Instructions</label>
+                                    <span className="pos-relative">
+                                      <ReactQuill
+                                        className="height-350 adjust-quill-height"
+                                        theme="snow"
+                                        value={
+                                          editPrompt?.promptInput
+                                            ? formatTextForDisplay(
+                                                editPrompt?.promptInput
+                                              )
+                                            : ""
+                                        }
+                                        defaultValue={editPrompt?.promptInput}
+                                        onChange={(value: string) =>
+                                          handleEditPromptInputRTE(
+                                            formatTextForEditor(value)
+                                          )
+                                        }
+                                        modules={modules}
+                                      />
+                                    </span>
+                                  </div>
+                                )}
+
+                              <div className="form-group d-flex">
+                                <button
+                                  type="submit"
+                                  className="action-button button mr-10"
+                                >
+                                  Save changes
+                                </button>
+                                {editPromptAlert && (
+                                  <span className="alert alert-success ml-10">
+                                    Prompt edited successfully.
+                                  </span>
+                                )}
+                              </div>
+                            </form>
+                          </Modal>
+
+                          {/* Delete Confirmation Modal */}
                           <Modal
                             show={openModals["modal-confirm-delete"]}
                             closeModal={() =>
@@ -3411,386 +3605,139 @@ const MainPage: React.FC = () => {
                               </button>
                             </div>
                           </Modal>
-                        </span>
+                        </div>
                       </div>
                     </div>
-                  )}
-                  {tab2 === "Template" && (
-                    <div className="form-group">
-                      <label>Template</label>
-                      <span className="pos-relative">
-                        <pre
-                          className={`no-content height-400 ql-editor ${
-                            !selectedPrompt?.template ? "text-light" : ""
-                          }`}
-                          dangerouslySetInnerHTML={{
-                            __html:
-                              selectedPrompt?.template ??
-                              "Template will appear here",
-                          }}
-                        ></pre>
-
-                        <Modal
-                          show={openModals["modal-addInput"]}
-                          closeModal={() => handleModalClose("modal-addInput")}
-                          buttonLabel="Ok"
-                        >
-                          <label>Template</label>
-                          <ReactQuill
-                            theme="snow"
-                            className="adjust-quill-height"
-                            value={
-                              selectedPrompt
-                                ? formatTextForDisplay(selectedPrompt.text)
-                                : ""
-                            }
-                            defaultValue={selectedPrompt?.text}
-                            onChange={(value: string) =>
-                              handleViewPromptRTE(formatTextForEditor(value))
-                            }
-                            modules={modules}
-                          />
-                        </Modal>
-                        <button
-                          className="full-view-icon d-flex align-center justify-center"
-                          type="button"
-                          onClick={() => handleModalOpen("modal-addInput")}
-                        >
-                          <svg width="40px" height="40px" viewBox="0 0 512 512">
-                            <polyline
-                              points="304 96 416 96 416 208"
-                              fill="none"
-                              stroke="#000000"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="32"
-                            />
-                            <line
-                              x1="405.77"
-                              y1="106.2"
-                              x2="111.98"
-                              y2="400.02"
-                              fill="none"
-                              stroke="#000000"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="32"
-                            />
-                            <polyline
-                              points="208 416 96 416 96 304"
-                              fill="none"
-                              stroke="#000000"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="32"
-                            />
-                          </svg>
-                        </button>
-                      </span>
-                    </div>
-                  )}
-                  {tab2 === "Instructions" && userRole === "ADMIN" && (
-                    <div className="form-group">
-                      <label>Instructions</label>
-                      <span className="pos-relative">
-                        <pre
-                          className={`no-content height-400 ql-editor ${
-                            !selectedPrompt?.text ? "text-light" : ""
-                          }`}
-                          dangerouslySetInnerHTML={{
-                            __html:
-                              selectedPrompt?.text ??
-                              "Template will appear here",
-                          }}
-                        ></pre>
-
-                        <Modal
-                          show={openModals["modal-addInput"]}
-                          closeModal={() => handleModalClose("modal-addInput")}
-                          buttonLabel="Ok"
-                        >
-                          <label>Instructions</label>
-                          <ReactQuill
-                            theme="snow"
-                            className="adjust-quill-height"
-                            value={
-                              selectedPrompt
-                                ? formatTextForDisplay(selectedPrompt.text)
-                                : ""
-                            }
-                            defaultValue={selectedPrompt?.text}
-                            onChange={(value: string) =>
-                              handleViewPromptRTE(formatTextForEditor(value))
-                            }
-                            modules={modules}
-                          />
-                        </Modal>
-                        <button
-                          className="full-view-icon d-flex align-center justify-center"
-                          type="button"
-                          onClick={() => handleModalOpen("modal-addInput")}
-                        >
-                          <svg width="40px" height="40px" viewBox="0 0 512 512">
-                            <polyline
-                              points="304 96 416 96 416 208"
-                              fill="none"
-                              stroke="#000000"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="32"
-                            />
-                            <line
-                              x1="405.77"
-                              y1="106.2"
-                              x2="111.98"
-                              y2="400.02"
-                              fill="none"
-                              stroke="#000000"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="32"
-                            />
-                            <polyline
-                              points="208 416 96 416 96 304"
-                              fill="none"
-                              stroke="#000000"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="32"
-                            />
-                          </svg>
-                        </button>
-                      </span>
-                    </div>
-                  )}
-                  <div className="form-group d-flex justify-between mb-0">
-                    <Modal // Edit Prompt Modal
-                      show={openModals["modal-edit-prompt"]}
-                      closeModal={() => handleModalClose("modal-edit-prompt")}
-                      buttonLabel="Close"
-                    >
-                      <form
-                        onSubmit={editPromptSubmitHandler}
-                        className="full-height"
-                      >
-                        <h2 className="left">Edit Prompt</h2>
-                        <div className="form-group">
-                          <label>Prompt name</label>
-                          <input
-                            type="text"
-                            name="promptName"
-                            placeholder="Enter prompt name"
-                            value={editPrompt?.promptName}
-                            onChange={editPromptHandler}
-                          />
-                        </div>
-
-                        {userRole === "ADMIN" && (
-                          <div className="tabs secondary">
-                            <ul className="d-flex">
-                              <li>
-                                <button
-                                  type="button"
-                                  onClick={tabHandler3}
-                                  className={`button ${
-                                    tab3 === "Template" ? "active" : ""
-                                  }`}
-                                >
-                                  Template
-                                </button>
-                              </li>
-
-                              <li>
-                                <button
-                                  type="button"
-                                  onClick={tabHandler3}
-                                  className={`button ${
-                                    tab3 === "Instructions" ? "active" : ""
-                                  }`}
-                                >
-                                  Instructions
-                                </button>
-                              </li>
-                            </ul>
-                          </div>
-                        )}
-                        {tab3 === "Template" && (
-                          <div className="form-group edit-prompt-form-height">
-                            <label>Template</label>
-                            <span className="pos-relative">
-                              <ReactQuill
-                                className="height-350 adjust-quill-height"
-                                theme="snow"
-                                value={
-                                  editPrompt?.promptTemplate
-                                    ? formatTextForDisplay(
-                                        editPrompt?.promptTemplate
-                                      )
-                                    : ""
-                                }
-                                defaultValue={editPrompt?.promptTemplate}
-                                onChange={(value: string) =>
-                                  handleEditPromptTemplateRTE(
-                                    formatTextForEditor(value)
-                                  )
-                                }
-                                modules={modules}
-                              />
-                            </span>
-                          </div>
-                        )}
-                        {tab3 === "Instructions" && userRole === "ADMIN" && (
-                          <div className="form-group edit-prompt-form-height">
-                            <label>Instructions</label>
-                            <span className="pos-relative">
-                              <ReactQuill
-                                className="height-350 adjust-quill-height"
-                                theme="snow"
-                                value={
-                                  editPrompt?.promptInput
-                                    ? formatTextForDisplay(
-                                        editPrompt?.promptInput
-                                      )
-                                    : ""
-                                }
-                                defaultValue={editPrompt?.promptInput}
-                                onChange={(value: string) =>
-                                  handleEditPromptInputRTE(
-                                    formatTextForEditor(value)
-                                  )
-                                }
-                                modules={modules}
-                              />
-                            </span>
-                          </div>
-                        )}
-                        <div className="form-group d-flex">
-                          <button
-                            type="submit"
-                            className="action-button button mr-10"
-                          >
-                            Save changes
-                          </button>
-                          {editPromptAlert && (
-                            <span className="alert alert-success ml-10">
-                              Prompt edited successfully.
-                            </span>
-                          )}
-                        </div>
-                      </form>
-                    </Modal>
-                    {/* Form Buttons */}
                   </div>
                 </div>
-              </div>
-            </div>
+              </>
+            )}
           </div>
-        </>
-      )}
 
-      {tab === "Settings" && userRole === "ADMIN" && (
-        <Settings
-          settingsForm={settingsForm}
-          settingsFormHandler={settingsFormHandler}
-          settingsFormOnSubmit={settingsFormOnSubmit}
-          searchTermForm={searchTermForm}
-          searchTermFormHandler={searchTermFormHandler}
-          searchTermFormOnSubmit={searchTermFormOnSubmit}
-          selectedClient={selectedClient}
-          fetchClientSettings={fetchClientSettings}
-        />
-      )}
+          {tab === "DataCampaigns" && (
+            <DataCampaigns
+              selectedClient={selectedClient}
+              onDataProcessed={handleExcelDataProcessed}
+              isProcessing={isProcessing}
+              // Add campaign-related props after you share Settings.tsx
+            />
+          )}
+          {tab === "Output" && (
+            <Output
+              outputForm={outputForm}
+              outputFormHandler={outputFormHandler}
+              setOutputForm={setOutputForm}
+              allResponses={allResponses}
+              isPaused={isPaused}
+              setAllResponses={setAllResponses}
+              currentIndex={currentIndex}
+              setCurrentIndex={setCurrentIndex}
+              onClearOutput={clearOutputForm}
+              allprompt={allprompt}
+              setallprompt={setallprompt}
+              allsearchResults={allsearchResults}
+              setallsearchResults={setallsearchResults}
+              everyscrapedData={everyscrapedData}
+              seteveryscrapedData={seteveryscrapedData}
+              allSearchTermBodies={allSearchTermBodies}
+              setallSearchTermBodies={setallSearchTermBodies}
+              onClearContent={handleClearContent}
+              setallsummery={setallsummery}
+              allsummery={allsummery}
+              existingResponse={existingResponse}
+              setexistingResponse={setexistingResponse}
+              currentPage={currentPage}
+              setCurrentPage={setCurrentPage}
+              prevPageToken={prevPageToken}
+              nextPageToken={nextPageToken}
+              fetchAndDisplayEmailBodies={fetchAndDisplayEmailBodies}
+              selectedZohoviewId={selectedZohoviewId}
+              onClearExistingResponse={setClearExistingResponse}
+              isResetEnabled={!isProcessing}
+              zohoClient={zohoClient}
+              onRegenerateContact={goToTab}
+              recentlyAddedOrUpdatedId={recentlyAddedOrUpdatedId}
+              setRecentlyAddedOrUpdatedId={setRecentlyAddedOrUpdatedId}
+              selectedClient={selectedClient}
+              isStarted={isStarted}
+              handleStart={handleStart}
+              handlePauseResume={handlePauseResume}
+              handleReset={handleReset}
+              isPitchUpdateCompleted={isPitchUpdateCompleted}
+              allRecordsProcessed={allRecordsProcessed}
+              isDemoAccount={isDemoAccount}
+              settingsForm={settingsForm}
+              settingsFormHandler={settingsFormHandler}
+              delayTime={delayTime.toString()} // Convert number to string
+              setDelay={(value: string) => setDelay(parseInt(value) || 0)} // Convert string back to number
+              handleClearAll={handleClearAll}
 
-      {tab === "Output" && (
-        <>
-          <Output
-            outputForm={outputForm}
-            outputFormHandler={outputFormHandler}
-            setOutputForm={setOutputForm}
-            allResponses={allResponses}
-            isPaused={isPaused}
-            setAllResponses={setAllResponses}
-            currentIndex={currentIndex}
-            setCurrentIndex={setCurrentIndex}
-            //onOutputChange={outputFormHandler}
-            onClearOutput={clearOutputForm}
-            allprompt={allprompt}
-            setallprompt={setallprompt}
-            allsearchResults={allsearchResults}
-            setallsearchResults={setallsearchResults}
-            everyscrapedData={everyscrapedData}
-            seteveryscrapedData={seteveryscrapedData}
-            allSearchTermBodies={allSearchTermBodies}
-            setallSearchTermBodies={setallSearchTermBodies}
-            onClearContent={handleClearContent}
-            setallsummery={setallsummery}
-            allsummery={allsummery}
-            existingResponse={existingResponse}
-            setexistingResponse={setexistingResponse}
-            currentPage={currentPage}
-            setCurrentPage={setCurrentPage}
-            prevPageToken={prevPageToken}
-            nextPageToken={nextPageToken}
-            fetchAndDisplayEmailBodies={fetchAndDisplayEmailBodies}
-            selectedZohoviewId={selectedZohoviewId}
-            onClearExistingResponse={setClearExistingResponse}
-            isResetEnabled={!isProcessing} // Pass isResetEnabled as a separate prop
-            zohoClient={zohoClient} // Add this new prop
-            onRegenerateContact={goToTab}
-            recentlyAddedOrUpdatedId={recentlyAddedOrUpdatedId}
-            setRecentlyAddedOrUpdatedId={setRecentlyAddedOrUpdatedId}
-            selectedClient={selectedClient}
-          />
-        </>
-      )}
+            />
+          )}
 
-      {tab === "Mail" && (
-        <>
-          <Mail
-            selectedClient={selectedClient}
-            outputForm={outputForm}
-            outputFormHandler={outputFormHandler}
-            setOutputForm={setOutputForm}
-            allResponses={allResponses}
-            isPaused={isPaused}
-            setAllResponses={setAllResponses}
-            currentIndex={currentIndex}
-            setCurrentIndex={setCurrentIndex}
-            //onOutputChange={outputFormHandler}
-            onClearOutput={clearOutputForm}
-            allprompt={allprompt}
-            setallprompt={setallprompt}
-            allsearchResults={allsearchResults}
-            setallsearchResults={setallsearchResults}
-            everyscrapedData={everyscrapedData}
-            seteveryscrapedData={seteveryscrapedData}
-            allSearchTermBodies={allSearchTermBodies}
-            setallSearchTermBodies={setallSearchTermBodies}
-            onClearContent={handleClearContent}
-            setallsummery={setallsummery}
-            allsummery={allsummery}
-            existingResponse={existingResponse}
-            setexistingResponse={setexistingResponse}
-            currentPage={currentPage}
-            setCurrentPage={setCurrentPage}
-            prevPageToken={prevPageToken}
-            nextPageToken={nextPageToken}
-            fetchAndDisplayEmailBodies={fetchAndDisplayEmailBodies}
-            selectedZohoviewId={selectedZohoviewId}
-            onClearExistingResponse={setClearExistingResponse}
-            isResetEnabled={!isProcessing} // Pass isResetEnabled as a separate prop
-            zohoClient={zohoClient} // Add this new prop
-          />
-        </>
-      )}
-      {tab === "Excel" && (
-        <DataFile
-          selectedClient={selectedClient}
-          onDataProcessed={handleExcelDataProcessed}
-          isProcessing={isProcessing}
-        />
+          {tab === "Settings" && userRole === "ADMIN" && (
+            <Settings
+              settingsForm={settingsForm}
+              settingsFormHandler={settingsFormHandler}
+              settingsFormOnSubmit={settingsFormOnSubmit}
+              searchTermForm={searchTermForm}
+              searchTermFormHandler={searchTermFormHandler}
+              searchTermFormOnSubmit={searchTermFormOnSubmit}
+              selectedClient={selectedClient}
+              fetchClientSettings={fetchClientSettings}
+            />
+          )}
+
+          {tab === "Mail" && userRole === "ADMIN" && (
+            <Mail
+              selectedClient={selectedClient}
+              outputForm={outputForm}
+              outputFormHandler={outputFormHandler}
+              setOutputForm={setOutputForm}
+              allResponses={allResponses}
+              isPaused={isPaused}
+              setAllResponses={setAllResponses}
+              currentIndex={currentIndex}
+              setCurrentIndex={setCurrentIndex}
+              onClearOutput={clearOutputForm}
+              allprompt={allprompt}
+              setallprompt={setallprompt}
+              allsearchResults={allsearchResults}
+              setallsearchResults={setallsearchResults}
+              everyscrapedData={everyscrapedData}
+              seteveryscrapedData={seteveryscrapedData}
+              allSearchTermBodies={allSearchTermBodies}
+              setallSearchTermBodies={setallSearchTermBodies}
+              onClearContent={handleClearContent}
+              setallsummery={setallsummery}
+              allsummery={allsummery}
+              existingResponse={existingResponse}
+              setexistingResponse={setexistingResponse}
+              currentPage={currentPage}
+              setCurrentPage={setCurrentPage}
+              prevPageToken={prevPageToken}
+              nextPageToken={nextPageToken}
+              fetchAndDisplayEmailBodies={fetchAndDisplayEmailBodies}
+              selectedZohoviewId={selectedZohoviewId}
+              onClearExistingResponse={setClearExistingResponse}
+              isResetEnabled={!isProcessing}
+              zohoClient={zohoClient}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Stop Confirmation Popup */}
+      {showPopup && (
+        <div className="popup">
+          <p>Do you want to stop the process?</p>
+          <button onClick={() => handlePopupResponse(true)}>Yes</button>
+          <button onClick={() => handlePopupResponse(false)}>No</button>
+        </div>
       )}
     </div>
   );
+  
 };
+
 export default MainPage;

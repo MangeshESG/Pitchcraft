@@ -94,6 +94,21 @@ interface OutputInterface {
     React.SetStateAction<string | number | null>
   >;
   selectedClient: string;
+   isStarted?: boolean;
+  handleStart?: () => void;
+  handlePauseResume?: () => void;
+  handleReset?: () => void;
+  isPitchUpdateCompleted?: boolean;
+  allRecordsProcessed?: boolean;
+  isDemoAccount?: boolean;
+  settingsForm?: any;
+  settingsFormHandler?: (e: any) => void;
+  delayTime?: string;
+  setDelay?: (value: string) => void;
+  selectedPrompt?: any;
+  selectedCampaign?: string;
+  isProcessing?: boolean;
+  handleClearAll?: () => void; // Optional prop for clearing all
 }
 
 const Output: React.FC<OutputInterface> = ({
@@ -132,6 +147,21 @@ const Output: React.FC<OutputInterface> = ({
   recentlyAddedOrUpdatedId,
   setRecentlyAddedOrUpdatedId,
   selectedClient,
+    isStarted,
+  handleStart,
+  handlePauseResume,
+  handleReset,
+  isPitchUpdateCompleted,
+  allRecordsProcessed,
+  isDemoAccount,
+  settingsForm,
+  settingsFormHandler,
+  delayTime,
+  setDelay,
+  selectedPrompt,
+  selectedCampaign,
+  isProcessing,
+  handleClearAll,
 }) => {
   const [isCopyText, setIsCopyText] = useState(false);
 
@@ -989,7 +1019,104 @@ const Output: React.FC<OutputInterface> = ({
   return (
     <div className="login-box gap-down">
       {/* <div className="tabs secondary d-flex align-center"></div> */}
-      {/* <h2 className="left">Output</h2> */}
+     
+<div className="output-control-bar d-flex justify-between align-center mb-20">
+  <div className="control-buttons d-flex align-center">
+    {!isStarted ? (
+      <button
+        className="primary-button"
+        onClick={handleStart}
+        disabled={
+          (!selectedPrompt?.name || !selectedZohoviewId) &&
+          !selectedCampaign
+        }
+        title="Click to generate hyper-personalized emails using the selected template for contacts in the selected data file"
+      >
+        Start
+      </button>
+    ) : (
+      <>
+        <button
+          className="primary-button"
+          onClick={handlePauseResume}
+          disabled={
+            isPaused && (!isPitchUpdateCompleted || isProcessing)
+          }
+          title={
+            isPaused
+              ? allRecordsProcessed
+                ? "Click to start a new process"
+                : "Click to resume the generation of emails"
+              : "Click to pause the generation of emails"
+          }
+        >
+          {isPaused
+            ? allRecordsProcessed
+              ? "Start"
+              : "Resume"
+            : "Pause"}
+        </button>
+
+        {isPaused && (
+          <button
+            className="secondary-button ml-10"
+            onClick={handleReset}
+            disabled={
+              !isPitchUpdateCompleted || isProcessing || !isPaused
+            }
+            title="Click to reset so that the generation of emails begins again from the first of the contacts in the selected data file"
+          >
+            Reset
+          </button>
+        )}
+      </>
+    )}
+  </div>
+
+  {/* Right side options */}
+  <div className="output-control-options d-flex align-center">
+    {!isDemoAccount && (
+      <>
+        <label className="checkbox-label mr-20">
+          <input
+            type="checkbox"
+            checked={settingsForm.overwriteDatabase}
+            name="overwriteDatabase"
+            id="overwriteDatabase"
+            onChange={settingsFormHandler}
+          />
+          <span>Overwrite database</span>
+        </label>
+
+        <div className="form-group d-flex align-center mb-0 mr-20">
+          <label className="font-size-medium font-500 mb-0 mr-10">
+            Delay(secs)
+          </label>
+          <input
+            type="number"
+            value={delayTime}
+            onChange={(e: any) => setDelay?.(e.target.value)}
+            className="height-35"
+            style={{ width: "55px" }}
+          />
+        </div>
+      </>
+    )}
+    
+    {userRole === "ADMIN" && (
+      <button
+        className="secondary-button nowrap"
+        onClick={handleClearAll}
+        disabled={
+          !isPitchUpdateCompleted || isProcessing || !isPaused
+        }
+        title="Clear all data and reset the application state"
+      >
+        Reset all
+      </button>
+    )}
+  </div>
+</div>
       {userRole === "ADMIN" && (
         <div className="row pb-2 d-flex align-center justify-end">
           <div className="col col-12">
