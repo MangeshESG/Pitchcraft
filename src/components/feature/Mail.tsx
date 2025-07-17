@@ -23,6 +23,7 @@ import API_BASE_URL from "../../config";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
+
 import {
   LineChart,
   Line,
@@ -34,6 +35,8 @@ import {
   CartesianGrid,
 } from "recharts";
 import Time from "react-datepicker/dist/time";
+type MailTabType = "Dashboard" | "Configuration" | "Schedule";
+
 interface DailyStats {
   date: string;
   sent: number;
@@ -119,6 +122,12 @@ interface SettingsProps {
   selectedClient: string;
 }
 
+interface MailProps {
+  initialTab?: string;
+  onTabChange?: (tab: string) => void;
+}
+
+
 interface OutputInterface {
   outputForm: {
     generatedContent: string;
@@ -173,7 +182,7 @@ interface OutputInterface {
   zohoClient: ZohoClient[]; // Add this new prop type
 }
 
-const Mail: React.FC<OutputInterface & SettingsProps> = ({
+const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   outputForm,
   //outputFormHandler,
   setOutputForm,
@@ -206,7 +215,15 @@ const Mail: React.FC<OutputInterface & SettingsProps> = ({
   isResetEnabled, // Receive the prop
   zohoClient, // Add this to the destructured props
   selectedClient,
+  initialTab = "Dashboard",
+  onTabChange,
 }) => {
+
+   
+
+
+
+
   const [isCopyText, setIsCopyText] = useState(false);
 
   const copyToClipboardHandler = async () => {
@@ -246,12 +263,23 @@ const Mail: React.FC<OutputInterface & SettingsProps> = ({
     setOpenModals((prev) => ({ ...prev, [id]: false }));
   };
 
-  const [tab, setTab] = useState("Dashboard");
-  const tabHandler = (e: React.ChangeEvent<any>) => {
-    const { innerText } = e.target;
+  const [tab, setTab] = useState<MailTabType>(initialTab as MailTabType);
+
+  useEffect(() => {
+    setTab(initialTab as MailTabType);
+  }, [initialTab]);
+
+  const tabHandler = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const innerText = e.currentTarget.innerText as MailTabType;
     console.log(innerText, "innerText");
     setTab(innerText);
+    
+    // Notify parent component
+    if (onTabChange) {
+      onTabChange(innerText);
+    }
   };
+
 
   const [tab2, setTab2] = useState("Output");
   const tabHandler2 = (e: React.ChangeEvent<any>) => {
@@ -259,6 +287,8 @@ const Mail: React.FC<OutputInterface & SettingsProps> = ({
     console.log(innerText, "innerText");
     setTab2(innerText);
   };
+
+  
 
   const [emailLoading, setEmailLoading] = useState(false); // Loading state for fetching email data
 
@@ -1792,66 +1822,13 @@ const Mail: React.FC<OutputInterface & SettingsProps> = ({
 
   return (
     <div className="login-box gap-down">
-      <div className="tabs secondary d-flex align-center">
-        <ul className="d-flex">
-          <li>
-            <button
-              onClick={tabHandler}
-              className={`button ${tab === "Dashboard" ? "active" : ""}`}
-            >
-              Dashboard
-            </button>
-          </li>
-          <li>
-            <button
-              onClick={tabHandler}
-              className={`button ${tab === "Configuration" ? "active" : ""}`}
-            >
-              Configuration
-            </button>
-          </li>
-          <li>
-            <button
-              onClick={tabHandler}
-              className={`button ${tab === "Schedule" ? "active" : ""}`}
-            >
-              Schedule
-            </button>
-          </li>
-        </ul>
-      </div>
+    
 
       {tab === "Dashboard" && (
         <>
-          <div
-            className="tabs secondary d-flex align-center"
-            style={{ marginTop: "20px" }}
-          >
-            <ul className="d-flex">
-              <li>
-                <button
-                  onClick={() => setDashboardTab("Overview")}
-                  className={`button ${
-                    dashboardTab === "Overview" ? "active" : ""
-                  }`}
-                >
-                  Overview
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => setDashboardTab("Details")}
-                  className={`button ${
-                    dashboardTab === "Details" ? "active" : ""
-                  }`}
-                >
-                  Details
-                </button>
-              </li>
-            </ul>
-          </div>
+         
 
-          {/* View Dropdown and Date Filters */}
+
           {/* View Dropdown and Date Filters */}
           <div
             className="form-group d-flex align-center"

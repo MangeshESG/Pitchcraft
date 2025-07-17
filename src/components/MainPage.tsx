@@ -29,6 +29,8 @@ import { useModel } from "../ModelContext";
 import { fetchClientSettings } from "../slices/clientSettingsSlice"; // adjust path if needed
 import { AppDispatch } from "../Redux/store"; // ✅ import AppDispatch
 import DataCampaigns from "./feature/DataCampaigns"; // Adjust the path based on your file structure
+import CampaignManagement from "./feature/CampaignManagement";
+
 
 interface Prompt {
   id: number;
@@ -244,6 +246,10 @@ const MainPage: React.FC = () => {
     browserVersion,
   } = useSelector((state: RootState) => state.auth);
 
+    const [tab, setTab] = useState<string>("Template");
+  const [mailSubTab, setMailSubTab] = useState<string>("Dashboard");
+  const [showMailSubmenu, setShowMailSubmenu] = useState<boolean>(false);
+
   interface DataFile {
     id: number;
     client_id: number;
@@ -355,7 +361,6 @@ const MainPage: React.FC = () => {
     }
 
     const prompt = promptList.find((p: Prompt) => p.name === selectedLabel);
-    console.log(prompt, "pitch");
     setSelectedPrompt(prompt || null);
   };
 
@@ -678,7 +683,6 @@ const MainPage: React.FC = () => {
     }
   };
 
-  const [tab, setTab] = useState("Template");
 
   const tabHandler = (e: React.MouseEvent<HTMLButtonElement>) => {
     const { innerText } = e.currentTarget;
@@ -712,10 +716,8 @@ const MainPage: React.FC = () => {
 
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [endTime, setEndTime] = useState<Date | null>(null);
-  const [timeSpent, setTimeSpent] = useState<string>("");
 
-  const [currentEmailIndex, setCurrentEmailIndex] = useState<number>(0);
-  const [emailData, setEmailData] = useState<any[]>([]);
+  
 
   const fetchAndDisplayEmailBodies = useCallback(
     async (
@@ -2811,6 +2813,19 @@ const MainPage: React.FC = () => {
                   <span className="menu-text">Lists</span>
                 </button>
               </li>
+               <li className={tab === "Campaigns" ? "active" : ""}>
+        <button
+          onClick={() => {
+            setTab("Campaigns");
+            setShowMailSubmenu(false);
+          }}
+          className="side-menu-button"
+          title="Manage campaigns"
+        >
+          <span className="menu-icon">📢</span>
+          <span className="menu-text">Campaigns</span>
+        </button>
+      </li>
               <li className={tab === "Output" ? "active" : ""}>
                 <button
                   onClick={() => setTab("Output")}
@@ -2821,17 +2836,58 @@ const MainPage: React.FC = () => {
                   <span className="menu-text">Output</span>
                 </button>
               </li>
-              {userRole === "ADMIN" && (
-                <li className={tab === "Mail" ? "active" : ""}>
-                  <button
-                    onClick={() => setTab("Mail")}
-                    className="side-menu-button"
-                  >
-                    <span className="menu-icon">✉️</span>
-                    <span className="menu-text">Mail</span>
-                  </button>
-                </li>
-              )}
+            {userRole === "ADMIN" && (
+  <li className={`${tab === "Mail" ? "active" : ""} ${showMailSubmenu ? "has-submenu submenu-open" : "has-submenu"}`}>
+    <button
+      onClick={() => {
+        setTab("Mail");
+        setShowMailSubmenu(!showMailSubmenu);
+      }}
+      className="side-menu-button"
+    >
+      <span className="menu-icon">✉️</span>
+      <span className="menu-text">Mail</span>
+      <span className="submenu-arrow">▶</span>
+    </button>
+    {showMailSubmenu && (
+      <ul className="submenu">
+        <li className={mailSubTab === "Dashboard" ? "active" : ""}>
+          <button
+            onClick={() => {
+              setMailSubTab("Dashboard");
+              setTab("Mail");
+            }}
+            className="submenu-button"
+          >
+            Dashboard
+          </button>
+        </li>
+        <li className={mailSubTab === "Configuration" ? "active" : ""}>
+          <button
+            onClick={() => {
+              setMailSubTab("Configuration");
+              setTab("Mail");
+            }}
+            className="submenu-button"
+          >
+            Configuration
+          </button>
+        </li>
+        <li className={mailSubTab === "Schedule" ? "active" : ""}>
+          <button
+            onClick={() => {
+              setMailSubTab("Schedule");
+              setTab("Mail");
+            }}
+            className="submenu-button"
+          >
+            Schedule
+          </button>
+        </li>
+      </ul>
+    )}
+  </li>
+)}
               {userRole === "ADMIN" && (
                 <li className={tab === "Settings" ? "active" : ""}>
                   <button
@@ -2858,52 +2914,9 @@ const MainPage: React.FC = () => {
                 <div className="login-box gap-down d-flex">
                   <div className="input-section edit-section">
                     <div className="row flex-col-768">
-                      <div className="col col-3 col-12-768">
-                        <div className="form-group">
-                          <label>
-                            Campaign <span className="required">*</span>
-                          </label>
-                          <select
-                            onChange={handleCampaignChange}
-                            value={selectedCampaign}
-                            disabled={
-                              selectionMode === "manual" &&
-                              (!!selectedPrompt?.name || !!selectedZohoviewId)
-                            }
-                          >
-                            <option value="">Select a campaign</option>
-                            {campaigns.map((campaign) => (
-                              <option
-                                key={campaign.id}
-                                value={campaign.id.toString()}
-                              >
-                                {campaign.campaignName}
-                              </option>
-                            ))}
-                          </select>
-                          {!selectedCampaign && (
-                            <small className="error-text">
-                              Please select a campaign
-                            </small>
-                          )}
-                        </div>
-                        {selectedCampaign &&
-                          campaigns.find(
-                            (c) => c.id.toString() === selectedCampaign
-                          )?.description && (
-                            <div className="campaign-description-container">
-                              <small className="campaign-description">
-                                {
-                                  campaigns.find(
-                                    (c) => c.id.toString() === selectedCampaign
-                                  )?.description
-                                }
-                              </small>
-                            </div>
-                          )}
-                      </div>
+                      
 
-                      <div className="col col-3 col-12-768">
+                      <div className="col col-4 col-12-768">
                         <div className="form-group">
                           <label>
                             Original non-personalized email templates
@@ -2929,97 +2942,9 @@ const MainPage: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="col col-3 col-12-768">
-                        <div className="form-group">
-                          <label>Data files of contacts</label>
-                          <select
-                            name="model"
-                            id="model"
-                            onChange={handleZohoModelChange}
-                            value={selectedZohoviewId}
-                            className={
-                              !selectedZohoviewId ? "highlight-required" : ""
-                            }
-                            disabled={
-                              userRole !== "ADMIN" ||
-                              selectionMode === "campaign"
-                            }
-                          >
-                            <option value="">Please select a data file</option>
-                            {dataFiles.map((file) => (
-                              <option key={file.id} value={file.id}>
-                                {file.name} - {file.data_file_name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        {emailLoading && (
-                          <div className="loader-overlay">
-                            <div className="loader"></div>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="col col-3 col-12-768">
-                        <div className="form-group">
-                          <label>Language</label>
-                          <select
-                            onChange={handleLanguageChange}
-                            value={selectedLanguage}
-                          >
-                            <option value="">Select a language</option>
-                            {Object.values(Languages)
-                              .sort((a, b) => a.localeCompare(b))
-                              .map((language, index) => (
-                                <option key={index} value={language}>
-                                  {language}
-                                </option>
-                              ))}
-                          </select>
-                        </div>
-                      </div>
                     </div>
 
-                    <div className="row flex-col-768">
-                      <div className="col col-12">
-                        <div className="form-group d-flex align-center">
-                          <label
-                            style={{
-                              minWidth: 66,
-                              marginRight: 10,
-                              marginBottom: 0,
-                            }}
-                          >
-                            Subject <span className="required">*</span>
-                          </label>
-                          <select
-                            onChange={(e) => setSubjectMode(e.target.value)}
-                            value={subjectMode}
-                            className="height-35"
-                            style={{ minWidth: 150 }}
-                          >
-                            <option value="AI generated">AI generated</option>
-                            <option value="With Placeholder">
-                              With placeholder
-                            </option>
-                          </select>
-                          <input
-                            type="text"
-                            placeholder="Enter subject here"
-                            value={subjectText}
-                            onChange={(e) => setSubjectText(e.target.value)}
-                            disabled={subjectMode !== "With Placeholder"}
-                            className="height-35 ml-10"
-                            style={{
-                              minWidth: 700,
-                              flex: "1 1 auto",
-                              boxSizing: "border-box",
-                              marginLeft: 16,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </div>
+                    
 
                     <div className="row">
                       <div className="col-12 col">
@@ -3622,6 +3547,12 @@ const MainPage: React.FC = () => {
               // Add campaign-related props after you share Settings.tsx
             />
           )}
+          {tab === "Campaigns" && (
+          <CampaignManagement
+            selectedClient={selectedClient}
+            userRole={userRole}
+          />
+        )}
           {tab === "Output" && (
             <Output
               outputForm={outputForm}
@@ -3671,6 +3602,25 @@ const MainPage: React.FC = () => {
               delayTime={delayTime.toString()} // Convert number to string
               setDelay={(value: string) => setDelay(parseInt(value) || 0)} // Convert string back to number
               handleClearAll={handleClearAll}
+              campaigns={campaigns}
+              selectedCampaign={selectedCampaign}
+              handleCampaignChange={handleCampaignChange}
+              selectionMode={selectionMode}
+              promptList={promptList}
+              handleSelectChange={handleSelectChange}
+              userRole={userRole}
+              dataFiles={dataFiles}
+              handleZohoModelChange={handleZohoModelChange}
+              emailLoading={emailLoading}
+              languages={Object.values(Languages)}
+              selectedLanguage={selectedLanguage}
+              handleLanguageChange={handleLanguageChange}
+              subjectMode={subjectMode}
+              setSubjectMode={setSubjectMode}
+              subjectText={subjectText}
+              setSubjectText={setSubjectText}
+              selectedPrompt={selectedPrompt}  // Make sure this is passed
+
 
             />
           )}
@@ -3722,6 +3672,8 @@ const MainPage: React.FC = () => {
               onClearExistingResponse={setClearExistingResponse}
               isResetEnabled={!isProcessing}
               zohoClient={zohoClient}
+              initialTab={mailSubTab}
+              onTabChange={setMailSubTab}
             />
           )}
         </div>

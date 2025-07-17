@@ -26,6 +26,15 @@ interface ZohoClient {
   totalContact: number;
 }
 
+interface Prompt {
+  id: number;
+  name: string;
+  text: string;
+  userId?: number; // userId might not always be returned from the API
+  createdAt?: string;
+  template?: string;
+}
+
 interface OutputInterface {
   outputForm: {
     generatedContent: string;
@@ -105,10 +114,27 @@ interface OutputInterface {
   settingsFormHandler?: (e: any) => void;
   delayTime?: string;
   setDelay?: (value: string) => void;
-  selectedPrompt?: any;
   selectedCampaign?: string;
   isProcessing?: boolean;
   handleClearAll?: () => void; // Optional prop for clearing all
+   campaigns?: any[];
+  handleCampaignChange?: (e: any) => void;
+  selectionMode?: string;
+  promptList?: any[];
+  handleSelectChange?: (e: any) => void;
+  userRole?: string;
+  dataFiles?: any[];
+  handleZohoModelChange?: (e: any) => void;
+  emailLoading?: boolean;
+  languages?: any[];
+  selectedLanguage?: string;
+  handleLanguageChange?: (e: any) => void;
+   subjectMode?: string;
+  setSubjectMode?: (value: string) => void;
+  subjectText?: string;
+  setSubjectText?: (value: string) => void;
+  selectedPrompt: Prompt | null;
+
 }
 
 const Output: React.FC<OutputInterface> = ({
@@ -162,6 +188,23 @@ const Output: React.FC<OutputInterface> = ({
   selectedCampaign,
   isProcessing,
   handleClearAll,
+  campaigns,
+  handleCampaignChange,
+  selectionMode,
+  promptList,
+  handleSelectChange,
+  dataFiles,
+  handleZohoModelChange,
+  languages,
+  selectedLanguage,
+  handleLanguageChange,
+  subjectMode,
+  setSubjectMode,
+  subjectText,
+  setSubjectText,
+  
+
+    
 }) => {
   const [isCopyText, setIsCopyText] = useState(false);
 
@@ -1018,7 +1061,6 @@ const Output: React.FC<OutputInterface> = ({
 
   return (
     <div className="login-box gap-down">
-      {/* <div className="tabs secondary d-flex align-center"></div> */}
      
 <div className="output-control-bar d-flex justify-between align-center mb-20">
   <div className="control-buttons d-flex align-center">
@@ -1117,6 +1159,182 @@ const Output: React.FC<OutputInterface> = ({
     )}
   </div>
 </div>
+
+
+{/* Add the selection dropdowns and subject line section */}
+<div className="output-control-bar d-flex justify-between align-center mb-20">
+  <div className="input-section edit-section">
+    {/* Dropdowns Row */}
+    <div className="row flex-col-768">
+      <div className="col col-3 col-12-768">
+        <div className="form-group">
+          <label>
+            Campaign <span className="required">*</span>
+          </label>
+          <select
+            onChange={handleCampaignChange}
+            value={selectedCampaign}
+            disabled={
+              selectionMode === "manual" &&
+              (!!selectedPrompt?.name || !!selectedZohoviewId)
+            }
+          >
+            <option value="">Select a campaign</option>
+            {campaigns?.map((campaign) => (
+              <option
+                key={campaign.id}
+                value={campaign.id.toString()}
+              >
+                {campaign.campaignName}
+              </option>
+            ))}
+          </select>
+          {!selectedCampaign && (
+            <small className="error-text">
+              Please select a campaign
+            </small>
+          )}
+        </div>
+        {selectedCampaign &&
+          campaigns?.find(
+            (c) => c.id.toString() === selectedCampaign
+          )?.description && (
+            <div className="campaign-description-container">
+              <small className="campaign-description">
+                {
+                  campaigns.find(
+                    (c) => c.id.toString() === selectedCampaign
+                  )?.description
+                }
+              </small>
+            </div>
+          )}
+      </div>
+
+      
+<div className="col col-3 col-12-768">
+  <div className="form-group">
+    <label>
+      Original non-personalized email templates
+    </label>
+    <select
+      onChange={handleSelectChange}
+      value={selectedPrompt?.name || ""}
+      className={
+        !selectedPrompt?.name ? "highlight-required" : ""
+      }
+      disabled={
+        userRole !== "ADMIN" ||
+        selectionMode === "campaign"
+      }
+    >
+      <option value="">Please select a template</option>
+      {promptList?.map((prompt: any) => (
+        <option key={prompt.id} value={prompt.name}>
+          {prompt.name}
+        </option>
+      ))}
+    </select>
+     </div>
+</div>
+
+      <div className="col col-3 col-12-768">
+        <div className="form-group">
+          <label>Data files of contacts</label>
+          <select
+            name="model"
+            id="model"
+            onChange={handleZohoModelChange}
+            value={selectedZohoviewId}
+            className={
+              !selectedZohoviewId ? "highlight-required" : ""
+            }
+            disabled={
+              userRole !== "ADMIN" ||
+              selectionMode === "campaign"
+            }
+          >
+            <option value="">Please select a data file</option>
+            {dataFiles?.map((file) => (
+              <option key={file.id} value={file.id}>
+                {file.name} - {file.data_file_name}
+              </option>
+            ))}
+          </select>
+        </div>
+        {emailLoading && (
+          <div className="loader-overlay">
+            <div className="loader"></div>
+          </div>
+        )}
+      </div>
+
+      <div className="col col-3 col-12-768">
+        <div className="form-group">
+          <label>Language</label>
+          <select
+            onChange={handleLanguageChange}
+            value={selectedLanguage}
+          >
+            <option value="">Select a language</option>
+            {languages?.sort((a, b) => a.localeCompare(b))
+              .map((language, index) => (
+                <option key={index} value={language}>
+                  {language}
+                </option>
+              ))}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    {/* Subject Line Row */}
+    <div className="row flex-col-768">
+      <div className="col col-12">
+        <div className="form-group d-flex align-center">
+          <label
+            style={{
+              minWidth: 66,
+              marginRight: 10,
+              marginBottom: 0,
+            }}
+          >
+            Subject <span className="required">*</span>
+          </label>
+          <select
+            onChange={(e) => setSubjectMode?.(e.target.value)}
+            value={subjectMode}
+            className="height-35"
+            style={{ minWidth: 150 }}
+          >
+            <option value="AI generated">AI generated</option>
+            <option value="With Placeholder">
+              With placeholder
+            </option>
+          </select>
+          <input
+            type="text"
+            placeholder="Enter subject here"
+            value={subjectText}
+            onChange={(e) => setSubjectText?.(e.target.value)}
+            disabled={subjectMode !== "With Placeholder"}
+            className="height-35 ml-10"
+            style={{
+              minWidth: 700,
+              flex: "1 1 auto",
+              boxSizing: "border-box",
+              marginLeft: 16,
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{/* Rest of Output component content */}
+
+
       {userRole === "ADMIN" && (
         <div className="row pb-2 d-flex align-center justify-end">
           <div className="col col-12">
