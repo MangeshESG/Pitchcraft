@@ -1167,10 +1167,7 @@ const Output: React.FC<OutputInterface> = ({
                 <select
                   onChange={handleCampaignChange}
                   value={selectedCampaign}
-                  disabled={
-                    selectionMode === "manual" &&
-                    (!!selectedPrompt?.name || !!selectedZohoviewId)
-                  }
+                  
                 >
                   <option value="">Select a campaign</option>
                   {campaigns?.map((campaign) => (
