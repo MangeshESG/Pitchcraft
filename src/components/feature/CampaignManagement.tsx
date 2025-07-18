@@ -31,21 +31,32 @@ interface Campaign {
   description?: string;
 }
 
-type BccEmail = { id: number; bccEmailAddress: string; clinteId: number };
+// Add new interface for DataFile
+interface DataFile {
+  id: number;
+  client_id: number;
+  name: string;
+  data_file_name: string;
+  description: string;
+  created_at: string;
+  contacts: any[];
+}
 
 const CampaignManagement: React.FC<CampaignManagementProps> = ({
   selectedClient,
   userRole,
 }) => {
-  // State for Zoho Views
+  // State for Zoho Views (keeping for backward compatibility if needed)
   const [zohoClient, setZohoClient] = useState<ZohoClient[]>([]);
   const [zohoViewForm, setZohoViewForm] = useState({
     zohoviewId: "",
     zohoviewName: "",
     TotalContact: "",
   });
-  const [selectedZohoViewForDeletion, setSelectedZohoViewForDeletion] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // State for Data Files
+  const [dataFiles, setDataFiles] = useState<DataFile[]>([]);
 
   // State for Campaigns
   const [promptList, setPromptList] = useState<Prompt[]>([]);
@@ -55,11 +66,34 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
   const [campaignForm, setCampaignForm] = useState({
     campaignName: "",
     promptId: "",
-    zohoViewId: "",
+    zohoViewId: "", // Keeping the same field name for backward compatibility
     description: "",
   });
 
-  // Fetch Zoho Client data
+  // Fetch Data Files by Client ID
+  const fetchDataFiles = async () => {
+    if (!selectedClient) {
+      console.log("No client selected, skipping data files fetch");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+    const url = `${API_BASE_URL}/api/crm/datafile-byclientid?clientId=${selectedClient}`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data: DataFile[] = await response.json();
+      setDataFiles(data);
+    } catch (error) {
+      console.error("Error fetching data files:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fetch Zoho Client data (keeping for backward compatibility)
   const fetchZohoClient = async () => {
     if (!selectedClient) {
       console.log("No client selected, skipping fetch");
@@ -123,103 +157,6 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
       setCampaigns(data);
     } catch (error) {
       console.error("Error fetching campaigns:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Zoho View handlers
-  const onZohoViewInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setZohoViewForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const addZohoView = async (
-    zohoviewId: string,
-    zohoviewName: string,
-    clientId: string
-  ) => {
-    setIsLoading(true);
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/addzohoview`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          zohoviewId,
-          zohoviewName,
-          TotalContact: zohoViewForm.TotalContact,
-          clientId: parseInt(clientId),
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to add Zoho view");
-      }
-
-      const data = await response.json();
-      alert("Zoho view added successfully");
-      await fetchZohoClient();
-
-      return data;
-    } catch (error) {
-      console.error("Error adding Zoho view:", error);
-      alert("Failed to add Zoho view");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleAddZohoView = async () => {
-    if (
-      !zohoViewForm.zohoviewId ||
-      !zohoViewForm.zohoviewName ||
-      !selectedClient
-    ) {
-      alert("Please fill all fields and ensure a client is selected");
-      return;
-    }
-
-    await addZohoView(
-      zohoViewForm.zohoviewId,
-      zohoViewForm.zohoviewName,
-      selectedClient
-    );
-
-    setZohoViewForm({
-      zohoviewId: "",
-      zohoviewName: "",
-      TotalContact: "",
-    });
-  };
-
-  const deleteZohoView = async (zohoviewId: string, clientId: string) => {
-    setIsLoading(true);
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/auth/deletezohoview/${zohoviewId}/${clientId}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to delete Zoho view");
-      }
-
-      alert("Zoho view deleted successfully");
-      await fetchZohoClient();
-    } catch (error) {
-      console.error("Error deleting Zoho view:", error);
-      alert("Failed to delete Zoho view");
     } finally {
       setIsLoading(false);
     }
@@ -304,7 +241,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
         body: JSON.stringify({
           campaignName: campaignForm.campaignName,
           promptId: parseInt(campaignForm.promptId),
-          zohoViewId: campaignForm.zohoViewId,
+          zohoViewId: campaignForm.zohoViewId, // This might need to be updated based on your backend expectations
           clientId: parseInt(selectedClient),
           description: campaignForm.description,
         }),
@@ -418,84 +355,12 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
   // Load data when client changes
   useEffect(() => {
     if (selectedClient) {
-      fetchZohoClient();
+      // fetchZohoClient(); // Commenting out if not needed anymore
+      fetchDataFiles(); // Fetch data files instead
       fetchPromptsList();
       fetchCampaigns();
     }
   }, [selectedClient]);
-
-  // BCC Email Management states
-  const [bccEmails, setBccEmails] = useState<BccEmail[]>([]);
-  const [newBccEmail, setNewBccEmail] = useState<string>("");
-  const [bccLoading, setBccLoading] = useState(false);
-  const [bccError, setBccError] = useState<string>("");
-
-  type BccEmail = { id: number; bccEmailAddress: string; clinteId: number };
-
-  // Fetch BCC emails when client changes
-  useEffect(() => {
-    if (!selectedClient) return;
-
-    const fetchBcc = async () => {
-      setBccLoading(true);
-      try {
-        const res = await fetch(
-          `${API_BASE_URL}/api/email/get-by-clinte?clinteId=${selectedClient}`
-        );
-        if (!res.ok) throw new Error("Failed to fetch BCC emails");
-        const data = await res.json();
-        setBccEmails(data);
-        setBccError("");
-      } catch (error: any) {
-        setBccError("Could not fetch BCC emails");
-      } finally {
-        setBccLoading(false);
-      }
-    };
-
-    fetchBcc();
-  }, [selectedClient]);
-
-  const handleAddBcc = async () => {
-    if (!newBccEmail) return;
-    setBccLoading(true);
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/email/${selectedClient}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ BccEmailAddress: newBccEmail }),
-      });
-      if (!res.ok) throw new Error("Add failed");
-      setNewBccEmail("");
-      setBccError("");
-      // Refresh list
-      const updated = await fetch(
-        `${API_BASE_URL}/api/email/get-by-clinte?clinteId=${selectedClient}`
-      );
-      setBccEmails(await updated.json());
-    } catch (error: any) {
-      setBccError("Error adding BCC email");
-    } finally {
-      setBccLoading(false);
-    }
-  };
-
-  const handleDeleteBcc = async (id: number) => {
-    setBccLoading(true);
-    try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/email/delete?id=${id}&clinteId=${selectedClient}`,
-        { method: "POST" }
-      );
-      if (!res.ok) throw new Error("Delete failed");
-      setBccError("");
-      setBccEmails(bccEmails.filter((e) => e.id !== id));
-    } catch (error: any) {
-      setBccError("Error deleting");
-    } finally {
-      setBccLoading(false);
-    }
-  };
 
   return (
     <div className="campaign-management-container">
@@ -503,148 +368,6 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
       
       <div className="login-box gap-down d-flex">
         <div className="input-section edit-section">
-          {/* Data File Management Section */}
-          <h3 className="left mt-0">Data File Management</h3>
-          <div className="row flex-wrap-991">
-              <div className="col col-3 col-4-991 col-12-640">
-                <div className="form-group">
-                  <label>Zoho View ID</label>
-                  <input
-                    type="text"
-                    value={zohoViewForm.zohoviewId}
-                    name="zohoviewId"
-                    placeholder="Enter Zoho View ID"
-                    onChange={onZohoViewInput}
-                  />
-                </div>
-              </div>
-
-              <div className="col col-3 col-4-991 col-12-640">
-                <div className="form-group">
-                  <label>Zoho View Name</label>
-                  <input
-                    type="text"
-                    value={zohoViewForm.zohoviewName}
-                    name="zohoviewName"
-                    placeholder="Enter Zoho View Name"
-                    onChange={onZohoViewInput}
-                  />
-                </div>
-              </div>
-
-              <div className="col col-3 col-4-991 col-12-640">
-                <div className="form-group">
-                  <label>Total Contact</label>
-                  <input
-                    type="text"
-                    value={zohoViewForm.TotalContact}
-                    name="TotalContact"
-                    placeholder="Enter Total Contact"
-                    onChange={onZohoViewInput}
-                  />
-                </div>
-              </div>
-
-              <div className="col col-3 col-12-991 col-12-640">
-                <div className="form-group d-flex justify-end-991 mt-24 mt-0-991">
-                  <button
-                    className="save-button button small d-flex justify-center align-center"
-                    onClick={handleAddZohoView}
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <span>Adding...</span>
-                    ) : (
-                      <>
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="#FFFFFF"
-                          viewBox="0 0 30 30"
-                          width="22px"
-                          height="22px"
-                        >
-                          <path d="M15,3C8.373,3,3,8.373,3,15c0,6.627,5.373,12,12,12s12-5.373,12-12C27,8.373,21.627,3,15,3z M21,16h-5v5 c0,0.553-0.448,1-1,1s-1-0.447-1-1v-5H9c-0.552,0-1-0.447-1-1s0.448-1,1-1h5V9c0-0.553,0.448-1,1-1s1,0.447,1,1v5h5 c0.552,0,1,0.447,1,1S21.552,16,21,16z" />
-                        </svg>
-                        <span className="ml-5">Add</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-             <div className="row mt-3 flex-wrap-480">
-              <div className="col col-4 col-auto-768 col-12-480">
-                <div className="form-group">
-                  <label>Select Zoho View to Delete</label>
-                  {isLoading ? (
-                    <div>Loading Zoho views...</div>
-                  ) : (
-                    <select
-                      value={selectedZohoViewForDeletion}
-                      onChange={(e) =>
-                        setSelectedZohoViewForDeletion(e.target.value)
-                      }
-                      className="form-control"
-                    >
-                      <option value="">Select a Zoho View</option>
-                      {zohoClient && zohoClient.length > 0 ? (
-                        zohoClient.map((view) => (
-                          <option key={view.id} value={view.zohoviewId}>
-                            {view.zohoviewName} ({view.zohoviewId})
-                          </option>
-                        ))
-                      ) : (
-                        <option value="" disabled>
-                          No Zoho views available
-                        </option>
-                      )}
-                    </select>
-                  )}
-                  {!isLoading && zohoClient.length === 0 && selectedClient && (
-                    <div className="text-muted mt-1">
-                      No Zoho views found for this client
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="col col-4 col-auto-768 col-12-480">
-                <div className="form-group d-flex mt-24 mt-0-480">
-                  <button
-                    className="secondary button d-flex justify-between align-center"
-                    onClick={() => {
-                      if (selectedZohoViewForDeletion) {
-                        deleteZohoView(
-                          selectedZohoViewForDeletion,
-                          selectedClient
-                        );
-                        setSelectedZohoViewForDeletion("");
-                      } else {
-                        alert("Please select a Zoho View to delete");
-                      }
-                    }}
-                    disabled={isLoading || !selectedZohoViewForDeletion}
-                  >
-                    {isLoading ? (
-                      <span>Loading...</span>
-                    ) : (
-                      <>
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="#FFFFFF"
-                          viewBox="0 0 50 50"
-                          width="18px"
-                          height="18px"
-                        >
-                          <path d="M 21 2 C 19.354545 2 18 3.3545455 18 5 L 18 7 L 8 7 A 1.0001 1.0001 0 1 0 8 9 L 9 9 L 9 45 C 9 46.654 10.346 48 12 48 L 38 48 C 39.654 48 41 46.654 41 45 L 41 9 L 42 9 A 1.0001 1.0001 0 1 0 42 7 L 32 7 L 32 5 C 32 3.3545455 30.645455 2 29 2 L 21 2 z" />
-                        </svg>
-                        <span className="ml-5">Delete</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
           
           {/* Campaign Configuration Section */}
           <div className="row mt-3">
@@ -712,12 +435,17 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                     className="form-control"
                   >
                     <option value="">Select a data file</option>
-                    {zohoClient.map((client) => (
-                      <option key={client.id} value={client.zohoviewId}>
-                        {client.zohoviewName}
+                    {dataFiles.map((file) => (
+                      <option key={file.id} value={file.id.toString()}>
+                        {file.name}
                       </option>
                     ))}
                   </select>
+                  {!isLoading && dataFiles.length === 0 && selectedClient && (
+                    <div className="text-muted mt-1">
+                      No data files found for this client
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -832,68 +560,6 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                 </div>
               </div>
             </div>
-          
-          {/* BCC Email Management Section */}
-          <div className="row mt-3">
-             <div className="col col-12">
-                <h3 className="left mt-0">BCC Email Management</h3>
-                {bccError && <div style={{ color: "red" }}>{bccError}</div>}
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                    marginBottom: 12,
-                  }}
-                >
-                  <input
-                    type="email"
-                    placeholder="Add BCC Email"
-                    value={newBccEmail}
-                    onChange={(e) => setNewBccEmail(e.target.value)}
-                    style={{ flex: "0 0 240px", marginRight: "10px" }}
-                    disabled={bccLoading}
-                  />
-                  <button
-                    className="save-button button small"
-                    onClick={handleAddBcc}
-                    disabled={bccLoading || !newBccEmail}
-                  >
-                    Add
-                  </button>
-                </div>
-                {bccLoading ? (
-                  <div>Loading BCC emails...</div>
-                ) : bccEmails.length === 0 ? (
-                  <div>No BCC emails.</div>
-                ) : (
-                  <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-                    {bccEmails.map((e) => (
-                      <li
-                        key={e.id}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          marginBottom: 4,
-                        }}
-                      >
-                        <span style={{ marginRight: 12 }}>
-                          {e.bccEmailAddress}
-                        </span>
-                        <button
-                          className="secondary button small"
-                          onClick={() => handleDeleteBcc(e.id)}
-                          disabled={bccLoading}
-                          title="Delete this BCC address"
-                        >
-                          Delete
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-          </div>
         </div>
       </div>
     </div>

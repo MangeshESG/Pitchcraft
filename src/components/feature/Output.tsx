@@ -103,7 +103,7 @@ interface OutputInterface {
     React.SetStateAction<string | number | null>
   >;
   selectedClient: string;
-   isStarted?: boolean;
+  isStarted?: boolean;
   handleStart?: () => void;
   handlePauseResume?: () => void;
   handleReset?: () => void;
@@ -117,7 +117,7 @@ interface OutputInterface {
   selectedCampaign?: string;
   isProcessing?: boolean;
   handleClearAll?: () => void; // Optional prop for clearing all
-   campaigns?: any[];
+  campaigns?: any[];
   handleCampaignChange?: (e: any) => void;
   selectionMode?: string;
   promptList?: any[];
@@ -129,12 +129,11 @@ interface OutputInterface {
   languages?: any[];
   selectedLanguage?: string;
   handleLanguageChange?: (e: any) => void;
-   subjectMode?: string;
+  subjectMode?: string;
   setSubjectMode?: (value: string) => void;
   subjectText?: string;
   setSubjectText?: (value: string) => void;
   selectedPrompt: Prompt | null;
-
 }
 
 const Output: React.FC<OutputInterface> = ({
@@ -173,7 +172,7 @@ const Output: React.FC<OutputInterface> = ({
   recentlyAddedOrUpdatedId,
   setRecentlyAddedOrUpdatedId,
   selectedClient,
-    isStarted,
+  isStarted,
   handleStart,
   handlePauseResume,
   handleReset,
@@ -202,9 +201,6 @@ const Output: React.FC<OutputInterface> = ({
   setSubjectMode,
   subjectText,
   setSubjectText,
-  
-
-    
 }) => {
   const [isCopyText, setIsCopyText] = useState(false);
 
@@ -805,7 +801,7 @@ const Output: React.FC<OutputInterface> = ({
     }
   }, [effectiveUserId, token]);
 
-  const handleSendEmail = async (subjectFromButton: string) => {
+ const handleSendEmail = async (subjectFromButton: string) => {
     setEmailMessage("");
     setEmailError("");
 
@@ -822,13 +818,14 @@ const Output: React.FC<OutputInterface> = ({
 
     try {
       const currentContact = combinedResponses[currentIndex];
-      const previousContact = combinedResponses[currentIndex - 1];
-      const nextContact = combinedResponses[currentIndex + 1];
+      
+      // Ensure we have the required contact information
+      if (!currentContact || !currentContact.id) {
+        setEmailError("No valid contact selected");
+        setSendingEmail(false);
+        return;
+      }
 
-      const pageTokenToUse =
-        previousContact?.nextPageToken || nextContact?.prevPageToken || "";
-
-      console.log("Using pageToken:", pageTokenToUse);
       console.log("Sending email to:", currentContact?.name);
 
       const response = await axios.post(
@@ -836,12 +833,11 @@ const Output: React.FC<OutputInterface> = ({
         {},
         {
           params: {
-            ClientId: effectiveUserId,
-            zohoViewName: selectedZohoviewId,
-            pageToken: pageTokenToUse,
-            subject: subjectToUse,
-            SmtpID: selectedSmtpUser,
-            ...(emailFormData.BccEmail && { BccEmail: emailFormData.BccEmail }),
+            clientId: effectiveUserId,
+            dataFileId: selectedZohoviewId, // Assuming this is your dataFileId
+            contactId: currentContact.id,
+            smtpId: selectedSmtpUser,
+            ...(emailFormData.BccEmail && { bccEmail: emailFormData.BccEmail }),
           },
           headers: {
             ...(token && { Authorization: `Bearer ${token}` }),
@@ -852,6 +848,7 @@ const Output: React.FC<OutputInterface> = ({
       setEmailMessage(response.data.message || "Email sent successfully!");
       toast.success("Email sent successfully!");
 
+      // Update the contact's email sent status
       try {
         const updatePayload = {
           Id: currentContact.id,
@@ -870,15 +867,23 @@ const Output: React.FC<OutputInterface> = ({
           }
         );
 
+        // Update local state
         const updatedResponses = [...combinedResponses];
         updatedResponses[currentIndex] = {
           ...updatedResponses[currentIndex],
           emailsentdate: new Date().toISOString(),
+          lastemailupdateddate: new Date().toISOString(),
           PG_Added_Correctly: true,
         };
         setCombinedResponses(updatedResponses);
+
+        // If the API returns nextContactId, you might want to handle navigation
+        if (response.data.nextContactId) {
+          // Optional: Auto-navigate to next contact or store for later use
+          console.log("Next contact ID:", response.data.nextContactId);
+        }
       } catch (updateError) {
-        console.error("Failed to update Zoho record:", updateError);
+        console.error("Failed to update contact record:", updateError);
         if (axios.isAxiosError(updateError)) {
           console.error("Update error details:", updateError.response?.data);
         }
@@ -1061,279 +1066,243 @@ const Output: React.FC<OutputInterface> = ({
 
   return (
     <div className="login-box gap-down">
-     
-<div className="output-control-bar d-flex justify-between align-center mb-20">
-  <div className="control-buttons d-flex align-center">
-    {!isStarted ? (
-      <button
-        className="primary-button"
-        onClick={handleStart}
-        disabled={
-          (!selectedPrompt?.name || !selectedZohoviewId) &&
-          !selectedCampaign
-        }
-        title="Click to generate hyper-personalized emails using the selected template for contacts in the selected data file"
-      >
-        Start
-      </button>
-    ) : (
-      <>
-        <button
-          className="primary-button"
-          onClick={handlePauseResume}
-          disabled={
-            isPaused && (!isPitchUpdateCompleted || isProcessing)
-          }
-          title={
-            isPaused
-              ? allRecordsProcessed
-                ? "Click to start a new process"
-                : "Click to resume the generation of emails"
-              : "Click to pause the generation of emails"
-          }
-        >
-          {isPaused
-            ? allRecordsProcessed
-              ? "Start"
-              : "Resume"
-            : "Pause"}
-        </button>
-
-        {isPaused && (
-          <button
-            className="secondary-button ml-10"
-            onClick={handleReset}
-            disabled={
-              !isPitchUpdateCompleted || isProcessing || !isPaused
-            }
-            title="Click to reset so that the generation of emails begins again from the first of the contacts in the selected data file"
-          >
-            Reset
-          </button>
-        )}
-      </>
-    )}
-  </div>
-
-  {/* Right side options */}
-  <div className="output-control-options d-flex align-center">
-    {!isDemoAccount && (
-      <>
-        <label className="checkbox-label mr-20">
-          <input
-            type="checkbox"
-            checked={settingsForm.overwriteDatabase}
-            name="overwriteDatabase"
-            id="overwriteDatabase"
-            onChange={settingsFormHandler}
-          />
-          <span>Overwrite database</span>
-        </label>
-
-        <div className="form-group d-flex align-center mb-0 mr-20">
-          <label className="font-size-medium font-500 mb-0 mr-10">
-            Delay(secs)
-          </label>
-          <input
-            type="number"
-            value={delayTime}
-            onChange={(e: any) => setDelay?.(e.target.value)}
-            className="height-35"
-            style={{ width: "55px" }}
-          />
-        </div>
-      </>
-    )}
-    
-    {userRole === "ADMIN" && (
-      <button
-        className="secondary-button nowrap"
-        onClick={handleClearAll}
-        disabled={
-          !isPitchUpdateCompleted || isProcessing || !isPaused
-        }
-        title="Clear all data and reset the application state"
-      >
-        Reset all
-      </button>
-    )}
-  </div>
-</div>
-
-
-{/* Add the selection dropdowns and subject line section */}
-<div className="output-control-bar d-flex justify-between align-center mb-20">
-  <div className="input-section edit-section">
-    {/* Dropdowns Row */}
-    <div className="row flex-col-768">
-      <div className="col col-3 col-12-768">
-        <div className="form-group">
-          <label>
-            Campaign <span className="required">*</span>
-          </label>
-          <select
-            onChange={handleCampaignChange}
-            value={selectedCampaign}
-            disabled={
-              selectionMode === "manual" &&
-              (!!selectedPrompt?.name || !!selectedZohoviewId)
-            }
-          >
-            <option value="">Select a campaign</option>
-            {campaigns?.map((campaign) => (
-              <option
-                key={campaign.id}
-                value={campaign.id.toString()}
-              >
-                {campaign.campaignName}
-              </option>
-            ))}
-          </select>
-          {!selectedCampaign && (
-            <small className="error-text">
-              Please select a campaign
-            </small>
-          )}
-        </div>
-        {selectedCampaign &&
-          campaigns?.find(
-            (c) => c.id.toString() === selectedCampaign
-          )?.description && (
-            <div className="campaign-description-container">
-              <small className="campaign-description">
-                {
-                  campaigns.find(
-                    (c) => c.id.toString() === selectedCampaign
-                  )?.description
+      <div className="output-control-bar d-flex justify-between align-center mb-20">
+        <div className="control-buttons d-flex align-center">
+          {!isStarted ? (
+            <button
+              className="primary-button"
+              onClick={handleStart}
+              disabled={
+                (!selectedPrompt?.name || !selectedZohoviewId) &&
+                !selectedCampaign
+              }
+              title="Click to generate hyper-personalized emails using the selected template for contacts in the selected data file"
+            >
+              Start
+            </button>
+          ) : (
+            <>
+              <button
+                className="primary-button"
+                onClick={handlePauseResume}
+                disabled={isPaused && (!isPitchUpdateCompleted || isProcessing)}
+                title={
+                  isPaused
+                    ? allRecordsProcessed
+                      ? "Click to start a new process"
+                      : "Click to resume the generation of emails"
+                    : "Click to pause the generation of emails"
                 }
-              </small>
-            </div>
+              >
+                {isPaused
+                  ? allRecordsProcessed
+                    ? "Start"
+                    : "Resume"
+                  : "Pause"}
+              </button>
+
+              {isPaused && (
+                <button
+                  className="secondary-button ml-10"
+                  onClick={handleReset}
+                  disabled={
+                    !isPitchUpdateCompleted || isProcessing || !isPaused
+                  }
+                  title="Click to reset so that the generation of emails begins again from the first of the contacts in the selected data file"
+                >
+                  Reset
+                </button>
+              )}
+            </>
           )}
+          {userRole === "ADMIN" && (
+            <button
+              className="secondary-button nowrap"
+              onClick={handleClearAll}
+              disabled={!isPitchUpdateCompleted || isProcessing || !isPaused}
+              title="Clear all data and reset the application state"
+            >
+              Reset all
+            </button>
+          )}
+           {!isDemoAccount && (
+            <>
+            <div className="form-group d-flex align-center mb-0 mr-20">
+                <label className="font-size-medium font-500 mb-0 mr-10">
+                  Delay(secs)
+                </label>
+                <input
+                  type="number"
+                  value={delayTime}
+                  onChange={(e: any) => setDelay?.(e.target.value)}
+                  className="height-35"
+                  style={{ width: "55px" }}
+                />
+              </div>
+              <label className="checkbox-label mr-20">
+                <input
+                  type="checkbox"
+                  checked={settingsForm.overwriteDatabase}
+                  name="overwriteDatabase"
+                  id="overwriteDatabase"
+                  onChange={settingsFormHandler}
+                />
+                <span>Overwrite existing</span>
+              </label> 
+            </>
+          )}
+        </div>
       </div>
 
-      
-<div className="col col-3 col-12-768">
-  <div className="form-group">
-    <label>
-      Original non-personalized email templates
-    </label>
+      {/* Add the selection dropdowns and subject line section */}
+      <div className="output-control-bar d-flex justify-between align-center mb-20">
+        <div className="input-section edit-section">
+          {/* Dropdowns Row */}
+          <div className="row flex-col-768">
+            <div className="col col-3 col-12-768">
+              <div className="form-group">
+                <label>
+                  Campaign <span className="required">*</span>
+                </label>
+                <select
+                  onChange={handleCampaignChange}
+                  value={selectedCampaign}
+                  disabled={
+                    selectionMode === "manual" &&
+                    (!!selectedPrompt?.name || !!selectedZohoviewId)
+                  }
+                >
+                  <option value="">Select a campaign</option>
+                  {campaigns?.map((campaign) => (
+                    <option key={campaign.id} value={campaign.id.toString()}>
+                      {campaign.campaignName}
+                    </option>
+                  ))}
+                </select>
+                {!selectedCampaign && (
+                  <small className="error-text">Please select a campaign</small>
+                )}
+              </div>
+              {selectedCampaign &&
+                campaigns?.find((c) => c.id.toString() === selectedCampaign)
+                  ?.description && (
+                  <div className="campaign-description-container">
+                    <small className="campaign-description">
+                      {
+                        campaigns.find(
+                          (c) => c.id.toString() === selectedCampaign
+                        )?.description
+                      }
+                    </small>
+                  </div>
+                )}
+            </div>
+
+            {/* <div className="col col-3 col-12-768">
+              <div className="form-group">
+                <label>Original non-personalized email templates</label>
+                <select
+                  onChange={handleSelectChange}
+                  value={selectedPrompt?.name || ""}
+                  className={!selectedPrompt?.name ? "highlight-required" : ""}
+                  disabled={
+                    userRole !== "ADMIN" || selectionMode === "campaign"
+                  }
+                >
+                  <option value="">Please select a template</option>
+                  {promptList?.map((prompt: any) => (
+                    <option key={prompt.id} value={prompt.name}>
+                      {prompt.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="col col-3 col-12-768">
+              <div className="form-group">
+                <label>Data files of contacts</label>
+                <select
+                  name="model"
+                  id="model"
+                  onChange={handleZohoModelChange}
+                  value={selectedZohoviewId}
+                  className={!selectedZohoviewId ? "highlight-required" : ""}
+                  disabled={
+                    userRole !== "ADMIN" || selectionMode === "campaign"
+                  }
+                >
+                  <option value="">Please select a data file</option>
+                  {dataFiles?.map((file) => (
+                    <option key={file.id} value={file.id}>
+                      {file.name} - {file.data_file_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {emailLoading && (
+                <div className="loader-overlay">
+                  <div className="loader"></div>
+                </div>
+              )}
+            </div> */}
+
+           
+<div className="col col-4 col-12-768 d-flex align-center">
+  <div className="form-group d-flex align-center" style={{ flexWrap: "wrap" }}>
+    <label style={{ width: "100%" }}>Subject</label>
+
     <select
-      onChange={handleSelectChange}
-      value={selectedPrompt?.name || ""}
-      className={
-        !selectedPrompt?.name ? "highlight-required" : ""
-      }
-      disabled={
-        userRole !== "ADMIN" ||
-        selectionMode === "campaign"
-      }
+      onChange={(e) => setSubjectMode?.(e.target.value)}
+      value={subjectMode}
+      className="height-35"
+      style={{ minWidth: 150, marginRight: 10 }}
     >
-      <option value="">Please select a template</option>
-      {promptList?.map((prompt: any) => (
-        <option key={prompt.id} value={prompt.name}>
-          {prompt.name}
-        </option>
-      ))}
+      <option value="AI generated">AI generated</option>
+      <option value="With Placeholder">With placeholder</option>
     </select>
-     </div>
-</div>
 
-      <div className="col col-3 col-12-768">
-        <div className="form-group">
-          <label>Data files of contacts</label>
-          <select
-            name="model"
-            id="model"
-            onChange={handleZohoModelChange}
-            value={selectedZohoviewId}
-            className={
-              !selectedZohoviewId ? "highlight-required" : ""
-            }
-            disabled={
-              userRole !== "ADMIN" ||
-              selectionMode === "campaign"
-            }
-          >
-            <option value="">Please select a data file</option>
-            {dataFiles?.map((file) => (
-              <option key={file.id} value={file.id}>
-                {file.name} - {file.data_file_name}
-              </option>
-            ))}
-          </select>
-        </div>
-        {emailLoading && (
-          <div className="loader-overlay">
-            <div className="loader"></div>
-          </div>
-        )}
-      </div>
-
-      <div className="col col-3 col-12-768">
-        <div className="form-group">
-          <label>Language</label>
-          <select
-            onChange={handleLanguageChange}
-            value={selectedLanguage}
-          >
-            <option value="">Select a language</option>
-            {languages?.sort((a, b) => a.localeCompare(b))
-              .map((language, index) => (
-                <option key={index} value={language}>
-                  {language}
-                </option>
-              ))}
-          </select>
-        </div>
-      </div>
-    </div>
-
-    {/* Subject Line Row */}
-    <div className="row flex-col-768">
-      <div className="col col-12">
-        <div className="form-group d-flex align-center">
-          <label
-            style={{
-              minWidth: 66,
-              marginRight: 10,
-              marginBottom: 0,
-            }}
-          >
-            Subject <span className="required">*</span>
-          </label>
-          <select
-            onChange={(e) => setSubjectMode?.(e.target.value)}
-            value={subjectMode}
-            className="height-35"
-            style={{ minWidth: 150 }}
-          >
-            <option value="AI generated">AI generated</option>
-            <option value="With Placeholder">
-              With placeholder
-            </option>
-          </select>
-          <input
-            type="text"
-            placeholder="Enter subject here"
-            value={subjectText}
-            onChange={(e) => setSubjectText?.(e.target.value)}
-            disabled={subjectMode !== "With Placeholder"}
-            className="height-35 ml-10"
-            style={{
-              minWidth: 700,
-              flex: "1 1 auto",
-              boxSizing: "border-box",
-              marginLeft: 16,
-            }}
-          />
-        </div>
-      </div>
-    </div>
+    <input
+      type="text"
+      placeholder="Enter subject here"
+      value={subjectText}
+      onChange={(e) => setSubjectText?.(e.target.value)}
+      disabled={subjectMode !== "With Placeholder"}
+      className="height-35"
+      style={{ flex: 1, minWidth: 200, marginRight: 10 }}
+    />
   </div>
 </div>
 
-{/* Rest of Output component content */}
 
+
+            <div className="col col-3 col-12-768">
+  <div className="form-group">
+    <label>Language</label>
+    <select
+      onChange={handleLanguageChange}
+      value={selectedLanguage}
+      className="height-35"
+    >
+      <option value="">Select a language</option>
+      {languages
+        ?.sort((a, b) => a.localeCompare(b))
+        .map((language, index) => (
+          <option key={index} value={language}>
+            {language}
+          </option>
+        ))}
+    </select>
+  </div>
+</div>
+          </div>
+
+          {/* Subject Line Row */}
+          
+        </div>
+      </div>
+
+      {/* Rest of Output component content */}
 
       {userRole === "ADMIN" && (
         <div className="row pb-2 d-flex align-center justify-end">

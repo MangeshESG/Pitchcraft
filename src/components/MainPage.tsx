@@ -786,15 +786,14 @@ const MainPage: React.FC = () => {
         setallsummery(naPlaceholders);
         setallSearchTermBodies(naPlaceholders);
         setCurrentIndex(0);
-        setNextPageToken(null);
-        setPrevPageToken(null);
+       
       } catch (error) {
         console.error("Error fetching email bodies:", error);
       } finally {
         setEmailLoading(false);
       }
     },
-    [selectedClient, userId, API_BASE_URL]
+    [selectedClient, userId]
   );
 
   const sendEmail = async (
@@ -2646,47 +2645,66 @@ const MainPage: React.FC = () => {
     fetchCampaigns();
   }, [selectedClient, clientID]);
 
-  const handleCampaignChange = async (
-    event: React.ChangeEvent<HTMLSelectElement>
-  ) => {
-    const campaignId = event.target.value;
-    setSelectedCampaign(campaignId);
+const handleCampaignChange = async (
+  event: React.ChangeEvent<HTMLSelectElement>
+) => {
+  const campaignId = event.target.value;
+  setSelectedCampaign(campaignId);
 
-    if (campaignId) {
-      setSelectionMode("campaign");
+  if (campaignId) {
+    setSelectionMode("campaign");
 
-      // Find the selected campaign
-      const campaign = campaigns.find((c) => c.id.toString() === campaignId);
-      if (campaign) {
-        // Automatically set the corresponding prompt and zoho view
-        const promptMatch = promptList.find(
-          (p: Prompt) => p.id === campaign.promptId
-        );
-        if (promptMatch) {
-          setSelectedPrompt(promptMatch);
-        }
+    // Clear existing data
+    setAllResponses([]);
+    setexistingResponse([]);
+    setCurrentIndex(0);
 
-        // Set the ZohoViewId
-        setSelectedZohoviewId(campaign.zohoViewId);
+    // Find the selected campaign
+    const campaign = campaigns.find((c) => c.id.toString() === campaignId);
+    console.log('Selected campaign:', campaign);
 
-        // Fetch data for this zoho view
-        try {
-          await fetchAndDisplayEmailBodies(campaign.zohoViewId);
-        } catch (error) {
-          console.error("Error fetching email bodies:", error);
-        }
+    if (campaign) {
+      // Set the corresponding prompt
+      const promptMatch = promptList.find(
+        (p: Prompt) => p.id === campaign.promptId
+      );
+      if (promptMatch) {
+        setSelectedPrompt(promptMatch);
       }
-    } else {
-      // If no campaign is selected, switch back to manual mode
-      setSelectionMode("manual");
 
-      // IMPORTANT: Clear the prompt and zohoviewId to prevent the dropdown from being disabled
-      if (selectionMode === "campaign") {
-        setSelectedPrompt(null);
-        setSelectedZohoviewId("");
+      // The zohoViewId field actually contains the dataFileId
+      const dataFileId = campaign.zohoViewId; // This is '31' in your example
+      console.log('Campaign dataFileId:', dataFileId);
+      setSelectedZohoviewId(dataFileId);
+
+      // Fetch data for this data file
+      try {
+        if (!dataFileId) {
+          console.error('Campaign has no dataFileId');
+          return;
+        }
+
+        // Get the client ID
+        const clientIdToUse = campaign.clientId.toString() || selectedClient || clientID;
+        console.log('Using client ID:', clientIdToUse);
+        
+        // Pass in format: "clientId,dataFileId"
+        // This matches your existing API call pattern
+        await fetchAndDisplayEmailBodies(`${clientIdToUse},${dataFileId}`);
+        
+      } catch (error) {
+        console.error("Error fetching email bodies:", error);
       }
     }
-  };
+  } else {
+    // If no campaign is selected, switch back to manual mode
+    setSelectionMode("manual");
+    setSelectedPrompt(null);
+    setSelectedZohoviewId("");
+    setAllResponses([]);
+    setexistingResponse([]);
+  }
+};
 
   const handleClearAll = () => {
     // Confirm before proceeding
@@ -2928,8 +2946,8 @@ const MainPage: React.FC = () => {
                               !selectedPrompt?.name ? "highlight-required" : ""
                             }
                             disabled={
-                              userRole !== "ADMIN" ||
-                              selectionMode === "campaign"
+                              userRole !== "ADMIN" 
+                              
                             }
                           >
                             <option value="">Please select a template</option>
