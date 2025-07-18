@@ -23,6 +23,7 @@ import API_BASE_URL from "../../config";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
+
 import {
   LineChart,
   Line,
@@ -34,6 +35,8 @@ import {
   CartesianGrid,
 } from "recharts";
 import Time from "react-datepicker/dist/time";
+type MailTabType = "Dashboard" | "Configuration" | "Schedule";
+
 interface DailyStats {
   date: string;
   sent: number;
@@ -119,6 +122,12 @@ interface SettingsProps {
   selectedClient: string;
 }
 
+interface MailProps {
+  initialTab?: string;
+  onTabChange?: (tab: string) => void;
+}
+
+
 interface OutputInterface {
   outputForm: {
     generatedContent: string;
@@ -173,7 +182,7 @@ interface OutputInterface {
   zohoClient: ZohoClient[]; // Add this new prop type
 }
 
-const Mail: React.FC<OutputInterface & SettingsProps> = ({
+const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   outputForm,
   //outputFormHandler,
   setOutputForm,
@@ -206,7 +215,15 @@ const Mail: React.FC<OutputInterface & SettingsProps> = ({
   isResetEnabled, // Receive the prop
   zohoClient, // Add this to the destructured props
   selectedClient,
+  initialTab = "Dashboard",
+  onTabChange,
 }) => {
+
+   
+
+
+
+
   const [isCopyText, setIsCopyText] = useState(false);
 
   const copyToClipboardHandler = async () => {
@@ -246,12 +263,23 @@ const Mail: React.FC<OutputInterface & SettingsProps> = ({
     setOpenModals((prev) => ({ ...prev, [id]: false }));
   };
 
-  const [tab, setTab] = useState("Dashboard");
-  const tabHandler = (e: React.ChangeEvent<any>) => {
-    const { innerText } = e.target;
+  const [tab, setTab] = useState<MailTabType>(initialTab as MailTabType);
+
+  useEffect(() => {
+    setTab(initialTab as MailTabType);
+  }, [initialTab]);
+
+  const tabHandler = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const innerText = e.currentTarget.innerText as MailTabType;
     console.log(innerText, "innerText");
     setTab(innerText);
+    
+    // Notify parent component
+    if (onTabChange) {
+      onTabChange(innerText);
+    }
   };
+
 
   const [tab2, setTab2] = useState("Output");
   const tabHandler2 = (e: React.ChangeEvent<any>) => {
@@ -259,6 +287,8 @@ const Mail: React.FC<OutputInterface & SettingsProps> = ({
     console.log(innerText, "innerText");
     setTab2(innerText);
   };
+
+  
 
   const [emailLoading, setEmailLoading] = useState(false); // Loading state for fetching email data
 
@@ -1790,68 +1820,91 @@ const Mail: React.FC<OutputInterface & SettingsProps> = ({
       ? ((totalStats.clicks / requestCount) * 100).toFixed(1)
       : "0.0";
 
+
+
+
+
+   // BCC Email Management states
+const [bccEmails, setBccEmails] = useState<BccEmail[]>([]);
+const [newBccEmail, setNewBccEmail] = useState<string>("");
+const [bccLoading, setBccLoading] = useState(false);
+
+type BccEmail = { id: number; bccEmailAddress: string; clinteId: number };
+
+// Fetch BCC emails when client changes
+useEffect(() => {
+  if (!effectiveUserId) return;
+
+  const fetchBcc = async () => {
+    setBccLoading(true);
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/email/get-by-clinte?clinteId=${effectiveUserId}`
+      );
+      if (!res.ok) throw new Error("Failed to fetch BCC emails");
+      const data = await res.json();
+      setBccEmails(data);
+      setBccError("");
+    } catch (error: any) {
+      setBccError("Could not fetch BCC emails");
+    } finally {
+      setBccLoading(false);
+    }
+  };
+
+  fetchBcc();
+}, [effectiveUserId]);
+
+const handleAddBcc = async () => {
+  if (!newBccEmail) return;
+  setBccLoading(true);
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/email/${effectiveUserId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ BccEmailAddress: newBccEmail }),
+    });
+    if (!res.ok) throw new Error("Add failed");
+    setNewBccEmail("");
+    setBccError("");
+    // Refresh list
+    const updated = await fetch(
+      `${API_BASE_URL}/api/email/get-by-clinte?clinteId=${effectiveUserId}`
+    );
+    setBccEmails(await updated.json());
+  } catch (error: any) {
+    setBccError("Error adding BCC email");
+  } finally {
+    setBccLoading(false);
+  }
+};
+
+const handleDeleteBcc = async (id: number) => {
+  setBccLoading(true);
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/api/email/delete?id=${id}&clinteId=${effectiveUserId}`,
+      { method: "POST" }
+    );
+    if (!res.ok) throw new Error("Delete failed");
+    setBccError("");
+    setBccEmails(bccEmails.filter((e) => e.id !== id));
+  } catch (error: any) {
+    setBccError("Error deleting");
+  } finally {
+    setBccLoading(false);
+  }
+};
+
   return (
     <div className="login-box gap-down">
-      <div className="tabs secondary d-flex align-center">
-        <ul className="d-flex">
-          <li>
-            <button
-              onClick={tabHandler}
-              className={`button ${tab === "Dashboard" ? "active" : ""}`}
-            >
-              Dashboard
-            </button>
-          </li>
-          <li>
-            <button
-              onClick={tabHandler}
-              className={`button ${tab === "Configuration" ? "active" : ""}`}
-            >
-              Configuration
-            </button>
-          </li>
-          <li>
-            <button
-              onClick={tabHandler}
-              className={`button ${tab === "Schedule" ? "active" : ""}`}
-            >
-              Schedule
-            </button>
-          </li>
-        </ul>
-      </div>
+    
 
       {tab === "Dashboard" && (
         <>
-          <div
-            className="tabs secondary d-flex align-center"
-            style={{ marginTop: "20px" }}
-          >
-            <ul className="d-flex">
-              <li>
-                <button
-                  onClick={() => setDashboardTab("Overview")}
-                  className={`button ${
-                    dashboardTab === "Overview" ? "active" : ""
-                  }`}
-                >
-                  Overview
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => setDashboardTab("Details")}
-                  className={`button ${
-                    dashboardTab === "Details" ? "active" : ""
-                  }`}
-                >
-                  Details
-                </button>
-              </li>
-            </ul>
-          </div>
+         
 
-          {/* View Dropdown and Date Filters */}
+
           {/* View Dropdown and Date Filters */}
           <div
             className="form-group d-flex align-center"
@@ -2160,156 +2213,223 @@ const Mail: React.FC<OutputInterface & SettingsProps> = ({
       )}
 
       {tab === "Configuration" && (
-        <>
-          <div className="tabs secondary d-flex align-center">
-            <div className="input-section edit-section">
-              <div className="table-container mt-0">
-                <h4 className="mt-0">
-                  {editingId ? "Edit Link mailbox" : "Link mailbox"}
-                </h4>
-                <form onSubmit={handleSubmitSMTP}>
-                  <div className="row flex-col-640">
-                    <div className="col col-12-640">
-                      <div className="form-group">
-                        <label>Host</label>
-                        <input
-                          name="server"
-                          placeholder="Host"
-                          value={form.server}
-                          onChange={handleChangeSMTP}
-                          required
-                        />
-                        <br />
-                      </div>
-                    </div>
-                    <div className="col col-12-640">
-                      <div className="form-group">
-                        <label>Port</label>
-                        <input
-                          name="port"
-                          type="number"
-                          placeholder="Port"
-                          value={form.port}
-                          onChange={handleChangeSMTP}
-                          required
-                        />
-                        <br />
-                      </div>
-                    </div>
-                    <div className="col col-12-640">
-                      <div className="form-group">
-                        <label>Username</label>
-                        <input
-                          name="username"
-                          placeholder="Username"
-                          value={form.username}
-                          onChange={handleChangeSMTP}
-                          required
-                        />
-                        <br />
-                      </div>
-                    </div>
-                    <div className="col col-12-640">
-                      <div className="form-group">
-                        <label>Password</label>
-                        <input
-                          name="password"
-                          type="password"
-                          placeholder="Password"
-                          value={form.password}
-                          onChange={handleChangeSMTP}
-                          required
-                        />
-                        <br />
-                      </div>
-                    </div>
-                    <div className="col col-12-640">
-                      <div className="form-group">
-                        <label>From email</label>
-                        <input
-                          name="fromEmail"
-                          placeholder="From email"
-                          value={form.fromEmail}
-                          onChange={handleChangeSMTP}
-                          required
-                        />
-                        <br />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="d-flex justify-end">
-                    <div className="form-group d-flex align-center justify-end">
-                      <input
-                        type="checkbox"
-                        name="usessl"
-                        checked={form.usessl}
-                        onChange={handleChangeSMTP}
-                      />
-                      <span className="ml-5 font-size-12 nowrap mr-10">
-                        Use SSL
-                      </span>
-                      <button className="save-button button full" type="submit">
-                        {editingId ? "Update" : "Add"}
-                      </button>
-                    </div>
-                  </div>
-                </form>
+  <>
+    <div className="tabs secondary d-flex align-center">
+      <div className="input-section edit-section">
+        <div className="table-container mt-0">
+          <h4 className="mt-0">
+            {editingId ? "Edit Link mailbox" : "Link mailbox"}
+          </h4>
+          <form onSubmit={handleSubmitSMTP}>
+            <div className="row flex-col-640">
+              <div className="col col-12-640">
+                <div className="form-group">
+                  <label>Host</label>
+                  <input
+                    name="server"
+                    placeholder="Host"
+                    value={form.server}
+                    onChange={handleChangeSMTP}
+                    required
+                  />
+                  <br />
+                </div>
+              </div>
+              <div className="col col-12-640">
+                <div className="form-group">
+                  <label>Port</label>
+                  <input
+                    name="port"
+                    type="number"
+                    placeholder="Port"
+                    value={form.port}
+                    onChange={handleChangeSMTP}
+                    required
+                  />
+                  <br />
+                </div>
+              </div>
+              <div className="col col-12-640">
+                <div className="form-group">
+                  <label>Username</label>
+                  <input
+                    name="username"
+                    placeholder="Username"
+                    value={form.username}
+                    onChange={handleChangeSMTP}
+                    required
+                  />
+                  <br />
+                </div>
+              </div>
+              <div className="col col-12-640">
+                <div className="form-group">
+                  <label>Password</label>
+                  <input
+                    name="password"
+                    type="password"
+                    placeholder="Password"
+                    value={form.password}
+                    onChange={handleChangeSMTP}
+                    required
+                  />
+                  <br />
+                </div>
+              </div>
+              <div className="col col-12-640">
+                <div className="form-group">
+                  <label>From email</label>
+                  <input
+                    name="fromEmail"
+                    placeholder="From email"
+                    value={form.fromEmail}
+                    onChange={handleChangeSMTP}
+                    required
+                  />
+                  <br />
+                </div>
+              </div>
+            </div>
+            <div className="d-flex justify-end">
+              <div className="form-group d-flex align-center justify-end">
+                <input
+                  type="checkbox"
+                  name="usessl"
+                  checked={form.usessl}
+                  onChange={handleChangeSMTP}
+                />
+                <span className="ml-5 font-size-12 nowrap mr-10">
+                  Use SSL
+                </span>
+                <button className="save-button button full" type="submit">
+                  {editingId ? "Update" : "Add"}
+                </button>
+              </div>
+            </div>
+          </form>
 
-                <h4 className="">Mailboxes</h4>
-                <div className="table-container">
-                  <table
-                    className="responsive-table"
-                    style={{ border: "1" }}
-                    cellPadding="10"
-                    width="100%"
+          <h4 className="">Mailboxes</h4>
+          <div className="table-container">
+            <table
+              className="responsive-table"
+              style={{ border: "1" }}
+              cellPadding="10"
+              width="100%"
+            >
+              <thead>
+                <tr>
+                  <th>Server</th>
+                  <th>Port</th>
+                  <th>Username</th>
+                  <th>From email address</th>
+                  <th>SSL</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {smtpList.map((item, index) => (
+                  <tr key={item.id || index}>
+                    <td>{item.server}</td>
+                    <td>{item.port}</td>
+                    <td>{item.username}</td>
+                    <td>{item.fromEmail}</td>
+                    <td>{item.usessl ? "False" : "True"}</td>
+                    <td>
+                      <button
+                        className="save-button button small"
+                        onClick={() => handleEdit(item)}
+                      >
+                        Edit
+                      </button>{" "}
+                      <button
+                        className="save-button button small"
+                        onClick={() => handleDelete(item.id)}
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {smtpList.length === 0 && (
+                  <tr>
+                    <td>No records found.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* BCC Email Management Section */}
+          <h4 className="mt-4">BCC Email Management</h4>
+          <div className="bcc-email-section">
+            {bccError && <div className="error-message">{bccError}</div>}
+            <div className="bcc-add-form">
+              <div className="row align-center">
+                <div className="col col-8 col-12-640">
+                  <div className="form-group mb-0">
+                    <input
+                      type="email"
+                      placeholder="Add BCC Email"
+                      value={newBccEmail}
+                      onChange={(e) => setNewBccEmail(e.target.value)}
+                      disabled={bccLoading}
+                      className="form-control"
+                    />
+                  </div>
+                </div>
+                <div className="col col-4 col-12-640">
+                  <button
+                    className="save-button button small full"
+                    onClick={handleAddBcc}
+                    disabled={bccLoading || !newBccEmail}
                   >
+                    {bccLoading ? "Adding..." : "Add BCC"}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="bcc-list mt-3">
+              {bccLoading ? (
+                <div className="loading-message">Loading BCC emails...</div>
+              ) : bccEmails.length === 0 ? (
+                <div className="empty-message">No BCC emails configured.</div>
+              ) : (
+                <div className="table-container">
+                  <table className="responsive-table" cellPadding="10" width="100%">
                     <thead>
                       <tr>
-                        <th>Server</th>
-                        <th>Port</th>
-                        <th>Username</th>
-                        <th>From email address</th>
-                        <th>SSL</th>
+                        <th>BCC Email Address</th>
                         <th>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {smtpList.map((item, index) => (
-                        <tr key={item.id || index}>
-                          <td>{item.server}</td>
-                          <td>{item.port}</td>
-                          <td>{item.username}</td>
-                          <td>{item.fromEmail}</td>
-                          <td>{item.usessl ? "False" : "True"}</td>
+                      {bccEmails.map((email) => (
+                        <tr key={email.id}>
+                          <td>{email.bccEmailAddress}</td>
                           <td>
                             <button
-                              className="save-button button small"
-                              onClick={() => handleEdit(item)}
-                            >
-                              Edit
-                            </button>{" "}
-                            <button
-                              className="save-button button small"
-                              onClick={() => handleDelete(item.id)}
+                              className="secondary button small"
+                              onClick={() => handleDeleteBcc(email.id)}
+                              disabled={bccLoading}
+                              title="Delete this BCC address"
                             >
                               Delete
                             </button>
                           </td>
                         </tr>
                       ))}
-                      {smtpList.length === 0 && (
-                        <tr>
-                          <td>No records found.</td>
-                        </tr>
-                      )}
                     </tbody>
                   </table>
                 </div>
-              </div>
+              )}
             </div>
           </div>
-        </>
-      )}
+        </div>
+      </div>
+    </div>
+  </>
+)}
       {tab === "Schedule" && (
         <div className="tabs secondary d-flex align-center">
           <div className="input-section edit-section">
