@@ -632,35 +632,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   const [prevPageToken1, setPrevPageToken1] = useState<string | null>(null);
   const [loading, setLoading] = useState(true); // Initial loading state for fetching Zoho clients
 
-  //   const fetchZohoClient1 = async () => {
-  //     setLoading(true);
-  //     try {
-  //       let url = `${API_BASE_URL}/api/auth/zohoclientid`;
-  //       if (selectedClient) {
-  //         url += `/${selectedClient}`;
-  //       } else if (clientID) {
-  //         url += `/${clientID}`;
-  //       } else {
-  //         console.error("No client ID available");
-  //         setLoading(false);
-  //         return;
-  //       }
-
-  //       const response = await fetch(url);
-  //       if (!response.ok) {
-  //         throw new Error(`HTTP error! status: ${response.status}`);
-  //       }
-  //       const data: ZohoClient[] = await response.json();
-  //       setZohoClient1(data);
-  //     } catch (error) {
-  //       console.error("Error fetching zoho client id:", error);
-  //     } finally {
-  //       setLoading(false);
-  //     }
-  //   };
-
-  //   fetchZohoClient1();
-  // }, [selectedClient, clientID]);
+  
 
   const handleZohoModelChange1 = async (
     event: React.ChangeEvent<HTMLSelectElement>
