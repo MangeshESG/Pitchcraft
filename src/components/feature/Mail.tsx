@@ -23,7 +23,6 @@ import API_BASE_URL from "../../config";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-
 import {
   LineChart,
   Line,
@@ -53,7 +52,7 @@ interface EventItem {
   zohoViewName: string;
 
   // ✅ Add these fields
-  fullName: string;
+  full_Name: string;
   company: string;
   jobTitle: string;
   location: string;
@@ -126,7 +125,6 @@ interface MailProps {
   initialTab?: string;
   onTabChange?: (tab: string) => void;
 }
-
 
 interface OutputInterface {
   outputForm: {
@@ -218,12 +216,6 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   initialTab = "Dashboard",
   onTabChange,
 }) => {
-
-   
-
-
-
-
   const [isCopyText, setIsCopyText] = useState(false);
 
   const copyToClipboardHandler = async () => {
@@ -273,13 +265,12 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     const innerText = e.currentTarget.innerText as MailTabType;
     console.log(innerText, "innerText");
     setTab(innerText);
-    
+
     // Notify parent component
     if (onTabChange) {
       onTabChange(innerText);
     }
   };
-
 
   const [tab2, setTab2] = useState("Output");
   const tabHandler2 = (e: React.ChangeEvent<any>) => {
@@ -287,8 +278,6 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     console.log(innerText, "innerText");
     setTab2(innerText);
   };
-
-  
 
   const [emailLoading, setEmailLoading] = useState(false); // Loading state for fetching email data
 
@@ -638,17 +627,11 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
 
   //Fetch Zoho View
   const [selectedZohoviewId1, setSelectedZohoviewId1] = useState<string>("");
-  // const [emailLoading, setEmailLoading] = useState(false); // Loading state for fetching email data
-  //const [zohoClient1, setZohoClient1] = useState<ZohoClient[]>([]);
-  //  const [clearExistingResponse, setClearExistingResponse] = useState<
-  //  () => void
-  //  >(() => {});
-  //  const [existingResponse, setexistingResponse] = useState<any[]>([]);
+
   const [nextPageToken1, setNextPageToken1] = useState<string | null>(null);
   const [prevPageToken1, setPrevPageToken1] = useState<string | null>(null);
   const [loading, setLoading] = useState(true); // Initial loading state for fetching Zoho clients
 
-  // useEffect(() => {
   //   const fetchZohoClient1 = async () => {
   //     setLoading(true);
   //     try {
@@ -920,8 +903,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       console.error("Error:", error);
     }
   };
-  //[effectiveUserId]
-  // end Schedule Tab js code
+
   const [showSchedulePopup, setShowSchedulePopup] = useState(false);
 
   const [message, setMessage] = useState("");
@@ -1320,7 +1302,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
 
   const [selectedView, setSelectedView] = useState<string>("");
   const [availableViews, setAvailableViews] = useState<
-    { zohoviewId: string; zohoviewName: string }[]
+    { id: number; name: string }[]
   >([]);
   const [requestCount, setRequestCount] = useState(0);
   const [allEventData, setAllEventData] = useState<EventItem[]>([]);
@@ -1329,99 +1311,18 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     "Open" | "Click" | null
   >(null);
 
-  const fetchEventData = async () => {
-    try {
-      // Replace with your real API endpoint
-      const response = await axios.get(
-        `${API_BASE_URL}/track/logs/by-client?ClientId=${effectiveUserId}`
-      );
-
-      const data1 = response.data;
-      const stats: ClientStats = {};
-      data1.forEach((item: any) => {
-        const { clientId, eventType } = item;
-        if (!stats[clientId]) {
-          stats[clientId] = { Open: 0, Click: 0 };
-        }
-        if (eventType === "Open" || eventType === "Click") {
-          stats[clientId][eventType as "Open" | "Click"]++;
-        }
-      });
-      setClientStats(stats);
-      setLoading(false);
-
-      const data: EventItem[] = response.data;
-      setAllEventData(data); // this stores the full data set
-
-      // Aggregate counts grouped by date (YYYY-MM-DD)
-      const statsMap: Record<string, DailyStats> = {};
-
-      let totalRequests = 0,
-        totalOpens = 0,
-        totalClicks = 0;
-
-      data.forEach((item) => {
-        // Extract date only (YYYY-MM-DD) from timestamp
-        const date = item.timestamp.split("T")[0];
-
-        if (!statsMap[date]) {
-          statsMap[date] = {
-            date,
-            sent: 0,
-            opens: 0,
-            clicks: 0,
-          };
-        }
-
-        // Count event types
-        if (item.eventType === "Open") {
-          statsMap[date].opens++;
-          totalOpens++;
-        } else if (item.eventType === "Click") {
-          statsMap[date].clicks++;
-          totalClicks++;
-        } else if (item.eventType === "Request") {
-          statsMap[date].sent++;
-          totalRequests++;
-        }
-      });
-
-      // Convert map to sorted array by date ascending
-      const sortedStats = Object.values(statsMap).sort((a, b) =>
-        a.date.localeCompare(b.date)
-      );
-
-      setDailyStats(sortedStats);
-      setTotalStats({
-        sent: totalRequests,
-        opens: totalOpens,
-        clicks: totalClicks,
-      });
-      setFilteredEventData(data); // Save full data
-
-      setLoading(false);
-    } catch (err) {
-      console.error("Error fetching data:", err);
-      setError("Failed to fetch event data.");
-      setLoading(false);
-    }
-  };
-
   // Rename your function to be more descriptive
-  const fetchEmailLogs = async (clientId: number, zohoViewName: string) => {
+  const fetchEmailLogs = async (clientId: number, dataFileId: number) => {
     try {
-      const response = await axios.get(
-        `${API_BASE_URL}/track/logs`, // Make sure this matches your API endpoint
-        {
-          params: {
-            clientId,
-            zohoViewName,
-          },
-          headers: {
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        }
-      );
+      const response = await axios.get(`${API_BASE_URL}/api/Crm/getlogs`, {
+        params: {
+          clientId,
+          dataFileId,
+        },
+        headers: {
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      });
       return response.data;
     } catch (error) {
       console.error("Error fetching email logs:", error);
@@ -1509,16 +1410,18 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   // Update your fetchLogsByClientAndView function
   const fetchLogsByClientAndView = async (
     clientId: number,
-    zohoViewId: string
+    viewId: string // This should be the dataFileId
   ) => {
     try {
+      const dataFileId = Number(viewId);
+
       // Fetch tracking logs (opens and clicks)
-      const response = await axios.get(
-        `${API_BASE_URL}/track/logs/by-client-viewid`,
+      const trackingResponse = await axios.get(
+        `${API_BASE_URL}/api/Crm/gettrackinglogs`,
         {
           params: {
             clientId,
-            zohoViewName: zohoViewId,
+            dataFileId,
           },
           headers: {
             ...(token && { Authorization: `Bearer ${token}` }),
@@ -1527,17 +1430,17 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       );
 
       // Fetch email logs for sent count
-      const emailLogs = await fetchEmailLogs(clientId, zohoViewId);
+      const emailLogs = await fetchEmailLogs(clientId, dataFileId);
 
-      // Store ALL data without filtering
-      const allTrackingData: EventItem[] = response.data.logs || [];
+      // Extract data from responses
+      const allTrackingData: EventItem[] = trackingResponse.data || [];
       const allEmailLogsData = emailLogs || [];
 
       // Store the raw data
       setAllEventData(allTrackingData);
-      setAllEmailLogs(allEmailLogsData); // You'll need to add this state
+      setAllEmailLogs(allEmailLogsData);
 
-      // Process data without date filtering
+      // Process data without date filtering initially
       processDataWithDateFilter(
         allTrackingData,
         allEmailLogsData,
@@ -1685,11 +1588,11 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
         return;
       }
 
-      // Refresh all data
+      // Refresh all data using the selected view ID
       await fetchLogsByClientAndView(Number(effectiveUserId), selectedView);
 
       // Reapply event type filter if it exists
-      if (filteredEventType) {
+      if (filteredEventType && allEventData.length > 0) {
         const filtered = allEventData.filter(
           (event) => event.eventType === filteredEventType
         );
@@ -1701,15 +1604,24 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       setIsRefreshing(false);
     }
   };
-
   // Update the useEffect that initializes data
   useEffect(() => {
     const initializeData = async () => {
       setLoading(true);
       try {
-        // Fetch available views
+        // Clear all previous data
+        setAvailableViews([]);
+        setSelectedView("");
+        setAllEventData([]);
+        setAllEmailLogs([]);
+        setFilteredEventData([]);
+        setDailyStats([]);
+        setTotalStats({ sent: 0, opens: 0, clicks: 0 });
+        setRequestCount(0);
+
+        // Fetch available views - use the correct endpoint
         const response = await axios.get(
-          `${API_BASE_URL}/api/auth/zohoclientid/${effectiveUserId}`,
+          `${API_BASE_URL}/api/crm/datafile-byclientid?clientId=${effectiveUserId}`,
           {
             headers: {
               ...(token && { Authorization: `Bearer ${token}` }),
@@ -1717,11 +1629,6 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
           }
         );
         setAvailableViews(response.data);
-
-        // Don't automatically select or fetch data
-        // Let the user select a view first
-        setSelectedView(""); // Ensure no view is selected initially
-        setRequestCount(0); // Ensure request count is 0 initially
       } catch (error) {
         console.error("Error initializing data:", error);
       } finally {
@@ -1729,8 +1636,25 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       }
     };
 
-    initializeData();
+    if (effectiveUserId) {
+      initializeData();
+    }
   }, [effectiveUserId]);
+
+  // Also, add cleanup to prevent state updates after component unmount
+  useEffect(() => {
+    return () => {
+      // Cleanup function to prevent state updates after unmount
+      setAvailableViews([]);
+      setSelectedView("");
+      setAllEventData([]);
+      setAllEmailLogs([]);
+      setFilteredEventData([]);
+      setDailyStats([]);
+      setTotalStats({ sent: 0, opens: 0, clicks: 0 });
+      setRequestCount(0);
+    };
+  }, []);
 
   // Update the useEffect that fetches data based on selectedView
   useEffect(() => {
@@ -1763,6 +1687,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     setRequestCount(0);
 
     if (newViewId) {
+      // Pass the view ID directly (it's the dataFileId)
       await fetchLogsByClientAndView(Number(effectiveUserId), newViewId);
     }
 
@@ -1775,42 +1700,6 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     }
   }, [startDate, endDate]);
 
-  useEffect(() => {
-    const initializeData = async () => {
-      setLoading(true);
-      try {
-        // Clear previous user's data
-        setAvailableViews([]);
-        setSelectedView("");
-        setAllEventData([]);
-        setAllEmailLogs([]);
-        setFilteredEventData([]);
-        setDailyStats([]);
-        setTotalStats({ sent: 0, opens: 0, clicks: 0 });
-        setRequestCount(0);
-
-        // Fetch available views for new user
-        const response = await axios.get(
-          `${API_BASE_URL}/api/auth/zohoclientid/${effectiveUserId}`,
-          {
-            headers: {
-              ...(token && { Authorization: `Bearer ${token}` }),
-            },
-          }
-        );
-        setAvailableViews(response.data);
-      } catch (error) {
-        console.error("Error initializing data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (effectiveUserId) {
-      initializeData();
-    }
-  }, [effectiveUserId]);
-
   const openRate =
     requestCount > 0
       ? ((totalStats.opens / requestCount) * 100).toFixed(1)
@@ -1820,289 +1709,263 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       ? ((totalStats.clicks / requestCount) * 100).toFixed(1)
       : "0.0";
 
+  // BCC Email Management states
+  const [bccEmails, setBccEmails] = useState<BccEmail[]>([]);
+  const [newBccEmail, setNewBccEmail] = useState<string>("");
+  const [bccLoading, setBccLoading] = useState(false);
 
+  type BccEmail = { id: number; bccEmailAddress: string; clinteId: number };
 
+  // Fetch BCC emails when client changes
+  useEffect(() => {
+    if (!effectiveUserId) return;
 
+    const fetchBcc = async () => {
+      setBccLoading(true);
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/api/email/get-by-clinte?clinteId=${effectiveUserId}`
+        );
+        if (!res.ok) throw new Error("Failed to fetch BCC emails");
+        const data = await res.json();
+        setBccEmails(data);
+        setBccError("");
+      } catch (error: any) {
+        setBccError("Could not fetch BCC emails");
+      } finally {
+        setBccLoading(false);
+      }
+    };
 
-   // BCC Email Management states
-const [bccEmails, setBccEmails] = useState<BccEmail[]>([]);
-const [newBccEmail, setNewBccEmail] = useState<string>("");
-const [bccLoading, setBccLoading] = useState(false);
+    fetchBcc();
+  }, [effectiveUserId]);
 
-type BccEmail = { id: number; bccEmailAddress: string; clinteId: number };
-
-// Fetch BCC emails when client changes
-useEffect(() => {
-  if (!effectiveUserId) return;
-
-  const fetchBcc = async () => {
+  const handleAddBcc = async () => {
+    if (!newBccEmail) return;
     setBccLoading(true);
     try {
-      const res = await fetch(
+      const res = await fetch(`${API_BASE_URL}/api/email/${effectiveUserId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ BccEmailAddress: newBccEmail }),
+      });
+      if (!res.ok) throw new Error("Add failed");
+      setNewBccEmail("");
+      setBccError("");
+      // Refresh list
+      const updated = await fetch(
         `${API_BASE_URL}/api/email/get-by-clinte?clinteId=${effectiveUserId}`
       );
-      if (!res.ok) throw new Error("Failed to fetch BCC emails");
-      const data = await res.json();
-      setBccEmails(data);
-      setBccError("");
+      setBccEmails(await updated.json());
     } catch (error: any) {
-      setBccError("Could not fetch BCC emails");
+      setBccError("Error adding BCC email");
     } finally {
       setBccLoading(false);
     }
   };
 
-  fetchBcc();
-}, [effectiveUserId]);
-
-const handleAddBcc = async () => {
-  if (!newBccEmail) return;
-  setBccLoading(true);
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/email/${effectiveUserId}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ BccEmailAddress: newBccEmail }),
-    });
-    if (!res.ok) throw new Error("Add failed");
-    setNewBccEmail("");
-    setBccError("");
-    // Refresh list
-    const updated = await fetch(
-      `${API_BASE_URL}/api/email/get-by-clinte?clinteId=${effectiveUserId}`
-    );
-    setBccEmails(await updated.json());
-  } catch (error: any) {
-    setBccError("Error adding BCC email");
-  } finally {
-    setBccLoading(false);
-  }
-};
-
-const handleDeleteBcc = async (id: number) => {
-  setBccLoading(true);
-  try {
-    const res = await fetch(
-      `${API_BASE_URL}/api/email/delete?id=${id}&clinteId=${effectiveUserId}`,
-      { method: "POST" }
-    );
-    if (!res.ok) throw new Error("Delete failed");
-    setBccError("");
-    setBccEmails(bccEmails.filter((e) => e.id !== id));
-  } catch (error: any) {
-    setBccError("Error deleting");
-  } finally {
-    setBccLoading(false);
-  }
-};
+  const handleDeleteBcc = async (id: number) => {
+    setBccLoading(true);
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/email/delete?id=${id}&clinteId=${effectiveUserId}`,
+        { method: "POST" }
+      );
+      if (!res.ok) throw new Error("Delete failed");
+      setBccError("");
+      setBccEmails(bccEmails.filter((e) => e.id !== id));
+    } catch (error: any) {
+      setBccError("Error deleting");
+    } finally {
+      setBccLoading(false);
+    }
+  };
 
   return (
     <div className="login-box gap-down">
-    
-
       {tab === "Dashboard" && (
         <>
-         
-
+          {/* Dashboard sub-tabs */}
+          <div className="dashboard-tabs">
+            <button
+              className={dashboardTab === "Overview" ? "active" : ""}
+              onClick={() => setDashboardTab("Overview")}
+            >
+              Overview
+            </button>
+            <button
+              className={dashboardTab === "Details" ? "active" : ""}
+              onClick={() => setDashboardTab("Details")}
+            >
+              Details
+            </button>
+          </div>
 
           {/* View Dropdown and Date Filters */}
-          <div
-            className="form-group d-flex align-center"
-            style={{ margin: "20px 0", gap: "10px" }}
-          >
-            <div>
+          <div className="form-controls">
+            <div className="form-group">
               <label>
                 Zoho View: <span style={{ color: "red" }}>*</span>
               </label>
               <select
                 value={selectedView}
                 onChange={handleViewChange}
-                style={{
-                  border: !selectedView ? "1px solid red" : "1px solid #ccc",
-                }}
+                className={!selectedView ? "error" : ""}
               >
                 <option value="">-- Please Select a View --</option>
                 {availableViews.map((view) => (
-                  <option key={view.zohoviewId} value={view.zohoviewId}>
-                    {view.zohoviewName}
+                  <option key={view.id} value={view.id}>
+                    {view.name}
                   </option>
                 ))}
               </select>
             </div>
-            <div>
+
+            <div className="form-group">
               <label>Start Date:</label>
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                max={endDate || undefined} // Prevent start date from being after end date
+                max={endDate || undefined}
               />
             </div>
-            <div>
+
+            <div className="form-group">
               <label>End Date:</label>
               <input
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                min={startDate || undefined} // Prevent end date from being before start date
+                min={startDate || undefined}
               />
             </div>
+
             {(startDate || endDate) && (
               <button
-                className="button"
+                className="btn-clear"
                 onClick={() => {
                   setStartDate("");
                   setEndDate("");
                 }}
-                style={{ alignSelf: "flex-end" }}
               >
                 Clear Dates
               </button>
             )}
           </div>
+
+          {/* Stats cards */}
           <div className="stats-cards">
-            <div className="card">
+            <div className="stats-card">
               <h3>Sent</h3>
               {loading ? (
-                <p>Loading...</p>
+                <p className="value">Loading...</p>
               ) : !selectedView ? (
-                <p style={{ fontSize: 24 }}>-</p>
+                <p className="value">-</p>
               ) : (
-                <p style={{ fontSize: 24 }}>{requestCount}</p>
+                <p className="value">{requestCount}</p>
               )}
             </div>
-            <div className="card orange">
+
+            <div className="stats-card orange">
               <h3>Unique Opens</h3>
               {loading ? (
-                <p>Loading...</p>
+                <p className="value">Loading...</p>
               ) : !selectedView ? (
-                <p style={{ fontSize: 24 }}>-</p>
+                <p className="value">-</p>
               ) : (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "baseline",
-                    justifyContent: "center",
-                  }}
-                >
-                  <p style={{ fontSize: 24, margin: 0 }}>{totalStats.opens}</p>
-                  <p
-                    style={{
-                      fontSize: 16,
-                      color: "#FF8042",
-                      marginLeft: 8,
-                      margin: 0,
-                      fontWeight: "normal",
-                    }}
-                  >
-                    ({openRate}%)
-                  </p>
-                </div>
+                <>
+                  <p className="value">{totalStats.opens}</p>
+                  <p className="percentage">({openRate}%)</p>
+                </>
               )}
             </div>
-            <div className="card blue">
+
+            <div className="stats-card blue">
               <h3>Unique Clicks</h3>
               {loading ? (
-                <p>Loading...</p>
+                <p className="value">Loading...</p>
               ) : !selectedView ? (
-                <p style={{ fontSize: 24 }}>-</p>
+                <p className="value">-</p>
               ) : (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "baseline",
-                    justifyContent: "center",
-                  }}
-                >
-                  <p style={{ fontSize: 24, margin: 0 }}>{totalStats.clicks}</p>
-                  <p
-                    style={{
-                      fontSize: 16,
-                      color: "#8884d8",
-                      marginLeft: 8,
-                      margin: 0,
-                      fontWeight: "normal",
-                    }}
-                  >
-                    ({clickRate}%)
-                  </p>
-                </div>
+                <>
+                  <p className="value">{totalStats.clicks}</p>
+                  <p className="percentage">({clickRate}%)</p>
+                </>
               )}
             </div>
           </div>
 
           {dashboardTab === "Overview" && (
-            <>
-              {/* Stats cards */}
-              {/* Stats cards */}
-
-              {/* Line chart */}
-              <div className="chart-container">
-                <h2>Statistics Overview</h2>
-                {!error && (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart
-                      data={
-                        filteredStats.length
-                          ? filteredStats
-                          : [{ date: "", sent: 0, opens: 0, clicks: 0 }]
-                      }
-                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
-                      <Tooltip />
-                      <Legend verticalAlign="top" height={36} />
-                      <Line
-                        type="monotone"
-                        dataKey="sent"
-                        stroke="#00C49F"
-                        strokeWidth={2}
-                        dot={{ r: 3 }}
-                        activeDot={{ r: 6 }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="opens"
-                        stroke="#FF8042"
-                        strokeWidth={2}
-                        dot={{ r: 3 }}
-                        activeDot={{ r: 6 }}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="clicks"
-                        stroke="#8884d8"
-                        strokeWidth={2}
-                        dot={{ r: 3 }}
-                        activeDot={{ r: 6 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-            </>
+            <div className="chart-container">
+              <h2>Statistics Overview</h2>
+              {!error && (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart
+                    data={
+                      filteredStats.length
+                        ? filteredStats
+                        : [{ date: "", sent: 0, opens: 0, clicks: 0 }]
+                    }
+                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend verticalAlign="top" height={36} />
+                    <Line
+                      type="monotone"
+                      dataKey="sent"
+                      stroke="#00C49F"
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      activeDot={{ r: 6 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="opens"
+                      stroke="#FF8042"
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      activeDot={{ r: 6 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="clicks"
+                      stroke="#8884d8"
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                      activeDot={{ r: 6 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </div>
           )}
 
           {dashboardTab === "Details" && (
             <>
-              <div className="event-buttons" style={{ marginTop: "20px" }}>
+              <div className="event-buttons">
                 <button
                   onClick={() => handleFilterEvents("Open")}
-                  className="button"
+                  className={`btn-open ${
+                    filteredEventType === "Open" ? "active" : ""
+                  }`}
                 >
                   Show Opens
                 </button>
                 <button
                   onClick={() => handleFilterEvents("Click")}
-                  className="button ml-10"
+                  className={`btn-click ${
+                    filteredEventType === "Click" ? "active" : ""
+                  }`}
                 >
                   Show Clicks
                 </button>
                 <button
                   onClick={handleRefresh}
-                  className="button"
+                  className="btn-refresh"
                   disabled={isRefreshing}
                 >
                   {isRefreshing ? "Refreshing..." : "Refresh"}
@@ -2110,101 +1973,90 @@ const handleDeleteBcc = async (id: number) => {
               </div>
 
               {filteredEventType && (
-                <div style={{ marginTop: "20px" }}>
-                  <h3 style={{ marginBottom: "10px" }}>
-                    {filteredEventType} Events
-                  </h3>
-                  <table
-                    style={{
-                      width: "100%",
-                      borderCollapse: "collapse",
-                      marginTop: "10px",
-                    }}
-                  >
-                    <thead>
-                      <tr
-                        style={{ backgroundColor: "#f5f5f5", fontWeight: 600 }}
-                      >
-                        <th style={cellStyle}>Full Name</th>
-                        <th style={cellStyle}>Email</th>
-                        <th style={cellStyle}>Company</th>
-                        <th style={cellStyle}>Job Title</th>
-                        <th style={cellStyle}>Location</th>
-                        <th style={cellStyle}>Timestamp</th>
-                        {filteredEventType === "Click" && (
-                          <th style={cellStyle}>Target URL</th>
-                        )}
-                        <th style={cellStyle}>LinkedIn</th>
-                        <th style={cellStyle}>Website</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredEventData.map((item, index) => (
-                        <tr
-                          key={item.id}
-                          style={{
-                            backgroundColor:
-                              index % 2 === 0 ? "#ffffff" : "#f9f9f9",
-                          }}
-                        >
-                          <td style={cellStyle}>{item.fullName}</td>
-                          <td style={cellStyle}>{item.email}</td>
-                          <td style={cellStyle}>{item.company}</td>
-                          <td style={cellStyle}>{item.jobTitle}</td>
-                          <td style={cellStyle}>{item.location}</td>
-                          <td style={cellStyle}>
-                            {formatMailTimestamp(item.timestamp)}
-                          </td>
-                          {filteredEventType === "Click" && (
-                            <td style={cellStyle}>
-                              {item.targetUrl ? (
-                                <a
-                                  href={item.targetUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  style={{
-                                    color: "#1a0dab",
-                                    textDecoration: "underline",
-                                    wordBreak: "break-word",
-                                  }}
-                                >
-                                  {item.targetUrl}
-                                </a>
-                              ) : (
-                                "-"
-                              )}
-                            </td>
-                          )}
-                          <td style={cellStyle}>
-                            <a
-                              href={item.linkedin_URL}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{
-                                color: "#1a0dab",
-                                textDecoration: "underline",
-                              }}
-                            >
-                              LinkedIn
-                            </a>
-                          </td>
-                          <td style={cellStyle}>
-                            <a
-                              href={item.website}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              style={{
-                                color: "#1a0dab",
-                                textDecoration: "underline",
-                              }}
-                            >
-                              Website
-                            </a>
-                          </td>
+                <div className="events-container">
+                  <h3>{filteredEventType} Events</h3>
+                  <div style={{ overflowX: "auto" }}>
+                    <table className="events-table">
+                      <thead>
+                        <tr>
+                          <th>Full Name</th>
+                          <th>Email</th>
+                          <th>Company</th>
+                          <th>Job Title</th>
+                          <th>Location</th>
+                          <th>Timestamp</th>
+                          {filteredEventType === "Click" && <th>Target URL</th>}
+                          <th>LinkedIn</th>
+                          <th>Website</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {filteredEventData.length > 0 ? (
+                          filteredEventData.map((item, index) => (
+                            <tr key={item.id}>
+                              <td>{item.full_Name || item.full_Name || "-"}</td>
+                              <td>{item.email || "-"}</td>
+                              <td>{item.company || "-"}</td>
+                              <td>{item.jobTitle || "-"}</td>
+                              <td>{item.location || "-"}</td>
+                              <td>{formatMailTimestamp(item.timestamp)}</td>
+                              {filteredEventType === "Click" && (
+                                <td>
+                                  {item.targetUrl ? (
+                                    <a
+                                      href={item.targetUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                    >
+                                      {item.targetUrl.length > 50
+                                        ? item.targetUrl.substring(0, 50) +
+                                          "..."
+                                        : item.targetUrl}
+                                    </a>
+                                  ) : (
+                                    "-"
+                                  )}
+                                </td>
+                              )}
+                              <td>
+                                {item.linkedin_URL ? (
+                                  <a
+                                    href={item.linkedin_URL}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="linkedin"
+                                  >
+                                    LinkedIn
+                                  </a>
+                                ) : (
+                                  "-"
+                                )}
+                              </td>
+                              <td>
+                                {item.website ? (
+                                  <a
+                                    href={item.website}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    Website
+                                  </a>
+                                ) : (
+                                  "-"
+                                )}
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr className="empty-row">
+                            <td colSpan={filteredEventType === "Click" ? 9 : 8}>
+                              No {filteredEventType?.toLowerCase()} events found
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </>
@@ -2213,223 +2065,231 @@ const handleDeleteBcc = async (id: number) => {
       )}
 
       {tab === "Configuration" && (
-  <>
-    <div className="tabs secondary d-flex align-center">
-      <div className="input-section edit-section">
-        <div className="table-container mt-0">
-          <h4 className="mt-0">
-            {editingId ? "Edit Link mailbox" : "Link mailbox"}
-          </h4>
-          <form onSubmit={handleSubmitSMTP}>
-            <div className="row flex-col-640">
-              <div className="col col-12-640">
-                <div className="form-group">
-                  <label>Host</label>
-                  <input
-                    name="server"
-                    placeholder="Host"
-                    value={form.server}
-                    onChange={handleChangeSMTP}
-                    required
-                  />
-                  <br />
-                </div>
-              </div>
-              <div className="col col-12-640">
-                <div className="form-group">
-                  <label>Port</label>
-                  <input
-                    name="port"
-                    type="number"
-                    placeholder="Port"
-                    value={form.port}
-                    onChange={handleChangeSMTP}
-                    required
-                  />
-                  <br />
-                </div>
-              </div>
-              <div className="col col-12-640">
-                <div className="form-group">
-                  <label>Username</label>
-                  <input
-                    name="username"
-                    placeholder="Username"
-                    value={form.username}
-                    onChange={handleChangeSMTP}
-                    required
-                  />
-                  <br />
-                </div>
-              </div>
-              <div className="col col-12-640">
-                <div className="form-group">
-                  <label>Password</label>
-                  <input
-                    name="password"
-                    type="password"
-                    placeholder="Password"
-                    value={form.password}
-                    onChange={handleChangeSMTP}
-                    required
-                  />
-                  <br />
-                </div>
-              </div>
-              <div className="col col-12-640">
-                <div className="form-group">
-                  <label>From email</label>
-                  <input
-                    name="fromEmail"
-                    placeholder="From email"
-                    value={form.fromEmail}
-                    onChange={handleChangeSMTP}
-                    required
-                  />
-                  <br />
-                </div>
-              </div>
-            </div>
-            <div className="d-flex justify-end">
-              <div className="form-group d-flex align-center justify-end">
-                <input
-                  type="checkbox"
-                  name="usessl"
-                  checked={form.usessl}
-                  onChange={handleChangeSMTP}
-                />
-                <span className="ml-5 font-size-12 nowrap mr-10">
-                  Use SSL
-                </span>
-                <button className="save-button button full" type="submit">
-                  {editingId ? "Update" : "Add"}
-                </button>
-              </div>
-            </div>
-          </form>
-
-          <h4 className="">Mailboxes</h4>
-          <div className="table-container">
-            <table
-              className="responsive-table"
-              style={{ border: "1" }}
-              cellPadding="10"
-              width="100%"
-            >
-              <thead>
-                <tr>
-                  <th>Server</th>
-                  <th>Port</th>
-                  <th>Username</th>
-                  <th>From email address</th>
-                  <th>SSL</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {smtpList.map((item, index) => (
-                  <tr key={item.id || index}>
-                    <td>{item.server}</td>
-                    <td>{item.port}</td>
-                    <td>{item.username}</td>
-                    <td>{item.fromEmail}</td>
-                    <td>{item.usessl ? "False" : "True"}</td>
-                    <td>
-                      <button
-                        className="save-button button small"
-                        onClick={() => handleEdit(item)}
-                      >
-                        Edit
-                      </button>{" "}
-                      <button
-                        className="save-button button small"
-                        onClick={() => handleDelete(item.id)}
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {smtpList.length === 0 && (
-                  <tr>
-                    <td>No records found.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* BCC Email Management Section */}
-          <h4 className="mt-4">BCC Email Management</h4>
-          <div className="bcc-email-section">
-            {bccError && <div className="error-message">{bccError}</div>}
-            <div className="bcc-add-form">
-              <div className="row align-center">
-                <div className="col col-8 col-12-640">
-                  <div className="form-group mb-0">
-                    <input
-                      type="email"
-                      placeholder="Add BCC Email"
-                      value={newBccEmail}
-                      onChange={(e) => setNewBccEmail(e.target.value)}
-                      disabled={bccLoading}
-                      className="form-control"
-                    />
+        <>
+          <div className="tabs secondary d-flex align-center">
+            <div className="input-section edit-section">
+              <div className="table-container mt-0">
+                <h4 className="mt-0">
+                  {editingId ? "Edit Link mailbox" : "Link mailbox"}
+                </h4>
+                <form onSubmit={handleSubmitSMTP}>
+                  <div className="row flex-col-640">
+                    <div className="col col-12-640">
+                      <div className="form-group">
+                        <label>Host</label>
+                        <input
+                          name="server"
+                          placeholder="Host"
+                          value={form.server}
+                          onChange={handleChangeSMTP}
+                          required
+                        />
+                        <br />
+                      </div>
+                    </div>
+                    <div className="col col-12-640">
+                      <div className="form-group">
+                        <label>Port</label>
+                        <input
+                          name="port"
+                          type="number"
+                          placeholder="Port"
+                          value={form.port}
+                          onChange={handleChangeSMTP}
+                          required
+                        />
+                        <br />
+                      </div>
+                    </div>
+                    <div className="col col-12-640">
+                      <div className="form-group">
+                        <label>Username</label>
+                        <input
+                          name="username"
+                          placeholder="Username"
+                          value={form.username}
+                          onChange={handleChangeSMTP}
+                          required
+                        />
+                        <br />
+                      </div>
+                    </div>
+                    <div className="col col-12-640">
+                      <div className="form-group">
+                        <label>Password</label>
+                        <input
+                          name="password"
+                          type="password"
+                          placeholder="Password"
+                          value={form.password}
+                          onChange={handleChangeSMTP}
+                          required
+                        />
+                        <br />
+                      </div>
+                    </div>
+                    <div className="col col-12-640">
+                      <div className="form-group">
+                        <label>From email</label>
+                        <input
+                          name="fromEmail"
+                          placeholder="From email"
+                          value={form.fromEmail}
+                          onChange={handleChangeSMTP}
+                          required
+                        />
+                        <br />
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="col col-4 col-12-640">
-                  <button
-                    className="save-button button small full"
-                    onClick={handleAddBcc}
-                    disabled={bccLoading || !newBccEmail}
-                  >
-                    {bccLoading ? "Adding..." : "Add BCC"}
-                  </button>
-                </div>
-              </div>
-            </div>
+                  <div className="d-flex justify-end">
+                    <div className="form-group d-flex align-center justify-end">
+                      <input
+                        type="checkbox"
+                        name="usessl"
+                        checked={form.usessl}
+                        onChange={handleChangeSMTP}
+                      />
+                      <span className="ml-5 font-size-12 nowrap mr-10">
+                        Use SSL
+                      </span>
+                      <button className="save-button button full" type="submit">
+                        {editingId ? "Update" : "Add"}
+                      </button>
+                    </div>
+                  </div>
+                </form>
 
-            <div className="bcc-list mt-3">
-              {bccLoading ? (
-                <div className="loading-message">Loading BCC emails...</div>
-              ) : bccEmails.length === 0 ? (
-                <div className="empty-message">No BCC emails configured.</div>
-              ) : (
+                <h4 className="">Mailboxes</h4>
                 <div className="table-container">
-                  <table className="responsive-table" cellPadding="10" width="100%">
+                  <table
+                    className="responsive-table"
+                    style={{ border: "1" }}
+                    cellPadding="10"
+                    width="100%"
+                  >
                     <thead>
                       <tr>
-                        <th>BCC Email Address</th>
+                        <th>Server</th>
+                        <th>Port</th>
+                        <th>Username</th>
+                        <th>From email address</th>
+                        <th>SSL</th>
                         <th>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {bccEmails.map((email) => (
-                        <tr key={email.id}>
-                          <td>{email.bccEmailAddress}</td>
+                      {smtpList.map((item, index) => (
+                        <tr key={item.id || index}>
+                          <td>{item.server}</td>
+                          <td>{item.port}</td>
+                          <td>{item.username}</td>
+                          <td>{item.fromEmail}</td>
+                          <td>{item.usessl ? "False" : "True"}</td>
                           <td>
                             <button
-                              className="secondary button small"
-                              onClick={() => handleDeleteBcc(email.id)}
-                              disabled={bccLoading}
-                              title="Delete this BCC address"
+                              className="save-button button small"
+                              onClick={() => handleEdit(item)}
+                            >
+                              Edit
+                            </button>{" "}
+                            <button
+                              className="save-button button small"
+                              onClick={() => handleDelete(item.id)}
                             >
                               Delete
                             </button>
                           </td>
                         </tr>
                       ))}
+                      {smtpList.length === 0 && (
+                        <tr>
+                          <td>No records found.</td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
-              )}
+
+                {/* BCC Email Management Section */}
+                <h4 className="mt-4">BCC Email Management</h4>
+                <div className="bcc-email-section">
+                  {bccError && <div className="error-message">{bccError}</div>}
+                  <div className="bcc-add-form">
+                    <div className="row align-center">
+                      <div className="col col-8 col-12-640">
+                        <div className="form-group mb-0">
+                          <input
+                            type="email"
+                            placeholder="Add BCC Email"
+                            value={newBccEmail}
+                            onChange={(e) => setNewBccEmail(e.target.value)}
+                            disabled={bccLoading}
+                            className="form-control"
+                          />
+                        </div>
+                      </div>
+                      <div className="col col-4 col-12-640">
+                        <button
+                          className="save-button button small full"
+                          onClick={handleAddBcc}
+                          disabled={bccLoading || !newBccEmail}
+                        >
+                          {bccLoading ? "Adding..." : "Add BCC"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bcc-list mt-3">
+                    {bccLoading ? (
+                      <div className="loading-message">
+                        Loading BCC emails...
+                      </div>
+                    ) : bccEmails.length === 0 ? (
+                      <div className="empty-message">
+                        No BCC emails configured.
+                      </div>
+                    ) : (
+                      <div className="table-container">
+                        <table
+                          className="responsive-table"
+                          cellPadding="10"
+                          width="100%"
+                        >
+                          <thead>
+                            <tr>
+                              <th>BCC Email Address</th>
+                              <th>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {bccEmails.map((email) => (
+                              <tr key={email.id}>
+                                <td>{email.bccEmailAddress}</td>
+                                <td>
+                                  <button
+                                    className="secondary button small"
+                                    onClick={() => handleDeleteBcc(email.id)}
+                                    disabled={bccLoading}
+                                    title="Delete this BCC address"
+                                  >
+                                    Delete
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
-  </>
-)}
+        </>
+      )}
       {tab === "Schedule" && (
         <div className="tabs secondary d-flex align-center">
           <div className="input-section edit-section">

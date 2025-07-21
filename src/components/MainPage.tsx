@@ -31,7 +31,6 @@ import { AppDispatch } from "../Redux/store"; // ✅ import AppDispatch
 import DataCampaigns from "./feature/DataCampaigns"; // Adjust the path based on your file structure
 import CampaignManagement from "./feature/CampaignManagement";
 
-
 interface Prompt {
   id: number;
   name: string;
@@ -246,7 +245,7 @@ const MainPage: React.FC = () => {
     browserVersion,
   } = useSelector((state: RootState) => state.auth);
 
-    const [tab, setTab] = useState<string>("Template");
+  const [tab, setTab] = useState<string>("Template");
   const [mailSubTab, setMailSubTab] = useState<string>("Dashboard");
   const [showMailSubmenu, setShowMailSubmenu] = useState<boolean>(false);
 
@@ -683,7 +682,6 @@ const MainPage: React.FC = () => {
     }
   };
 
-
   const tabHandler = (e: React.MouseEvent<HTMLButtonElement>) => {
     const { innerText } = e.currentTarget;
     setTab(innerText);
@@ -716,8 +714,6 @@ const MainPage: React.FC = () => {
 
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [endTime, setEndTime] = useState<Date | null>(null);
-
-  
 
   const fetchAndDisplayEmailBodies = useCallback(
     async (
@@ -786,7 +782,6 @@ const MainPage: React.FC = () => {
         setallsummery(naPlaceholders);
         setallSearchTermBodies(naPlaceholders);
         setCurrentIndex(0);
-       
       } catch (error) {
         console.error("Error fetching email bodies:", error);
       } finally {
@@ -2398,14 +2393,15 @@ const MainPage: React.FC = () => {
       setLoading(true);
 
       try {
-        const clientIdToUse = selectedClient || clientID;
-        const url = `${API_BASE_URL}/api/Crm/by-client?clientId=${clientIdToUse}`;
+        const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
+
+        const url = `${API_BASE_URL}/api/Crm/datafile-byclientid?clientId=${effectiveUserId}`;
 
         const response = await fetch(url);
 
         if (!response.ok) {
           if (response.status === 404) {
-            console.log(`No data files found for client: ${clientIdToUse}`);
+            console.log(`No data files found for client: ${effectiveUserId}`);
             setDataFiles([]);
             return;
           }
@@ -2645,66 +2641,65 @@ const MainPage: React.FC = () => {
     fetchCampaigns();
   }, [selectedClient, clientID]);
 
-const handleCampaignChange = async (
-  event: React.ChangeEvent<HTMLSelectElement>
-) => {
-  const campaignId = event.target.value;
-  setSelectedCampaign(campaignId);
+  const handleCampaignChange = async (
+    event: React.ChangeEvent<HTMLSelectElement>
+  ) => {
+    const campaignId = event.target.value;
+    setSelectedCampaign(campaignId);
 
-  if (campaignId) {
-    setSelectionMode("campaign");
+    if (campaignId) {
+      setSelectionMode("campaign");
 
-    // Clear existing data
-    setAllResponses([]);
-    setexistingResponse([]);
-    setCurrentIndex(0);
+      // Clear existing data
+      setAllResponses([]);
+      setexistingResponse([]);
+      setCurrentIndex(0);
 
-    // Find the selected campaign
-    const campaign = campaigns.find((c) => c.id.toString() === campaignId);
-    console.log('Selected campaign:', campaign);
+      // Find the selected campaign
+      const campaign = campaigns.find((c) => c.id.toString() === campaignId);
+      console.log("Selected campaign:", campaign);
 
-    if (campaign) {
-      // Set the corresponding prompt
-      const promptMatch = promptList.find(
-        (p: Prompt) => p.id === campaign.promptId
-      );
-      if (promptMatch) {
-        setSelectedPrompt(promptMatch);
-      }
-
-      // The zohoViewId field actually contains the dataFileId
-      const dataFileId = campaign.zohoViewId; // This is '31' in your example
-      console.log('Campaign dataFileId:', dataFileId);
-      setSelectedZohoviewId(dataFileId);
-
-      // Fetch data for this data file
-      try {
-        if (!dataFileId) {
-          console.error('Campaign has no dataFileId');
-          return;
+      if (campaign) {
+        // Set the corresponding prompt
+        const promptMatch = promptList.find(
+          (p: Prompt) => p.id === campaign.promptId
+        );
+        if (promptMatch) {
+          setSelectedPrompt(promptMatch);
         }
 
-        // Get the client ID
-        const clientIdToUse = campaign.clientId.toString() || selectedClient || clientID;
-        console.log('Using client ID:', clientIdToUse);
-        
-        // Pass in format: "clientId,dataFileId"
-        // This matches your existing API call pattern
-        await fetchAndDisplayEmailBodies(`${clientIdToUse},${dataFileId}`);
-        
-      } catch (error) {
-        console.error("Error fetching email bodies:", error);
+        // The zohoViewId field actually contains the dataFileId
+        const dataFileId = campaign.zohoViewId; // This is '31' in your example
+        console.log("Campaign dataFileId:", dataFileId);
+        setSelectedZohoviewId(dataFileId);
+
+        // Fetch data for this data file
+        try {
+          if (!dataFileId) {
+            console.error("Campaign has no dataFileId");
+            return;
+          }
+
+          // Get the client ID
+          const effectiveUserId =
+            selectedClient !== "" ? selectedClient : userId;
+
+          // Pass in format: "clientId,dataFileId"
+          // This matches your existing API call pattern
+          await fetchAndDisplayEmailBodies(`${effectiveUserId},${dataFileId}`);
+        } catch (error) {
+          console.error("Error fetching email bodies:", error);
+        }
       }
+    } else {
+      // If no campaign is selected, switch back to manual mode
+      setSelectionMode("manual");
+      setSelectedPrompt(null);
+      setSelectedZohoviewId("");
+      setAllResponses([]);
+      setexistingResponse([]);
     }
-  } else {
-    // If no campaign is selected, switch back to manual mode
-    setSelectionMode("manual");
-    setSelectedPrompt(null);
-    setSelectedZohoviewId("");
-    setAllResponses([]);
-    setexistingResponse([]);
-  }
-};
+  };
 
   const handleClearAll = () => {
     // Confirm before proceeding
@@ -2798,13 +2793,13 @@ const handleCampaignChange = async (
 
   return (
     <div className="login-container pitch-page flex-col d-flex">
-        <Header 
-      connectTo={true}
-      selectedClient={selectedClient}
-      handleClientChange={handleClientChange}
-      clientNames={clientNames}
-      userRole={userRole}
-    />
+      <Header
+        connectTo={true}
+        selectedClient={selectedClient}
+        handleClientChange={handleClientChange}
+        clientNames={clientNames}
+        userRole={userRole}
+      />
 
       <div className="main-content-wrapper d-flex">
         {/* Side Menu */}
@@ -2831,19 +2826,19 @@ const handleCampaignChange = async (
                   <span className="menu-text">Lists</span>
                 </button>
               </li>
-               <li className={tab === "Campaigns" ? "active" : ""}>
-        <button
-          onClick={() => {
-            setTab("Campaigns");
-            setShowMailSubmenu(false);
-          }}
-          className="side-menu-button"
-          title="Manage campaigns"
-        >
-          <span className="menu-icon">📢</span>
-          <span className="menu-text">Campaigns</span>
-        </button>
-      </li>
+              <li className={tab === "Campaigns" ? "active" : ""}>
+                <button
+                  onClick={() => {
+                    setTab("Campaigns");
+                    setShowMailSubmenu(false);
+                  }}
+                  className="side-menu-button"
+                  title="Manage campaigns"
+                >
+                  <span className="menu-icon">📢</span>
+                  <span className="menu-text">Campaigns</span>
+                </button>
+              </li>
               <li className={tab === "Output" ? "active" : ""}>
                 <button
                   onClick={() => setTab("Output")}
@@ -2854,58 +2849,68 @@ const handleCampaignChange = async (
                   <span className="menu-text">Output</span>
                 </button>
               </li>
-            {userRole === "ADMIN" && (
-  <li className={`${tab === "Mail" ? "active" : ""} ${showMailSubmenu ? "has-submenu submenu-open" : "has-submenu"}`}>
-    <button
-      onClick={() => {
-        setTab("Mail");
-        setShowMailSubmenu(!showMailSubmenu);
-      }}
-      className="side-menu-button"
-    >
-      <span className="menu-icon">✉️</span>
-      <span className="menu-text">Mail</span>
-      <span className="submenu-arrow">▶</span>
-    </button>
-    {showMailSubmenu && (
-      <ul className="submenu">
-        <li className={mailSubTab === "Dashboard" ? "active" : ""}>
-          <button
-            onClick={() => {
-              setMailSubTab("Dashboard");
-              setTab("Mail");
-            }}
-            className="submenu-button"
-          >
-            Dashboard
-          </button>
-        </li>
-        <li className={mailSubTab === "Configuration" ? "active" : ""}>
-          <button
-            onClick={() => {
-              setMailSubTab("Configuration");
-              setTab("Mail");
-            }}
-            className="submenu-button"
-          >
-            Configuration
-          </button>
-        </li>
-        <li className={mailSubTab === "Schedule" ? "active" : ""}>
-          <button
-            onClick={() => {
-              setMailSubTab("Schedule");
-              setTab("Mail");
-            }}
-            className="submenu-button"
-          >
-            Schedule
-          </button>
-        </li>
-      </ul>
-    )}
-  </li>
-)}
+              {userRole === "ADMIN" && (
+                <li
+                  className={`${tab === "Mail" ? "active" : ""} ${
+                    showMailSubmenu ? "has-submenu submenu-open" : "has-submenu"
+                  }`}
+                >
+                  <button
+                    onClick={() => {
+                      setTab("Mail");
+                      setShowMailSubmenu(!showMailSubmenu);
+                    }}
+                    className="side-menu-button"
+                  >
+                    <span className="menu-icon">✉️</span>
+                    <span className="menu-text">Mail</span>
+                    <span className="submenu-arrow">▶</span>
+                  </button>
+                  {showMailSubmenu && (
+                    <ul className="submenu">
+                      <li
+                        className={mailSubTab === "Dashboard" ? "active" : ""}
+                      >
+                        <button
+                          onClick={() => {
+                            setMailSubTab("Dashboard");
+                            setTab("Mail");
+                          }}
+                          className="submenu-button"
+                        >
+                          Dashboard
+                        </button>
+                      </li>
+                      <li
+                        className={
+                          mailSubTab === "Configuration" ? "active" : ""
+                        }
+                      >
+                        <button
+                          onClick={() => {
+                            setMailSubTab("Configuration");
+                            setTab("Mail");
+                          }}
+                          className="submenu-button"
+                        >
+                          Configuration
+                        </button>
+                      </li>
+                      <li className={mailSubTab === "Schedule" ? "active" : ""}>
+                        <button
+                          onClick={() => {
+                            setMailSubTab("Schedule");
+                            setTab("Mail");
+                          }}
+                          className="submenu-button"
+                        >
+                          Schedule
+                        </button>
+                      </li>
+                    </ul>
+                  )}
+                </li>
+              )}
               {userRole === "ADMIN" && (
                 <li className={tab === "Settings" ? "active" : ""}>
                   <button
@@ -2923,8 +2928,6 @@ const handleCampaignChange = async (
 
         {/* Main Content Area */}
         <div className="main-content">
-         
-
           {/* Tab Content */}
           <div className="tab-content">
             {tab === "Template" && (
@@ -2932,8 +2935,6 @@ const handleCampaignChange = async (
                 <div className="login-box gap-down d-flex">
                   <div className="input-section edit-section">
                     <div className="row flex-col-768">
-                      
-
                       <div className="col col-4 col-12-768">
                         <div className="form-group">
                           <label>
@@ -2945,10 +2946,7 @@ const handleCampaignChange = async (
                             className={
                               !selectedPrompt?.name ? "highlight-required" : ""
                             }
-                            disabled={
-                              userRole !== "ADMIN" 
-                              
-                            }
+                            disabled={userRole !== "ADMIN"}
                           >
                             <option value="">Please select a template</option>
                             {promptList.map((prompt: Prompt) => (
@@ -2959,10 +2957,7 @@ const handleCampaignChange = async (
                           </select>
                         </div>
                       </div>
-
                     </div>
-
-                    
 
                     <div className="row">
                       <div className="col-12 col">
@@ -3566,11 +3561,11 @@ const handleCampaignChange = async (
             />
           )}
           {tab === "Campaigns" && (
-          <CampaignManagement
-            selectedClient={selectedClient}
-            userRole={userRole}
-          />
-        )}
+            <CampaignManagement
+              selectedClient={selectedClient}
+              userRole={userRole}
+            />
+          )}
           {tab === "Output" && (
             <Output
               outputForm={outputForm}
@@ -3637,9 +3632,7 @@ const handleCampaignChange = async (
               setSubjectMode={setSubjectMode}
               subjectText={subjectText}
               setSubjectText={setSubjectText}
-              selectedPrompt={selectedPrompt}  // Make sure this is passed
-
-
+              selectedPrompt={selectedPrompt} // Make sure this is passed
             />
           )}
 
@@ -3707,7 +3700,6 @@ const handleCampaignChange = async (
       )}
     </div>
   );
-  
 };
 
 export default MainPage;
