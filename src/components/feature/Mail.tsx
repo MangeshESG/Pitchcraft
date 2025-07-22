@@ -1,9 +1,6 @@
 import { useRef, useCallback, useState, useEffect } from "react";
 import Modal from "../common/Modal";
 import { Tooltip as ReactTooltip } from "react-tooltip";
-import { copyToClipboard } from "../../utils/utils";
-import previousIcon from "../../assets/images/previous.png";
-import nextIcon from "../../assets/images/Next.png";
 import singleprvIcon from "../../assets/images/SinglePrv.png";
 import singlenextIcon from "../../assets/images/SingleNext.png";
 import emailIcon from "../../assets/images/icons/email.png";
@@ -17,7 +14,6 @@ import moment from "moment-timezone";
 import "react-datepicker/dist/react-datepicker.css";
 import TimePicker from "react-time-picker";
 import axios from "axios";
-import SMTPTable from "./Mail";
 import "./Mail.css";
 import API_BASE_URL from "../../config";
 import { toast } from "react-toastify";
@@ -72,8 +68,8 @@ interface scheduleFetch {
   clientId: number;
   title: string;
   bccEmail?: string;
-  scheduledDate: Date;
-  scheduledTime: Time;
+  scheduledDate: string; // Change from Date to string
+  scheduledTime: string; // Change from Time to string
   timeZone: string;
   smtpID: number;
   smtpName: string;
@@ -81,6 +77,7 @@ interface scheduleFetch {
   zohoViewName: string;
   isSent: boolean;
   testIsSent: boolean;
+  dataFileId: number;
 }
 
 interface SmtpUser {
@@ -184,31 +181,14 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   outputForm,
   //outputFormHandler,
   setOutputForm,
-  allResponses,
-  isPaused,
-  setAllResponses,
-  currentIndex,
-  setCurrentIndex,
-  onClearOutput,
-  allprompt,
-  setallprompt,
-  allsearchResults,
-  setallsearchResults,
-  everyscrapedData,
-  seteveryscrapedData,
-  allSearchTermBodies,
+
   setallSearchTermBodies,
   onClearContent, // Add this line
-  allsummery,
   setallsummery,
-  existingResponse,
   setexistingResponse,
   currentPage,
   setCurrentPage,
-  prevPageToken,
-  nextPageToken,
-  fetchAndDisplayEmailBodies,
-  selectedZohoviewId,
+
   onClearExistingResponse,
   isResetEnabled, // Receive the prop
   zohoClient, // Add this to the destructured props
@@ -217,25 +197,6 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   onTabChange,
 }) => {
   const [isCopyText, setIsCopyText] = useState(false);
-
-  const copyToClipboardHandler = async () => {
-    const contentToCopy = combinedResponses[currentIndex]?.pitch || "";
-
-    if (contentToCopy) {
-      try {
-        // Use the existing copyToClipboard utility function
-        const copied = await copyToClipboard(contentToCopy);
-        setIsCopyText(copied);
-
-        // Reset the copied state after 1 second
-        setTimeout(() => {
-          setIsCopyText(false);
-        }, 1000);
-      } catch (err) {
-        console.error("Error copying text:", err);
-      }
-    }
-  };
 
   const formatOutput = (text: string) => {
     return text
@@ -290,18 +251,11 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       searchResults: [],
       allScrapedData: "",
     }));
-    setAllResponses([]); // Clear all responses
-    setCurrentIndex(0); // Reset current index to 0
-    setallprompt([]); // Clear all prompts
-    setallsearchResults([]); // Clear all search results
-    seteveryscrapedData([]); // Clear all scraped data
+
     setallSearchTermBodies([]); // Clear all search term bodies
     setallsummery([]);
-    setCombinedResponses([]); //Clear allCombinedResponses
-    setCombinedResponses([]); // Clear combinedResponses
     setexistingResponse([]);
-    setExistingDataIndex(0);
-    setCurrentIndex(0); // Use the prop to reset currentIndex
+
     setCurrentPage(0); // Resetting the
   };
 
@@ -318,150 +272,6 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       onClearContent(clearContent);
     }
   }, [onClearContent]);
-
-  const [existingDataIndex, setExistingDataIndex] = useState(0);
-
-  useEffect(() => {
-    if (onClearExistingResponse) {
-      onClearExistingResponse(() => clearExistingResponse);
-    }
-  }, [onClearExistingResponse]);
-
-  const clearExistingResponse = () => {
-    setexistingResponse([]); // Clear the existingResponse state
-    setExistingDataIndex(0); // Reset the index
-  };
-
-  useEffect(() => {
-    // Keep currentIndex as is when new responses are added
-    if (currentIndex >= combinedResponses.length) {
-      setCurrentIndex(combinedResponses.length - 1);
-    }
-  }, [allResponses, currentIndex, setCurrentIndex]);
-
-  const [combinedResponses, setCombinedResponses] = useState<any[]>([]);
-
-  useEffect(() => {
-    // Prioritize allResponses, then add unique existingResponses
-    let newCombinedResponses = [...allResponses]; // Start with fresh responses
-
-    existingResponse.forEach((existing) => {
-      if (!newCombinedResponses.find((nr) => nr.id === existing.id)) {
-        newCombinedResponses.push(existing);
-      }
-    });
-
-    setCombinedResponses(newCombinedResponses);
-  }, [allResponses, existingResponse]);
-
-  useEffect(() => {
-    if (
-      combinedResponses.length > 0 &&
-      combinedResponses[combinedResponses.length - 1]?.nextPageToken
-    ) {
-      setCurrentIndex(combinedResponses.length - 1);
-    }
-  }, [combinedResponses]);
-
-  const handleNextPage = async () => {
-    if (currentIndex < combinedResponses.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    } else {
-      const lastItem = combinedResponses[combinedResponses.length - 1];
-      if (lastItem?.nextPageToken) {
-        setEmailLoading(true);
-        try {
-          await fetchAndDisplayEmailBodies(
-            selectedZohoviewId1,
-            lastItem.nextPageToken,
-            "next"
-          );
-          setCurrentIndex(combinedResponses.length);
-        } finally {
-          setEmailLoading(false);
-        }
-      }
-    }
-  };
-
-  const handlePrevPage = async () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-    } else {
-      const firstItem = combinedResponses[0];
-      if (firstItem?.prevPageToken) {
-        setEmailLoading(true);
-        try {
-          await fetchAndDisplayEmailBodies1(
-            selectedZohoviewId1,
-            firstItem.prevPageToken,
-            "previous"
-          );
-          // No need to update currentIndex here, as prepending maintains the current item's position
-        } finally {
-          setEmailLoading(false);
-        }
-      }
-    }
-  };
-
-  const handleFirstPage = () => {
-    setCurrentIndex(0);
-  };
-
-  const handleLastPage = () => {
-    setCurrentIndex(combinedResponses.length - 1);
-  };
-
-  // Add this state to track the input value separately from the currentIndex
-  const [inputValue, setInputValue] = useState<string>(
-    (currentIndex + 1).toString()
-  );
-
-  // Update inputValue whenever currentIndex changes
-  useEffect(() => {
-    setInputValue((currentIndex + 1).toString());
-  }, [currentIndex]);
-
-  const handleIndexChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value;
-
-    // Always update the input field value
-    setInputValue(newValue);
-
-    // Only update the actual index if we have a valid number
-    if (newValue.trim() !== "") {
-      const pageNumber = parseInt(newValue, 10);
-
-      if (!isNaN(pageNumber) && pageNumber > 0) {
-        // Ensure it doesn't exceed the maximum
-        const validPageNumber = Math.min(pageNumber, combinedResponses.length);
-
-        // Convert to zero-based index
-        setCurrentIndex(validPageNumber - 1);
-      }
-    } else {
-      // If input is cleared, default to index 0 (first item)
-      setCurrentIndex(0);
-    }
-  };
-
-  const [isExporting, setIsExporting] = useState(false);
-
-  useEffect(() => {
-    console.table(combinedResponses);
-  }, [combinedResponses]);
-
-  useEffect(() => {
-    sessionStorage.setItem("currentIndex", currentIndex.toString());
-  }, [currentIndex]);
-
-  useEffect(() => {
-    const storedCurrentIndex = sessionStorage.getItem("currentIndex");
-    if (storedCurrentIndex !== null) {
-      setCurrentIndex(parseInt(storedCurrentIndex, 10));
-    }
-  }, [setCurrentIndex]);
 
   const userId = sessionStorage.getItem("clientId");
   const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
@@ -631,8 +441,46 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   const [nextPageToken1, setNextPageToken1] = useState<string | null>(null);
   const [prevPageToken1, setPrevPageToken1] = useState<string | null>(null);
   const [loading, setLoading] = useState(true); // Initial loading state for fetching Zoho clients
+  const [scheduleDataFiles, setScheduleDataFiles] = useState<
+    { id: number; name: string }[]
+  >([]);
+  const [scheduleDataLoading, setScheduleDataLoading] = useState(false);
+  const [selectedScheduleFile, setSelectedScheduleFile] = useState<{
+    id: number;
+    name: string;
+  } | null>(null);
 
-  
+  useEffect(() => {
+    const fetchScheduleDataFiles = async () => {
+      if (tab === "Schedule" && effectiveUserId) {
+        setScheduleDataLoading(true);
+        try {
+          const response = await axios.get(
+            `${API_BASE_URL}/api/crm/datafile-byclientid?clientId=${effectiveUserId}`,
+            {
+              headers: {
+                ...(token && { Authorization: `Bearer ${token}` }),
+              },
+            }
+          );
+          setScheduleDataFiles(response.data);
+        } catch (error) {
+          console.error("Error fetching schedule data files:", error);
+          setScheduleDataFiles([]);
+        } finally {
+          setScheduleDataLoading(false);
+        }
+      }
+    };
+
+    fetchScheduleDataFiles();
+  }, [tab, effectiveUserId, token]);
+
+  // Clear schedule data when user changes
+  useEffect(() => {
+    setSelectedZohoviewId1("");
+    setScheduleDataFiles([]);
+  }, [effectiveUserId]);
 
   const handleZohoModelChange1 = async (
     event: React.ChangeEvent<HTMLSelectElement>
@@ -640,7 +488,11 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     const selectedId = event.target.value;
     setSelectedZohoviewId1(selectedId);
 
-    handleNewDataFileSelection();
+    // Find and store the complete file object
+    const selectedFile = scheduleDataFiles.find(
+      (file) => file.id.toString() === selectedId
+    );
+    setSelectedScheduleFile(selectedFile || null);
 
     if (selectedId) {
       try {
@@ -648,12 +500,6 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       } catch (error) {
         console.error("Error fetching email bodies:", error);
       }
-    }
-  };
-
-  const handleNewDataFileSelection = () => {
-    if (clearExistingResponse) {
-      clearExistingResponse();
     }
   };
 
@@ -876,8 +722,6 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     }
   };
 
-  const [showSchedulePopup, setShowSchedulePopup] = useState(false);
-
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
@@ -941,30 +785,44 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     fetchSchedule();
   }, [effectiveUserId]);
 
+  const requestBody = {
+    title: "string", // Replace with your actual title
+    zohoviewName: "", // Get the name from selected file
+    testIsSent: true, // Your actual value
+    smtpID: 0, // Your actual SMTP ID
+    timeZone: "string", // Your actual timezone
+    bccEmail: "string", // Your actual BCC email
+    steps: [
+      {
+        scheduledDate: "2025-07-22T09:15:13.332Z", // Your actual date
+        scheduledTime: {
+          ticks: 0, // Your actual time
+        },
+      },
+    ],
+    dataFileId: parseInt(selectedZohoviewId1) || 0, // Convert string to number
+  };
+
   // Handle Add/Update Submit
   const handleSubmitSchedule = async (e: any) => {
     e.preventDefault();
 
     const selectedTimeZone = formData.timeZone;
-    const scheduledDate = formData.scheduledDate; // New field!
-    const scheduledTime = formData.scheduledTime; // New field!
+    const scheduledDate = formData.scheduledDate;
+    const scheduledTime = formData.scheduledTime;
 
-    // Check if date and time are filled in (should be enforced by 'required' attribute)
     if (!scheduledDate || !scheduledTime) {
       alert("Please select both scheduled date and time.");
       return;
     }
 
-    // Combine date + time into a moment object, interpret in selected timeZone
     const localMoment = moment.tz(
       `${scheduledDate}T${scheduledTime}`,
       selectedTimeZone
     );
 
-    // Convert to UTC for backend payload if needed
     const utcMoment = localMoment.clone().utc();
 
-    // Prepare payload in the expected array format
     const stepsPayload = [
       {
         ScheduledDate: utcMoment.format("YYYY-MM-DD"),
@@ -972,9 +830,15 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       },
     ];
 
+    // Find the selected file to get its name
+    const selectedFile = scheduleDataFiles.find(
+      (file) => file.id.toString() === selectedZohoviewId1
+    );
+
     const payload = {
       Title: formData.title,
-      zohoviewName: selectedZohoviewId1, //zohoviewId
+      zohoviewName: selectedFile?.name || "", // Send the file name
+      dataFileId: parseInt(selectedZohoviewId1) || 0, // Add dataFileId as number
       TimeZone: formData.timeZone,
       Steps: stepsPayload,
       SmtpID: selectedUser,
@@ -1008,13 +872,12 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
         alert("Schedule added successfully");
       }
 
-      // Step 3: Clear form and refresh list
       setFormData({
         title: "",
         timeZone: "",
         scheduledDate: "",
         scheduledTime: "",
-        EmailDeliver: "", // <--- include this even if you no longer use it!
+        EmailDeliver: "",
         bccEmail: "",
         smtpID: "",
       });
@@ -1045,7 +908,18 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       smtpID: item.smtpID || "",
     });
     setEditingId(item.id);
-    setSelectedZohoviewId1(item.zohoviewName);
+
+    // Set the dataFileId as string for the select value
+    setSelectedZohoviewId1(item.dataFileId?.toString() || "");
+
+    // If you need to set the selected file object as well
+    const selectedFile = scheduleDataFiles.find(
+      (file) => file.id === item.dataFileId
+    );
+    if (selectedFile) {
+      setSelectedScheduleFile(selectedFile);
+    }
+
     setSelectedUser(item.smtpID);
   };
 
@@ -1070,164 +944,6 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     }
   };
 
-  const [editableContent, setEditableContent] = useState(
-    combinedResponses[currentIndex]?.pitch || ""
-  );
-  const [isEditing, setIsEditing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const editorRef = useRef<HTMLDivElement>(null);
-  const saveEditedContent = async () => {
-    setIsSaving(true);
-    try {
-      // Create the updated item with new pitch
-      const updatedItem = {
-        ...combinedResponses[currentIndex],
-        pitch: editableContent,
-      };
-
-      const saveToZoho = async (
-        content: string,
-        responseId: string | number | undefined
-      ): Promise<any> => {
-        if (!responseId) {
-          throw new Error("Contact ID is required to update in Zoho");
-        }
-
-        try {
-          // Get contact details from the current item
-          const currentContact = combinedResponses[currentIndex];
-          const full_name =
-            currentContact?.name || currentContact?.full_Name || "N/A";
-          const company_name =
-            currentContact?.company ||
-            currentContact?.account_name_friendlySingle_Line_12 ||
-            "N/A";
-          const email = currentContact?.email || "N/A";
-
-          // Make API call to update Zoho
-          const updateContactResponse = await fetch(
-            `${API_BASE_URL}/api/auth/updatezoho`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                contactId: responseId,
-                emailBody: content,
-                accountId: "String", // Change to proper account id if available
-              }),
-            }
-          );
-
-          if (!updateContactResponse.ok) {
-            const updateContactError = await updateContactResponse.json();
-            // You can add UI feedback here similar to your regeneration code
-            console.error("Failed to update in Zoho:", updateContactError);
-
-            // Add to output log if needed
-            setOutputForm((prevOutputForm) => ({
-              ...prevOutputForm,
-              generatedContent:
-                `<span style="color: orange">[${formatDateTime(
-                  new Date()
-                )}] Updating contact in database incomplete for contact ${full_name} with company name ${company_name}. Error: ${
-                  updateContactError.Message
-                }</span><br/>` + prevOutputForm.generatedContent,
-            }));
-
-            throw new Error(
-              `Failed to update in Zoho: ${
-                updateContactError.Message || "Unknown error"
-              }`
-            );
-          }
-
-          // Success case
-          console.log("Successfully updated in Zoho");
-
-          // Add to output log if needed
-          setOutputForm((prevOutputForm) => ({
-            ...prevOutputForm,
-            generatedContent:
-              `<span style="color: green">[${formatDateTime(
-                new Date()
-              )}] Updated pitch in database for contact ${full_name} with company name ${company_name}.</span><br/>` +
-              prevOutputForm.generatedContent,
-          }));
-
-          return await updateContactResponse.json();
-        } catch (error) {
-          console.error("Error saving to Zoho:", error);
-          throw error;
-        }
-      };
-
-      const formatDateTime = (date: Date): string => {
-        return date.toLocaleString("en-US", {
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-          hour12: false,
-        });
-      };
-
-      // First save to Zoho before updating UI
-      await saveToZoho(editableContent, combinedResponses[currentIndex]?.id);
-
-      // Update combinedResponses
-      const updatedCombinedResponses = [...combinedResponses];
-      updatedCombinedResponses[currentIndex] = updatedItem;
-      setCombinedResponses(updatedCombinedResponses);
-
-      // Also update the source arrays to ensure persistence
-      // First, check if the item exists in allResponses
-      const allResponsesIndex = allResponses.findIndex(
-        (item) => item.id === combinedResponses[currentIndex].id
-      );
-
-      if (allResponsesIndex !== -1) {
-        // Update in allResponses
-        const updatedAllResponses = [...allResponses];
-        updatedAllResponses[allResponsesIndex] = updatedItem;
-        setAllResponses(updatedAllResponses);
-      } else {
-        // Check if it exists in existingResponse
-        const existingResponseIndex = existingResponse.findIndex(
-          (item) => item.id === combinedResponses[currentIndex].id
-        );
-
-        if (existingResponseIndex !== -1) {
-          // Update in existingResponse
-          const updatedExistingResponse = [...existingResponse];
-          updatedExistingResponse[existingResponseIndex] = updatedItem;
-          setexistingResponse(updatedExistingResponse);
-        }
-      }
-
-      // Exit editing mode
-      setIsEditing(false);
-
-      // Success message
-      toast.success("Content saved successfully!");
-
-      // Here you would also call your Zoho API to persist the changes externally
-      // For now, we'll just log it
-      console.log("Would save to Zoho:", {
-        id: combinedResponses[currentIndex].id,
-        pitch: editableContent,
-      });
-    } catch (error) {
-      console.error("Failed to save content:", error);
-      toast.error("Failed to save content. Please try again.");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   // Email device width
   const [outputEmailWidth, setOutputEmailWidth] = useState<string>("");
 
@@ -1236,12 +952,6 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   };
 
   // Add this useEffect to handle the initialization
-  useEffect(() => {
-    if (isEditing && editorRef.current) {
-      // Update editor content whenever the current index changes or when entering edit mode
-      editorRef.current.innerHTML = editableContent;
-    }
-  }, [isEditing, editableContent, currentIndex]);
 
   //const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -2298,26 +2008,37 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                         className={
                           !selectedZohoviewId1 ? "highlight-required" : ""
                         }
+                        disabled={
+                          scheduleDataLoading || scheduleDataFiles.length === 0
+                        }
                       >
                         <option value="">Please select a data file</option>
-                        {zohoClient.map((val) => (
-                          <option key={val.id} value={val.zohoviewId}>
-                            {val.zohoviewName}
+                        {scheduleDataFiles.map((file) => (
+                          <option key={file.id} value={file.id.toString()}>
+                            {file.name}
                           </option>
                         ))}
                       </select>
-                      {!selectedZohoviewId1 && (
+                      {!selectedZohoviewId1 && scheduleDataFiles.length > 0 && (
                         <small className="error-text">
                           Please select a data file
                         </small>
                       )}
+                      {scheduleDataLoading && (
+                        <small>Loading data files...</small>
+                      )}
+                      {!scheduleDataLoading &&
+                        scheduleDataFiles.length === 0 && (
+                          <small>No data files available</small>
+                        )}
                     </div>
-                    {emailLoading && (
+                    {(emailLoading || scheduleDataLoading) && (
                       <div className="loader-overlay">
                         <div className="loader"></div>
                       </div>
                     )}
                   </div>
+
                   <div className="col col-3">
                     <div className="form-group">
                       <label>Timezone:</label>
@@ -2515,9 +2236,11 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                 <thead>
                   <tr>
                     <th>Sequence name</th>
-                    {/* <th>Data files of contacts</th> */}
+                    <th>Data files of contacts</th>
+                    <th>From</th>
+                    <th>Scheduled Date</th>
+                    <th>Scheduled Time</th>
                     <th>Timezone</th>
-                    {/* <th>From</th> */}
                     <th>BCC</th>
                     <th>Actions</th>
                   </tr>
@@ -2525,671 +2248,57 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                 <tbody>
                   {currentData.length === 0 ? (
                     <tr>
-                      <td colSpan={7}>No data found</td>
+                      <td colSpan={8}>No data found</td>
                     </tr>
                   ) : (
-                    currentData.map((item, index) => (
-                      <tr key={item.id || index}>
-                        <td>{item.title}</td>
-                        {/* <td>{item.zohoviewName}</td> */}
-                        <td>{item.timeZone}</td>
-                        {/* <td>{item.smtpID}</td> */}
-                        <td>{item.bccEmail}</td>
-                        <td>
-                          <button
-                            className="save-button button small"
-                            onClick={() => handleEditSchedule(item)}
-                          >
-                            Edit
-                          </button>{" "}
-                          <button
-                            className="save-button button small"
-                            onClick={() => handleDeleteSchedule(item.id)}
-                          >
-                            Delete
-                          </button>
-                        </td>
-                      </tr>
-                    ))
+                    currentData.map((item, index) => {
+                      // Find the data file name
+                      const dataFile = scheduleDataFiles.find(
+                        (file) => file.id === item.dataFileId
+                      );
+
+                      // Find the SMTP user email
+                      const smtpUser = smtpUsers.find(
+                        (user) => user.id === item.smtpID
+                      );
+
+                      // Format date and time
+                      const scheduledDate = item.scheduledDate
+                        ? new Date(item.scheduledDate).toLocaleDateString()
+                        : "-";
+
+                      const scheduledTime = item.scheduledTime || "-";
+
+                      return (
+                        <tr key={item.id || index}>
+                          <td>{item.title}</td>
+                          <td>{dataFile?.name || item.zohoviewName || "-"}</td>
+                          <td>{smtpUser?.username || "-"}</td>
+                          <td>{scheduledDate}</td>
+                          <td>{scheduledTime}</td>
+                          <td>{item.timeZone}</td>
+                          <td>{item.bccEmail}</td>
+                          <td>
+                            <button
+                              className="save-button button small"
+                              onClick={() => handleEditSchedule(item)}
+                            >
+                              Edit
+                            </button>{" "}
+                            <button
+                              className="save-button button small"
+                              onClick={() => handleDeleteSchedule(item.id)}
+                            >
+                              Delete
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
             </div>
-
-            {/* <button
-                type="submit"
-                style={{ marginTop: "28px" }}
-                className="save-button button full"
-              >
-                Send
-              </button>*/}
-
-            {tab2 === "Output" && (
-              <>
-                <div className="tabs secondary d-flex align-center flex-col-991">
-                  <ul className="d-flex">
-                    {userRole === "ADMIN" && (
-                      <li>
-                        <button
-                          onClick={tabHandler2}
-                          className={`button ${
-                            tab2 === "Output" ? "active" : ""
-                          }`}
-                        >
-                          Output
-                        </button>
-                      </li>
-                    )}
-                  </ul>
-                </div>
-
-                <div className="d-flex flex-col-1200 mb-10-991 mt-10-991">
-                  <div className="d-flex mr-10 align-center">
-                    <button
-                      onClick={handleFirstPage}
-                      disabled={
-                        !isResetEnabled ||
-                        (currentIndex === 0 &&
-                          !combinedResponses[0]?.prevPageToken)
-                      }
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        padding: "5px 10px",
-                        backgroundColor: "#f0f0f0",
-                        border: "1px solid #ccc",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                      }}
-                      title="Click to go to the first generated email"
-                    >
-                      <img
-                        src={previousIcon}
-                        alt="Previous"
-                        style={{
-                          width: "20px",
-                          height: "20px",
-                          objectFit: "contain",
-                          marginRight: "5px",
-                        }}
-                      />
-                    </button>
-                    <button
-                      onClick={handlePrevPage}
-                      disabled={
-                        !isResetEnabled ||
-                        (currentIndex === 0 &&
-                          !combinedResponses[0]?.prevPageToken)
-                      }
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        padding: "5px 10px",
-                        backgroundColor: "#f0f0f0",
-                        border: "1px solid #ccc",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                      }}
-                      title="Click to go to the previous generated email"
-                    >
-                      <img
-                        src={singleprvIcon}
-                        alt="Previous"
-                        style={{
-                          width: "20px",
-                          height: "20px",
-                          objectFit: "contain",
-                          marginRight: "5px",
-                        }}
-                      />
-                      <span>Prev</span>
-                    </button>
-
-                    <button
-                      onClick={handleNextPage}
-                      disabled={
-                        !isResetEnabled ||
-                        emailLoading ||
-                        (currentIndex === combinedResponses.length - 1 &&
-                          !combinedResponses[combinedResponses.length - 1]
-                            ?.nextPageToken)
-                      }
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        padding: "5px 10px",
-                        backgroundColor: "#f0f0f0",
-                        border: "1px solid #ccc",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                      }}
-                      title="Click to go to the next generated email"
-                    >
-                      <span>Next</span>
-                      <img
-                        src={singlenextIcon}
-                        alt="Next"
-                        style={{
-                          width: "20px",
-                          height: "20px",
-                          objectFit: "contain",
-                          marginLeft: "5px",
-                        }}
-                      />
-                    </button>
-
-                    <button
-                      onClick={handleLastPage}
-                      disabled={
-                        !isResetEnabled ||
-                        emailLoading ||
-                        (currentIndex === combinedResponses.length - 1 &&
-                          !combinedResponses[combinedResponses.length - 1]
-                            ?.nextPageToken)
-                      }
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        padding: "5px 10px",
-                        backgroundColor: "#f0f0f0",
-                        border: "1px solid #ccc",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                      }}
-                      title="Click to go to the last generated email"
-                    >
-                      <img
-                        src={nextIcon}
-                        alt="Next"
-                        style={{
-                          width: "20px",
-                          height: "20px",
-                          objectFit: "contain",
-                          marginLeft: "5px",
-                        }}
-                      />
-                    </button>
-
-                    {emailLoading && (
-                      <div className="loader-overlay">
-                        <div className="loader"></div>
-                      </div>
-                    )}
-                  </div>
-                  <div className="d-flex flex-col-768 mt-10-1200">
-                    <div className="text-center mt-2 d-flex align-center mr-20 mt-10-991 font-size-medium">
-                      {combinedResponses.length > 0 && (
-                        <>
-                          <span>
-                            Contact {currentIndex + 1} of{" "}
-                            {
-                              // Get total contacts from the selected view or all views
-                              selectedZohoviewId1
-                                ? (() => {
-                                    const selectedView = zohoClient.find(
-                                      (client) =>
-                                        client.zohoviewId ===
-                                        selectedZohoviewId1
-                                    );
-                                    return selectedView
-                                      ? selectedView.totalContact
-                                      : combinedResponses.length;
-                                  })()
-                                : zohoClient.reduce(
-                                    (sum, client) => sum + client.totalContact,
-                                    0
-                                  )
-                            }{" "}
-                            ({combinedResponses.length} loaded)
-                          </span>
-                          <span style={{ whiteSpace: "pre" }}> </span>
-                          <span style={{ whiteSpace: "pre" }}> </span>
-
-                          {/* Input box to enter index */}
-                          <input
-                            type="number"
-                            value={inputValue}
-                            onChange={handleIndexChange}
-                            onBlur={() => {
-                              // When input loses focus, ensure it shows a valid value
-                              if (
-                                inputValue.trim() === "" ||
-                                isNaN(parseInt(inputValue, 10))
-                              ) {
-                                setInputValue((currentIndex + 1).toString());
-                              }
-                            }}
-                            className="form-control text-center mx-2"
-                            style={{ width: "70px" }}
-                          />
-                        </>
-                      )}
-                    </div>
-                    <div
-                      className="contact-info mt-2 lh-35 align-center d-inline-block ml-10 mt-10-991 word-wrap--break-word word-break--break-all  ml-0-768"
-                      style={{ color: "red" }}
-                    >
-                      <strong style={{ whiteSpace: "pre" }}>Contact: </strong>
-                      <span style={{ whiteSpace: "pre" }}> </span>
-                      {combinedResponses[currentIndex]?.name || "NA"} |
-                      <span style={{ whiteSpace: "pre" }}> </span>
-                      {combinedResponses[currentIndex]?.title || "NA"} |
-                      <span style={{ whiteSpace: "pre" }}> </span>
-                      {combinedResponses[currentIndex]?.company || "NA"} |
-                      <span style={{ whiteSpace: "pre" }}> </span>
-                      {combinedResponses[currentIndex]?.location || "NA"} |
-                      <span style={{ whiteSpace: "pre" }}> </span>
-                      <a
-                        href={
-                          combinedResponses[currentIndex]?.website &&
-                          !combinedResponses[currentIndex]?.website.startsWith(
-                            "http"
-                          )
-                            ? `https://${combinedResponses[currentIndex]?.website}`
-                            : combinedResponses[currentIndex]?.website
-                        }
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        {combinedResponses[currentIndex]?.website || "NA"}
-                      </a>
-                      <span style={{ whiteSpace: "pre" }}> </span>|
-                      <span style={{ whiteSpace: "pre" }}> </span>
-                      <a
-                        href={combinedResponses[currentIndex]?.linkedin}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        LinkedIn
-                      </a>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  {/* THIS MESSAGE MOVED HERE, ABOVE OUTPUT */}
-                  {isPaused && !isResetEnabled && (
-                    <div
-                      style={{
-                        color: "red",
-                        marginBottom: "8px",
-                        fontWeight: 500,
-                      }}
-                    >
-                      Please wait, the last pitch generation is being
-                      completed...
-                      <span className="animated-ellipsis"></span>
-                    </div>
-                  )}
-
-                  <span className="pos-relative"></span>
-                </div>
-                <div className="form-group">
-                  <div className="d-flex mb-10 align-items-center">
-                    {/* Your existing Copy to clipboard button */}
-                    <button
-                      className={`button d-flex align-center small ${
-                        isCopyText && "save-button auto-width"
-                      }`}
-                      onClick={copyToClipboardHandler}
-                    >
-                      {isCopyText ? (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="18px"
-                          height="18px"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                        >
-                          <path
-                            d="M7.29417 12.9577L10.5048 16.1681L17.6729 9"
-                            stroke="#ffffff"
-                            strokeWidth="2.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                          <circle
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="#ffffff"
-                            strokeWidth="2"
-                          />
-                        </svg>
-                      ) : (
-                        <svg
-                          width="18px"
-                          height="18px"
-                          viewBox="0 0 24 24"
-                          version="1.1"
-                        >
-                          <title>ic_fluent_copy_24_regular</title>
-                          <desc>Created with Sketch.</desc>
-                          <g
-                            id="🔍-Product-Icons"
-                            stroke="none"
-                            strokeWidth="1"
-                            fill="none"
-                            fillRule="evenodd"
-                          >
-                            <g
-                              id="ic_fluent_copy_24_regular"
-                              fill="#212121"
-                              fillRule="nonzero"
-                            >
-                              <path
-                                d="M5.50280381,4.62704038 L5.5,6.75 L5.5,17.2542087 C5.5,19.0491342 6.95507456,20.5042087 8.75,20.5042087 L17.3662868,20.5044622 C17.057338,21.3782241 16.2239751,22.0042087 15.2444057,22.0042087 L8.75,22.0042087 C6.12664744,22.0042087 4,19.8775613 4,17.2542087 L4,6.75 C4,5.76928848 4.62744523,4.93512464 5.50280381,4.62704038 Z M17.75,2 C18.9926407,2 20,3.00735931 20,4.25 L20,17.25 C20,18.4926407 18.9926407,19.5 17.75,19.5 L8.75,19.5 C7.50735931,19.5 6.5,18.4926407 6.5,17.25 L6.5,4.25 C6.5,3.00735931 7.50735931,2 8.75,2 L17.75,2 Z M17.75,3.5 L8.75,3.5 C8.33578644,3.5 8,3.83578644 8,4.25 L8,17.25 C8,17.6642136 8.33578644,18 8.75,18 L17.75,18 C18.1642136,18 18.5,17.6642136 18.5,17.25 L18.5,4.25 C18.5,3.83578644 18.1642136,3.5 17.75,3.5 Z"
-                                id="🎨-Color"
-                              ></path>
-                            </g>
-                          </g>
-                        </svg>
-                      )}
-                      <span className={`ml-5 ${isCopyText && "white"}`}>
-                        {isCopyText ? "Copied!" : "Copy to clipboard"}
-                      </span>
-                    </button>
-                  </div>
-                  <span className="pos-relative">
-                    {isEditing ? (
-                      <div className="editor-container">
-                        <div
-                          className="editor-toolbar"
-                          style={{
-                            padding: "5px",
-                            border: "1px solid #ccc",
-                            borderBottom: "none",
-                            borderRadius: "4px 4px 0 0",
-                            display: "flex",
-                            flexWrap: "wrap",
-                            gap: "5px",
-                            background: "#f9f9f9",
-                          }}
-                        >
-                          <select
-                            onChange={(e) => {
-                              document.execCommand(
-                                "formatBlock",
-                                false,
-                                e.target.value
-                              );
-                            }}
-                            style={{
-                              padding: "5px",
-                              border: "1px solid #ddd",
-                              borderRadius: "3px",
-                              marginRight: "5px",
-                            }}
-                          >
-                            <option value="p">Normal</option>
-                            <option value="h1">Heading 1</option>
-                            <option value="h2">Heading 2</option>
-                            <option value="h3">Heading 3</option>
-                            <option value="pre">Preformatted</option>
-                          </select>
-
-                          <button
-                            type="button"
-                            onClick={() => document.execCommand("bold")}
-                            style={{
-                              padding: "5px 10px",
-                              border: "1px solid #ddd",
-                              borderRadius: "3px",
-                              background: "#fff",
-                              cursor: "pointer",
-                            }}
-                          >
-                            <strong>B</strong>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => document.execCommand("italic")}
-                            style={{
-                              padding: "5px 10px",
-                              border: "1px solid #ddd",
-                              borderRadius: "3px",
-                              background: "#fff",
-                              cursor: "pointer",
-                            }}
-                          >
-                            <em>I</em>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => document.execCommand("underline")}
-                            style={{
-                              padding: "5px 10px",
-                              border: "1px solid #ddd",
-                              borderRadius: "3px",
-                              background: "#fff",
-                              cursor: "pointer",
-                            }}
-                          >
-                            <u>U</u>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              document.execCommand("strikeThrough")
-                            }
-                            style={{
-                              padding: "5px 10px",
-                              border: "1px solid #ddd",
-                              borderRadius: "3px",
-                              background: "#fff",
-                              cursor: "pointer",
-                            }}
-                          >
-                            <s>S</s>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              document.execCommand("insertUnorderedList")
-                            }
-                            style={{
-                              padding: "5px 10px",
-                              border: "1px solid #ddd",
-                              borderRadius: "3px",
-                              background: "#fff",
-                              cursor: "pointer",
-                            }}
-                          >
-                            <span>•</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() =>
-                              document.execCommand("insertOrderedList")
-                            }
-                            style={{
-                              padding: "5px 10px",
-                              border: "1px solid #ddd",
-                              borderRadius: "3px",
-                              background: "#fff",
-                              cursor: "pointer",
-                            }}
-                          >
-                            <span>1.</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const url = prompt("Enter link URL:");
-                              if (url)
-                                document.execCommand("createLink", false, url);
-                            }}
-                            style={{
-                              padding: "5px 10px",
-                              border: "1px solid #ddd",
-                              borderRadius: "3px",
-                              background: "#fff",
-                              cursor: "pointer",
-                            }}
-                          >
-                            <span>🔗</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const url = prompt("Enter image URL:");
-                              if (url)
-                                document.execCommand("insertImage", false, url);
-                            }}
-                            style={{
-                              padding: "5px 10px",
-                              border: "1px solid #ddd",
-                              borderRadius: "3px",
-                              background: "#fff",
-                              cursor: "pointer",
-                            }}
-                          >
-                            <span>🖼️</span>
-                          </button>
-                        </div>
-
-                        <div
-                          ref={editorRef}
-                          contentEditable={true}
-                          className="textarea-full-height"
-                          onBlur={(e) => {
-                            setEditableContent(e.currentTarget.innerHTML);
-                          }}
-                          onFocus={() => {
-                            // Set focus to the contentEditable div when toolbar buttons are used
-                            if (editorRef.current) {
-                              editorRef.current.focus();
-                            }
-                          }}
-                          style={{
-                            minHeight: "500px",
-                            padding: "10px",
-                            border: "1px solid #ccc",
-                            borderTop: "none", // Remove top border since toolbar has bottom border
-                            borderRadius: "0 0 4px 4px",
-                            fontFamily: "inherit",
-                            fontSize: "inherit",
-                            whiteSpace: "pre-wrap",
-                            lineHeight: "1.5",
-                            overflowY: "auto",
-                            outline: "none",
-                          }}
-                        />
-
-                        <div className="editor-actions mt-3 d-flex">
-                          <button
-                            className="action-button button mr-10"
-                            onClick={() => {
-                              if (editorRef.current) {
-                                setEditableContent(editorRef.current.innerHTML);
-                              }
-                              saveEditedContent();
-                            }}
-                            disabled={isSaving}
-                          >
-                            {isSaving ? "Saving..." : "Save Changes"}
-                          </button>
-                          <button
-                            className="secondary button"
-                            onClick={() => {
-                              setIsEditing(false);
-                              setEditableContent(
-                                combinedResponses[currentIndex]?.pitch || ""
-                              );
-                            }}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <div
-                          className="textarea-full-height"
-                          style={{
-                            minHeight: "500px",
-                            padding: "10px",
-                            border: "1px solid #ccc",
-                            borderRadius: "4px",
-                            fontFamily: "inherit",
-                            fontSize: "inherit",
-                            whiteSpace: "pre-wrap",
-                            overflowY: "auto",
-                            overflowX: "auto",
-                            boxSizing: "border-box",
-                          }}
-                          dangerouslySetInnerHTML={{
-                            __html:
-                              combinedResponses[currentIndex]?.pitch || "",
-                          }}
-                        ></div>
-                        <button
-                          className="edit-button button d-flex align-center justify-center"
-                          onClick={() => setIsEditing(true)}
-                          style={{
-                            position: "absolute",
-                            top: "10px",
-                            right: "70px",
-                            zIndex: 5,
-                          }}
-                        >
-                          <svg width="20px" height="20px" viewBox="0 0 24 24">
-                            <path
-                              d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"
-                              fill="currentColor"
-                            />
-                          </svg>
-                          <span className="ml-2">Edit</span>
-                        </button>
-                        <button
-                          className="full-view-icon d-flex align-center justify-center"
-                          onClick={() => handleModalOpen("modal-output-2")}
-                        >
-                          <svg width="40px" height="40px" viewBox="0 0 512 512">
-                            <polyline
-                              points="304 96 416 96 416 208"
-                              fill="none"
-                              stroke="#000000"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="32"
-                            />
-                            <line
-                              x1="405.77"
-                              y1="106.2"
-                              x2="111.98"
-                              y2="400.02"
-                              fill="none"
-                              stroke="#000000"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="32"
-                            />
-                            <polyline
-                              points="208 416 96 416 96 304"
-                              fill="none"
-                              stroke="#000000"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="32"
-                            />
-                          </svg>
-                        </button>
-                      </>
-                    )}
-                  </span>{" "}
-                  <div className="d-flex justify-center mt-4"></div>{" "}
-                  {/* Add this div for navigation buttons */}
-                </div>
-              </>
-            )}
           </div>
         </div>
       )}
