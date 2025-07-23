@@ -786,9 +786,23 @@ const MainPage: React.FC = () => {
         seteveryscrapedData(naPlaceholders);
         setallsummery(naPlaceholders);
         setallSearchTermBodies(naPlaceholders);
-        if (emailResponses.length > 0) {
-        setCurrentIndex(0); // This should show the first contact
-         }     
+       
+           // Find first valid contact BEFORE setting index
+      let validIndex = 0;
+      for (let i = 0; i < emailResponses.length; i++) {
+        const contact = emailResponses[i];
+        if (contact.name !== "N/A" && contact.company !== "N/A") {
+          validIndex = i;
+          break;
+        }
+      }
+      
+      // Set to the valid index directly
+      setCurrentIndex(validIndex);
+      console.log("Setting current index to:", validIndex);
+
+
+
         } catch (error) {
         console.error("Error fetching email bodies:", error);
       } finally {

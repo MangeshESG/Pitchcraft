@@ -801,7 +801,7 @@ const Output: React.FC<OutputInterface> = ({
     }
   }, [effectiveUserId, token]);
 
- const handleSendEmail = async (subjectFromButton: string) => {
+  const handleSendEmail = async (subjectFromButton: string) => {
     setEmailMessage("");
     setEmailError("");
 
@@ -818,7 +818,7 @@ const Output: React.FC<OutputInterface> = ({
 
     try {
       const currentContact = combinedResponses[currentIndex];
-      
+
       // Ensure we have the required contact information
       if (!currentContact || !currentContact.id) {
         setEmailError("No valid contact selected");
@@ -1070,16 +1070,16 @@ const Output: React.FC<OutputInterface> = ({
         <div className="control-buttons d-flex align-center">
           {!isStarted ? (
             <button
-  className="primary-button"
-  onClick={() => handleStart?.(currentIndex)} // Use optional chaining
-  disabled={
-    (!selectedPrompt?.name || !selectedZohoviewId) &&
-    !selectedCampaign
-  }
-  title="Click to generate hyper-personalized emails using the selected template for contacts in the selected data file"
->
-  Generate emails
-</button>
+              className="primary-button"
+              onClick={() => handleStart?.(currentIndex)} // Use optional chaining
+              disabled={
+                (!selectedPrompt?.name || !selectedZohoviewId) &&
+                !selectedCampaign
+              }
+              title="Click to generate hyper-personalized emails using the selected template for contacts in the selected data file"
+            >
+              Generate emails
+            </button>
           ) : (
             <>
               <button
@@ -1125,9 +1125,9 @@ const Output: React.FC<OutputInterface> = ({
               Reset all
             </button>
           )}
-           {!isDemoAccount && (
+          {!isDemoAccount && (
             <>
-            <div className="form-group d-flex align-center mb-0 mr-20">
+              <div className="form-group d-flex align-center mb-0 mr-20">
                 <label className="font-size-medium font-500 mb-0 mr-10">
                   Delay(secs)
                 </label>
@@ -1148,7 +1148,7 @@ const Output: React.FC<OutputInterface> = ({
                   onChange={settingsFormHandler}
                 />
                 <span>Overwrite existing</span>
-              </label> 
+              </label>
             </>
           )}
         </div>
@@ -1167,7 +1167,6 @@ const Output: React.FC<OutputInterface> = ({
                 <select
                   onChange={handleCampaignChange}
                   value={selectedCampaign}
-                  
                 >
                   <option value="">Select a campaign</option>
                   {campaigns?.map((campaign) => (
@@ -1244,58 +1243,57 @@ const Output: React.FC<OutputInterface> = ({
               )}
             </div> */}
 
-           
-<div className="col col-4 col-12-768 d-flex align-center">
-  <div className="form-group d-flex align-center" style={{ flexWrap: "wrap" }}>
-    <label style={{ width: "100%" }}>Subject</label>
+            <div className="col col-4 col-12-768 d-flex align-center">
+              <div
+                className="form-group d-flex align-center"
+                style={{ flexWrap: "wrap" }}
+              >
+                <label style={{ width: "100%" }}>Subject</label>
 
-    <select
-      onChange={(e) => setSubjectMode?.(e.target.value)}
-      value={subjectMode}
-      className="height-35"
-      style={{ minWidth: 150, marginRight: 10 }}
-    >
-      <option value="AI generated">AI generated</option>
-      <option value="With Placeholder">With placeholder</option>
-    </select>
+                <select
+                  onChange={(e) => setSubjectMode?.(e.target.value)}
+                  value={subjectMode}
+                  className="height-35"
+                  style={{ minWidth: 150, marginRight: 10 }}
+                >
+                  <option value="AI generated">AI generated</option>
+                  <option value="With Placeholder">With placeholder</option>
+                </select>
 
-    <input
-      type="text"
-      placeholder="Enter subject here"
-      value={subjectText}
-      onChange={(e) => setSubjectText?.(e.target.value)}
-      disabled={subjectMode !== "With Placeholder"}
-      className="height-35"
-      style={{ flex: 1, minWidth: 200, marginRight: 10 }}
-    />
-  </div>
-</div>
-
-
+                <input
+                  type="text"
+                  placeholder="Enter subject here"
+                  value={subjectText}
+                  onChange={(e) => setSubjectText?.(e.target.value)}
+                  disabled={subjectMode !== "With Placeholder"}
+                  className="height-35"
+                  style={{ flex: 1, minWidth: 200, marginRight: 10 }}
+                />
+              </div>
+            </div>
 
             <div className="col col-3 col-12-768">
-  <div className="form-group">
-    <label>Language</label>
-    <select
-      onChange={handleLanguageChange}
-      value={selectedLanguage}
-      className="height-35"
-    >
-      <option value="">Select a language</option>
-      {languages
-        ?.sort((a, b) => a.localeCompare(b))
-        .map((language, index) => (
-          <option key={index} value={language}>
-            {language}
-          </option>
-        ))}
-    </select>
-  </div>
-</div>
+              <div className="form-group">
+                <label>Language</label>
+                <select
+                  onChange={handleLanguageChange}
+                  value={selectedLanguage}
+                  className="height-35"
+                >
+                  <option value="">Select a language</option>
+                  {languages
+                    ?.sort((a, b) => a.localeCompare(b))
+                    .map((language, index) => (
+                      <option key={index} value={language}>
+                        {language}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </div>
           </div>
 
           {/* Subject Line Row */}
-          
         </div>
       </div>
 
