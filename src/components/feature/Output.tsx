@@ -315,12 +315,7 @@ const Output: React.FC<OutputInterface> = ({
     setExistingDataIndex(0); // Reset the index
   };
 
-  useEffect(() => {
-    // Keep currentIndex as is when new responses are added
-    if (currentIndex >= combinedResponses.length) {
-      setCurrentIndex(combinedResponses.length - 1);
-    }
-  }, [allResponses, currentIndex, setCurrentIndex]);
+
 
   const clearUsage = () => {
     setOutputForm((prevOutputForm: any) => ({
@@ -330,6 +325,13 @@ const Output: React.FC<OutputInterface> = ({
   };
 
   const [combinedResponses, setCombinedResponses] = useState<any[]>([]);
+  
+  useEffect(() => {
+  // Keep currentIndex as is when new responses are added
+  if (currentIndex >= combinedResponses.length && combinedResponses.length > 0) {
+    setCurrentIndex(Math.max(0, combinedResponses.length - 1));
+  }
+}, [allResponses, currentIndex, setCurrentIndex, combinedResponses.length]);
 
   useEffect(() => {
     // Prioritize allResponses, then add unique existingResponses
@@ -1063,6 +1065,22 @@ const Output: React.FC<OutputInterface> = ({
       })
       .replace(",", "");
   }
+
+  // Add this useEffect after the existing combinedResponses useEffect
+useEffect(() => {
+  console.log("combinedResponses updated:", combinedResponses.length, "items");
+  console.log("Current index:", currentIndex);
+  console.log("Current contact:", combinedResponses[currentIndex]);
+  
+  // Force a re-render if we have data but UI shows NA
+  if (combinedResponses.length > 0 && currentIndex === 0) {
+    const contact = combinedResponses[0];
+    if (contact && contact.name !== "N/A") {
+      // Data is valid, force update
+      setCurrentIndex(0);
+    }
+  }
+}, [combinedResponses]);
 
   return (
     <div className="login-box gap-down">
