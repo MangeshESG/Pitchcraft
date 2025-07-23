@@ -714,6 +714,8 @@ const MainPage: React.FC = () => {
 
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [endTime, setEndTime] = useState<Date | null>(null);
+  const [cachedContacts, setCachedContacts] = useState<any[]>([]);
+
 
   const fetchAndDisplayEmailBodies = useCallback(
     async (
@@ -745,6 +747,9 @@ const MainPage: React.FC = () => {
 
         const fetchedEmailData = await response.json();
         const contactsData = fetchedEmailData.contacts || [];
+
+        setCachedContacts(contactsData);
+        console.log("Fetched contacts data:", contactsData);
 
         if (!Array.isArray(contactsData)) {
           console.error("Invalid data format");
@@ -781,8 +786,10 @@ const MainPage: React.FC = () => {
         seteveryscrapedData(naPlaceholders);
         setallsummery(naPlaceholders);
         setallSearchTermBodies(naPlaceholders);
-        setCurrentIndex(0);
-      } catch (error) {
+        if (emailResponses.length > 0) {
+        setCurrentIndex(0); // This should show the first contact
+         }     
+        } catch (error) {
         console.error("Error fetching email bodies:", error);
       } finally {
         setEmailLoading(false);
@@ -971,14 +978,17 @@ const MainPage: React.FC = () => {
     return { original: originalCount, assisted: assistedCount };
   };
 
-  const goToTab = async (
-    tab: string,
-    options?: {
-      regenerate?: boolean;
-      regenerateIndex?: number;
-      nextPageToken?: string | null;
-      prevPageToken?: string | null;
-    }
+ const goToTab = async (
+  tab: string,
+  options?: {
+    regenerate?: boolean;
+    regenerateIndex?: number;
+    nextPageToken?: string | null;
+    prevPageToken?: string | null;
+    startFromIndex?: number; 
+    useCachedData?: boolean; 
+
+  }
   ) => {
     setTab(tab);
     // If already processing, show loader and prevent multiple starts
@@ -1029,6 +1039,8 @@ const MainPage: React.FC = () => {
 
     try {
       setIsProcessing(true);
+
+
       // ======= REGENERATION BLOCK START =======
       if (!selectedPrompt) {
         // Determine which variables are missing
@@ -1450,8 +1462,21 @@ const MainPage: React.FC = () => {
       // ======= REGENERATION BLOCK END =======
 
       // Main processing loop - fetch all contacts at once
-      let moreRecords = true;
-      let currentIndex = isPaused ? lastProcessedIndex : 0;
+          let moreRecords = true;
+          let currentIndex = 0;
+          let shouldReplaceFromIndex = false;
+
+            if (options?.startFromIndex !== undefined && options.startFromIndex >= 0) {
+              currentIndex = options.startFromIndex;
+              shouldReplaceFromIndex = true;
+            } else if (isPaused) {
+              currentIndex = lastProcessedIndex; // Use the last processed index when resuming
+            } else {
+              currentIndex = 0;
+            }
+
+
+//
       let foundRecordWithoutPitch = false;
 
       // Show loader
@@ -1463,17 +1488,27 @@ const MainPage: React.FC = () => {
       }));
       const dataFileIdStr = selectedZohoviewId;
 
-      // Fetch all contacts from new API
-      const response = await fetch(
-        `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${dataFileIdStr}`
-      );
+   // Declare contacts variable before the if/else block
+let contacts: any[] = [];
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch email bodies");
-      }
+// Use cached data if available and flag is set
+        if (options?.useCachedData && cachedContacts.length > 0) {
+          contacts = cachedContacts;
+        } else {
+          // Fetch contacts only if not using cached data
+          const dataFileIdStr = selectedZohoviewId;
+          
+          const response = await fetch(
+            `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${dataFileIdStr}`
+          );
 
-      const data = await response.json();
-      const contacts = data.contacts || [];
+          if (!response.ok) {
+            throw new Error("Failed to fetch email bodies");
+          }
+
+          const data = await response.json();
+          contacts = data.contacts || [];
+        }
 
       if (!Array.isArray(contacts)) {
         console.error("Invalid data format");
@@ -1481,12 +1516,16 @@ const MainPage: React.FC = () => {
       }
 
       // Process all contacts
-      for (let i = currentIndex; i < contacts.length; i++) {
+      for (let i = 0; i < contacts.length; i++) {
         const entry = contacts[i];
 
+        // Skip contacts before the starting index if we're replacing from a specific index
+        if (shouldReplaceFromIndex && i < currentIndex) {
+          continue;
+        }
         if (stopRef.current === true) {
           setLastProcessedToken(null);
-          setLastProcessedIndex(i);
+          setLastProcessedIndex(i); // This should be the actual index being processed
           return;
         }
 
@@ -1503,7 +1542,11 @@ const MainPage: React.FC = () => {
           var company_name = entry.company_name;
 
           // Check if email already exists and if we should overwrite
-          if (entry.email_body && !settingsForm.overwriteDatabase) {
+         if (entry.email_body && !settingsForm.overwriteDatabase) {
+    const responseIndex = shouldReplaceFromIndex ? i : allResponses.length;
+
+
+
             setOutputForm((prevOutputForm) => ({
               ...prevOutputForm,
               generatedContent:
@@ -1536,26 +1579,72 @@ const MainPage: React.FC = () => {
               emailsentdate: entry.email_sent_at || "N/A",
             };
 
-            setAllResponses((prevResponses) => {
-              const newResponses = [...prevResponses, existingResponse];
-              setCurrentIndex(newResponses.length - 1);
-              return newResponses;
-            });
-            generatedPitches.push(existingResponse);
+              setAllResponses((prevResponses) => {
+    const updated = [...prevResponses];
+    if (responseIndex < updated.length) {
+      updated[responseIndex] = existingResponse;
+    } else {
+      updated.push(existingResponse);
+    }
+    setCurrentIndex(responseIndex);
+    return updated;
+  });
 
-            setallprompt((prevPrompts) => [...prevPrompts, ""]);
-            setallsearchResults((prevSearchResults) => [
-              ...prevSearchResults,
-              [],
-            ]);
-            seteveryscrapedData((prevScrapedData) => [...prevScrapedData, ""]);
-            setallsummery((prevSummery) => [...prevSummery, ""]);
-            setallSearchTermBodies((prevSearchTermBodies) => [
-              ...prevSearchTermBodies,
-              "",
-            ]);
+  // Remove this line - don't push to generatedPitches yet
+  // generatedPitches.push(existingResponse);
 
-            continue;
+  // Update these to use responseIndex logic
+  setallprompt((prevPrompts) => {
+    const updated = [...prevPrompts];
+    if (responseIndex < updated.length) {
+      updated[responseIndex] = "";
+    } else {
+      updated.push("");
+    }
+    return updated;
+  });
+
+  setallsearchResults((prevSearchResults) => {
+    const updated = [...prevSearchResults];
+    if (responseIndex < updated.length) {
+      updated[responseIndex] = [];
+    } else {
+      updated.push([]);
+    }
+    return updated;
+  });
+
+  seteveryscrapedData((prevScrapedData) => {
+    const updated = [...prevScrapedData];
+    if (responseIndex < updated.length) {
+      updated[responseIndex] = "";
+    } else {
+      updated.push("");
+    }
+    return updated;
+  });
+
+  setallsummery((prevSummery) => {
+    const updated = [...prevSummery];
+    if (responseIndex < updated.length) {
+      updated[responseIndex] = "";
+    } else {
+      updated.push("");
+    }
+    return updated;
+  });
+
+  setallSearchTermBodies((prevSearchTermBodies) => {
+    const updated = [...prevSearchTermBodies];
+    if (responseIndex < updated.length) {
+      updated[responseIndex] = "";
+    } else {
+      updated.push("");
+    }
+    return updated;
+  });
+
+  continue;
           } else {
             foundRecordWithoutPitch = true;
 
@@ -1960,45 +2049,91 @@ const MainPage: React.FC = () => {
           });
 
           // Update newResponse to include subject
-          const newResponse = {
-            ...entry,
-            name: entry.full_name || "N/A",
-            title: entry.job_title || "N/A",
-            company: entry.company_name || "N/A",
-            location: entry.country_or_address || "N/A",
-            website: entry.website || "N/A",
-            linkedin: entry.linkedin_url || "N/A",
-            pitch: pitchData.response.content,
-            subject: subjectLine,
-            timestamp: new Date().toISOString(),
-            id: entry.id,
-            nextPageToken: null,
-            prevPageToken: null,
-            generated: true,
-            lastemailupdateddate: new Date().toISOString(),
-            emailsentdate: entry.email_sent_at || "N/A",
-          };
+           const newResponse = {
+    ...entry,
+    name: entry.full_name || "N/A",
+    title: entry.job_title || "N/A",
+    company: entry.company_name || "N/A",
+    location: entry.country_or_address || "N/A",
+    website: entry.website || "N/A",
+    linkedin: entry.linkedin_url || "N/A",
+    pitch: pitchData.response.content,
+    subject: subjectLine,
+    timestamp: new Date().toISOString(),
+    id: entry.id,
+    nextPageToken: null,
+    prevPageToken: null,
+    generated: true,
+    lastemailupdateddate: new Date().toISOString(),
+    emailsentdate: entry.email_sent_at || "N/A",
+  };
+  const responseIndex = shouldReplaceFromIndex ? currentIndex + (i - currentIndex) : allResponses.length;
 
-          setAllResponses((prevResponses) => [...prevResponses, newResponse]);
-          generatedPitches.push(newResponse);
-          setallprompt((prevPrompts) => [...prevPrompts, promptToSend]);
-          setallsearchResults((prevSearchResults) => [
-            ...prevSearchResults,
-            scrapeData.searchResults || [],
-          ]);
-          seteveryscrapedData((prevScrapedData) => [
-            ...prevScrapedData,
-            scrapeData.allScrapedData || "",
-          ]);
-          setallsummery((prevSummery) => [
-            ...prevSummery,
-            scrapeData.pitchResponse.content || [],
-          ]);
-          setallSearchTermBodies((prevSearchTermBodies) => [
-            ...prevSearchTermBodies,
-            searchTermBody,
-          ]);
-          setRecentlyAddedOrUpdatedId(newResponse.id);
+
+           setAllResponses((prevResponses) => {
+    const updated = [...prevResponses];
+    if (responseIndex < updated.length) {
+      // Replace existing entry
+      updated[responseIndex] = newResponse;
+    } else {
+      // Add new entry
+      updated.push(newResponse);
+    }
+    return updated;
+  });
+
+  // Similarly update other arrays at the correct index
+  setallprompt((prevPrompts) => {
+    const updated = [...prevPrompts];
+    if (responseIndex < updated.length) {
+      updated[responseIndex] = promptToSend;
+    } else {
+      updated.push(promptToSend);
+    }
+    return updated;
+  });
+
+  setallsearchResults((prevSearchResults) => {
+    const updated = [...prevSearchResults];
+    if (responseIndex < updated.length) {
+      updated[responseIndex] = scrapeData.searchResults || [];
+    } else {
+      updated.push(scrapeData.searchResults || []);
+    }
+    return updated;
+  });
+
+  seteveryscrapedData((prevScrapedData) => {
+    const updated = [...prevScrapedData];
+    if (responseIndex < updated.length) {
+      updated[responseIndex] = scrapeData.allScrapedData || "";
+    } else {
+      updated.push(scrapeData.allScrapedData || "");
+    }
+    return updated;
+  });
+
+  setallsummery((prevSummery) => {
+    const updated = [...prevSummery];
+    if (responseIndex < updated.length) {
+      updated[responseIndex] = scrapeData.pitchResponse?.content || "";
+    } else {
+      updated.push(scrapeData.pitchResponse?.content || "");
+    }
+    return updated;
+  });
+
+  setallSearchTermBodies((prevSearchTermBodies) => {
+    const updated = [...prevSearchTermBodies];
+    if (responseIndex < updated.length) {
+      updated[responseIndex] = searchTermBody;
+    } else {
+      updated.push(searchTermBody);
+    }
+    return updated;
+  });
+            setCurrentIndex(responseIndex);
+  setRecentlyAddedOrUpdatedId(newResponse.id);
           const dataFileIdStr = selectedZohoviewId;
 
           // Update database with new API
@@ -2432,39 +2567,50 @@ const MainPage: React.FC = () => {
     }
   };
 
-  const handleStart = async () => {
-    //await handleReset();   // Now this is valid
+const handleStart = async (startIndex?: number) => {
+  // Only clear all if we're starting from the beginning
+  if (!startIndex || startIndex === 0) {
     await handleClearAll();
+  }
 
-    if (!selectedPrompt) return;
-    setAllRecordsProcessed(false);
-    setIsStarted(true);
-    setIsPaused(false);
-    stopRef.current = false;
-    goToTab("Output");
-  };
+  if (!selectedPrompt) return;
+  setAllRecordsProcessed(false);
+  setIsStarted(true);
+  setIsPaused(false);
+  stopRef.current = false;
+  
+  goToTab("Output", {
+    startFromIndex: startIndex,
+    useCachedData: true // Use cached data when available
+  });
+};
 
-  const handlePauseResume = async () => {
-    if (isStarted) {
-      if (isPaused) {
-        // Check if we've processed all records
-        if (allRecordsProcessed) {
-          // If all records are processed and user clicks "Start", reset first then start new process
-          handleReset(); // Reset everything
-          handleStart(); // Start a new process
-          return;
-        }
-        // Only allow resume if pitch update is completed
-        if (isPitchUpdateCompleted && !isProcessing) {
-          setIsPaused(false);
-          stopRef.current = false;
-          setIsPitchUpdateCompleted(false); // Reset the completion status
-          goToTab("Output");
-        }
-      } else {
-        // Pause logic
-        setIsPaused(true);
-        stopRef.current = true;
+ const handlePauseResume = async () => {
+  if (isStarted) {
+    if (isPaused) {
+      // Check if we've processed all records
+      if (allRecordsProcessed) {
+        handleReset();
+        handleStart();
+        return;
+      }
+      
+      // Only allow resume if pitch update is completed
+      if (isPitchUpdateCompleted && !isProcessing) {
+        setIsPaused(false);
+        stopRef.current = false;
+        setIsPitchUpdateCompleted(false);
+        
+        // Resume with cached data and pass the last processed index
+        goToTab("Output", {
+          useCachedData: true,
+          startFromIndex: lastProcessedIndex // Pass the last processed index explicitly
+        });
+      }
+    } else {
+      // Pause logic
+      setIsPaused(true);
+      stopRef.current = true;
 
         // Calculate time spent so far
         const currentTime = new Date();

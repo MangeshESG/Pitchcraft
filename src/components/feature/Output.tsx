@@ -104,7 +104,7 @@ interface OutputInterface {
   >;
   selectedClient: string;
   isStarted?: boolean;
-  handleStart?: () => void;
+  handleStart?: (startIndex?: number) => void; // Change this line
   handlePauseResume?: () => void;
   handleReset?: () => void;
   isPitchUpdateCompleted?: boolean;
@@ -1070,16 +1070,16 @@ const Output: React.FC<OutputInterface> = ({
         <div className="control-buttons d-flex align-center">
           {!isStarted ? (
             <button
-              className="primary-button"
-              onClick={handleStart}
-              disabled={
-                (!selectedPrompt?.name || !selectedZohoviewId) &&
-                !selectedCampaign
-              }
-              title="Click to generate hyper-personalized emails using the selected template for contacts in the selected data file"
-            >
-              Start
-            </button>
+  className="primary-button"
+  onClick={() => handleStart?.(currentIndex)} // Use optional chaining
+  disabled={
+    (!selectedPrompt?.name || !selectedZohoviewId) &&
+    !selectedCampaign
+  }
+  title="Click to generate hyper-personalized emails using the selected template for contacts in the selected data file"
+>
+  Generate emails
+</button>
           ) : (
             <>
               <button
