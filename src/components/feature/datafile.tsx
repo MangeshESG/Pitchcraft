@@ -442,9 +442,9 @@ const DataFile: React.FC<DataFileProps> = ({
 
   return (
     <div className="full-width d-flex">
-      <div className="input-section edit-section">
+      <div className="input-section edit-section w-[100%]">
         <div className="col-12">
-          <h3 className="section-title mb-20">Excel File Upload</h3>
+          <h1 className="text-[22px] mb-15 pb-4 border-b border-[#cccccc] font-semibold">Excel file upload</h1>
 
           {/* Progress Steps */}
           <div className="upload-steps d-flex justify-between mb-30">
@@ -478,10 +478,10 @@ const DataFile: React.FC<DataFileProps> = ({
           {/* Step 1: Upload File */}
           {currentStep === 1 && (
             <div className="upload-section">
-              <div className="d-flex justify-between align-center">
-                <h4>Upload Your Excel File</h4>
+              <div className="d-flex justify-between items-center mb-10">
+                <h4 className="mb-0">Upload your excel file</h4>
                 <button
-                  className="button secondary small"
+                  className="button secondary small flex items-center"
                   onClick={downloadTemplate}
                 >
                   <svg
@@ -506,12 +506,12 @@ const DataFile: React.FC<DataFileProps> = ({
                       strokeLinejoin="round"
                     />
                   </svg>
-                  Download Template
+                  Download template
                 </button>
               </div>
 
               <div
-                className={`dropzone ${isDragActive ? "active" : ""}`}
+                className={`dropzone justify-center text-center flex flex-col items-center ${isDragActive ? "active" : ""}`}
                 onDragEnter={handleDragIn}
                 onDragLeave={handleDragOut}
                 onDragOver={handleDrag}
@@ -603,8 +603,8 @@ const DataFile: React.FC<DataFileProps> = ({
 
           {/* Step 2: Map Columns */}
           {currentStep === 2 && (
-            <div className="mapping-section">
-              <h4 className="mb-20">Map Your Excel Columns</h4>
+            <div className="mapping-section mt-20">
+              <h4 className="mt-[20px]" style={{marginBottom:'5px'}} >Map Your Excel Columns</h4>
               <p className="text-muted mb-20">
                 Please map your Excel columns to the required fields below:
               </p>
@@ -657,7 +657,7 @@ const DataFile: React.FC<DataFileProps> = ({
           {currentStep === 3 && (
             <div className="preview-section">
               <div className="d-flex justify-between align-center mb-20">
-                <h4>Preview Your Data</h4>
+                <h4 style={{marginBottom:0}}>Preview Your Data</h4>
                 <div className="stats-info">
                   <span className="badge badge-info">
                     Total: {processingStats.total}
