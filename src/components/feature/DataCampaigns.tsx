@@ -99,7 +99,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
       </div>
 
       {/* Data File Management Section */}
-      <div className="section-wrapper">
+      {/* <div className="section-wrapper">
         <h2 className="section-title">Data File Management</h2>
         <div className="login-box gap-down d-flex">
           <div className="input-section edit-section">
@@ -178,7 +178,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
             </div>
           </div>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 };
