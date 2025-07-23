@@ -2811,7 +2811,7 @@ const handleCampaignChange = async (
           <div className="p-2 text-xl font-bold border-b pr-4">
             <div className="flex justify-between items-center">
                <img
-                  src={logoImage} 
+                  src={'https://www.pitchkraft.ai/images/pitch_logo.png'} 
                   alt="Pitchcraft Logo" 
                   style={{ height: "60px" }}
                 />
