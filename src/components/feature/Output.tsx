@@ -852,23 +852,7 @@ const Output: React.FC<OutputInterface> = ({
 
       // Update the contact's email sent status
       try {
-        const updatePayload = {
-          Id: currentContact.id,
-          Last_Email_Body_Updated: new Date().toISOString(),
-          PG_Added_Correctly: true,
-        };
-
-        const updateResponse = await axios.post(
-          `${API_BASE_URL}/api/auth/update-contact-fields`,
-          updatePayload,
-          {
-            headers: {
-              "Content-Type": "application/json",
-              ...(token && { Authorization: `Bearer ${token}` }),
-            },
-          }
-        );
-
+      
         // Update local state
         const updatedResponses = [...combinedResponses];
         updatedResponses[currentIndex] = {

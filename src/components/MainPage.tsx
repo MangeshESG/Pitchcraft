@@ -245,9 +245,13 @@ const MainPage: React.FC = () => {
     browserVersion,
   } = useSelector((state: RootState) => state.auth);
 
+
+  //submenu 
   const [tab, setTab] = useState<string>("Template");
   const [mailSubTab, setMailSubTab] = useState<string>("Dashboard");
   const [showMailSubmenu, setShowMailSubmenu] = useState<boolean>(false);
+  const [showContactsSubmenu, setShowContactsSubmenu] = useState(false);
+  const [contactsSubTab, setContactsSubTab] = useState("List");
 
   interface DataFile {
     id: number;
@@ -2976,16 +2980,55 @@ const handleStart = async (startIndex?: number) => {
                   <span className="menu-text">Template</span>
                 </button>
               </li>
-              <li className={tab === "DataCampaigns" ? "active" : ""}>
-                <button
-                  onClick={() => setTab("DataCampaigns")}
-                  className="side-menu-button"
-                  title="Manage data files and campaigns"
-                >
-                  <span className="menu-icon">📊</span>
-                  <span className="menu-text">Lists</span>
-                </button>
-              </li>
+              <li
+  className={`${tab === "DataCampaigns" ? "active" : ""} ${
+    showContactsSubmenu ? "has-submenu submenu-open" : "has-submenu"
+  }`}
+>
+  <button
+    onClick={() => {
+      setTab("DataCampaigns");
+      setShowContactsSubmenu(!showContactsSubmenu);
+      setShowMailSubmenu(false); // Close Mail submenu when opening Contacts
+    }}
+    className="side-menu-button"
+    title="Manage data files and campaigns"
+  >
+    <span className="menu-icon">📊</span>
+    <span className="menu-text">Contacts</span>
+    <span className="submenu-arrow">▶</span>
+  </button>
+  {showContactsSubmenu && (
+    <ul className="submenu">
+      <li
+        className={contactsSubTab === "List" ? "active" : ""}
+      >
+        <button
+          onClick={() => {
+            setContactsSubTab("List");
+            setTab("DataCampaigns");
+          }}
+          className="submenu-button"
+        >
+          List
+        </button>
+      </li>
+      <li
+        className={contactsSubTab === "Segment" ? "active" : ""}
+      >
+        <button
+          onClick={() => {
+            setContactsSubTab("Segment");
+            setTab("DataCampaigns");
+          }}
+          className="submenu-button"
+        >
+          Segment
+        </button>
+      </li>
+    </ul>
+  )}
+</li>
               <li className={tab === "Campaigns" ? "active" : ""}>
                 <button
                   onClick={() => {
@@ -3717,6 +3760,8 @@ const handleStart = async (startIndex?: number) => {
               selectedClient={selectedClient}
               onDataProcessed={handleExcelDataProcessed}
               isProcessing={isProcessing}
+              initialTab={contactsSubTab}  // Pass the current sub-tab
+              onTabChange={setContactsSubTab}  // Pass the setter function
               // Add campaign-related props after you share Settings.tsx
             />
           )}
