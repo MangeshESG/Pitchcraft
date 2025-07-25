@@ -9,6 +9,7 @@ interface DataFileProps {
   selectedClient: string;
   onDataProcessed: (data: any[]) => void;
   isProcessing?: boolean;
+  onBack?: () => void; // Add this
 }
 
 interface ColumnMapping {
@@ -43,6 +44,7 @@ const DataFile: React.FC<DataFileProps> = ({
   selectedClient,
   onDataProcessed,
   isProcessing = false,
+  onBack,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [currentStep, setCurrentStep] = useState(1);
@@ -444,6 +446,13 @@ const DataFile: React.FC<DataFileProps> = ({
     <div className="full-width d-flex">
       <div className="input-section edit-section">
         <div className="col-12">
+          {onBack && (
+            <div className="mb-20">
+              <button className="button secondary" onClick={onBack}>
+                ← Back to Contacts
+              </button>
+            </div>
+          )}
           <h3 className="section-title mb-20">Excel File Upload</h3>
 
           {/* Progress Steps */}

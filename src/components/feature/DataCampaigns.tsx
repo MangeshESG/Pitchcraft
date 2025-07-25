@@ -10,6 +10,7 @@ interface DataCampaignsProps {
   userRole?: string;
   initialTab?: string;
   onTabChange?: (tab: string) => void;
+  onAddContactClick?: () => void; // Add this line
 }
 
 interface ZohoClient {
@@ -68,6 +69,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   initialTab = "List",
   onTabChange,
   userRole,
+  onAddContactClick, // Add this
 }) => {
   const [activeSubTab, setActiveSubTab] = useState(initialTab);
 
@@ -76,16 +78,19 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   // Data file states
   const [dataFiles, setDataFiles] = useState<DataFileItem[]>([]);
   const [selectedDataFile, setSelectedDataFile] = useState<string>("");
-  
+
   // Contact list states
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [totalContacts, setTotalContacts] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set());
+  const [selectedContacts, setSelectedContacts] = useState<Set<string>>(
+    new Set()
+  );
   const [showColumnSettings, setShowColumnSettings] = useState(false);
-  
+  const [showAddContactModal, setShowAddContactModal] = useState(false);
+
   // Column configuration - excluding email_subject and email_body
   const [columns, setColumns] = useState<ColumnConfig[]>([
     { key: "checkbox", label: "", visible: true, width: "40px" },
@@ -103,10 +108,11 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
 
   // Existing states
   const [zohoClient, setZohoClient] = useState<ZohoClient[]>([]);
-  const [selectedZohoViewForDeletion, setSelectedZohoViewForDeletion] = useState("");
+  const [selectedZohoViewForDeletion, setSelectedZohoViewForDeletion] =
+    useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingContacts, setIsLoadingContacts] = useState(false);
-  
+
   const handleTabChange = (tab: string) => {
     setActiveSubTab(tab);
     if (onTabChange) {
@@ -116,46 +122,41 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
 
   // Fetch data files
   const fetchDataFiles = async () => {
-  if (!effectiveUserId) return;
-  
-  setIsLoading(true);
-  try {
-    const response = await fetch(
-      `${API_BASE_URL}/api/Crm/datafile-byclientid?clientId=${effectiveUserId}`
-    );
-    
-    if (!response.ok) {
-      throw new Error("Failed to fetch data files");
+    if (!effectiveUserId) return;
+
+    setIsLoading(true);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/Crm/datafile-byclientid?clientId=${effectiveUserId}`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch data files");
+      }
+
+      const data: DataFileItem[] = await response.json();
+      setDataFiles(data);
+    } catch (error) {
+      console.error("Error fetching data files:", error);
+    } finally {
+      setIsLoading(false);
     }
-    
-    const data: DataFileItem[] = await response.json();
-    setDataFiles(data);
-    
-    // Auto-select first data file if available and none selected
-    if (data.length > 0 && !selectedDataFile) {
-      setSelectedDataFile(data[0].id.toString());
-    }
-  } catch (error) {
-    console.error("Error fetching data files:", error);
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   // Fetch contacts data
   const fetchContacts = async () => {
-    if (!effectiveUserId  || !selectedDataFile) return;
-    
+    if (!effectiveUserId || !selectedDataFile) return;
+
     setIsLoadingContacts(true);
     try {
       const response = await fetch(
         `${API_BASE_URL}/api/Crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${selectedDataFile}`
       );
-      
+
       if (!response.ok) {
         throw new Error("Failed to fetch contacts");
       }
-      
+
       const data: ContactsResponse = await response.json();
       setContacts(data.contacts || []);
       setTotalContacts(data.contactCount || 0);
@@ -176,7 +177,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   };
 
   // Filter contacts based on search query
-  const filteredContacts = contacts.filter(contact => {
+  const filteredContacts = contacts.filter((contact) => {
     const searchLower = searchQuery.toLowerCase();
     return (
       contact.full_name?.toLowerCase().includes(searchLower) ||
@@ -206,17 +207,22 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
 
   // Handle select all
   const handleSelectAll = () => {
-    if (selectedContacts.size === paginatedContacts.length && paginatedContacts.length > 0) {
+    if (
+      selectedContacts.size === paginatedContacts.length &&
+      paginatedContacts.length > 0
+    ) {
       setSelectedContacts(new Set());
     } else {
-      setSelectedContacts(new Set(paginatedContacts.map(c => c.id.toString())));
+      setSelectedContacts(
+        new Set(paginatedContacts.map((c) => c.id.toString()))
+      );
     }
   };
 
   // Toggle column visibility
   const toggleColumnVisibility = (columnKey: string) => {
-    setColumns(prev => 
-      prev.map(col => 
+    setColumns((prev) =>
+      prev.map((col) =>
         col.key === columnKey ? { ...col, visible: !col.visible } : col
       )
     );
@@ -230,7 +236,8 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
 
   // Calculate pagination
   const totalPages = Math.ceil(filteredContacts.length / pageSize);
-  const startIndex = filteredContacts.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const startIndex =
+    filteredContacts.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const endIndex = Math.min(currentPage * pageSize, filteredContacts.length);
 
   // Existing fetch functions
@@ -284,19 +291,19 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   };
 
   // Load data when client changes
-useEffect(() => {
-  if (effectiveUserId) {
-    fetchZohoClient();
-    fetchDataFiles();
-  }
-}, [effectiveUserId]);
+  useEffect(() => {
+    if (effectiveUserId) {
+      fetchZohoClient();
+      fetchDataFiles();
+    }
+  }, [effectiveUserId]);
 
   // Fetch contacts when data file changes
-useEffect(() => {
-  if (selectedDataFile && effectiveUserId) {
-    fetchContacts();
-  }
-}, [selectedDataFile, effectiveUserId]);
+  useEffect(() => {
+    if (selectedDataFile && effectiveUserId) {
+      fetchContacts();
+    }
+  }, [selectedDataFile, effectiveUserId]);
 
   useEffect(() => {
     setActiveSubTab(initialTab);
@@ -350,7 +357,7 @@ useEffect(() => {
                     disabled={isLoading}
                   >
                     <option value="">Select a data file</option>
-                    {dataFiles.map(file => (
+                    {dataFiles.map((file) => (
                       <option key={file.id} value={file.id.toString()}>
                         {file.name} ({file.data_file_name})
                       </option>
@@ -358,16 +365,32 @@ useEffect(() => {
                   </select>
                 </div>
               </div>
-              
+
               <div className="contacts-actions d-flex align-center gap-10">
-                <button 
+                <button
                   className="button secondary"
                   onClick={() => setShowColumnSettings(!showColumnSettings)}
                 >
                   <span className="d-flex align-center">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="mr-5">
-                      <path d="M12 15.5C13.933 15.5 15.5 13.933 15.5 12C15.5 10.067 13.933 8.5 12 8.5C10.067 8.5 8.5 10.067 8.5 12C8.5 13.933 10.067 15.5 12 15.5Z" stroke="currentColor" strokeWidth="1.5"/>
-                      <path d="M20.5 12C20.5 10.067 18.933 8.5 17 8.5M3.5 12C3.5 10.067 5.067 8.5 7 8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="mr-5"
+                    >
+                      <path
+                        d="M12 15.5C13.933 15.5 15.5 13.933 15.5 12C15.5 10.067 13.933 8.5 12 8.5C10.067 8.5 8.5 10.067 8.5 12C8.5 13.933 10.067 15.5 12 15.5Z"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                      />
+                      <path
+                        d="M20.5 12C20.5 10.067 18.933 8.5 17 8.5M3.5 12C3.5 10.067 5.067 8.5 7 8.5"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                      />
                     </svg>
                     Customize columns
                   </span>
@@ -382,7 +405,14 @@ useEffect(() => {
                     style={{ width: "400px" }}
                   />
                 </div>
-                <button className="button primary">
+                <button
+                  className="button primary"
+                  onClick={() => {
+                    if (onAddContactClick) {
+                      onAddContactClick();
+                    }
+                  }}
+                >
                   Add Contact
                 </button>
               </div>
@@ -393,93 +423,132 @@ useEffect(() => {
               <div className="column-settings-dropdown">
                 <div className="dropdown-header">
                   <h4>Customize Columns</h4>
-                  <button onClick={() => setShowColumnSettings(false)}>×</button>
+                  <button onClick={() => setShowColumnSettings(false)}>
+                    ×
+                  </button>
                 </div>
                 <div className="column-list">
-                  {columns.filter(col => col.key !== 'checkbox').map(column => (
-                    <label key={column.key} className="column-item">
-                      <input
-                        type="checkbox"
-                        checked={column.visible}
-                        onChange={() => toggleColumnVisibility(column.key)}
-                      />
-                      {column.label}
-                    </label>
-                  ))}
+                  {columns
+                    .filter((col) => col.key !== "checkbox")
+                    .map((column) => (
+                      <label key={column.key} className="column-item">
+                        <input
+                          type="checkbox"
+                          checked={column.visible}
+                          onChange={() => toggleColumnVisibility(column.key)}
+                        />
+                        {column.label}
+                      </label>
+                    ))}
                 </div>
               </div>
             )}
 
-                        {/* Contacts Table */}
+            {/* Contacts Table */}
             <div className="contacts-table-wrapper">
               <table className="contacts-table">
                 <thead>
                   <tr>
-                    {columns.filter(col => col.visible).map(column => (
-                      <th key={column.key} style={{ width: column.width }}>
-                        {column.key === 'checkbox' ? (
-                          <input
-                            type="checkbox"
-                            checked={selectedContacts.size === paginatedContacts.length && paginatedContacts.length > 0}
-                            onChange={handleSelectAll}
-                          />
-                        ) : (
-                          column.label
-                        )}
-                      </th>
-                    ))}
+                    {columns
+                      .filter((col) => col.visible)
+                      .map((column) => (
+                        <th key={column.key} style={{ width: column.width }}>
+                          {column.key === "checkbox" ? (
+                            <input
+                              type="checkbox"
+                              checked={
+                                selectedContacts.size ===
+                                  paginatedContacts.length &&
+                                paginatedContacts.length > 0
+                              }
+                              onChange={handleSelectAll}
+                            />
+                          ) : (
+                            column.label
+                          )}
+                        </th>
+                      ))}
                   </tr>
                 </thead>
                 <tbody>
                   {isLoadingContacts ? (
                     <tr>
-                      <td colSpan={columns.filter(col => col.visible).length} className="text-center">
+                      <td
+                        colSpan={columns.filter((col) => col.visible).length}
+                        className="text-center"
+                      >
                         Loading contacts...
                       </td>
                     </tr>
                   ) : !selectedDataFile ? (
                     <tr>
-                      <td colSpan={columns.filter(col => col.visible).length} className="text-center">
+                      <td
+                        colSpan={columns.filter((col) => col.visible).length}
+                        className="text-center"
+                      >
                         Please select a data file to view contacts
                       </td>
                     </tr>
                   ) : paginatedContacts.length === 0 ? (
                     <tr>
-                      <td colSpan={columns.filter(col => col.visible).length} className="text-center">
-                        {searchQuery ? 'No contacts found matching your search' : 'No contacts found in this data file'}
+                      <td
+                        colSpan={columns.filter((col) => col.visible).length}
+                        className="text-center"
+                      >
+                        {searchQuery
+                          ? "No contacts found matching your search"
+                          : "No contacts found in this data file"}
                       </td>
                     </tr>
                   ) : (
-                    paginatedContacts.map(contact => (
-                      <tr key={contact.id} className={selectedContacts.has(contact.id.toString()) ? 'selected' : ''}>
-                        {columns.filter(col => col.visible).map(column => (
-                        <td key={column.key}>
-                          {column.key === 'checkbox' ? (
-                            <input
-                              type="checkbox"
-                              checked={selectedContacts.has(contact.id.toString())}
-                              onChange={() => handleSelectContact(contact.id.toString())}
-                            />
-                          ) : column.key === 'website' || column.key === 'linkedin_url' ? (
-                            getContactValue(contact, column.key) ? (
-                              <a 
-                                href={getContactValue(contact, column.key)} 
-                                target="_blank" 
-                                rel="noopener noreferrer" 
-                                className="contact-link"
-                              >
-                                {column.key === 'linkedin_url' ? 'View Profile' : 'Visit Website'}
-                              </a>
-                            ) : (
-                              '-'
-                            )
-                          ) : column.key === 'created_at' || column.key === 'updated_at' || column.key === 'email_sent_at' ? (
-                            formatDate(getContactValue(contact, column.key))
-                          ) : (
-                            getContactValue(contact, column.key) || '-'
-                          )}
-                        </td>
-                      ))}
+                    paginatedContacts.map((contact) => (
+                      <tr
+                        key={contact.id}
+                        className={
+                          selectedContacts.has(contact.id.toString())
+                            ? "selected"
+                            : ""
+                        }
+                      >
+                        {columns
+                          .filter((col) => col.visible)
+                          .map((column) => (
+                            <td key={column.key}>
+                              {column.key === "checkbox" ? (
+                                <input
+                                  type="checkbox"
+                                  checked={selectedContacts.has(
+                                    contact.id.toString()
+                                  )}
+                                  onChange={() =>
+                                    handleSelectContact(contact.id.toString())
+                                  }
+                                />
+                              ) : column.key === "website" ||
+                                column.key === "linkedin_url" ? (
+                                getContactValue(contact, column.key) ? (
+                                  <a
+                                    href={getContactValue(contact, column.key)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="contact-link"
+                                  >
+                                    {column.key === "linkedin_url"
+                                      ? "View Profile"
+                                      : "Visit Website"}
+                                  </a>
+                                ) : (
+                                  "-"
+                                )
+                              ) : column.key === "created_at" ||
+                                column.key === "updated_at" ||
+                                column.key === "email_sent_at" ? (
+                                formatDate(getContactValue(contact, column.key))
+                              ) : (
+                                getContactValue(contact, column.key) || "-"
+                              )}
+                            </td>
+                          ))}
                       </tr>
                     ))
                   )}
@@ -491,12 +560,13 @@ useEffect(() => {
             {paginatedContacts.length > 0 && (
               <div className="pagination-wrapper d-flex justify-between align-center mt-20">
                 <div className="pagination-info">
-                  Showing {startIndex} to {endIndex} of {filteredContacts.length} contacts
+                  Showing {startIndex} to {endIndex} of{" "}
+                  {filteredContacts.length} contacts
                   {searchQuery && ` (filtered from ${totalContacts} total)`}
                 </div>
                 <div className="pagination-controls d-flex align-center gap-10">
-                  <select 
-                    value={pageSize} 
+                  <select
+                    value={pageSize}
                     onChange={(e) => {
                       setPageSize(Number(e.target.value));
                       setCurrentPage(1);
@@ -508,9 +578,11 @@ useEffect(() => {
                     <option value={50}>50 per page</option>
                     <option value={100}>100 per page</option>
                   </select>
-                  <button 
+                  <button
                     className="pagination-btn"
-                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.max(1, prev - 1))
+                    }
                     disabled={currentPage === 1}
                   >
                     Previous
@@ -518,9 +590,11 @@ useEffect(() => {
                   <span className="page-numbers">
                     Page {currentPage} of {totalPages || 1}
                   </span>
-                  <button 
+                  <button
                     className="pagination-btn"
-                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                    }
                     disabled={currentPage === totalPages || totalPages === 0}
                   >
                     Next
@@ -528,97 +602,6 @@ useEffect(() => {
                 </div>
               </div>
             )}
-          </div>
-
-          {/* Data File Section */}
-          <div className="section-wrapper mb-20">
-            <DataFile
-              selectedClient={selectedClient}
-              onDataProcessed={onDataProcessed}
-              isProcessing={isProcessing}
-            />
-          </div>
-
-          {/* Data File Management Section */}
-          <div className="section-wrapper">
-            <h2 className="section-title">Data File Management</h2>
-            <div className="login-box gap-down d-flex">
-              <div className="input-section edit-section">
-                <div className="row mt-3 flex-wrap-480">
-                  <div className="col col-4 col-auto-768 col-12-480">
-                    <div className="form-group">
-                      <label>Select Zoho View to Delete</label>
-                      {isLoading ? (
-                        <div>Loading Zoho views...</div>
-                      ) : (
-                        <select
-                          value={selectedZohoViewForDeletion}
-                          onChange={(e) =>
-                            setSelectedZohoViewForDeletion(e.target.value)
-                          }
-                          className="form-control"
-                        >
-                          <option value="">Select a Zoho View</option>
-                          {zohoClient && zohoClient.length > 0 ? (
-                            zohoClient.map((view) => (
-                              <option key={view.id} value={view.zohoviewId}>
-                                {view.zohoviewName} ({view.zohoviewId})
-                              </option>
-                            ))
-                          ) : (
-                            <option value="" disabled>
-                              No Zoho views available
-                            </option>
-                          )}
-                        </select>
-                      )}
-                      {!isLoading && zohoClient.length === 0 && selectedClient && (
-                        <div className="text-muted mt-1">
-                          No Zoho views found for this client
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="col col-4 col-auto-768 col-12-480">
-                    <div className="form-group d-flex mt-24 mt-0-480">
-                      <button
-                        className="secondary button d-flex justify-between align-center"
-                        onClick={() => {
-                          if (selectedZohoViewForDeletion) {
-                            deleteZohoView(
-                              selectedZohoViewForDeletion,
-                              selectedClient
-                            );
-                            setSelectedZohoViewForDeletion("");
-                          } else {
-                            alert("Please select a Zoho View to delete");
-                          }
-                        }}
-                        disabled={isLoading || !selectedZohoViewForDeletion}
-                      >
-                        {isLoading ? (
-                          <span>Loading...</span>
-                        ) : (
-                          <>
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              fill="#FFFFFF"
-                              viewBox="0 0 50 50"
-                              width="18px"
-                              height="18px"
-                            >
-                              <path d="M 21 2 C 19.354545 2 18 3.3545455 18 5 L 18 7 L 8 7 A 1.0001 1.0001 0 1 0 8 9 L 9 9 L 9 45 C 9 46.654 10.346 48 12 48 L 38 48 C 39.654 48 41 46.654 41 45 L 41 9 L 42 9 A 1.0001 1.0001 0 1 0 42 7 L 32 7 L 32 5 C 32 3.3545455 30.645455 2 29 2 L 21 2 z" />
-                            </svg>
-                            <span className="ml-5">Delete</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       )}

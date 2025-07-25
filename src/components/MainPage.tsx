@@ -245,13 +245,14 @@ const MainPage: React.FC = () => {
     browserVersion,
   } = useSelector((state: RootState) => state.auth);
 
-
-  //submenu 
+  //submenu
   const [tab, setTab] = useState<string>("Template");
   const [mailSubTab, setMailSubTab] = useState<string>("Dashboard");
   const [showMailSubmenu, setShowMailSubmenu] = useState<boolean>(false);
   const [showContactsSubmenu, setShowContactsSubmenu] = useState(false);
   const [contactsSubTab, setContactsSubTab] = useState("List");
+
+  const [showDataFileUpload, setShowDataFileUpload] = useState(false);
 
   interface DataFile {
     id: number;
@@ -720,7 +721,6 @@ const MainPage: React.FC = () => {
   const [endTime, setEndTime] = useState<Date | null>(null);
   const [cachedContacts, setCachedContacts] = useState<any[]>([]);
 
-
   const fetchAndDisplayEmailBodies = useCallback(
     async (
       zohoviewId: string, // Format: "clientId,dataFileId"
@@ -790,24 +790,21 @@ const MainPage: React.FC = () => {
         seteveryscrapedData(naPlaceholders);
         setallsummery(naPlaceholders);
         setallSearchTermBodies(naPlaceholders);
-       
-           // Find first valid contact BEFORE setting index
-      let validIndex = 0;
-      for (let i = 0; i < emailResponses.length; i++) {
-        const contact = emailResponses[i];
-        if (contact.name !== "N/A" && contact.company !== "N/A") {
-          validIndex = i;
-          break;
+
+        // Find first valid contact BEFORE setting index
+        let validIndex = 0;
+        for (let i = 0; i < emailResponses.length; i++) {
+          const contact = emailResponses[i];
+          if (contact.name !== "N/A" && contact.company !== "N/A") {
+            validIndex = i;
+            break;
+          }
         }
-      }
-      
-      // Set to the valid index directly
-      setCurrentIndex(validIndex);
-      console.log("Setting current index to:", validIndex);
 
-
-
-        } catch (error) {
+        // Set to the valid index directly
+        setCurrentIndex(validIndex);
+        console.log("Setting current index to:", validIndex);
+      } catch (error) {
         console.error("Error fetching email bodies:", error);
       } finally {
         setEmailLoading(false);
@@ -996,17 +993,16 @@ const MainPage: React.FC = () => {
     return { original: originalCount, assisted: assistedCount };
   };
 
- const goToTab = async (
-  tab: string,
-  options?: {
-    regenerate?: boolean;
-    regenerateIndex?: number;
-    nextPageToken?: string | null;
-    prevPageToken?: string | null;
-    startFromIndex?: number; 
-    useCachedData?: boolean; 
-
-  }
+  const goToTab = async (
+    tab: string,
+    options?: {
+      regenerate?: boolean;
+      regenerateIndex?: number;
+      nextPageToken?: string | null;
+      prevPageToken?: string | null;
+      startFromIndex?: number;
+      useCachedData?: boolean;
+    }
   ) => {
     setTab(tab);
     // If already processing, show loader and prevent multiple starts
@@ -1057,7 +1053,6 @@ const MainPage: React.FC = () => {
 
     try {
       setIsProcessing(true);
-
 
       // ======= REGENERATION BLOCK START =======
       if (!selectedPrompt) {
@@ -1480,21 +1475,23 @@ const MainPage: React.FC = () => {
       // ======= REGENERATION BLOCK END =======
 
       // Main processing loop - fetch all contacts at once
-          let moreRecords = true;
-          let currentIndex = 0;
-          let shouldReplaceFromIndex = false;
+      let moreRecords = true;
+      let currentIndex = 0;
+      let shouldReplaceFromIndex = false;
 
-            if (options?.startFromIndex !== undefined && options.startFromIndex >= 0) {
-              currentIndex = options.startFromIndex;
-              shouldReplaceFromIndex = true;
-            } else if (isPaused) {
-              currentIndex = lastProcessedIndex; // Use the last processed index when resuming
-            } else {
-              currentIndex = 0;
-            }
+      if (
+        options?.startFromIndex !== undefined &&
+        options.startFromIndex >= 0
+      ) {
+        currentIndex = options.startFromIndex;
+        shouldReplaceFromIndex = true;
+      } else if (isPaused) {
+        currentIndex = lastProcessedIndex; // Use the last processed index when resuming
+      } else {
+        currentIndex = 0;
+      }
 
-
-//
+      //
       let foundRecordWithoutPitch = false;
 
       // Show loader
@@ -1506,27 +1503,27 @@ const MainPage: React.FC = () => {
       }));
       const dataFileIdStr = selectedZohoviewId;
 
-   // Declare contacts variable before the if/else block
-let contacts: any[] = [];
+      // Declare contacts variable before the if/else block
+      let contacts: any[] = [];
 
-// Use cached data if available and flag is set
-        if (options?.useCachedData && cachedContacts.length > 0) {
-          contacts = cachedContacts;
-        } else {
-          // Fetch contacts only if not using cached data
-          const dataFileIdStr = selectedZohoviewId;
-          
-          const response = await fetch(
-            `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${dataFileIdStr}`
-          );
+      // Use cached data if available and flag is set
+      if (options?.useCachedData && cachedContacts.length > 0) {
+        contacts = cachedContacts;
+      } else {
+        // Fetch contacts only if not using cached data
+        const dataFileIdStr = selectedZohoviewId;
 
-          if (!response.ok) {
-            throw new Error("Failed to fetch email bodies");
-          }
+        const response = await fetch(
+          `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${dataFileIdStr}`
+        );
 
-          const data = await response.json();
-          contacts = data.contacts || [];
+        if (!response.ok) {
+          throw new Error("Failed to fetch email bodies");
         }
+
+        const data = await response.json();
+        contacts = data.contacts || [];
+      }
 
       if (!Array.isArray(contacts)) {
         console.error("Invalid data format");
@@ -1560,10 +1557,10 @@ let contacts: any[] = [];
           var company_name = entry.company_name;
 
           // Check if email already exists and if we should overwrite
-         if (entry.email_body && !settingsForm.overwriteDatabase) {
-    const responseIndex = shouldReplaceFromIndex ? i : allResponses.length;
-
-
+          if (entry.email_body && !settingsForm.overwriteDatabase) {
+            const responseIndex = shouldReplaceFromIndex
+              ? i
+              : allResponses.length;
 
             setOutputForm((prevOutputForm) => ({
               ...prevOutputForm,
@@ -1597,72 +1594,72 @@ let contacts: any[] = [];
               emailsentdate: entry.email_sent_at || "N/A",
             };
 
-              setAllResponses((prevResponses) => {
-    const updated = [...prevResponses];
-    if (responseIndex < updated.length) {
-      updated[responseIndex] = existingResponse;
-    } else {
-      updated.push(existingResponse);
-    }
-    setCurrentIndex(responseIndex);
-    return updated;
-  });
+            setAllResponses((prevResponses) => {
+              const updated = [...prevResponses];
+              if (responseIndex < updated.length) {
+                updated[responseIndex] = existingResponse;
+              } else {
+                updated.push(existingResponse);
+              }
+              setCurrentIndex(responseIndex);
+              return updated;
+            });
 
-  // Remove this line - don't push to generatedPitches yet
-  // generatedPitches.push(existingResponse);
+            // Remove this line - don't push to generatedPitches yet
+            // generatedPitches.push(existingResponse);
 
-  // Update these to use responseIndex logic
-  setallprompt((prevPrompts) => {
-    const updated = [...prevPrompts];
-    if (responseIndex < updated.length) {
-      updated[responseIndex] = "";
-    } else {
-      updated.push("");
-    }
-    return updated;
-  });
+            // Update these to use responseIndex logic
+            setallprompt((prevPrompts) => {
+              const updated = [...prevPrompts];
+              if (responseIndex < updated.length) {
+                updated[responseIndex] = "";
+              } else {
+                updated.push("");
+              }
+              return updated;
+            });
 
-  setallsearchResults((prevSearchResults) => {
-    const updated = [...prevSearchResults];
-    if (responseIndex < updated.length) {
-      updated[responseIndex] = [];
-    } else {
-      updated.push([]);
-    }
-    return updated;
-  });
+            setallsearchResults((prevSearchResults) => {
+              const updated = [...prevSearchResults];
+              if (responseIndex < updated.length) {
+                updated[responseIndex] = [];
+              } else {
+                updated.push([]);
+              }
+              return updated;
+            });
 
-  seteveryscrapedData((prevScrapedData) => {
-    const updated = [...prevScrapedData];
-    if (responseIndex < updated.length) {
-      updated[responseIndex] = "";
-    } else {
-      updated.push("");
-    }
-    return updated;
-  });
+            seteveryscrapedData((prevScrapedData) => {
+              const updated = [...prevScrapedData];
+              if (responseIndex < updated.length) {
+                updated[responseIndex] = "";
+              } else {
+                updated.push("");
+              }
+              return updated;
+            });
 
-  setallsummery((prevSummery) => {
-    const updated = [...prevSummery];
-    if (responseIndex < updated.length) {
-      updated[responseIndex] = "";
-    } else {
-      updated.push("");
-    }
-    return updated;
-  });
+            setallsummery((prevSummery) => {
+              const updated = [...prevSummery];
+              if (responseIndex < updated.length) {
+                updated[responseIndex] = "";
+              } else {
+                updated.push("");
+              }
+              return updated;
+            });
 
-  setallSearchTermBodies((prevSearchTermBodies) => {
-    const updated = [...prevSearchTermBodies];
-    if (responseIndex < updated.length) {
-      updated[responseIndex] = "";
-    } else {
-      updated.push("");
-    }
-    return updated;
-  });
+            setallSearchTermBodies((prevSearchTermBodies) => {
+              const updated = [...prevSearchTermBodies];
+              if (responseIndex < updated.length) {
+                updated[responseIndex] = "";
+              } else {
+                updated.push("");
+              }
+              return updated;
+            });
 
-  continue;
+            continue;
           } else {
             foundRecordWithoutPitch = true;
 
@@ -2067,91 +2064,92 @@ let contacts: any[] = [];
           });
 
           // Update newResponse to include subject
-           const newResponse = {
-    ...entry,
-    name: entry.full_name || "N/A",
-    title: entry.job_title || "N/A",
-    company: entry.company_name || "N/A",
-    location: entry.country_or_address || "N/A",
-    website: entry.website || "N/A",
-    linkedin: entry.linkedin_url || "N/A",
-    pitch: pitchData.response.content,
-    subject: subjectLine,
-    timestamp: new Date().toISOString(),
-    id: entry.id,
-    nextPageToken: null,
-    prevPageToken: null,
-    generated: true,
-    lastemailupdateddate: new Date().toISOString(),
-    emailsentdate: entry.email_sent_at || "N/A",
-  };
-  const responseIndex = shouldReplaceFromIndex ? currentIndex + (i - currentIndex) : allResponses.length;
+          const newResponse = {
+            ...entry,
+            name: entry.full_name || "N/A",
+            title: entry.job_title || "N/A",
+            company: entry.company_name || "N/A",
+            location: entry.country_or_address || "N/A",
+            website: entry.website || "N/A",
+            linkedin: entry.linkedin_url || "N/A",
+            pitch: pitchData.response.content,
+            subject: subjectLine,
+            timestamp: new Date().toISOString(),
+            id: entry.id,
+            nextPageToken: null,
+            prevPageToken: null,
+            generated: true,
+            lastemailupdateddate: new Date().toISOString(),
+            emailsentdate: entry.email_sent_at || "N/A",
+          };
+          const responseIndex = shouldReplaceFromIndex
+            ? currentIndex + (i - currentIndex)
+            : allResponses.length;
 
+          setAllResponses((prevResponses) => {
+            const updated = [...prevResponses];
+            if (responseIndex < updated.length) {
+              // Replace existing entry
+              updated[responseIndex] = newResponse;
+            } else {
+              // Add new entry
+              updated.push(newResponse);
+            }
+            return updated;
+          });
 
-           setAllResponses((prevResponses) => {
-    const updated = [...prevResponses];
-    if (responseIndex < updated.length) {
-      // Replace existing entry
-      updated[responseIndex] = newResponse;
-    } else {
-      // Add new entry
-      updated.push(newResponse);
-    }
-    return updated;
-  });
+          // Similarly update other arrays at the correct index
+          setallprompt((prevPrompts) => {
+            const updated = [...prevPrompts];
+            if (responseIndex < updated.length) {
+              updated[responseIndex] = promptToSend;
+            } else {
+              updated.push(promptToSend);
+            }
+            return updated;
+          });
 
-  // Similarly update other arrays at the correct index
-  setallprompt((prevPrompts) => {
-    const updated = [...prevPrompts];
-    if (responseIndex < updated.length) {
-      updated[responseIndex] = promptToSend;
-    } else {
-      updated.push(promptToSend);
-    }
-    return updated;
-  });
+          setallsearchResults((prevSearchResults) => {
+            const updated = [...prevSearchResults];
+            if (responseIndex < updated.length) {
+              updated[responseIndex] = scrapeData.searchResults || [];
+            } else {
+              updated.push(scrapeData.searchResults || []);
+            }
+            return updated;
+          });
 
-  setallsearchResults((prevSearchResults) => {
-    const updated = [...prevSearchResults];
-    if (responseIndex < updated.length) {
-      updated[responseIndex] = scrapeData.searchResults || [];
-    } else {
-      updated.push(scrapeData.searchResults || []);
-    }
-    return updated;
-  });
+          seteveryscrapedData((prevScrapedData) => {
+            const updated = [...prevScrapedData];
+            if (responseIndex < updated.length) {
+              updated[responseIndex] = scrapeData.allScrapedData || "";
+            } else {
+              updated.push(scrapeData.allScrapedData || "");
+            }
+            return updated;
+          });
 
-  seteveryscrapedData((prevScrapedData) => {
-    const updated = [...prevScrapedData];
-    if (responseIndex < updated.length) {
-      updated[responseIndex] = scrapeData.allScrapedData || "";
-    } else {
-      updated.push(scrapeData.allScrapedData || "");
-    }
-    return updated;
-  });
+          setallsummery((prevSummery) => {
+            const updated = [...prevSummery];
+            if (responseIndex < updated.length) {
+              updated[responseIndex] = scrapeData.pitchResponse?.content || "";
+            } else {
+              updated.push(scrapeData.pitchResponse?.content || "");
+            }
+            return updated;
+          });
 
-  setallsummery((prevSummery) => {
-    const updated = [...prevSummery];
-    if (responseIndex < updated.length) {
-      updated[responseIndex] = scrapeData.pitchResponse?.content || "";
-    } else {
-      updated.push(scrapeData.pitchResponse?.content || "");
-    }
-    return updated;
-  });
-
-  setallSearchTermBodies((prevSearchTermBodies) => {
-    const updated = [...prevSearchTermBodies];
-    if (responseIndex < updated.length) {
-      updated[responseIndex] = searchTermBody;
-    } else {
-      updated.push(searchTermBody);
-    }
-    return updated;
-  });
-            setCurrentIndex(responseIndex);
-  setRecentlyAddedOrUpdatedId(newResponse.id);
+          setallSearchTermBodies((prevSearchTermBodies) => {
+            const updated = [...prevSearchTermBodies];
+            if (responseIndex < updated.length) {
+              updated[responseIndex] = searchTermBody;
+            } else {
+              updated.push(searchTermBody);
+            }
+            return updated;
+          });
+          setCurrentIndex(responseIndex);
+          setRecentlyAddedOrUpdatedId(newResponse.id);
           const dataFileIdStr = selectedZohoviewId;
 
           // Update database with new API
@@ -2585,50 +2583,50 @@ let contacts: any[] = [];
     }
   };
 
-const handleStart = async (startIndex?: number) => {
-  // Only clear all if we're starting from the beginning
-  if (!startIndex || startIndex === 0) {
-    await handleClearAll();
-  }
+  const handleStart = async (startIndex?: number) => {
+    // Only clear all if we're starting from the beginning
+    if (!startIndex || startIndex === 0) {
+      await handleClearAll();
+    }
 
-  if (!selectedPrompt) return;
-  setAllRecordsProcessed(false);
-  setIsStarted(true);
-  setIsPaused(false);
-  stopRef.current = false;
-  
-  goToTab("Output", {
-    startFromIndex: startIndex,
-    useCachedData: true // Use cached data when available
-  });
-};
+    if (!selectedPrompt) return;
+    setAllRecordsProcessed(false);
+    setIsStarted(true);
+    setIsPaused(false);
+    stopRef.current = false;
 
- const handlePauseResume = async () => {
-  if (isStarted) {
-    if (isPaused) {
-      // Check if we've processed all records
-      if (allRecordsProcessed) {
-        handleReset();
-        handleStart();
-        return;
-      }
-      
-      // Only allow resume if pitch update is completed
-      if (isPitchUpdateCompleted && !isProcessing) {
-        setIsPaused(false);
-        stopRef.current = false;
-        setIsPitchUpdateCompleted(false);
-        
-        // Resume with cached data and pass the last processed index
-        goToTab("Output", {
-          useCachedData: true,
-          startFromIndex: lastProcessedIndex // Pass the last processed index explicitly
-        });
-      }
-    } else {
-      // Pause logic
-      setIsPaused(true);
-      stopRef.current = true;
+    goToTab("Output", {
+      startFromIndex: startIndex,
+      useCachedData: true, // Use cached data when available
+    });
+  };
+
+  const handlePauseResume = async () => {
+    if (isStarted) {
+      if (isPaused) {
+        // Check if we've processed all records
+        if (allRecordsProcessed) {
+          handleReset();
+          handleStart();
+          return;
+        }
+
+        // Only allow resume if pitch update is completed
+        if (isPitchUpdateCompleted && !isProcessing) {
+          setIsPaused(false);
+          stopRef.current = false;
+          setIsPitchUpdateCompleted(false);
+
+          // Resume with cached data and pass the last processed index
+          goToTab("Output", {
+            useCachedData: true,
+            startFromIndex: lastProcessedIndex, // Pass the last processed index explicitly
+          });
+        }
+      } else {
+        // Pause logic
+        setIsPaused(true);
+        stopRef.current = true;
 
         // Calculate time spent so far
         const currentTime = new Date();
@@ -2981,54 +2979,54 @@ const handleStart = async (startIndex?: number) => {
                 </button>
               </li>
               <li
-  className={`${tab === "DataCampaigns" ? "active" : ""} ${
-    showContactsSubmenu ? "has-submenu submenu-open" : "has-submenu"
-  }`}
->
-  <button
-    onClick={() => {
-      setTab("DataCampaigns");
-      setShowContactsSubmenu(!showContactsSubmenu);
-      setShowMailSubmenu(false); // Close Mail submenu when opening Contacts
-    }}
-    className="side-menu-button"
-    title="Manage data files and campaigns"
-  >
-    <span className="menu-icon">📊</span>
-    <span className="menu-text">Contacts</span>
-    <span className="submenu-arrow">▶</span>
-  </button>
-  {showContactsSubmenu && (
-    <ul className="submenu">
-      <li
-        className={contactsSubTab === "List" ? "active" : ""}
-      >
-        <button
-          onClick={() => {
-            setContactsSubTab("List");
-            setTab("DataCampaigns");
-          }}
-          className="submenu-button"
-        >
-          List
-        </button>
-      </li>
-      <li
-        className={contactsSubTab === "Segment" ? "active" : ""}
-      >
-        <button
-          onClick={() => {
-            setContactsSubTab("Segment");
-            setTab("DataCampaigns");
-          }}
-          className="submenu-button"
-        >
-          Segment
-        </button>
-      </li>
-    </ul>
-  )}
-</li>
+                className={`${tab === "DataCampaigns" ? "active" : ""} ${
+                  showContactsSubmenu
+                    ? "has-submenu submenu-open"
+                    : "has-submenu"
+                }`}
+              >
+                <button
+                  onClick={() => {
+                    setTab("DataCampaigns");
+                    setShowContactsSubmenu(!showContactsSubmenu);
+                    setShowMailSubmenu(false); // Close Mail submenu when opening Contacts
+                  }}
+                  className="side-menu-button"
+                  title="Manage data files and campaigns"
+                >
+                  <span className="menu-icon">📊</span>
+                  <span className="menu-text">Contacts</span>
+                  <span className="submenu-arrow">▶</span>
+                </button>
+                {showContactsSubmenu && (
+                  <ul className="submenu">
+                    <li className={contactsSubTab === "List" ? "active" : ""}>
+                      <button
+                        onClick={() => {
+                          setContactsSubTab("List");
+                          setTab("DataCampaigns");
+                        }}
+                        className="submenu-button"
+                      >
+                        List
+                      </button>
+                    </li>
+                    <li
+                      className={contactsSubTab === "Segment" ? "active" : ""}
+                    >
+                      <button
+                        onClick={() => {
+                          setContactsSubTab("Segment");
+                          setTab("DataCampaigns");
+                        }}
+                        className="submenu-button"
+                      >
+                        Segment
+                      </button>
+                    </li>
+                  </ul>
+                )}
+              </li>
               <li className={tab === "Campaigns" ? "active" : ""}>
                 <button
                   onClick={() => {
@@ -3755,14 +3753,27 @@ const handleStart = async (startIndex?: number) => {
             )}
           </div>
 
-          {tab === "DataCampaigns" && (
+          {tab === "DataCampaigns" && !showDataFileUpload && (
             <DataCampaigns
               selectedClient={selectedClient}
               onDataProcessed={handleExcelDataProcessed}
               isProcessing={isProcessing}
-              initialTab={contactsSubTab}  // Pass the current sub-tab
-              onTabChange={setContactsSubTab}  // Pass the setter function
-              // Add campaign-related props after you share Settings.tsx
+              initialTab={contactsSubTab}
+              onTabChange={setContactsSubTab}
+              onAddContactClick={() => setShowDataFileUpload(true)} // Add this
+            />
+          )}
+
+          {tab === "DataCampaigns" && showDataFileUpload && (
+            <DataFile
+              selectedClient={selectedClient}
+              onDataProcessed={(data) => {
+                handleExcelDataProcessed(data);
+                setShowDataFileUpload(false); // Return to contacts list
+                // Optionally refresh data or perform other actions
+              }}
+              isProcessing={isProcessing}
+              onBack={() => setShowDataFileUpload(false)} // Add back functionality
             />
           )}
           {tab === "Campaigns" && (
