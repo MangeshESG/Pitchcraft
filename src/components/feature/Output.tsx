@@ -803,7 +803,7 @@ const Output: React.FC<OutputInterface> = ({
     }
   }, [effectiveUserId, token]);
 
-  const handleSendEmail = async (subjectFromButton: string) => {
+ const handleSendEmail = async (subjectFromButton: string) => {
     setEmailMessage("");
     setEmailError("");
 
@@ -830,18 +830,30 @@ const Output: React.FC<OutputInterface> = ({
 
       console.log("Sending email to:", currentContact?.name);
 
+      // Prepare the request body according to the new API structure
+      const requestBody = {
+        clientId: effectiveUserId,
+        contactid: currentContact.id,
+        dataFileId: selectedZohoviewId,
+        toEmail: currentContact.email,
+        subject: subjectToUse,
+        body: currentContact.pitch || "", // Using the pitch as the email body
+        bccEmail: emailFormData.BccEmail,
+        smtpId: selectedSmtpUser,
+        fullName: currentContact.name,
+        countryOrAddress: currentContact.location || "",
+        companyName: currentContact.company || "",
+        website: currentContact.website || "",
+        linkedinUrl: currentContact.linkedin || "",
+        jobTitle: currentContact.title || ""
+      };
+
       const response = await axios.post(
         `${API_BASE_URL}/api/email/send-singleEmail`,
-        {},
+        requestBody,
         {
-          params: {
-            clientId: effectiveUserId,
-            dataFileId: selectedZohoviewId, // Assuming this is your dataFileId
-            contactId: currentContact.id,
-            smtpId: selectedSmtpUser,
-            ...(emailFormData.BccEmail && { bccEmail: emailFormData.BccEmail }),
-          },
           headers: {
+            'Content-Type': 'application/json',
             ...(token && { Authorization: `Bearer ${token}` }),
           },
         }
@@ -852,7 +864,6 @@ const Output: React.FC<OutputInterface> = ({
 
       // Update the contact's email sent status
       try {
-      
         // Update local state
         const updatedResponses = [...combinedResponses];
         updatedResponses[currentIndex] = {
