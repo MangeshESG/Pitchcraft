@@ -2808,7 +2808,7 @@ const handleCampaignChange = async (
       {/* Sidebar */}
       {isSidebarOpen && (
         <aside className={`bg-white border-r shadow-sm flex flex-col transition-all duration-300`}>
-          <div className="p-2 text-xl font-bold border-b pr-4">
+          <div className="p-2 text-xl font-bold border-b">
             <div className="flex justify-between items-center">
                <img
                   src={'https://www.pitchkraft.ai/images/pitch_logo.png'} 
@@ -2979,11 +2979,9 @@ const handleCampaignChange = async (
         {/* Inner Main Content */}
         <main className="flex-1 p-4 overflow-y-auto">
           <div className="bg-white rounded-md shadow-md p-6">
-            <div className="main-content-wrapper d-flex">
             
 
             {/* Main Content Area */}
-            <div className="main-content">
             
 
               {/* Tab Content */}
@@ -2991,7 +2989,7 @@ const handleCampaignChange = async (
                 {tab === "Template" && (
                   <>
                   <h1 className="text-[22px] mb-15 pb-4 border-b border-[#cccccc] font-semibold">Template</h1>
-                    <div className="login-box gap-down d-flex">
+                    <div className="login-box gap-down !mb-[0px] d-flex">
                       <div className="input-section edit-section w-[100%]">
                         <div className="row flex-col-768 mb-[20px]">
                           
@@ -3209,8 +3207,8 @@ const handleCampaignChange = async (
                                     }
                                   >
                                     <svg
-                                      width="40px"
-                                      height="40px"
+                                      width="30px"
+                                      height="30px"
                                       viewBox="0 0 512 512"
                                     >
                                       <polyline
@@ -3296,8 +3294,8 @@ const handleCampaignChange = async (
                                     }
                                   >
                                     <svg
-                                      width="40px"
-                                      height="40px"
+                                      width="30px"
+                                      height="30px"
                                       viewBox="0 0 512 512"
                                     >
                                       <polyline
@@ -3593,7 +3591,7 @@ const handleCampaignChange = async (
                                 buttonLabel=""
                                 size="auto-width"
                               >
-                                <h3 className="center text-center mt-0">
+                                <h3 className="center text-center mt-0 sub-title">
                                   Are you sure want to delete?
                                 </h3>
                                 <div className="button-group mb-0 d-flex justify-center">
@@ -3631,11 +3629,11 @@ const handleCampaignChange = async (
                 />
               )}
               {tab === "Campaigns" && (
-              <CampaignManagement
-                selectedClient={selectedClient}
-                userRole={userRole}
-              />
-            )}
+                <CampaignManagement
+                  selectedClient={selectedClient}
+                  userRole={userRole}
+                />
+              )}
               {tab === "Output" && (
                 <Output
                   outputForm={outputForm}
@@ -3759,17 +3757,15 @@ const handleCampaignChange = async (
                   onTabChange={setMailSubTab}
                 />
               )}
-            </div>
-        </div>
 
-      {/* Stop Confirmation Popup */}
-      {showPopup && (
-        <div className="popup">
-          <p>Do you want to stop the process?</p>
-          <button onClick={() => handlePopupResponse(true)}>Yes</button>
-          <button onClick={() => handlePopupResponse(false)}>No</button>
-        </div>
-      )}
+          {/* Stop Confirmation Popup */}
+          {showPopup && (
+            <div className="popup">
+              <p>Do you want to stop the process?</p>
+              <button onClick={() => handlePopupResponse(true)}>Yes</button>
+              <button onClick={() => handlePopupResponse(false)}>No</button>
+            </div>
+          )}
           </div>
         </main>
       </div>

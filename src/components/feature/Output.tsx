@@ -1066,11 +1066,11 @@ const Output: React.FC<OutputInterface> = ({
 
   return (
     <div className="login-box gap-down">
-      <div className="output-control-bar d-flex justify-between align-center mb-20">
+      <div className="d-flex justify-between align-center mb-20 border-b pb-[15px] mb-[15px]">
         <div className="control-buttons d-flex align-center">
           {!isStarted ? (
             <button
-              className="primary-button"
+              className="primary-button bg-[#3f9f42]"
               onClick={handleStart}
               disabled={
                 (!selectedPrompt?.name || !selectedZohoviewId) &&
@@ -1103,7 +1103,7 @@ const Output: React.FC<OutputInterface> = ({
 
               {isPaused && (
                 <button
-                  className="secondary-button ml-10"
+                  className="secondary-button"
                   onClick={handleReset}
                   disabled={
                     !isPitchUpdateCompleted || isProcessing || !isPaused
@@ -1127,7 +1127,7 @@ const Output: React.FC<OutputInterface> = ({
           )}
            {!isDemoAccount && (
             <>
-            <div className="form-group d-flex align-center mb-0 mr-20">
+            <div className="form-group d-flex align-center mb-0 mr-1">
                 <label className="font-size-medium font-500 mb-0 mr-10">
                   Delay(secs)
                 </label>
@@ -1139,7 +1139,8 @@ const Output: React.FC<OutputInterface> = ({
                   style={{ width: "55px" }}
                 />
               </div>
-              <label className="checkbox-label mr-20">
+              <div className="form-group !mb-[0px]">
+              <label className="checkbox-label !mb-[0px]">
                 <input
                   type="checkbox"
                   checked={settingsForm.overwriteDatabase}
@@ -1149,17 +1150,18 @@ const Output: React.FC<OutputInterface> = ({
                 />
                 <span>Overwrite existing</span>
               </label> 
+              </div>
             </>
           )}
         </div>
       </div>
 
       {/* Add the selection dropdowns and subject line section */}
-      <div className="output-control-bar d-flex justify-between align-center mb-20">
-        <div className="input-section edit-section">
+      <div className="d-flex justify-between align-center mb-0">
+        <div className="input-section edit-section w-[100%]">
           {/* Dropdowns Row */}
-          <div className="row flex-col-768">
-            <div className="col col-3 col-12-768">
+          <div className="flex gap-4">
+            <div className="col-4">
               <div className="form-group">
                 <label>
                   Campaign <span className="required">*</span>
@@ -1245,10 +1247,11 @@ const Output: React.FC<OutputInterface> = ({
             </div> */}
 
            
-<div className="col col-4 col-12-768 d-flex align-center">
-  <div className="form-group d-flex align-center" style={{ flexWrap: "wrap" }}>
+<div className="col-5">
+  <div className="form-group" style={{ flexWrap: "wrap" }}>
     <label style={{ width: "100%" }}>Subject</label>
 
+              <div className="flex">
     <select
       onChange={(e) => setSubjectMode?.(e.target.value)}
       value={subjectMode}
@@ -1258,22 +1261,24 @@ const Output: React.FC<OutputInterface> = ({
       <option value="AI generated">AI generated</option>
       <option value="With Placeholder">With placeholder</option>
     </select>
-
     <input
       type="text"
       placeholder="Enter subject here"
       value={subjectText}
       onChange={(e) => setSubjectText?.(e.target.value)}
       disabled={subjectMode !== "With Placeholder"}
-      className="height-35"
-      style={{ flex: 1, minWidth: 200, marginRight: 10 }}
     />
+    </div>
+
+    
   </div>
 </div>
 
 
 
-            <div className="col col-3 col-12-768">
+
+
+            <div className="">
   <div className="form-group">
     <label>Language</label>
     <select
@@ -1304,27 +1309,25 @@ const Output: React.FC<OutputInterface> = ({
       {userRole === "ADMIN" && (
         <div className="row pb-2 d-flex align-center justify-end">
           <div className="col col-12">
-            <div className="form-group d-flex justify-between">
-              <label className="mb-0">Usage</label>
-            </div>
-            <div className="form-group d-flex justify-between">
-              <span className="pos-relative full-width">
+            <div className="form-group">
+              <label>Usage</label>
+              <span className="pos-relative full-width flex">
                 <textarea
                   placeholder="Usage"
                   rows={1}
                   name="tkUsage"
                   value={outputForm.usage}
-                  className="full-width"
+                  className="full-width p-[0.5rem]"
                   onChange={outputFormHandler}
                 ></textarea>
-              </span>
-              <button
-                className="ml-10 button clear-button small d-flex align-center h-[100%] justify-center"
+                <button
+                className="secondary-button ml-10 button clear-button small d-flex align-center h-[100%] justify-center"
                 onClick={clearUsage}
-                style={{ height: "40px" }}
               >
                 Clear Usage
               </button>
+              </span>
+              
             </div>
           </div>
         </div>
@@ -1355,24 +1358,15 @@ const Output: React.FC<OutputInterface> = ({
                   </button>
                 </li>
               )}
-              <div className="d-flex align-center">
+              <div className="d-flex align-center gap-1 mr-3">
                 <button
                   onClick={handleFirstPage}
                   disabled={
                     !isResetEnabled ||
                     (currentIndex === 0 && !combinedResponses[0]?.prevPageToken)
                   }
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    padding: "5px 10px",
-                    backgroundColor: "#f0f0f0",
-                    border: "1px solid #ccc",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                    height: "35px",
-                  }}
                   title="Click to go to the first generated email"
+                  className="secondary-button min-h-[40px] w-[40px] !px-[5px] !py-[10px] flex justify-center"
                 >
                   <img
                     src={previousIcon}
@@ -1381,7 +1375,6 @@ const Output: React.FC<OutputInterface> = ({
                       width: "20px",
                       height: "20px",
                       objectFit: "contain",
-                      marginRight: "5px",
                     }}
                   />
                 </button>
@@ -1391,17 +1384,7 @@ const Output: React.FC<OutputInterface> = ({
                     !isResetEnabled ||
                     (currentIndex === 0 && !combinedResponses[0]?.prevPageToken)
                   }
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    padding: "5px 10px",
-                    backgroundColor: "#f0f0f0",
-                    border: "1px solid #ccc",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                    height: "35px",
-                    marginLeft: "3px",
-                  }}
+                  className="secondary-button flex justify-center items-center"
                   title="Click to go to the previous generated email"
                 >
                   <img
@@ -1411,7 +1394,7 @@ const Output: React.FC<OutputInterface> = ({
                       width: "20px",
                       height: "20px",
                       objectFit: "contain",
-                      marginRight: "5px",
+                      marginRight: "2px",
                     }}
                   />
                   <span>Prev</span>
@@ -1426,17 +1409,7 @@ const Output: React.FC<OutputInterface> = ({
                       !combinedResponses[combinedResponses.length - 1]
                         ?.nextPageToken)
                   }
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    padding: "5px 10px",
-                    backgroundColor: "#f0f0f0",
-                    border: "1px solid #ccc",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                    height: "35px",
-                    marginLeft: "3px",
-                  }}
+                  className="secondary-button flex justify-center items-center"
                   title="Click to go to the next generated email"
                 >
                   <span>Next</span>
@@ -1447,7 +1420,7 @@ const Output: React.FC<OutputInterface> = ({
                       width: "20px",
                       height: "20px",
                       objectFit: "contain",
-                      marginLeft: "5px",
+                      marginLeft: "2px",
                     }}
                   />
                 </button>
@@ -1461,17 +1434,7 @@ const Output: React.FC<OutputInterface> = ({
                       !combinedResponses[combinedResponses.length - 1]
                         ?.nextPageToken)
                   }
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    padding: "5px 10px",
-                    backgroundColor: "#f0f0f0",
-                    border: "1px solid #ccc",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                    height: "35px",
-                    marginLeft: "3px",
-                  }}
+                  className="secondary-button min-h-[40px] w-[40px] !px-[5px] !py-[10px] flex justify-center"
                   title="Click to go to the last generated email"
                 >
                   <img
@@ -1481,7 +1444,7 @@ const Output: React.FC<OutputInterface> = ({
                       width: "20px",
                       height: "20px",
                       objectFit: "contain",
-                      marginLeft: "5px",
+                      marginLeft: "2px",
                     }}
                   />
                 </button>
@@ -1490,6 +1453,53 @@ const Output: React.FC<OutputInterface> = ({
                   <div className="loader-overlay">
                     <div className="loader"></div>
                   </div>
+                )}
+              </div>
+              <div className="mtext-center d-flex align-center mr-20 mt-10-991 font-size-medium">
+                {combinedResponses.length > 0 && (
+                  <>
+                    <span>
+                      <strong>Contact:</strong> {currentIndex + 1} of{" "}
+                      {
+                        // Get total contacts from the selected view or all views
+                        selectedZohoviewId
+                          ? (() => {
+                              const selectedView = zohoClient.find(
+                                (client) =>
+                                  client.zohoviewId === selectedZohoviewId
+                              );
+                              return selectedView
+                                ? selectedView.totalContact
+                                : combinedResponses.length;
+                            })()
+                          : zohoClient.reduce(
+                              (sum, client) => sum + client.totalContact,
+                              0
+                            )
+                      }{" "}
+                      <span className="opacity-60">({combinedResponses.length} loaded)</span>
+                    </span>
+                    <span style={{ whiteSpace: "pre" }}> </span>
+                    <span style={{ whiteSpace: "pre" }}> </span>
+
+                    {/* Input box to enter index */}
+                    <input
+                      type="number"
+                      value={inputValue}
+                      onChange={handleIndexChange}
+                      onBlur={() => {
+                        // When input loses focus, ensure it shows a valid value
+                        if (
+                          inputValue.trim() === "" ||
+                          isNaN(parseInt(inputValue, 10))
+                        ) {
+                          setInputValue((currentIndex + 1).toString());
+                        }
+                      }}
+                      className="form-control text-center mx-2"
+                      style={{ width: "70px", padding: "8px" }}
+                    />
+                  </>
                 )}
               </div>
             </ul>
@@ -1587,7 +1597,7 @@ const Output: React.FC<OutputInterface> = ({
           {tab2 === "Output" && (
             <>
               <div className="form-group">
-                <div className="d-flex mb-10 align-items-center">
+                {/* <div className="d-flex mb-10 align-items-center">
                   {userRole === "ADMIN" && (
                     <button
                       className="button clear-button small d-flex align-center"
@@ -1596,7 +1606,7 @@ const Output: React.FC<OutputInterface> = ({
                       <span>Clear output</span>
                     </button>
                   )}
-                </div>
+                </div> */}
 
                 {/* THIS MESSAGE MOVED HERE, ABOVE OUTPUT */}
                 {isPaused && !isResetEnabled && (
@@ -1614,7 +1624,7 @@ const Output: React.FC<OutputInterface> = ({
 
                 <span className="pos-relative">
                   <pre
-                    className="w-full p-3 border border-gray-300 rounded-lg overflow-y-auto height-50"
+                    className="w-full p-3 py-[5px] border border-gray-300 rounded-lg overflow-y-auto h-[45px] min-h-[45px] break-words whitespace-pre-wrap text-[13px]" 
                     dangerouslySetInnerHTML={{
                       __html: formatOutput(outputForm.generatedContent),
                     }}
@@ -1637,7 +1647,7 @@ const Output: React.FC<OutputInterface> = ({
                     className="full-view-icon d-flex align-center justify-center"
                     onClick={() => handleModalOpen("modal-output-1")}
                   >
-                    <svg width="40px" height="40px" viewBox="0 0 512 512">
+                    <svg width="30px" height="30px" viewBox="0 0 512 512">
                       <polyline
                         points="304 96 416 96 416 208"
                         fill="none"
@@ -1670,144 +1680,8 @@ const Output: React.FC<OutputInterface> = ({
                 </span>
               </div>
               <div className="form-group">
-                <div className="d-flex mb-10 align-items-center justify-between flex-col-991">
-                  <div className="d-flex"></div>
-
-                  <div className="d-flex">
-                    <div className="d-flex ml-10 output-responsive-button-group justify-center-991 col-12-991 flex-col-640">
-                      <button
-                        className={`button pad-10 d-flex align-center align-self-center output-email-width-button-mobile justify-center
-                        ${outputEmailWidth === "Mobile" && "bg-active"}
-                        `}
-                        onClick={() => toggleOutputEmailWidth("Mobile")}
-                      >
-                        <svg
-                          fill="#000000"
-                          data-name="Layer 1"
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 120 120"
-                          style={{ width: "20px" }}
-                        >
-                          <path d="M85.81 120H34.19a8.39 8.39 0 0 1-8.38-8.39V8.39A8.39 8.39 0 0 1 34.19 0h51.62a8.39 8.39 0 0 1 8.38 8.39v103.22a8.39 8.39 0 0 1-8.38 8.39zM34.19 3.87a4.52 4.52 0 0 0-4.51 4.52v103.22a4.52 4.52 0 0 0 4.51 4.52h51.62a4.52 4.52 0 0 0 4.51-4.52V8.39a4.52 4.52 0 0 0-4.51-4.52z" />
-                          <path d="M73.7 10.32H46.3L39.28 3.3 42.01.57l5.89 5.88h24.2L77.99.57l2.73 2.73-7.02 7.02zM47.1 103.23h25.81v3.87H47.1z" />
-                        </svg>
-                        {/* <span className="ml-3 font-size-medium">Mobile View</span> */}
-                      </button>
-                      <button
-                        className={`button pad-10 ml-5 d-flex align-center align-self-center output-email-width-button-tab justify-center
-                        ${outputEmailWidth === "Tab" && "bg-active"}
-                        `}
-                        onClick={() => toggleOutputEmailWidth("Tab")}
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          xmlnsXlink="http://www.w3.org/1999/xlink"
-                          fill="#000000"
-                          version="1.1"
-                          id="Capa_1"
-                          width="20px"
-                          height="20px"
-                          viewBox="0 0 54.355 54.355"
-                          xmlSpace="preserve"
-                        >
-                          <g>
-                            <g>
-                              <path d="M8.511,54.355h37.333c1.379,0,2.5-1.121,2.5-2.5V2.5c0-1.378-1.121-2.5-2.5-2.5H8.511c-1.379,0-2.5,1.122-2.5,2.5v49.354    C6.011,53.234,7.133,54.355,8.511,54.355z M9.011,3h36.333v48.354H9.011V3z" />
-                              <path d="M40.928,6.678h-27.5c-0.827,0-1.5,0.673-1.5,1.5v34.25c0,0.827,0.673,1.5,1.5,1.5h27.5c0.827,0,1.5-0.673,1.5-1.5V8.178    C42.428,7.351,41.755,6.678,40.928,6.678z M41.428,42.428c0,0.275-0.224,0.5-0.5,0.5h-27.5c-0.276,0-0.5-0.225-0.5-0.5V8.178    c0-0.276,0.224-0.5,0.5-0.5h27.5c0.276,0,0.5,0.224,0.5,0.5V42.428z" />
-                              <path d="M27.178,45.013c-1.378,0-2.499,1.121-2.499,2.499s1.121,2.499,2.499,2.499c1.377,0,2.498-1.121,2.498-2.499    S28.556,45.013,27.178,45.013z M27.178,49.01c-0.827,0-1.499-0.672-1.499-1.499s0.672-1.499,1.499-1.499    c0.826,0,1.498,0.672,1.498,1.499S28.005,49.01,27.178,49.01z" />
-                            </g>
-                          </g>
-                        </svg>
-                        {/* <span className="ml-3 font-size-medium">Tab View</span> */}
-                      </button>
-                      <button
-                        className={`button pad-10 ml-5 d-flex align-center align-self-center output-email-width-button-desktop justify-center
-                        ${outputEmailWidth === "" && "bg-active"}
-                        `}
-                        onClick={() => toggleOutputEmailWidth("")}
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="#000000"
-                          width="20"
-                          height="20"
-                          viewBox="0 -3 32 32"
-                          preserveAspectRatio="xMidYMid"
-                        >
-                          <path d="M30.000,21.000 L17.000,21.000 L17.000,24.000 L22.047,24.000 C22.600,24.000 23.047,24.448 23.047,25.000 C23.047,25.552 22.600,26.000 22.047,26.000 L10.047,26.000 C9.494,26.000 9.047,25.552 9.047,25.000 C9.047,24.448 9.494,24.000 10.047,24.000 L15.000,24.000 L15.000,21.000 L2.000,21.000 C0.898,21.000 0.000,20.103 0.000,19.000 L0.000,2.000 C0.000,0.897 0.898,0.000 2.000,0.000 L30.000,0.000 C31.103,0.000 32.000,0.897 32.000,2.000 L32.000,19.000 C32.000,20.103 31.103,21.000 30.000,21.000 ZM2.000,2.000 L2.000,19.000 L29.997,19.000 L30.000,2.000 L2.000,2.000 Z" />
-                        </svg>
-                        {/* <span className="ml-5 font-size-medium">Desktop</span> */}
-                      </button>
-                    </div>
-
-                    {/* Your existing Generated/Existing indicator */}
-                    {combinedResponses[currentIndex]?.generated ? (
-                      <span
-                        className="generated-indicator d-flex align-center"
-                        title="Generated Content"
-                      >
-                        Generated
-                      </span>
-                    ) : (
-                      combinedResponses[currentIndex] && (
-                        <span
-                          className="existing-indicator d-flex align-center ml-10"
-                          title="Existing Content"
-                        >
-                          Existing
-                        </span>
-                      )
-                    )}
-                  </div>
-                </div>
-                <div className="d-flex mb-10">
-                  <div className="text-center mt-2 d-flex align-center mr-20 mt-10-991 font-size-medium">
-                    {combinedResponses.length > 0 && (
-                      <>
-                        <span>
-                          Contact {currentIndex + 1} of{" "}
-                          {
-                            // Get total contacts from the selected view or all views
-                            selectedZohoviewId
-                              ? (() => {
-                                  const selectedView = zohoClient.find(
-                                    (client) =>
-                                      client.zohoviewId === selectedZohoviewId
-                                  );
-                                  return selectedView
-                                    ? selectedView.totalContact
-                                    : combinedResponses.length;
-                                })()
-                              : zohoClient.reduce(
-                                  (sum, client) => sum + client.totalContact,
-                                  0
-                                )
-                          }{" "}
-                          ({combinedResponses.length} loaded)
-                        </span>
-                        <span style={{ whiteSpace: "pre" }}> </span>
-                        <span style={{ whiteSpace: "pre" }}> </span>
-
-                        {/* Input box to enter index */}
-                        <input
-                          type="number"
-                          value={inputValue}
-                          onChange={handleIndexChange}
-                          onBlur={() => {
-                            // When input loses focus, ensure it shows a valid value
-                            if (
-                              inputValue.trim() === "" ||
-                              isNaN(parseInt(inputValue, 10))
-                            ) {
-                              setInputValue((currentIndex + 1).toString());
-                            }
-                          }}
-                          className="form-control text-center mx-2"
-                          style={{ width: "70px", padding: "8px" }}
-                        />
-                      </>
-                    )}
-                  </div>
+                <div className="d-flex justify-between w-full">
+                  
                   <div
                     className="contact-info lh-35 align-center d-inline-block word-wrap--break-word word-break--break-all"
                     style={{ color: "red" }}
@@ -1847,7 +1721,7 @@ const Output: React.FC<OutputInterface> = ({
                       rel="noopener noreferrer"
                       style={{
                         verticalAlign: "middle",
-                        height: "27px",
+                        height: "25px",
                         display: "inline-block",
                       }}
                       id="li-icon-tooltip"
@@ -1897,7 +1771,7 @@ const Output: React.FC<OutputInterface> = ({
                       className="ml-5"
                       style={{
                         verticalAlign: "middle",
-                        height: "31px",
+                        height: "33px",
                         display: "inline-block",
                       }}
                       id="email-icon-tooltip"
@@ -1917,17 +1791,106 @@ const Output: React.FC<OutputInterface> = ({
                       </svg>
                     </a>
                   </div>
+                  <div className="d-flex mb-10 align-items-center justify-between flex-col-991">
+
+                        <div className="d-flex">
+                          <div className="d-flex ml-10 output-responsive-button-group justify-center-991 col-12-991 flex-col-640">
+                            <button
+                              className={`button pad-10 d-flex align-center align-self-center output-email-width-button-mobile justify-center
+                              ${outputEmailWidth === "Mobile" && "bg-active"}
+                              `}
+                              onClick={() => toggleOutputEmailWidth("Mobile")}
+                            >
+                              <svg
+                                fill="#000000"
+                                data-name="Layer 1"
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 120 120"
+                                style={{ width: "20px" }}
+                              >
+                                <path d="M85.81 120H34.19a8.39 8.39 0 0 1-8.38-8.39V8.39A8.39 8.39 0 0 1 34.19 0h51.62a8.39 8.39 0 0 1 8.38 8.39v103.22a8.39 8.39 0 0 1-8.38 8.39zM34.19 3.87a4.52 4.52 0 0 0-4.51 4.52v103.22a4.52 4.52 0 0 0 4.51 4.52h51.62a4.52 4.52 0 0 0 4.51-4.52V8.39a4.52 4.52 0 0 0-4.51-4.52z" />
+                                <path d="M73.7 10.32H46.3L39.28 3.3 42.01.57l5.89 5.88h24.2L77.99.57l2.73 2.73-7.02 7.02zM47.1 103.23h25.81v3.87H47.1z" />
+                              </svg>
+                              {/* <span className="ml-3 font-size-medium">Mobile View</span> */}
+                            </button>
+                            <button
+                              className={`button pad-10 ml-5 d-flex align-center align-self-center output-email-width-button-tab justify-center
+                              ${outputEmailWidth === "Tab" && "bg-active"}
+                              `}
+                              onClick={() => toggleOutputEmailWidth("Tab")}
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                xmlnsXlink="http://www.w3.org/1999/xlink"
+                                fill="#000000"
+                                version="1.1"
+                                id="Capa_1"
+                                width="20px"
+                                height="20px"
+                                viewBox="0 0 54.355 54.355"
+                                xmlSpace="preserve"
+                              >
+                                <g>
+                                  <g>
+                                    <path d="M8.511,54.355h37.333c1.379,0,2.5-1.121,2.5-2.5V2.5c0-1.378-1.121-2.5-2.5-2.5H8.511c-1.379,0-2.5,1.122-2.5,2.5v49.354    C6.011,53.234,7.133,54.355,8.511,54.355z M9.011,3h36.333v48.354H9.011V3z" />
+                                    <path d="M40.928,6.678h-27.5c-0.827,0-1.5,0.673-1.5,1.5v34.25c0,0.827,0.673,1.5,1.5,1.5h27.5c0.827,0,1.5-0.673,1.5-1.5V8.178    C42.428,7.351,41.755,6.678,40.928,6.678z M41.428,42.428c0,0.275-0.224,0.5-0.5,0.5h-27.5c-0.276,0-0.5-0.225-0.5-0.5V8.178    c0-0.276,0.224-0.5,0.5-0.5h27.5c0.276,0,0.5,0.224,0.5,0.5V42.428z" />
+                                    <path d="M27.178,45.013c-1.378,0-2.499,1.121-2.499,2.499s1.121,2.499,2.499,2.499c1.377,0,2.498-1.121,2.498-2.499    S28.556,45.013,27.178,45.013z M27.178,49.01c-0.827,0-1.499-0.672-1.499-1.499s0.672-1.499,1.499-1.499    c0.826,0,1.498,0.672,1.498,1.499S28.005,49.01,27.178,49.01z" />
+                                  </g>
+                                </g>
+                              </svg>
+                              {/* <span className="ml-3 font-size-medium">Tab View</span> */}
+                            </button>
+                            <button
+                              className={`button pad-10 ml-5 d-flex align-center align-self-center output-email-width-button-desktop justify-center
+                              ${outputEmailWidth === "" && "bg-active"}
+                              `}
+                              onClick={() => toggleOutputEmailWidth("")}
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="#000000"
+                                width="20"
+                                height="20"
+                                viewBox="0 -3 32 32"
+                                preserveAspectRatio="xMidYMid"
+                              >
+                                <path d="M30.000,21.000 L17.000,21.000 L17.000,24.000 L22.047,24.000 C22.600,24.000 23.047,24.448 23.047,25.000 C23.047,25.552 22.600,26.000 22.047,26.000 L10.047,26.000 C9.494,26.000 9.047,25.552 9.047,25.000 C9.047,24.448 9.494,24.000 10.047,24.000 L15.000,24.000 L15.000,21.000 L2.000,21.000 C0.898,21.000 0.000,20.103 0.000,19.000 L0.000,2.000 C0.000,0.897 0.898,0.000 2.000,0.000 L30.000,0.000 C31.103,0.000 32.000,0.897 32.000,2.000 L32.000,19.000 C32.000,20.103 31.103,21.000 30.000,21.000 ZM2.000,2.000 L2.000,19.000 L29.997,19.000 L30.000,2.000 L2.000,2.000 Z" />
+                              </svg>
+                              {/* <span className="ml-5 font-size-medium">Desktop</span> */}
+                            </button>
+                          </div>
+
+                          {/* Your existing Generated/Existing indicator */}
+                          {/* {combinedResponses[currentIndex]?.generated ? (
+                            <span
+                              className="generated-indicator d-flex align-center"
+                              title="Generated Content"
+                            >
+                              Generated
+                            </span>
+                          ) : (
+                            combinedResponses[currentIndex] && (
+                              <span
+                                className="existing-indicator d-flex align-center ml-10"
+                                title="Existing Content"
+                              >
+                                Existing
+                              </span>
+                            )
+                          )} */}
+                        </div>
+                  </div>
                 </div>
+                
                 <div className="form-group" style={{ marginBottom: "20px" }}>
                   <div
                     style={{
                       display: "flex",
-                      gap: "15px",
-                      alignItems: "center", // changed from flex-start to center
+                      alignItems: "start", // changed from flex-start to center
                     }}
                   >
                     {/* Subject field - 48% width */}
-                    <div style={{ flex: "0 0 40%" }}>
+                    <div style={{ flex: "0 0 50%", paddingRight:"15px" }}>
                       <label
                         style={{
                           display: "block",
@@ -1943,11 +1906,11 @@ const Output: React.FC<OutputInterface> = ({
                         style={{
                           minHeight: "30px",
                           maxHeight: "120px",
-                          padding: "10px",
+                          padding: "8px",
                           border: "1px solid #ccc",
                           borderRadius: "4px",
                           fontFamily: "inherit",
-                          fontSize: "inherit",
+                          fontSize: "14px",
                           backgroundColor: "#f9f9f9",
                           overflowY: "auto",
                           width: "100%",
@@ -1961,7 +1924,7 @@ const Output: React.FC<OutputInterface> = ({
                     </div>
 
                     {/* BCC field - 20% width */}
-                    <div style={{ flex: "0 0 15%" }}>
+                    <div style={{ flex: "0 0 15%", paddingRight:"15px" }}>
                       <label
                         style={{
                           display: "block",
@@ -2048,7 +2011,7 @@ const Output: React.FC<OutputInterface> = ({
                     </div>
 
                     {/* From Email field - 20% width */}
-                    <div style={{ flex: "0 0 15%" }}>
+                    <div style={{ flex: "0 0 15%",  paddingRight:"15px"  }}>
                       <label
                         style={{
                           display: "block",
@@ -2099,7 +2062,7 @@ const Output: React.FC<OutputInterface> = ({
                       <button
                         id="output-send-email-btn"
                         type="button"
-                        className="button save-button x-small d-flex align-center align-self-center ml-10 my-5-640 mr-10"
+                        className="button save-button x-small d-flex align-center align-self-center my-5-640 mr-10"
                         onClick={async () => {
                           if (!combinedResponses[currentIndex]) {
                             toast.error("No contact selected");
@@ -2136,7 +2099,7 @@ const Output: React.FC<OutputInterface> = ({
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          marginTop: "25px",
+                          marginTop: "30px",
                         }}
                       >
                         {!sendingEmail && emailMessage === "" && "Send"}
@@ -2152,7 +2115,6 @@ const Output: React.FC<OutputInterface> = ({
                         flexDirection: "column",
                         alignItems: "flex-start",
                         justifyContent: "center",
-                        paddingTop: "25px",
                         marginLeft: "0px", // keeps alignment similar to your existing pitch date
                       }}
                     >
@@ -2171,6 +2133,7 @@ const Output: React.FC<OutputInterface> = ({
                             )}`
                           : ""}
                       </span>
+
 
                       {/* Email Sent Date */}
                       <span
@@ -2465,8 +2428,8 @@ const Output: React.FC<OutputInterface> = ({
                           >
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              width="22px"
-                              height="22px"
+                              width="28px"
+                              height="28px"
                               viewBox="0 0 24 24"
                               fill="none"
                             >
@@ -2527,11 +2490,10 @@ const Output: React.FC<OutputInterface> = ({
                                 !isResetEnabled ||
                                 isRegenerating
                               }
-                              className="ml-5 button square-40  justify-center"
+                              className="button square-40  justify-center"
                               style={{
                                 display: "flex",
                                 alignItems: "center",
-                                backgroundColor: "#f0f0f0",
                                 borderRadius: "4px",
                                 cursor:
                                   combinedResponses[currentIndex] &&
@@ -2547,8 +2509,8 @@ const Output: React.FC<OutputInterface> = ({
                             >
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
-                                width="15px"
-                                height="15px"
+                                width="20px"
+                                height="20px"
                                 viewBox="0 0 16 16"
                                 fill="none"
                               >
@@ -2569,7 +2531,7 @@ const Output: React.FC<OutputInterface> = ({
                           </ReactTooltip>
                           <button
                             id="copy-to-clipboard-tooltip"
-                            className={`button d-flex align-center square-40 ml-5 justify-center ${
+                            className={`button d-flex align-center square-40 justify-center ${
                               isCopyText && "save-button auto-width"
                             }`}
                             onClick={copyToClipboardHandler}
@@ -2577,8 +2539,8 @@ const Output: React.FC<OutputInterface> = ({
                             {isCopyText ? (
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
-                                width="18px"
-                                height="18px"
+                                width="24px"
+                                height="24px"
                                 viewBox="0 0 24 24"
                                 fill="none"
                               >
@@ -2601,8 +2563,8 @@ const Output: React.FC<OutputInterface> = ({
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
                                 fill="#000000"
-                                width="20px"
-                                height="20px"
+                                width="24px"
+                                height="24px"
                                 viewBox="0 0 32 32"
                                 version="1.1"
                               >
@@ -2621,7 +2583,7 @@ const Output: React.FC<OutputInterface> = ({
                         className="full-view-icon d-flex align-center justify-center"
                         onClick={() => handleModalOpen("modal-output-2")}
                       >
-                        <svg width="40px" height="40px" viewBox="0 0 512 512">
+                        <svg width="30px" height="30px" viewBox="0 0 512 512">
                           <polyline
                             points="304 96 416 96 416 208"
                             fill="none"

@@ -24,6 +24,9 @@ body {
   margin-left: -15px;
   margin-right: -15px;
 }
+.row.no-margin{
+  margin:0;
+}
 .col {
   flex: 1;
   padding: 0 15px;
@@ -677,6 +680,8 @@ pre span {
   color: #222222;
   text-align: center;
   margin: 0 0 20px;
+  font-size: 20px;
+  font-weight: 600;
 }
 .login-box h2.left {
   text-align: left;
@@ -697,6 +702,7 @@ pre span {
   margin-bottom: 0.5rem;
   font-weight: 600;
   font-size: 14px;
+  color: #333333;
 }
 .form-group label.mb-0 {
   margin-bottom: 0;
@@ -710,11 +716,21 @@ pre span {
   border-radius: 4px;
   margin: 0;
   height: 40px;
+  font-size: 14px;
 }
 
 /* .form-group input[type="number"] {
   width: 70px;
 } */
+
+.sub-title {
+  font-size: 16px;
+  margin: 0 0 15px;
+  border-bottom: 1px solid #dddddd;
+  padding: 0 0 10px;
+  font-weight: 600;
+  color:#000000;
+}
 
 .form-group input.height-35 {
   height: 35px;
@@ -1021,6 +1037,7 @@ textarea {
   border: 1px solid #ddd;
   border-radius: 4px;
   resize: none;
+  font-size: 15px;
 }
 
 .footer {
@@ -1787,18 +1804,15 @@ textarea {
 }
 
 .primary-button {
+  background-color: #3f9f42;
   padding: 8px 20px;
-  background-color: #0066cc;
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-weight: 500;
+  font-weight: 600;
   transition: background-color 0.2s;
-}
-
-.primary-button:hover:not(:disabled) {
-  background-color: #0052a3;
+  font-size: 15px;
 }
 
 .primary-button:disabled {
@@ -1813,8 +1827,9 @@ textarea {
   border: 1px solid #ddd;
   border-radius: 4px;
   cursor: pointer;
-  font-weight: 500;
+  font-weight: 600;
   transition: all 0.2s;
+  font-size: 15px;
 }
 
 .secondary-button:hover:not(:disabled) {
@@ -1844,6 +1859,12 @@ textarea {
 
 .checkbox-label input[type="checkbox"] {
   cursor: pointer;
+    padding: 0 !important;
+    width: auto;
+    height: auto;
+    margin: 0px 5px 0 0;
+    position: relative;
+    top: 1px;
 }
 
 /* Responsive adjustments */
@@ -1936,7 +1957,7 @@ textarea {
 .submenu-arrow {
   position: absolute;
   right: 20px;
-  top: 23px;
+  top: 27px;
   transform: translateY(-50%);
   transition: transform 0.3s ease;
   color: #007bff;

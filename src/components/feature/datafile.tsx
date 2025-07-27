@@ -479,7 +479,7 @@ const DataFile: React.FC<DataFileProps> = ({
           {currentStep === 1 && (
             <div className="upload-section">
               <div className="d-flex justify-between items-center mb-10">
-                <h4 className="mb-0">Upload your excel file</h4>
+                <h4 className="!mb-0">Upload your excel file</h4>
                 <button
                   className="button secondary small flex items-center"
                   onClick={downloadTemplate}
