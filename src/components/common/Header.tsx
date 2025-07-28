@@ -53,24 +53,44 @@ const Header: React.FC<HeaderProps> = React.memo(({
   };
 
   return (
-  <div className="main-head d-flex justify-between align-center">
-    <h1 className="logo" onClick={toggleMenu}>
+  <div className="main-head d-flex justify-between align-center w-[100%]">
+    {/* <h1 className="logo" onClick={toggleMenu}>
       <img 
         src={logoImage} 
         alt="Pitchcraft Logo" 
         style={{ height: "125px" }}
       />
       <span className="hamburger-icon">&#9776;</span>
-    </h1>
+    </h1> */}
 
     <div
-      className={`menu-section d-flex align-center ${
+      className={`menu-section flex items-center justify-between  w-[100%] ${
         isMenuOpen ? "show" : ""
       }`}
     >
-      <div className="item">
-        <div className="user-info-wrapper">
-          <div className="user-greeting d-flex align-center">
+      <div className="item form-group mb-[0px]" style={{margin:0}}>
+        {/* Client Selector Below Username */}
+          {userRole === "ADMIN" && handleClientChange && (
+            <div className="client-selector-wrapper">
+              <select
+                value={selectedClient || ""}
+                onChange={handleClientChange}
+                className="header-client-select"
+              >
+                <option value="">--Please choose a client--</option>
+                {clientNames.map((client: Client, index: number) => (
+                  <option key={index} value={client.clientID.toString()}>
+                    {`${client.firstName} ${client.lastName} - ${client.companyName} - ${client.clientID}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+      </div>
+      <div className="item group flex">
+          <div className="item flex items-center">
+        <div className="user-info-wrapper flex items-center gap-2">
+          <div className="user-greeting d-flex align-center mx-[0px]">
             <span className="mr-5">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -94,24 +114,6 @@ const Header: React.FC<HeaderProps> = React.memo(({
               {full_Name}
             </Link>
           </div>
-
-          {/* Client Selector Below Username */}
-          {userRole === "ADMIN" && handleClientChange && (
-            <div className="client-selector-wrapper mt-5">
-              <select
-                value={selectedClient || ""}
-                onChange={handleClientChange}
-                className="header-client-select"
-              >
-                <option value="">--Please choose a client--</option>
-                {clientNames.map((client: Client, index: number) => (
-                  <option key={index} value={client.clientID.toString()}>
-                    {`${client.firstName} ${client.lastName} - ${client.companyName} - ${client.clientID}`}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
         </div>
       </div>
 
@@ -166,6 +168,8 @@ const Header: React.FC<HeaderProps> = React.memo(({
           <span className="ml-5">Logout</span>
         </button>
       </div>
+      </div>
+      
     </div>
   </div>
 );
