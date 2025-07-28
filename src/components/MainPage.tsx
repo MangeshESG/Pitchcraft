@@ -3001,18 +3001,52 @@ const MainPage: React.FC = () => {
                         <span className="menu-text">Template</span>
                       </button>
                     </li>
-                    <li className={tab === "DataCampaigns" ? "active" : ""}>
-                      <button
-                        onClick={() => setTab("DataCampaigns")}
-                        className="side-menu-button"
-                        title="Manage data files and campaigns"
-                      >
-                        <span className="menu-icon">
-                          <FontAwesomeIcon icon={faList} className=" text-[#333333] text-lg" />
-                        </span>
-                        <span className="menu-text">Lists</span>
-                      </button>
+                    <li className={`${tab === "DataCampaigns" ? "active" : ""} ${showContactsSubmenu ? "has-submenu submenu-open" : "has-submenu"}`}>
+  <button
+    onClick={() => {
+      setTab("DataCampaigns");
+      setShowContactsSubmenu(!showContactsSubmenu);
+      setShowMailSubmenu(false); // Close mail submenu if needed
+    }}
+    className="side-menu-button"
+    title="Manage contacts and segments"
+  >
+    <span className="menu-icon">
+      <FontAwesomeIcon icon={faList} className=" text-[#333333] text-lg" />
+    </span>
+    <span className="menu-text">Contacts</span>
+    <span className="submenu-arrow">
+      <FontAwesomeIcon icon={faAngleRight} className=" text-[#333333] text-lg"/>
+    </span>
+  </button>
+  {showContactsSubmenu && (
+    <ul className="submenu">
+      <li className={contactsSubTab === "List" ? "active" : ""}>
+        <button
+          onClick={() => {
+            setContactsSubTab("List");
+            setTab("DataCampaigns");
+          }}
+          className="submenu-button"
+        >
+          List
+        </button>
+      </li>
+      <li className={contactsSubTab === "Segment" ? "active" : ""}>
+        <button
+          onClick={() => {
+            setContactsSubTab("Segment");
+            setTab("DataCampaigns");
+          }}
+          className="submenu-button"
+        >
+          Segment
+        </button>
+      </li>
+    </ul>
+  )}
                     </li>
+ 
                     <li className={tab === "Campaigns" ? "active" : ""}>
               <button
                 onClick={() => {

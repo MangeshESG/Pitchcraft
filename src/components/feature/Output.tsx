@@ -1084,7 +1084,7 @@ useEffect(() => {
           {!isStarted ? (
             <button
               className="primary-button bg-[#3f9f42]"
-              onClick={handleStart}
+              onClick={() => handleStart?.()}
               disabled={
                 (!selectedPrompt?.name || !selectedZohoviewId) &&
                 !selectedCampaign
