@@ -428,24 +428,31 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                   </div>
                 </div>
 
-                <div className="col-12-768">
-                  <div className="form-group">
-                    <label>Select data file</label>
-                    <select
-                      name="zohoViewId"
-                      value={campaignForm.zohoViewId}
-                      onChange={handleCampaignFormChange}
-                      className="form-control"
-                    >
-                      <option value="">Select a data file</option>
-                      {zohoClient.map((client) => (
-                        <option key={client.id} value={client.zohoviewId}>
-                          {client.zohoviewName}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
+<div className="col-12-768">
+  <div className="form-group">
+    <label>Select data file</label>
+    <select
+      name="zohoViewId"
+      value={campaignForm.zohoViewId}
+      onChange={handleCampaignFormChange}
+      className="form-control"
+    >
+      <option value="">Select a data file</option>
+      {dataFiles.map((file) => (
+        <option key={file.id} value={file.id}>
+          {file.name}
+        </option>
+      ))}
+    </select>
+    {!isLoading &&
+      dataFiles.length === 0 &&
+      selectedClient && (
+        <div className="text-muted mt-1 error-text">
+          No data files found for this client
+        </div>
+      )}
+  </div>
+</div>
                 <div className="col-12-640">
                   <div className="form-group d-flex justify-end-991 mt-[28px] mt-0-991">
                     <button

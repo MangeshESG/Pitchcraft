@@ -314,6 +314,124 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     setCurrentPage(1);
   }, [searchQuery]);
 
+
+//Segment Modal States
+const [showSaveSegmentModal, setShowSaveSegmentModal] = useState(false);
+const [segmentName, setSegmentName] = useState("");
+const [segmentDescription, setSegmentDescription] = useState("");
+const [savingSegment, setSavingSegment] = useState(false);
+
+
+const handleSaveSegment = async () => {
+  if (!segmentName) return;
+  setSavingSegment(true);
+
+  const segmentData = {
+    name: segmentName,
+    description: segmentDescription,
+    dataFileId: Number(selectedDataFile),
+    contactIds: Array.from(selectedContacts).map(Number)
+  };
+
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/Crm/Creat-Segments?ClientId=${effectiveUserId}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(segmentData)
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to save segment');
+    }
+    
+    alert('Segment saved successfully!');
+    setShowSaveSegmentModal(false);
+    setSegmentName("");
+    setSegmentDescription("");
+    // Optionally, refresh segment list or show in UI
+  } catch (error) {
+    
+  } finally {
+    setSavingSegment(false);
+  }
+};
+
+
+//segments 
+const [segments, setSegments] = useState<any[]>([]);
+const [selectedSegment, setSelectedSegment] = useState<string>('');
+const [segmentContacts, setSegmentContacts] = useState<Contact[]>([]);
+const [segmentSearchQuery, setSegmentSearchQuery] = useState('');
+const [isLoadingSegments, setIsLoadingSegments] = useState(false);
+const [isLoadingSegmentContacts, setIsLoadingSegmentContacts] = useState(false);
+// Fetch all segments for client
+const fetchSegments = async () => {
+  if (!effectiveUserId) return;
+  setIsLoadingSegments(true);
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/Crm/get-segments-by-client?clientId=${effectiveUserId}`);
+    if (!response.ok) throw new Error('Failed to fetch segments');
+    const data = await response.json();
+    setSegments(data);
+  } catch (err) {
+    setSegments([]);
+  } finally {
+    setIsLoadingSegments(false);
+  }
+};
+
+// Fetch contacts for selected segment
+const fetchSegmentContacts = async (segmentId: string) => {
+  if (!segmentId) return;
+  setIsLoadingSegmentContacts(true);
+  try {
+    // Use the correct endpoint!
+    const response = await fetch(`${API_BASE_URL}/api/Crm/segment/${segmentId}/contacts`);
+    if (!response.ok) throw new Error('Failed to fetch segment contacts');
+    const data = await response.json();
+    setSegmentContacts(data || []);
+  } catch (err) {
+    setSegmentContacts([]);
+  } finally {
+    setIsLoadingSegmentContacts(false);
+  }
+};
+
+// Fetch segment list when tab switches or client changes
+useEffect(() => {
+  if (activeSubTab === "Segment") {
+    fetchSegments();
+    setSelectedSegment('');
+    setSegmentContacts([]);
+  }
+}, [activeSubTab, effectiveUserId]);
+
+// Fetch segment contacts when segment selected
+useEffect(() => {
+  if (selectedSegment) {
+    fetchSegmentContacts(selectedSegment);
+  } else {
+    setSegmentContacts([]);
+  }
+}, [selectedSegment]);
+
+const segmentFilteredContacts = segmentContacts.filter((contact) => {
+  const searchLower = segmentSearchQuery.toLowerCase();
+  return (
+    contact.full_name?.toLowerCase().includes(searchLower) ||
+    contact.email?.toLowerCase().includes(searchLower) ||
+    contact.company_name?.toLowerCase().includes(searchLower) ||
+    contact.job_title?.toLowerCase().includes(searchLower) ||
+    contact.country_or_address?.toLowerCase().includes(searchLower)
+  );
+});
+
+
   return (
     <div className="data-campaigns-container">
       {/* Sub-tabs Navigation */}
@@ -365,6 +483,14 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                   </select>
                 </div>
               </div>
+              <button 
+  className="button secondary" 
+  disabled={selectedContacts.size === 0}
+  onClick={() => setShowSaveSegmentModal(true)}
+>
+  Save as Segment
+</button>
+
 
               <div className="contacts-actions d-flex align-center gap-10">
                 <button
@@ -603,29 +729,147 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
               </div>
             )}
           </div>
-        </div>
+        </div>   
       )}
 
+
       {activeSubTab === "Segment" && (
-        <div className="segment-content">
-          <div className="section-wrapper">
-            <h2 className="section-title">Contact Segments</h2>
-            <div className="login-box gap-down d-flex">
-              <div className="input-section edit-section">
-                <div className="row">
-                  <div className="col-12">
-                    <div className="form-group">
-                      <p>Segment management functionality coming soon...</p>
-                      {/* You can add segment creation, filtering, and management features here */}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+  <div className="segment-content">
+    <div className="section-wrapper">
+      <h2 className="section-title">Contact Segments</h2>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
+        <select
+          style={{ padding: 8, fontSize: 16 }}
+          value={selectedSegment}
+          disabled={isLoadingSegments || segments.length === 0}
+          onChange={e => setSelectedSegment(e.target.value)}
+        >
+          <option value="">Select a segment…</option>
+          {segments.map(seg => (
+            <option key={seg.id} value={seg.id}>
+              {seg.name}
+            </option>
+          ))}
+        </select>
+        <input
+          type="text"
+          placeholder="Search contacts in segment..."
+          value={segmentSearchQuery}
+          onChange={e => setSegmentSearchQuery(e.target.value)}
+          className="search-input"
+          style={{ width: 300 }}
+        />
+      </div>
+
+      {/* Show contacts for selected segment in a table */}
+      {isLoadingSegmentContacts ? (
+        <div style={{ margin: 32 }}>Loading contacts...</div>
+      ) : selectedSegment && segmentFilteredContacts.length === 0 ? (
+        <div style={{ margin: 32 }}>No contacts found for this segment.</div>
+      ) : selectedSegment ? (
+        <div className="contacts-table-wrapper">
+          <table className="contacts-table">
+            <thead>
+              <tr>
+                {/* Reuse columns as in List, except checkbox/selection */}
+                {columns
+                  .filter(col => col.key !== 'checkbox' && col.visible)
+                  .map((column) => (
+                    <th key={column.key} style={{ width: column.width }}>
+                      {column.label}
+                    </th>
+                  ))}
+              </tr>
+            </thead>
+            <tbody>
+              {segmentFilteredContacts.map((contact) => (
+                <tr key={contact.id}>
+                  {columns
+                    .filter(col => col.key !== 'checkbox' && col.visible)
+                    .map((column) => (
+                      <td key={column.key}>
+                        {column.key === "website" ||
+                        column.key === "linkedin_url" ? (
+                          getContactValue(contact, column.key) ? (
+                            <a
+                              href={getContactValue(contact, column.key)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="contact-link"
+                            >
+                              {column.key === "linkedin_url"
+                                ? "View Profile"
+                                : "Visit Website"}
+                            </a>
+                          ) : (
+                            "-"
+                          )
+                        ) : column.key === "created_at" ||
+                          column.key === "updated_at" ||
+                          column.key === "email_sent_at" ? (
+                          formatDate(getContactValue(contact, column.key))
+                        ) : (
+                          getContactValue(contact, column.key) || "-"
+                        )}
+                      </td>
+                    ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
+      ) : (
+        <div>Select a segment to view contacts.</div>
       )}
     </div>
+  </div>
+)}
+
+       {showSaveSegmentModal && (
+  <div style={{
+    position: "fixed",
+    zIndex: 99999,
+    inset: 0,
+    background: "rgba(0,0,0,0.6)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center"
+  }}>
+    <div style={{
+      background: "#fff",
+      padding: 40,
+      borderRadius: 12,
+      minWidth: 340,
+      boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+    }}>
+      <h2 style={{marginTop: 0}}>Save as Segment</h2>
+      <input
+        type="text"
+        placeholder="Segment Name"
+        value={segmentName}
+        onChange={e => setSegmentName(e.target.value)}
+        autoFocus
+        style={{width: "100%", marginBottom: 10}}
+      />
+      <textarea
+        placeholder="Description (optional)"
+        value={segmentDescription}
+        onChange={e => setSegmentDescription(e.target.value)}
+        style={{marginTop: 10, width: "100%"}}
+      />
+      <div style={{marginTop: 18, display:'flex', gap:8, justifyContent:'flex-end'}}>
+        <button onClick={() => setShowSaveSegmentModal(false)} className="button secondary">
+          Cancel
+        </button>
+        <button onClick={handleSaveSegment} className="button primary" disabled={!segmentName || savingSegment}>
+          {savingSegment ? "Saving..." : "Save Segment"}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+  </div>
   );
 };
 
