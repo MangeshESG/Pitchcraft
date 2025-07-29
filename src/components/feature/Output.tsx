@@ -1607,7 +1607,7 @@ useEffect(() => {
           </div>
           {tab2 === "Output" && (
             <>
-              <div className="form-group">
+<div className="form-group mb-0">
                 {/* <div className="d-flex mb-10 align-items-center">
                   {userRole === "ADMIN" && (
                     <button
@@ -1690,7 +1690,7 @@ useEffect(() => {
                   </button>
                 </span>
               </div>
-              <div className="form-group">
+<div className="form-group mb-0">
                 <div className="d-flex justify-between w-full">
                   
                   <div

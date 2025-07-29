@@ -2,6 +2,21 @@ import React, { useState, useEffect } from "react";
 import DataFile from "./datafile";
 import API_BASE_URL from "../../config";
 import "./DataCampaigns.css";
+import ContactsTable from "./ContactsTable"; 
+import ContactsOfDataFileModal from "./ContactsOfDataFileModal";
+
+const menuBtnStyle = {
+  display: 'block',
+  width: '100%',
+  padding: '8px 18px',
+  textAlign: 'left',
+  background: 'none',
+  border: 'none',
+  color: '#222',
+  fontSize: '15px',
+  cursor: 'pointer'
+} as React.CSSProperties;
+
 
 interface DataCampaignsProps {
   selectedClient: string;
@@ -240,60 +255,13 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     filteredContacts.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const endIndex = Math.min(currentPage * pageSize, filteredContacts.length);
 
-  // Existing fetch functions
-  const fetchZohoClient = async () => {
-    if (!effectiveUserId) {
-      console.log("No client selected, skipping fetch");
-      return;
-    }
 
-    setIsLoading(true);
-    try {
-      const url = `${API_BASE_URL}/api/auth/zohoclientid/${effectiveUserId}`;
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data: ZohoClient[] = await response.json();
-      setZohoClient(data);
-    } catch (error) {
-      console.error("Error fetching zoho client id:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
-  const deleteZohoView = async (zohoviewId: string, clientId: string) => {
-    setIsLoading(true);
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/auth/deletezohoview/${zohoviewId}/${clientId}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to delete Zoho view");
-      }
-
-      alert("Zoho view deleted successfully");
-      await fetchZohoClient();
-    } catch (error) {
-      console.error("Error deleting Zoho view:", error);
-      alert("Failed to delete Zoho view");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+ 
 
   // Load data when client changes
   useEffect(() => {
     if (effectiveUserId) {
-      fetchZohoClient();
       fetchDataFiles();
     }
   }, [effectiveUserId]);
@@ -322,15 +290,25 @@ const [segmentDescription, setSegmentDescription] = useState("");
 const [savingSegment, setSavingSegment] = useState(false);
 
 
+// Find this function in your DataCampaigns.tsx and replace it
 const handleSaveSegment = async () => {
   if (!segmentName) return;
   setSavingSegment(true);
 
+  // Determine which contacts to use based on view mode
+  const contactsToUse = viewMode === 'detail' 
+    ? Array.from(detailSelectedContacts).map(Number)
+    : Array.from(selectedContacts).map(Number);
+
+  const dataFileToUse = viewMode === 'detail' 
+    ? selectedDataFileForView?.id 
+    : selectedDataFile;
+
   const segmentData = {
     name: segmentName,
     description: segmentDescription,
-    dataFileId: Number(selectedDataFile),
-    contactIds: Array.from(selectedContacts).map(Number)
+    dataFileId: Number(dataFileToUse),
+    contactIds: contactsToUse
   };
 
   try {
@@ -353,9 +331,20 @@ const handleSaveSegment = async () => {
     setShowSaveSegmentModal(false);
     setSegmentName("");
     setSegmentDescription("");
-    // Optionally, refresh segment list or show in UI
-  } catch (error) {
     
+    // Clear selections after saving
+    if (viewMode === 'detail') {
+      setDetailSelectedContacts(new Set());
+    } else {
+      setSelectedContacts(new Set());
+    }
+    
+    // Refresh segments if on segment tab
+    if (activeSubTab === "Segment") {
+      fetchSegments();
+    }
+  } catch (error) {
+    alert('Failed to save segment');
   } finally {
     setSavingSegment(false);
   }
@@ -431,6 +420,127 @@ const segmentFilteredContacts = segmentContacts.filter((contact) => {
   );
 });
 
+const [listSearch, setListSearch] = useState('');
+const [listActionsAnchor, setListActionsAnchor] = useState<string | null>(null); // Which datafile ID's menu open
+const [editingList, setEditingList] = useState<DataFileItem | null>(null);
+const [renamingListName, setRenamingListName] = useState('');
+const [showConfirmListDelete, setShowConfirmListDelete] = useState(false);
+const [viewingListId, setViewingListId] = useState<string | null>(null); // for modal of viewing contacts
+
+// Filter datafiles per search
+const filteredDatafiles = dataFiles.filter(df =>
+  df.name.toLowerCase().includes(listSearch.toLowerCase()) || 
+  df.id.toString().includes(listSearch)
+);
+
+const handleDeleteList = async (file: DataFileItem) => {
+  try {
+    setIsLoading(true);
+    const url = `${API_BASE_URL}/api/Crm/delete-contacts-and-file?clientId=${file.client_id}&dataFileId=${file.id}`;
+    const response = await fetch(url, { method: "POST" });
+    if (!response.ok) throw new Error("Failed to delete list/file");
+    // Optionally show a toast: alert("List deleted successfully!");
+    await fetchDataFiles(); // refresh the list
+  } catch (err) {
+    alert("Failed to delete list");
+  } finally {
+    setIsLoading(false);
+    setEditingList(null);
+    setShowConfirmListDelete(false);
+  }
+};
+
+
+// Add view mode states
+const [viewMode, setViewMode] = useState<'list' | 'detail'>('list');
+const [selectedDataFileForView, setSelectedDataFileForView] = useState<DataFileItem | null>(null);
+const [segmentViewMode, setSegmentViewMode] = useState<'list' | 'detail'>('list');
+const [selectedSegmentForView, setSelectedSegmentForView] = useState<any>(null);
+
+// Add detail view states
+const [detailContacts, setDetailContacts] = useState<Contact[]>([]);
+const [detailTotalContacts, setDetailTotalContacts] = useState(0);
+const [detailCurrentPage, setDetailCurrentPage] = useState(1);
+const [detailPageSize] = useState(20);
+const [detailSearchQuery, setDetailSearchQuery] = useState("");
+const [detailSelectedContacts, setDetailSelectedContacts] = useState<Set<string>>(new Set());
+const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+
+// Add segment table states
+const [editingSegment, setEditingSegment] = useState<any>(null);
+const [renamingSegmentName, setRenamingSegmentName] = useState('');
+const [showConfirmSegmentDelete, setShowConfirmSegmentDelete] = useState(false);
+const [segmentActionsAnchor, setSegmentActionsAnchor] = useState<string | null>(null);
+
+
+// Add after your other fetch functions
+const fetchDetailContacts = async (type: 'list' | 'segment', item: any) => {
+  if (!item?.id || !effectiveUserId) return;
+  
+  setIsLoadingDetail(true);
+  try {
+    let url = "";
+    if (type === 'list') {
+      url = `${API_BASE_URL}/api/Crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${item.id}`;
+    } else {
+      url = `${API_BASE_URL}/api/Crm/segment/${item.id}/contacts`;
+    }
+
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("Failed to fetch contacts");
+    
+    const data = await response.json();
+    if (type === 'list') {
+      setDetailContacts(data.contacts || []);
+      setDetailTotalContacts(data.contactCount || 0);
+    } else {
+      setDetailContacts(data || []);
+      setDetailTotalContacts(data.length || 0);
+    }
+  } catch (error) {
+    console.error("Error fetching contacts:", error);
+    setDetailContacts([]);
+    setDetailTotalContacts(0);
+  } finally {
+    setIsLoadingDetail(false);
+  }
+};
+
+// Add handlers for detail view
+const handleDetailSelectContact = (contactId: string) => {
+  const newSelection = new Set(detailSelectedContacts);
+  if (newSelection.has(contactId)) {
+    newSelection.delete(contactId);
+  } else {
+    newSelection.add(contactId);
+  }
+  setDetailSelectedContacts(newSelection);
+};
+
+const handleDetailSelectAll = () => {
+  const currentPageContacts = detailContacts.slice(
+    (detailCurrentPage - 1) * detailPageSize,
+    detailCurrentPage * detailPageSize
+  );
+  if (detailSelectedContacts.size === currentPageContacts.length && currentPageContacts.length > 0) {
+    setDetailSelectedContacts(new Set());
+  } else {
+    setDetailSelectedContacts(new Set(currentPageContacts.map(c => c.id.toString())));
+  }
+};
+
+// Effect to fetch contacts when viewing detail
+useEffect(() => {
+  if (viewMode === 'detail' && selectedDataFileForView) {
+    fetchDetailContacts('list', selectedDataFileForView);
+  }
+}, [viewMode, selectedDataFileForView?.id]);
+
+useEffect(() => {
+  if (segmentViewMode === 'detail' && selectedSegmentForView) {
+    fetchDetailContacts('segment', selectedSegmentForView);
+  }
+}, [segmentViewMode, selectedSegmentForView?.id]);
 
   return (
     <div className="data-campaigns-container">
@@ -459,368 +569,341 @@ const segmentFilteredContacts = segmentContacts.filter((contact) => {
       </div>
 
       {/* Tab Content */}
-      {activeSubTab === "List" && (
-        <div className="list-content">
-          {/* Contact List Section */}
-          <div className="section-wrapper mb-20">
-            <div className="contacts-header d-flex justify-between align-center mb-20">
-              <div className="header-left d-flex align-center gap-20">
-                <h2 className="section-title mb-0">{totalContacts} contacts</h2>
-                {/* Data File Dropdown */}
-                <div className="data-file-selector">
-                  <select
-                    value={selectedDataFile}
-                    onChange={(e) => handleDataFileChange(e.target.value)}
-                    className="data-file-dropdown"
-                    disabled={isLoading}
-                  >
-                    <option value="">Select a data file</option>
-                    {dataFiles.map((file) => (
-                      <option key={file.id} value={file.id.toString()}>
-                        {file.name} ({file.data_file_name})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <button 
-  className="button secondary" 
-  disabled={selectedContacts.size === 0}
-  onClick={() => setShowSaveSegmentModal(true)}
->
-  Save as Segment
-</button>
-
-
-              <div className="contacts-actions d-flex align-center gap-10">
-                <button
-                  className="button secondary"
-                  onClick={() => setShowColumnSettings(!showColumnSettings)}
-                >
-                  <span className="d-flex align-center">
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="mr-5"
-                    >
-                      <path
-                        d="M12 15.5C13.933 15.5 15.5 13.933 15.5 12C15.5 10.067 13.933 8.5 12 8.5C10.067 8.5 8.5 10.067 8.5 12C8.5 13.933 10.067 15.5 12 15.5Z"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                      />
-                      <path
-                        d="M20.5 12C20.5 10.067 18.933 8.5 17 8.5M3.5 12C3.5 10.067 5.067 8.5 7 8.5"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                    Customize columns
-                  </span>
-                </button>
-                <div className="search-box">
-                  <input
-                    type="text"
-                    placeholder="Search by name, email, company, job title or location"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="search-input"
-                    style={{ width: "400px" }}
-                  />
-                </div>
-                <button
-                  className="button primary"
-                  onClick={() => {
-                    if (onAddContactClick) {
-                      onAddContactClick();
-                    }
-                  }}
-                >
-                  Add Contact
-                </button>
-              </div>
-            </div>
-
-            {/* Column Settings Dropdown */}
-            {showColumnSettings && (
-              <div className="column-settings-dropdown">
-                <div className="dropdown-header">
-                  <h4>Customize Columns</h4>
-                  <button onClick={() => setShowColumnSettings(false)}>
-                    ×
-                  </button>
-                </div>
-                <div className="column-list">
-                  {columns
-                    .filter((col) => col.key !== "checkbox")
-                    .map((column) => (
-                      <label key={column.key} className="column-item">
-                        <input
-                          type="checkbox"
-                          checked={column.visible}
-                          onChange={() => toggleColumnVisibility(column.key)}
-                        />
-                        {column.label}
-                      </label>
-                    ))}
-                </div>
-              </div>
-            )}
-
-            {/* Contacts Table */}
-            <div className="contacts-table-wrapper">
-              <table className="contacts-table">
-                <thead>
-                  <tr>
-                    {columns
-                      .filter((col) => col.visible)
-                      .map((column) => (
-                        <th key={column.key} style={{ width: column.width }}>
-                          {column.key === "checkbox" ? (
-                            <input
-                              type="checkbox"
-                              checked={
-                                selectedContacts.size ===
-                                  paginatedContacts.length &&
-                                paginatedContacts.length > 0
-                              }
-                              onChange={handleSelectAll}
-                            />
-                          ) : (
-                            column.label
-                          )}
-                        </th>
-                      ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {isLoadingContacts ? (
-                    <tr>
-                      <td
-                        colSpan={columns.filter((col) => col.visible).length}
-                        className="text-center"
-                      >
-                        Loading contacts...
-                      </td>
-                    </tr>
-                  ) : !selectedDataFile ? (
-                    <tr>
-                      <td
-                        colSpan={columns.filter((col) => col.visible).length}
-                        className="text-center"
-                      >
-                        Please select a data file to view contacts
-                      </td>
-                    </tr>
-                  ) : paginatedContacts.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={columns.filter((col) => col.visible).length}
-                        className="text-center"
-                      >
-                        {searchQuery
-                          ? "No contacts found matching your search"
-                          : "No contacts found in this data file"}
-                      </td>
-                    </tr>
-                  ) : (
-                    paginatedContacts.map((contact) => (
-                      <tr
-                        key={contact.id}
-                        className={
-                          selectedContacts.has(contact.id.toString())
-                            ? "selected"
-                            : ""
-                        }
-                      >
-                        {columns
-                          .filter((col) => col.visible)
-                          .map((column) => (
-                            <td key={column.key}>
-                              {column.key === "checkbox" ? (
-                                <input
-                                  type="checkbox"
-                                  checked={selectedContacts.has(
-                                    contact.id.toString()
-                                  )}
-                                  onChange={() =>
-                                    handleSelectContact(contact.id.toString())
-                                  }
-                                />
-                              ) : column.key === "website" ||
-                                column.key === "linkedin_url" ? (
-                                getContactValue(contact, column.key) ? (
-                                  <a
-                                    href={getContactValue(contact, column.key)}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="contact-link"
-                                  >
-                                    {column.key === "linkedin_url"
-                                      ? "View Profile"
-                                      : "Visit Website"}
-                                  </a>
-                                ) : (
-                                  "-"
-                                )
-                              ) : column.key === "created_at" ||
-                                column.key === "updated_at" ||
-                                column.key === "email_sent_at" ? (
-                                formatDate(getContactValue(contact, column.key))
-                              ) : (
-                                getContactValue(contact, column.key) || "-"
-                              )}
-                            </td>
-                          ))}
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            {paginatedContacts.length > 0 && (
-              <div className="pagination-wrapper d-flex justify-between align-center mt-20">
-                <div className="pagination-info">
-                  Showing {startIndex} to {endIndex} of{" "}
-                  {filteredContacts.length} contacts
-                  {searchQuery && ` (filtered from ${totalContacts} total)`}
-                </div>
-                <div className="pagination-controls d-flex align-center gap-10">
-                  <select
-                    value={pageSize}
-                    onChange={(e) => {
-                      setPageSize(Number(e.target.value));
-                      setCurrentPage(1);
-                    }}
-                    className="page-size-select"
-                  >
-                    <option value={10}>10 per page</option>
-                    <option value={20}>20 per page</option>
-                    <option value={50}>50 per page</option>
-                    <option value={100}>100 per page</option>
-                  </select>
-                  <button
-                    className="pagination-btn"
-                    onClick={() =>
-                      setCurrentPage((prev) => Math.max(1, prev - 1))
-                    }
-                    disabled={currentPage === 1}
-                  >
-                    Previous
-                  </button>
-                  <span className="page-numbers">
-                    Page {currentPage} of {totalPages || 1}
-                  </span>
-                  <button
-                    className="pagination-btn"
-                    onClick={() =>
-                      setCurrentPage((prev) => Math.min(totalPages, prev + 1))
-                    }
-                    disabled={currentPage === totalPages || totalPages === 0}
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>   
-      )}
-
-
-      {activeSubTab === "Segment" && (
-  <div className="segment-content">
+{activeSubTab === "List" && (
+  <div className="list-content">
     <div className="section-wrapper">
-      <h2 className="section-title">Contact Segments</h2>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
-        <select
-          style={{ padding: 8, fontSize: 16 }}
-          value={selectedSegment}
-          disabled={isLoadingSegments || segments.length === 0}
-          onChange={e => setSelectedSegment(e.target.value)}
-        >
-          <option value="">Select a segment…</option>
-          {segments.map(seg => (
-            <option key={seg.id} value={seg.id}>
-              {seg.name}
-            </option>
-          ))}
-        </select>
-        <input
-          type="text"
-          placeholder="Search contacts in segment..."
-          value={segmentSearchQuery}
-          onChange={e => setSegmentSearchQuery(e.target.value)}
-          className="search-input"
-          style={{ width: 300 }}
-        />
-      </div>
-
-      {/* Show contacts for selected segment in a table */}
-      {isLoadingSegmentContacts ? (
-        <div style={{ margin: 32 }}>Loading contacts...</div>
-      ) : selectedSegment && segmentFilteredContacts.length === 0 ? (
-        <div style={{ margin: 32 }}>No contacts found for this segment.</div>
-      ) : selectedSegment ? (
-        <div className="contacts-table-wrapper">
-          <table className="contacts-table">
+      {viewMode === 'list' ? (
+        <>
+          <h2 className="section-title">Lists</h2>
+          
+          <div style={{display: "flex", alignItems: "center", marginBottom: 16, gap: 16}}>
+            <input
+              type="text"
+              className="search-input"
+              style={{width: 340}}
+              placeholder="Search a list name or ID"
+              value={listSearch}
+              onChange={e => setListSearch(e.target.value)}
+            />
+            <button 
+  className="button primary" 
+  style={{marginLeft: "auto"}}
+  onClick={onAddContactClick}
+>
+  + Create a list
+</button>
+          </div>
+          <table className="contacts-table" style={{background: "#fff"}}>
             <thead>
               <tr>
-                {/* Reuse columns as in List, except checkbox/selection */}
-                {columns
-                  .filter(col => col.key !== 'checkbox' && col.visible)
-                  .map((column) => (
-                    <th key={column.key} style={{ width: column.width }}>
-                      {column.label}
-                    </th>
-                  ))}
+                <th>Lists</th>
+                <th>ID</th>
+                <th>Folder</th>
+                <th>Contacts</th>
+                <th>Creation date</th>
+                <th>Description</th>
+                <th style={{minWidth:48}}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {segmentFilteredContacts.map((contact) => (
-                <tr key={contact.id}>
-                  {columns
-                    .filter(col => col.key !== 'checkbox' && col.visible)
-                    .map((column) => (
-                      <td key={column.key}>
-                        {column.key === "website" ||
-                        column.key === "linkedin_url" ? (
-                          getContactValue(contact, column.key) ? (
-                            <a
-                              href={getContactValue(contact, column.key)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="contact-link"
-                            >
-                              {column.key === "linkedin_url"
-                                ? "View Profile"
-                                : "Visit Website"}
-                            </a>
-                          ) : (
-                            "-"
-                          )
-                        ) : column.key === "created_at" ||
-                          column.key === "updated_at" ||
-                          column.key === "email_sent_at" ? (
-                          formatDate(getContactValue(contact, column.key))
-                        ) : (
-                          getContactValue(contact, column.key) || "-"
-                        )}
-                      </td>
-                    ))}
+              {filteredDatafiles.length === 0 && (
+                <tr><td colSpan={7} style={{textAlign:"center"}}>No lists found.</td></tr>
+              )}
+              {filteredDatafiles.map(file => (
+                <tr key={file.id}>
+                  <td>
+                    <span
+                      className="list-link"
+                      style={{ color: "#186bf3", cursor: "pointer", textDecoration: "underline" }}
+                      onClick={() => {
+                        setSelectedDataFileForView(file);
+                        setViewMode('detail');
+                        setDetailCurrentPage(1);
+                        setDetailSearchQuery("");
+                        setDetailSelectedContacts(new Set());
+                      }}
+                    >
+                      {file.name}
+                    </span>
+                  </td>
+                  <td>#{file.id}</td>
+                  <td>Your First Folder</td>
+                  <td>{file.contacts?.length || 0}</td>
+                  <td>{file.created_at ? new Date(file.created_at).toLocaleString() : "-"}</td>
+                  <td>{file.description || "-"}</td>
+                  <td style={{position:"relative"}}>
+                    <button 
+                      className="segment-actions-btn"
+                      style={{
+                        border: "none",
+                        background: "none",
+                        fontSize: 24,
+                        cursor: "pointer",
+                        padding: "2px 10px"
+                      }}
+                      onClick={() => setListActionsAnchor(file.id.toString() === listActionsAnchor ? null : file.id.toString())}
+                    >⋮</button>
+                    {listActionsAnchor === file.id.toString() && (
+                      <div className="segment-actions-menu" style={{
+                        position:"absolute", right:0, top:32,
+                        background:"#fff", border:"1px solid #eee",
+                        borderRadius:6, boxShadow:"0 2px 16px rgba(0,0,0,0.12)",
+                        zIndex:101, minWidth: 160
+                      }}>
+                        <button onClick={() => {
+                          setEditingList(file);
+                          setRenamingListName(file.name);
+                          setListActionsAnchor(null);
+                        }} style={menuBtnStyle}>✏️ Rename</button>
+                        <button onClick={() => {
+                          setSelectedDataFileForView(file);
+                          setViewMode('detail');
+                          setListActionsAnchor(null);
+                          setDetailCurrentPage(1);
+                          setDetailSearchQuery("");
+                          setDetailSelectedContacts(new Set());
+                        }} style={menuBtnStyle}>👁️ View</button>
+                        <button onClick={() => {
+                          setEditingList(file);
+                          setShowConfirmListDelete(true);
+                          setListActionsAnchor(null);
+                        }} style={{...menuBtnStyle,color:"#c00"}}>🗑️ Delete</button>
+                      </div>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+        </>
       ) : (
-        <div>Select a segment to view contacts.</div>
+        // Detail view using ContactsTable
+       <ContactsTable
+  contacts={detailContacts}
+  columns={columns}
+  isLoading={isLoadingDetail}
+  search={detailSearchQuery}
+  setSearch={setDetailSearchQuery}
+  showCheckboxes={true}
+  paginated={true}
+  currentPage={detailCurrentPage}
+  pageSize={detailPageSize}
+  onPageChange={setDetailCurrentPage}
+  onSelectAll={handleDetailSelectAll}
+  selectedContacts={detailSelectedContacts}
+  onSelectContact={handleDetailSelectContact}
+  formatDate={formatDate}
+  getContactValue={getContactValue}
+  totalContacts={detailTotalContacts}
+  viewMode="detail"
+  detailTitle={`${selectedDataFileForView?.name} (#${selectedDataFileForView?.id})`}
+  detailDescription={selectedDataFileForView?.description || 'No description available'}
+  onBack={() => {
+    setViewMode('list');
+    setSelectedDataFileForView(null);
+  }}
+  onAddContact={onAddContactClick}
+  customHeader={
+    detailSelectedContacts.size > 0 && (
+      <div style={{ 
+        marginBottom: 16, 
+        padding: '12px 16px', 
+        background: '#f0f7ff', 
+        borderRadius: 6,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 16
+      }}>
+        <span style={{ fontWeight: 500 }}>
+          {detailSelectedContacts.size} contact{detailSelectedContacts.size > 1 ? 's' : ''} selected
+        </span>
+        <button 
+          className="button primary"
+          onClick={() => setShowSaveSegmentModal(true)}
+          style={{ marginLeft: 'auto' }}
+        >
+          Create Segment
+        </button>
+      </div>
+    )
+  }
+/>
+      )}
+
+      {/* Rename modal */}
+      {editingList && !showConfirmListDelete && (
+        <div className="modal-overlay">
+          <div className="modal" style={{minWidth:320}}>
+            <h3>Rename List</h3>
+            <input
+              value={renamingListName}
+              onChange={e=>setRenamingListName(e.target.value)}
+              style={{width:'100%',marginBottom:12}}
+              autoFocus
+            />
+            <div style={{display:'flex',gap:12,justifyContent:"flex-end"}}>
+              <button onClick={()=>setEditingList(null)} className="button secondary">Cancel</button>
+              <button className="button primary" onClick={async ()=>{
+                // await renameDataFile(editingList.id, renamingListName)
+                setEditingList(null); 
+                fetchDataFiles();
+              }} disabled={!renamingListName.trim()}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Delete confirmation modal */}
+      {editingList && showConfirmListDelete && (
+        <div className="modal-overlay">
+          <div className="modal" style={{minWidth:320}}>
+            <h3>Delete List</h3>
+            <p>Are you sure you want to delete <b>{editingList.name}</b>?</p>
+            <div style={{display:'flex',gap:12,justifyContent:"flex-end"}}>
+              <button onClick={()=>{setShowConfirmListDelete(false);setEditingList(null);}} className="button secondary">Cancel</button>
+              <button
+                className="button primary" 
+                style={{background:'#c00',color:'#fff'}}
+                onClick={() => editingList && handleDeleteList(editingList)}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  </div>
+)}
+
+
+{activeSubTab === "Segment" && (
+  <div className="segment-content">
+    <div className="section-wrapper">
+      {segmentViewMode === 'list' ? (
+        <>
+          <h2 className="section-title">Segments</h2>
+          <div style={{marginBottom: 4, color: "#555"}}>
+            Create and manage segments to organize your contacts for targeted campaigns.
+          </div>
+          <div style={{display: "flex", alignItems: "center", marginBottom: 16, gap: 16}}>
+            <input
+              type="text"
+              className="search-input"
+              style={{width: 340}}
+              placeholder="Search segments..."
+              value={segmentSearchQuery}
+              onChange={e => setSegmentSearchQuery(e.target.value)}
+            />
+            <button className="button primary" style={{marginLeft: "auto"}}>+ Create Segment</button>
+          </div>
+          
+          <table className="contacts-table" style={{background: "#fff"}}>
+            <thead>
+              <tr>
+                <th>Segment Name</th>
+                <th>Contacts</th>
+                <th>Created Date</th>
+                <th>Description</th>
+                <th style={{minWidth:48}}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoadingSegments ? (
+                <tr><td colSpan={5} style={{textAlign:"center"}}>Loading segments...</td></tr>
+              ) : segments.length === 0 ? (
+                <tr><td colSpan={5} style={{textAlign:"center"}}>No segments found.</td></tr>
+              ) : (
+                segments
+                  .filter(seg => 
+                    seg.name?.toLowerCase().includes(segmentSearchQuery.toLowerCase()) ||
+                    seg.description?.toLowerCase().includes(segmentSearchQuery.toLowerCase())
+                  )
+                  .map(segment => (
+                    <tr key={segment.id}>
+                      <td>
+                        <span
+                          className="list-link"
+                          style={{ color: "#186bf3", cursor: "pointer", textDecoration: "underline" }}
+                          onClick={() => {
+                            setSelectedSegmentForView(segment);
+                            setSegmentViewMode('detail');
+                            setDetailCurrentPage(1);
+                            setDetailSearchQuery("");
+                            setDetailSelectedContacts(new Set());
+                          }}
+                        >
+                          {segment.name}
+                        </span>
+                      </td>
+                      <td>{segment.contactCount || segment.contacts?.length || 0}</td>
+                      <td>{segment.createdAt ? new Date(segment.createdAt).toLocaleDateString() : "-"}</td>
+                      <td>{segment.description || "-"}</td>
+                      <td style={{position:"relative"}}>
+                        <button 
+                          className="segment-actions-btn"
+                          style={{
+                            border: "none",
+                            background: "none",
+                            fontSize: 24,
+                            cursor: "pointer",
+                            padding: "2px 10px"
+                          }}
+                          onClick={() => setSegmentActionsAnchor(segment.id.toString() === segmentActionsAnchor ? null : segment.id.toString())}
+                        >⋮</button>
+                        {segmentActionsAnchor === segment.id.toString() && (
+                          <div className="segment-actions-menu" style={{
+                            position:"absolute", right:0, top:32,
+                            background:"#fff", border:"1px solid #eee",
+                            borderRadius:6, boxShadow:"0 2px 16px rgba(0,0,0,0.12)",
+                            zIndex:101, minWidth: 160
+                          }}>
+                            <button onClick={() => {
+                              setSelectedSegmentForView(segment);
+                              setSegmentViewMode('detail');
+                              setSegmentActionsAnchor(null);
+                              setDetailCurrentPage(1);
+                              setDetailSearchQuery("");
+                              setDetailSelectedContacts(new Set());
+                            }} style={menuBtnStyle}>👁️ View</button>
+                            <button style={{...menuBtnStyle,color:"#c00"}}>🗑️ Delete</button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+              )}
+            </tbody>
+          </table>
+        </>
+      ) : (
+        // Detail view for segments
+        <ContactsTable
+          contacts={detailContacts}
+          columns={columns}
+          isLoading={isLoadingDetail}
+          search={detailSearchQuery}
+          setSearch={setDetailSearchQuery}
+          showCheckboxes={true}
+          paginated={true}
+          currentPage={detailCurrentPage}
+          pageSize={detailPageSize}
+          onPageChange={setDetailCurrentPage}
+          onSelectAll={handleDetailSelectAll}
+          selectedContacts={detailSelectedContacts}
+          onSelectContact={handleDetailSelectContact}
+          formatDate={formatDate}
+          getContactValue={getContactValue}
+          totalContacts={detailTotalContacts}
+          viewMode="detail"
+          detailTitle={selectedSegmentForView?.name}
+          detailDescription={selectedSegmentForView?.description || 'No description available'}
+          onBack={() => {
+            setSegmentViewMode('list');
+            setSelectedSegmentForView(null);
+          }}
+          onAddContact={onAddContactClick}
+        />
       )}
     </div>
   </div>
@@ -844,6 +927,9 @@ const segmentFilteredContacts = segmentContacts.filter((contact) => {
       boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
     }}>
       <h2 style={{marginTop: 0}}>Save as Segment</h2>
+      <p style={{marginBottom: 16, color: '#666'}}>
+        Creating segment with {viewMode === 'detail' ? detailSelectedContacts.size : selectedContacts.size} selected contact{(viewMode === 'detail' ? detailSelectedContacts.size : selectedContacts.size) > 1 ? 's' : ''}
+      </p>
       <input
         type="text"
         placeholder="Segment Name"
@@ -856,7 +942,8 @@ const segmentFilteredContacts = segmentContacts.filter((contact) => {
         placeholder="Description (optional)"
         value={segmentDescription}
         onChange={e => setSegmentDescription(e.target.value)}
-        style={{marginTop: 10, width: "100%"}}
+        style={{marginTop: 10, width: "100%", minHeight: 80}}
+        rows={3}
       />
       <div style={{marginTop: 18, display:'flex', gap:8, justifyContent:'flex-end'}}>
         <button onClick={() => setShowSaveSegmentModal(false)} className="button secondary">

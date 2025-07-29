@@ -837,10 +837,6 @@ select:not([value=""]) option {
 }
 
 /* Fix for button visibility - Add at the end of your CSS file */
-.input-section.edit-section {
-  padding-bottom: 80px; /* Add padding to ensure buttons are visible */
-}
-
 .mapping-section {
   min-height: calc(100vh - 250px); /* Ensure minimum height */
   display: flex;
