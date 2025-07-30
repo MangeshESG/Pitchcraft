@@ -589,6 +589,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   const handleEdit = (item: any) => {
     setForm(item);
     setEditingId(item.id);
+    handleModalOpen("modal-edit-link-mailbox")
   };
 
   // Delete Handler (Assuming you create this API in backend)
@@ -2215,9 +2216,10 @@ const handleDeleteBcc = async (id: number) => {
       {tab === "Configuration" && (
   <>
     <div className="tabs secondary d-flex align-center">
-      <div className="input-section edit-section">
-        <div className="table-container mt-0">
-          <h4 className="mt-0">
+      <div className="input-section edit-section w-full">
+
+        {/* Inline edit Link mailbox form */}
+          {/* <h4 className="mt-0">
             {editingId ? "Edit Link mailbox" : "Link mailbox"}
           </h4>
           <form onSubmit={handleSubmitSMTP}>
@@ -2306,10 +2308,10 @@ const handleDeleteBcc = async (id: number) => {
                 </button>
               </div>
             </div>
-          </form>
+          </form> */}
 
-          <h4 className="">Mailboxes</h4>
-          <div className="table-container">
+          <h2 className="!text-left">Mailboxes</h2>
+          <div className="table-container mb-[30px]">
             <table
               className="responsive-table"
               style={{ border: "1" }}
@@ -2352,15 +2354,104 @@ const handleDeleteBcc = async (id: number) => {
                 ))}
                 {smtpList.length === 0 && (
                   <tr>
-                    <td>No records found.</td>
+                    <td colSpan={6}>No records found.</td>
                   </tr>
                 )}
               </tbody>
             </table>
+             {/* Add Prompt Modal */}
+              <Modal
+                show={openModals["modal-edit-link-mailbox"]}
+                closeModal={() =>
+                  handleModalClose("modal-edit-link-mailbox")
+                }
+                buttonLabel="Close"
+                size="!w-[500px]"
+              >
+                <form onSubmit={handleSubmitSMTP}>
+                  <h2 className="!text-left">Edit link mailbox</h2>
+                  <div className="flex gap-4">
+                    <div className="form-group flex-1">
+                      <label>Host</label>
+                      <input
+                        name="server"
+                        placeholder="Host"
+                        value={form.server}
+                        onChange={handleChangeSMTP}
+                        required
+                      />
+                    </div>
+                    <div className="form-group flex-1">
+                      <label>Port</label>
+                      <input
+                        name="port"
+                        type="number"
+                        placeholder="Port"
+                        value={form.port}
+                        onChange={handleChangeSMTP}
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-4">
+                    <div className="form-group flex-1">
+                      <label>Username</label>
+                      <input
+                        name="username"
+                        placeholder="Username"
+                        value={form.username}
+                        onChange={handleChangeSMTP}
+                        required
+                      />
+                    </div>
+                    <div className="form-group flex-1">
+                      <label>Password</label>
+                      <input
+                        name="password"
+                        type="password"
+                        placeholder="Password"
+                        value={form.password}
+                        onChange={handleChangeSMTP}
+                        required
+                      />
+
+                    </div>
+                  </div>
+                  <div className="flex">
+                    <div className="form-group  flex-1">
+                      <label>From email</label>
+                      <input
+                        name="fromEmail"
+                        placeholder="From email"
+                        value={form.fromEmail}
+                        onChange={handleChangeSMTP}
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="d-flex justify-end">
+                      <span className="flex items-center">
+                      <input
+                        type="checkbox"
+                        name="usessl"
+                        checked={form.usessl}
+                        onChange={handleChangeSMTP}
+                        id="use-ssl"
+                      />
+                      <label className="ml-5 !mb-[0] font-size-12 nowrap mr-10 font-[600]" htmlFor="use-ssl">
+                        Use SSL
+                      </label>
+                      </span>
+                      <button className="save-button button min-w-[150px]" type="submit">
+                        {editingId ? "Update" : "Add"}
+                      </button>
+                  </div>
+                </form>
+              </Modal>
           </div>
 
           {/* BCC Email Management Section */}
-          <h4 className="mt-4">BCC Email Management</h4>
+          <h2 className="!text-left">BCC Email Management</h2>
           <div className="bcc-email-section">
             {bccError && <div className="error-message">{bccError}</div>}
             <div className="bcc-add-form">
@@ -2426,7 +2517,6 @@ const handleDeleteBcc = async (id: number) => {
             </div>
           </div>
         </div>
-      </div>
     </div>
   </>
 )}
