@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 
 interface ContactsTableProps {
   contacts: any[];
@@ -26,6 +26,7 @@ interface ContactsTableProps {
   onAddContact?: () => void;
   hideSearch?: boolean;
   customHeader?: React.ReactNode;
+  onColumnsChange?: (columns: any[]) => void;
 }
 
 const ContactsTable: React.FC<ContactsTableProps> = ({
@@ -39,9 +40,13 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
   onBack,
   onAddContact,
   hideSearch = false,
-  customHeader
+  customHeader,
+  onColumnsChange
 }) => {
-  const colList = columns.filter(col =>
+  const [showColumnSettings, setShowColumnSettings] = useState(false);
+  const [localColumns, setLocalColumns] = useState(columns);
+
+  const colList = localColumns.filter(col =>
     showCheckboxes ? col.visible : (col.key !== "checkbox" && col.visible)
   );
 
@@ -64,6 +69,18 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
 
   const totalPages = Math.ceil(filteredContacts.length / pageSize);
 
+  const toggleColumnVisibility = (columnKey: string) => {
+    const updatedColumns = localColumns.map((col) =>
+      col.key === columnKey ? { ...col, visible: !col.visible } : col
+    );
+    setLocalColumns(updatedColumns);
+    if (onColumnsChange) {
+      onColumnsChange(updatedColumns);
+    }
+  };
+
+  
+
   return (
     <>
       {/* Detail View Header */}
@@ -81,15 +98,23 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
             {detailTitle && (
               <h2 style={{ margin: 0 }}>{detailTitle}</h2>
             )}
-            {onAddContact && (
-              <button 
-                className="button primary" 
-                onClick={onAddContact} 
-                style={{ marginLeft: 'auto' }}
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 12 }}>
+              <button
+                className="button secondary"
+                onClick={() => setShowColumnSettings(!showColumnSettings)}
+                style={{ position: 'relative' }}
               >
-                + Add Contact
+                ⚙️ Columns
               </button>
-            )}
+              {onAddContact && (
+                <button 
+                  className="button primary" 
+                  onClick={onAddContact}
+                >
+                  + Add Contact
+                </button>
+              )}
+            </div>
           </div>
           
           {detailDescription && (
@@ -98,6 +123,45 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
             </div>
           )}
         </>
+      )}
+
+      {/* Column Settings Dropdown */}
+      {showColumnSettings && (
+        <div style={{
+          position: 'absolute',
+          right: viewMode === 'detail' ? '120px' : '20px',
+          top: viewMode === 'detail' ? '60px' : '20px',
+          background: '#fff',
+          border: '1px solid #e0e0e0',
+          borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          padding: '12px',
+          minWidth: '200px',
+          zIndex: 1000
+        }}>
+          <h4 style={{ margin: '0 0 12px 0', fontSize: '14px' }}>Show/Hide Columns</h4>
+          {localColumns
+            .filter(col => col.key !== "checkbox")
+            .map(column => (
+              <label
+                key={column.key}
+                style={{
+                  display: 'block',
+                  padding: '8px 0',
+                  cursor: 'pointer',
+                  fontSize: '14px'
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={column.visible}
+                  onChange={() => toggleColumnVisibility(column.key)}
+                  style={{ marginRight: '8px' }}
+                />
+                {column.label}
+              </label>
+            ))}
+        </div>
       )}
 
       {/* Custom Header */}
@@ -123,6 +187,15 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
             <span style={{ color: '#186bf3' }}>
               {selectedContacts.size} selected
             </span>
+          )}
+          {viewMode === 'table' && (
+            <button
+              className="button secondary"
+              onClick={() => setShowColumnSettings(!showColumnSettings)}
+              style={{ marginLeft: 'auto' }}
+            >
+              ⚙️ Columns
+            </button>
           )}
         </div>
       )}

@@ -678,7 +678,7 @@ useEffect(() => {
         </>
       ) : (
         // Detail view using ContactsTable
-       <ContactsTable
+<ContactsTable
   contacts={detailContacts}
   columns={columns}
   isLoading={isLoadingDetail}
@@ -703,6 +703,7 @@ useEffect(() => {
     setSelectedDataFileForView(null);
   }}
   onAddContact={onAddContactClick}
+  onColumnsChange={setColumns}  // Add this line
   customHeader={
     detailSelectedContacts.size > 0 && (
       <div style={{ 

@@ -1,23 +1,13 @@
 import { useRef, useCallback, useState, useEffect } from "react";
 import Modal from "../common/Modal";
-import { Tooltip as ReactTooltip } from "react-tooltip";
 import singleprvIcon from "../../assets/images/SinglePrv.png";
 import singlenextIcon from "../../assets/images/SingleNext.png";
-import emailIcon from "../../assets/images/icons/email.png";
-import * as XLSX from "xlsx"; // Add this import
-import FileSaver from "file-saver"; // Correct import syntax
-
-import { stringify } from "ajv";
-import { useModel } from "../../ModelContext";
-import DatePicker from "react-datepicker";
 import moment from "moment-timezone";
-import "react-datepicker/dist/react-datepicker.css";
-import TimePicker from "react-time-picker";
 import axios from "axios";
 import "./Mail.css";
 import API_BASE_URL from "../../config";
 import { toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import ContactsTable from "./ContactsTable";
 
 import {
   LineChart,
@@ -29,7 +19,6 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
-import Time from "react-datepicker/dist/time";
 type MailTabType = "Dashboard" | "Configuration" | "Schedule";
 
 interface DailyStats {
@@ -38,22 +27,28 @@ interface DailyStats {
   opens: number;
   clicks: number;
 }
+
 interface EventItem {
   id: number;
+  contactId: number;
+  trackingId: string;
   email: string;
-  eventType: "Open" | "Click" | "Request";
+  eventType: string;
   timestamp: string;
   clientId: number;
-  targetUrl: string;
+  targetUrl: string | null;
   zohoViewName: string;
-
-  // ✅ Add these fields
-  full_Name: string;
+  dataFileId: number;
+  full_Name: string; // Note the capital N
+  location: string;
   company: string;
   jobTitle: string;
-  location: string;
   linkedin_URL: string;
   website: string;
+  userAgent?: string;
+  isBot?: boolean;
+  ipAddress?: string;
+  browser?: string;
 }
 
 interface ClientStats {
@@ -123,6 +118,31 @@ interface MailProps {
   onTabChange?: (tab: string) => void;
 }
 
+interface ColumnConfig {
+  key: string;
+  label: string;
+  visible: boolean;
+  width?: string;
+}
+
+interface EmailContact {
+  id: number;
+  contactId: number;
+  full_name: string;
+  email: string;
+  company: string;
+  jobTitle: string;
+  location: string;
+  linkedin_URL?: string;
+  website?: string;
+  timestamp: string;
+  eventType: 'Open' | 'Click';
+  targetUrl?: string;
+  hasOpened?: boolean;
+  hasClicked?: boolean;
+}
+
+
 interface OutputInterface {
   outputForm: {
     generatedContent: string;
@@ -190,22 +210,13 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   setCurrentPage,
 
   onClearExistingResponse,
-  isResetEnabled, // Receive the prop
-  zohoClient, // Add this to the destructured props
   selectedClient,
   initialTab = "Dashboard",
   onTabChange,
 }) => {
   const [isCopyText, setIsCopyText] = useState(false);
 
-  const formatOutput = (text: string) => {
-    return text
-      .replace(
-        /successfully generated/gi,
-        '<span style="color: green;">successfully generated</span>'
-      )
-      .replace(/error/gi, '<span style="color: red;">error</span>');
-  };
+ 
   const [openModals, setOpenModals] = useState<{ [key: string]: boolean }>({});
 
   const handleModalOpen = (id: string) => {
@@ -413,7 +424,6 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   };
   //End SMTP
 
-  const [isLoading, setIsLoading] = useState(false);
   //Schedule Tab js code
   const timezoneOptions = [
     { value: "GMT Standard Time", label: "Europe/London" },
@@ -427,14 +437,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
 
     // Add more Windows timezone IDs as needed
   ];
-  const emaildeliverOptions = [
-    { label: "Immediately", value: "0" },
-    { label: "In 1 hour", value: "1h" },
-    { label: "In 2 hours", value: "2h" },
-    { label: "In 24 hours", value: "24h" },
-    { label: "In 7 Days", value: "7d" },
-    { label: "In 30 Days", value: "30d" },
-  ];
+
 
   //Fetch Zoho View
   const [selectedZohoviewId1, setSelectedZohoviewId1] = useState<string>("");
@@ -1464,6 +1467,226 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     }
   };
 
+
+
+  // Add these interfaces at the top of your Mail component
+interface EmailContact {
+  id: number;
+  contactId: number; // Add this field
+  full_name: string;
+  email: string;
+  company: string;
+  jobTitle: string;
+  location: string;
+  linkedin_URL?: string;
+  website?: string;
+  timestamp: string;
+  eventType: 'Open' | 'Click';
+  targetUrl?: string;
+  hasOpened?: boolean;
+  hasClicked?: boolean;
+}
+
+const [detailViewMode, setDetailViewMode] = useState<'table' | 'detail'>('table');
+const [detailSelectedContacts, setDetailSelectedContacts] = useState<Set<string>>(new Set());
+const [showSaveSegmentModal, setShowSaveSegmentModal] = useState(false);
+const [segmentName, setSegmentName] = useState("");
+const [segmentDescription, setSegmentDescription] = useState("");
+const [savingSegment, setSavingSegment] = useState(false);
+const [emailFilterType, setEmailFilterType] = useState<'all' | 'opens' | 'clicks' | 'opens-no-clicks' | 'opens-and-clicks'>('all');
+const [detailSearchQuery, setDetailSearchQuery] = useState(""); // Add this line
+
+// Column configuration for email engagement data
+const [emailColumns, setEmailColumns] = useState<ColumnConfig[]>([
+  { key: "checkbox", label: "", visible: true, width: "40px" },
+  { key: "full_name", label: "Full Name", visible: true },
+  { key: "email", label: "Email Address", visible: true },
+  { key: "company", label: "Company", visible: true },
+  { key: "jobTitle", label: "Job Title", visible: true },
+  { key: "location", label: "Location", visible: true },
+  { key: "eventType", label: "Event Type", visible: true },
+  { key: "timestamp", label: "Timestamp", visible: true },
+  { key: "targetUrl", label: "Target URL", visible: false },
+  { key: "linkedin_URL", label: "LinkedIn", visible: false },
+  { key: "website", label: "Website", visible: false },
+  { key: "hasOpened", label: "Opened", visible: true },
+  { key: "hasClicked", label: "Clicked", visible: true },
+]);
+
+// Transform your event data to work with ContactsTable
+const transformEventDataForTable = (eventData: EventItem[]): EmailContact[] => {
+  // For showing all events, we'll create a unique entry for each event
+  const contacts: EmailContact[] = eventData
+    .filter(item => item.eventType === 'Open' || item.eventType === 'Click')
+    .map(item => ({
+      id: item.id,
+      contactId: item.contactId,
+      full_name: item.full_Name || '-', // Note: full_Name with capital N
+      email: item.email,
+      company: item.company || '-',
+      jobTitle: item.jobTitle || '-',
+      location: item.location || '-',
+      linkedin_URL: item.linkedin_URL,
+      website: item.website,
+      timestamp: item.timestamp,
+      eventType: item.eventType as 'Open' | 'Click',
+      targetUrl: item.targetUrl || undefined,
+      hasOpened: false, // Will be calculated separately
+      hasClicked: false // Will be calculated separately
+    }));
+
+  // Calculate hasOpened and hasClicked for each unique email
+  const emailStats = new Map<string, { hasOpened: boolean; hasClicked: boolean }>();
+  
+  eventData.forEach(item => {
+    const stats = emailStats.get(item.email) || { hasOpened: false, hasClicked: false };
+    if (item.eventType === 'Open') stats.hasOpened = true;
+    if (item.eventType === 'Click') stats.hasClicked = true;
+    emailStats.set(item.email, stats);
+  });
+
+  // Update contacts with the calculated stats
+  return contacts.map(contact => ({
+    ...contact,
+    hasOpened: emailStats.get(contact.email)?.hasOpened || false,
+    hasClicked: emailStats.get(contact.email)?.hasClicked || false
+  }));
+};
+
+
+// Filter function for email engagement
+const getFilteredEmailContacts = (): EmailContact[] => {
+  const transformedData = transformEventDataForTable(allEventData);
+  
+  switch (emailFilterType) {
+    case 'opens':
+      return transformedData.filter(c => c.eventType === 'Open');
+    case 'clicks':
+      return transformedData.filter(c => c.eventType === 'Click');
+    case 'opens-no-clicks':
+      // Get unique emails that have opened but not clicked
+      const emailsWithOpensOnly = new Set<string>();
+      const emailsWithClicks = new Set<string>();
+      
+      allEventData.forEach(item => {
+        if (item.eventType === 'Click') emailsWithClicks.add(item.email);
+        if (item.eventType === 'Open') emailsWithOpensOnly.add(item.email);
+      });
+      
+      const opensOnlyEmails = Array.from(emailsWithOpensOnly).filter(email => !emailsWithClicks.has(email));
+      return transformedData.filter(c => opensOnlyEmails.includes(c.email) && c.eventType === 'Open');
+      
+    case 'opens-and-clicks':
+      // Get unique emails that have both opened AND clicked
+      const emailsWithBoth = new Map<string, { hasOpened: boolean; hasClicked: boolean }>();
+      
+      allEventData.forEach(item => {
+        const stats = emailsWithBoth.get(item.email) || { hasOpened: false, hasClicked: false };
+        if (item.eventType === 'Open') stats.hasOpened = true;
+        if (item.eventType === 'Click') stats.hasClicked = true;
+        emailsWithBoth.set(item.email, stats);
+      });
+      
+      const bothEmails = Array.from(emailsWithBoth.entries())
+        .filter(([_, stats]) => stats.hasOpened && stats.hasClicked)
+        .map(([email]) => email);
+      
+      return transformedData.filter(c => bothEmails.includes(c.email));
+      
+    default:
+      return transformedData;
+  }
+};
+
+// Format date helper
+const formatEmailDate = (dateString?: string | null) => {
+  if (!dateString) return "-";
+  return formatMailTimestamp(dateString);
+};
+
+// Get contact value helper
+const getEmailContactValue = (contact: EmailContact, key: string): any => {
+  if (key === 'timestamp') {
+    return formatEmailDate(contact.timestamp);
+  }
+  if (key === 'hasOpened' || key === 'hasClicked') {
+    return contact[key] ? '✓' : '-';
+  }
+  if (key === 'full_name' && contact.contactId === 0) {
+    // Add visual indicator for contacts without valid IDs
+    return `${contact.full_name} ⚠️`;
+  }
+  return (contact as any)[key];
+};
+
+// Handle segment creation
+const handleSaveEmailSegment = async () => {
+  if (!segmentName || detailSelectedContacts.size === 0) return;
+  setSavingSegment(true);
+
+  const selectedContactIds = Array.from(detailSelectedContacts)
+    .map(id => {
+      const contact = getFilteredEmailContacts().find(c => c.id.toString() === id);
+      return contact?.contactId || 0;
+    })
+    .filter(contactId => contactId !== 0); // Filter out contacts with contactId: 0
+
+  if (selectedContactIds.length === 0) {
+    alert('No valid contacts selected. Contacts without proper IDs cannot be added to segments.');
+    setSavingSegment(false);
+    return;
+  }
+
+  const segmentData = {
+    name: segmentName,
+    description: segmentDescription,
+    dataFileId: Number(selectedView),
+    contactIds: selectedContactIds
+  };
+
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/Crm/Creat-Segments?ClientId=${effectiveUserId}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(segmentData)
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to save segment');
+    }
+    
+    const invalidContactsCount = detailSelectedContacts.size - selectedContactIds.length;
+    const message = invalidContactsCount > 0 
+      ? `Segment saved successfully! ${invalidContactsCount} contact(s) were excluded due to missing IDs.`
+      : 'Segment saved successfully!';
+    
+    alert(message);
+    setShowSaveSegmentModal(false);
+    setSegmentName("");
+    setSegmentDescription("");
+    setDetailSelectedContacts(new Set());
+  } catch (error) {
+    alert('Failed to save segment');
+  } finally {
+    setSavingSegment(false);
+  }
+};
+
+// Update the custom header to show warning if invalid contacts are selected
+const getInvalidContactsCount = (): number => {
+  return Array.from(detailSelectedContacts).filter(id => {
+    const contact = getFilteredEmailContacts().find(c => c.id.toString() === id);
+    return contact?.contactId === 0;
+  }).length;
+};
+
+
+
   return (
     <div className="login-box gap-down">
       {tab === "Dashboard" && (
@@ -1628,122 +1851,165 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
           )}
 
           {dashboardTab === "Details" && (
-            <>
-              <div className="event-buttons">
-                <button
-                  onClick={() => handleFilterEvents("Open")}
-                  className={`btn-open ${
-                    filteredEventType === "Open" ? "active" : ""
-                  }`}
-                >
-                  Show Opens
-                </button>
-                <button
-                  onClick={() => handleFilterEvents("Click")}
-                  className={`btn-click ${
-                    filteredEventType === "Click" ? "active" : ""
-                  }`}
-                >
-                  Show Clicks
-                </button>
-                <button
-                  onClick={handleRefresh}
-                  className="btn-refresh"
-                  disabled={isRefreshing}
-                >
-                  {isRefreshing ? "Refreshing..." : "Refresh"}
-                </button>
-              </div>
+  <>
+    <div className="event-buttons" style={{ marginBottom: 16 }}>
+      <button
+        onClick={() => setEmailFilterType('all')}
+        className={`btn-filter ${emailFilterType === 'all' ? 'active' : ''}`}
+      >
+        All Events
+      </button>
+      <button
+        onClick={() => setEmailFilterType('opens')}
+        className={`btn-open ${emailFilterType === 'opens' ? 'active' : ''}`}
+      >
+        Opens Only
+      </button>
+      <button
+        onClick={() => setEmailFilterType('clicks')}
+        className={`btn-click ${emailFilterType === 'clicks' ? 'active' : ''}`}
+      >
+        Clicks Only
+      </button>
+      <button
+        onClick={() => setEmailFilterType('opens-no-clicks')}
+        className={`btn-filter ${emailFilterType === 'opens-no-clicks' ? 'active' : ''}`}
+        style={{ background: emailFilterType === 'opens-no-clicks' ? '#ff9800' : undefined }}
+      >
+        Opened but Not Clicked
+      </button>
+      <button
+        onClick={handleRefresh}
+        className="btn-refresh"
+        disabled={isRefreshing}
+        style={{ marginLeft: 'auto' }}
+      >
+        {isRefreshing ? "Refreshing..." : "Refresh"}
+      </button>
+    </div>
 
-              {filteredEventType && (
-                <div className="events-container">
-                  <h3>{filteredEventType} Events</h3>
-                  <div style={{ overflowX: "auto" }}>
-                    <table className="events-table">
-                      <thead>
-                        <tr>
-                          <th>Full Name</th>
-                          <th>Email</th>
-                          <th>Company</th>
-                          <th>Job Title</th>
-                          <th>Location</th>
-                          <th>Timestamp</th>
-                          {filteredEventType === "Click" && <th>Target URL</th>}
-                          <th>LinkedIn</th>
-                          <th>Website</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredEventData.length > 0 ? (
-                          filteredEventData.map((item, index) => (
-                            <tr key={item.id}>
-                              <td>{item.full_Name || item.full_Name || "-"}</td>
-                              <td>{item.email || "-"}</td>
-                              <td>{item.company || "-"}</td>
-                              <td>{item.jobTitle || "-"}</td>
-                              <td>{item.location || "-"}</td>
-                              <td>{formatMailTimestamp(item.timestamp)}</td>
-                              {filteredEventType === "Click" && (
-                                <td>
-                                  {item.targetUrl ? (
-                                    <a
-                                      href={item.targetUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                    >
-                                      {item.targetUrl.length > 50
-                                        ? item.targetUrl.substring(0, 50) +
-                                          "..."
-                                        : item.targetUrl}
-                                    </a>
-                                  ) : (
-                                    "-"
-                                  )}
-                                </td>
-                              )}
-                              <td>
-                                {item.linkedin_URL ? (
-                                  <a
-                                    href={item.linkedin_URL}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="linkedin"
-                                  >
-                                    LinkedIn
-                                  </a>
-                                ) : (
-                                  "-"
-                                )}
-                              </td>
-                              <td>
-                                {item.website ? (
-                                  <a
-                                    href={item.website}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                  >
-                                    Website
-                                  </a>
-                                ) : (
-                                  "-"
-                                )}
-                              </td>
-                            </tr>
-                          ))
-                        ) : (
-                          <tr className="empty-row">
-                            <td colSpan={filteredEventType === "Click" ? 9 : 8}>
-                              No {filteredEventType?.toLowerCase()} events found
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
+    <ContactsTable
+  contacts={getFilteredEmailContacts()}
+  columns={emailColumns}
+  isLoading={isRefreshing || loading}
+  search={detailSearchQuery} // Changed from searchQuery
+  setSearch={setDetailSearchQuery} // Changed from setSearchQuery
+  showCheckboxes={true}
+  paginated={true}
+  currentPage={currentPage}
+  pageSize={20}
+  onPageChange={setCurrentPage}
+  onSelectAll={() => {
+    const currentPageContacts = getFilteredEmailContacts().slice(
+      (currentPage - 1) * 20,
+      currentPage * 20
+    );
+    if (detailSelectedContacts.size === currentPageContacts.length && currentPageContacts.length > 0) {
+      setDetailSelectedContacts(new Set());
+    } else {
+      setDetailSelectedContacts(new Set(currentPageContacts.map(c => c.id.toString())));
+    }
+  }}
+  selectedContacts={detailSelectedContacts}
+  onSelectContact={(id: string) => { // Added type annotation
+    const newSelection = new Set(detailSelectedContacts);
+    if (newSelection.has(id)) {
+      newSelection.delete(id);
+    } else {
+      newSelection.add(id);
+    }
+    setDetailSelectedContacts(newSelection);
+  }}
+  formatDate={formatEmailDate}
+  getContactValue={getEmailContactValue}
+  totalContacts={getFilteredEmailContacts().length}
+  viewMode="table"
+  onColumnsChange={setEmailColumns}
+  customHeader={
+  detailSelectedContacts.size > 0 && (
+    <div style={{ 
+      marginBottom: 16, 
+      padding: '12px 16px', 
+      background: '#f0f7ff', 
+      borderRadius: 6,
+      display: 'flex',
+      alignItems: 'center',
+      gap: 16
+    }}>
+      <span style={{ fontWeight: 500 }}>
+        {detailSelectedContacts.size} contact{detailSelectedContacts.size > 1 ? 's' : ''} selected
+        {getInvalidContactsCount() > 0 && (
+          <span style={{ color: '#ff9800', marginLeft: 8 }}>
+            ({getInvalidContactsCount()} without valid ID)
+          </span>
+        )}
+      </span>
+      <button 
+        className="button primary"
+        onClick={() => setShowSaveSegmentModal(true)}
+        style={{ marginLeft: 'auto' }}
+      >
+        Create Segment
+      </button>
+    </div>
+  )
+}
+/>
+
+    {/* Segment Save Modal */}
+    {showSaveSegmentModal && (
+      <div style={{
+        position: "fixed",
+        zIndex: 99999,
+        inset: 0,
+        background: "rgba(0,0,0,0.6)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center"
+      }}>
+        <div style={{
+          background: "#fff",
+          padding: 40,
+          borderRadius: 12,
+          minWidth: 340,
+          boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+        }}>
+          <h2 style={{marginTop: 0}}>Save as Segment</h2>
+          <p style={{marginBottom: 16, color: '#666'}}>
+            Creating segment with {detailSelectedContacts.size} selected contact{detailSelectedContacts.size > 1 ? 's' : ''}
+          </p>
+          <input
+            type="text"
+            placeholder="Segment Name"
+            value={segmentName}
+            onChange={e => setSegmentName(e.target.value)}
+            autoFocus
+            style={{width: "100%", marginBottom: 10}}
+          />
+          <textarea
+            placeholder="Description (optional)"
+            value={segmentDescription}
+            onChange={e => setSegmentDescription(e.target.value)}
+            style={{marginTop: 10, width: "100%", minHeight: 80}}
+            rows={3}
+          />
+          <div style={{marginTop: 18, display:'flex', gap:8, justifyContent:'flex-end'}}>
+            <button onClick={() => setShowSaveSegmentModal(false)} className="button secondary">
+              Cancel
+            </button>
+            <button 
+              onClick={handleSaveEmailSegment} 
+              className="button primary" 
+              disabled={!segmentName || savingSegment || detailSelectedContacts.size === 0}
+            >
+              {savingSegment ? "Saving..." : "Save Segment"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+  </>
+)}
         </>
       )}
 
