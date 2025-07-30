@@ -760,6 +760,10 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
                     <strong>Company website: </strong>
                     <br /> {"{website}"}
                   </li>
+                  <li className="mb-5 mb-10-640">
+                    <strong>Current date </strong>
+                    <br /> {"{date}"}
+                  </li>
                 </ul>
               </div>
             </div>

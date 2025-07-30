@@ -1103,7 +1103,7 @@ const MainPage: React.FC = () => {
           setIsPaused(true);
           return;
         }
-
+        
         // Map new API fields to existing variables
         const company_name_friendly = entry.company_name || entry.company;
         const full_name = entry.full_name || entry.name;
