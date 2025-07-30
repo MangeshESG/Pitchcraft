@@ -1114,11 +1114,25 @@ const MainPage: React.FC = () => {
         const company_name = entry.company_name || entry.company;
         const emailbody = entry.email_body || entry.pitch;
         const id = entry.id;
+          // --- Get current date in readable format ---
+        const currentDate = new Date().toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+
 
         // --- Generate new pitch as per your normal contact process ---
         const searchTermBody = searchterm
           .replace("{company_name}", company_name)
-          .replace("{website}", website);
+          .replace("{job_title}", job_title)
+          .replace("{location}", location)
+          .replace("{full_name}", full_name)
+          .replace("{linkedin_url}", linkedin_url)
+          .replace("{linkedin_url}", company_name_friendly)
+          .replace("{website}", website)
+          .replace("{date}", currentDate);  
+
 
         const filledInstructions = instructionsParamA
           .replace("{company_name}", company_name)
@@ -1206,7 +1220,9 @@ const MainPage: React.FC = () => {
           .replace("{full_name}", full_name)
           .replace("{linkedin_url}", company_name_friendly)
           .replace("{linkedin_url}", linkedin_url)
-          .replace("{website}", website);
+          .replace("{website}", website)
+          .replace("{date}", currentDate);  
+
 
         const promptToSend = `\n${systemPrompt}\n${replacedPromptText}`;
 
@@ -1227,7 +1243,9 @@ const MainPage: React.FC = () => {
             .replace("{linkedin_url}", linkedin_url)
             .replace("{linkedin_url}", company_name_friendly)
             .replace("{search_output_summary}", scrappedData)
-            .replace("{website}", website),
+            .replace("{website}", website)
+            .replace("{date}", currentDate),
+
           ModelName: selectedModelNameA,
         };
 
@@ -1279,7 +1297,9 @@ const MainPage: React.FC = () => {
             .replace("{linkedin_url}", linkedin_url)
             .replace("{search_output_summary}", scrappedData)
             .replace("{generated_pitch}", pitchData.response.content)
-            .replace("{website}", website);
+            .replace("{website}", website)
+            .replace("{date}", currentDate);  
+
 
           const subjectRequestBody = {
             scrappedData: filledSubjectInstruction,
@@ -1339,7 +1359,9 @@ const MainPage: React.FC = () => {
             .replace("{linkedin_url}", linkedin_url)
             .replace("{search_output_summary}", scrappedData)
             .replace("{generated_pitch}", pitchData.response?.content || "")
-            .replace("{website}", website);
+            .replace("{website}", website)
+            .replace("{date}", currentDate);  
+
           setOutputForm((prev) => ({
             ...prev,
             generatedContent:
@@ -1482,6 +1504,12 @@ const MainPage: React.FC = () => {
       let moreRecords = true;
       let currentIndex = 0;
       let shouldReplaceFromIndex = false;
+
+      const currentDate = new Date().toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
 
       if (
         options?.startFromIndex !== undefined &&
@@ -1688,7 +1716,14 @@ const MainPage: React.FC = () => {
           // Step 1: Scrape Website with caching
           const searchTermBody = searchterm
             .replace("{company_name}", company_name)
-            .replace("{website}", website);
+            .replace("{job_title}", job_title)
+            .replace("{location}", location)
+            .replace("{full_name}", full_name)
+            .replace("{linkedin_url}", linkedin_url)
+            .replace("{linkedin_url}", company_name_friendly)
+            .replace("{website}", website)
+            .replace("{date}", currentDate);  
+
           const filledInstructions = instructionsParamA
             .replace("{company_name}", company_name)
             .replace("{job_title}", job_title)
@@ -1696,7 +1731,9 @@ const MainPage: React.FC = () => {
             .replace("{full_name}", full_name)
             .replace("{linkedin_url}", linkedin_url)
             .replace("{linkedin_url}", company_name_friendly)
-            .replace("{website}", website);
+            .replace("{website}", website)
+            .replace("{date}", currentDate);  
+
 
           const cacheKey = JSON.stringify({
             searchTerm: searchTermBody,
@@ -1820,7 +1857,9 @@ const MainPage: React.FC = () => {
             .replace("{full_name}", full_name)
             .replace("{linkedin_url}", company_name_friendly)
             .replace("{linkedin_url}", linkedin_url)
-            .replace("{website}", website);
+            .replace("{website}", website)
+            .replace("{date}", currentDate);  
+
 
           const promptToSend = `
           
@@ -1834,7 +1873,9 @@ const MainPage: React.FC = () => {
             .replace("{full_name}", full_name)
             .replace("{linkedin_url}", company_name_friendly)
             .replace("{linkedin_url}", linkedin_url)
-            .replace("{website}", website);
+            .replace("{website}", website)
+            .replace("{date}", currentDate);  
+
 
           setOutputForm((prevState) => ({
             ...prevState,
@@ -1873,7 +1914,8 @@ const MainPage: React.FC = () => {
               .replace("{linkedin_url}", linkedin_url)
               .replace("{linkedin_url}", company_name_friendly)
               .replace("{search_output_summary}", scrappedData)
-              .replace("{website}", website),
+              .replace("{website}", website)
+              .replace("{date}", currentDate),
             ModelName: selectedModelNameA,
           };
 
@@ -1970,7 +2012,9 @@ const MainPage: React.FC = () => {
               .replace("{linkedin_url}", linkedin_url)
               .replace("{search_output_summary}", scrappedData)
               .replace("{generated_pitch}", pitchData.response.content)
-              .replace("{website}", website);
+              .replace("{website}", website)
+              .replace("{date}", currentDate); 
+
 
             const subjectRequestBody = {
               scrappedData: filledSubjectInstruction,
@@ -2031,7 +2075,8 @@ const MainPage: React.FC = () => {
               .replace("{linkedin_url}", linkedin_url)
               .replace("{search_output_summary}", scrappedData)
               .replace("{generated_pitch}", pitchData.response?.content || "")
-              .replace("{website}", website);
+              .replace("{website}", website)
+              .replace("{date}", currentDate); 
 
             setOutputForm((prev) => ({
               ...prev,
