@@ -2967,15 +2967,15 @@ const MainPage: React.FC = () => {
       {isSidebarOpen && (
         <aside className={`bg-white border-r shadow-sm flex flex-col transition-all duration-300`}>
           <div className="p-2 text-xl font-bold border-b">
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-start">
                <img
                   src={'https://www.pitchkraft.ai/images/pitch_logo.png'} 
                   alt="Pitchcraft Logo" 
-                  style={{ height: "60px" }}
+                  style={{ height: "85px" }}
                 />
               <button
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                className="w-[40px] h-[40px] flex items-center justify-center rounded-md bg-gray-200 hover:bg-gray-300"
+                className="w-[40px] h-[40px] flex items-center justify-center rounded-md bg-gray-200 hover:bg-gray-300 mt-[10px]"
               >
                 <FontAwesomeIcon icon={faBars} className=" text-[#333333] text-2xl" />
               </button>

@@ -388,6 +388,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   const handleEdit = (item: any) => {
     setForm(item);
     setEditingId(item.id);
+    handleModalOpen("modal-edit-link-mailbox")
   };
 
   // Delete Handler (Assuming you create this API in backend)
@@ -1747,231 +1748,312 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       )}
 
       {tab === "Configuration" && (
-        <>
-          <div className="tabs secondary d-flex align-center">
-            <div className="input-section edit-section">
-              <div className="table-container mt-0">
-                <h4 className="mt-0">
-                  {editingId ? "Edit Link mailbox" : "Link mailbox"}
-                </h4>
+  <>
+    <div className="tabs secondary d-flex align-center">
+      <div className="input-section edit-section w-full">
+
+        {/* Inline edit Link mailbox form */}
+          {/* <h4 className="mt-0">
+            {editingId ? "Edit Link mailbox" : "Link mailbox"}
+          </h4>
+          <form onSubmit={handleSubmitSMTP}>
+            <div className="row flex-col-640">
+              <div className="col col-12-640">
+                <div className="form-group">
+                  <label>Host</label>
+                  <input
+                    name="server"
+                    placeholder="Host"
+                    value={form.server}
+                    onChange={handleChangeSMTP}
+                    required
+                  />
+                  <br />
+                </div>
+              </div>
+              <div className="col col-12-640">
+                <div className="form-group">
+                  <label>Port</label>
+                  <input
+                    name="port"
+                    type="number"
+                    placeholder="Port"
+                    value={form.port}
+                    onChange={handleChangeSMTP}
+                    required
+                  />
+                  <br />
+                </div>
+              </div>
+              <div className="col col-12-640">
+                <div className="form-group">
+                  <label>Username</label>
+                  <input
+                    name="username"
+                    placeholder="Username"
+                    value={form.username}
+                    onChange={handleChangeSMTP}
+                    required
+                  />
+                  <br />
+                </div>
+              </div>
+              <div className="col col-12-640">
+                <div className="form-group">
+                  <label>Password</label>
+                  <input
+                    name="password"
+                    type="password"
+                    placeholder="Password"
+                    value={form.password}
+                    onChange={handleChangeSMTP}
+                    required
+                  />
+                  <br />
+                </div>
+              </div>
+              <div className="col col-12-640">
+                <div className="form-group">
+                  <label>From email</label>
+                  <input
+                    name="fromEmail"
+                    placeholder="From email"
+                    value={form.fromEmail}
+                    onChange={handleChangeSMTP}
+                    required
+                  />
+                  <br />
+                </div>
+              </div>
+            </div>
+            <div className="d-flex justify-end">
+              <div className="form-group d-flex align-center justify-end">
+                <input
+                  type="checkbox"
+                  name="usessl"
+                  checked={form.usessl}
+                  onChange={handleChangeSMTP}
+                />
+                <span className="ml-5 font-size-12 nowrap mr-10">
+                  Use SSL
+                </span>
+                <button className="save-button button full" type="submit">
+                  {editingId ? "Update" : "Add"}
+                </button>
+              </div>
+            </div>
+          </form> */}
+
+          <h2 className="!text-left">Mailboxes</h2>
+          <div className="table-container mb-[30px]">
+            <table
+              className="responsive-table"
+              style={{ border: "1" }}
+              cellPadding="10"
+              width="100%"
+            >
+              <thead>
+                <tr>
+                  <th>Server</th>
+                  <th>Port</th>
+                  <th>Username</th>
+                  <th>From email address</th>
+                  <th>SSL</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {smtpList.map((item, index) => (
+                  <tr key={item.id || index}>
+                    <td>{item.server}</td>
+                    <td>{item.port}</td>
+                    <td>{item.username}</td>
+                    <td>{item.fromEmail}</td>
+                    <td>{item.usessl ? "False" : "True"}</td>
+                    <td>
+                      <button
+                        className="save-button button small"
+                        onClick={() => handleEdit(item)}
+                      >
+                        Edit
+                      </button>{" "}
+                      <button
+                        className="save-button button small"
+                        onClick={() => handleDelete(item.id)}
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {smtpList.length === 0 && (
+                  <tr>
+                    <td colSpan={6}>No records found.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+             {/* Add Prompt Modal */}
+              <Modal
+                show={openModals["modal-edit-link-mailbox"]}
+                closeModal={() =>
+                  handleModalClose("modal-edit-link-mailbox")
+                }
+                buttonLabel="Close"
+                size="!w-[500px] !h-[auto]"
+              >
                 <form onSubmit={handleSubmitSMTP}>
-                  <div className="row flex-col-640">
-                    <div className="col col-12-640">
-                      <div className="form-group">
-                        <label>Host</label>
-                        <input
-                          name="server"
-                          placeholder="Host"
-                          value={form.server}
-                          onChange={handleChangeSMTP}
-                          required
-                        />
-                        <br />
-                      </div>
+                  <h2 className="!text-left">Edit link mailbox</h2>
+                  <div className="flex gap-4">
+                    <div className="form-group flex-1">
+                      <label>Host</label>
+                      <input
+                        name="server"
+                        placeholder="Host"
+                        value={form.server}
+                        onChange={handleChangeSMTP}
+                        required
+                      />
                     </div>
-                    <div className="col col-12-640">
-                      <div className="form-group">
-                        <label>Port</label>
-                        <input
-                          name="port"
-                          type="number"
-                          placeholder="Port"
-                          value={form.port}
-                          onChange={handleChangeSMTP}
-                          required
-                        />
-                        <br />
-                      </div>
+                    <div className="form-group flex-1">
+                      <label>Port</label>
+                      <input
+                        name="port"
+                        type="number"
+                        placeholder="Port"
+                        value={form.port}
+                        onChange={handleChangeSMTP}
+                        required
+                      />
                     </div>
-                    <div className="col col-12-640">
-                      <div className="form-group">
-                        <label>Username</label>
-                        <input
-                          name="username"
-                          placeholder="Username"
-                          value={form.username}
-                          onChange={handleChangeSMTP}
-                          required
-                        />
-                        <br />
-                      </div>
+                  </div>
+                  <div className="flex gap-4">
+                    <div className="form-group flex-1">
+                      <label>Username</label>
+                      <input
+                        name="username"
+                        placeholder="Username"
+                        value={form.username}
+                        onChange={handleChangeSMTP}
+                        required
+                      />
                     </div>
-                    <div className="col col-12-640">
-                      <div className="form-group">
-                        <label>Password</label>
-                        <input
-                          name="password"
-                          type="password"
-                          placeholder="Password"
-                          value={form.password}
-                          onChange={handleChangeSMTP}
-                          required
-                        />
-                        <br />
-                      </div>
+                    <div className="form-group flex-1">
+                      <label>Password</label>
+                      <input
+                        name="password"
+                        type="password"
+                        placeholder="Password"
+                        value={form.password}
+                        onChange={handleChangeSMTP}
+                        required
+                      />
+
                     </div>
-                    <div className="col col-12-640">
-                      <div className="form-group">
-                        <label>From email</label>
-                        <input
-                          name="fromEmail"
-                          placeholder="From email"
-                          value={form.fromEmail}
-                          onChange={handleChangeSMTP}
-                          required
-                        />
-                        <br />
-                      </div>
+                  </div>
+                  <div className="flex">
+                    <div className="form-group  flex-1">
+                      <label>From email</label>
+                      <input
+                        name="fromEmail"
+                        placeholder="From email"
+                        value={form.fromEmail}
+                        onChange={handleChangeSMTP}
+                        required
+                      />
                     </div>
                   </div>
                   <div className="d-flex justify-end">
-                    <div className="form-group d-flex align-center justify-end">
+                      <span className="flex items-center">
                       <input
                         type="checkbox"
                         name="usessl"
                         checked={form.usessl}
                         onChange={handleChangeSMTP}
+                        id="use-ssl"
                       />
-                      <span className="ml-5 font-size-12 nowrap mr-10">
+                      <label className="ml-5 !mb-[0] font-size-12 nowrap mr-10 font-[600]" htmlFor="use-ssl">
                         Use SSL
+                      </label>
                       </span>
-                      <button className="save-button button full" type="submit">
+                      <button className="save-button button min-w-[150px]" type="submit">
                         {editingId ? "Update" : "Add"}
                       </button>
-                    </div>
                   </div>
                 </form>
+              </Modal>
+          </div>
 
-                <h4 className="">Mailboxes</h4>
-                <div className="table-container">
-                  <table
-                    className="responsive-table"
-                    style={{ border: "1" }}
-                    cellPadding="10"
-                    width="100%"
+          {/* BCC Email Management Section */}
+          <h2 className="!text-left">BCC Email Management</h2>
+          <div className="bcc-email-section">
+            {bccError && <div className="error-message">{bccError}</div>}
+            <div className="bcc-add-form">
+              <div className="row align-center">
+                <div className="col col-8 col-12-640">
+                  <div className="form-group mb-0">
+                    <input
+                      type="email"
+                      placeholder="Add BCC Email"
+                      value={newBccEmail}
+                      onChange={(e) => setNewBccEmail(e.target.value)}
+                      disabled={bccLoading}
+                      className="form-control"
+                    />
+                  </div>
+                </div>
+                <div className="col col-4 col-12-640">
+                  <button
+                    className="save-button button small full"
+                    onClick={handleAddBcc}
+                    disabled={bccLoading || !newBccEmail}
                   >
+                    {bccLoading ? "Adding..." : "Add BCC"}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="bcc-list mt-3">
+              {bccLoading ? (
+                <div className="loading-message">Loading BCC emails...</div>
+              ) : bccEmails.length === 0 ? (
+                <div className="empty-message">No BCC emails configured.</div>
+              ) : (
+                <div className="table-container">
+                  <table className="responsive-table" cellPadding="10" width="100%">
                     <thead>
                       <tr>
-                        <th>Server</th>
-                        <th>Port</th>
-                        <th>Username</th>
-                        <th>From email address</th>
-                        <th>SSL</th>
+                        <th>BCC Email Address</th>
                         <th>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {smtpList.map((item, index) => (
-                        <tr key={item.id || index}>
-                          <td>{item.server}</td>
-                          <td>{item.port}</td>
-                          <td>{item.username}</td>
-                          <td>{item.fromEmail}</td>
-                          <td>{item.usessl ? "False" : "True"}</td>
+                      {bccEmails.map((email) => (
+                        <tr key={email.id}>
+                          <td>{email.bccEmailAddress}</td>
                           <td>
                             <button
-                              className="save-button button small"
-                              onClick={() => handleEdit(item)}
-                            >
-                              Edit
-                            </button>{" "}
-                            <button
-                              className="save-button button small"
-                              onClick={() => handleDelete(item.id)}
+                              className="secondary button small"
+                              onClick={() => handleDeleteBcc(email.id)}
+                              disabled={bccLoading}
+                              title="Delete this BCC address"
                             >
                               Delete
                             </button>
                           </td>
                         </tr>
                       ))}
-                      {smtpList.length === 0 && (
-                        <tr>
-                          <td>No records found.</td>
-                        </tr>
-                      )}
                     </tbody>
                   </table>
                 </div>
-
-                {/* BCC Email Management Section */}
-                <h4 className="mt-4">BCC Email Management</h4>
-                <div className="bcc-email-section">
-                  {bccError && <div className="error-message">{bccError}</div>}
-                  <div className="bcc-add-form">
-                    <div className="row align-center">
-                      <div className="col col-8 col-12-640">
-                        <div className="form-group mb-0">
-                          <input
-                            type="email"
-                            placeholder="Add BCC Email"
-                            value={newBccEmail}
-                            onChange={(e) => setNewBccEmail(e.target.value)}
-                            disabled={bccLoading}
-                            className="form-control"
-                          />
-                        </div>
-                      </div>
-                      <div className="col col-4 col-12-640">
-                        <button
-                          className="save-button button small full"
-                          onClick={handleAddBcc}
-                          disabled={bccLoading || !newBccEmail}
-                        >
-                          {bccLoading ? "Adding..." : "Add BCC"}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="bcc-list mt-3">
-                    {bccLoading ? (
-                      <div className="loading-message">
-                        Loading BCC emails...
-                      </div>
-                    ) : bccEmails.length === 0 ? (
-                      <div className="empty-message">
-                        No BCC emails configured.
-                      </div>
-                    ) : (
-                      <div className="table-container">
-                        <table
-                          className="responsive-table"
-                          cellPadding="10"
-                          width="100%"
-                        >
-                          <thead>
-                            <tr>
-                              <th>BCC Email Address</th>
-                              <th>Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {bccEmails.map((email) => (
-                              <tr key={email.id}>
-                                <td>{email.bccEmailAddress}</td>
-                                <td>
-                                  <button
-                                    className="secondary button small"
-                                    onClick={() => handleDeleteBcc(email.id)}
-                                    disabled={bccLoading}
-                                    title="Delete this BCC address"
-                                  >
-                                    Delete
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
           </div>
-        </>
-      )}
+        </div>
+    </div>
+  </>
+)}
       {tab === "Schedule" && (
         <div className="tabs secondary d-flex align-center">
           <div className="input-section edit-section">
