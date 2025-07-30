@@ -2366,7 +2366,7 @@ const handleDeleteBcc = async (id: number) => {
                   handleModalClose("modal-edit-link-mailbox")
                 }
                 buttonLabel="Close"
-                size="!w-[500px]"
+                size="!w-[500px] !h-[auto]"
               >
                 <form onSubmit={handleSubmitSMTP}>
                   <h2 className="!text-left">Edit link mailbox</h2>
