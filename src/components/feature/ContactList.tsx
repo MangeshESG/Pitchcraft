@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from "react";
-import DataFile from "./datafile";
 import API_BASE_URL from "../../config";
-import "./DataCampaigns.css";
+import "./ContactList.css";
 import ContactsTable from "./ContactsTable"; 
-import ContactsOfDataFileModal from "./ContactsOfDataFileModal";
 
 const menuBtnStyle = {
   display: 'block',
@@ -542,6 +540,205 @@ useEffect(() => {
   }
 }, [segmentViewMode, selectedSegmentForView?.id]);
 
+const [renamingListDescription, setRenamingListDescription] = useState('');
+
+// Add this function at the top of your component or in a separate API file
+const renameDataFile = async (
+  id: number, 
+  newName: string, 
+  description: string,
+  dataFileName: string = ''
+): Promise<string> => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/Crm/update-datafile?id=${id}&name=${encodeURIComponent(newName)}&description=${encodeURIComponent(description)}&dataFileName=${encodeURIComponent(dataFileName)}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('API Error Response:', errorText);
+      throw new Error(`Failed to rename list: ${response.status} ${response.statusText}`);
+    }
+
+    // Always parse as text since API returns plain text
+    const result = await response.text();
+    return result;
+  } catch (error) {
+    console.error('Error renaming list:', error);
+    throw error;
+  }
+};
+
+// Add this state at the top with your other states
+const [isRenamingList, setIsRenamingList] = useState(false);
+
+// Add this function
+const handleRenameList = async () => {
+  if (!editingList || !renamingListName.trim() || !renamingListDescription.trim()) return;
+  
+  setIsRenamingList(true);
+  try {
+    await renameDataFile(
+      editingList.id, 
+      renamingListName.trim(),
+      renamingListDescription.trim(), // Use the description from the form
+      editingList.data_file_name || ''
+    );
+    
+    // Update the list in local state
+    setDataFiles(prev => prev.map(file => 
+      file.id === editingList.id 
+        ? { 
+            ...file, 
+            name: renamingListName.trim(),
+            description: renamingListDescription.trim()
+          }
+        : file
+    ));
+    
+    // Close modal and reset states
+    setEditingList(null);
+    setRenamingListName('');
+    setRenamingListDescription('');
+    
+    // Show success message
+    alert('List renamed successfully!');
+    
+  } catch (error) {
+    console.error('Failed to rename list:', error);
+    alert('Failed to rename list. Please try again.');
+  } finally {
+    setIsRenamingList(false);
+  }
+};
+
+
+// Add these segment-specific states
+const [renamingSegmentDescription, setRenamingSegmentDescription] = useState('');
+const [isRenamingSegment, setIsRenamingSegment] = useState(false);
+
+// Add these API functions
+const renameSegment = async (
+  id: number, 
+  newName: string, 
+  description: string
+): Promise<string> => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/Crm/update-segment?id=${id}&name=${encodeURIComponent(newName)}&description=${encodeURIComponent(description)}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('API Error Response:', errorText);
+      throw new Error(`Failed to rename segment: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.text();
+    return result;
+  } catch (error) {
+    console.error('Error renaming segment:', error);
+    throw error;
+  }
+};
+
+const deleteSegment = async (segmentId: number): Promise<string> => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/Crm/delete-segment?segmentId=${segmentId}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('API Error Response:', errorText);
+      throw new Error(`Failed to delete segment: ${response.status} ${response.statusText}`);
+    }
+
+    const result = await response.text();
+    return result;
+  } catch (error) {
+    console.error('Error deleting segment:', error);
+    throw error;
+  }
+};
+
+// Add these handler functions
+const handleRenameSegment = async () => {
+  if (!editingSegment || !renamingSegmentName.trim() || !renamingSegmentDescription.trim()) return;
+  
+  setIsRenamingSegment(true);
+  try {
+    await renameSegment(
+      editingSegment.id, 
+      renamingSegmentName.trim(),
+      renamingSegmentDescription.trim()
+    );
+    
+    // Update the segment in local state
+    setSegments(prev => prev.map(segment => 
+      segment.id === editingSegment.id 
+        ? { 
+            ...segment, 
+            name: renamingSegmentName.trim(),
+            description: renamingSegmentDescription.trim()
+          }
+        : segment
+    ));
+    
+    // Close modal and reset states
+    setEditingSegment(null);
+    setRenamingSegmentName('');
+    setRenamingSegmentDescription('');
+    
+    // Show success message
+    alert('Segment renamed successfully!');
+    
+  } catch (error) {
+    console.error('Failed to rename segment:', error);
+    alert('Failed to rename segment. Please try again.');
+  } finally {
+    setIsRenamingSegment(false);
+  }
+};
+
+const handleDeleteSegment = async (segment: any) => {
+  try {
+    setIsLoadingSegments(true);
+    await deleteSegment(segment.id);
+    
+    // Remove segment from local state
+    setSegments(prev => prev.filter(s => s.id !== segment.id));
+    
+    alert('Segment deleted successfully!');
+    
+  } catch (error) {
+    console.error('Failed to delete segment:', error);
+    alert('Failed to delete segment. Please try again.');
+  } finally {
+    setIsLoadingSegments(false);
+    setEditingSegment(null);
+    setShowConfirmSegmentDelete(false);
+  }
+};
+
   return (
     <div className="data-campaigns-container">
       {/* Sub-tabs Navigation */}
@@ -650,11 +847,12 @@ useEffect(() => {
                         borderRadius:6, boxShadow:"0 2px 16px rgba(0,0,0,0.12)",
                         zIndex:101, minWidth: 160
                       }}>
-                        <button onClick={() => {
-                          setEditingList(file);
-                          setRenamingListName(file.name);
-                          setListActionsAnchor(null);
-                        }} style={menuBtnStyle}>✏️ Rename</button>
+<button onClick={() => {
+  setEditingList(file);
+  setRenamingListName(file.name);
+  setRenamingListDescription(file.description || ''); // Populate existing description
+  setListActionsAnchor(null);
+}} style={menuBtnStyle}>✏️ Rename</button>
                         <button onClick={() => {
                           setSelectedDataFileForView(file);
                           setViewMode('detail');
@@ -731,48 +929,160 @@ useEffect(() => {
 />
       )}
 
-      {/* Rename modal */}
-      {editingList && !showConfirmListDelete && (
-        <div className="modal-overlay">
-          <div className="modal" style={{minWidth:320}}>
-            <h3>Rename List</h3>
-            <input
-              value={renamingListName}
-              onChange={e=>setRenamingListName(e.target.value)}
-              style={{width:'100%',marginBottom:12}}
-              autoFocus
-            />
-            <div style={{display:'flex',gap:12,justifyContent:"flex-end"}}>
-              <button onClick={()=>setEditingList(null)} className="button secondary">Cancel</button>
-              <button className="button primary" onClick={async ()=>{
-                // await renameDataFile(editingList.id, renamingListName)
-                setEditingList(null); 
-                fetchDataFiles();
-              }} disabled={!renamingListName.trim()}>Save</button>
-            </div>
-          </div>
-        </div>
-      )}
+{editingList && !showConfirmListDelete && (
+  <div style={{
+    position: "fixed",
+    zIndex: 99999,
+    inset: 0,
+    background: "rgba(0,0,0,0.6)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center"
+  }}>
+    <div style={{
+      background: "#fff",
+      padding: 24,
+      borderRadius: 8,
+      minWidth: 400,
+      boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+    }}>
+      <h3 style={{marginTop: 0, marginBottom: 16}}>Rename List</h3>
       
-      {/* Delete confirmation modal */}
-      {editingList && showConfirmListDelete && (
-        <div className="modal-overlay">
-          <div className="modal" style={{minWidth:320}}>
-            <h3>Delete List</h3>
-            <p>Are you sure you want to delete <b>{editingList.name}</b>?</p>
-            <div style={{display:'flex',gap:12,justifyContent:"flex-end"}}>
-              <button onClick={()=>{setShowConfirmListDelete(false);setEditingList(null);}} className="button secondary">Cancel</button>
-              <button
-                className="button primary" 
-                style={{background:'#c00',color:'#fff'}}
-                onClick={() => editingList && handleDeleteList(editingList)}
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Name field */}
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+          List Name <span style={{ color: 'red' }}>*</span>
+        </label>
+        <input
+          value={renamingListName}
+          onChange={e => setRenamingListName(e.target.value)}
+          style={{
+            width: '100%', 
+            padding: '8px 12px',
+            border: '1px solid #ddd',
+            borderRadius: '4px'
+          }}
+          placeholder="Enter list name"
+          autoFocus
+        />
+      </div>
+
+      {/* Description field */}
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+          Description <span style={{ color: 'red' }}>*</span>
+        </label>
+        <textarea
+          value={renamingListDescription}
+          onChange={e => setRenamingListDescription(e.target.value)}
+          style={{
+            width: '100%', 
+            padding: '8px 12px',
+            border: '1px solid #ddd',
+            borderRadius: '4px',
+            minHeight: '80px',
+            resize: 'vertical'
+          }}
+          placeholder="Enter description for this list"
+          rows={3}
+        />
+      </div>
+
+      <div style={{display:'flex', gap:12, justifyContent:"flex-end"}}>
+        <button 
+          onClick={() => {
+            setEditingList(null);
+            setRenamingListName('');
+            setRenamingListDescription('');
+          }} 
+          className="button secondary"
+          style={{
+            padding: '8px 16px',
+            border: '1px solid #ddd',
+            background: '#fff',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}
+        >
+          Cancel
+        </button>
+        <button 
+          className="button primary" 
+          onClick={handleRenameList}
+          disabled={!renamingListName.trim() || !renamingListDescription.trim() || isRenamingList}
+          style={{
+            padding: '8px 16px',
+            background: (renamingListName.trim() && renamingListDescription.trim() && !isRenamingList) ? '#007bff' : '#ccc',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: (renamingListName.trim() && renamingListDescription.trim() && !isRenamingList) ? 'pointer' : 'not-allowed'
+          }}
+        >
+          {isRenamingList ? 'Saving...' : 'Save'}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+{/* Delete confirmation modal - FIXED VERSION */}
+{editingList && showConfirmListDelete && (
+  <div style={{
+    position: "fixed",
+    zIndex: 99999,
+    inset: 0,
+    background: "rgba(0,0,0,0.6)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center"
+  }}>
+    <div style={{
+      background: "#fff",
+      padding: 24,
+      borderRadius: 8,
+      minWidth: 320,
+      boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+    }}>
+      <h3 style={{marginTop: 0, marginBottom: 16}}>Delete List</h3>
+      <p style={{marginBottom: 20}}>
+        Are you sure you want to delete <b>{editingList.name}</b>?
+      </p>
+      <div style={{display:'flex', gap:12, justifyContent:"flex-end"}}>
+        <button 
+          onClick={() => {
+            setShowConfirmListDelete(false);
+            setEditingList(null);
+          }} 
+          className="button secondary"
+          style={{
+            padding: '8px 16px',
+            border: '1px solid #ddd',
+            background: '#fff',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}
+        >
+          Cancel
+        </button>
+        <button
+          className="button primary" 
+          style={{
+            padding: '8px 16px',
+            background: '#dc3545',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}
+          onClick={() => editingList && handleDeleteList(editingList)}
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   </div>
 )}
@@ -853,23 +1163,33 @@ useEffect(() => {
                           onClick={() => setSegmentActionsAnchor(segment.id.toString() === segmentActionsAnchor ? null : segment.id.toString())}
                         >⋮</button>
                         {segmentActionsAnchor === segment.id.toString() && (
-                          <div className="segment-actions-menu" style={{
-                            position:"absolute", right:0, top:32,
-                            background:"#fff", border:"1px solid #eee",
-                            borderRadius:6, boxShadow:"0 2px 16px rgba(0,0,0,0.12)",
-                            zIndex:101, minWidth: 160
-                          }}>
-                            <button onClick={() => {
-                              setSelectedSegmentForView(segment);
-                              setSegmentViewMode('detail');
-                              setSegmentActionsAnchor(null);
-                              setDetailCurrentPage(1);
-                              setDetailSearchQuery("");
-                              setDetailSelectedContacts(new Set());
-                            }} style={menuBtnStyle}>👁️ View</button>
-                            <button style={{...menuBtnStyle,color:"#c00"}}>🗑️ Delete</button>
-                          </div>
-                        )}
+  <div className="segment-actions-menu" style={{
+    position:"absolute", right:0, top:32,
+    background:"#fff", border:"1px solid #eee",
+    borderRadius:6, boxShadow:"0 2px 16px rgba(0,0,0,0.12)",
+    zIndex:101, minWidth: 160
+  }}>
+    <button onClick={() => {
+      setEditingSegment(segment);
+      setRenamingSegmentName(segment.name);
+      setRenamingSegmentDescription(segment.description || '');
+      setSegmentActionsAnchor(null);
+    }} style={menuBtnStyle}>✏️ Rename</button>
+    <button onClick={() => {
+      setSelectedSegmentForView(segment);
+      setSegmentViewMode('detail');
+      setSegmentActionsAnchor(null);
+      setDetailCurrentPage(1);
+      setDetailSearchQuery("");
+      setDetailSelectedContacts(new Set());
+    }} style={menuBtnStyle}>👁️ View</button>
+    <button onClick={() => {
+      setEditingSegment(segment);
+      setShowConfirmSegmentDelete(true);
+      setSegmentActionsAnchor(null);
+    }} style={{...menuBtnStyle,color:"#c00"}}>🗑️ Delete</button>
+  </div>
+)}
                       </td>
                     </tr>
                   ))
@@ -906,6 +1226,162 @@ useEffect(() => {
           onAddContact={onAddContactClick}
         />
       )}
+    </div>
+  </div>
+)}
+
+{/* Rename Segment Modal */}
+{editingSegment && !showConfirmSegmentDelete && (
+  <div style={{
+    position: "fixed",
+    zIndex: 99999,
+    inset: 0,
+    background: "rgba(0,0,0,0.6)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center"
+  }}>
+    <div style={{
+      background: "#fff",
+      padding: 24,
+      borderRadius: 8,
+      minWidth: 400,
+      boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+    }}>
+      <h3 style={{marginTop: 0, marginBottom: 16}}>Rename Segment</h3>
+      
+      {/* Name field */}
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+          Segment Name <span style={{ color: 'red' }}>*</span>
+        </label>
+        <input
+          value={renamingSegmentName}
+          onChange={e => setRenamingSegmentName(e.target.value)}
+          style={{
+            width: '100%', 
+            padding: '8px 12px',
+            border: '1px solid #ddd',
+            borderRadius: '4px'
+          }}
+          placeholder="Enter segment name"
+          autoFocus
+        />
+      </div>
+
+      {/* Description field */}
+      <div style={{ marginBottom: 16 }}>
+        <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+          Description <span style={{ color: 'red' }}>*</span>
+        </label>
+        <textarea
+          value={renamingSegmentDescription}
+          onChange={e => setRenamingSegmentDescription(e.target.value)}
+          style={{
+            width: '100%', 
+            padding: '8px 12px',
+            border: '1px solid #ddd',
+            borderRadius: '4px',
+            minHeight: '80px',
+            resize: 'vertical'
+          }}
+          placeholder="Enter description for this segment"
+          rows={3}
+        />
+      </div>
+
+      <div style={{display:'flex', gap:12, justifyContent:"flex-end"}}>
+        <button 
+          onClick={() => {
+            setEditingSegment(null);
+            setRenamingSegmentName('');
+            setRenamingSegmentDescription('');
+          }} 
+          className="button secondary"
+          style={{
+            padding: '8px 16px',
+            border: '1px solid #ddd',
+            background: '#fff',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}
+        >
+          Cancel
+        </button>
+        <button 
+          className="button primary" 
+          onClick={handleRenameSegment}
+          disabled={!renamingSegmentName.trim() || !renamingSegmentDescription.trim() || isRenamingSegment}
+          style={{
+            padding: '8px 16px',
+            background: (renamingSegmentName.trim() && renamingSegmentDescription.trim() && !isRenamingSegment) ? '#007bff' : '#ccc',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: (renamingSegmentName.trim() && renamingSegmentDescription.trim() && !isRenamingSegment) ? 'pointer' : 'not-allowed'
+          }}
+        >
+          {isRenamingSegment ? 'Saving...' : 'Save'}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+{/* Delete Segment Confirmation Modal */}
+{editingSegment && showConfirmSegmentDelete && (
+  <div style={{
+    position: "fixed",
+    zIndex: 99999,
+    inset: 0,
+    background: "rgba(0,0,0,0.6)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center"
+  }}>
+    <div style={{
+      background: "#fff",
+      padding: 24,
+      borderRadius: 8,
+      minWidth: 320,
+      boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+    }}>
+      <h3 style={{marginTop: 0, marginBottom: 16}}>Delete Segment</h3>
+      <p style={{marginBottom: 20}}>
+        Are you sure you want to delete segment <b>{editingSegment.name}</b>?
+      </p>
+      <div style={{display:'flex', gap:12, justifyContent:"flex-end"}}>
+        <button 
+          onClick={() => {
+            setShowConfirmSegmentDelete(false);
+            setEditingSegment(null);
+          }} 
+          className="button secondary"
+          style={{
+            padding: '8px 16px',
+            border: '1px solid #ddd',
+            background: '#fff',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}
+        >
+          Cancel
+        </button>
+        <button
+          className="button primary" 
+          style={{
+            padding: '8px 16px',
+            background: '#dc3545',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}
+          onClick={() => editingSegment && handleDeleteSegment(editingSegment)}
+        >
+          Delete
+        </button>
+      </div>
     </div>
   </div>
 )}

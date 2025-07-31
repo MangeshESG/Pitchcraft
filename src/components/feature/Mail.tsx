@@ -141,7 +141,22 @@ interface EmailContact {
   hasOpened?: boolean;
   hasClicked?: boolean;
 }
-
+interface EmailLog {
+  id: number;
+  contactId: number | null;
+  stepId: number;
+  toEmail: string;
+  subject: string;
+  body: string;
+  isSuccess: boolean;
+  errorMessage: string | null;
+  zohoViewName: string;
+  dataFileId: number;
+  sentAt: string;
+  clientId: number;
+  trackingId: string;
+  process_name: string;
+}
 
 interface OutputInterface {
   outputForm: {
@@ -1493,8 +1508,7 @@ const [showSaveSegmentModal, setShowSaveSegmentModal] = useState(false);
 const [segmentName, setSegmentName] = useState("");
 const [segmentDescription, setSegmentDescription] = useState("");
 const [savingSegment, setSavingSegment] = useState(false);
-const [emailFilterType, setEmailFilterType] = useState<'all' | 'opens' | 'clicks' | 'opens-no-clicks' | 'opens-and-clicks'>('all');
-const [detailSearchQuery, setDetailSearchQuery] = useState(""); // Add this line
+const [emailFilterType, setEmailFilterType] = useState<'all' | 'opens' | 'clicks' | 'opens-no-clicks' | 'opens-and-clicks' | 'email-logs'>('all');const [detailSearchQuery, setDetailSearchQuery] = useState(""); // Add this line
 
 // Column configuration for email engagement data
 const [emailColumns, setEmailColumns] = useState<ColumnConfig[]>([
@@ -1555,8 +1569,27 @@ const transformEventDataForTable = (eventData: EventItem[]): EmailContact[] => {
 
 
 // Filter function for email engagement
+// Filter function for email engagement with date filtering
 const getFilteredEmailContacts = (): EmailContact[] => {
-  const transformedData = transformEventDataForTable(allEventData);
+  let filteredEventData = allEventData;
+  
+  // Apply date filters first
+  if (startDate || endDate) {
+    filteredEventData = allEventData.filter(item => {
+      if (!item.timestamp) return false;
+      
+      const itemDate = new Date(item.timestamp);
+      const start = startDate ? new Date(startDate) : null;
+      const end = endDate ? new Date(endDate + 'T23:59:59') : null; // Include full end date
+      
+      if (start && itemDate < start) return false;
+      if (end && itemDate > end) return false;
+      
+      return true;
+    });
+  }
+  
+  const transformedData = transformEventDataForTable(filteredEventData);
   
   switch (emailFilterType) {
     case 'opens':
@@ -1564,11 +1597,10 @@ const getFilteredEmailContacts = (): EmailContact[] => {
     case 'clicks':
       return transformedData.filter(c => c.eventType === 'Click');
     case 'opens-no-clicks':
-      // Get unique emails that have opened but not clicked
       const emailsWithOpensOnly = new Set<string>();
       const emailsWithClicks = new Set<string>();
       
-      allEventData.forEach(item => {
+      filteredEventData.forEach(item => {
         if (item.eventType === 'Click') emailsWithClicks.add(item.email);
         if (item.eventType === 'Open') emailsWithOpensOnly.add(item.email);
       });
@@ -1577,10 +1609,9 @@ const getFilteredEmailContacts = (): EmailContact[] => {
       return transformedData.filter(c => opensOnlyEmails.includes(c.email) && c.eventType === 'Open');
       
     case 'opens-and-clicks':
-      // Get unique emails that have both opened AND clicked
       const emailsWithBoth = new Map<string, { hasOpened: boolean; hasClicked: boolean }>();
       
-      allEventData.forEach(item => {
+      filteredEventData.forEach(item => {
         const stats = emailsWithBoth.get(item.email) || { hasOpened: false, hasClicked: false };
         if (item.eventType === 'Open') stats.hasOpened = true;
         if (item.eventType === 'Click') stats.hasClicked = true;
@@ -1592,6 +1623,9 @@ const getFilteredEmailContacts = (): EmailContact[] => {
         .map(([email]) => email);
       
       return transformedData.filter(c => bothEmails.includes(c.email));
+      
+    case 'email-logs':
+      return [];
       
     default:
       return transformedData;
@@ -1605,6 +1639,7 @@ const formatEmailDate = (dateString?: string | null) => {
 };
 
 // Get contact value helper
+// Get contact value helper
 const getEmailContactValue = (contact: EmailContact, key: string): any => {
   if (key === 'timestamp') {
     return formatEmailDate(contact.timestamp);
@@ -1616,6 +1651,53 @@ const getEmailContactValue = (contact: EmailContact, key: string): any => {
     // Add visual indicator for contacts without valid IDs
     return `${contact.full_name} ⚠️`;
   }
+  
+  // Make LinkedIn URL clickable
+  if (key === 'linkedin_URL' && contact.linkedin_URL) {
+    return (
+      <a 
+        href={contact.linkedin_URL} 
+        target="_blank" 
+        rel="noopener noreferrer"
+        style={{ color: '#0066cc', textDecoration: 'underline' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        LinkedIn Profile
+      </a>
+    );
+  }
+  
+  // Make Target URL clickable
+  if (key === 'targetUrl' && contact.targetUrl) {
+    return (
+      <a 
+        href={contact.targetUrl} 
+        target="_blank" 
+        rel="noopener noreferrer"
+        style={{ color: '#0066cc', textDecoration: 'underline' }}
+        onClick={(e) => e.stopPropagation()}
+        title={contact.targetUrl}
+      >
+        {contact.targetUrl.length > 50 ? contact.targetUrl.substring(0, 50) + '...' : contact.targetUrl}
+      </a>
+    );
+  }
+  
+  // Make website clickable
+  if (key === 'website' && contact.website) {
+    return (
+      <a 
+        href={contact.website} 
+        target="_blank" 
+        rel="noopener noreferrer"
+        style={{ color: '#0066cc', textDecoration: 'underline' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        Website
+      </a>
+    );
+  }
+  
   return (contact as any)[key];
 };
 
@@ -1684,6 +1766,116 @@ const getInvalidContactsCount = (): number => {
     return contact?.contactId === 0;
   }).length;
 };
+
+
+// Add these states to your Mail component
+const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
+const [emailLogsSearch, setEmailLogsSearch] = useState("");
+const [selectedEmailLogs, setSelectedEmailLogs] = useState<Set<string>>(new Set());
+const [emailLogsCurrentPage, setEmailLogsCurrentPage] = useState(1);
+const [isLoadingEmailLogs, setIsLoadingEmailLogs] = useState(false);
+
+// Add column configuration for email logs
+const [emailLogsColumns, setEmailLogsColumns] = useState<ColumnConfig[]>([
+  { key: "checkbox", label: "", visible: true, width: "40px" },
+  { key: "toEmail", label: "To Email", visible: true },
+  { key: "subject", label: "Subject", visible: true, width: "300px" },
+  { key: "isSuccess", label: "Status", visible: true },
+  { key: "sentAt", label: "Sent At", visible: true },
+  { key: "errorMessage", label: "Error Message", visible: false },
+  { key: "trackingId", label: "Tracking ID", visible: false },
+  { key: "process_name", label: "Process", visible: true },
+]);
+
+// Transform email logs for display (add this function)
+const transformEmailLogsForTable = (logs: any[]) => {
+  return logs.map(log => ({
+    id: log.id,
+    contactId: log.contactId,
+    toEmail: log.toEmail,
+    subject: log.subject?.length > 50 ? log.subject.substring(0, 50) + "..." : log.subject,
+    fullSubject: log.subject, // Keep full subject for tooltip
+    isSuccess: log.isSuccess ? "✅ Sent" : "❌ Failed",
+    sentAt: log.sentAt,
+    errorMessage: log.errorMessage || "-",
+    trackingId: log.trackingId,
+    process_name: log.process_name,
+    statusColor: log.isSuccess ? "#28a745" : "#dc3545"
+  }));
+};
+
+// Helper function for email log values (add this function)
+const getEmailLogValue = (log: any, key: string): any => {
+  if (key === 'sentAt') {
+    return formatMailTimestamp(log.sentAt);
+  }
+  if (key === 'isSuccess') {
+    return (
+      <span style={{ color: log.statusColor, fontWeight: 500 }}>
+        {log.isSuccess}
+      </span>
+    );
+  }
+  if (key === 'subject') {
+    return (
+      <span title={log.fullSubject}>
+        {log.subject}
+      </span>
+    );
+  }
+  return log[key] || "-";
+};
+
+// Handle email log selection (add this function)
+const handleSelectEmailLog = (logId: string) => {
+  const newSelection = new Set(selectedEmailLogs);
+  if (newSelection.has(logId)) {
+    newSelection.delete(logId);
+  } else {
+    newSelection.add(logId);
+  }
+  setSelectedEmailLogs(newSelection);
+};
+
+// Handle select all email logs (add this function)
+const handleSelectAllEmailLogs = () => {
+  const currentPageLogs = transformEmailLogsForTable(allEmailLogs).slice(
+    (emailLogsCurrentPage - 1) * 20,
+    emailLogsCurrentPage * 20
+  );
+  if (selectedEmailLogs.size === currentPageLogs.length && currentPageLogs.length > 0) {
+    setSelectedEmailLogs(new Set());
+  } else {
+    setSelectedEmailLogs(new Set(currentPageLogs.map(log => log.id.toString())));
+  }
+};
+
+
+const getFilteredEmailLogs = () => {
+  let filteredLogs = allEmailLogs;
+  
+  // Apply date filters
+  if (startDate || endDate) {
+    filteredLogs = allEmailLogs.filter(log => {
+      if (!log.sentAt) return false;
+      
+      const logDate = new Date(log.sentAt);
+      const start = startDate ? new Date(startDate) : null;
+      const end = endDate ? new Date(endDate + 'T23:59:59') : null;
+      
+      if (start && logDate < start) return false;
+      if (end && logDate > end) return false;
+      
+      return true;
+    });
+  }
+  
+  return filteredLogs;
+};
+
+
+
+
 
 
 
@@ -1878,6 +2070,14 @@ const getInvalidContactsCount = (): number => {
       >
         Opened but Not Clicked
       </button>
+      {/* Add this new Email Logs button */}
+      <button
+        onClick={() => setEmailFilterType('email-logs')}
+        className={`btn-filter ${emailFilterType === 'email-logs' ? 'active' : ''}`}
+        style={{ background: emailFilterType === 'email-logs' ? '#28a745' : undefined }}
+      >
+        Email Logs
+      </button>
       <button
         onClick={handleRefresh}
         className="btn-refresh"
@@ -1888,76 +2088,124 @@ const getInvalidContactsCount = (): number => {
       </button>
     </div>
 
+    {/* Update ContactsTable to handle both engagement data and email logs */}
     <ContactsTable
-  contacts={getFilteredEmailContacts()}
-  columns={emailColumns}
-  isLoading={isRefreshing || loading}
-  search={detailSearchQuery} // Changed from searchQuery
-  setSearch={setDetailSearchQuery} // Changed from setSearchQuery
-  showCheckboxes={true}
-  paginated={true}
-  currentPage={currentPage}
-  pageSize={20}
-  onPageChange={setCurrentPage}
-  onSelectAll={() => {
-    const currentPageContacts = getFilteredEmailContacts().slice(
-      (currentPage - 1) * 20,
-      currentPage * 20
-    );
-    if (detailSelectedContacts.size === currentPageContacts.length && currentPageContacts.length > 0) {
-      setDetailSelectedContacts(new Set());
-    } else {
-      setDetailSelectedContacts(new Set(currentPageContacts.map(c => c.id.toString())));
-    }
-  }}
-  selectedContacts={detailSelectedContacts}
-  onSelectContact={(id: string) => { // Added type annotation
-    const newSelection = new Set(detailSelectedContacts);
-    if (newSelection.has(id)) {
-      newSelection.delete(id);
-    } else {
-      newSelection.add(id);
-    }
-    setDetailSelectedContacts(newSelection);
-  }}
-  formatDate={formatEmailDate}
-  getContactValue={getEmailContactValue}
-  totalContacts={getFilteredEmailContacts().length}
-  viewMode="table"
-  onColumnsChange={setEmailColumns}
-  customHeader={
-  detailSelectedContacts.size > 0 && (
-    <div style={{ 
-      marginBottom: 16, 
-      padding: '12px 16px', 
-      background: '#f0f7ff', 
-      borderRadius: 6,
-      display: 'flex',
-      alignItems: 'center',
-      gap: 16
-    }}>
-      <span style={{ fontWeight: 500 }}>
-        {detailSelectedContacts.size} contact{detailSelectedContacts.size > 1 ? 's' : ''} selected
-        {getInvalidContactsCount() > 0 && (
-          <span style={{ color: '#ff9800', marginLeft: 8 }}>
-            ({getInvalidContactsCount()} without valid ID)
-          </span>
-        )}
-      </span>
-      <button 
-        className="button primary"
-        onClick={() => setShowSaveSegmentModal(true)}
-        style={{ marginLeft: 'auto' }}
-      >
-        Create Segment
-      </button>
-    </div>
-  )
-}
-/>
+      contacts={emailFilterType === 'email-logs' ? transformEmailLogsForTable(allEmailLogs) : getFilteredEmailContacts()}
+      columns={emailFilterType === 'email-logs' ? emailLogsColumns : emailColumns}
+      isLoading={isRefreshing || loading}
+      search={emailFilterType === 'email-logs' ? emailLogsSearch : detailSearchQuery}
+      setSearch={emailFilterType === 'email-logs' ? setEmailLogsSearch : setDetailSearchQuery}
+      showCheckboxes={true}
+      paginated={true}
+      currentPage={emailFilterType === 'email-logs' ? emailLogsCurrentPage : currentPage}
+      pageSize={20}
+      onPageChange={emailFilterType === 'email-logs' ? setEmailLogsCurrentPage : setCurrentPage}
+      onSelectAll={emailFilterType === 'email-logs' ? handleSelectAllEmailLogs : () => {
+        const currentPageContacts = getFilteredEmailContacts().slice(
+          (currentPage - 1) * 20,
+          currentPage * 20
+        );
+        if (detailSelectedContacts.size === currentPageContacts.length && currentPageContacts.length > 0) {
+          setDetailSelectedContacts(new Set());
+        } else {
+          setDetailSelectedContacts(new Set(currentPageContacts.map(c => c.id.toString())));
+        }
+      }}
+      selectedContacts={emailFilterType === 'email-logs' ? selectedEmailLogs : detailSelectedContacts}
+      onSelectContact={emailFilterType === 'email-logs' ? handleSelectEmailLog : (id: string) => {
+        const newSelection = new Set(detailSelectedContacts);
+        if (newSelection.has(id)) {
+          newSelection.delete(id);
+        } else {
+          newSelection.add(id);
+        }
+        setDetailSelectedContacts(newSelection);
+      }}
+      formatDate={emailFilterType === 'email-logs' ? formatMailTimestamp : formatEmailDate}
+      getContactValue={emailFilterType === 'email-logs' ? getEmailLogValue : getEmailContactValue}
+      totalContacts={emailFilterType === 'email-logs' ? allEmailLogs.length : getFilteredEmailContacts().length}
+      viewMode="table"
+      onColumnsChange={emailFilterType === 'email-logs' ? setEmailLogsColumns : setEmailColumns}
+      customHeader={
+        emailFilterType === 'email-logs' ? (
+          selectedEmailLogs.size > 0 && (
+            <div style={{ 
+              marginBottom: 16, 
+              padding: '12px 16px', 
+              background: '#f0f7ff', 
+              borderRadius: 6,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 16
+            }}>
+              <span style={{ fontWeight: 500 }}>
+                {selectedEmailLogs.size} email log{selectedEmailLogs.size > 1 ? 's' : ''} selected
+              </span>
+              <button 
+                className="button primary"
+                onClick={() => {
+                  alert('Export functionality can be added here');
+                }}
+                style={{ marginLeft: 'auto' }}
+              >
+                Export Selected
+              </button>
+            </div>
+          )
+        ) : (
+          detailSelectedContacts.size > 0 && (
+            <div style={{ 
+              marginBottom: 16, 
+              padding: '12px 16px', 
+              background: '#f0f7ff', 
+              borderRadius: 6,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 16
+            }}>
+              <span style={{ fontWeight: 500 }}>
+                {detailSelectedContacts.size} contact{detailSelectedContacts.size > 1 ? 's' : ''} selected
+                {getInvalidContactsCount() > 0 && (
+                  <span style={{ color: '#ff9800', marginLeft: 8 }}>
+                    ({getInvalidContactsCount()} without valid ID)
+                  </span>
+                )}
+              </span>
+              <button 
+                className="button primary"
+                onClick={() => setShowSaveSegmentModal(true)}
+                style={{ marginLeft: 'auto' }}
+              >
+                Create Segment
+              </button>
+            </div>
+          )
+        )
+      }
+    />
 
-    {/* Segment Save Modal */}
-    {showSaveSegmentModal && (
+    {/* Add summary stats below the table when showing email logs */}
+    {emailFilterType === 'email-logs' && (
+      <div className="email-summary" style={{ marginTop: 20 }}>
+        <div className="stats-cards">
+          <div className="stats-card">
+            <h3>Total Emails</h3>
+            <p className="value">{allEmailLogs.length}</p>
+          </div>
+          <div className="stats-card" style={{ background: "#d4edda" }}>
+            <h3>Successfully Sent</h3>
+            <p className="value">{allEmailLogs.filter(log => log.isSuccess).length}</p>
+          </div>
+          <div className="stats-card" style={{ background: "#f8d7da" }}>
+            <h3>Failed</h3>
+            <p className="value">{allEmailLogs.filter(log => !log.isSuccess).length}</p>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Segment Save Modal - only show for engagement data, not email logs */}
+    {showSaveSegmentModal && emailFilterType !== 'email-logs' && (
       <div style={{
         position: "fixed",
         zIndex: 99999,

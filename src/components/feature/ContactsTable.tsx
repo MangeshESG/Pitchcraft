@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+import { useRef, useCallback, useState, useEffect } from "react";
+import React from "react";
+
 
 interface ContactsTableProps {
   contacts: any[];
@@ -43,22 +45,29 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
   customHeader,
   onColumnsChange
 }) => {
-  const [showColumnSettings, setShowColumnSettings] = useState(false);
+    const [showColumnPanel, setShowColumnPanel] = useState(false);
   const [localColumns, setLocalColumns] = useState(columns);
+  const columnPanelRef = useRef<HTMLDivElement>(null);
+
 
   const colList = localColumns.filter(col =>
     showCheckboxes ? col.visible : (col.key !== "checkbox" && col.visible)
   );
 
   // Filter contacts based on search
-  const filteredContacts = contacts.filter((contact) => {
+ const filteredContacts = contacts.filter((contact) => {
     const searchLower = search.toLowerCase();
     return (
       contact.full_name?.toLowerCase().includes(searchLower) ||
       contact.email?.toLowerCase().includes(searchLower) ||
       contact.company_name?.toLowerCase().includes(searchLower) ||
       contact.job_title?.toLowerCase().includes(searchLower) ||
-      contact.country_or_address?.toLowerCase().includes(searchLower)
+      contact.country_or_address?.toLowerCase().includes(searchLower) ||
+      contact.toEmail?.toLowerCase().includes(searchLower) ||
+      contact.subject?.toLowerCase().includes(searchLower) ||
+      contact.company?.toLowerCase().includes(searchLower) ||
+      contact.jobTitle?.toLowerCase().includes(searchLower) ||
+      contact.location?.toLowerCase().includes(searchLower)
     );
   });
 
@@ -79,9 +88,29 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
     }
   };
 
-  
+const [showColumnDropdown, setShowColumnDropdown] = useState(false);
+const columnDropdownRef = useRef<HTMLDivElement>(null);
 
-  return (
+// Add this useEffect to handle clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (columnPanelRef.current && !columnPanelRef.current.contains(event.target as Node)) {
+        setShowColumnPanel(false);
+      }
+    };
+
+    if (showColumnPanel) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showColumnPanel]);
+
+
+
+return (
     <>
       {/* Detail View Header */}
       {viewMode === 'detail' && (
@@ -101,10 +130,9 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 12 }}>
               <button
                 className="button secondary"
-                onClick={() => setShowColumnSettings(!showColumnSettings)}
-                style={{ position: 'relative' }}
+                onClick={() => setShowColumnPanel(!showColumnPanel)}
               >
-                ⚙️ Columns
+                Show/Hide Columns
               </button>
               {onAddContact && (
                 <button 
@@ -123,45 +151,6 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
             </div>
           )}
         </>
-      )}
-
-      {/* Column Settings Dropdown */}
-      {showColumnSettings && (
-        <div style={{
-          position: 'absolute',
-          right: viewMode === 'detail' ? '120px' : '20px',
-          top: viewMode === 'detail' ? '60px' : '20px',
-          background: '#fff',
-          border: '1px solid #e0e0e0',
-          borderRadius: '8px',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-          padding: '12px',
-          minWidth: '200px',
-          zIndex: 1000
-        }}>
-          <h4 style={{ margin: '0 0 12px 0', fontSize: '14px' }}>Show/Hide Columns</h4>
-          {localColumns
-            .filter(col => col.key !== "checkbox")
-            .map(column => (
-              <label
-                key={column.key}
-                style={{
-                  display: 'block',
-                  padding: '8px 0',
-                  cursor: 'pointer',
-                  fontSize: '14px'
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={column.visible}
-                  onChange={() => toggleColumnVisibility(column.key)}
-                  style={{ marginRight: '8px' }}
-                />
-                {column.label}
-              </label>
-            ))}
-        </div>
       )}
 
       {/* Custom Header */}
@@ -191,7 +180,7 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
           {viewMode === 'table' && (
             <button
               className="button secondary"
-              onClick={() => setShowColumnSettings(!showColumnSettings)}
+              onClick={() => setShowColumnPanel(!showColumnPanel)}
               style={{ marginLeft: 'auto' }}
             >
               ⚙️ Columns
@@ -200,110 +189,206 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
         </div>
       )}
 
-      {/* Table */}
-      <div className="contacts-table-wrapper">
-        <table className="contacts-table">
-          <thead>
-            <tr>
-              {colList.map(column => (
-                <th key={column.key} style={{ width: column.width }}>
-                  {column.key === "checkbox" ? (
-                    <input
-                      type="checkbox"
-                      checked={
-                        selectedContacts
-                          ? selectedContacts.size === displayContacts.length && displayContacts.length > 0
-                          : false
-                      }
-                      onChange={onSelectAll}
-                    />
-                  ) : (
-                    column.label
-                  )}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              <tr>
-                <td colSpan={colList.length} className="text-center">Loading...</td>
-              </tr>
-            ) : displayContacts.length === 0 ? (
-              <tr>
-                <td colSpan={colList.length} className="text-center">
-                  {search ? "No contacts found matching your search." : "No contacts found."}
-                </td>
-              </tr>
-            ) : (
-              displayContacts.map(contact => (
-                <tr
-                  key={contact.id}
-                  className={
-                    selectedContacts?.has(contact.id.toString())
-                      ? "selected"
-                      : ""
-                  }
-                >
+      {/* Main Content with Sidebar */}
+      <div style={{ position: 'relative', display: 'flex' }}>
+        {/* Table Content */}
+        <div style={{ flex: 1, marginRight: showColumnPanel ? '300px' : '0', transition: 'margin-right 0.3s ease' }}>
+          <div className="contacts-table-wrapper">
+            <table className="contacts-table">
+              <thead>
+                <tr>
                   {colList.map(column => (
-                    <td key={column.key}>
+                    <th key={column.key} style={{ width: column.width }}>
                       {column.key === "checkbox" ? (
                         <input
                           type="checkbox"
-                          checked={selectedContacts?.has(contact.id.toString())}
-                          onChange={() => onSelectContact?.(contact.id.toString())}
+                          checked={
+                            selectedContacts
+                              ? selectedContacts.size === displayContacts.length && displayContacts.length > 0
+                              : false
+                          }
+                          onChange={onSelectAll}
                         />
-                      ) : column.key === "website" || column.key === "linkedin_url" ? (
-                        getContactValue(contact, column.key) ? (
-                          <a
-                            href={getContactValue(contact, column.key)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="contact-link"
-                          >
-                            {column.key === "linkedin_url" ? "View Profile" : "Visit Website"}
-                          </a>
-                        ) : (
-                          "-"
-                        )
-                      ) : ["created_at","updated_at","email_sent_at"].includes(column.key) ? (
-                        formatDate(getContactValue(contact, column.key))
                       ) : (
-                        getContactValue(contact, column.key) || "-"
+                        column.label
                       )}
-                    </td>
+                    </th>
                   ))}
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={colList.length} className="text-center">Loading...</td>
+                  </tr>
+                ) : displayContacts.length === 0 ? (
+                  <tr>
+                    <td colSpan={colList.length} className="text-center">
+                      {search ? "No contacts found matching your search." : "No contacts found."}
+                    </td>
+                  </tr>
+                ) : (
+                  displayContacts.map(contact => (
+                    <tr
+                      key={contact.id}
+                      className={
+                        selectedContacts?.has(contact.id.toString())
+                          ? "selected"
+                          : ""
+                      }
+                    >
+                      {colList.map(column => (
+                        <td key={column.key}>
+                          {column.key === "checkbox" ? (
+                            <input
+                              type="checkbox"
+                              checked={selectedContacts?.has(contact.id.toString())}
+                              onChange={() => onSelectContact?.(contact.id.toString())}
+                            />
+                          ) : (
+                            getContactValue(contact, column.key) || "-"
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          {paginated && filteredContacts.length > 0 && typeof onPageChange === "function" && (
+            <div className="pagination-wrapper d-flex justify-between align-center mt-20">
+              <div className="pagination-info">
+                Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, filteredContacts.length)} of {filteredContacts.length} contacts
+              </div>
+              <div className="pagination-controls d-flex align-center gap-10">
+                <button
+                  className="pagination-btn"
+                  onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </button>
+                <span>Page {currentPage} of {totalPages}</span>
+                <button
+                  className="pagination-btn"
+                  onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage >= totalPages}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Column Settings Sidebar Panel */}
+        {showColumnPanel && (
+          <div 
+            ref={columnPanelRef}
+            style={{
+              position: 'fixed',
+              top: 0,
+              right: 0,
+              height: '100vh',
+              width: '300px',
+              background: '#fff',
+              border: '1px solid #e0e0e0',
+              borderRadius: '8px 0 0 8px',
+              boxShadow: '-4px 0 12px rgba(0,0,0,0.15)',
+              padding: '20px',
+              zIndex: 1000,
+              overflowY: 'auto'
+            }}
+          >
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between', 
+              marginBottom: '20px',
+              paddingBottom: '10px',
+              borderBottom: '1px solid #e0e0e0'
+            }}>
+              <h3 style={{ margin: 0, fontSize: '18px', color: '#333' }}>Show/Hide Columns</h3>
+              <button 
+                onClick={() => setShowColumnPanel(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '20px',
+                  cursor: 'pointer',
+                  color: '#666'
+                }}
+              >
+                ×
+              </button>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {localColumns
+                .filter(col => col.key !== "checkbox")
+                .map(column => (
+                  <label
+                    key={column.key}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '10px 12px',
+                      border: '1px solid #e0e0e0',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      backgroundColor: column.visible ? '#f0f7ff' : '#f9f9f9',
+                      transition: 'background-color 0.2s ease'
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={column.visible}
+                      onChange={() => toggleColumnVisibility(column.key)}
+                      style={{ 
+                        marginRight: '12px',
+                        transform: 'scale(1.2)'
+                      }}
+                    />
+                    <span style={{ 
+                      fontWeight: column.visible ? '500' : '400',
+                      color: column.visible ? '#333' : '#666'
+                    }}>
+                      {column.label}
+                    </span>
+                    {column.visible && (
+                      <span style={{ 
+                        marginLeft: 'auto', 
+                        color: '#28a745',
+                        fontSize: '12px'
+                      }}>
+                        ✓
+                      </span>
+                    )}
+                  </label>
+                ))}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Pagination */}
-      {paginated && filteredContacts.length > 0 && typeof onPageChange === "function" && (
-        <div className="pagination-wrapper d-flex justify-between align-center mt-20">
-          <div className="pagination-info">
-            Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, filteredContacts.length)} of {filteredContacts.length} contacts
-          </div>
-          <div className="pagination-controls d-flex align-center gap-10">
-            <button
-              className="pagination-btn"
-              onClick={() => onPageChange(Math.max(1, currentPage - 1))}
-              disabled={currentPage === 1}
-            >
-              Previous
-            </button>
-            <span>Page {currentPage} of {totalPages}</span>
-            <button
-              className="pagination-btn"
-              onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
-              disabled={currentPage >= totalPages}
-            >
-              Next
-            </button>
-          </div>
-        </div>
+      {/* Overlay when panel is open */}
+      {showColumnPanel && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.3)',
+            zIndex: 999
+          }}
+          onClick={() => setShowColumnPanel(false)}
+        />
       )}
     </>
   );

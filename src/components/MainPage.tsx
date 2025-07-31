@@ -30,7 +30,7 @@ import { useDispatch } from "react-redux";
 import { useModel } from "../ModelContext";
 import { fetchClientSettings } from "../slices/clientSettingsSlice"; // adjust path if needed
 import { AppDispatch } from "../Redux/store"; // ✅ import AppDispatch
-import DataCampaigns from "./feature/DataCampaigns"; // Adjust the path based on your file structure
+import DataCampaigns from "./feature/ContactList"; // Adjust the path based on your file structure
 import CampaignManagement from "./feature/CampaignManagement";
 import logoImage from "../assets/images/pitchcraftlogo.png"; 
 
