@@ -315,8 +315,6 @@ const Output: React.FC<OutputInterface> = ({
     setExistingDataIndex(0); // Reset the index
   };
 
-
-
   const clearUsage = () => {
     setOutputForm((prevOutputForm: any) => ({
       ...prevOutputForm,
@@ -325,13 +323,16 @@ const Output: React.FC<OutputInterface> = ({
   };
 
   const [combinedResponses, setCombinedResponses] = useState<any[]>([]);
-  
+
   useEffect(() => {
-  // Keep currentIndex as is when new responses are added
-  if (currentIndex >= combinedResponses.length && combinedResponses.length > 0) {
-    setCurrentIndex(Math.max(0, combinedResponses.length - 1));
-  }
-}, [allResponses, currentIndex, setCurrentIndex, combinedResponses.length]);
+    // Keep currentIndex as is when new responses are added
+    if (
+      currentIndex >= combinedResponses.length &&
+      combinedResponses.length > 0
+    ) {
+      setCurrentIndex(Math.max(0, combinedResponses.length - 1));
+    }
+  }, [allResponses, currentIndex, setCurrentIndex, combinedResponses.length]);
 
   useEffect(() => {
     // Prioritize allResponses, then add unique existingResponses
@@ -803,7 +804,7 @@ const Output: React.FC<OutputInterface> = ({
     }
   }, [effectiveUserId, token]);
 
- const handleSendEmail = async (subjectFromButton: string) => {
+  const handleSendEmail = async (subjectFromButton: string) => {
     setEmailMessage("");
     setEmailError("");
 
@@ -845,7 +846,7 @@ const Output: React.FC<OutputInterface> = ({
         companyName: currentContact.company || "",
         website: currentContact.website || "",
         linkedinUrl: currentContact.linkedin || "",
-        jobTitle: currentContact.title || ""
+        jobTitle: currentContact.title || "",
       };
 
       const response = await axios.post(
@@ -853,7 +854,7 @@ const Output: React.FC<OutputInterface> = ({
         requestBody,
         {
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
             ...(token && { Authorization: `Bearer ${token}` }),
           },
         }
@@ -1062,20 +1063,24 @@ const Output: React.FC<OutputInterface> = ({
   }
 
   // Add this useEffect after the existing combinedResponses useEffect
-useEffect(() => {
-  console.log("combinedResponses updated:", combinedResponses.length, "items");
-  console.log("Current index:", currentIndex);
-  console.log("Current contact:", combinedResponses[currentIndex]);
-  
-  // Force a re-render if we have data but UI shows NA
-  if (combinedResponses.length > 0 && currentIndex === 0) {
-    const contact = combinedResponses[0];
-    if (contact && contact.name !== "N/A") {
-      // Data is valid, force update
-      setCurrentIndex(0);
+  useEffect(() => {
+    console.log(
+      "combinedResponses updated:",
+      combinedResponses.length,
+      "items"
+    );
+    console.log("Current index:", currentIndex);
+    console.log("Current contact:", combinedResponses[currentIndex]);
+
+    // Force a re-render if we have data but UI shows NA
+    if (combinedResponses.length > 0 && currentIndex === 0) {
+      const contact = combinedResponses[0];
+      if (contact && contact.name !== "N/A") {
+        // Data is valid, force update
+        setCurrentIndex(0);
+      }
     }
-  }
-}, [combinedResponses]);
+  }, [combinedResponses]);
 
   return (
     <div className="login-box gap-down">
@@ -1140,7 +1145,7 @@ useEffect(() => {
           )}
           {!isDemoAccount && (
             <>
-            <div className="form-group d-flex align-center mb-0 mr-1">
+              <div className="form-group d-flex align-center mb-0 mr-1">
                 <label className="font-size-medium font-500 mb-0 mr-10">
                   Delay(secs)
                 </label>
@@ -1153,16 +1158,16 @@ useEffect(() => {
                 />
               </div>
               <div className="form-group !mb-[0px]">
-              <label className="checkbox-label !mb-[0px]">
-                <input
-                  type="checkbox"
-                  checked={settingsForm.overwriteDatabase}
-                  name="overwriteDatabase"
-                  id="overwriteDatabase"
-                  onChange={settingsFormHandler}
-                />
-                <span>Overwrite existing</span>
-              </label> 
+                <label className="checkbox-label !mb-[0px]">
+                  <input
+                    type="checkbox"
+                    checked={settingsForm.overwriteDatabase}
+                    name="overwriteDatabase"
+                    id="overwriteDatabase"
+                    onChange={settingsFormHandler}
+                  />
+                  <span>Overwrite existing</span>
+                </label>
               </div>
             </>
           )}
@@ -1258,57 +1263,50 @@ useEffect(() => {
               )}
             </div> */}
 
-           
-<div className="col-5">
-  <div className="form-group" style={{ flexWrap: "wrap" }}>
-    <label style={{ width: "100%" }}>Subject</label>
+            <div className="col-5">
+              <div className="form-group" style={{ flexWrap: "wrap" }}>
+                <label style={{ width: "100%" }}>Subject</label>
 
-              <div className="flex">
-    <select
-      onChange={(e) => setSubjectMode?.(e.target.value)}
-      value={subjectMode}
-      className="height-35"
-      style={{ minWidth: 150, marginRight: 10 }}
-    >
-      <option value="AI generated">AI generated</option>
-      <option value="With Placeholder">With placeholder</option>
-    </select>
-    <input
-      type="text"
-      placeholder="Enter subject here"
-      value={subjectText}
-      onChange={(e) => setSubjectText?.(e.target.value)}
-      disabled={subjectMode !== "With Placeholder"}
-    />
-    </div>
-
-    
-  </div>
-</div>
-
-
-
-
+                <div className="flex">
+                  <select
+                    onChange={(e) => setSubjectMode?.(e.target.value)}
+                    value={subjectMode}
+                    className="height-35"
+                    style={{ minWidth: 150, marginRight: 10 }}
+                  >
+                    <option value="AI generated">AI generated</option>
+                    <option value="With Placeholder">With placeholder</option>
+                  </select>
+                  <input
+                    type="text"
+                    placeholder="Enter subject here"
+                    value={subjectText}
+                    onChange={(e) => setSubjectText?.(e.target.value)}
+                    disabled={subjectMode !== "With Placeholder"}
+                  />
+                </div>
+              </div>
+            </div>
 
             <div className="">
-  <div className="form-group">
-    <label>Language</label>
-    <select
-      onChange={handleLanguageChange}
-      value={selectedLanguage}
-      className="height-35"
-    >
-      <option value="">Select a language</option>
-      {languages
-        ?.sort((a, b) => a.localeCompare(b))
-        .map((language, index) => (
-          <option key={index} value={language}>
-            {language}
-          </option>
-        ))}
-    </select>
-  </div>
-</div>
+              <div className="form-group">
+                <label>Language</label>
+                <select
+                  onChange={handleLanguageChange}
+                  value={selectedLanguage}
+                  className="height-35"
+                >
+                  <option value="">Select a language</option>
+                  {languages
+                    ?.sort((a, b) => a.localeCompare(b))
+                    .map((language, index) => (
+                      <option key={index} value={language}>
+                        {language}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </div>
           </div>
 
           {/* Subject Line Row */}
@@ -1332,13 +1330,12 @@ useEffect(() => {
                   onChange={outputFormHandler}
                 ></textarea>
                 <button
-                className="secondary-button ml-10 button clear-button small d-flex align-center h-[100%] justify-center"
-                onClick={clearUsage}
-              >
-                Clear Usage
-              </button>
+                  className="secondary-button ml-10 button clear-button small d-flex align-center h-[100%] justify-center"
+                  onClick={clearUsage}
+                >
+                  Clear Usage
+                </button>
               </span>
-              
             </div>
           </div>
         </div>
@@ -1488,7 +1485,9 @@ useEffect(() => {
                               0
                             )
                       }{" "}
-                      <span className="opacity-60">({combinedResponses.length} loaded)</span>
+                      <span className="opacity-60">
+                        ({combinedResponses.length} loaded)
+                      </span>
                     </span>
                     <span style={{ whiteSpace: "pre" }}> </span>
                     <span style={{ whiteSpace: "pre" }}> </span>
@@ -1607,7 +1606,7 @@ useEffect(() => {
           </div>
           {tab2 === "Output" && (
             <>
-<div className="form-group mb-0">
+              <div className="form-group mb-0">
                 {/* <div className="d-flex mb-10 align-items-center">
                   {userRole === "ADMIN" && (
                     <button
@@ -1635,7 +1634,7 @@ useEffect(() => {
 
                 <span className="pos-relative">
                   <pre
-                    className="w-full p-3 py-[5px] border border-gray-300 rounded-lg overflow-y-auto h-[45px] min-h-[45px] break-words whitespace-pre-wrap text-[13px]" 
+                    className="w-full p-3 py-[5px] border border-gray-300 rounded-lg overflow-y-auto h-[45px] min-h-[45px] break-words whitespace-pre-wrap text-[13px]"
                     dangerouslySetInnerHTML={{
                       __html: formatOutput(outputForm.generatedContent),
                     }}
@@ -1690,9 +1689,8 @@ useEffect(() => {
                   </button>
                 </span>
               </div>
-<div className="form-group mb-0">
+              <div className="form-group mb-0">
                 <div className="d-flex justify-between w-full">
-                  
                   <div
                     className="contact-info lh-35 align-center d-inline-block word-wrap--break-word word-break--break-all"
                     style={{ color: "red" }}
@@ -1803,76 +1801,75 @@ useEffect(() => {
                     </a>
                   </div>
                   <div className="d-flex mb-10 align-items-center justify-between flex-col-991">
-
-                        <div className="d-flex">
-                          <div className="d-flex ml-10 output-responsive-button-group justify-center-991 col-12-991 flex-col-640">
-                            <button
-                              className={`button pad-10 d-flex align-center align-self-center output-email-width-button-mobile justify-center
+                    <div className="d-flex">
+                      <div className="d-flex ml-10 output-responsive-button-group justify-center-991 col-12-991 flex-col-640">
+                        <button
+                          className={`button pad-10 d-flex align-center align-self-center output-email-width-button-mobile justify-center
                               ${outputEmailWidth === "Mobile" && "bg-active"}
                               `}
-                              onClick={() => toggleOutputEmailWidth("Mobile")}
-                            >
-                              <svg
-                                fill="#000000"
-                                data-name="Layer 1"
-                                xmlns="http://www.w3.org/2000/svg"
-                                viewBox="0 0 120 120"
-                                style={{ width: "20px" }}
-                              >
-                                <path d="M85.81 120H34.19a8.39 8.39 0 0 1-8.38-8.39V8.39A8.39 8.39 0 0 1 34.19 0h51.62a8.39 8.39 0 0 1 8.38 8.39v103.22a8.39 8.39 0 0 1-8.38 8.39zM34.19 3.87a4.52 4.52 0 0 0-4.51 4.52v103.22a4.52 4.52 0 0 0 4.51 4.52h51.62a4.52 4.52 0 0 0 4.51-4.52V8.39a4.52 4.52 0 0 0-4.51-4.52z" />
-                                <path d="M73.7 10.32H46.3L39.28 3.3 42.01.57l5.89 5.88h24.2L77.99.57l2.73 2.73-7.02 7.02zM47.1 103.23h25.81v3.87H47.1z" />
-                              </svg>
-                              {/* <span className="ml-3 font-size-medium">Mobile View</span> */}
-                            </button>
-                            <button
-                              className={`button pad-10 ml-5 d-flex align-center align-self-center output-email-width-button-tab justify-center
+                          onClick={() => toggleOutputEmailWidth("Mobile")}
+                        >
+                          <svg
+                            fill="#000000"
+                            data-name="Layer 1"
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 120 120"
+                            style={{ width: "20px" }}
+                          >
+                            <path d="M85.81 120H34.19a8.39 8.39 0 0 1-8.38-8.39V8.39A8.39 8.39 0 0 1 34.19 0h51.62a8.39 8.39 0 0 1 8.38 8.39v103.22a8.39 8.39 0 0 1-8.38 8.39zM34.19 3.87a4.52 4.52 0 0 0-4.51 4.52v103.22a4.52 4.52 0 0 0 4.51 4.52h51.62a4.52 4.52 0 0 0 4.51-4.52V8.39a4.52 4.52 0 0 0-4.51-4.52z" />
+                            <path d="M73.7 10.32H46.3L39.28 3.3 42.01.57l5.89 5.88h24.2L77.99.57l2.73 2.73-7.02 7.02zM47.1 103.23h25.81v3.87H47.1z" />
+                          </svg>
+                          {/* <span className="ml-3 font-size-medium">Mobile View</span> */}
+                        </button>
+                        <button
+                          className={`button pad-10 ml-5 d-flex align-center align-self-center output-email-width-button-tab justify-center
                               ${outputEmailWidth === "Tab" && "bg-active"}
                               `}
-                              onClick={() => toggleOutputEmailWidth("Tab")}
-                            >
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                xmlnsXlink="http://www.w3.org/1999/xlink"
-                                fill="#000000"
-                                version="1.1"
-                                id="Capa_1"
-                                width="20px"
-                                height="20px"
-                                viewBox="0 0 54.355 54.355"
-                                xmlSpace="preserve"
-                              >
-                                <g>
-                                  <g>
-                                    <path d="M8.511,54.355h37.333c1.379,0,2.5-1.121,2.5-2.5V2.5c0-1.378-1.121-2.5-2.5-2.5H8.511c-1.379,0-2.5,1.122-2.5,2.5v49.354    C6.011,53.234,7.133,54.355,8.511,54.355z M9.011,3h36.333v48.354H9.011V3z" />
-                                    <path d="M40.928,6.678h-27.5c-0.827,0-1.5,0.673-1.5,1.5v34.25c0,0.827,0.673,1.5,1.5,1.5h27.5c0.827,0,1.5-0.673,1.5-1.5V8.178    C42.428,7.351,41.755,6.678,40.928,6.678z M41.428,42.428c0,0.275-0.224,0.5-0.5,0.5h-27.5c-0.276,0-0.5-0.225-0.5-0.5V8.178    c0-0.276,0.224-0.5,0.5-0.5h27.5c0.276,0,0.5,0.224,0.5,0.5V42.428z" />
-                                    <path d="M27.178,45.013c-1.378,0-2.499,1.121-2.499,2.499s1.121,2.499,2.499,2.499c1.377,0,2.498-1.121,2.498-2.499    S28.556,45.013,27.178,45.013z M27.178,49.01c-0.827,0-1.499-0.672-1.499-1.499s0.672-1.499,1.499-1.499    c0.826,0,1.498,0.672,1.498,1.499S28.005,49.01,27.178,49.01z" />
-                                  </g>
-                                </g>
-                              </svg>
-                              {/* <span className="ml-3 font-size-medium">Tab View</span> */}
-                            </button>
-                            <button
-                              className={`button pad-10 ml-5 d-flex align-center align-self-center output-email-width-button-desktop justify-center
+                          onClick={() => toggleOutputEmailWidth("Tab")}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            xmlnsXlink="http://www.w3.org/1999/xlink"
+                            fill="#000000"
+                            version="1.1"
+                            id="Capa_1"
+                            width="20px"
+                            height="20px"
+                            viewBox="0 0 54.355 54.355"
+                            xmlSpace="preserve"
+                          >
+                            <g>
+                              <g>
+                                <path d="M8.511,54.355h37.333c1.379,0,2.5-1.121,2.5-2.5V2.5c0-1.378-1.121-2.5-2.5-2.5H8.511c-1.379,0-2.5,1.122-2.5,2.5v49.354    C6.011,53.234,7.133,54.355,8.511,54.355z M9.011,3h36.333v48.354H9.011V3z" />
+                                <path d="M40.928,6.678h-27.5c-0.827,0-1.5,0.673-1.5,1.5v34.25c0,0.827,0.673,1.5,1.5,1.5h27.5c0.827,0,1.5-0.673,1.5-1.5V8.178    C42.428,7.351,41.755,6.678,40.928,6.678z M41.428,42.428c0,0.275-0.224,0.5-0.5,0.5h-27.5c-0.276,0-0.5-0.225-0.5-0.5V8.178    c0-0.276,0.224-0.5,0.5-0.5h27.5c0.276,0,0.5,0.224,0.5,0.5V42.428z" />
+                                <path d="M27.178,45.013c-1.378,0-2.499,1.121-2.499,2.499s1.121,2.499,2.499,2.499c1.377,0,2.498-1.121,2.498-2.499    S28.556,45.013,27.178,45.013z M27.178,49.01c-0.827,0-1.499-0.672-1.499-1.499s0.672-1.499,1.499-1.499    c0.826,0,1.498,0.672,1.498,1.499S28.005,49.01,27.178,49.01z" />
+                              </g>
+                            </g>
+                          </svg>
+                          {/* <span className="ml-3 font-size-medium">Tab View</span> */}
+                        </button>
+                        <button
+                          className={`button pad-10 ml-5 d-flex align-center align-self-center output-email-width-button-desktop justify-center
                               ${outputEmailWidth === "" && "bg-active"}
                               `}
-                              onClick={() => toggleOutputEmailWidth("")}
-                            >
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="#000000"
-                                width="20"
-                                height="20"
-                                viewBox="0 -3 32 32"
-                                preserveAspectRatio="xMidYMid"
-                              >
-                                <path d="M30.000,21.000 L17.000,21.000 L17.000,24.000 L22.047,24.000 C22.600,24.000 23.047,24.448 23.047,25.000 C23.047,25.552 22.600,26.000 22.047,26.000 L10.047,26.000 C9.494,26.000 9.047,25.552 9.047,25.000 C9.047,24.448 9.494,24.000 10.047,24.000 L15.000,24.000 L15.000,21.000 L2.000,21.000 C0.898,21.000 0.000,20.103 0.000,19.000 L0.000,2.000 C0.000,0.897 0.898,0.000 2.000,0.000 L30.000,0.000 C31.103,0.000 32.000,0.897 32.000,2.000 L32.000,19.000 C32.000,20.103 31.103,21.000 30.000,21.000 ZM2.000,2.000 L2.000,19.000 L29.997,19.000 L30.000,2.000 L2.000,2.000 Z" />
-                              </svg>
-                              {/* <span className="ml-5 font-size-medium">Desktop</span> */}
-                            </button>
-                          </div>
+                          onClick={() => toggleOutputEmailWidth("")}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="#000000"
+                            width="20"
+                            height="20"
+                            viewBox="0 -3 32 32"
+                            preserveAspectRatio="xMidYMid"
+                          >
+                            <path d="M30.000,21.000 L17.000,21.000 L17.000,24.000 L22.047,24.000 C22.600,24.000 23.047,24.448 23.047,25.000 C23.047,25.552 22.600,26.000 22.047,26.000 L10.047,26.000 C9.494,26.000 9.047,25.552 9.047,25.000 C9.047,24.448 9.494,24.000 10.047,24.000 L15.000,24.000 L15.000,21.000 L2.000,21.000 C0.898,21.000 0.000,20.103 0.000,19.000 L0.000,2.000 C0.000,0.897 0.898,0.000 2.000,0.000 L30.000,0.000 C31.103,0.000 32.000,0.897 32.000,2.000 L32.000,19.000 C32.000,20.103 31.103,21.000 30.000,21.000 ZM2.000,2.000 L2.000,19.000 L29.997,19.000 L30.000,2.000 L2.000,2.000 Z" />
+                          </svg>
+                          {/* <span className="ml-5 font-size-medium">Desktop</span> */}
+                        </button>
+                      </div>
 
-                          {/* Your existing Generated/Existing indicator */}
-                          {/* {combinedResponses[currentIndex]?.generated ? (
+                      {/* Your existing Generated/Existing indicator */}
+                      {/* {combinedResponses[currentIndex]?.generated ? (
                             <span
                               className="generated-indicator d-flex align-center"
                               title="Generated Content"
@@ -1889,10 +1886,9 @@ useEffect(() => {
                               </span>
                             )
                           )} */}
-                        </div>
+                    </div>
                   </div>
                 </div>
-                
                 <div className="form-group" style={{ marginBottom: "20px" }}>
                   <div
                     style={{
@@ -1901,7 +1897,7 @@ useEffect(() => {
                     }}
                   >
                     {/* Subject field - 48% width */}
-                    <div style={{ flex: "0 0 50%", paddingRight:"15px" }}>
+                    <div style={{ flex: "0 0 50%", paddingRight: "15px" }}>
                       <label
                         style={{
                           display: "block",
@@ -1935,7 +1931,7 @@ useEffect(() => {
                     </div>
 
                     {/* BCC field - 20% width */}
-                    <div style={{ flex: "0 0 15%", paddingRight:"15px" }}>
+                    <div style={{ flex: "0 0 15%", paddingRight: "15px" }}>
                       <label
                         style={{
                           display: "block",
@@ -2022,7 +2018,7 @@ useEffect(() => {
                     </div>
 
                     {/* From Email field - 20% width */}
-                    <div style={{ flex: "0 0 15%",  paddingRight:"15px"  }}>
+                    <div style={{ flex: "0 0 15%", paddingRight: "15px" }}>
                       <label
                         style={{
                           display: "block",
@@ -2144,7 +2140,6 @@ useEffect(() => {
                             )}`
                           : ""}
                       </span>
-
 
                       {/* Email Sent Date */}
                       <span

@@ -633,7 +633,6 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
     }
   };
 
-
   const [tab, setTab] = useState("Processes");
   const tabHandler = (e: React.ChangeEvent<any>) => {
     const { innerText } = e.target;
@@ -714,7 +713,6 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
   return (
     <div className="login-box gap-down d-flex">
       <div className="input-section edit-section">
-        
         {tab === "Processes" && (
           <>
             <div className="row flex-wrap">
@@ -1068,8 +1066,6 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
             </div>
           </>
         )}
-
-       
       </div>
     </div>
   );
