@@ -1015,7 +1015,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
 const fetchEmailLogs = async (effectiveUserId: number, dataFileId: number) => {
   try {
     const response = await fetch(
-      `https://localhost:7216/api/Crm/getlogs?clientId=${effectiveUserId}&dataFileId=${dataFileId}`
+      `${API_BASE_URL}/api/Crm/getlogs?clientId=${effectiveUserId}&dataFileId=${dataFileId}`
     );
     
     if (response.ok) {
