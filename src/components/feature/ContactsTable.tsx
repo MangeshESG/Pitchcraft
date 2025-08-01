@@ -63,6 +63,7 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
   const colList = localColumns.filter((col) =>
     showCheckboxes ? col.visible : col.key !== "checkbox" && col.visible
   );
+  
 
   // Filter contacts based on search
   const filteredContacts = contacts.filter((contact) => {
