@@ -732,96 +732,121 @@ const MainPage: React.FC = () => {
   const [cachedContacts, setCachedContacts] = useState<any[]>([]);
 
   const fetchAndDisplayEmailBodies = useCallback(
-    async (
-      zohoviewId: string, // Format: "clientId,dataFileId"
-      pageToken: string | null = null,
-      direction: "next" | "previous" | null = null
-    ) => {
-      try {
-        setEmailLoading(true);
+  async (
+    zohoviewId: string, // Format: "clientId,dataFileId" OR "segment_segmentId"
+    pageToken: string | null = null,
+    direction: "next" | "previous" | null = null
+  ) => {
+    try {
+      setEmailLoading(true);
 
-        const effectiveUserId =
-          selectedClient !== "" ? Number(selectedClient) : Number(userId);
+      const effectiveUserId =
+        selectedClient !== "" ? Number(selectedClient) : Number(userId);
 
-        if (!effectiveUserId || effectiveUserId <= 0) {
-          console.error("Invalid userId or clientID:", effectiveUserId);
-          return;
+      if (!effectiveUserId || effectiveUserId <= 0) {
+        console.error("Invalid userId or clientID:", effectiveUserId);
+        return;
+      }
+
+      let contactsData = [];
+
+      // ✅ Check if this is a segment-based call
+      if (zohoviewId.startsWith("segment_")) {
+        // Extract segmentId from "segment_123" format
+        const segmentId = zohoviewId.replace("segment_", "");
+        console.log("Fetching segment contacts for segmentId:", segmentId);
+
+        // ✅ Fetch from segment API
+        const url = `${API_BASE_URL}/api/Crm/segment/${segmentId}/contacts`;
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          throw new Error("Failed to fetch segment contacts");
         }
 
+        const fetchedSegmentData = await response.json();
+        contactsData = fetchedSegmentData || [];
+        console.log("Fetched segment contacts:", contactsData);
+
+      } else {
+        // ✅ Original datafile logic (unchanged)
         // Parse zohoviewId to get clientId and dataFileId
         const [clientId, dataFileId] = zohoviewId.split(",");
 
-        // ✅ Use effectiveUserId instead of selectedClient in URL
+        // Use effectiveUserId instead of selectedClient in URL
         const url = `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${dataFileId}`;
-
         const response = await fetch(url);
+        
         if (!response.ok) {
           throw new Error("Failed to fetch email bodies");
         }
 
         const fetchedEmailData = await response.json();
-        const contactsData = fetchedEmailData.contacts || [];
-
-        setCachedContacts(contactsData);
-        console.log("Fetched contacts data:", contactsData);
-
-        if (!Array.isArray(contactsData)) {
-          console.error("Invalid data format");
-          return;
-        }
-
-        const emailResponses = contactsData.map((entry: any) => ({
-          id: entry.id,
-          name: entry.full_name || "N/A",
-          title: entry.job_title || "N/A",
-          company: entry.company_name || "N/A",
-          location: entry.country_or_address || "N/A",
-          website: entry.website || "N/A",
-          linkedin: entry.linkedin_url || "N/A",
-          pitch: entry.email_body || "No email body found",
-          timestamp: entry.created_at || new Date().toISOString(),
-          nextPageToken: null,
-          prevPageToken: null,
-          generated: false,
-          subject: entry.email_subject || "N/A",
-          email: entry.email || "N/A",
-          lastemailupdateddate: entry.updated_at || "N/A",
-          emailsentdate: entry.email_sent_at || "N/A",
-        }));
-
-        const newItemsCount = emailResponses.length;
-        const naPlaceholders = new Array(newItemsCount).fill("NA");
-        const emptyArrayPlaceholders = new Array(newItemsCount).fill([]);
-
-        setexistingResponse(emailResponses);
-        setAllResponses(emailResponses);
-        setallprompt(naPlaceholders);
-        setallsearchResults(emptyArrayPlaceholders);
-        seteveryscrapedData(naPlaceholders);
-        setallsummery(naPlaceholders);
-        setallSearchTermBodies(naPlaceholders);
-
-        // Find first valid contact BEFORE setting index
-        let validIndex = 0;
-        for (let i = 0; i < emailResponses.length; i++) {
-          const contact = emailResponses[i];
-          if (contact.name !== "N/A" && contact.company !== "N/A") {
-            validIndex = i;
-            break;
-          }
-        }
-
-        // Set to the valid index directly
-        setCurrentIndex(validIndex);
-        console.log("Setting current index to:", validIndex);
-      } catch (error) {
-        console.error("Error fetching email bodies:", error);
-      } finally {
-        setEmailLoading(false);
+        contactsData = fetchedEmailData.contacts || [];
+        console.log("Fetched datafile contacts:", contactsData);
       }
-    },
-    [selectedClient, userId]
-  );
+
+      // ✅ Rest of the function remains exactly the same
+      setCachedContacts(contactsData);
+
+      if (!Array.isArray(contactsData)) {
+        console.error("Invalid data format");
+        return;
+      }
+
+      const emailResponses = contactsData.map((entry: any) => ({
+        id: entry.id,
+        name: entry.full_name || "N/A",
+        title: entry.job_title || "N/A",
+        company: entry.company_name || "N/A",
+        location: entry.country_or_address || "N/A",
+        website: entry.website || "N/A",
+        linkedin: entry.linkedin_url || "N/A",
+        pitch: entry.email_body || "No email body found",
+        timestamp: entry.created_at || new Date().toISOString(),
+        nextPageToken: null,
+        prevPageToken: null,
+        generated: false,
+        subject: entry.email_subject || "N/A",
+        email: entry.email || "N/A",
+        lastemailupdateddate: entry.updated_at || "N/A",
+        emailsentdate: entry.email_sent_at || "N/A",
+      }));
+
+      const newItemsCount = emailResponses.length;
+      const naPlaceholders = new Array(newItemsCount).fill("NA");
+      const emptyArrayPlaceholders = new Array(newItemsCount).fill([]);
+
+      setexistingResponse(emailResponses);
+      setAllResponses(emailResponses);
+      setallprompt(naPlaceholders);
+      setallsearchResults(emptyArrayPlaceholders);
+      seteveryscrapedData(naPlaceholders);
+      setallsummery(naPlaceholders);
+      setallSearchTermBodies(naPlaceholders);
+
+      // Find first valid contact BEFORE setting index
+      let validIndex = 0;
+      for (let i = 0; i < emailResponses.length; i++) {
+        const contact = emailResponses[i];
+        if (contact.name !== "N/A" && contact.company !== "N/A") {
+          validIndex = i;
+          break;
+        }
+      }
+
+      // Set to the valid index directly
+      setCurrentIndex(validIndex);
+      console.log("Setting current index to:", validIndex);
+    } catch (error) {
+      console.error("Error fetching email bodies:", error);
+    } finally {
+      setEmailLoading(false);
+    }
+  },
+  [selectedClient, userId]
+);
+
 
   const sendEmail = async (
     cost: number,
@@ -941,6 +966,8 @@ const MainPage: React.FC = () => {
       console.error(`Error sending ${reportType.toLowerCase()}:`, error);
     }
   };
+
+
   var cost = 0;
   var failedReq = 0;
   var successReq = 0;
@@ -1034,19 +1061,31 @@ const MainPage: React.FC = () => {
 
     const startTime = new Date();
 
-    let parsedClientId: number;
-    let parsedDataFileId: number;
+   let parsedClientId: number;
+let parsedDataFileId: number | null = null;
+let segmentId: string | null = null;
 
-    if (selectedZohoviewId && selectedZohoviewId.includes(",")) {
-      const [clientIdStr, dataFileIdStr] = selectedZohoviewId.split(",");
-      parsedClientId = parseInt(clientIdStr);
-      parsedDataFileId = parseInt(dataFileIdStr);
-    } else {
-      // Fallback if format is different
-      parsedDataFileId = parseInt(selectedZohoviewId);
-      parsedClientId =
-        selectedClient !== "" ? Number(selectedClient) : Number(userId);
-    }
+    if (selectedZohoviewId) {
+  if (selectedZohoviewId.startsWith("segment_")) {
+    // ✅ Handle segment-based campaign
+    segmentId = selectedZohoviewId.replace("segment_", "");
+    parsedClientId = selectedClient !== "" ? Number(selectedClient) : Number(userId);
+    parsedDataFileId = null; // No dataFileId for segments
+    console.log("Using segment-based campaign, segmentId:", segmentId);
+  } else if (selectedZohoviewId.includes(",")) {
+    // ✅ Handle datafile-based campaign (existing logic)
+    const [clientIdStr, dataFileIdStr] = selectedZohoviewId.split(",");
+    parsedClientId = parseInt(clientIdStr);
+    parsedDataFileId = parseInt(dataFileIdStr);
+    console.log("Using datafile-based campaign, dataFileId:", parsedDataFileId);
+  } else {
+    // ✅ Fallback for different format
+    parsedDataFileId = parseInt(selectedZohoviewId);
+    parsedClientId = selectedClient !== "" ? Number(selectedClient) : Number(userId);
+  }
+} else {
+  parsedClientId = selectedClient !== "" ? Number(selectedClient) : Number(userId);
+}
 
     // Use the parsed client ID consistently throughout
     const effectiveUserId =
@@ -1376,60 +1415,112 @@ const MainPage: React.FC = () => {
           }));
         }
 
-        try {
-          if (id && pitchData.response?.content && parsedDataFileId) {
-            const updateContactResponse = await fetch(
-              `${API_BASE_URL}/api/crm/contacts/update-email`,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  ClientId: effectiveUserId, // Use the consistent effectiveUserId
-                  DataFileId: parsedDataFileId, // Use the parsed value
-                  ContactId: id,
-                  EmailSubject: subjectLine,
-                  EmailBody: pitchData.response.content,
-                }),
-              }
-            );
-
-            if (!updateContactResponse.ok) {
-              const updateContactError = await updateContactResponse.json();
-              setOutputForm((prevOutputForm) => ({
-                ...prevOutputForm,
-                generatedContent:
-                  `<span style="color: orange">[${formatDateTime(
-                    new Date()
-                  )}] Updating contact in database incomplete for contact ${full_name} with company name ${company_name} and domain ${
-                    entry.email
-                  }. Error: ${updateContactError.Message}</span><br/>` +
-                  prevOutputForm.generatedContent,
-              }));
-            } else {
-              setOutputForm((prevOutputForm) => ({
-                ...prevOutputForm,
-                generatedContent:
-                  `<span style="color: green">[${formatDateTime(
-                    new Date()
-                  )}] Updated pitch in database for contact ${full_name} with company name ${company_name} and domain ${
-                    entry.email
-                  }.</span><br/>` + prevOutputForm.generatedContent,
-              }));
-            }
+        // ✅ Replace the database update logic in REGENERATION BLOCK
+try {
+  if (id && pitchData.response?.content) {
+    if (segmentId) {
+      // ✅ For segment-based campaigns, we need to find the dataFileId from contact
+      const contactDataFileId = entry.dataFileId || entry.data_file_id;
+      
+      if (contactDataFileId) {
+        const updateContactResponse = await fetch(
+          `${API_BASE_URL}/api/crm/contacts/update-email`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              ClientId: effectiveUserId,
+              DataFileId: contactDataFileId, // Use contact's dataFileId
+              ContactId: id,
+              EmailSubject: subjectLine,
+              EmailBody: pitchData.response.content,
+            }),
           }
-        } catch (zohoError) {
+        );
+
+        if (!updateContactResponse.ok) {
+          const updateContactError = await updateContactResponse.json();
           setOutputForm((prevOutputForm) => ({
             ...prevOutputForm,
             generatedContent:
               `<span style="color: orange">[${formatDateTime(
                 new Date()
-              )}] Updating contact in database incomplete for contact ${full_name} with company name ${company_name} and domain ${
-                entry.email
-              }. Error: </span><br/>` + prevOutputForm.generatedContent,
+              )}] Updating segment contact in database incomplete for ${full_name}. Error: ${updateContactError.Message}</span><br/>` +
+              prevOutputForm.generatedContent,
+          }));
+        } else {
+          setOutputForm((prevOutputForm) => ({
+            ...prevOutputForm,
+            generatedContent:
+              `<span style="color: green">[${formatDateTime(
+                new Date()
+              )}] Updated segment contact pitch in database for ${full_name}.</span><br/>` +
+              prevOutputForm.generatedContent,
           }));
         }
+      } else {
+        setOutputForm((prevOutputForm) => ({
+          ...prevOutputForm,
+          generatedContent:
+            `<span style="color: orange">[${formatDateTime(
+              new Date()
+            )}] No dataFileId found for segment contact ${full_name}</span><br/>` +
+            prevOutputForm.generatedContent,
+        }));
+      }
+    } else if (parsedDataFileId) {
+      // ✅ For datafile-based campaigns (existing logic)
+      const updateContactResponse = await fetch(
+        `${API_BASE_URL}/api/crm/contacts/update-email`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            ClientId: effectiveUserId,
+            DataFileId: parsedDataFileId,
+            ContactId: id,
+            EmailSubject: subjectLine,
+            EmailBody: pitchData.response.content,
+          }),
+        }
+      );
+
+      if (!updateContactResponse.ok) {
+        const updateContactError = await updateContactResponse.json();
+        setOutputForm((prevOutputForm) => ({
+          ...prevOutputForm,
+          generatedContent:
+            `<span style="color: orange">[${formatDateTime(
+              new Date()
+            )}] Updating contact in database incomplete for ${full_name}. Error: ${updateContactError.Message}</span><br/>` +
+            prevOutputForm.generatedContent,
+        }));
+      } else {
+        setOutputForm((prevOutputForm) => ({
+          ...prevOutputForm,
+          generatedContent:
+            `<span style="color: green">[${formatDateTime(
+              new Date()
+            )}] Updated pitch in database for ${full_name}.</span><br/>` +
+            prevOutputForm.generatedContent,
+        }));
+      }
+    }
+  }
+} catch (updateError) {
+  setOutputForm((prevOutputForm) => ({
+    ...prevOutputForm,
+    generatedContent:
+      `<span style="color: orange">[${formatDateTime(
+        new Date()
+      )}] Database update error for ${full_name}.</span><br/>` +
+      prevOutputForm.generatedContent,
+  }));
+}
 
         const newResponse = {
           ...entry,
@@ -1542,22 +1633,43 @@ const MainPage: React.FC = () => {
 
       // Use cached data if available and flag is set
       if (options?.useCachedData && cachedContacts.length > 0) {
-        contacts = cachedContacts;
-      } else {
-        // Fetch contacts only if not using cached data
-        const dataFileIdStr = selectedZohoviewId;
+  contacts = cachedContacts;
+} else {
+  // ✅ Fetch contacts based on campaign type
+  if (segmentId) {
+    // Fetch from segment API
+    console.log("Fetching contacts from segment API, segmentId:", segmentId);
+    const response = await fetch(
+      `${API_BASE_URL}/api/Crm/segment/${segmentId}/contacts`
+    );
 
-        const response = await fetch(
-          `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${dataFileIdStr}`
-        );
+    if (!response.ok) {
+      throw new Error("Failed to fetch segment contacts");
+    }
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch email bodies");
-        }
+    const data = await response.json();
+    contacts = data || []; // Segment API returns contacts directly
+    console.log("Fetched segment contacts:", contacts.length);
+    
+  } else if (parsedDataFileId) {
+    // Fetch from datafile API (existing logic)
+    console.log("Fetching contacts from datafile API, dataFileId:", parsedDataFileId);
+    const response = await fetch(
+      `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${parsedDataFileId}`
+    );
 
-        const data = await response.json();
-        contacts = data.contacts || [];
-      }
+    if (!response.ok) {
+      throw new Error("Failed to fetch datafile contacts");
+    }
+
+    const data = await response.json();
+    contacts = data.contacts || [];
+    console.log("Fetched datafile contacts:", contacts.length);
+    
+  } else {
+    throw new Error("No valid data source found (neither segment nor datafile)");
+  }
+}
 
       if (!Array.isArray(contacts)) {
         console.error("Invalid data format");
@@ -2200,71 +2312,105 @@ const MainPage: React.FC = () => {
           const dataFileIdStr = selectedZohoviewId;
 
           // Update database with new API
-          try {
-            if (entry.id && pitchData.response.content && parsedDataFileId) {
-              const updateContactResponse = await fetch(
-                `${API_BASE_URL}/api/crm/contacts/update-email`,
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    ClientId: effectiveUserId, // Use consistent value
-                    DataFileId: parsedDataFileId, // Use parsed value
-                    ContactId: entry.id,
-                    EmailSubject: subjectLine,
-                    EmailBody: pitchData.response.content,
-                  }),
-                }
-              );
+         // ✅ Replace the database update logic in REGENERATION BLOCK
 
-              if (!updateContactResponse.ok) {
-                const updateContactError = await updateContactResponse.json();
-                setOutputForm((prevOutputForm) => ({
-                  ...prevOutputForm,
-                  generatedContent:
-                    `<span style="color: orange">[${formatDateTime(
-                      new Date()
-                    )}] Updating contact in database incomplete for contact ${full_name} with company name ${company_name} and domain ${
-                      entry.email
-                    }. Error: ${updateContactError.Message}</span><br/>` +
-                    prevOutputForm.generatedContent,
-                }));
-              } else {
-                setOutputForm((prevOutputForm) => ({
-                  ...prevOutputForm,
-                  generatedContent:
-                    `<span style="color: green">[${formatDateTime(
-                      new Date()
-                    )}] Updated pitch in database for contact ${full_name} with company name ${company_name} and domain ${
-                      entry.email
-                    }.</span><br/>` + prevOutputForm.generatedContent,
-                }));
-              }
-            } else {
-              setOutputForm((prevOutputForm) => ({
-                ...prevOutputForm,
-                generatedContent:
-                  `<span style="color: orange">[${formatDateTime(
-                    new Date()
-                  )}] Updating contact in database incomplete for contact ${full_name} with company name ${company_name} and domain ${
-                    entry.email
-                  }</span><br/>` + prevOutputForm.generatedContent,
-              }));
-            }
-          } catch (zohoError) {
-            setOutputForm((prevOutputForm) => ({
-              ...prevOutputForm,
-              generatedContent:
-                `<span style="color: orange">[${formatDateTime(
-                  new Date()
-                )}] Updating contact in database incomplete for contact ${full_name} with company name ${company_name} and domain ${
-                  entry.email
-                }. Error: </span><br/>` + prevOutputForm.generatedContent,
-            }));
+// ✅ Update database with new API (in main processing loop)
+try {
+  if (entry.id && pitchData.response.content) { // ✅ Use entry.id instead of id
+    if (segmentId) {
+      // ✅ For segment-based campaigns
+      const contactDataFileId = entry.dataFileId || entry.data_file_id;
+      
+      if (contactDataFileId) {
+        const updateContactResponse = await fetch(
+          `${API_BASE_URL}/api/crm/contacts/update-email`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              ClientId: effectiveUserId,
+              DataFileId: contactDataFileId, // Use contact's dataFileId
+              ContactId: entry.id, // ✅ Use entry.id instead of id
+              EmailSubject: subjectLine,
+              EmailBody: pitchData.response.content,
+            }),
           }
+        );
 
+        if (!updateContactResponse.ok) {
+          const updateContactError = await updateContactResponse.json();
+          setOutputForm((prevOutputForm) => ({
+            ...prevOutputForm,
+            generatedContent:
+              `<span style="color: orange">[${formatDateTime(
+                new Date()
+              )}] Updating segment contact in database incomplete for ${full_name}. Error: ${updateContactError.Message}</span><br/>` +
+              prevOutputForm.generatedContent,
+          }));
+        } else {
+          setOutputForm((prevOutputForm) => ({
+            ...prevOutputForm,
+            generatedContent:
+              `<span style="color: green">[${formatDateTime(
+                new Date()
+              )}] Updated segment contact pitch in database for ${full_name}.</span><br/>` +
+              prevOutputForm.generatedContent,
+          }));
+        }
+      }
+    } else if (parsedDataFileId) {
+      // ✅ For datafile-based campaigns (existing logic)
+      const updateContactResponse = await fetch(
+        `${API_BASE_URL}/api/crm/contacts/update-email`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            ClientId: effectiveUserId,
+            DataFileId: parsedDataFileId,
+            ContactId: entry.id, // ✅ Use entry.id instead of id
+            EmailSubject: subjectLine,
+            EmailBody: pitchData.response.content,
+          }),
+        }
+      );
+
+      if (!updateContactResponse.ok) {
+        const updateContactError = await updateContactResponse.json();
+        setOutputForm((prevOutputForm) => ({
+          ...prevOutputForm,
+          generatedContent:
+            `<span style="color: orange">[${formatDateTime(
+              new Date()
+            )}] Updating contact in database incomplete for ${full_name}. Error: ${updateContactError.Message}</span><br/>` +
+            prevOutputForm.generatedContent,
+        }));
+      } else {
+        setOutputForm((prevOutputForm) => ({
+          ...prevOutputForm,
+          generatedContent:
+            `<span style="color: green">[${formatDateTime(
+              new Date()
+            )}] Updated pitch in database for ${full_name}.</span><br/>` +
+            prevOutputForm.generatedContent,
+        }));
+      }
+    }
+  }
+} catch (updateError) {
+  setOutputForm((prevOutputForm) => ({
+    ...prevOutputForm,
+    generatedContent:
+      `<span style="color: orange">[${formatDateTime(
+        new Date()
+      )}] Database update error for ${full_name}.</span><br/>` +
+      prevOutputForm.generatedContent,
+  }));
+}
           console.log("Delaying " + delayTime + " secs");
           // await delay(delayTime * 1000); // 1-second delay
         } catch (error) {
@@ -2411,9 +2557,6 @@ const MainPage: React.FC = () => {
   const searchTermFormOnSubmit = async (e: any) => {
     e.preventDefault();
     try {
-      console.log(searchTermForm.searchTerm, "searchTermForm");
-      console.log(searchTermForm.instructions);
-      console.log(searchTermForm.searchCount); // Log the number value
 
       const requestBody = searchTermForm.searchTerm; // Send only the search term in the body
 
@@ -2454,6 +2597,7 @@ const MainPage: React.FC = () => {
       }));
     }
   };
+
   const [settingsForm, setSettingsForm] = useState({
     emailTemplate: "",
     viewId: "",
@@ -2484,6 +2628,7 @@ const MainPage: React.FC = () => {
     },
     [] // Empty dependency array
   );
+
   const settingsFormOnSubmit = (e: any) => {
     e.preventDefault();
     console.log(outputForm, "outputForm");
@@ -2576,6 +2721,7 @@ const MainPage: React.FC = () => {
     pitch: string;
     timestamp: string;
   }
+  
   const IsAdmin = sessionStorage.getItem("IsAdmin");
 
   // State for data files
@@ -2850,66 +2996,72 @@ const MainPage: React.FC = () => {
     fetchCampaigns();
   }, [selectedClient, clientID]);
 
-  const handleCampaignChange = async (
-    event: React.ChangeEvent<HTMLSelectElement>
-  ) => {
-    const campaignId = event.target.value;
-    setSelectedCampaign(campaignId);
+const handleCampaignChange = async (
+  event: React.ChangeEvent<HTMLSelectElement>
+) => {
+  const campaignId = event.target.value;
+  setSelectedCampaign(campaignId);
 
-    if (campaignId) {
-      setSelectionMode("campaign");
+  if (campaignId) {
+    setSelectionMode("campaign");
 
-      // Clear existing data
-      setAllResponses([]);
-      setexistingResponse([]);
-      setCurrentIndex(0);
+    // Clear existing data
+    setAllResponses([]);
+    setexistingResponse([]);
+    setCurrentIndex(0);
 
-      // Find the selected campaign
-      const campaign = campaigns.find((c) => c.id.toString() === campaignId);
-      console.log("Selected campaign:", campaign);
+    // Find the selected campaign
+    const campaign = campaigns.find((c) => c.id.toString() === campaignId);
+    console.log("Selected campaign:", campaign);
 
-      if (campaign) {
-        // Set the corresponding prompt
-        const promptMatch = promptList.find(
-          (p: Prompt) => p.id === campaign.promptId
-        );
-        if (promptMatch) {
-          setSelectedPrompt(promptMatch);
-        }
-
-        // The zohoViewId field actually contains the dataFileId
-        const dataFileId = campaign.zohoViewId; // This is '31' in your example
-        console.log("Campaign dataFileId:", dataFileId);
-        setSelectedZohoviewId(dataFileId);
-
-        // Fetch data for this data file
-        try {
-          if (!dataFileId) {
-            console.error("Campaign has no dataFileId");
-            return;
-          }
-
-          // Get the client ID
-          const effectiveUserId =
-            selectedClient !== "" ? selectedClient : userId;
-
-          // Pass in format: "clientId,dataFileId"
-          // This matches your existing API call pattern
-          await fetchAndDisplayEmailBodies(`${effectiveUserId},${dataFileId}`);
-        } catch (error) {
-          console.error("Error fetching email bodies:", error);
-        }
+    if (campaign) {
+      // Set the corresponding prompt
+      const promptMatch = promptList.find(
+        (p: Prompt) => p.id === campaign.promptId
+      );
+      if (promptMatch) {
+        setSelectedPrompt(promptMatch);
       }
-    } else {
-      // If no campaign is selected, switch back to manual mode
-      setSelectionMode("manual");
-      setSelectedPrompt(null);
-      setSelectedZohoviewId("");
-      setAllResponses([]);
-      setexistingResponse([]);
-    }
-  };
 
+      // ✅ Check if campaign is segment-based or datafile-based
+      const segmentId = (campaign as any).segmentId;
+      const dataFileId = campaign.zohoViewId;
+      
+      console.log("Campaign segmentId:", segmentId);
+      console.log("Campaign dataFileId:", dataFileId);
+
+      // Get the client ID
+      const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
+
+      // Fetch data based on campaign type
+      try {
+        if (segmentId) {
+          // ✅ Campaign uses segment
+          console.log("Using segment-based campaign");
+          setSelectedZohoviewId(`segment_${segmentId}`);
+          await fetchAndDisplayEmailBodies(`segment_${segmentId}`);
+        } else if (dataFileId) {
+          // ✅ Campaign uses datafile - existing logic
+          console.log("Using datafile-based campaign");
+          setSelectedZohoviewId(dataFileId);
+          await fetchAndDisplayEmailBodies(`${effectiveUserId},${dataFileId}`);
+        } else {
+          console.error("Campaign has neither segmentId nor dataFileId");
+          return;
+        }
+      } catch (error) {
+        console.error("Error fetching contacts:", error);
+      }
+    }
+  } else {
+    // If no campaign is selected, switch back to manual mode
+    setSelectionMode("manual");
+    setSelectedPrompt(null);
+    setSelectedZohoviewId("");
+    setAllResponses([]);
+    setexistingResponse([]);
+  }
+};
   const handleClearAll = () => {
     // Confirm before proceeding
     {

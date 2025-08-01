@@ -6,8 +6,6 @@ import previousIcon from "../../assets/images/previous.png";
 import nextIcon from "../../assets/images/Next.png";
 import singleprvIcon from "../../assets/images/SinglePrv.png";
 import singlenextIcon from "../../assets/images/SingleNext.png";
-import excelIcon from "../../assets/images/icons/excel.png";
-import emailIcon from "../../assets/images/icons/email.png";
 
 import * as XLSX from "xlsx";
 import FileSaver from "file-saver";
