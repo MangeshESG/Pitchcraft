@@ -1094,7 +1094,7 @@ const Output: React.FC<OutputInterface> = ({
               }
               title="Click to generate hyper-personalized emails using the selected template for contacts in the selected data file"
             >
-              Generate emails
+              Generate
             </button>
           ) : (
             <>
@@ -1164,7 +1164,7 @@ const Output: React.FC<OutputInterface> = ({
                     id="overwriteDatabase"
                     onChange={settingsFormHandler}
                   />
-                  <span>Overwrite existing</span>
+                  <span>Overwrite </span>
                 </label>
               </div>
             </>

@@ -785,7 +785,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
               onClick={() => handleTabChange("List")}
               className={`button ${activeSubTab === "List" ? "active" : ""}`}
             >
-              List
+              Lists
             </button>
           </li>
           <li>
@@ -794,7 +794,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
               onClick={() => handleTabChange("Segment")}
               className={`button ${activeSubTab === "Segment" ? "active" : ""}`}
             >
-              Segment
+              Segments
             </button>
           </li>
         </ul>
@@ -1017,7 +1017,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                         onClick={() => setShowSaveSegmentModal(true)}
                         style={{ marginLeft: "auto" }}
                       >
-                        Create Segment
+                        Create segment
                       </button>
                     </div>
                   )
@@ -1047,7 +1047,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                   }}
                 >
                   <h3 style={{ marginTop: 0, marginBottom: 16 }}>
-                    Rename List
+                    Rename list
                   </h3>
 
                   {/* Name field */}
@@ -1059,7 +1059,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                         fontWeight: 500,
                       }}
                     >
-                      List Name <span style={{ color: "red" }}>*</span>
+                      List name <span style={{ color: "red" }}>*</span>
                     </label>
                     <input
                       value={renamingListName}
@@ -1185,7 +1185,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                   }}
                 >
                   <h3 style={{ marginTop: 0, marginBottom: 16 }}>
-                    Delete List
+                    Delete list
                   </h3>
                   <p style={{ marginBottom: 20 }}>
                     Are you sure you want to delete <b>{editingList.name}</b>?
@@ -1267,7 +1267,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                     className="button primary"
                     style={{ marginLeft: "auto" }}
                   >
-                    + Create Segment
+                    + Create segment
                   </button>
                 </div>
 
@@ -1277,9 +1277,9 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                 >
                   <thead>
                     <tr>
-                      <th>Segment Name</th>
+                      <th>Segment name</th>
                       <th>Contacts</th>
-                      <th>Created Date</th>
+                      <th>Created date</th>
                       <th>Description</th>
                       <th style={{ minWidth: 48 }}>Actions</th>
                     </tr>
@@ -1482,14 +1482,14 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
               boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
             }}
           >
-            <h3 style={{ marginTop: 0, marginBottom: 16 }}>Rename Segment</h3>
+            <h3 style={{ marginTop: 0, marginBottom: 16 }}>Rename segment</h3>
 
             {/* Name field */}
             <div style={{ marginBottom: 16 }}>
               <label
                 style={{ display: "block", marginBottom: 4, fontWeight: 500 }}
               >
-                Segment Name <span style={{ color: "red" }}>*</span>
+                Segment name <span style={{ color: "red" }}>*</span>
               </label>
               <input
                 value={renamingSegmentName}
@@ -1604,7 +1604,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
               boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
             }}
           >
-            <h3 style={{ marginTop: 0, marginBottom: 16 }}>Delete Segment</h3>
+            <h3 style={{ marginTop: 0, marginBottom: 16 }}>Delete segment</h3>
             <p style={{ marginBottom: 20 }}>
               Are you sure you want to delete segment{" "}
               <b>{editingSegment.name}</b>?
@@ -1670,7 +1670,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
               boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
             }}
           >
-            <h2 style={{ marginTop: 0 }}>Save as Segment</h2>
+            <h2 style={{ marginTop: 0 }}>Save as segment</h2>
             <p style={{ marginBottom: 16, color: "#666" }}>
               Creating segment with{" "}
               {viewMode === "detail"

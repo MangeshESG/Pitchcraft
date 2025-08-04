@@ -77,7 +77,7 @@ const Header: React.FC<HeaderProps> = React.memo(({
                 onChange={handleClientChange}
                 className="header-client-select"
               >
-                <option value="">--Please choose a client--</option>
+                <option value="">Select a client</option>
                 {clientNames.map((client: Client, index: number) => (
                   <option key={index} value={client.clientID.toString()}>
                     {`${client.firstName} ${client.lastName} - ${client.companyName} - ${client.clientID}`}
@@ -117,33 +117,7 @@ const Header: React.FC<HeaderProps> = React.memo(({
         </div>
       </div>
 
-      <div className="item">
-        {connectTo && (
-          <button className="dropdown ml-10 bg-white button small auto-width d-flex justify-between align-center">
-            <span className="d-flex full-width justify-center">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                width="17px"
-                height="17px"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M 11 2 L 11 11 L 2 11 L 2 13 L 11 13 L 11 22 L 13 22 L 13 13 L 22 13 L 22 11 L 13 11 L 13 2 Z"
-                />
-              </svg>
-              <span className="ml-5">Connect to</span>
-            </span>
-            <ul className="sub-menu d-flex flex-col">
-              {menuList.map((item, i) => (
-                <li key={i}>
-                  <Link to="/">{item}</Link>
-                </li>
-              ))}
-            </ul>
-          </button>
-        )}
-      </div>
+      
       
       <div className="item">
         <button

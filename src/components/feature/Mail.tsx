@@ -1526,12 +1526,12 @@ const fetchLogsByClientAndView = async (
   // Column configuration for email engagement data
   const [emailColumns, setEmailColumns] = useState<ColumnConfig[]>([
     { key: "checkbox", label: "", visible: true, width: "40px" },
-    { key: "full_name", label: "Full Name", visible: true },
-    { key: "email", label: "Email Address", visible: true },
+    { key: "full_name", label: "Full name", visible: true },
+    { key: "email", label: "Email address", visible: true },
     { key: "company", label: "Company", visible: true },
-    { key: "jobTitle", label: "Job Title", visible: true },
+    { key: "jobTitle", label: "Job title", visible: true },
     { key: "location", label: "Location", visible: true },
-    { key: "eventType", label: "Event Type", visible: true },
+    { key: "eventType", label: "Event type", visible: true },
     { key: "timestamp", label: "Timestamp", visible: true },
     { key: "targetUrl", label: "Target URL", visible: false },
     { key: "linkedin_URL", label: "LinkedIn", visible: false },
@@ -2257,14 +2257,14 @@ const getEngagementHeader = () => {
           <div className="form-controls">
             <div className="form-group">
               <label>
-                data file: <span style={{ color: "red" }}>*</span>
+                List <span style={{ color: "red" }}>*</span>
               </label>
               <select
                 value={selectedView}
                 onChange={handleViewChange}
                 className={!selectedView ? "error" : ""}
               >
-                <option value="">-- Please Select a datafile --</option>
+                <option value=""> Select a list </option>
                 {availableViews.map((view) => (
                   <option key={view.id} value={view.id}>
                     {view.name}
@@ -2274,7 +2274,7 @@ const getEngagementHeader = () => {
             </div>
 
             <div className="form-group">
-              <label>Start Date:</label>
+              <label>Start date:</label>
               <input
                 type="date"
                 value={startDate}
@@ -2284,7 +2284,7 @@ const getEngagementHeader = () => {
             </div>
 
             <div className="form-group">
-              <label>End Date:</label>
+              <label>End date:</label>
               <input
                 type="date"
                 value={endDate}
@@ -2301,7 +2301,7 @@ const getEngagementHeader = () => {
                   setEndDate("");
                 }}
               >
-                Clear Dates
+                Clear dates
               </button>
             )}
           </div>
@@ -2320,7 +2320,7 @@ const getEngagementHeader = () => {
             </div>
 
             <div className="stats-card orange">
-              <h3>Unique Opens</h3>
+              <h3>Unique opens</h3>
               {loading ? (
                 <p className="value">Loading...</p>
               ) : !selectedView ? (
@@ -2334,7 +2334,7 @@ const getEngagementHeader = () => {
             </div>
 
             <div className="stats-card blue">
-              <h3>Unique Clicks</h3>
+              <h3>Unique clicks</h3>
               {loading ? (
                 <p className="value">Loading...</p>
               ) : !selectedView ? (
@@ -2350,7 +2350,7 @@ const getEngagementHeader = () => {
 
           {dashboardTab === "Overview" && (
             <div className="chart-container">
-              <h2>Statistics Overview</h2>
+              <h2>Statistics overview</h2>
               {!error && (
                 <ResponsiveContainer width="100%" height={300}>
                   <LineChart
@@ -2399,21 +2399,14 @@ const getEngagementHeader = () => {
           {dashboardTab === "Details" && (
             <>
               <div className="event-buttons" style={{ marginBottom: 16 }}>
-                <button
-                  onClick={() => setEmailFilterType("all")}
-                  className={`btn-filter ${
-                    emailFilterType === "all" ? "active" : ""
-                  }`}
-                >
-                  All Events
-                </button>
+                
                 <button
                   onClick={() => setEmailFilterType("opens")}
                   className={`btn-open ${
                     emailFilterType === "opens" ? "active" : ""
                   }`}
                 >
-                  Opens Only
+                  Opens 
                 </button>
                 <button
                   onClick={() => setEmailFilterType("clicks")}
@@ -2421,8 +2414,9 @@ const getEngagementHeader = () => {
                     emailFilterType === "clicks" ? "active" : ""
                   }`}
                 >
-                  Clicks Only
+                  Clicks 
                 </button>
+                
                 <button
                   onClick={() => setEmailFilterType("opens-no-clicks")}
                   className={`btn-filter ${
@@ -2435,7 +2429,15 @@ const getEngagementHeader = () => {
                         : undefined,
                   }}
                 >
-                  Opened but Not Clicked
+                  Opens not clicked
+                </button>
+                <button
+                  onClick={() => setEmailFilterType("all")}
+                  className={`btn-filter ${
+                    emailFilterType === "all" ? "active" : ""
+                  }`}
+                >
+                  All 
                 </button>
                 {/* Add this new Email Logs button */}
                 <button
@@ -2448,7 +2450,7 @@ const getEngagementHeader = () => {
                       emailFilterType === "email-logs" ? "#28a745" : undefined,
                   }}
                 >
-                  Email Logs
+                  Sent
                 </button>
                 <button
                   onClick={handleRefresh}
@@ -2572,14 +2574,14 @@ const getEngagementHeader = () => {
   <div className="email-summary" style={{ marginTop: 20 }}>
     <div className="stats-cards">
       <div className="stats-card">
-        <h3>Total Emails</h3>
+        <h3>Total emails</h3>
         <p className="value">{getFilteredEmailLogs().length}</p>
       </div>
       <div
         className="stats-card"
         style={{ background: "#d4edda" }}
       >
-        <h3>Successfully Sent</h3>
+        <h3>Successfully sent</h3>
         <p className="value">
           {getFilteredEmailLogs().filter((log) => log.isSuccess).length}
         </p>
@@ -3046,7 +3048,7 @@ const getEngagementHeader = () => {
                   <div className="col col-3">
                     <div className="form-group">
                       <label>
-                        Data files of contacts{" "}
+                        List{" "}
                         <span className="required">*</span>
                       </label>
                       <select
@@ -3061,7 +3063,7 @@ const getEngagementHeader = () => {
                           scheduleDataLoading || scheduleDataFiles.length === 0
                         }
                       >
-                        <option value="">Please select a data file</option>
+                        <option value="">Select a list</option>
                         {scheduleDataFiles.map((file) => (
                           <option key={file.id} value={file.id.toString()}>
                             {file.name}
@@ -3070,15 +3072,15 @@ const getEngagementHeader = () => {
                       </select>
                       {!selectedZohoviewId1 && scheduleDataFiles.length > 0 && (
                         <small className="error-text">
-                          Please select a data file
+                          Select a list
                         </small>
                       )}
                       {scheduleDataLoading && (
-                        <small>Loading data files...</small>
+                        <small>Loading list...</small>
                       )}
                       {!scheduleDataLoading &&
                         scheduleDataFiles.length === 0 && (
-                          <small>No data files available</small>
+                          <small>No list available</small>
                         )}
                     </div>
                     {(emailLoading || scheduleDataLoading) && (
@@ -3285,10 +3287,10 @@ const getEngagementHeader = () => {
                 <thead>
                   <tr>
                     <th>Sequence name</th>
-                    <th>Data files of contacts</th>
+                    <th>List</th>
                     <th>From</th>
-                    <th>Scheduled Date</th>
-                    <th>Scheduled Time</th>
+                    <th>Scheduled date</th>
+                    <th>Scheduled time</th>
                     <th>Timezone</th>
                     <th>BCC</th>
                     <th>Actions</th>

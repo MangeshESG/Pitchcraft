@@ -493,7 +493,7 @@ const handleDataSourceChange = (type: 'datafile' | 'segment', value: string) => 
 
   <div className="col-12-768">
     <div className="form-group">
-      <label>Select Template</label>
+      <label> Template</label>
       <select
         value={selectedPrompt?.id || ""}
         onChange={handlePromptSelect}
@@ -517,7 +517,7 @@ const handleDataSourceChange = (type: 'datafile' | 'segment', value: string) => 
   {/* Data File Dropdown */}
   <div className="col-12-768">
     <div className="form-group">
-      <label>Select Data File</label>
+      <label> List</label>
       <select
         name="zohoViewId"
         value={campaignForm.zohoViewId}
@@ -525,7 +525,7 @@ const handleDataSourceChange = (type: 'datafile' | 'segment', value: string) => 
         className="form-control"
         disabled={!!campaignForm.segmentId}
       >
-        <option value="">Select a data file</option>
+        <option value="">Select a list</option>
         {dataFiles.map((file) => (
           <option key={file.id} value={file.id}>
             {file.name}
@@ -543,7 +543,7 @@ const handleDataSourceChange = (type: 'datafile' | 'segment', value: string) => 
   {/* Segment Dropdown */}
   <div className="col-12-768">
     <div className="form-group">
-      <label>Select Segment</label>
+      <label> Segment</label>
       <select
         name="segmentId"
         value={campaignForm.segmentId}
@@ -646,7 +646,7 @@ const handleDataSourceChange = (type: 'datafile' | 'segment', value: string) => 
 
             <div className="col col-3 col-12-768">
               <div className="form-group">
-                <label>Select Template</label>
+                <label> Template</label>
                 <select
                   value={selectedPrompt?.id || ""}
                   onChange={handlePromptSelect}
@@ -669,14 +669,14 @@ const handleDataSourceChange = (type: 'datafile' | 'segment', value: string) => 
 
             <div className="col col-3 col-12-768">
               <div className="form-group">
-                <label>Select Data File</label>
+                <label>List</label>
                 <select
                   name="zohoViewId"
                   value={campaignForm.zohoViewId}
                   onChange={handleCampaignFormChange}
                   className="form-control"
                 >
-                  <option value="">Select a data file</option>
+                  <option value="">List</option>
                   {dataFiles.map((file) => (
                     <option key={file.id} value={file.id.toString()}>
                       {file.name}
@@ -695,7 +695,7 @@ const handleDataSourceChange = (type: 'datafile' | 'segment', value: string) => 
           <div className="row mt-3 flex-wrap-640">
             <div className="col col-3 col-12-640">
               <div className="form-group">
-                <label>Select Campaign to Manage</label>
+                <label>Campaign to Manage</label>
                 <select
                   value={selectedCampaign?.id || ""}
                   onChange={handleCampaignSelect}

@@ -359,7 +359,7 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
               }}
             >
               <h3 style={{ margin: 0, fontSize: "18px", color: "#333" }}>
-                Show/Hide Columns
+                Show/Hide columns
               </h3>
               <button
                 onClick={() => setShowColumnPanel(false)}

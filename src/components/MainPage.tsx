@@ -3243,7 +3243,7 @@ const handleCampaignChange = async (
                             }}
                             className="submenu-button"
                           >
-                            List
+                            Lists
                           </button>
                         </li>
                         <li
@@ -3258,7 +3258,7 @@ const handleCampaignChange = async (
                             }}
                             className="submenu-button"
                           >
-                            Segment
+                            Segments
                           </button>
                         </li>
                       </ul>
@@ -3435,7 +3435,7 @@ const handleCampaignChange = async (
               {tab === "Template" && (
                 <>
                   <h1 className="text-[22px] mb-15 pb-4 border-b border-[#cccccc] font-semibold">
-                    Template
+                    Templates
                   </h1>
                   <div className="login-box gap-down !mb-[0px] d-flex">
                     <div className="input-section edit-section w-[100%]">
