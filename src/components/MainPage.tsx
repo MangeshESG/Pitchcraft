@@ -3975,7 +3975,7 @@ const handleCampaignChange = async (
                                 {tab3 === "Template" && (
                                   <div className="form-group edit-prompt-form-height">
                                     <label>Template</label>
-                                    <span className="pos-relative">
+                                    <span className="pos-relative h-full">
                                       <ReactQuill
                                         className="height-350 adjust-quill-height"
                                         theme="snow"
