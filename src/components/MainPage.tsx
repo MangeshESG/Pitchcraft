@@ -11,35 +11,26 @@ import {
 import { faEnvelope, faFileAlt } from "@fortawesome/free-regular-svg-icons";
 import "./MainPage.css";
 import Modal from "./common/Modal";
-import Tabs from "./common/Tabs";
-import { getPrompts, createPrompts, deletePrompt } from "../api/axios";
 import { useSelector } from "react-redux";
 import ReactQuill from "react-quill-new";
 import { Tooltip as ReactTooltip } from "react-tooltip";
 import Mail from "./feature/Mail";
 import "react-quill-new/dist/quill.snow.css";
 import { RootState } from "../Redux/store";
-import {
-  copyToClipboard,
-  generateSystemPrompt,
-  sortByAscending,
-} from "../utils/utils";
 import { systemPrompt, Languages } from "../utils/label";
 import Output from "./feature/Output";
 import Settings from "./feature/Settings";
 import DataFile from "./feature/datafile";
 import axios from "axios";
 import Header from "./common/Header";
-import * as FileSaver from "file-saver";
-import * as XLSX from "xlsx";
 import API_BASE_URL from "../config";
 import { useDispatch } from "react-redux";
 import { useModel } from "../ModelContext";
-import { fetchClientSettings } from "../slices/clientSettingsSlice"; // adjust path if needed
 import { AppDispatch } from "../Redux/store"; // ✅ import AppDispatch
 import DataCampaigns from "./feature/ContactList"; // Adjust the path based on your file structure
 import CampaignManagement from "./feature/CampaignManagement";
-import logoImage from "../assets/images/pitchcraftlogo.png";
+import { useAppData } from "../contexts/AppDataContext";
+
 
 interface Prompt {
   id: number;
@@ -49,6 +40,8 @@ interface Prompt {
   createdAt?: string;
   template?: string;
 }
+
+
 
 const modules = {
   toolbar: [
@@ -177,6 +170,14 @@ interface SettingsFormType {
 }
 
 const MainPage: React.FC = () => {
+    // Context and hooks
+
+ const appData = useAppData();
+  const triggerRefresh = appData.triggerRefresh;
+  const setClientSettings = appData.setClientSettings;
+  const clientSettings = appData.clientSettings;
+  const refreshTrigger = appData.refreshTrigger;
+
   const [formData, setFormData] = useState({
     Server: "",
     Port: "",
@@ -264,6 +265,11 @@ const MainPage: React.FC = () => {
 
   const [showDataFileUpload, setShowDataFileUpload] = useState(false);
 
+  const [isLoadingClientSettings, setIsLoadingClientSettings] = useState(false);
+  const clientID = sessionStorage.getItem("clientId");
+
+
+
   interface DataFile {
     id: number;
     client_id: number;
@@ -293,6 +299,41 @@ const MainPage: React.FC = () => {
     setLastProcessedIndex(0);
   };
 
+    // Campaign fetching effect
+
+ useEffect(() => {
+    const fetchCampaigns = async () => {
+      if (!selectedClient && !clientID) {
+        setCampaigns([]);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        let url = `${API_BASE_URL}/api/auth/campaigns/client`;
+        if (selectedClient) {
+          url += `/${selectedClient}`;
+        } else if (clientID) {
+          url += `/${clientID}`;
+        }
+
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        setCampaigns(data);
+      } catch (error) {
+        console.error("Error fetching campaigns:", error);
+        setCampaigns([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCampaigns();
+  }, [selectedClient, clientID, refreshTrigger]);
   //Dropdown Of Client
   useEffect(() => {
     const fetchClientData = async () => {
@@ -394,7 +435,6 @@ const MainPage: React.FC = () => {
       : Object.values(Languages)[0]
   );
 
-  const clientID = sessionStorage.getItem("clientId");
   const [zohoClient, setZohoClient] = useState<ZohoClient[]>([]);
 
   const handleLanguageChange = (
@@ -448,19 +488,42 @@ const MainPage: React.FC = () => {
     fetchPromptsList();
   }, [selectedClient, fetchPromptsList]);
 
-  const handleClientChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedClient(event.target.value);
+ const handleClientChange = async (event: React.ChangeEvent<HTMLSelectElement>) => {
+  const newClientId = event.target.value;
+  setSelectedClient(newClientId);
 
-    // Clear existing selections when client changes
-    // Clear existing selections when client changes
-    setSelectedPrompt(null);
-    setSelectedZohoviewId("");
-    setSelectedCampaign("");
-    setSelectionMode("manual");
+  // Clear existing selections when client changes
+  setSelectedPrompt(null);
+  setSelectedZohoviewId("");
+  setSelectedCampaign("");
+  setSelectionMode("manual");
+  setPromptList([]);
 
-    // Clear the prompt list immediately when a new client is selected
-    setPromptList([]);
-  };
+  // Immediately load client settings using YOUR existing function
+  if (newClientId) {
+    setIsLoadingClientSettings(true);
+    try {
+      console.log("Loading settings for client:", newClientId);
+      const settings = await fetchClientSettings(Number(newClientId)); // This uses YOUR function
+      console.log("Settings loaded:", settings);
+      
+      // Store settings in context
+      setClientSettings(settings);
+      
+      // Trigger refresh for all components
+      triggerRefresh();
+    } catch (error) {
+      console.error("Error loading client settings:", error);
+      setClientSettings(null);
+    } finally {
+      setIsLoadingClientSettings(false);
+    }
+  } else {
+    setClientSettings(null);
+    triggerRefresh();
+  }
+};
+
 
   useEffect(() => {
     const isAdminString = sessionStorage.getItem("isAdmin");
@@ -2948,53 +3011,7 @@ try {
     }
   }, [isDemoAccount]);
 
-  useEffect(() => {
-    const fetchCampaigns = async () => {
-      // Only proceed if there's a client selected
-      if (!selectedClient && !clientID) {
-        setCampaigns([]); // Clear campaigns when no client is selected
-        return;
-      }
 
-      setLoading(true);
-      try {
-        let url = `${API_BASE_URL}/api/auth/campaigns/client`;
-        if (selectedClient) {
-          url += `/${selectedClient}`;
-        } else if (clientID) {
-          url += `/${clientID}`;
-        }
-
-        console.log(
-          `Fetching campaigns for client: ${
-            selectedClient || clientID
-          } from ${url}`
-        );
-
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        console.log(
-          `Received ${data.length} campaigns for client ${
-            selectedClient || clientID
-          }`,
-          data
-        );
-
-        setCampaigns(data);
-      } catch (error) {
-        console.error("Error fetching campaigns:", error);
-        setCampaigns([]); // Clear campaigns on error
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCampaigns();
-  }, [selectedClient, clientID]);
 
 const handleCampaignChange = async (
   event: React.ChangeEvent<HTMLSelectElement>
@@ -4165,14 +4182,16 @@ const handleCampaignChange = async (
 
             {tab === "Settings" && userRole === "ADMIN" && (
               <Settings
-                settingsForm={settingsForm}
-                settingsFormHandler={settingsFormHandler}
-                settingsFormOnSubmit={settingsFormOnSubmit}
-                searchTermForm={searchTermForm}
-                searchTermFormHandler={searchTermFormHandler}
-                searchTermFormOnSubmit={searchTermFormOnSubmit}
-                selectedClient={selectedClient}
-                fetchClientSettings={fetchClientSettings}
+                 selectedClient={selectedClient}
+                  fetchClientSettings={fetchClientSettings}
+                  settingsForm={settingsForm}
+                  settingsFormHandler={settingsFormHandler}
+                  settingsFormOnSubmit={settingsFormOnSubmit}
+                  searchTermForm={searchTermForm}
+                  searchTermFormHandler={searchTermFormHandler}
+                  searchTermFormOnSubmit={searchTermFormOnSubmit}
+                preloadedSettings={clientSettings} // ADD THIS LINE
+                isLoadingSettings={isLoadingClientSettings} // ADD THIS LINE
               />
             )}
 

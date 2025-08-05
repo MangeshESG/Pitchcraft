@@ -92,7 +92,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
   const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
   const [segments, setSegments] = useState<Segment[]>([]);
 
-  const { refreshTrigger, saveFormState, getFormState } = useAppData(); // Add this line
+const { refreshTrigger, saveFormState, getFormState, triggerRefresh } = useAppData(); // ADD triggerRefresh here
 
 
   // Fetch Data Files by Client ID
@@ -121,7 +121,6 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
   // Fetch Zoho Client data (keeping for backward compatibility)
   const fetchZohoClient = async () => {
     if (!effectiveUserId) {
-      console.log("No client selected, skipping fetch");
       return;
     }
 
@@ -259,7 +258,7 @@ const handleCampaignSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
   }, []); // Add this useEffect
 
   
-  const createCampaign = async () => {
+const createCampaign = async () => {
   // Check that either zohoViewId OR segmentId is provided (not both, not neither)
   const hasDataFile = !!campaignForm.zohoViewId;
   const hasSegment = !!campaignForm.segmentId;
@@ -314,6 +313,11 @@ const handleCampaignSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
     });
 
     await fetchCampaigns();
+    
+    await fetchCampaigns();
+    
+    triggerRefresh();
+        
   } catch (error) {
     console.error("Error creating campaign:", error);
     alert(`Failed to create campaign: ${error}`);
@@ -322,7 +326,8 @@ const handleCampaignSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
   }
 };
 
-  const updateCampaign = async () => {
+
+const updateCampaign = async () => {
   const hasDataFile = !!campaignForm.zohoViewId;
   const hasSegment = !!campaignForm.segmentId;
   
@@ -369,6 +374,11 @@ const handleCampaignSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
 
     alert("Campaign updated successfully");
     await fetchCampaigns();
+    
+    await fetchCampaigns();
+    
+    triggerRefresh();
+        
   } catch (error) {
     console.error("Error updating campaign:", error);
     alert(`Failed to update campaign: ${error}`);
@@ -377,48 +387,53 @@ const handleCampaignSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
   }
 };
 
+
   const deleteCampaign = async () => {
-    if (!selectedCampaign) {
-      alert("Please select a campaign to delete");
-      return;
-    }
+  if (!selectedCampaign) {
+    alert("Please select a campaign to delete");
+    return;
+  }
 
-    if (!window.confirm("Are you sure you want to delete this campaign?")) {
-      return;
-    }
+  if (!window.confirm("Are you sure you want to delete this campaign?")) {
+    return;
+  }
 
-    setIsLoading(true);
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/auth/deletecampaign/${selectedCampaign.id}`,
-        {
-          method: "POST",
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to delete campaign");
+  setIsLoading(true);
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/auth/deletecampaign/${selectedCampaign.id}`,
+      {
+        method: "POST",
       }
+    );
 
-      alert("Campaign deleted successfully");
-
-      setSelectedCampaign(null);
-      setCampaignForm({
-        campaignName: "",
-        promptId: "",
-        zohoViewId: "",
-        segmentId: "", // Add this
-        description: "",
-      });
-
-      await fetchCampaigns();
-    } catch (error) {
-      console.error("Error deleting campaign:", error);
-      alert("Failed to delete campaign");
-    } finally {
-      setIsLoading(false);
+    if (!response.ok) {
+      throw new Error("Failed to delete campaign");
     }
-  };
+
+    alert("Campaign deleted successfully");
+
+    setSelectedCampaign(null);
+    setCampaignForm({
+      campaignName: "",
+      promptId: "",
+      zohoViewId: "",
+      segmentId: "",
+      description: "",
+    });
+
+    await fetchCampaigns();
+    
+    await fetchCampaigns();
+    
+    triggerRefresh();
+  } catch (error) {
+    console.error("Error deleting campaign:", error);
+    alert("Failed to delete campaign");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   // Load data when client changes
 // Update your useEffect

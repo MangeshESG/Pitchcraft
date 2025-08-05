@@ -6,6 +6,7 @@ import previousIcon from "../../assets/images/previous.png";
 import nextIcon from "../../assets/images/Next.png";
 import singleprvIcon from "../../assets/images/SinglePrv.png";
 import singlenextIcon from "../../assets/images/SingleNext.png";
+import { useAppData } from "../../contexts/AppDataContext";
 
 import * as XLSX from "xlsx";
 import FileSaver from "file-saver";
@@ -32,6 +33,16 @@ interface Prompt {
   createdAt?: string;
   template?: string;
 }
+
+interface Campaign {
+  id: number;
+  campaignName: string;
+  promptId: number;
+  zohoViewId: string;
+  clientId: number;
+  description?: string;
+}
+
 
 interface OutputInterface {
   outputForm: {
@@ -199,8 +210,10 @@ const Output: React.FC<OutputInterface> = ({
   setSubjectMode,
   subjectText,
   setSubjectText,
+ 
 }) => {
   const [isCopyText, setIsCopyText] = useState(false);
+  const { refreshTrigger } = useAppData(); // Make sure this includes refreshTrigger
 
   const copyToClipboardHandler = async () => {
     const contentToCopy = combinedResponses[currentIndex]?.pitch || "";
@@ -1079,6 +1092,12 @@ const Output: React.FC<OutputInterface> = ({
       }
     }
   }, [combinedResponses]);
+
+    useEffect(() => {
+    // This will trigger when campaigns are created/updated/deleted
+    console.log('Campaigns updated in Output component:', campaigns?.length);
+  }, [campaigns, refreshTrigger]); // Add refreshTrigger dependency
+
 
   return (
     <div className="login-box gap-down">

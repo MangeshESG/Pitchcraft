@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import Modal from "../common/Modal";
 import API_BASE_URL from "../../config";
 import { useModel } from "../../ModelContext";
+import { useAppData } from "../../contexts/AppDataContext";
+
 
 interface SettingsProps {
   selectedClient: string;
@@ -9,6 +11,8 @@ interface SettingsProps {
   settingsForm: any;
   settingsFormHandler: (e: React.ChangeEvent<HTMLInputElement>) => void;
   settingsFormOnSubmit: (e: any) => void;
+  preloadedSettings?: any; // ADD THIS
+  isLoadingSettings?: boolean; // ADD THIS
 }
 
 interface Prompt {
@@ -99,6 +103,8 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
   searchTermFormOnSubmit,
   selectedClient,
   fetchClientSettings,
+  preloadedSettings, // ADD THIS
+  isLoadingSettings = false, // ADD THIS
 }) => {
   const [openModals, setOpenModals] = useState<{ [key: string]: boolean }>({});
   const { setSelectedModelName } = useModel(); // Destructure setSelectedModelName from context
@@ -107,6 +113,7 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
 
   // Added state for selected model
   const [selectedModel, setSelectedModel] = useState<string>("");
+  const { refreshTrigger, clientSettings } = useAppData();
 
   useEffect(() => {
     const fetchModels = async () => {
@@ -158,96 +165,95 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
       output: "",
     });
 
-  // CHANGE THIS useEffect
-  useEffect(() => {
-    const loadClientSettings = async () => {
-      if (selectedClient) {
-        try {
-          const response = await fetchClientSettings(Number(selectedClient));
-          const settings = Array.isArray(response) ? response[0] : response;
-          console.log("Full settings object:", settings);
+ // REPLACE the useEffect I provided earlier with this corrected version:
+useEffect(() => {
+  const loadClientSettings = async () => {
+    if (selectedClient) {
+      try {
+        setIsLoading(true);
+        
+        // Use preloaded settings from context first, then preloadedSettings prop, then fetch
+        const settings = clientSettings || preloadedSettings || await fetchClientSettings(Number(selectedClient));
+        
+        console.log("Loading settings in Settings component:", settings);
 
-          if (settings) {
-            // Update model selection
-            if (settings.model_name || settings.modelName) {
-              const modelName = settings.model_name || settings.modelName;
-              setSelectedModel(modelName);
-              setSelectedModelName(modelName);
-              localStorage.setItem("selectedModel", modelName);
-            }
-
-            // Update search term form
-            setLocalSearchTermForm((prev) => ({
-              ...prev,
-              searchCount: settings.searchCount?.toString() || "",
-              searchTerm: settings.searchTerm || "",
-              instructions: settings.instruction || settings.instructions || "",
-            }));
-
-            searchTermFormHandler({
-              target: {
-                name: "searchCount",
-                value: settings.searchCount?.toString() || "",
-              },
-            } as any);
-
-            searchTermFormHandler({
-              target: {
-                name: "searchTerm",
-                value: settings.searchTerm || "",
-              },
-            } as any);
-
-            searchTermFormHandler({
-              target: {
-                name: "instructions",
-                value: settings.instruction || settings.instructions || "",
-              },
-            } as any);
-
-            // FIX: Update system instructions correctly
-            settingsFormHandler({
-              target: {
-                name: "systemInstructions",
-                value:
-                  settings.system_instruction ||
-                  settings.systemInstructions ||
-                  "",
-              },
-            } as any);
-
-            // FIX: Update subject instructions correctly
-            settingsFormHandler({
-              target: {
-                name: "subjectInstructions",
-                value:
-                  settings.subject_instruction ||
-                  settings.subjectInstructions ||
-                  "",
-              },
-            } as any);
-
-            // Also update local state
-            setLocalSettingsForm((prev) => ({
-              ...prev,
-              systemInstructions:
-                settings.system_instruction ||
-                settings.systemInstructions ||
-                "",
-              subjectInstructions:
-                settings.subject_instruction ||
-                settings.subjectInstructions ||
-                "",
-            }));
+        if (settings && Object.keys(settings).length > 0) {
+          // Update model selection - use the normalized field names from your function
+          if (settings.modelName) {
+            setSelectedModel(settings.modelName);
+            setSelectedModelName(settings.modelName);
+            localStorage.setItem("selectedModel", settings.modelName);
           }
-        } catch (error) {
-          console.error("Error loading client settings:", error);
-        }
-      }
-    };
 
-    loadClientSettings();
-  }, [selectedClient]);
+          // Update search term form - use the normalized field names
+          const newSearchTermData = {
+            searchCount: settings.searchCount?.toString() || "",
+            searchTerm: settings.searchTerm || "",
+            instructions: settings.instructions || "",
+          };
+
+          setLocalSearchTermForm(prev => ({
+            ...prev,
+            ...newSearchTermData
+          }));
+
+          // Update parent component state
+          Object.entries(newSearchTermData).forEach(([key, value]) => {
+            searchTermFormHandler({
+              target: { name: key, value }
+            } as any);
+          });
+
+          // Update settings form - use the normalized field names
+          const newSettingsData = {
+            systemInstructions: settings.systemInstructions || "",
+            subjectInstructions: settings.subjectInstructions || "",
+          };
+
+          setLocalSettingsForm(prev => ({
+            ...prev,
+            ...newSettingsData
+          }));
+
+          // Update parent component state
+          Object.entries(newSettingsData).forEach(([key, value]) => {
+            settingsFormHandler({
+              target: { name: key, value }
+            } as any);
+          });
+
+          // Load additional data
+          await Promise.all([
+            fetchZohoClient(),
+            fetchDemoAccountStatus()
+          ]);
+        }
+      } catch (error) {
+        console.error("Error loading client settings:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      // Clear all data when no client is selected
+      setSelectedModel("");
+      setLocalSearchTermForm({
+        searchCount: "",
+        searchTerm: "",
+        instructions: "",
+        output: "",
+      });
+      setLocalSettingsForm({
+        systemInstructions: "",
+        subjectInstructions: "",
+        emailTemplate: "",
+      });
+      setZohoClient([]);
+      setIsDemoAccount(false);
+    }
+  };
+
+  loadClientSettings();
+}, [selectedClient, clientSettings, preloadedSettings, refreshTrigger]);
 
   // Modify handleModelChange to update local state
 

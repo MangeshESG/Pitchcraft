@@ -1,4 +1,3 @@
-// contexts/AppDataContext.tsx
 import React, { createContext, useContext, useState, useCallback } from 'react';
 
 interface DataContextType {
@@ -7,6 +6,8 @@ interface DataContextType {
   formStates: { [key: string]: any };
   saveFormState: (key: string, data: any) => void;
   getFormState: (key: string) => any;
+  clientSettings: any;
+  setClientSettings: (settings: any) => void;
 }
 
 const AppDataContext = createContext<DataContextType | null>(null);
@@ -14,6 +15,7 @@ const AppDataContext = createContext<DataContextType | null>(null);
 export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [formStates, setFormStates] = useState<{ [key: string]: any }>({});
+  const [clientSettings, setClientSettings] = useState<any>(null);
 
   const triggerRefresh = useCallback(() => {
     setRefreshTrigger(prev => prev + 1);
@@ -33,7 +35,9 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       triggerRefresh,
       formStates,
       saveFormState,
-      getFormState
+      getFormState,
+      clientSettings,
+      setClientSettings
     }}>
       {children}
     </AppDataContext.Provider>

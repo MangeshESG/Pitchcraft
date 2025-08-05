@@ -4,7 +4,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { RootState } from "../../Redux/store";
 import { useDispatch } from "react-redux";
 import { clearToken } from "../../slices/authSLice";
-import logoImage from "../../assets/images/pitchcraftlogo.png"; 
 
 interface HeaderProps {
   connectTo: boolean;
