@@ -4,6 +4,8 @@ import { Tooltip as ReactTooltip } from "react-tooltip";
 import Modal from "../common/Modal";
 import "./datafile.css";
 import API_BASE_URL from "../../config";
+import { useAppData } from "../../contexts/AppDataContext";
+
 
 interface DataFileProps {
   selectedClient: string;
@@ -69,6 +71,7 @@ const DataFile: React.FC<DataFileProps> = ({
     description: "",
   });
   const [validatedData, setValidatedData] = useState<ProcessedContact[]>([]);
+  const { triggerRefresh } = useAppData(); // Add this line
 
   interface DataFileInfo {
     name: string;
@@ -369,6 +372,9 @@ const DataFile: React.FC<DataFileProps> = ({
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to upload contacts");
       }
+
+      triggerRefresh();
+
 
       const result = await response.json();
 

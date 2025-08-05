@@ -9,6 +9,8 @@ import API_BASE_URL from "../../config";
 import { toast } from "react-toastify";
 import ContactsTable from "./ContactsTable";
 import { useContext } from 'react'
+import { useAppData } from "../../contexts/AppDataContext";
+
 
 
 import {
@@ -238,7 +240,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   onTabChange,
 }) => {
   const [isCopyText, setIsCopyText] = useState(false);
-
+const { saveFormState, getFormState, refreshTrigger } = useAppData();
   const [openModals, setOpenModals] = useState<{ [key: string]: boolean }>({});
 
   const handleModalOpen = (id: string) => {
@@ -256,15 +258,20 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   }, [initialTab]);
 
   const tabHandler = (e: React.MouseEvent<HTMLButtonElement>) => {
-    const innerText = e.currentTarget.innerText as MailTabType;
-    setTab(innerText);
+  const innerText = e.currentTarget.innerText as MailTabType;
+  setTab(innerText);
 
-    // Notify parent component
-    if (onTabChange) {
-      onTabChange(innerText);
-    }
-  };
+  // Save to context
+  saveFormState('mail-form', { 
+    ...getFormState('mail-form'),
+    tab: innerText 
+  });
 
+  // Notify parent component
+  if (onTabChange) {
+    onTabChange(innerText);
+  }
+};
   const [tab2, setTab2] = useState("Output");
   const tabHandler2 = (e: React.ChangeEvent<any>) => {
     const { innerText } = e.target;
@@ -303,6 +310,18 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       onClearContent(clearContent);
     }
   }, [onClearContent]);
+
+  useEffect(() => {
+  const savedState = getFormState('mail-form');
+  if (Object.keys(savedState).length > 0) {
+    // Restore all form states
+    if (savedState.selectedView) setSelectedView(savedState.selectedView);
+    if (savedState.dashboardTab) setDashboardTab(savedState.dashboardTab);
+    if (savedState.startDate) setStartDate(savedState.startDate);
+    if (savedState.endDate) setEndDate(savedState.endDate);
+    if (savedState.tab) setTab(savedState.tab);
+  }
+}, [getFormState]);
 
   const userId = sessionStorage.getItem("clientId");
   const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
@@ -498,7 +517,28 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
 
     fetchScheduleDataFiles();
   }, [tab, effectiveUserId, token]);
-
+// Add this useEffect after your existing useEffects
+useEffect(() => {
+  if (refreshTrigger > 0 && effectiveUserId) {
+    // Refresh available views when data changes
+    const refreshViews = async () => {
+      try {
+        const response = await axios.get(
+          `${API_BASE_URL}/api/crm/datafile-byclientid?clientId=${effectiveUserId}`,
+          {
+            headers: {
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+          }
+        );
+        setAvailableViews(response.data);
+      } catch (error) {
+        console.error("Error refreshing views:", error);
+      }
+    };
+    refreshViews();
+  }
+}, [refreshTrigger, effectiveUserId, token]); // Add this line
   // Clear schedule data when user changes
   useEffect(() => {
     setSelectedZohoviewId1("");
@@ -1379,6 +1419,11 @@ const fetchLogsByClientAndView = async (
   const handleViewChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newViewId = e.target.value;
     setSelectedView(newViewId);
+
+      saveFormState('mail-form', { 
+    ...getFormState('mail-form'),
+    selectedView: newViewId 
+  });
 
     // Clear all data
     setLoading(true);

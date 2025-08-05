@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import API_BASE_URL from "../../config";
 import { useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
+import { useAppData } from "../../contexts/AppDataContext";
+
 
 interface CampaignManagementProps {
   selectedClient: string;
@@ -89,6 +91,9 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
 
   const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
   const [segments, setSegments] = useState<Segment[]>([]);
+
+  const { refreshTrigger, saveFormState, getFormState } = useAppData(); // Add this line
+
 
   // Fetch Data Files by Client ID
   const fetchDataFiles = async () => {
@@ -231,18 +236,29 @@ const handleCampaignSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
   }
 };
 
-  const handleCampaignFormChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    >
-  ) => {
+   const handleCampaignFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setCampaignForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    const newForm = { ...campaignForm, [name]: value };
+    setCampaignForm(newForm);
+    saveFormState('campaign-form', newForm); // Add this line
   };
 
+
+    useEffect(() => {
+    if (effectiveUserId && refreshTrigger > 0) {
+      fetchDataFiles();
+      fetchSegments();
+    }
+  }, [refreshTrigger, effectiveUserId]);
+
+  useEffect(() => {
+    const savedForm = getFormState('campaign-form');
+    if (Object.keys(savedForm).length > 0) {
+      setCampaignForm(savedForm);
+    }
+  }, []); // Add this useEffect
+
+  
   const createCampaign = async () => {
   // Check that either zohoViewId OR segmentId is provided (not both, not neither)
   const hasDataFile = !!campaignForm.zohoViewId;
