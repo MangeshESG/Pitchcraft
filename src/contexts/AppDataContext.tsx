@@ -1,5 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
-
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 
 // Add these interfaces for dashboard data
 interface EventItem {
@@ -80,11 +79,46 @@ interface DataContextType {
 
 const AppDataContext = createContext<DataContextType | null>(null);
 
+// SessionStorage key for caching
+const DASHBOARD_CACHE_KEY = 'pitchcraft-dashboard-cache';
+
 export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [formStates, setFormStates] = useState<{ [key: string]: any }>({});
   const [clientSettings, setClientSettings] = useState<any>(null);
-  const [dashboardDataCache, setDashboardDataCache] = useState<DashboardData>({});
+  
+  // Initialize with data from sessionStorage
+  const [dashboardDataCache, setDashboardDataCache] = useState<DashboardData>(() => {
+    try {
+      const saved = sessionStorage.getItem(DASHBOARD_CACHE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        console.log('🔄 Loaded dashboard cache from sessionStorage:', Object.keys(parsed));
+        return parsed;
+      }
+    } catch (error) {
+      console.error('Error loading dashboard cache from sessionStorage:', error);
+    }
+    return {};
+  });
+
+  // Save to sessionStorage whenever cache changes
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify(dashboardDataCache));
+      if (Object.keys(dashboardDataCache).length > 0) {
+        console.log('💾 Saved dashboard cache to sessionStorage:', Object.keys(dashboardDataCache));
+      }
+    } catch (error) {
+      console.error('Error saving dashboard cache to sessionStorage:', error);
+      // Handle quota exceeded
+      if (error instanceof Error && error.name === 'QuotaExceededError') {
+        console.warn('SessionStorage quota exceeded, clearing cache');
+        sessionStorage.removeItem(DASHBOARD_CACHE_KEY);
+        setDashboardDataCache({});
+      }
+    }
+  }, [dashboardDataCache]);
 
   const triggerRefresh = useCallback(() => {
     setRefreshTrigger(prev => prev + 1);
@@ -105,36 +139,82 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     emailLogs: EmailLog[];
     effectiveUserId: string;
   }) => {
+    const cacheData = {
+      ...data,
+      lastFetched: Date.now()
+    };
+    
+    console.log(`✅ Saving dashboard data for view ${viewId}:`, {
+      events: cacheData.allEventData.length,
+      emails: cacheData.allEmailLogs.length,
+      user: cacheData.effectiveUserId
+    });
+    
     setDashboardDataCache(prev => ({
       ...prev,
-      [viewId]: {
-        ...data,
-        lastFetched: Date.now()
-      }
+      [viewId]: cacheData
     }));
   }, []);
 
   const getDashboardData = useCallback((viewId: string, effectiveUserId: string): DashboardDataCache | null => {
-    const cached = dashboardDataCache[viewId];
-    if (cached && cached.effectiveUserId === effectiveUserId) {
-      // Return cached data if it's less than 5 minutes old (configurable)
-      const cacheExpiryTime = 5 * 60 * 1000; // 5 minutes
-      if (Date.now() - cached.lastFetched < cacheExpiryTime) {
-        return cached;
+    // First check React state
+    let cached = dashboardDataCache[viewId];
+    
+    // If not in React state, try sessionStorage directly
+    if (!cached) {
+      try {
+        const saved = sessionStorage.getItem(DASHBOARD_CACHE_KEY);
+        if (saved) {
+          const allData = JSON.parse(saved);
+          cached = allData[viewId];
+        }
+      } catch (error) {
+        console.error('Error reading from sessionStorage:', error);
       }
     }
+    
+    if (cached && cached.effectiveUserId === effectiveUserId) {
+      const cacheExpiryTime = 30 * 60 * 1000; // 30 minutes
+      const isExpired = Date.now() - cached.lastFetched > cacheExpiryTime;
+      
+      if (!isExpired) {
+        console.log(`✅ Found cached data for view ${viewId} (${Math.round((Date.now() - cached.lastFetched) / 1000 / 60)} minutes old)`);
+        return cached;
+      } else {
+        console.log(`⏰ Cache expired for view ${viewId}, removing`);
+        // Remove expired cache
+        setDashboardDataCache(prev => {
+          const updated = { ...prev };
+          delete updated[viewId];
+          return updated;
+        });
+      }
+    } else if (cached) {
+      console.log(`❌ Cache user mismatch for view ${viewId}: expected ${effectiveUserId}, got ${cached.effectiveUserId}`);
+    } else {
+      console.log(`❌ No cached data found for view ${viewId}`);
+    }
+    
     return null;
   }, [dashboardDataCache]);
 
   const clearDashboardCache = useCallback(() => {
+    console.log('🗑️ Clearing all dashboard cache');
     setDashboardDataCache({});
+    try {
+      sessionStorage.removeItem(DASHBOARD_CACHE_KEY);
+    } catch (error) {
+      console.error('Error clearing sessionStorage:', error);
+    }
   }, []);
 
   const clearDashboardCacheForUser = useCallback((effectiveUserId: string) => {
+    console.log(`🗑️ Clearing dashboard cache for user: ${effectiveUserId}`);
     setDashboardDataCache(prev => {
       const updated = { ...prev };
       Object.keys(updated).forEach(viewId => {
         if (updated[viewId].effectiveUserId === effectiveUserId) {
+          console.log(`  - Removing cache for view ${viewId}`);
           delete updated[viewId];
         }
       });

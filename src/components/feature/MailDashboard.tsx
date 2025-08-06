@@ -50,9 +50,19 @@ interface ColumnConfig {
 }
 
 interface MailDashboardProps {
-  effectiveUserId: string | null; // Change this line
+  effectiveUserId: string | null;
   token: string | null;
-  isVisible: boolean; // Only render when this tab is active
+  isVisible: boolean;
+  // Add these new optional props
+  externalData?: {
+    allEventData: EventItem[];
+    allEmailLogs: any[];
+    emailLogs: EmailLog[];
+    selectedView: string;
+    loading: boolean;
+    dataFetched: boolean;
+  };
+  onDataChange?: (data: any) => void;
 }
 
 const MailDashboard: React.FC<MailDashboardProps> = ({
@@ -130,91 +140,194 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     { key: "errorMessage", label: "Error Message", visible: false },
   ]);
 
-  // ALL useEffect hooks - NO CONDITIONS ON THE HOOK ITSELF
-  useEffect(() => {
-    if (!effectiveUserId || !isVisible) return;
+ 
 
+// =================== ALL useEffect hooks ===================
+
+// 1. Initialize component - restore state and load cached data together
+useEffect(() => {
+  if (!effectiveUserId || !isVisible) return;
+
+  const initializeComponent = async () => {
+    console.log('🔄 Initializing MailDashboard component');
+    
+    // Step 1: Restore saved state first
     const savedState = getFormState(FORM_STATE_KEY);
+    let viewToLoad = selectedView;
+    
     if (savedState && savedState.effectiveUserId === effectiveUserId) {
-      if (savedState.selectedView) setSelectedView(savedState.selectedView);
-      if (savedState.dashboardTab) setDashboardTab(savedState.dashboardTab);
-      if (savedState.startDate) setStartDate(savedState.startDate);
-      if (savedState.endDate) setEndDate(savedState.endDate);
-      if (savedState.emailFilterType) setEmailFilterType(savedState.emailFilterType);
+      console.log('📥 Restoring saved state:', savedState);
+      
+      // CRITICAL: Only restore selectedView if it's not empty
+      if (savedState.selectedView && savedState.selectedView !== '') {
+        setSelectedView(savedState.selectedView);
+        viewToLoad = savedState.selectedView;
+        console.log('✅ Restored selectedView:', savedState.selectedView);
+      } else {
+        console.log('⚠️ Saved selectedView is empty, keeping current:', selectedView);
+      }
+      
+      if (savedState.dashboardTab && savedState.dashboardTab !== dashboardTab) {
+        setDashboardTab(savedState.dashboardTab);
+      }
+      if (savedState.startDate && savedState.startDate !== startDate) {
+        setStartDate(savedState.startDate);
+      }
+      if (savedState.endDate && savedState.endDate !== endDate) {
+        setEndDate(savedState.endDate);
+      }
+      if (savedState.emailFilterType && savedState.emailFilterType !== emailFilterType) {
+        setEmailFilterType(savedState.emailFilterType);
+      }
+      
+      // Give React a moment to update state
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
-  }, [effectiveUserId, isVisible]);
+    
+    // Step 2: Try to load cached data for the view
+    if (viewToLoad) {
+      const cachedData = getDashboardData(viewToLoad, effectiveUserId);
+      
+      if (cachedData) {
+        console.log('✅ Using cached data during initialization:', viewToLoad);
+        console.log('📦 Initial cached data:', {
+          events: cachedData.allEventData.length,
+          emails: cachedData.allEmailLogs.length
+        });
+        
+        setAllEventData(cachedData.allEventData);
+        setAllEmailLogs(cachedData.allEmailLogs);
+        setEmailLogs(cachedData.emailLogs);
+        setDataFetchedForView(viewToLoad);
+        
+        // Process data immediately
+        processDataWithDateFilter(cachedData.allEventData, cachedData.allEmailLogs, startDate, endDate);
+        
+        console.log('✅ Initialization complete with cached data');
+      } else {
+        console.log('❌ No cached data found for view:', viewToLoad);
+      }
+    } else {
+      console.log('⚠️ No viewToLoad available');
+    }
+  };
 
-  useEffect(() => {
-    if (!effectiveUserId || !isVisible) return;
+  initializeComponent();
+}, [effectiveUserId, isVisible]);
 
-    const loadAvailableViews = async () => {
+// 2. Load available views
+useEffect(() => {
+  if (!effectiveUserId || !isVisible) return;
+
+  const loadAvailableViews = async () => {
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/api/crm/datafile-byclientid?clientId=${effectiveUserId}`,
+        { headers: { ...(token && { Authorization: `Bearer ${token}` }) } }
+      );
+      setAvailableViews(response.data);
+    } catch (error) {
+      console.error("Dashboard: Error loading views:", error);
+      setAvailableViews([]);
+    }
+  };
+
+  loadAvailableViews();
+}, [effectiveUserId, token, isVisible]);
+
+// 3. Fetch data when selectedView changes (and not already cached/fetched)
+useEffect(() => {
+  if (!isVisible || !effectiveUserId || !selectedView) return;
+  
+  // Skip if we already have data for this view
+  if (dataFetchedForView === selectedView || loading) return;
+  
+  // Try cache first
+  const cachedData = getDashboardData(selectedView, effectiveUserId);
+  
+  if (cachedData) {
+    console.log('✅ Using cached data for view change:', selectedView);
+    console.log('📦 Cached data details:', {
+      events: cachedData.allEventData.length,
+      emails: cachedData.allEmailLogs.length,
+      emailLogs: cachedData.emailLogs.length
+    });
+    
+    // ✅ CRITICAL: Set ALL the state properly
+    setAllEventData(cachedData.allEventData);
+    setAllEmailLogs(cachedData.allEmailLogs);
+    setEmailLogs(cachedData.emailLogs);
+    setDataFetchedForView(selectedView);
+    
+    // ✅ CRITICAL: Process the data to update stats and UI
+    processDataWithDateFilter(cachedData.allEventData, cachedData.allEmailLogs, startDate, endDate);
+    
+    console.log('✅ State updated with cached data');
+    
+  } else {
+    console.log('❌ No cache found, fetching data for view:', selectedView);
+    fetchLogsByClientAndView(Number(effectiveUserId), selectedView);
+  }
+}, [selectedView, isVisible, effectiveUserId, dataFetchedForView, loading, getDashboardData]);
+
+
+
+// 4. Debug logging
+useEffect(() => {
+  console.log('📊 Dashboard state changed:');
+  console.log('- Selected view:', selectedView);
+  console.log('- Dashboard tab:', dashboardTab);
+  console.log('- Event data length:', allEventData.length);
+  console.log('- Email logs length:', allEmailLogs.length);
+  console.log('- Data fetched for view:', dataFetchedForView);
+  console.log('- isVisible:', isVisible);
+}, [selectedView, dashboardTab, allEventData.length, allEmailLogs.length, dataFetchedForView, isVisible]);
+
+// 5. Process data when date filters change
+useEffect(() => {
+  if ((allEventData.length > 0 || allEmailLogs.length > 0) && isVisible) {
+    processDataWithDateFilter(allEventData, allEmailLogs, startDate, endDate);
+  }
+}, [startDate, endDate, allEventData, allEmailLogs, isVisible]);
+
+// 6. Load email logs for email-logs filter type
+useEffect(() => {
+  if (!isVisible) return;
+  
+  if (selectedView && emailFilterType === "email-logs" && effectiveUserId) {
+    const loadEmailLogs = async () => {
       try {
-        const response = await axios.get(
-          `${API_BASE_URL}/api/crm/datafile-byclientid?clientId=${effectiveUserId}`,
-          { headers: { ...(token && { Authorization: `Bearer ${token}` }) } }
-        );
-        setAvailableViews(response.data);
+        const dataFileId = Number(selectedView);
+        const clientId = Number(effectiveUserId);
+        const logs = await fetchEmailLogs(clientId, dataFileId);
+        setEmailLogs(logs);
       } catch (error) {
-        console.error("Dashboard: Error loading views:", error);
-        setAvailableViews([]);
+        console.error('Error loading email logs:', error);
+        setEmailLogs([]);
       }
     };
+    loadEmailLogs();
+  }
+}, [selectedView, emailFilterType, effectiveUserId, isVisible]);
 
-    loadAvailableViews();
-  }, [effectiveUserId, token, isVisible]);
+// 7. Clear cache when user changes (optional)
+useEffect(() => {
+  if (effectiveUserId) {
+    // Reset data fetched state when user changes
+    setDataFetchedForView("");
+    // You could also clear cache here if needed:
+    // clearDashboardCacheForUser(effectiveUserId);
+  }
+}, [effectiveUserId]);
 
-  useEffect(() => {
-    if (!isVisible || !effectiveUserId || !selectedView) return;
-    
-    // Try to get cached data first
-    const cachedData = getDashboardData(selectedView, effectiveUserId);
-    
-    if (cachedData) {
-      console.log('Using cached dashboard data for view:', selectedView);
-      setAllEventData(cachedData.allEventData);
-      setAllEmailLogs(cachedData.allEmailLogs);
-      setEmailLogs(cachedData.emailLogs);
-      processDataWithDateFilter(cachedData.allEventData, cachedData.allEmailLogs, startDate, endDate);
-      setDataFetchedForView(selectedView);
-    } else if (dataFetchedForView !== selectedView && !loading) {
-      console.log('Fetching new dashboard data for view:', selectedView);
-      fetchLogsByClientAndView(Number(effectiveUserId), selectedView);
-    }
-  }, [selectedView, isVisible, effectiveUserId, dataFetchedForView, loading, getDashboardData]);
-
-
-  useEffect(() => {
-    if ((allEventData.length > 0 || allEmailLogs.length > 0) && isVisible) {
-      processDataWithDateFilter(allEventData, allEmailLogs, startDate, endDate);
-    }
-  }, [startDate, endDate, allEventData, allEmailLogs, isVisible]);
-
-  useEffect(() => {
-    if (!isVisible) return;
-    
-    if (selectedView && emailFilterType === "email-logs" && effectiveUserId) {
-      const loadEmailLogs = async () => {
-        try {
-          const dataFileId = Number(selectedView);
-          const clientId = Number(effectiveUserId);
-          const logs = await fetchEmailLogs(clientId, dataFileId);
-          setEmailLogs(logs);
-        } catch (error) {
-          console.error('Error loading email logs:', error);
-          setEmailLogs([]);
-        }
-      };
-      loadEmailLogs();
-    }
-  }, [selectedView, emailFilterType, effectiveUserId, isVisible]);
-
-    // Add effect to clear cache when user changes:
-  useEffect(() => {
-    if (effectiveUserId) {
-      // Only clear cache for the previous user, not all cache
-      // This effect will run when effectiveUserId changes
-    }
-  }, [effectiveUserId]);
+// Add this useEffect after your existing ones:
+useEffect(() => {
+  // Save state whenever selectedView changes (and it's not empty)
+  if (selectedView && effectiveUserId) {
+    console.log('💾 Auto-saving state for selectedView:', selectedView);
+    saveCurrentState();
+  }
+}, [selectedView]);
 
   // =================== NOW AFTER ALL HOOKS - EARLY RETURN ===================
   if (!effectiveUserId || !isVisible) {
@@ -222,18 +335,25 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   }
 
   // =================== ALL FUNCTIONS AFTER EARLY RETURN ===================
-  const saveCurrentState = () => {
-    const stateToSave = {
-      selectedView,
-      dashboardTab,
-      startDate,
-      endDate,
-      emailFilterType,
-      effectiveUserId,
-    };
-    saveFormState(FORM_STATE_KEY, stateToSave);
+ const saveCurrentState = () => {
+  // Only save if we have a valid selectedView
+  if (!selectedView) {
+    console.log('⚠️ Skipping state save - no selectedView');
+    return;
+  }
+  
+  const stateToSave = {
+    selectedView,
+    dashboardTab,
+    startDate,
+    endDate,
+    emailFilterType,
+    effectiveUserId,
   };
-
+  
+  console.log('💾 Saving current state:', stateToSave);
+  saveFormState(FORM_STATE_KEY, stateToSave);
+};
   const fetchEmailLogs = async (effectiveUserId: number, dataFileId: number) => {
     try {
       const response = await fetch(
@@ -254,51 +374,56 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   };
 
   const fetchLogsByClientAndView = async (clientId: number, viewId: string) => {
-    try {
-      setLoading(true);
-      const dataFileId = Number(viewId);
+  try {
+    setLoading(true);
+    const dataFileId = Number(viewId);
 
-      const trackingResponse = await axios.get(
-        `${API_BASE_URL}/api/Crm/gettrackinglogs`,
-        {
-          params: { clientId, dataFileId },
-          headers: { ...(token && { Authorization: `Bearer ${token}` }) },
-        }
-      );
+    const trackingResponse = await axios.get(
+      `${API_BASE_URL}/api/Crm/gettrackinglogs`,
+      {
+        params: { clientId, dataFileId },
+        headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+      }
+    );
 
-      const emailLogsData = await fetchEmailLogs(clientId, dataFileId);
-      const allTrackingData: EventItem[] = trackingResponse.data || [];
-      const allEmailLogsData = emailLogsData || [];
+    const emailLogsData = await fetchEmailLogs(clientId, dataFileId);
+    const allTrackingData: EventItem[] = trackingResponse.data || [];
+    const allEmailLogsData = emailLogsData || [];
 
-      // Set state
-      setAllEventData(allTrackingData);
-      setAllEmailLogs(allEmailLogsData);
-      setEmailLogs(allEmailLogsData);
-      
-      // Cache the data
-      saveDashboardData(viewId, {
-        allEventData: allTrackingData,
-        allEmailLogs: allEmailLogsData,
-        emailLogs: allEmailLogsData,
-        effectiveUserId: effectiveUserId!
-      });
-      
-      setDataFetchedForView(viewId);
-      processDataWithDateFilter(allTrackingData, allEmailLogsData, startDate, endDate);
-    } catch (error) {
-      console.error("Dashboard: Error fetching logs:", error);
-      setAllEventData([]);
-      setAllEmailLogs([]);
-      setEmailLogs([]);
-      setFilteredEventData([]);
-      setRequestCount(0);
-      setDailyStats([]);
-      setTotalStats({ sent: 0, opens: 0, clicks: 0 });
-      setDataFetchedForView(viewId);
-    } finally {
-      setLoading(false);
-    }
-  };
+    // Set state
+    setAllEventData(allTrackingData);
+    setAllEmailLogs(allEmailLogsData);
+    setEmailLogs(allEmailLogsData);
+    
+    // ✅ ALWAYS cache the data immediately after fetching - regardless of tab
+    saveDashboardData(viewId, {
+      allEventData: allTrackingData,
+      allEmailLogs: allEmailLogsData,
+      emailLogs: allEmailLogsData,
+      effectiveUserId: effectiveUserId!
+    });
+    
+    setDataFetchedForView(viewId);
+    
+    // Process data for current view
+    processDataWithDateFilter(allTrackingData, allEmailLogsData, startDate, endDate);
+    
+    console.log(`✅ Data cached for view ${viewId} - ${allTrackingData.length} events, ${allEmailLogsData.length} email logs`);
+    
+  } catch (error) {
+    console.error("Dashboard: Error fetching logs:", error);
+    setAllEventData([]);
+    setAllEmailLogs([]);
+    setEmailLogs([]);
+    setFilteredEventData([]);
+    setRequestCount(0);
+    setDailyStats([]);
+    setTotalStats({ sent: 0, opens: 0, clicks: 0 });
+    setDataFetchedForView(viewId);
+  } finally {
+    setLoading(false);
+  }
+};
 
 
 
@@ -410,27 +535,42 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
 
   // Event Handlers
   const handleViewChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newViewId = e.target.value;
-    const previousView = selectedView;
+  const newViewId = e.target.value;
+  const previousView = selectedView;
+  
+  console.log('🔄 View changing from', previousView, 'to', newViewId);
+  
+  setSelectedView(newViewId);
+  
+  // Save state immediately after setting new view
+  if (newViewId) {
+    const stateToSave = {
+      selectedView: newViewId, // Use the new value directly
+      dashboardTab,
+      startDate,
+      endDate,
+      emailFilterType,
+      effectiveUserId,
+    };
+    console.log('💾 Saving state on view change:', stateToSave);
+    saveFormState(FORM_STATE_KEY, stateToSave);
     
-    setSelectedView(newViewId);
-    saveCurrentState();
-
-    if (newViewId) {
-      // Only reset dataFetchedForView if we're changing to a different view
-      if (previousView !== newViewId) {
-        setDataFetchedForView("");
-      }
-    } else {
-      // Clear data if no view selected
-      setAllEventData([]);
-      setEmailLogs([]);
-      setDailyStats([]);
-      setTotalStats({ sent: 0, opens: 0, clicks: 0 });
-      setRequestCount(0);
+    // Reset dataFetchedForView if changing to different view
+    if (previousView !== newViewId) {
       setDataFetchedForView("");
     }
-  };
+  } else {
+    // Clear data if no view selected
+    setAllEventData([]);
+    setEmailLogs([]);
+    setDailyStats([]);
+    setTotalStats({ sent: 0, opens: 0, clicks: 0 });
+    setRequestCount(0);
+    setDataFetchedForView("");
+  }
+};
+
+
   const handleDashboardTabChange = (tabName: string) => {
     setDashboardTab(tabName);
     saveCurrentState();
@@ -1021,9 +1161,13 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     return null;
   }
 
+
+
   return (
-    <div className="dashboard-section">
-      {/* Dashboard Sub-tabs */}
+    <div 
+      className="dashboard-section" 
+      style={{ display: isVisible ? 'block' : 'none' }}
+    >      {/* Dashboard Sub-tabs */}
       <div className="dashboard-tabs">
         <button
           className={dashboardTab === "Overview" ? "active" : ""}

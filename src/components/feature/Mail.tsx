@@ -10,6 +10,8 @@ import { toast } from "react-toastify";
 import ContactsTable from "./ContactsTable";
 import { useAppData } from "../../contexts/AppDataContext";
 import MailDashboard from './MailDashboard';
+import type { EventItem, EmailLog } from "../../contexts/AppDataContext";
+
 
 type MailTabType = "Dashboard" | "Configuration" | "Schedule";
 
@@ -98,26 +100,7 @@ interface EmailContact {
 }
 
 
-interface EmailLog {
-  id: number;
-  contactId: number | null;
-  clientId: number;
-  dataFileId: number;
-  subject: string | null;
-  body: string;
-  sentAt: string;
-  isSuccess: boolean;
-  errorMessage: string | null;
-  toEmail: string;
-  process_name: string;
-  name: string | null;
-  email: string | null;
-  address: string | null;
-  website: string | null;
-  company: string | null;
-  jobTitle: string | null;
-  linkedIn: string | null;
-}
+
 
 interface OutputInterface {
   outputForm: {
@@ -956,15 +939,6 @@ const tabHandler = (e: React.MouseEvent<HTMLButtonElement>) => {
   };
 
 
-
-
-
-
-
-
-
-
-
   // BCC Email Management states
   const [bccEmails, setBccEmails] = useState<BccEmail[]>([]);
   const [newBccEmail, setNewBccEmail] = useState<string>("");
@@ -1037,23 +1011,45 @@ const tabHandler = (e: React.MouseEvent<HTMLButtonElement>) => {
     }
   };
 
- 
 
+    const [dashboardData, setDashboardData] = useState({
+    allEventData: [] as EventItem[],
+    allEmailLogs: [] as any[],
+    emailLogs: [] as EmailLog[],
+    selectedView: "",
+    loading: false,
+    dataFetched: false,
+  });
 
+  // Add dashboard data handlers
+  const handleDashboardDataChange = useCallback((data: any) => {
+    setDashboardData(prev => ({
+      ...prev,
+      ...data
+    }));
+  }, []);
 
-
-
-
-
-
+  // Clear dashboard data when user changes
+  useEffect(() => {
+    setDashboardData({
+      allEventData: [],
+      allEmailLogs: [],
+      emailLogs: [],
+      selectedView: "",
+      loading: false,
+      dataFetched: false,
+    });
+  }, [effectiveUserId]);
 
   return (
     <div className="login-box gap-down">
        {tab === "Dashboard" && (
-      <MailDashboard
+          <MailDashboard
         effectiveUserId={effectiveUserId}
         token={token}
         isVisible={tab === "Dashboard"}
+        externalData={dashboardData}
+        onDataChange={handleDashboardDataChange}
       />
     )}
 
