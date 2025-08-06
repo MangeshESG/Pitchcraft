@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import type { EventItem, EmailLog } from "../../contexts/AppDataContext";
+import DynamicContactsTable from "./DynamicContactsTable";
+
 
 import {
   LineChart,
@@ -1375,103 +1377,251 @@ useEffect(() => {
           </div>
 
           {/* ContactsTable Component */}
-          <ContactsTable
-            contacts={
-              emailFilterType === "email-logs"
-                ? transformEmailLogsForTable(getFilteredEmailLogs())
-                : getFilteredEmailContacts()
-            }
-            columns={
-              emailFilterType === "email-logs"
-                ? emailLogsColumns
-                : emailColumns
-            }
-            getContactValue={
-              emailFilterType === "email-logs"
-                ? getEmailLogValue
-                : getEmailContactValue
-            }
-            isLoading={isRefreshing || loading}
-            search={
-              emailFilterType === "email-logs"
-                ? emailLogsSearch
-                : detailSearchQuery
-            }
-            setSearch={
-              emailFilterType === "email-logs"
-                ? setEmailLogsSearch
-                : setDetailSearchQuery
-            }
-            showCheckboxes={true}
-            paginated={true}
-            currentPage={
-              emailFilterType === "email-logs"
-                ? emailLogsCurrentPage
-                : currentPage
-            }
-            pageSize={20}
-            onPageChange={
-              emailFilterType === "email-logs"
-                ? setEmailLogsCurrentPage
-                : setCurrentPage
-            }
-            onSelectAll={
-              emailFilterType === "email-logs"
-                ? handleSelectAllEmailLogs
-                : () => {
-                    const currentPageContacts = getFilteredEmailContacts().slice(
-                      (currentPage - 1) * 20,
-                      currentPage * 20
-                    );
-                    if (
-                      detailSelectedContacts.size === currentPageContacts.length &&
-                      currentPageContacts.length > 0
-                    ) {
-                      setDetailSelectedContacts(new Set());
-                    } else {
-                      setDetailSelectedContacts(
-                        new Set(currentPageContacts.map((c) => c.id.toString()))
-                      );
-                    }
-                  }
-            }
-            selectedContacts={
-              emailFilterType === "email-logs"
-                ? selectedEmailLogs
-                : detailSelectedContacts
-            }
-            onSelectContact={
-              emailFilterType === "email-logs"
-                ? handleSelectEmailLog
-                : (id: string) => {
-                    const newSelection = new Set(detailSelectedContacts);
-                    if (newSelection.has(id)) {
-                      newSelection.delete(id);
-                    } else {
-                      newSelection.add(id);
-                    }
-                    setDetailSelectedContacts(newSelection);
-                  }
-            }
-                        formatDate={formatMailTimestamp}
-            totalContacts={
-              emailFilterType === "email-logs"
-                ? getFilteredEmailLogs().length
-                : getFilteredEmailContacts().length
-            }
-            viewMode="table"
-            onColumnsChange={
-              emailFilterType === "email-logs"
-                ? setEmailLogsColumns
-                : setEmailColumns
-            }
-            customHeader={
-              emailFilterType === "email-logs"
-                ? getEmailLogsHeader()
-                : getEngagementHeader()
-            }
-          />
-
+<DynamicContactsTable
+  data={
+    emailFilterType === "email-logs"
+      ? transformEmailLogsForTable(getFilteredEmailLogs())
+      : getFilteredEmailContacts()
+  }
+  isLoading={isRefreshing || loading}
+  search={
+    emailFilterType === "email-logs"
+      ? emailLogsSearch
+      : detailSearchQuery
+  }
+  setSearch={
+    emailFilterType === "email-logs"
+      ? setEmailLogsSearch
+      : setDetailSearchQuery
+  }
+  showCheckboxes={true}
+  paginated={true}
+  currentPage={
+    emailFilterType === "email-logs"
+      ? emailLogsCurrentPage
+      : currentPage
+  }
+  pageSize={20}
+  onPageChange={
+    emailFilterType === "email-logs"
+      ? setEmailLogsCurrentPage
+      : setCurrentPage
+  }
+  onSelectAll={
+    emailFilterType === "email-logs"
+      ? handleSelectAllEmailLogs
+      : () => {
+          const currentPageContacts = getFilteredEmailContacts().slice(
+            (currentPage - 1) * 20,
+            currentPage * 20
+          );
+          if (
+            detailSelectedContacts.size === currentPageContacts.length &&
+            currentPageContacts.length > 0
+          ) {
+            setDetailSelectedContacts(new Set());
+          } else {
+            setDetailSelectedContacts(
+              new Set(currentPageContacts.map((c) => c.id.toString()))
+            );
+          }
+        }
+  }
+  selectedItems={
+    emailFilterType === "email-logs"
+      ? selectedEmailLogs
+      : detailSelectedContacts
+  }
+  onSelectItem={
+    emailFilterType === "email-logs"
+      ? handleSelectEmailLog
+      : (id: string) => {
+          const newSelection = new Set(detailSelectedContacts);
+          if (newSelection.has(id)) {
+            newSelection.delete(id);
+          } else {
+            newSelection.add(id);
+          }
+          setDetailSelectedContacts(newSelection);
+        }
+  }
+  totalItems={
+    emailFilterType === "email-logs"
+      ? getFilteredEmailLogs().length
+      : getFilteredEmailContacts().length
+  }
+  
+  // Configuration settings
+  autoGenerateColumns={false}  // DISABLE auto-generation
+  customColumns={              // USE your existing columns
+    emailFilterType === "email-logs"
+      ? emailLogsColumns
+      : emailColumns
+  }
+  customFormatters={{           // ADD formatters back for proper display
+    // Date formatting
+    timestamp: (value: any) => formatMailTimestamp(value),
+    sentAt: (value: any) => formatMailTimestamp(value),
+    
+    // Status formatting
+    isSuccess: (value: any) => {
+      if (typeof value === 'string' && (value.includes('✅') || value.includes('❌'))) {
+        return (
+          <span style={{ 
+            color: value.includes('✅') ? "#28a745" : "#dc3545", 
+            fontWeight: 500 
+          }}>
+            {value}
+          </span>
+        );
+      }
+      return value ? "✅ Sent" : "❌ Failed";
+    },
+    
+    // Event type formatting
+    eventType: (value: any) => (
+      <span style={{
+        padding: '2px 8px',
+        borderRadius: '12px',
+        fontSize: '12px',
+        fontWeight: 500,
+        background: value === 'Open' ? '#e3f2fd' : '#f3e5f5',
+        color: value === 'Open' ? '#1976d2' : '#7b1fa2'
+      }}>
+        {value}
+      </span>
+    ),
+    
+    // Subject formatting
+    subject: (value: any) => {
+      if (!value || value === '-') return '-';
+      const truncated = value.length > 50 ? value.substring(0, 50) + "..." : value;
+      return <span title={value}>{truncated}</span>;
+    },
+    
+    // Boolean formatting
+    hasOpened: (value: any) => value ? "✅" : "-",
+    hasClicked: (value: any) => value ? "✅" : "-",
+    
+    // Name formatting with warning
+    full_name: (value: any, item: any) => {
+      if (item.contactId === 0) {
+        return `${value} ⚠️`;
+      }
+      return value || '-';
+    },
+    name: (value: any, item: any) => {
+      if (item.contactId === 0) {
+        return `${value} ⚠️`;
+      }
+      return value || '-';
+    },
+    
+    // URL formatting
+    linkedin_URL: (value: any) => {
+      if (!value || value === '-') return '-';
+      return (
+        <a
+          href={value}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: "#0066cc", textDecoration: "underline" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          LinkedIn Profile
+        </a>
+      );
+    },
+    linkedIn: (value: any) => {
+      if (!value || value === '-') return '-';
+      return (
+        <a
+          href={value}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: "#0066cc", textDecoration: "underline" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          LinkedIn Profile
+        </a>
+      );
+    },
+    website: (value: any) => {
+      if (!value || value === '-') return '-';
+      const url = value.startsWith('http') ? value : `https://${value}`;
+      return (
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: "#0066cc", textDecoration: "underline" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          Website
+        </a>
+      );
+    },
+    targetUrl: (value: any) => {
+      if (!value || value === '-') return '-';
+      return (
+        <a
+          href={value}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: "#0066cc", textDecoration: "underline" }}
+          onClick={(e) => e.stopPropagation()}
+          title={value}
+        >
+          {value.length > 50 ? value.substring(0, 50) + "..." : value}
+        </a>
+      );
+    },
+    
+    // Email formatting
+    email: (value: any) => {
+      if (!value || value === '-') return '-';
+      return (
+        <a
+          href={`mailto:${value}`}
+          style={{ color: "#0066cc", textDecoration: "underline" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {value}
+        </a>
+      );
+    },
+    toEmail: (value: any) => {
+      if (!value || value === '-') return '-';
+      return (
+        <a
+          href={`mailto:${value}`}
+          style={{ color: "#0066cc", textDecoration: "underline" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {value}
+        </a>
+      );
+    }
+  }}
+  
+  searchFields={
+    emailFilterType === "email-logs" 
+      ? ['name', 'toEmail', 'company', 'jobTitle', 'subject', 'process_name', 'address']
+      : ['full_name', 'email', 'company', 'jobTitle', 'location']
+  }
+  primaryKey="id"
+  viewMode="table"
+  customHeader={
+    emailFilterType === "email-logs"
+      ? getEmailLogsHeader()
+      : getEngagementHeader()
+  }
+  onColumnsChange={
+    emailFilterType === "email-logs"
+      ? setEmailLogsColumns
+      : setEmailColumns
+  }
+/>
           {/* Email Logs Summary */}
           {emailFilterType === "email-logs" && (
             <div className="email-summary" style={{ marginTop: 20 }}>
