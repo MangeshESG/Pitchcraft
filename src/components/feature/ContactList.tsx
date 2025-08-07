@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from "react";
 import API_BASE_URL from "../../config";
 import "./ContactList.css";
-import ContactsTable from "./ContactsTable";
+import DynamicContactsTable from "./DynamicContactsTable"; 
+
+
+
 
 const menuBtnStyle = {
   display: "block",
@@ -966,63 +969,118 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
               </>
             ) : (
               // Detail view using ContactsTable
-              <ContactsTable
-                contacts={detailContacts}
-                columns={columns}
-                isLoading={isLoadingDetail}
-                search={detailSearchQuery}
-                setSearch={setDetailSearchQuery}
-                showCheckboxes={true}
-                paginated={true}
-                currentPage={detailCurrentPage}
-                pageSize={detailPageSize}
-                onPageChange={setDetailCurrentPage}
-                onSelectAll={handleDetailSelectAll}
-                selectedContacts={detailSelectedContacts}
-                onSelectContact={handleDetailSelectContact}
-                formatDate={formatDate}
-                getContactValue={getContactValue}
-                totalContacts={detailTotalContacts}
-                viewMode="detail"
-                detailTitle={`${selectedDataFileForView?.name} (#${selectedDataFileForView?.id})`}
-                detailDescription={
-                  selectedDataFileForView?.description ||
-                  "No description available"
-                }
-                onBack={() => {
-                  setViewMode("list");
-                  setSelectedDataFileForView(null);
-                }}
-                onAddContact={onAddContactClick}
-                onColumnsChange={setColumns} // Add this line
-                customHeader={
-                  detailSelectedContacts.size > 0 && (
-                    <div
-                      style={{
-                        marginBottom: 16,
-                        padding: "12px 16px",
-                        background: "#f0f7ff",
-                        borderRadius: 6,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 16,
-                      }}
-                    >
-                      <span style={{ fontWeight: 500 }}>
-                        {detailSelectedContacts.size} contact
-                        {detailSelectedContacts.size > 1 ? "s" : ""} selected
-                      </span>
-                      <button
-                        className="button primary"
-                        onClick={() => setShowSaveSegmentModal(true)}
-                        style={{ marginLeft: "auto" }}
-                      >
-                        Create segment
-                      </button>
-                    </div>
-                  )
-                }
-              />
+              <DynamicContactsTable
+  data={detailContacts}
+  isLoading={isLoadingDetail}
+  search={detailSearchQuery}
+  setSearch={setDetailSearchQuery}
+  showCheckboxes={true}
+  paginated={true}
+  currentPage={detailCurrentPage}
+  pageSize={detailPageSize}
+  onPageChange={setDetailCurrentPage}
+  onSelectAll={handleDetailSelectAll}
+  selectedItems={detailSelectedContacts}
+  onSelectItem={handleDetailSelectContact}
+  totalItems={detailTotalContacts}
+  
+  // Dynamic configuration
+  autoGenerateColumns={true}
+  excludeFields={['email_body', 'email_subject', 'dataFileId', 'data_file']} // Hide large/unwanted fields
+  customFormatters={{
+    // Date formatting
+    created_at: (value: any) => formatDate(value),
+    updated_at: (value: any) => formatDate(value),
+    email_sent_at: (value: any) => formatDate(value),
+    
+    // URL formatting
+    website: (value: any) => {
+      if (!value || value === '-') return '-';
+      const url = value.startsWith('http') ? value : `https://${value}`;
+      return (
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: "#0066cc", textDecoration: "underline" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          Website
+        </a>
+      );
+    },
+    linkedin_url: (value: any) => {
+      if (!value || value === '-' || value.toLowerCase() === 'linkedin.com') return '-';
+      const url = value.startsWith('http') ? value : `https://${value}`;
+      return (
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: "#0066cc", textDecoration: "underline" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          LinkedIn Profile
+        </a>
+      );
+    },
+    
+    // Email formatting
+    email: (value: any) => {
+      if (!value || value === '-') return '-';
+      return (
+        <a
+          href={`mailto:${value}`}
+          style={{ color: "#0066cc", textDecoration: "underline" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {value}
+        </a>
+      );
+    },
+  }}
+  
+  searchFields={['full_name', 'email', 'company_name', 'job_title', 'country_or_address']}
+  primaryKey="id"
+  viewMode="detail"
+  detailTitle={`${selectedDataFileForView?.name} (#${selectedDataFileForView?.id})`}
+  detailDescription={
+    selectedDataFileForView?.description ||
+    "No description available"
+  }
+  onBack={() => {
+    setViewMode("list");
+    setSelectedDataFileForView(null);
+  }}
+  onAddItem={onAddContactClick}
+  customHeader={
+    detailSelectedContacts.size > 0 && (
+      <div
+        style={{
+          marginBottom: 16,
+          padding: "12px 16px",
+          background: "#f0f7ff",
+          borderRadius: 6,
+          display: "flex",
+          alignItems: "center",
+          gap: 16,
+        }}
+      >
+        <span style={{ fontWeight: 500 }}>
+          {detailSelectedContacts.size} contact
+          {detailSelectedContacts.size > 1 ? "s" : ""} selected
+        </span>
+        <button
+          className="button primary"
+          onClick={() => setShowSaveSegmentModal(true)}
+          style={{ marginLeft: "auto" }}
+        >
+          Create segment
+        </button>
+      </div>
+    )
+  }
+/>
             )}
 
             {editingList && !showConfirmListDelete && (
@@ -1426,35 +1484,86 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
               </>
             ) : (
               // Detail view for segments
-              <ContactsTable
-                contacts={detailContacts}
-                columns={columns}
-                isLoading={isLoadingDetail}
-                search={detailSearchQuery}
-                setSearch={setDetailSearchQuery}
-                showCheckboxes={true}
-                paginated={true}
-                currentPage={detailCurrentPage}
-                pageSize={detailPageSize}
-                onPageChange={setDetailCurrentPage}
-                onSelectAll={handleDetailSelectAll}
-                selectedContacts={detailSelectedContacts}
-                onSelectContact={handleDetailSelectContact}
-                formatDate={formatDate}
-                getContactValue={getContactValue}
-                totalContacts={detailTotalContacts}
-                viewMode="detail"
-                detailTitle={selectedSegmentForView?.name}
-                detailDescription={
-                  selectedSegmentForView?.description ||
-                  "No description available"
-                }
-                onBack={() => {
-                  setSegmentViewMode("list");
-                  setSelectedSegmentForView(null);
-                }}
-                onAddContact={onAddContactClick}
-              />
+              <DynamicContactsTable
+  data={detailContacts}
+  isLoading={isLoadingDetail}
+  search={detailSearchQuery}
+  setSearch={setDetailSearchQuery}
+  showCheckboxes={true}
+  paginated={true}
+  currentPage={detailCurrentPage}
+  pageSize={detailPageSize}
+  onPageChange={setDetailCurrentPage}
+  onSelectAll={handleDetailSelectAll}
+  selectedItems={detailSelectedContacts}
+  onSelectItem={handleDetailSelectContact}
+  totalItems={detailTotalContacts}
+  
+  // Dynamic configuration
+  autoGenerateColumns={true}
+  excludeFields={['email_body', 'email_subject', 'dataFileId', 'data_file']}
+  customFormatters={{
+    created_at: (value: any) => formatDate(value),
+    updated_at: (value: any) => formatDate(value),
+    email_sent_at: (value: any) => formatDate(value),
+    website: (value: any) => {
+      if (!value || value === '-') return '-';
+      const url = value.startsWith('http') ? value : `https://${value}`;
+      return (
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: "#0066cc", textDecoration: "underline" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          Website
+        </a>
+      );
+    },
+    linkedin_url: (value: any) => {
+      if (!value || value === '-' || value.toLowerCase() === 'linkedin.com') return '-';
+      const url = value.startsWith('http') ? value : `https://${value}`;
+      return (
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: "#0066cc", textDecoration: "underline" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          LinkedIn Profile
+        </a>
+      );
+    },
+    email: (value: any) => {
+      if (!value || value === '-') return '-';
+      return (
+        <a
+          href={`mailto:${value}`}
+          style={{ color: "#0066cc", textDecoration: "underline" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {value}
+        </a>
+      );
+    },
+  }}
+  
+  searchFields={['full_name', 'email', 'company_name', 'job_title', 'country_or_address']}
+  primaryKey="id"
+  viewMode="detail"
+  detailTitle={selectedSegmentForView?.name}
+  detailDescription={
+    selectedSegmentForView?.description ||
+    "No description available"
+  }
+  onBack={() => {
+    setSegmentViewMode("list");
+    setSelectedSegmentForView(null);
+  }}
+  onAddItem={onAddContactClick}
+/>
             )}
           </div>
         </div>
