@@ -52,6 +52,7 @@ interface OutputInterface {
     currentPrompt: string;
     searchResults: string[];
     allScrapedData: string;
+    
   };
   isResetEnabled: boolean; // Add this prop
 
@@ -143,6 +144,12 @@ interface OutputInterface {
   subjectText?: string;
   setSubjectText?: (value: string) => void;
   selectedPrompt: Prompt | null;
+  handleStop?: () => void; // Move this here - as a separate property
+  isStopRequested?: boolean; // Add this line
+
+
+
+
 }
 
 const Output: React.FC<OutputInterface> = ({
@@ -163,7 +170,7 @@ const Output: React.FC<OutputInterface> = ({
   seteveryscrapedData,
   allSearchTermBodies,
   setallSearchTermBodies,
-  onClearContent, // Add this line
+  onClearContent,
   allsummery,
   setallsummery,
   existingResponse,
@@ -175,8 +182,8 @@ const Output: React.FC<OutputInterface> = ({
   fetchAndDisplayEmailBodies,
   selectedZohoviewId,
   onClearExistingResponse,
-  isResetEnabled, // Receive the prop
-  zohoClient, // Add this to the destructured props
+  isResetEnabled,
+  zohoClient,
   onRegenerateContact,
   recentlyAddedOrUpdatedId,
   setRecentlyAddedOrUpdatedId,
@@ -185,6 +192,7 @@ const Output: React.FC<OutputInterface> = ({
   handleStart,
   handlePauseResume,
   handleReset,
+  handleStop, // Add this line
   isPitchUpdateCompleted,
   allRecordsProcessed,
   isDemoAccount,
@@ -210,7 +218,8 @@ const Output: React.FC<OutputInterface> = ({
   setSubjectMode,
   subjectText,
   setSubjectText,
- 
+  isStopRequested, // Add this line
+
 }) => {
   const [isCopyText, setIsCopyText] = useState(false);
   const { refreshTrigger } = useAppData(); // Make sure this includes refreshTrigger
@@ -1102,93 +1111,70 @@ const Output: React.FC<OutputInterface> = ({
   return (
     <div className="login-box gap-down">
       <div className="d-flex justify-between align-center mb-20 border-b pb-[15px] mb-[15px]">
-        <div className="control-buttons d-flex align-center">
-          {!isStarted ? (
-            <button
-              className="primary-button bg-[#3f9f42]"
-              onClick={() => handleStart?.()}
-              disabled={
-                (!selectedPrompt?.name || !selectedZohoviewId) &&
-                !selectedCampaign
-              }
-              title="Click to generate hyper-personalized emails using the selected template for contacts in the selected data file"
-            >
-              Generate
-            </button>
-          ) : (
-            <>
-              <button
-                className="primary-button"
-                onClick={handlePauseResume}
-                disabled={isPaused && (!isPitchUpdateCompleted || isProcessing)}
-                title={
-                  isPaused
-                    ? allRecordsProcessed
-                      ? "Click to start a new process"
-                      : "Click to resume the generation of emails"
-                    : "Click to pause the generation of emails"
-                }
-              >
-                {isPaused
-                  ? allRecordsProcessed
-                    ? "Start"
-                    : "Resume"
-                  : "Pause"}
-              </button>
-
-              {isPaused && (
-                <button
-                  className="secondary-button"
-                  onClick={handleReset}
-                  disabled={
-                    !isPitchUpdateCompleted || isProcessing || !isPaused
-                  }
-                  title="Click to reset so that the generation of emails begins again from the first of the contacts in the selected data file"
-                >
-                  Reset
-                </button>
-              )}
-            </>
-          )}
-          {userRole === "ADMIN" && (
-            <button
-              className="secondary-button nowrap"
-              onClick={handleClearAll}
-              disabled={!isPitchUpdateCompleted || isProcessing || !isPaused}
-              title="Clear all data and reset the application state"
-            >
-              Reset all
-            </button>
-          )}
-          {!isDemoAccount && (
-            <>
-              <div className="form-group d-flex align-center mb-0 mr-1">
-                <label className="font-size-medium font-500 mb-0 mr-10">
-                  Delay(secs)
-                </label>
-                <input
-                  type="number"
-                  value={delayTime}
-                  onChange={(e: any) => setDelay?.(e.target.value)}
-                  className="height-35"
-                  style={{ width: "55px" }}
-                />
-              </div>
-              <div className="form-group !mb-[0px]">
-                <label className="checkbox-label !mb-[0px]">
-                  <input
-                    type="checkbox"
-                    checked={settingsForm.overwriteDatabase}
-                    name="overwriteDatabase"
-                    id="overwriteDatabase"
-                    onChange={settingsFormHandler}
-                  />
-                  <span>Overwrite </span>
-                </label>
-              </div>
-            </>
-          )}
-        </div>
+<div className="control-buttons d-flex align-center">
+  {isResetEnabled ? ( // Changed from !isProcessing to isResetEnabled
+    <button
+      className="primary-button bg-[#3f9f42]"
+      onClick={() => handleStart?.(currentIndex)}
+      disabled={
+        (!selectedPrompt?.name || !selectedZohoviewId) &&
+        !selectedCampaign
+      }
+      title={`Click to generate hyper-personalized emails starting from contact ${currentIndex + 1}`}
+    >
+      Generate
+    </button>
+  ) : (
+    <button
+      className="secondary-button"
+      onClick={handleStop}
+      disabled={isStopRequested} // Disable if stop is already requested
+      title="Click to stop the generation of emails"
+    >
+      Stop
+    </button>
+  )}
+  
+  {userRole === "ADMIN" && (
+    <button
+      className="secondary-button nowrap"
+      onClick={handleClearAll}
+      disabled={!isResetEnabled} // Changed from isProcessing to !isResetEnabled
+      title="Clear all data and reset the application state"
+    >
+      Reset all
+    </button>
+  )}
+  
+  {!isDemoAccount && (
+    <>
+      <div className="form-group d-flex align-center mb-0 mr-1">
+        <label className="font-size-medium font-500 mb-0 mr-10">
+          Delay(secs)
+        </label>
+        <input
+          type="number"
+          value={delayTime}
+          onChange={(e: any) => setDelay?.(e.target.value)}
+          className="height-35"
+          style={{ width: "55px" }}
+        />
+      </div>
+      <div className="form-group !mb-[0px]">
+        <label className="checkbox-label !mb-[0px]">
+          <input
+            type="checkbox"
+            checked={settingsForm?.overwriteDatabase}
+            name="overwriteDatabase"
+            id="overwriteDatabase"
+            onChange={settingsFormHandler}
+          />
+          <span>Overwrite </span>
+        </label>
+      </div>
+    </>
+  )}
+</div>
       </div>
 
       {/* Add the selection dropdowns and subject line section */}
@@ -1386,10 +1372,8 @@ const Output: React.FC<OutputInterface> = ({
               <div className="d-flex align-center gap-1 mr-3">
                 <button
                   onClick={handleFirstPage}
-                  disabled={
-                    !isResetEnabled ||
-                    (currentIndex === 0 && !combinedResponses[0]?.prevPageToken)
-                  }
+                  disabled={isProcessing} 
+
                   title="Click to go to the first generated email"
                   className="secondary-button min-h-[40px] w-[40px] !px-[5px] !py-[10px] flex justify-center"
                 >
@@ -1405,10 +1389,7 @@ const Output: React.FC<OutputInterface> = ({
                 </button>
                 <button
                   onClick={handlePrevPage}
-                  disabled={
-                    !isResetEnabled ||
-                    (currentIndex === 0 && !combinedResponses[0]?.prevPageToken)
-                  }
+                  disabled={isProcessing || currentIndex === 0}
                   className="secondary-button flex justify-center items-center"
                   title="Click to go to the previous generated email"
                 >
@@ -1427,13 +1408,7 @@ const Output: React.FC<OutputInterface> = ({
 
                 <button
                   onClick={handleNextPage}
-                  disabled={
-                    !isResetEnabled ||
-                    emailLoading ||
-                    (currentIndex === combinedResponses.length - 1 &&
-                      !combinedResponses[combinedResponses.length - 1]
-                        ?.nextPageToken)
-                  }
+                  disabled={isProcessing || currentIndex === combinedResponses.length - 1}
                   className="secondary-button flex justify-center items-center"
                   title="Click to go to the next generated email"
                 >
@@ -1452,13 +1427,8 @@ const Output: React.FC<OutputInterface> = ({
 
                 <button
                   onClick={handleLastPage}
-                  disabled={
-                    !isResetEnabled ||
-                    emailLoading ||
-                    (currentIndex === combinedResponses.length - 1 &&
-                      !combinedResponses[combinedResponses.length - 1]
-                        ?.nextPageToken)
-                  }
+                  disabled={isProcessing || currentIndex === combinedResponses.length - 1} // Simplified condition
+
                   className="secondary-button min-h-[40px] w-[40px] !px-[5px] !py-[10px] flex justify-center"
                   title="Click to go to the last generated email"
                 >
@@ -1636,7 +1606,7 @@ const Output: React.FC<OutputInterface> = ({
                 </div> */}
 
                 {/* THIS MESSAGE MOVED HERE, ABOVE OUTPUT */}
-                {isPaused && !isResetEnabled && (
+                {isStopRequested && !isResetEnabled && (
                   <div
                     style={{
                       color: "red",

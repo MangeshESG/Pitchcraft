@@ -103,8 +103,8 @@ interface OutputInterface {
     currentPrompt: string;
     searchResults: string[];
     allScrapedData: string;
-    onClearContent?: (clearContent: () => void) => void; // Add this line
   };
+  isResetEnabled: boolean;
 
   onRegenerateContact?: (
     tab: string,
@@ -132,7 +132,7 @@ interface OutputInterface {
   setAllResponses: React.Dispatch<React.SetStateAction<any[]>>;
   currentIndex: number;
   setCurrentIndex: React.Dispatch<React.SetStateAction<number>>;
-  onClearOutput: () => void; // Add this line
+  onClearOutput: () => void;
   allprompt: any[];
   setallprompt: React.Dispatch<React.SetStateAction<any[]>>;
   allsearchResults: any[];
@@ -141,12 +141,59 @@ interface OutputInterface {
   seteveryscrapedData: React.Dispatch<React.SetStateAction<any[]>>;
   allSearchTermBodies: string[];
   setallSearchTermBodies: React.Dispatch<React.SetStateAction<string[]>>;
+  onClearContent?: (clearContent: () => void) => void;
   allsummery: any[];
   setallsummery: React.Dispatch<React.SetStateAction<any[]>>;
   existingResponse: any[];
   setexistingResponse: React.Dispatch<React.SetStateAction<any[]>>;
-  handleNextPage: () => Promise<void>;
-  handlePrevPage: () => Promise<void>;
+  currentPage: number;
+  setCurrentPage: React.Dispatch<React.SetStateAction<number>>;
+  prevPageToken: string | null;
+  nextPageToken: string | null;
+  fetchAndDisplayEmailBodies: (
+    zohoviewId: string,
+    pageToken?: string | null,
+    direction?: "next" | "previous" | null
+  ) => Promise<void>;
+  selectedZohoviewId: string;
+  onClearExistingResponse?: (clearFunction: () => void) => void;
+  recentlyAddedOrUpdatedId?: string | number | null;
+  setRecentlyAddedOrUpdatedId?: React.Dispatch<
+    React.SetStateAction<string | number | null>
+  >;
+  selectedClient: string;
+  isStarted?: boolean;
+  handleStart?: (startIndex?: number) => void;
+  handlePauseResume?: () => void;
+  handleReset?: () => void;
+  handleStop?: () => void; // Add this line
+  isPitchUpdateCompleted?: boolean;
+  allRecordsProcessed?: boolean;
+  isDemoAccount?: boolean;
+  settingsForm?: any;
+  settingsFormHandler?: (e: any) => void;
+  delayTime?: string;
+  setDelay?: (value: string) => void;
+  selectedCampaign?: string;
+  isProcessing?: boolean;
+  handleClearAll?: () => void;
+  campaigns?: any[];
+  handleCampaignChange?: (e: any) => void;
+  selectionMode?: string;
+  promptList?: any[];
+  handleSelectChange?: (e: any) => void;
+  userRole?: string; // Make sure this is included
+  dataFiles?: any[];
+  handleZohoModelChange?: (e: any) => void;
+  emailLoading?: boolean;
+  languages?: any[];
+  selectedLanguage?: string;
+  handleLanguageChange?: (e: any) => void;
+  subjectMode?: string;
+  setSubjectMode?: (value: string) => void;
+  subjectText?: string;
+  setSubjectText?: (value: string) => void;
+  selectedPrompt: Prompt | null;
 }
 interface EmailEntry {
   email_subject: string;
@@ -859,6 +906,7 @@ const MainPage: React.FC = () => {
 
       const emailResponses = contactsData.map((entry: any) => ({
         id: entry.id,
+        datafileid: entry.dataFileId || "N/A",
         name: entry.full_name || "N/A",
         title: entry.job_title || "N/A",
         company: entry.company_name || "N/A",
@@ -1094,142 +1142,769 @@ const MainPage: React.FC = () => {
   };
 
   const goToTab = async (
-    tab: string,
-    options?: {
-      regenerate?: boolean;
-      regenerateIndex?: number;
-      nextPageToken?: string | null;
-      prevPageToken?: string | null;
-      startFromIndex?: number;
-      useCachedData?: boolean;
+  tab: string,
+  options?: {
+    regenerate?: boolean;
+    regenerateIndex?: number;
+    nextPageToken?: string | null;
+    prevPageToken?: string | null;
+    startFromIndex?: number;
+    useCachedData?: boolean;
+  }
+) => {
+  setTab(tab);
+  // If already processing, show loader and prevent multiple starts
+  if (isProcessing) {
+    return;
+  }
+  
+  // Fetch default values from API
+  const defaultValues = await fetchClientSettings(Number(clientID));
+  // Determine which values to use
+  const selectedModelNameA = selectedModelName || defaultValues.modelName;
+  const searchterm = searchTermForm.searchTerm || defaultValues.searchTerm;
+  const searchCount = searchTermForm.searchCount || defaultValues.searchCount;
+  const instructionsParamA =
+    searchTermForm.instructions || defaultValues.instructions;
+  const systemInstructionsA =
+    settingsForm.systemInstructions || defaultValues.systemInstructions;
+  const subject_instruction =
+    settingsForm.subjectInstructions || defaultValues.subjectInstructions;
+
+  const startTime = new Date();
+
+  let parsedClientId: number;
+  let parsedDataFileId: number | null = null;
+  let segmentId: string | null = null;
+
+  if (selectedZohoviewId) {
+    if (selectedZohoviewId.startsWith("segment_")) {
+      // ✅ Handle segment-based campaign
+      segmentId = selectedZohoviewId.replace("segment_", "");
+      parsedClientId = selectedClient !== "" ? Number(selectedClient) : Number(userId);
+      parsedDataFileId = null; // No dataFileId for segments
+      console.log("Using segment-based campaign, segmentId:", segmentId);
+    } else if (selectedZohoviewId.includes(",")) {
+      // ✅ Handle datafile-based campaign (existing logic)
+      const [clientIdStr, dataFileIdStr] = selectedZohoviewId.split(",");
+      parsedClientId = parseInt(clientIdStr);
+      parsedDataFileId = parseInt(dataFileIdStr);
+      console.log("Using datafile-based campaign, dataFileId:", parsedDataFileId);
+    } else {
+      // ✅ Fallback for different format
+      parsedDataFileId = parseInt(selectedZohoviewId);
+      parsedClientId = selectedClient !== "" ? Number(selectedClient) : Number(userId);
     }
-  ) => {
-    setTab(tab);
-    // If already processing, show loader and prevent multiple starts
-    if (isProcessing) {
-      return;
-    }
-    // Fetch default values from API
-    const defaultValues = await fetchClientSettings(Number(clientID));
-    // Determine which values to use
-    const selectedModelNameA = selectedModelName || defaultValues.modelName;
-    const searchterm = searchTermForm.searchTerm || defaultValues.searchTerm;
-    const searchCount = searchTermForm.searchCount || defaultValues.searchCount;
-    const instructionsParamA =
-      searchTermForm.instructions || defaultValues.instructions;
-    const systemInstructionsA =
-      settingsForm.systemInstructions || defaultValues.systemInstructions;
-    const subject_instruction =
-      settingsForm.subjectInstructions || defaultValues.subjectInstructions;
-
-    const startTime = new Date();
-
-   let parsedClientId: number;
-let parsedDataFileId: number | null = null;
-let segmentId: string | null = null;
-
-    if (selectedZohoviewId) {
-  if (selectedZohoviewId.startsWith("segment_")) {
-    // ✅ Handle segment-based campaign
-    segmentId = selectedZohoviewId.replace("segment_", "");
-    parsedClientId = selectedClient !== "" ? Number(selectedClient) : Number(userId);
-    parsedDataFileId = null; // No dataFileId for segments
-    console.log("Using segment-based campaign, segmentId:", segmentId);
-  } else if (selectedZohoviewId.includes(",")) {
-    // ✅ Handle datafile-based campaign (existing logic)
-    const [clientIdStr, dataFileIdStr] = selectedZohoviewId.split(",");
-    parsedClientId = parseInt(clientIdStr);
-    parsedDataFileId = parseInt(dataFileIdStr);
-    console.log("Using datafile-based campaign, dataFileId:", parsedDataFileId);
   } else {
-    // ✅ Fallback for different format
-    parsedDataFileId = parseInt(selectedZohoviewId);
     parsedClientId = selectedClient !== "" ? Number(selectedClient) : Number(userId);
   }
-} else {
-  parsedClientId = selectedClient !== "" ? Number(selectedClient) : Number(userId);
-}
 
-    // Use the parsed client ID consistently throughout
-    const effectiveUserId =
-      parsedClientId ||
-      (selectedClient !== "" ? Number(selectedClient) : Number(userId));
+  // Use the parsed client ID consistently throughout
+  const effectiveUserId =
+    parsedClientId ||
+    (selectedClient !== "" ? Number(selectedClient) : Number(userId));
 
-    if (!effectiveUserId || effectiveUserId <= 0) {
-      console.error("Invalid userId or clientID:", effectiveUserId);
+  if (!effectiveUserId || effectiveUserId <= 0) {
+    console.error("Invalid userId or clientID:", effectiveUserId);
+    return;
+  }
+
+  setStartTime(startTime);
+  let generatedPitches: any[] = []; // Declare and initialize generatedPitches
+
+  try {
+    setIsProcessing(true);
+
+    // ======= REGENERATION BLOCK START =======
+    if (!selectedPrompt) {
+      // Determine which variables are missing
+      const missingVars = [];
+      if (!selectedPrompt) missingVars.push("prompt template");
+
+      // Create error message
+      const errorMessage = `<span style="color: red">[${formatDateTime(
+        new Date()
+      )}] Error: Cannot generate pitch  Missing required parameters: ${missingVars.join(
+        ", "
+      )}</span>`;
+
+      // Update the form with error message
+      setOutputForm((prev) => ({
+        ...prev,
+        generatedContent: errorMessage + "<br/>" + prev.generatedContent,
+      }));
+
+      // Set states to stop processing
+      setIsProcessing(false);
+      setIsPitchUpdateCompleted(true);
+      setIsPaused(true);
       return;
     }
 
-    setStartTime(startTime);
-    let generatedPitches: any[] = []; // Declare and initialize generatedPitches
+    if (options?.regenerate) {
+      // Use the regenerateIndex to get the specific contact from allResponses
+      const index =
+        typeof options.regenerateIndex === "number"
+          ? options.regenerateIndex
+          : 0;
 
-    try {
-      setIsProcessing(true);
+      // Get the entry directly from allResponses instead of fetching again
+      const entry = allResponses[index];
 
-      // ======= REGENERATION BLOCK START =======
-      if (!selectedPrompt) {
-        // Determine which variables are missing
-        const missingVars = [];
-        if (!selectedPrompt) missingVars.push("prompt template");
-
-        // Create error message
-        const errorMessage = `<span style="color: red">[${formatDateTime(
-          new Date()
-        )}] Error: Cannot generate pitch  Missing required parameters: ${missingVars.join(
-          ", "
-        )}</span>`;
-
-        // Update the form with error message
-        setOutputForm((prev) => ({
-          ...prev,
-          generatedContent: errorMessage + "<br/>" + prev.generatedContent,
-        }));
-
-        // Set states to stop processing
+      if (!entry) {
         setIsProcessing(false);
         setIsPitchUpdateCompleted(true);
         setIsPaused(true);
         return;
       }
 
-      if (options?.regenerate) {
-        // Parse selectedZohoviewId to get clientId and dataFileId
-        const [clientIdStr, dataFileIdStr] = selectedZohoviewId.split(",");
+      // Map new API fields to existing variables
+      const company_name_friendly = entry.company_name || entry.company;
+      const full_name = entry.full_name || entry.name;
+      const job_title = entry.job_title || entry.title;
+      const location = entry.country_or_address || entry.location;
+      const linkedin_url = entry.linkedin_url || entry.linkedin;
+      const website = entry.website;
+      const company_name = entry.company_name || entry.company;
+      const emailbody = entry.email_body || entry.pitch;
+      const id = entry.id;
+      
+      // --- Get current date in readable format ---
+      const currentDate = new Date().toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
 
-        // Use the regenerateIndex to get the specific contact from allResponses
-        const index =
-          typeof options.regenerateIndex === "number"
-            ? options.regenerateIndex
-            : 0;
+      // --- Generate new pitch as per your normal contact process ---
+      const searchTermBody = searchterm
+        .replace("{company_name}", company_name)
+        .replace("{job_title}", job_title)
+        .replace("{location}", location)
+        .replace("{full_name}", full_name)
+        .replace("{linkedin_url}", linkedin_url)
+        .replace("{linkedin_url}", company_name_friendly)
+        .replace("{website}", website)
+        .replace("{date}", currentDate);
 
-        // Get the entry directly from allResponses instead of fetching again
-        const entry = allResponses[index];
+      const filledInstructions = instructionsParamA
+        .replace("{company_name}", company_name)
+        .replace("{job_title}", job_title)
+        .replace("{location}", location)
+        .replace("{full_name}", full_name)
+        .replace("{linkedin_url}", linkedin_url)
+        .replace("{linkedin_url}", company_name_friendly)
+        .replace("{website}", website);
 
-        if (!entry) {
+      const cacheKey = JSON.stringify({
+        searchTerm: searchTermBody,
+        instructions: filledInstructions,
+        modelName: selectedModelNameA,
+        searchCount,
+      });
+
+      let scrapeData: any;
+      let cacheHit = false;
+      if (processCacheRef.current[cacheKey]) {
+        scrapeData = processCacheRef.current[cacheKey];
+        cacheHit = true;
+      } else {
+        setOutputForm((prev) => ({
+          ...prev,
+          generatedContent:
+            `<span style="color: orange">[${formatDateTime(
+              new Date()
+            )}] Crafting phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${
+              entry.email
+            }</span><br/>` + prev.generatedContent,
+        }));
+        const scrapeResponse = await fetch(
+          `${API_BASE_URL}/api/auth/process`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              searchTerm: searchTermBody,
+              instructions: filledInstructions,
+              modelName: selectedModelNameA,
+              searchCount: searchCount,
+            }),
+          }
+        );
+        if (!scrapeResponse.ok) {
           setIsProcessing(false);
           setIsPitchUpdateCompleted(true);
           setIsPaused(true);
           return;
         }
+        scrapeData = await scrapeResponse.json();
+        processCacheRef.current[cacheKey] = scrapeData;
+      }
 
-        // Map new API fields to existing variables
-        const company_name_friendly = entry.company_name || entry.company;
-        const full_name = entry.full_name || entry.name;
-        const job_title = entry.job_title || entry.title;
-        const location = entry.country_or_address || entry.location;
-        const linkedin_url = entry.linkedin_url || entry.linkedin;
-        const website = entry.website;
-        const company_name = entry.company_name || entry.company;
-        const emailbody = entry.email_body || entry.pitch;
-        const id = entry.id;
-        // --- Get current date in readable format ---
-        const currentDate = new Date().toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        });
+      if (cacheHit) {
+        setOutputForm((prev) => ({
+          ...prev,
+          generatedContent:
+            `<span style="color: #b38f00">[${formatDateTime(
+              new Date()
+            )}] Loading phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${
+              entry.email
+            }</span><br/>` + prev.generatedContent,
+        }));
+      }
 
-        // --- Generate new pitch as per your normal contact process ---
+      const summary = scrapeData.pitchResponse || {};
+      const searchResults = scrapeData.searchResults || [];
+      const scrappedData = summary.content || "";
+
+      if (!scrappedData) {
+        setIsProcessing(false);
+        setIsPitchUpdateCompleted(true);
+        setIsPaused(true);
+        return;
+      }
+
+      let systemPrompt = systemInstructionsA;
+      const replacedPromptText = (selectedPrompt?.text || "")
+        .replace("{search_output_summary}", scrappedData)
+        .replace("{company_name}", company_name)
+        .replace("{job_title}", job_title)
+        .replace("{location}", location)
+        .replace("{full_name}", full_name)
+        .replace("{linkedin_url}", company_name_friendly)
+        .replace("{linkedin_url}", linkedin_url)
+        .replace("{website}", website)
+        .replace("{date}", currentDate);
+
+      const promptToSend = `\n${systemPrompt}\n${replacedPromptText}`;
+
+      setOutputForm((prev) => ({
+        ...prev,
+        currentPrompt: promptToSend,
+        searchResults: scrapeData.searchResults || [],
+        allScrapedData: scrapeData.allScrapedData || "",
+      }));
+
+      const requestBody = {
+        scrappedData: systemPrompt,
+        prompt: `${selectedPrompt?.text}`
+          .replace("{company_name}", company_name)
+          .replace("{job_title}", job_title)
+          .replace("{location}", location)
+          .replace("{full_name}", full_name)
+          .replace("{linkedin_url}", linkedin_url)
+          .replace("{linkedin_url}", company_name_friendly)
+          .replace("{search_output_summary}", scrappedData)
+          .replace("{website}", website)
+          .replace("{date}", currentDate),
+
+        ModelName: selectedModelNameA,
+      };
+
+      const pitchResponse = await fetch(
+        `${API_BASE_URL}/api/auth/generatepitch`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+        }
+      );
+
+      const pitchData = await pitchResponse.json();
+      if (!pitchResponse.ok) {
+        setIsProcessing(false);
+        setIsPitchUpdateCompleted(true);
+        setIsPaused(true);
+        return;
+      }
+
+      const dataAnalysis = analyzeScrapedData(
+        scrapeData.allScrapedData || ""
+      );
+      setOutputForm((prev) => ({
+        ...prev,
+        searchResults: searchResults,
+        allScrapedData: scrapeData.allScrapedData || "",
+        generatedContent:
+          `<span style="color: green">[${formatDateTime(
+            new Date()
+          )}] Pitch successfully crafted(att:${searchCount} org:${
+            dataAnalysis.original
+          } ass:${
+            dataAnalysis.assisted
+          }), for contact ${full_name} with company name ${company_name} and domain ${
+            entry.email
+          }</span><br/>` + prev.generatedContent,
+        linkLabel: pitchData.response.content,
+      }));
+
+      //----------------------------------------------------------------------------------------
+      let subjectLine = "";
+      if (subjectMode === "AI generated") {
+        const filledSubjectInstruction = subject_instruction
+          .replace("{company_name}", company_name)
+          .replace("{job_title}", job_title)
+          .replace("{location}", location)
+          .replace("{full_name}", full_name)
+          .replace("{linkedin_url}", linkedin_url)
+          .replace("{search_output_summary}", scrappedData)
+          .replace("{generated_pitch}", pitchData.response.content)
+          .replace("{website}", website)
+          .replace("{date}", currentDate);
+
+        const subjectRequestBody = {
+          scrappedData: filledSubjectInstruction,
+          prompt: pitchData.response.content,
+          ModelName: selectedModelNameA,
+        };
+
+        setOutputForm((prev) => ({
+          ...prev,
+          generatedContent:
+            `<span style="color: blue">[${formatDateTime(
+              new Date()
+            )}]  Crafting phase #3 concinnus, for contact ${full_name} with company name ${company_name} and domain ${
+              entry.email
+            }</span><br/>` + prev.generatedContent,
+        }));
+
+        const subjectResponse = await fetch(
+          `${API_BASE_URL}/api/auth/generatepitch`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(subjectRequestBody),
+          }
+        );
+
+        if (subjectResponse.ok) {
+          const subjectData = await subjectResponse.json();
+          subjectLine = subjectData.response?.content || "";
+
+          setOutputForm((prev) => ({
+            ...prev,
+            generatedContent:
+              `<span style="color: green">[${formatDateTime(
+                new Date()
+              )}] Subject successfully crafted, for contact ${full_name} with company name ${company_name} and domain ${
+                entry.email
+              }</span><br/>` + prev.generatedContent,
+            emailSubject: subjectLine,
+          }));
+        } else {
+          setOutputForm((prev) => ({
+            ...prev,
+            generatedContent:
+              `<span style="color: orange">[${formatDateTime(
+                new Date()
+              )}] Email subject generation failed for contact ${full_name}, using default</span><br/>` +
+              prev.generatedContent,
+          }));
+        }
+      } else if (subjectMode === "With Placeholder") {
+        subjectLine = (subjectText || "")
+          .replace("{company_name}", company_name)
+          .replace("{job_title}", job_title)
+          .replace("{location}", location)
+          .replace("{full_name}", full_name)
+          .replace("{linkedin_url}", linkedin_url)
+          .replace("{search_output_summary}", scrappedData)
+          .replace("{generated_pitch}", pitchData.response?.content || "")
+          .replace("{website}", website)
+          .replace("{date}", currentDate);
+
+        setOutputForm((prev) => ({
+          ...prev,
+          generatedContent:
+            `<span style="color: green">[${formatDateTime(
+              new Date()
+            )}] Subject using user placeholder for contact ${full_name} with company name ${company_name} and domain ${
+              entry.email
+            }</span><br/>` + prev.generatedContent,
+          emailSubject: subjectLine,
+        }));
+      }
+
+      // ✅ Replace the database update logic in REGENERATION BLOCK
+      try {
+        if (id && pitchData.response?.content) {
+          // ✅ Determine the dataFileId to use for update
+          let updateDataFileId: number | null = null;
+          
+          if (segmentId) {
+            // ✅ For segment-based campaigns, get dataFileId from contact
+            updateDataFileId = entry.dataFileId || entry.data_file_id;
+            
+            if (!updateDataFileId) {
+              setOutputForm((prevOutputForm) => ({
+                ...prevOutputForm,
+                generatedContent:
+                  `<span style="color: orange">[${formatDateTime(
+                    new Date()
+                  )}] No dataFileId found for segment contact ${full_name}</span><br/>` +
+                  prevOutputForm.generatedContent,
+              }));
+              // Continue processing but skip database update
+            }
+          } else if (parsedDataFileId) {
+            // ✅ For datafile-based campaigns, use parsed dataFileId
+            updateDataFileId = parsedDataFileId;
+          }
+
+          // ✅ Only update if we have a valid dataFileId
+          if (updateDataFileId) {
+            const updateContactResponse = await fetch(
+              `${API_BASE_URL}/api/crm/contacts/update-email`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  clientId: effectiveUserId,
+                  dataFileId: updateDataFileId,
+                  contactId: id,
+                  emailSubject: subjectLine,
+                  emailBody: pitchData.response.content,
+                }),
+              }
+            );
+
+            if (!updateContactResponse.ok) {
+              const updateContactError = await updateContactResponse.json();
+              setOutputForm((prevOutputForm) => ({
+                ...prevOutputForm,
+                generatedContent:
+                  `<span style="color: orange">[${formatDateTime(
+                    new Date()
+                  )}] Updating contact in database incomplete for ${full_name}. Error: ${updateContactError.Message || 'Unknown error'}</span><br/>` +
+                  prevOutputForm.generatedContent,
+              }));
+            } else {
+              setOutputForm((prevOutputForm) => ({
+                ...prevOutputForm,
+                generatedContent:
+                  `<span style="color: green">[${formatDateTime(
+                    new Date()
+                  )}] Updated pitch in database for ${full_name}.</span><br/>` +
+                  prevOutputForm.generatedContent,
+              }));
+            }
+          }
+        }
+      } catch (updateError) {
+        setOutputForm((prevOutputForm) => ({
+          ...prevOutputForm,
+          generatedContent:
+            `<span style="color: orange">[${formatDateTime(
+              new Date()
+            )}] Database update error for ${full_name}.</span><br/>` +
+            prevOutputForm.generatedContent,
+        }));
+      }
+
+      const newResponse = {
+        ...entry,
+        name: full_name || "N/A",
+        title: job_title || "N/A",
+        company: company_name_friendly || "N/A",
+        location: location || "N/A",
+        website: website || "N/A",
+        linkedin: linkedin_url || "N/A",
+        pitch: pitchData.response.content,
+        subject: subjectLine,
+        timestamp: new Date().toISOString(),
+        id,
+        nextPageToken: null,
+        prevPageToken: null,
+        generated: true,
+        lastemailupdateddate: new Date().toISOString(),
+        emailsentdate: entry.email_sent_at || "N/A",
+      };
+      const regenIndex = allResponses.findIndex((r) => r.id === id);
+
+            // ---- Update all relevant state arrays by id ----
+      setexistingResponse((prev) =>
+        prev.map((resp) => (resp.id === id ? newResponse : resp))
+      );
+
+      setAllResponses((prev) =>
+        prev.map((resp) => (resp.id === id ? newResponse : resp))
+      );
+
+      setallprompt((prev) => {
+        const updated = [...prev];
+        if (regenIndex > -1) updated[regenIndex] = promptToSend;
+        else updated.push(promptToSend);
+        return updated;
+      });
+      
+      setallsearchResults((prev) => {
+        const updated = [...prev];
+        if (regenIndex > -1) updated[regenIndex] = searchResults;
+        else updated.push(searchResults);
+        return updated;
+      });
+      
+      seteveryscrapedData((prev) => {
+        const updated = [...prev];
+        if (regenIndex > -1)
+          updated[regenIndex] = scrapeData.allScrapedData || "";
+        else updated.push(scrapeData.allScrapedData || "");
+        return updated;
+      });
+      
+      setallsummery((prev) => {
+        const updated = [...prev];
+        if (regenIndex > -1)
+          updated[regenIndex] = scrapeData.pitchResponse?.content || "";
+        else updated.push(scrapeData.pitchResponse?.content || "");
+        return updated;
+      });
+      
+      setallSearchTermBodies((prev) => {
+        const updated = [...prev];
+        if (regenIndex > -1) updated[regenIndex] = searchTermBody;
+        else updated.push(searchTermBody);
+        return updated;
+      });
+
+      setRecentlyAddedOrUpdatedId(id);
+
+      setIsProcessing(false);
+      setIsPitchUpdateCompleted(true);
+      setIsPaused(true);
+      return;
+    }
+    // ======= REGENERATION BLOCK END =======
+
+    // Main processing loop - fetch all contacts at once
+    let moreRecords = true;
+    let currentIndex = 0;
+    let shouldReplaceFromIndex = false;
+
+    const currentDate = new Date().toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+  if (
+  options?.startFromIndex !== undefined &&
+  options.startFromIndex >= 0
+) {
+  currentIndex = options.startFromIndex;
+  shouldReplaceFromIndex = true;
+} else {
+  currentIndex = 0; // Only use 0 if no specific index is provided
+}
+
+    let foundRecordWithoutPitch = false;
+
+    // Show loader
+    setOutputForm((prevForm) => ({
+      ...prevForm,
+      generatedContent:
+        '<span style="color: blue">Processing initiated...please wait...</span><br/>' +
+        prevForm.generatedContent,
+    }));
+
+    // Declare contacts variable before the if/else block
+    let contacts: any[] = [];
+
+    // Use cached data if available and flag is set
+    if (options?.useCachedData && cachedContacts.length > 0) {
+      contacts = cachedContacts;
+    } else {
+      // ✅ Fetch contacts based on campaign type
+      if (segmentId) {
+        // Fetch from segment API
+        console.log("Fetching contacts from segment API, segmentId:", segmentId);
+        const response = await fetch(
+          `${API_BASE_URL}/api/Crm/segment/${segmentId}/contacts`
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch segment contacts");
+        }
+
+        const data = await response.json();
+        contacts = data || []; // Segment API returns contacts directly
+        console.log("Fetched segment contacts:", contacts.length);
+        
+      } else if (parsedDataFileId) {
+        // Fetch from datafile API (existing logic)
+        console.log("Fetching contacts from datafile API, dataFileId:", parsedDataFileId);
+        const response = await fetch(
+          `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${parsedDataFileId}`
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch datafile contacts");
+        }
+
+        const data = await response.json();
+        contacts = data.contacts || [];
+        console.log("Fetched datafile contacts:", contacts.length);
+        
+      } else {
+        throw new Error("No valid data source found (neither segment nor datafile)");
+      }
+    }
+
+    if (!Array.isArray(contacts)) {
+      console.error("Invalid data format");
+      moreRecords = false;
+    }
+
+    // Process all contacts
+    for (let i = currentIndex; i < contacts.length; i++) { // Start from currentIndex instead of 0
+      const entry = contacts[i];
+
+      
+      if (stopRef.current === true) {
+        setLastProcessedToken(null);
+        setLastProcessedIndex(i); // This should be the actual index being processed
+        setIsProcessing(false); // Now set processing to false
+
+        return;
+      }
+
+      // Process the entry
+      const urlParam: string = `https://www.${entry.email.split("@")[1]}`;
+      try {
+        var company_name_friendly = entry.company_name;
+        var full_name = entry.full_name;
+        var job_title = entry.job_title;
+        var location = entry.country_or_address;
+        var linkedin_url = entry.linkedin_url;
+        var emailbody = entry.email_body;
+        var website = entry.website;
+        var company_name = entry.company_name;
+
+        // Check if email already exists and if we should overwrite
+        if (entry.email_body && !settingsForm.overwriteDatabase) {
+          const responseIndex = shouldReplaceFromIndex
+            ? i
+            : allResponses.length;
+
+          setOutputForm((prevOutputForm) => ({
+            ...prevOutputForm,
+            generatedContent:
+              `<span style="color: orange">[${formatDateTime(
+                new Date()
+              )}] Pitch crafted for contact ${full_name} with company name ${company_name} and domain ${
+                entry.email
+              } </span><br/>` + prevOutputForm.generatedContent,
+            linkLabel: entry.email_body,
+          }));
+
+          await delay(delayTime * 1000);
+
+          const existingResponse = {
+            ...entry,
+            name: entry.full_name || "N/A",
+            title: entry.job_title || "N/A",
+            company: entry.company_name || "N/A",
+            location: entry.country_or_address || "N/A",
+            website: entry.website || "N/A",
+            linkedin: entry.linkedin_url || "N/A",
+            pitch: entry.email_body,
+            timestamp: new Date().toISOString(),
+            generated: false,
+            nextPageToken: null,
+            prevPageToken: null,
+            id: entry.id,
+            subject: entry.email_subject || "N/A",
+            lastemailupdateddate: entry.updated_at || "N/A",
+            emailsentdate: entry.email_sent_at || "N/A",
+          };
+
+          setAllResponses((prevResponses) => {
+            const updated = [...prevResponses];
+            if (responseIndex < updated.length) {
+              updated[responseIndex] = existingResponse;
+            } else {
+              updated.push(existingResponse);
+            }
+            setCurrentIndex(responseIndex);
+            return updated;
+          });
+
+          // Update these to use responseIndex logic
+          setallprompt((prevPrompts) => {
+            const updated = [...prevPrompts];
+            if (responseIndex < updated.length) {
+              updated[responseIndex] = "";
+            } else {
+              updated.push("");
+            }
+            return updated;
+          });
+
+          setallsearchResults((prevSearchResults) => {
+            const updated = [...prevSearchResults];
+            if (responseIndex < updated.length) {
+              updated[responseIndex] = [];
+            } else {
+              updated.push([]);
+            }
+            return updated;
+          });
+
+          seteveryscrapedData((prevScrapedData) => {
+            const updated = [...prevScrapedData];
+            if (responseIndex < updated.length) {
+              updated[responseIndex] = "";
+            } else {
+              updated.push("");
+            }
+            return updated;
+          });
+
+          setallsummery((prevSummery) => {
+            const updated = [...prevSummery];
+            if (responseIndex < updated.length) {
+              updated[responseIndex] = "";
+            } else {
+              updated.push("");
+            }
+            return updated;
+          });
+
+          setallSearchTermBodies((prevSearchTermBodies) => {
+            const updated = [...prevSearchTermBodies];
+            if (responseIndex < updated.length) {
+              updated[responseIndex] = "";
+            } else {
+              updated.push("");
+            }
+            return updated;
+          });
+
+          continue;
+        } else {
+          foundRecordWithoutPitch = true;
+
+          if (isDemoAccount) {
+            setOutputForm((prevOutputForm) => ({
+              ...prevOutputForm,
+              generatedContent:
+                `<span style="color: blue">[${formatDateTime(
+                  new Date()
+                )}] Subscription: Trial mode. Processing is paused. Contact support on Live Chat (bottom right) or London: +44 (0) 207 660 4243 | New York: +1 (0) 315 400 2402 or email info@dataji.co </span><br/>` +
+                prevOutputForm.generatedContent,
+            }));
+
+            moreRecords = false;
+            stopRef.current = true;
+            setLastProcessedToken(null);
+            setLastProcessedIndex(i);
+            break;
+          }
+        }
+
+        // Step 1: Scrape Website with caching
         const searchTermBody = searchterm
           .replace("{company_name}", company_name)
           .replace("{job_title}", job_title)
@@ -1247,7 +1922,8 @@ let segmentId: string | null = null;
           .replace("{full_name}", full_name)
           .replace("{linkedin_url}", linkedin_url)
           .replace("{linkedin_url}", company_name_friendly)
-          .replace("{website}", website);
+          .replace("{website}", website)
+          .replace("{date}", currentDate);
 
         const cacheKey = JSON.stringify({
           searchTerm: searchTermBody,
@@ -1258,19 +1934,21 @@ let segmentId: string | null = null;
 
         let scrapeData: any;
         let cacheHit = false;
+
         if (processCacheRef.current[cacheKey]) {
           scrapeData = processCacheRef.current[cacheKey];
           cacheHit = true;
         } else {
-          setOutputForm((prev) => ({
-            ...prev,
+          setOutputForm((prevOutputForm) => ({
+            ...prevOutputForm,
             generatedContent:
               `<span style="color: orange">[${formatDateTime(
                 new Date()
               )}] Crafting phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${
                 entry.email
-              }</span><br/>` + prev.generatedContent,
+              }</span><br/>` + prevOutputForm.generatedContent,
           }));
+
           const scrapeResponse = await fetch(
             `${API_BASE_URL}/api/auth/process`,
             {
@@ -1285,39 +1963,82 @@ let segmentId: string | null = null;
             }
           );
           if (!scrapeResponse.ok) {
-            setIsProcessing(false);
-            setIsPitchUpdateCompleted(true);
-            setIsPaused(true);
-            return;
+            scrapfailedreq += 1;
+            setOutputForm((prevOutputForm) => ({
+              ...prevOutputForm,
+              searchResults: [],
+              allScrapedData: "",
+              generatedContent:
+                `<span style="color: red">[${formatDateTime(
+                  new Date()
+                )}] Centum nulla analysis incomplete for contact ${full_name} with company name ${company_name} and domain ${
+                  entry.email
+                }</span><br/>` + prevOutputForm.generatedContent,
+              usage:
+                `Cost: $${cost.toFixed(6)}    ` +
+                `Failed Requests: ${failedReq}    ` +
+                `Success Requests: ${successReq}              ` +
+                `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
+                `Total Tokens Used: ${totaltokensused}   `,
+            }));
+            generatedPitches.push({
+              ...entry,
+              pitch: "Error scraping website",
+            });
+            continue;
           }
           scrapeData = await scrapeResponse.json();
           processCacheRef.current[cacheKey] = scrapeData;
         }
 
+        // Always show if data is from cache or not
         if (cacheHit) {
-          setOutputForm((prev) => ({
-            ...prev,
+          setOutputForm((prevOutputForm) => ({
+            ...prevOutputForm,
             generatedContent:
               `<span style="color: #b38f00">[${formatDateTime(
                 new Date()
               )}] Loading phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${
                 entry.email
-              }</span><br/>` + prev.generatedContent,
+              }</span><br/>` + prevOutputForm.generatedContent,
           }));
         }
+
+        console.log("All cached values:", processCacheRef.current);
 
         const summary = scrapeData.pitchResponse || {};
         const searchResults = scrapeData.searchResults || [];
         const scrappedData = summary.content || "";
 
         if (!scrappedData) {
-          setIsProcessing(false);
-          setIsPitchUpdateCompleted(true);
-          setIsPaused(true);
-          return;
+          const formattedTime = formatDateTime(new Date());
+          scrapfailedreq += 1;
+          setOutputForm((prevOutputForm) => ({
+            ...prevOutputForm,
+            searchResults: scrapeData.searchResults || [],
+            allScrapedData: scrapeData.allScrapedData || "",
+            generatedContent:
+              `<span style="color: red">[${formatDateTime(
+                new Date()
+              )}] Centum nulla analysis incomplete for contact ${full_name} with company name ${company_name} and domain ${
+                entry.email
+              }</span><br/>` + prevOutputForm.generatedContent,
+            usage:
+              `Cost: $${cost.toFixed(6)}    ` +
+              `Failed Requests: ${failedReq}    ` +
+              `Success Requests: ${successReq}              ` +
+              `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
+              `Total Tokens Used: ${totaltokensused}   `,
+          }));
+          generatedPitches.push({
+            ...entry,
+            pitch: "Error scraping website",
+          });
+          continue;
         }
 
         let systemPrompt = systemInstructionsA;
+
         const replacedPromptText = (selectedPrompt?.text || "")
           .replace("{search_output_summary}", scrappedData)
           .replace("{company_name}", company_name)
@@ -1329,13 +2050,46 @@ let segmentId: string | null = null;
           .replace("{website}", website)
           .replace("{date}", currentDate);
 
-        const promptToSend = `\n${systemPrompt}\n${replacedPromptText}`;
+        const promptToSend = `
+        
+        ${systemPrompt}
+         
+        ${replacedPromptText}`
+          .replace("{search_output_summary}", scrappedData)
+          .replace("{company_name}", company_name)
+          .replace("{job_title}", job_title)
+          .replace("{location}", location)
+          .replace("{full_name}", full_name)
+          .replace("{linkedin_url}", company_name_friendly)
+          .replace("{linkedin_url}", linkedin_url)
+          .replace("{website}", website)
+          .replace("{date}", currentDate);
 
-        setOutputForm((prev) => ({
-          ...prev,
+        setOutputForm((prevState) => ({
+          ...prevState,
           currentPrompt: promptToSend,
           searchResults: scrapeData.searchResults || [],
           allScrapedData: scrapeData.allScrapedData || "",
+        }));
+
+        const dataAnalysis = analyzeScrapedData(
+          scrapeData.allScrapedData || ""
+        );
+
+        setOutputForm((prevOutputForm) => ({
+          ...prevOutputForm,
+          searchResults: scrapeData.searchResults || [],
+          allScrapedData: scrapeData.allScrapedData || "",
+          generatedContent:
+            `<span style="color: blue">[${formatDateTime(
+              new Date()
+            )}] Crafting phase #2 integritas (att:${searchCount} org:${
+              dataAnalysis.original
+            } ass:${
+              dataAnalysis.assisted
+            }), for contact ${full_name} with company name ${company_name} and domain ${
+              entry.email
+            }</span><br/>` + prevOutputForm.generatedContent,
         }));
 
         const requestBody = {
@@ -1350,7 +2104,6 @@ let segmentId: string | null = null;
             .replace("{search_output_summary}", scrappedData)
             .replace("{website}", website)
             .replace("{date}", currentDate),
-
           ModelName: selectedModelNameA,
         };
 
@@ -1365,33 +2118,78 @@ let segmentId: string | null = null;
 
         const pitchData = await pitchResponse.json();
         if (!pitchResponse.ok) {
-          setIsProcessing(false);
-          setIsPitchUpdateCompleted(true);
-          setIsPaused(true);
-          return;
+          const formattedTime = formatDateTime(new Date());
+          failedReq += 1;
+          cost += parseFloat(pitchData?.response?.currentCost);
+          totaltokensused += parseFloat(pitchData?.response?.totalTokens);
+          setOutputForm((prevOutputForm) => ({
+            ...prevOutputForm,
+            searchResults: scrapeData.searchResults || [],
+            allScrapedData: scrapeData.allScrapedData || "",
+            generatedContent:
+              `<span style="color: red">[${formatDateTime(
+                new Date()
+              )}] Phase #2 integritas incomplete for contact ${full_name} with company name ${company_name} and domain ${
+                entry.email
+              }</span><br/>` + prevOutputForm.generatedContent,
+            usage:
+              `Cost: $${cost.toFixed(6)}    ` +
+              `Failed Requests: ${failedReq}    ` +
+              `Success Requests: ${successReq}                ` +
+              `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
+              `Total Tokens Used: ${totaltokensused}   `,
+          }));
+          generatedPitches.push({
+            ...entry,
+            pitch: "Error Crafting pitch",
+          });
+          continue;
         }
 
-        const dataAnalysis = analyzeScrapedData(
-          scrapeData.allScrapedData || ""
-        );
-        setOutputForm((prev) => ({
-          ...prev,
-          searchResults: searchResults,
+        successReq += 1;
+        cost += parseFloat(pitchData?.response?.currentCost);
+        totaltokensused += parseFloat(pitchData?.response?.totalTokens);
+        console.log(`Cosstdata ${pitchData}`);
+
+        // Success: Update UI with the generated pitch
+        setOutputForm((prevOutputForm) => ({
+          ...prevOutputForm,
+          searchResults: scrapeData.searchResults || [],
           allScrapedData: scrapeData.allScrapedData || "",
           generatedContent:
             `<span style="color: green">[${formatDateTime(
               new Date()
-            )}] Pitch successfully crafted(att:${searchCount} org:${
-              dataAnalysis.original
-            } ass:${
-              dataAnalysis.assisted
-            }), for contact ${full_name} with company name ${company_name} and domain ${
+            )}] Pitch successfully crafted for contact ${full_name} with company name ${company_name} and domain ${
               entry.email
-            }</span><br/>` + prev.generatedContent,
+            }</span><br/>` + prevOutputForm.generatedContent,
+          usage:
+            `Cost: $${cost.toFixed(6)}    ` +
+            `Failed Requests: ${failedReq}    ` +
+            `Success Requests: ${successReq}                  ` +
+            `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
+            `Total Tokens Used: ${totaltokensused}   `,
+        }));
+
+        setOutputForm((prevOutputForm) => ({
+          ...prevOutputForm,
           linkLabel: pitchData.response.content,
         }));
 
-        //----------------------------------------------------------------------------------------
+        generatedPitches.push({
+          ...entry,
+          name: entry.full_name || "N/A",
+          title: entry.job_title || "N/A",
+          company: entry.company_name || "N/A",
+          location: entry.country_or_address || "N/A",
+          website: entry.website || "N/A",
+          linkedin: entry.linkedin_url || "N/A",
+          pitch: pitchData.response.content,
+          subject: entry.email_subject || "N/A",
+          lastemailupdateddate: entry.updated_at || "N/A",
+          emailsentdate: entry.email_sent_at || "N/A",
+        });
+
+        // Generate subject line
         let subjectLine = "";
         if (subjectMode === "AI generated") {
           const filledSubjectInstruction = subject_instruction
@@ -1416,7 +2214,7 @@ let segmentId: string | null = null;
             generatedContent:
               `<span style="color: blue">[${formatDateTime(
                 new Date()
-              )}]  Crafting phase #3 concinnus, for contact ${full_name} with company name ${company_name} and domain ${
+              )}] Crafting phase #3 concinnus, for contact ${full_name} with company name ${company_name} and domain ${
                 entry.email
               }</span><br/>` + prev.generatedContent,
           }));
@@ -1450,8 +2248,9 @@ let segmentId: string | null = null;
               generatedContent:
                 `<span style="color: orange">[${formatDateTime(
                   new Date()
-                )}] Email subject generation failed for contact ${full_name}, using default</span><br/>` +
-                prev.generatedContent,
+                )}] Subject generation failed for contact ${full_name} with company name ${company_name} and domain ${
+                  entry.email
+                }</span><br/>` + prev.generatedContent,
             }));
           }
         } else if (subjectMode === "With Placeholder") {
@@ -1478,1086 +2277,278 @@ let segmentId: string | null = null;
           }));
         }
 
-        // ✅ Replace the database update logic in REGENERATION BLOCK
-try {
-  if (id && pitchData.response?.content) {
-    if (segmentId) {
-      // ✅ For segment-based campaigns, we need to find the dataFileId from contact
-      const contactDataFileId = entry.dataFileId || entry.data_file_id;
-      
-      if (contactDataFileId) {
-        const updateContactResponse = await fetch(
-          `${API_BASE_URL}/api/crm/contacts/update-email`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              ClientId: effectiveUserId,
-              DataFileId: contactDataFileId, // Use contact's dataFileId
-              ContactId: id,
-              EmailSubject: subjectLine,
-              EmailBody: pitchData.response.content,
-            }),
-          }
-        );
-
-        if (!updateContactResponse.ok) {
-          const updateContactError = await updateContactResponse.json();
-          setOutputForm((prevOutputForm) => ({
-            ...prevOutputForm,
-            generatedContent:
-              `<span style="color: orange">[${formatDateTime(
-                new Date()
-              )}] Updating segment contact in database incomplete for ${full_name}. Error: ${updateContactError.Message}</span><br/>` +
-              prevOutputForm.generatedContent,
-          }));
-        } else {
-          setOutputForm((prevOutputForm) => ({
-            ...prevOutputForm,
-            generatedContent:
-              `<span style="color: green">[${formatDateTime(
-                new Date()
-              )}] Updated segment contact pitch in database for ${full_name}.</span><br/>` +
-              prevOutputForm.generatedContent,
-          }));
-        }
-      } else {
+        // Update the linkLabel to show both subject and pitch
         setOutputForm((prevOutputForm) => ({
           ...prevOutputForm,
-          generatedContent:
-            `<span style="color: orange">[${formatDateTime(
-              new Date()
-            )}] No dataFileId found for segment contact ${full_name}</span><br/>` +
-            prevOutputForm.generatedContent,
+          linkLabel: pitchData.response.content,
+          emailSubject: subjectLine,
         }));
-      }
-    } else if (parsedDataFileId) {
-      // ✅ For datafile-based campaigns (existing logic)
-      const updateContactResponse = await fetch(
-        `${API_BASE_URL}/api/crm/contacts/update-email`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            ClientId: effectiveUserId,
-            DataFileId: parsedDataFileId,
-            ContactId: id,
-            EmailSubject: subjectLine,
-            EmailBody: pitchData.response.content,
-          }),
-        }
-      );
 
-      if (!updateContactResponse.ok) {
-        const updateContactError = await updateContactResponse.json();
-        setOutputForm((prevOutputForm) => ({
-          ...prevOutputForm,
-          generatedContent:
-            `<span style="color: orange">[${formatDateTime(
-              new Date()
-            )}] Updating contact in database incomplete for ${full_name}. Error: ${updateContactError.Message}</span><br/>` +
-            prevOutputForm.generatedContent,
-        }));
-      } else {
-        setOutputForm((prevOutputForm) => ({
-          ...prevOutputForm,
-          generatedContent:
-            `<span style="color: green">[${formatDateTime(
-              new Date()
-            )}] Updated pitch in database for ${full_name}.</span><br/>` +
-            prevOutputForm.generatedContent,
-        }));
-      }
-    }
-  }
-} catch (updateError) {
-  setOutputForm((prevOutputForm) => ({
-    ...prevOutputForm,
-    generatedContent:
-      `<span style="color: orange">[${formatDateTime(
-        new Date()
-      )}] Database update error for ${full_name}.</span><br/>` +
-      prevOutputForm.generatedContent,
-  }));
-}
+        // Update generatedPitches to include subject
+        generatedPitches.push({
+          ...entry,
+          name: entry.full_name || "N/A",
+          title: entry.job_title || "N/A",
+          company: entry.company_name || "N/A",
+          location: entry.country_or_address || "N/A",
+          website: entry.website || "N/A",
+          linkedin: entry.linkedin_url || "N/A",
+          pitch: pitchData.response.content,
+          subject: subjectLine,
+          lastemailupdateddate: entry.updated_at || "N/A",
+          emailsentdate: entry.email_sent_at || "N/A",
+        });
 
+        // Update newResponse to include subject
         const newResponse = {
           ...entry,
-          name: full_name || "N/A",
-          title: job_title || "N/A",
-          company: company_name_friendly || "N/A",
-          location: location || "N/A",
-          website: website || "N/A",
-          linkedin: linkedin_url || "N/A",
+          name: entry.full_name || "N/A",
+          title: entry.job_title || "N/A",
+          company: entry.company_name || "N/A",
+          location: entry.country_or_address || "N/A",
+          website: entry.website || "N/A",
+          linkedin: entry.linkedin_url || "N/A",
           pitch: pitchData.response.content,
           subject: subjectLine,
           timestamp: new Date().toISOString(),
-          id,
+          id: entry.id,
           nextPageToken: null,
           prevPageToken: null,
           generated: true,
           lastemailupdateddate: new Date().toISOString(),
           emailsentdate: entry.email_sent_at || "N/A",
         };
-        const regenIndex = allResponses.findIndex((r) => r.id === id);
+        const responseIndex = shouldReplaceFromIndex
+          ? currentIndex + (i - currentIndex)
+          : allResponses.length;
 
-        // ---- Update all relevant state arrays by id ----
-        setexistingResponse((prev) =>
-          prev.map((resp) => (resp.id === id ? newResponse : resp))
-        );
-
-        setAllResponses((prev) =>
-          prev.map((resp) => (resp.id === id ? newResponse : resp))
-        );
-
-        setallprompt((prev) => {
-          const updated = [...prev];
-          if (regenIndex > -1) updated[regenIndex] = promptToSend;
-          else updated.push(promptToSend);
-          return updated;
-        });
-        setallsearchResults((prev) => {
-          const updated = [...prev];
-          if (regenIndex > -1) updated[regenIndex] = searchResults;
-          else updated.push(searchResults);
-          return updated;
-        });
-        seteveryscrapedData((prev) => {
-          const updated = [...prev];
-          if (regenIndex > -1)
-            updated[regenIndex] = scrapeData.allScrapedData || "";
-          else updated.push(scrapeData.allScrapedData || "");
-          return updated;
-        });
-        setallsummery((prev) => {
-          const updated = [...prev];
-          if (regenIndex > -1)
-            updated[regenIndex] = scrapeData.pitchResponse?.content || "";
-          else updated.push(scrapeData.pitchResponse?.content || "");
-          return updated;
-        });
-        setallSearchTermBodies((prev) => {
-          const updated = [...prev];
-          if (regenIndex > -1) updated[regenIndex] = searchTermBody;
-          else updated.push(searchTermBody);
+        setAllResponses((prevResponses) => {
+          const updated = [...prevResponses];
+          if (responseIndex < updated.length) {
+            // Replace existing entry
+            updated[responseIndex] = newResponse;
+          } else {
+            // Add new entry
+            updated.push(newResponse);
+          }
           return updated;
         });
 
-        setRecentlyAddedOrUpdatedId(id);
+        // Similarly update other arrays at the correct index
+        setallprompt((prevPrompts) => {
+          const updated = [...prevPrompts];
+          if (responseIndex < updated.length) {
+            updated[responseIndex] = promptToSend;
+          } else {
+            updated.push(promptToSend);
+          }
+          return updated;
+        });
 
-        setIsProcessing(false);
-        setIsPitchUpdateCompleted(true);
-        setIsPaused(true);
-        return;
-      }
-      // ======= REGENERATION BLOCK END =======
+        setallsearchResults((prevSearchResults) => {
+          const updated = [...prevSearchResults];
+          if (responseIndex < updated.length) {
+            updated[responseIndex] = scrapeData.searchResults || [];
+          } else {
+            updated.push(scrapeData.searchResults || []);
+          }
+          return updated;
+        });
 
-      // Main processing loop - fetch all contacts at once
-      let moreRecords = true;
-      let currentIndex = 0;
-      let shouldReplaceFromIndex = false;
+        seteveryscrapedData((prevScrapedData) => {
+          const updated = [...prevScrapedData];
+          if (responseIndex < updated.length) {
+            updated[responseIndex] = scrapeData.allScrapedData || "";
+          } else {
+            updated.push(scrapeData.allScrapedData || "");
+          }
+          return updated;
+        });
 
-      const currentDate = new Date().toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
+        setallsummery((prevSummery) => {
+          const updated = [...prevSummery];
+          if (responseIndex < updated.length) {
+            updated[responseIndex] = scrapeData.pitchResponse?.content || "";
+          } else {
+            updated.push(scrapeData.pitchResponse?.content || "");
+          }
+          return updated;
+        });
 
-      if (
-        options?.startFromIndex !== undefined &&
-        options.startFromIndex >= 0
-      ) {
-        currentIndex = options.startFromIndex;
-        shouldReplaceFromIndex = true;
-      } else if (isPaused) {
-        currentIndex = lastProcessedIndex; // Use the last processed index when resuming
-      } else {
-        currentIndex = 0;
-      }
+        setallSearchTermBodies((prevSearchTermBodies) => {
+          const updated = [...prevSearchTermBodies];
+          if (responseIndex < updated.length) {
+            updated[responseIndex] = searchTermBody;
+          } else {
+            updated.push(searchTermBody);
+          }
+          return updated;
+        });
+        setCurrentIndex(responseIndex);
+        setRecentlyAddedOrUpdatedId(newResponse.id);
 
-      //
-      let foundRecordWithoutPitch = false;
-
-      // Show loader
-      setOutputForm((prevForm) => ({
-        ...prevForm,
-        generatedContent:
-          '<span style="color: blue">Processing initiated...please wait...</span><br/>' +
-          prevForm.generatedContent,
-      }));
-      const dataFileIdStr = selectedZohoviewId;
-
-      // Declare contacts variable before the if/else block
-      let contacts: any[] = [];
-
-      // Use cached data if available and flag is set
-      if (options?.useCachedData && cachedContacts.length > 0) {
-  contacts = cachedContacts;
-} else {
-  // ✅ Fetch contacts based on campaign type
-  if (segmentId) {
-    // Fetch from segment API
-    console.log("Fetching contacts from segment API, segmentId:", segmentId);
-    const response = await fetch(
-      `${API_BASE_URL}/api/Crm/segment/${segmentId}/contacts`
-    );
-
-    if (!response.ok) {
-      throw new Error("Failed to fetch segment contacts");
-    }
-
-    const data = await response.json();
-    contacts = data || []; // Segment API returns contacts directly
-    console.log("Fetched segment contacts:", contacts.length);
-    
-  } else if (parsedDataFileId) {
-    // Fetch from datafile API (existing logic)
-    console.log("Fetching contacts from datafile API, dataFileId:", parsedDataFileId);
-    const response = await fetch(
-      `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${parsedDataFileId}`
-    );
-
-    if (!response.ok) {
-      throw new Error("Failed to fetch datafile contacts");
-    }
-
-    const data = await response.json();
-    contacts = data.contacts || [];
-    console.log("Fetched datafile contacts:", contacts.length);
-    
-  } else {
-    throw new Error("No valid data source found (neither segment nor datafile)");
-  }
-}
-
-      if (!Array.isArray(contacts)) {
-        console.error("Invalid data format");
-        moreRecords = false;
-      }
-
-      // Process all contacts
-      for (let i = 0; i < contacts.length; i++) {
-        const entry = contacts[i];
-
-        // Skip contacts before the starting index if we're replacing from a specific index
-        if (shouldReplaceFromIndex && i < currentIndex) {
-          continue;
-        }
-        if (stopRef.current === true) {
-          setLastProcessedToken(null);
-          setLastProcessedIndex(i); // This should be the actual index being processed
-          return;
-        }
-
-        // Process the entry
-        const urlParam: string = `https://www.${entry.email.split("@")[1]}`;
+        // ✅ Update database with new API (in main processing loop)
         try {
-          var company_name_friendly = entry.company_name;
-          var full_name = entry.full_name;
-          var job_title = entry.job_title;
-          var location = entry.country_or_address;
-          var linkedin_url = entry.linkedin_url;
-          var emailbody = entry.email_body;
-          var website = entry.website;
-          var company_name = entry.company_name;
+          if (entry.id && pitchData.response.content) {
+            // ✅ Determine the dataFileId to use for update
+            let updateDataFileId: number | null = null;
+            
+            if (segmentId) {
+              // ✅ For segment-based campaigns, get dataFileId from contact
+              updateDataFileId = entry.dataFileId || entry.data_file_id;
+              
+              if (!updateDataFileId) {
+                setOutputForm((prevOutputForm) => ({
+                  ...prevOutputForm,
+                  generatedContent:
+                    `<span style="color: orange">[${formatDateTime(
+                      new Date()
+                    )}] No dataFileId found for segment contact ${full_name}</span><br/>` +
+                    prevOutputForm.generatedContent,
+                }));
+                // Continue processing but skip database update
+              }
+            } else if (parsedDataFileId) {
+              // ✅ For datafile-based campaigns, use parsed dataFileId
+              updateDataFileId = parsedDataFileId;
+            }
 
-          // Check if email already exists and if we should overwrite
-          if (entry.email_body && !settingsForm.overwriteDatabase) {
-            const responseIndex = shouldReplaceFromIndex
-              ? i
-              : allResponses.length;
+            // ✅ Only update if we have a valid dataFileId
+            if (updateDataFileId) {
+              const updateContactResponse = await fetch(
+                `${API_BASE_URL}/api/crm/contacts/update-email`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    clientId: effectiveUserId,
+                    dataFileId: updateDataFileId,
+                    contactId: entry.id,
+                    emailSubject: subjectLine,
+                    emailBody: pitchData.response.content,
+                  }),
+                }
+              );
 
-            setOutputForm((prevOutputForm) => ({
-              ...prevOutputForm,
-              generatedContent:
-                `<span style="color: orange">[${formatDateTime(
-                  new Date()
-                )}] Pitch crafted for contact ${full_name} with company name ${company_name} and domain ${
-                  entry.email
-                } </span><br/>` + prevOutputForm.generatedContent,
-              linkLabel: entry.email_body,
-            }));
-
-            await delay(delayTime * 1000);
-
-            const existingResponse = {
-              ...entry,
-              name: entry.full_name || "N/A",
-              title: entry.job_title || "N/A",
-              company: entry.company_name || "N/A",
-              location: entry.country_or_address || "N/A",
-              website: entry.website || "N/A",
-              linkedin: entry.linkedin_url || "N/A",
-              pitch: entry.email_body,
-              timestamp: new Date().toISOString(),
-              generated: false,
-              nextPageToken: null,
-              prevPageToken: null,
-              id: entry.id,
-              subject: entry.email_subject || "N/A",
-              lastemailupdateddate: entry.updated_at || "N/A",
-              emailsentdate: entry.email_sent_at || "N/A",
-            };
-
-            setAllResponses((prevResponses) => {
-              const updated = [...prevResponses];
-              if (responseIndex < updated.length) {
-                updated[responseIndex] = existingResponse;
+              if (!updateContactResponse.ok) {
+                const updateContactError = await updateContactResponse.json();
+                setOutputForm((prevOutputForm) => ({
+                  ...prevOutputForm,
+                  generatedContent:
+                    `<span style="color: orange">[${formatDateTime(
+                      new Date()
+                    )}] Updating contact in database incomplete for ${full_name}. Error: ${updateContactError.Message || 'Unknown error'}</span><br/>` +
+                    prevOutputForm.generatedContent,
+                }));
               } else {
-                updated.push(existingResponse);
+                setOutputForm((prevOutputForm) => ({
+                  ...prevOutputForm,
+                  generatedContent:
+                    `<span style="color: green">[${formatDateTime(
+                      new Date()
+                    )}] Updated pitch in database for ${full_name}.</span><br/>` +
+                    prevOutputForm.generatedContent,
+                }));
               }
-              setCurrentIndex(responseIndex);
-              return updated;
-            });
-
-            // Remove this line - don't push to generatedPitches yet
-            // generatedPitches.push(existingResponse);
-
-            // Update these to use responseIndex logic
-            setallprompt((prevPrompts) => {
-              const updated = [...prevPrompts];
-              if (responseIndex < updated.length) {
-                updated[responseIndex] = "";
-              } else {
-                updated.push("");
-              }
-              return updated;
-            });
-
-            setallsearchResults((prevSearchResults) => {
-              const updated = [...prevSearchResults];
-              if (responseIndex < updated.length) {
-                updated[responseIndex] = [];
-              } else {
-                updated.push([]);
-              }
-              return updated;
-            });
-
-            seteveryscrapedData((prevScrapedData) => {
-              const updated = [...prevScrapedData];
-              if (responseIndex < updated.length) {
-                updated[responseIndex] = "";
-              } else {
-                updated.push("");
-              }
-              return updated;
-            });
-
-            setallsummery((prevSummery) => {
-              const updated = [...prevSummery];
-              if (responseIndex < updated.length) {
-                updated[responseIndex] = "";
-              } else {
-                updated.push("");
-              }
-              return updated;
-            });
-
-            setallSearchTermBodies((prevSearchTermBodies) => {
-              const updated = [...prevSearchTermBodies];
-              if (responseIndex < updated.length) {
-                updated[responseIndex] = "";
-              } else {
-                updated.push("");
-              }
-              return updated;
-            });
-
-            continue;
-          } else {
-            foundRecordWithoutPitch = true;
-
-            if (isDemoAccount) {
-              setOutputForm((prevOutputForm) => ({
-                ...prevOutputForm,
-                generatedContent:
-                  `<span style="color: blue">[${formatDateTime(
-                    new Date()
-                  )}] Subscription: Trial mode. Processing is paused. Contact support on Live Chat (bottom right) or London: +44 (0) 207 660 4243 | New York: +1 (0) 315 400 2402 or email info@dataji.co </span><br/>` +
-                  prevOutputForm.generatedContent,
-              }));
-
-              moreRecords = false;
-              stopRef.current = true;
-              setLastProcessedToken(null);
-              setLastProcessedIndex(i);
-              break;
             }
           }
-
-          // Step 1: Scrape Website with caching
-          const searchTermBody = searchterm
-            .replace("{company_name}", company_name)
-            .replace("{job_title}", job_title)
-            .replace("{location}", location)
-            .replace("{full_name}", full_name)
-            .replace("{linkedin_url}", linkedin_url)
-            .replace("{linkedin_url}", company_name_friendly)
-            .replace("{website}", website)
-            .replace("{date}", currentDate);
-
-          const filledInstructions = instructionsParamA
-            .replace("{company_name}", company_name)
-            .replace("{job_title}", job_title)
-            .replace("{location}", location)
-            .replace("{full_name}", full_name)
-            .replace("{linkedin_url}", linkedin_url)
-            .replace("{linkedin_url}", company_name_friendly)
-            .replace("{website}", website)
-            .replace("{date}", currentDate);
-
-          const cacheKey = JSON.stringify({
-            searchTerm: searchTermBody,
-            instructions: filledInstructions,
-            modelName: selectedModelNameA,
-            searchCount,
-          });
-
-          let scrapeData: any;
-          let cacheHit = false;
-
-          if (processCacheRef.current[cacheKey]) {
-            scrapeData = processCacheRef.current[cacheKey];
-            cacheHit = true;
-          } else {
-            setOutputForm((prevOutputForm) => ({
-              ...prevOutputForm,
-              generatedContent:
-                `<span style="color: orange">[${formatDateTime(
-                  new Date()
-                )}] Crafting phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${
-                  entry.email
-                }</span><br/>` + prevOutputForm.generatedContent,
-            }));
-
-            const scrapeResponse = await fetch(
-              `${API_BASE_URL}/api/auth/process`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  searchTerm: searchTermBody,
-                  instructions: filledInstructions,
-                  modelName: selectedModelNameA,
-                  searchCount: searchCount,
-                }),
-              }
-            );
-            if (!scrapeResponse.ok) {
-              scrapfailedreq += 1;
-              setOutputForm((prevOutputForm) => ({
-                ...prevOutputForm,
-                searchResults: [],
-                allScrapedData: "",
-                generatedContent:
-                  `<span style="color: red">[${formatDateTime(
-                    new Date()
-                  )}] Centum nulla analysis incomplete for contact ${full_name} with company name ${company_name} and domain ${
-                    entry.email
-                  }</span><br/>` + prevOutputForm.generatedContent,
-                usage:
-                  `Cost: $${cost.toFixed(6)}    ` +
-                  `Failed Requests: ${failedReq}    ` +
-                  `Success Requests: ${successReq}              ` +
-                  `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
-                  `Total Tokens Used: ${totaltokensused}   `,
-              }));
-              generatedPitches.push({
-                ...entry,
-                pitch: "Error scraping website",
-              });
-              continue;
-            }
-            scrapeData = await scrapeResponse.json();
-            processCacheRef.current[cacheKey] = scrapeData;
-          }
-
-          // Always show if data is from cache or not
-          if (cacheHit) {
-            setOutputForm((prevOutputForm) => ({
-              ...prevOutputForm,
-              generatedContent:
-                `<span style="color: #b38f00">[${formatDateTime(
-                  new Date()
-                )}] Loading phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${
-                  entry.email
-                }</span><br/>` + prevOutputForm.generatedContent,
-            }));
-          }
-
-          console.log("All cached values:", processCacheRef.current);
-
-          const summary = scrapeData.pitchResponse || {};
-          const searchResults = scrapeData.searchResults || [];
-          const scrappedData = summary.content || "";
-
-          if (!scrappedData) {
-            const formattedTime = formatDateTime(new Date());
-            scrapfailedreq += 1;
-            setOutputForm((prevOutputForm) => ({
-              ...prevOutputForm,
-              searchResults: scrapeData.searchResults || [],
-              allScrapedData: scrapeData.allScrapedData || "",
-              generatedContent:
-                `<span style="color: red">[${formatDateTime(
-                  new Date()
-                )}] Centum nulla analysis incomplete for contact ${full_name} with company name ${company_name} and domain ${
-                  entry.email
-                }</span><br/>` + prevOutputForm.generatedContent,
-              usage:
-                `Cost: $${cost.toFixed(6)}    ` +
-                `Failed Requests: ${failedReq}    ` +
-                `Success Requests: ${successReq}              ` +
-                `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
-                `Total Tokens Used: ${totaltokensused}   `,
-            }));
-            generatedPitches.push({
-              ...entry,
-              pitch: "Error scraping website",
-            });
-            continue;
-          }
-
-          let systemPrompt = systemInstructionsA;
-
-          const replacedPromptText = (selectedPrompt?.text || "")
-            .replace("{search_output_summary}", scrappedData)
-            .replace("{company_name}", company_name)
-            .replace("{job_title}", job_title)
-            .replace("{location}", location)
-            .replace("{full_name}", full_name)
-            .replace("{linkedin_url}", company_name_friendly)
-            .replace("{linkedin_url}", linkedin_url)
-            .replace("{website}", website)
-            .replace("{date}", currentDate);
-
-          const promptToSend = `
-          
-          ${systemPrompt}
-           
-          ${replacedPromptText}`
-            .replace("{search_output_summary}", scrappedData)
-            .replace("{company_name}", company_name)
-            .replace("{job_title}", job_title)
-            .replace("{location}", location)
-            .replace("{full_name}", full_name)
-            .replace("{linkedin_url}", company_name_friendly)
-            .replace("{linkedin_url}", linkedin_url)
-            .replace("{website}", website)
-            .replace("{date}", currentDate);
-
-          setOutputForm((prevState) => ({
-            ...prevState,
-            currentPrompt: promptToSend,
-            searchResults: scrapeData.searchResults || [],
-            allScrapedData: scrapeData.allScrapedData || "",
-          }));
-
-          const dataAnalysis = analyzeScrapedData(
-            scrapeData.allScrapedData || ""
-          );
-
-          setOutputForm((prevOutputForm) => ({
-            ...prevOutputForm,
-            searchResults: scrapeData.searchResults || [],
-            allScrapedData: scrapeData.allScrapedData || "",
-            generatedContent:
-              `<span style="color: blue">[${formatDateTime(
-                new Date()
-              )}] Crafting phase #2 integritas (att:${searchCount} org:${
-                dataAnalysis.original
-              } ass:${
-                dataAnalysis.assisted
-              }), for contact ${full_name} with company name ${company_name} and domain ${
-                entry.email
-              }</span><br/>` + prevOutputForm.generatedContent,
-          }));
-
-          const requestBody = {
-            scrappedData: systemPrompt,
-            prompt: `${selectedPrompt?.text}`
-              .replace("{company_name}", company_name)
-              .replace("{job_title}", job_title)
-              .replace("{location}", location)
-              .replace("{full_name}", full_name)
-              .replace("{linkedin_url}", linkedin_url)
-              .replace("{linkedin_url}", company_name_friendly)
-              .replace("{search_output_summary}", scrappedData)
-              .replace("{website}", website)
-              .replace("{date}", currentDate),
-            ModelName: selectedModelNameA,
-          };
-
-          const pitchResponse = await fetch(
-            `${API_BASE_URL}/api/auth/generatepitch`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(requestBody),
-            }
-          );
-
-          const pitchData = await pitchResponse.json();
-          if (!pitchResponse.ok) {
-            const formattedTime = formatDateTime(new Date());
-            failedReq += 1;
-            cost += parseFloat(pitchData?.response?.currentCost);
-            totaltokensused += parseFloat(pitchData?.response?.totalTokens);
-            setOutputForm((prevOutputForm) => ({
-              ...prevOutputForm,
-              searchResults: scrapeData.searchResults || [],
-              allScrapedData: scrapeData.allScrapedData || "",
-              generatedContent:
-                `<span style="color: red">[${formatDateTime(
-                  new Date()
-                )}] Phase #2 integritas incomplete for contact ${full_name} with company name ${company_name} and domain ${
-                  entry.email
-                }</span><br/>` + prevOutputForm.generatedContent,
-              usage:
-                `Cost: $${cost.toFixed(6)}    ` +
-                `Failed Requests: ${failedReq}    ` +
-                `Success Requests: ${successReq}                ` +
-                `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
-                `Total Tokens Used: ${totaltokensused}   `,
-            }));
-            generatedPitches.push({
-              ...entry,
-              pitch: "Error Crafting pitch",
-            });
-            continue;
-          }
-
-          successReq += 1;
-          cost += parseFloat(pitchData?.response?.currentCost);
-          totaltokensused += parseFloat(pitchData?.response?.totalTokens);
-          console.log(`Cosstdata ${pitchData}`);
-
-          // Success: Update UI with the generated pitch
-          setOutputForm((prevOutputForm) => ({
-            ...prevOutputForm,
-            searchResults: scrapeData.searchResults || [],
-            allScrapedData: scrapeData.allScrapedData || "",
-            generatedContent:
-              `<span style="color: green">[${formatDateTime(
-                new Date()
-              )}] Pitch successfully crafted for contact ${full_name} with company name ${company_name} and domain ${
-                entry.email
-              }</span><br/>` + prevOutputForm.generatedContent,
-            usage:
-              `Cost: $${cost.toFixed(6)}    ` +
-              `Failed Requests: ${failedReq}    ` +
-              `Success Requests: ${successReq}                  ` +
-              `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
-              `Total Tokens Used: ${totaltokensused}   `,
-          }));
-
-          setOutputForm((prevOutputForm) => ({
-            ...prevOutputForm,
-            linkLabel: pitchData.response.content,
-          }));
-
-          generatedPitches.push({
-            ...entry,
-            name: entry.full_name || "N/A",
-            title: entry.job_title || "N/A",
-            company: entry.company_name || "N/A",
-            location: entry.country_or_address || "N/A",
-            website: entry.website || "N/A",
-            linkedin: entry.linkedin_url || "N/A",
-            pitch: pitchData.response.content,
-            subject: entry.email_subject || "N/A",
-            lastemailupdateddate: entry.updated_at || "N/A",
-            emailsentdate: entry.email_sent_at || "N/A",
-          });
-
-          // Generate subject line
-          let subjectLine = "";
-          if (subjectMode === "AI generated") {
-            const filledSubjectInstruction = subject_instruction
-              .replace("{company_name}", company_name)
-              .replace("{job_title}", job_title)
-              .replace("{location}", location)
-              .replace("{full_name}", full_name)
-              .replace("{linkedin_url}", linkedin_url)
-              .replace("{search_output_summary}", scrappedData)
-              .replace("{generated_pitch}", pitchData.response.content)
-              .replace("{website}", website)
-              .replace("{date}", currentDate);
-
-            const subjectRequestBody = {
-              scrappedData: filledSubjectInstruction,
-              prompt: pitchData.response.content,
-              ModelName: selectedModelNameA,
-            };
-
-            setOutputForm((prev) => ({
-              ...prev,
-              generatedContent:
-                `<span style="color: blue">[${formatDateTime(
-                  new Date()
-                )}] Crafting phase #3 concinnus, for contact ${full_name} with company name ${company_name} and domain ${
-                  entry.email
-                }</span><br/>` + prev.generatedContent,
-            }));
-
-            const subjectResponse = await fetch(
-              `${API_BASE_URL}/api/auth/generatepitch`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(subjectRequestBody),
-              }
-            );
-
-            if (subjectResponse.ok) {
-              const subjectData = await subjectResponse.json();
-              subjectLine = subjectData.response?.content || "";
-
-              setOutputForm((prev) => ({
-                ...prev,
-                generatedContent:
-                  `<span style="color: green">[${formatDateTime(
-                    new Date()
-                  )}] Subject successfully crafted, for contact ${full_name} with company name ${company_name} and domain ${
-                    entry.email
-                  }</span><br/>` + prev.generatedContent,
-                emailSubject: subjectLine,
-              }));
-            } else {
-              setOutputForm((prev) => ({
-                ...prev,
-                generatedContent:
-                  `<span style="color: orange">[${formatDateTime(
-                    new Date()
-                  )}] Subject generation failed for contact ${full_name} with company name ${company_name} and domain ${
-                    entry.email
-                  }</span><br/>` + prev.generatedContent,
-              }));
-            }
-          } else if (subjectMode === "With Placeholder") {
-            subjectLine = (subjectText || "")
-              .replace("{company_name}", company_name)
-              .replace("{job_title}", job_title)
-              .replace("{location}", location)
-              .replace("{full_name}", full_name)
-              .replace("{linkedin_url}", linkedin_url)
-              .replace("{search_output_summary}", scrappedData)
-              .replace("{generated_pitch}", pitchData.response?.content || "")
-              .replace("{website}", website)
-              .replace("{date}", currentDate);
-
-            setOutputForm((prev) => ({
-              ...prev,
-              generatedContent:
-                `<span style="color: green">[${formatDateTime(
-                  new Date()
-                )}] Subject using user placeholder for contact ${full_name} with company name ${company_name} and domain ${
-                  entry.email
-                }</span><br/>` + prev.generatedContent,
-              emailSubject: subjectLine,
-            }));
-          }
-
-          // Update the linkLabel to show both subject and pitch
-          setOutputForm((prevOutputForm) => ({
-            ...prevOutputForm,
-            linkLabel: pitchData.response.content,
-            emailSubject: subjectLine,
-          }));
-
-          // Update generatedPitches to include subject
-          generatedPitches.push({
-            ...entry,
-            name: entry.full_name || "N/A",
-            title: entry.job_title || "N/A",
-            company: entry.company_name || "N/A",
-            location: entry.country_or_address || "N/A",
-            website: entry.website || "N/A",
-            linkedin: entry.linkedin_url || "N/A",
-            pitch: pitchData.response.content,
-            subject: subjectLine,
-            lastemailupdateddate: entry.updated_at || "N/A",
-            emailsentdate: entry.email_sent_at || "N/A",
-          });
-
-          // Update newResponse to include subject
-          const newResponse = {
-            ...entry,
-            name: entry.full_name || "N/A",
-            title: entry.job_title || "N/A",
-            company: entry.company_name || "N/A",
-            location: entry.country_or_address || "N/A",
-            website: entry.website || "N/A",
-            linkedin: entry.linkedin_url || "N/A",
-            pitch: pitchData.response.content,
-            subject: subjectLine,
-            timestamp: new Date().toISOString(),
-            id: entry.id,
-            nextPageToken: null,
-            prevPageToken: null,
-            generated: true,
-            lastemailupdateddate: new Date().toISOString(),
-            emailsentdate: entry.email_sent_at || "N/A",
-          };
-          const responseIndex = shouldReplaceFromIndex
-            ? currentIndex + (i - currentIndex)
-            : allResponses.length;
-
-          setAllResponses((prevResponses) => {
-            const updated = [...prevResponses];
-            if (responseIndex < updated.length) {
-              // Replace existing entry
-              updated[responseIndex] = newResponse;
-            } else {
-              // Add new entry
-              updated.push(newResponse);
-            }
-            return updated;
-          });
-
-          // Similarly update other arrays at the correct index
-          setallprompt((prevPrompts) => {
-            const updated = [...prevPrompts];
-            if (responseIndex < updated.length) {
-              updated[responseIndex] = promptToSend;
-            } else {
-              updated.push(promptToSend);
-            }
-            return updated;
-          });
-
-          setallsearchResults((prevSearchResults) => {
-            const updated = [...prevSearchResults];
-            if (responseIndex < updated.length) {
-              updated[responseIndex] = scrapeData.searchResults || [];
-            } else {
-              updated.push(scrapeData.searchResults || []);
-            }
-            return updated;
-          });
-
-          seteveryscrapedData((prevScrapedData) => {
-            const updated = [...prevScrapedData];
-            if (responseIndex < updated.length) {
-              updated[responseIndex] = scrapeData.allScrapedData || "";
-            } else {
-              updated.push(scrapeData.allScrapedData || "");
-            }
-            return updated;
-          });
-
-          setallsummery((prevSummery) => {
-            const updated = [...prevSummery];
-            if (responseIndex < updated.length) {
-              updated[responseIndex] = scrapeData.pitchResponse?.content || "";
-            } else {
-              updated.push(scrapeData.pitchResponse?.content || "");
-            }
-            return updated;
-          });
-
-          setallSearchTermBodies((prevSearchTermBodies) => {
-            const updated = [...prevSearchTermBodies];
-            if (responseIndex < updated.length) {
-              updated[responseIndex] = searchTermBody;
-            } else {
-              updated.push(searchTermBody);
-            }
-            return updated;
-          });
-          setCurrentIndex(responseIndex);
-          setRecentlyAddedOrUpdatedId(newResponse.id);
-          const dataFileIdStr = selectedZohoviewId;
-
-          // Update database with new API
-         // ✅ Replace the database update logic in REGENERATION BLOCK
-
-// ✅ Update database with new API (in main processing loop)
-try {
-  if (entry.id && pitchData.response.content) { // ✅ Use entry.id instead of id
-    if (segmentId) {
-      // ✅ For segment-based campaigns
-      const contactDataFileId = entry.dataFileId || entry.data_file_id;
-      
-      if (contactDataFileId) {
-        const updateContactResponse = await fetch(
-          `${API_BASE_URL}/api/crm/contacts/update-email`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              ClientId: effectiveUserId,
-              DataFileId: contactDataFileId, // Use contact's dataFileId
-              ContactId: entry.id, // ✅ Use entry.id instead of id
-              EmailSubject: subjectLine,
-              EmailBody: pitchData.response.content,
-            }),
-          }
-        );
-
-        if (!updateContactResponse.ok) {
-          const updateContactError = await updateContactResponse.json();
+        } catch (updateError) {
           setOutputForm((prevOutputForm) => ({
             ...prevOutputForm,
             generatedContent:
               `<span style="color: orange">[${formatDateTime(
                 new Date()
-              )}] Updating segment contact in database incomplete for ${full_name}. Error: ${updateContactError.Message}</span><br/>` +
-              prevOutputForm.generatedContent,
-          }));
-        } else {
-          setOutputForm((prevOutputForm) => ({
-            ...prevOutputForm,
-            generatedContent:
-              `<span style="color: green">[${formatDateTime(
-                new Date()
-              )}] Updated segment contact pitch in database for ${full_name}.</span><br/>` +
+              )}] Database update error for ${full_name}.</span><br/>` +
               prevOutputForm.generatedContent,
           }));
         }
-      }
-    } else if (parsedDataFileId) {
-      // ✅ For datafile-based campaigns (existing logic)
-      const updateContactResponse = await fetch(
-        `${API_BASE_URL}/api/crm/contacts/update-email`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            ClientId: effectiveUserId,
-            DataFileId: parsedDataFileId,
-            ContactId: entry.id, // ✅ Use entry.id instead of id
-            EmailSubject: subjectLine,
-            EmailBody: pitchData.response.content,
-          }),
-        }
-      );
 
-      if (!updateContactResponse.ok) {
-        const updateContactError = await updateContactResponse.json();
-        setOutputForm((prevOutputForm) => ({
+        console.log("Delaying " + delayTime + " secs");
+        // await delay(delayTime * 1000); // 1-second delay
+      } catch (error) {
+        setOutputForm((prevOutputForm: any) => ({
           ...prevOutputForm,
           generatedContent:
-            `<span style="color: orange">[${formatDateTime(
+            `<span style="color: red">[${formatDateTime(
               new Date()
-            )}] Updating contact in database incomplete for ${full_name}. Error: ${updateContactError.Message}</span><br/>` +
-            prevOutputForm.generatedContent,
+            )}] Phase #2 integritas incomplete for contact ${
+              entry.full_name
+            } with company name ${entry.company_name} and domain ${
+              entry.email
+            }</span><br/>` + prevOutputForm.generatedContent,
+          usage:
+            `Cost: $${cost.toFixed(6)}    ` +
+            `Failed Requests: ${failedReq}    ` +
+            `Success Requests: ${successReq}                ` +
+            `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
+            `Total Tokens Used: ${totaltokensused}   `,
         }));
-      } else {
-        setOutputForm((prevOutputForm) => ({
-          ...prevOutputForm,
-          generatedContent:
-            `<span style="color: green">[${formatDateTime(
-              new Date()
-            )}] Updated pitch in database for ${full_name}.</span><br/>` +
-            prevOutputForm.generatedContent,
-        }));
+        console.error(`Error processing entry ${entry.email}:`, error);
+        generatedPitches.push({
+          ...entry,
+          pitch: "Error generating pitch",
+        });
       }
     }
-  }
-} catch (updateError) {
-  setOutputForm((prevOutputForm) => ({
-    ...prevOutputForm,
-    generatedContent:
-      `<span style="color: orange">[${formatDateTime(
-        new Date()
-      )}] Database update error for ${full_name}.</span><br/>` +
-      prevOutputForm.generatedContent,
-  }));
-}
-          console.log("Delaying " + delayTime + " secs");
-          // await delay(delayTime * 1000); // 1-second delay
-        } catch (error) {
-          setOutputForm((prevOutputForm: any) => ({
-            ...prevOutputForm,
-            generatedContent:
-              `<span style="color: red">[${formatDateTime(
-                new Date()
-              )}] Phase #2 integritas incomplete for contact ${
-                entry.full_name
-              } with company name ${entry.company_name} and domain ${
-                entry.email
-              }</span><br/>` + prevOutputForm.generatedContent,
-            usage:
-              `Cost: $${cost.toFixed(6)}    ` +
-              `Failed Requests: ${failedReq}    ` +
-              `Success Requests: ${successReq}                ` +
-              `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
-              `Total Tokens Used: ${totaltokensused}   `,
-          }));
-          console.error(`Error processing entry ${entry.email}:`, error);
-          generatedPitches.push({
-            ...entry,
-            pitch: "Error generating pitch",
-          });
-        }
-      }
 
-      // Set processing to false when completely done
-      if (!moreRecords) {
-        setAllRecordsProcessed(true);
-      }
+    // Set processing to false when completely done
+    if (!moreRecords) {
+      setAllRecordsProcessed(true);
+    }
 
-      moreRecords = false; // No pagination in new API
+    moreRecords = false; // No pagination in new API
 
-      // Process completed successfully
-      if (!stopRef.current) {
-        // Reset all tracking variables
-        setLastProcessedToken(null);
-        setLastProcessedIndex(0);
-        stopRef.current = false;
-        setIsPaused(true);
-      }
-
-      // Capture the end time after processing all entries
-      const endTime = new Date();
-      setEndTime(endTime);
-
-      // Calculate time spent
-      const timeSpent = endTime.getTime() - startTime.getTime();
-      const hours = Math.floor((timeSpent % 86400000) / 3600000);
-      const minutes = Math.floor(((timeSpent % 86400000) % 3600000) / 60000);
-      const formattedTimeSpent = `${hours} hours ${minutes} minutes`;
-
-      // Send email report
-      sendEmail(
-        cost,
-        failedReq,
-        successReq,
-        scrapfailedreq,
-        totaltokensused,
-        formattedTimeSpent,
-        startTime,
-        endTime,
-        generatedPitches,
-        selectedPrompt?.text
-      );
-    } catch (error) {
-      // Ensure processing is set to false even if there's an error
-      setIsProcessing(false);
-      console.error("Error:", error);
-      setOutputForm((prevForm) => ({
-        ...prevForm,
-        generatedContent:
-          `<span style="color: red"> Error: </span><br/>` +
-          prevForm.generatedContent,
-      }));
-    } finally {
-      // Ensure processing is set to false
-      setIsProcessing(false);
-      setIsPitchUpdateCompleted(true); // Set to true when pitch is updated
+    // Process completed successfully
+    if (!stopRef.current) {
+      // Reset all tracking variables
+      setLastProcessedToken(null);
+      setLastProcessedIndex(0);
+      stopRef.current = false;
       setIsPaused(true);
     }
-  };
+
+    // Capture the end time after processing all entries
+    const endTime = new Date();
+    setEndTime(endTime);
+
+    // Calculate time spent
+    const timeSpent = endTime.getTime() - startTime.getTime();
+    const hours = Math.floor((timeSpent % 86400000) / 3600000);
+    const minutes = Math.floor(((timeSpent % 86400000) % 3600000) / 60000);
+    const formattedTimeSpent = `${hours} hours ${minutes} minutes`;
+
+    // Send email report
+    sendEmail(
+      cost,
+      failedReq,
+      successReq,
+      scrapfailedreq,
+      totaltokensused,
+      formattedTimeSpent,
+      startTime,
+      endTime,
+      generatedPitches,
+      selectedPrompt?.text
+    );
+  } catch (error) {
+    // Ensure processing is set to false even if there's an error
+    setIsProcessing(false);
+    console.error("Error:", error);
+    setOutputForm((prevForm) => ({
+      ...prevForm,
+      generatedContent:
+        `<span style="color: red"> Error: </span><br/>` +
+        prevForm.generatedContent,
+    }));
+  } finally {
+    // Ensure processing is set to false
+    setIsProcessing(false);
+    setIsPitchUpdateCompleted(true); // Set to true when pitch is updated
+    setIsPaused(true);
+  }
+};
 
   const [outputForm, setOutputForm] = useState<OutputInterface["outputForm"]>({
     generatedContent: "",
@@ -2840,106 +2831,84 @@ try {
   };
 
   const handleStart = async (startIndex?: number) => {
-    // Only clear all if we're starting from the beginning
-    if (!startIndex || startIndex === 0) {
-      await handleClearAll();
+  if (!selectedPrompt) return;
+  
+  // Use the passed startIndex or current index, don't clear all data
+  const indexToStart = startIndex !== undefined ? startIndex : currentIndex;
+  
+  setAllRecordsProcessed(false);
+  setIsStarted(true);
+  setIsPaused(false);
+  setIsProcessing(true);
+  stopRef.current = false;
+
+  goToTab("Output", {
+    startFromIndex: indexToStart,
+    useCachedData: true,
+  });
+};
+
+  const handleStop = async () => {
+  if (isProcessing) {
+    setIsPaused(true);
+    stopRef.current = true;
+
+    // Calculate time spent so far
+    const currentTime = new Date();
+    let timeSpent = "";
+
+    if (startTime) {
+      const timeDiff = currentTime.getTime() - startTime.getTime();
+      const hours = Math.floor((timeDiff % 86400000) / 3600000);
+      const minutes = Math.floor(((timeDiff % 86400000) % 3600000) / 60000);
+      timeSpent = `${hours} hours ${minutes} minutes`;
     }
 
-    if (!selectedPrompt) return;
-    setAllRecordsProcessed(false);
-    setIsStarted(true);
-    setIsPaused(false);
-    stopRef.current = false;
+    // Get the current values from the usage string
+    const usageText = outputForm.usage;
 
-    goToTab("Output", {
-      startFromIndex: startIndex,
-      useCachedData: true, // Use cached data when available
-    });
-  };
+    // Extract values using regex
+    const costMatch = usageText.match(/Cost: \$([0-9.]+)/);
+    const failedReqMatch = usageText.match(/Failed Requests: ([0-9]+)/);
+    const successReqMatch = usageText.match(/Success Requests: ([0-9]+)/);
+    const scrapfailedReqMatch = usageText.match(
+      /Scraped Data Failed Requests: ([0-9]+)/
+    );
+    const totaltokensusedMatch = usageText.match(
+      /Total Tokens Used: ([0-9]+)/
+    );
 
-  const handlePauseResume = async () => {
-    if (isStarted) {
-      if (isPaused) {
-        // Check if we've processed all records
-        if (allRecordsProcessed) {
-          handleReset();
-          handleStart();
-          return;
-        }
+    const currentCost = costMatch ? parseFloat(costMatch[1]) : cost;
+    const currentFailedReq = failedReqMatch
+      ? parseInt(failedReqMatch[1])
+      : failedReq;
+    const currentSuccessReq = successReqMatch
+      ? parseInt(successReqMatch[1])
+      : successReq;
+    const currentScrapfailedReq = scrapfailedReqMatch
+      ? parseInt(scrapfailedReqMatch[1])
+      : scrapfailedreq;
+    const currentTotaltokensused = totaltokensusedMatch
+      ? parseInt(totaltokensusedMatch[1])
+      : totaltokensused;
 
-        // Only allow resume if pitch update is completed
-        if (isPitchUpdateCompleted && !isProcessing) {
-          setIsPaused(false);
-          stopRef.current = false;
-          setIsPitchUpdateCompleted(false);
+    // Send email with the values from the usage display
+    await sendEmail(
+      currentCost,
+      currentFailedReq,
+      currentSuccessReq,
+      currentScrapfailedReq,
+      currentTotaltokensused,
+      timeSpent,
+      startTime,
+      currentTime,
+      allResponses,
+      selectedPrompt?.text || "No prompt template was selected",
+      true // Flag to indicate this is a stop report
+    );
 
-          // Resume with cached data and pass the last processed index
-          goToTab("Output", {
-            useCachedData: true,
-            startFromIndex: lastProcessedIndex, // Pass the last processed index explicitly
-          });
-        }
-      } else {
-        // Pause logic
-        setIsPaused(true);
-        stopRef.current = true;
-
-        // Calculate time spent so far
-        const currentTime = new Date();
-        let timeSpent = "";
-
-        if (startTime) {
-          const timeDiff = currentTime.getTime() - startTime.getTime();
-          const hours = Math.floor((timeDiff % 86400000) / 3600000);
-          const minutes = Math.floor(((timeDiff % 86400000) % 3600000) / 60000);
-          timeSpent = `${hours} hours ${minutes} minutes`;
-        }
-
-        // Get the current values from the usage string
-        const usageText = outputForm.usage;
-
-        // Extract values using regex
-        const costMatch = usageText.match(/Cost: \$([0-9.]+)/);
-        const failedReqMatch = usageText.match(/Failed Requests: ([0-9]+)/);
-        const successReqMatch = usageText.match(/Success Requests: ([0-9]+)/);
-        const scrapfailedReqMatch = usageText.match(
-          /Scraped Data Failed Requests: ([0-9]+)/
-        );
-        const totaltokensusedMatch = usageText.match(
-          /Total Tokens Used: ([0-9]+)/
-        );
-
-        const currentCost = costMatch ? parseFloat(costMatch[1]) : cost;
-        const currentFailedReq = failedReqMatch
-          ? parseInt(failedReqMatch[1])
-          : failedReq;
-        const currentSuccessReq = successReqMatch
-          ? parseInt(successReqMatch[1])
-          : successReq;
-        const currentScrapfailedReq = scrapfailedReqMatch
-          ? parseInt(scrapfailedReqMatch[1])
-          : scrapfailedreq; // Fixed variable name
-        const currentTotaltokensused = totaltokensusedMatch
-          ? parseInt(totaltokensusedMatch[1])
-          : totaltokensused;
-
-        // Send email with the values from the usage display
-        await sendEmail(
-          currentCost,
-          currentFailedReq,
-          currentSuccessReq,
-          currentScrapfailedReq,
-          currentTotaltokensused,
-          timeSpent,
-          startTime,
-          currentTime, // Use current time as the end time
-          allResponses, // Use all responses gathered so far
-          selectedPrompt?.text || "No prompt template was selected",
-          true // Add a flag to indicate this is a pause report
-        );
-      }
-    }
-  };
+  }
+};
 
   const handleReset = () => {
     // Only allow reset if paused
@@ -3080,60 +3049,55 @@ const handleCampaignChange = async (
   }
 };
   const handleClearAll = () => {
-    // Confirm before proceeding
-    {
-      stopRef.current = true;
+  stopRef.current = true;
 
-      processCacheRef.current = {}; // Clear the process cache
-      setAllRecordsProcessed(false); // Reset all records processed flag
+  processCacheRef.current = {};
+  setAllRecordsProcessed(false);
 
-      // Reset all state variables
-      setIsStarted(false);
-      setIsPaused(false);
-      setIsProcessing(false);
-      setIsPitchUpdateCompleted(false);
+  // Reset all state variables
+  setIsStarted(false);
+  setIsPaused(false);
+  setIsProcessing(false); // Add this line
+  setIsPitchUpdateCompleted(false);
 
-      // Reset last processed token and index
-      setLastProcessedToken(null);
-      setLastProcessedIndex(0);
+  // Reset last processed token and index
+  setLastProcessedToken(null);
+  setLastProcessedIndex(0);
 
-      // Clear all accumulated data
-      setAllResponses([]);
-      setallsearchResults([]);
-      seteveryscrapedData([]);
-      setallprompt([]);
-      setallSearchTermBodies([]);
-      setallsummery([]);
+  // Clear all accumulated data
+  setAllResponses([]);
+  setallsearchResults([]);
+  seteveryscrapedData([]);
+  setallprompt([]);
+  setallSearchTermBodies([]);
+  setallsummery([]);
 
-      // Reset output form
-      setOutputForm({
-        generatedContent: "",
-        linkLabel: "",
-        usage: "",
-        currentPrompt: "",
-        searchResults: [],
-        allScrapedData: "",
-      });
+  // Reset output form
+  setOutputForm({
+    generatedContent: "",
+    linkLabel: "",
+    usage: "",
+    currentPrompt: "",
+    searchResults: [],
+    allScrapedData: "",
+  });
 
-      // Clear any existing content
-      clearContentFunction?.();
+  clearContentFunction?.();
 
-      // Reset cost and request tracking variables
-      cost = 0;
-      failedReq = 0;
-      successReq = 0;
-      scrapfailedreq = 0;
-      totaltokensused = 0;
+  // Reset cost and request tracking variables
+  cost = 0;
+  failedReq = 0;
+  successReq = 0;
+  scrapfailedreq = 0;
+  totaltokensused = 0;
 
-      // Reset existingResponse and related index in Output.tsx
-      setexistingResponse([]); // Use the state setter directly
-      setCurrentIndex(0); // Reset currentIndex in Output.tsx
-      setCurrentPage(0); // Resetting the current page to 0
+  setexistingResponse([]);
+  setCurrentIndex(0);
+  setCurrentPage(0);
 
-      localStorage.removeItem("cachedResponses");
-      localStorage.removeItem("currentIndex");
-    }
-  };
+  localStorage.removeItem("cachedResponses");
+  localStorage.removeItem("currentIndex");
+};
 
   const handleExcelDataProcessed = async (processedData: any[]) => {
     console.log("Excel data processed:", processedData);
@@ -4149,7 +4113,6 @@ const handleCampaignChange = async (
                 selectedClient={selectedClient}
                 isStarted={isStarted}
                 handleStart={handleStart}
-                handlePauseResume={handlePauseResume}
                 handleReset={handleReset}
                 isPitchUpdateCompleted={isPitchUpdateCompleted}
                 allRecordsProcessed={allRecordsProcessed}
@@ -4177,6 +4140,10 @@ const handleCampaignChange = async (
                 subjectText={subjectText}
                 setSubjectText={setSubjectText}
                 selectedPrompt={selectedPrompt} // Make sure this is passed
+                handleStop={handleStop}
+                isStopRequested={stopRef.current} // Add this line
+
+                
               />
             )}
 
