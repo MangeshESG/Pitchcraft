@@ -708,6 +708,10 @@ pre span {
   margin-bottom: 0;
 }
 
+input[type="checkbox"], input[type="radio"]  {
+    accent-color: #3f9f42; 
+  }
+
 .form-group input,
 .form-group select {
   width: 100%;
