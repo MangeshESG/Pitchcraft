@@ -1152,6 +1152,35 @@ const MainPage: React.FC = () => {
     useCachedData?: boolean;
   }
 ) => {
+
+const replaceAllPlaceholders = (text: string, replacements: Record<string, string>) => {
+  if (!text) return "";
+  
+  let result = text;
+  
+  // Log what we're working with
+  console.log("Original text (first 200 chars):", text.substring(0, 200));
+  console.log("Replacements:", replacements);
+  
+  // Simple split-join approach which is more reliable
+  Object.entries(replacements).forEach(([key, value]) => {
+    const placeholder = `{${key}}`;
+    const cleanValue = value || "";
+    
+    console.log(`Looking for: "${placeholder}", replacing with: "${cleanValue}"`);
+    console.log(`Found ${(text.match(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g')) || []).length} occurrences`);
+    
+    // Use split-join which is more reliable than regex for literal strings
+    result = result.split(placeholder).join(cleanValue);
+  });
+  
+  console.log("Result (first 200 chars):", result.substring(0, 200));
+  console.log("Remaining placeholders:", result.match(/\{[^}]+\}/g) || 'none');
+  
+  return result;
+};
+
+
   setTab(tab);
   // If already processing, show loader and prevent multiple starts
   if (isProcessing) {
@@ -1277,24 +1306,21 @@ const MainPage: React.FC = () => {
       });
 
       // --- Generate new pitch as per your normal contact process ---
-      const searchTermBody = searchterm
-        .replace("{company_name}", company_name)
-        .replace("{job_title}", job_title)
-        .replace("{location}", location)
-        .replace("{full_name}", full_name)
-        .replace("{linkedin_url}", linkedin_url)
-        .replace("{linkedin_url}", company_name_friendly)
-        .replace("{website}", website)
-        .replace("{date}", currentDate);
+      const replacements = {
+        company_name: company_name || "",
+        company_name_friendly: company_name_friendly || "",
+        job_title: job_title || "",
+        location: location || "",
+        full_name: full_name || "",
+        linkedin_url: linkedin_url || "",
+        website: website || "",
+        date: currentDate
+      };
 
-      const filledInstructions = instructionsParamA
-        .replace("{company_name}", company_name)
-        .replace("{job_title}", job_title)
-        .replace("{location}", location)
-        .replace("{full_name}", full_name)
-        .replace("{linkedin_url}", linkedin_url)
-        .replace("{linkedin_url}", company_name_friendly)
-        .replace("{website}", website);
+      const searchTermBody = replaceAllPlaceholders(searchterm, replacements);
+
+    const filledInstructions = replaceAllPlaceholders(instructionsParamA, replacements);
+
 
       const cacheKey = JSON.stringify({
         searchTerm: searchTermBody,
@@ -1905,25 +1931,19 @@ const MainPage: React.FC = () => {
         }
 
         // Step 1: Scrape Website with caching
-        const searchTermBody = searchterm
-          .replace("{company_name}", company_name)
-          .replace("{job_title}", job_title)
-          .replace("{location}", location)
-          .replace("{full_name}", full_name)
-          .replace("{linkedin_url}", linkedin_url)
-          .replace("{linkedin_url}", company_name_friendly)
-          .replace("{website}", website)
-          .replace("{date}", currentDate);
+const replacements = {
+  company_name: company_name || "",
+  company_name_friendly: company_name_friendly || "",
+  job_title: job_title || "",
+  location: location || "",
+  full_name: full_name || "",
+  linkedin_url: linkedin_url || "",
+  website: website || "",
+  date: currentDate
+};
 
-        const filledInstructions = instructionsParamA
-          .replace("{company_name}", company_name)
-          .replace("{job_title}", job_title)
-          .replace("{location}", location)
-          .replace("{full_name}", full_name)
-          .replace("{linkedin_url}", linkedin_url)
-          .replace("{linkedin_url}", company_name_friendly)
-          .replace("{website}", website)
-          .replace("{date}", currentDate);
+const searchTermBody = replaceAllPlaceholders(searchterm, replacements);
+const filledInstructions = replaceAllPlaceholders(instructionsParamA, replacements);
 
         const cacheKey = JSON.stringify({
           searchTerm: searchTermBody,
