@@ -4014,7 +4014,7 @@ const handleCampaignChange = async (
                                   userRole === "ADMIN" && (
                                     <div className="form-group edit-prompt-form-height">
                                       <label>Instructions</label>
-                                      <span className="pos-relative">
+                                      <span className="pos-relative h-full">
                                         <ReactQuill
                                           className="height-350 adjust-quill-height"
                                           theme="snow"
