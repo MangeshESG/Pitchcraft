@@ -3148,7 +3148,7 @@ const handleCampaignChange = async (
               <img
                 src={"https://www.pitchkraft.ai/images/pitch_logo.png"}
                 alt="Pitchcraft Logo"
-                style={{ height: "85px" }}
+                style={{ height: "100px" }}
               />
               <button
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -3169,7 +3169,12 @@ const handleCampaignChange = async (
                 <ul className="side-menu-list">
                   <li className={tab === "Template" ? "active" : ""}>
                     <button
-                      onClick={() => setTab("Template")}
+                      onClick={() => {
+                        setTab("Template");
+                        setShowMailSubmenu(false);
+                        setShowContactsSubmenu(false);
+
+                      }}
                       className="side-menu-button"
                       title="Click to view the original non-personalized email template"
                     >
@@ -3191,9 +3196,13 @@ const handleCampaignChange = async (
                   >
                     <button
                       onClick={() => {
-                        setTab("DataCampaigns");
-                        setShowContactsSubmenu(!showContactsSubmenu);
-                        setShowMailSubmenu(false); // Close mail submenu if needed
+                        if (tab !== "DataCampaigns") {
+                          setTab("DataCampaigns");
+                          setShowContactsSubmenu(true);
+                          setShowMailSubmenu(false);
+                        } else {
+                          setShowContactsSubmenu((prev) => !prev);
+                        }
                       }}
                       className="side-menu-button"
                       title="Manage contacts and segments"
@@ -3221,6 +3230,7 @@ const handleCampaignChange = async (
                             onClick={() => {
                               setContactsSubTab("List");
                               setTab("DataCampaigns");
+                              setShowMailSubmenu(false);
                             }}
                             className="submenu-button"
                           >
@@ -3236,6 +3246,7 @@ const handleCampaignChange = async (
                             onClick={() => {
                               setContactsSubTab("Segment");
                               setTab("DataCampaigns");
+                              setShowMailSubmenu(false);
                             }}
                             className="submenu-button"
                           >
@@ -3251,6 +3262,7 @@ const handleCampaignChange = async (
                       onClick={() => {
                         setTab("Campaigns");
                         setShowMailSubmenu(false);
+                        setShowContactsSubmenu(false);
                       }}
                       className="side-menu-button"
                       title="Manage campaigns"
@@ -3266,7 +3278,11 @@ const handleCampaignChange = async (
                   </li>
                   <li className={tab === "Output" ? "active" : ""}>
                     <button
-                      onClick={() => setTab("Output")}
+                      onClick={() => {
+                        setTab("Output");
+                        setShowMailSubmenu(false);
+                        setShowContactsSubmenu(false);
+                      }}
                       className="side-menu-button"
                       title="Click to view the hyper-personalized emails being generated"
                     >
@@ -3289,8 +3305,14 @@ const handleCampaignChange = async (
                     >
                       <button
                         onClick={() => {
-                          setTab("Mail");
-                          setShowMailSubmenu(!showMailSubmenu);
+                          if (tab !== "Mail") {
+                            setTab("Mail");
+                            setShowMailSubmenu(true);
+                            setShowContactsSubmenu(false);
+                          } else {
+                            setShowMailSubmenu((prev) => !prev);
+                          }
+
                         }}
                         className="side-menu-button"
                       >
@@ -3362,7 +3384,11 @@ const handleCampaignChange = async (
                   {userRole === "ADMIN" && (
                     <li className={tab === "Settings" ? "active" : ""}>
                       <button
-                        onClick={() => setTab("Settings")}
+                        onClick={() => {
+                          setTab("Settings");
+                          setShowMailSubmenu(false);
+                          setShowContactsSubmenu(false);
+                        }}
                         className="side-menu-button"
                       >
                         <span className="menu-icon">

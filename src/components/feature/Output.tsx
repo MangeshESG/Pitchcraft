@@ -1148,29 +1148,17 @@ const Output: React.FC<OutputInterface> = ({
   
   {!isDemoAccount && (
     <>
-      <div className="form-group d-flex align-center mb-0 mr-1">
-        <label className="font-size-medium font-500 mb-0 mr-10">
+      <div className="flex items-center mb-0 mr-1">
+        <label className="font-size-medium font-500 !mb-0 mr-10">
           Delay(secs)
         </label>
         <input
           type="number"
           value={delayTime}
           onChange={(e: any) => setDelay?.(e.target.value)}
-          className="height-35"
-          style={{ width: "55px" }}
+          className="h-[40px]"
+          style={{ width: "65px" }}
         />
-      </div>
-      <div className="form-group !mb-[0px]">
-        <label className="checkbox-label !mb-[0px]">
-          <input
-            type="checkbox"
-            checked={settingsForm?.overwriteDatabase}
-            name="overwriteDatabase"
-            id="overwriteDatabase"
-            onChange={settingsFormHandler}
-          />
-          <span>Overwrite </span>
-        </label>
       </div>
     </>
   )}
@@ -1375,7 +1363,7 @@ const Output: React.FC<OutputInterface> = ({
                   disabled={isProcessing} 
 
                   title="Click to go to the first generated email"
-                  className="secondary-button min-h-[40px] w-[40px] !px-[5px] !py-[10px] flex justify-center"
+                  className="secondary-button h-[35px] w-[38px] !px-[5px] !py-[10px] flex justify-center items-center"
                 >
                   <img
                     src={previousIcon}
@@ -1390,7 +1378,7 @@ const Output: React.FC<OutputInterface> = ({
                 <button
                   onClick={handlePrevPage}
                   disabled={isProcessing || currentIndex === 0}
-                  className="secondary-button flex justify-center items-center"
+                  className="secondary-button flex justify-center items-center px-[10px] h-[35px]"
                   title="Click to go to the previous generated email"
                 >
                   <img
@@ -1401,6 +1389,7 @@ const Output: React.FC<OutputInterface> = ({
                       height: "20px",
                       objectFit: "contain",
                       marginRight: "2px",
+                      marginLeft:"-7px"
                     }}
                   />
                   <span>Prev</span>
@@ -1409,7 +1398,7 @@ const Output: React.FC<OutputInterface> = ({
                 <button
                   onClick={handleNextPage}
                   disabled={isProcessing || currentIndex === combinedResponses.length - 1}
-                  className="secondary-button flex justify-center items-center"
+                  className="secondary-button !h-[35px] !py-[10px] flex justify-center items-center"
                   title="Click to go to the next generated email"
                 >
                   <span>Next</span>
@@ -1421,6 +1410,7 @@ const Output: React.FC<OutputInterface> = ({
                       height: "20px",
                       objectFit: "contain",
                       marginLeft: "2px",
+                      marginRight:"-7px"
                     }}
                   />
                 </button>
@@ -1429,7 +1419,7 @@ const Output: React.FC<OutputInterface> = ({
                   onClick={handleLastPage}
                   disabled={isProcessing || currentIndex === combinedResponses.length - 1} // Simplified condition
 
-                  className="secondary-button min-h-[40px] w-[40px] !px-[5px] !py-[10px] flex justify-center"
+                  className="secondary-button h-[35px] w-[38px] !px-[5px] !py-[10px] flex justify-center items-center !px-[10px]"
                   title="Click to go to the last generated email"
                 >
                   <img
@@ -1450,6 +1440,7 @@ const Output: React.FC<OutputInterface> = ({
                   </div>
                 )}
               </div>
+              
               <div className="mtext-center d-flex align-center mr-20 mt-10-991 font-size-medium">
                 {combinedResponses.length > 0 && (
                   <>
@@ -1500,6 +1491,29 @@ const Output: React.FC<OutputInterface> = ({
                 )}
               </div>
             </ul>
+            <div className="!mb-[0px] flex align-center">
+                <label className="checkbox-label !mb-[0px] mr-[5px] flex align-center">
+                  <input
+                    type="checkbox"
+                    checked={settingsForm?.overwriteDatabase}
+                    name="overwriteDatabase"
+                    id="overwriteDatabase"
+                    onChange={settingsFormHandler}
+                    className="!mr-0"
+                  />
+                  <span className="text-[14px]">Overwrite</span>
+                </label>
+                <span>
+                  <ReactTooltip anchorSelect="#overwrite-checkbox" place="top">
+                    Reset all company level intel
+                  </ReactTooltip>
+                  <svg id="overwrite-checkbox" width="14px" height="14px" viewBox="0 0 24 24" fill="#555555" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 17.75C12.4142 17.75 12.75 17.4142 12.75 17V11C12.75 10.5858 12.4142 10.25 12 10.25C11.5858 10.25 11.25 10.5858 11.25 11V17C11.25 17.4142 11.5858 17.75 12 17.75Z" fill="#1C274C"/>
+                    <path d="M12 7C12.5523 7 13 7.44772 13 8C13 8.55228 12.5523 9 12 9C11.4477 9 11 8.55228 11 8C11 7.44772 11.4477 7 12 7Z" fill="#1C274C"/>
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M1.25 12C1.25 6.06294 6.06294 1.25 12 1.25C17.9371 1.25 22.75 6.06294 22.75 12C22.75 17.9371 17.9371 22.75 12 22.75C6.06294 22.75 1.25 17.9371 1.25 12ZM12 2.75C6.89137 2.75 2.75 6.89137 2.75 12C2.75 17.1086 6.89137 21.25 12 21.25C17.1086 21.25 21.25 17.1086 21.25 12C21.25 6.89137 17.1086 2.75 12 2.75Z" fill="#1C274C"/>
+                  </svg>
+                </span>
+              </div>
             <div className="d-flex flex-col-1200 mb-10-991 mt-10-991">
               <div className="d-flex flex-col-768 mt-10-1200">
                 {/* Add the Excel export link */}
@@ -1680,18 +1694,23 @@ const Output: React.FC<OutputInterface> = ({
                 <div className="d-flex justify-between w-full">
                   <div
                     className="contact-info lh-35 align-center d-inline-block word-wrap--break-word word-break--break-all"
-                    style={{ color: "red" }}
+                    style={{ color: "#3f9f42" }}
                   >
-                    <strong style={{ whiteSpace: "pre" }}>Contact: </strong>
+                    {/* <strong style={{ whiteSpace: "pre" }}>Contact: </strong> */}
+                    {/* <span style={{ whiteSpace: "pre" }}> </span> */}
+                    {combinedResponses[currentIndex]?.name || "NA"},
                     <span style={{ whiteSpace: "pre" }}> </span>
-                    {combinedResponses[currentIndex]?.name || "NA"} |
+                    {combinedResponses[currentIndex]?.title || "NA"} at
                     <span style={{ whiteSpace: "pre" }}> </span>
-                    {combinedResponses[currentIndex]?.title || "NA"} |
+                    {combinedResponses[currentIndex]?.company || "NA"} in 
                     <span style={{ whiteSpace: "pre" }}> </span>
-                    {combinedResponses[currentIndex]?.company || "NA"} |
+                    {combinedResponses[currentIndex]?.location || "NA"}
                     <span style={{ whiteSpace: "pre" }}> </span>
-                    {combinedResponses[currentIndex]?.location || "NA"} |
-                    <span style={{ whiteSpace: "pre" }}> </span>
+                    <span className="inline-block relative top-[6px] mr-[3px]">
+                      <svg width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M14 7H16C18.7614 7 21 9.23858 21 12C21 14.7614 18.7614 17 16 17H14M10 7H8C5.23858 7 3 9.23858 3 12C3 14.7614 5.23858 17 8 17H10M8 12H16" stroke="#3f9f42" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </span>
                     <a
                       href={
                         combinedResponses[currentIndex]?.website &&
@@ -2056,7 +2075,7 @@ const Output: React.FC<OutputInterface> = ({
                       <button
                         id="output-send-email-btn"
                         type="button"
-                        className="button save-button x-small d-flex align-center align-self-center my-5-640 mr-10"
+                        className="button save-button x-small d-flex align-center align-self-center my-5-640 mr-[5px]"
                         onClick={async () => {
                           if (!combinedResponses[currentIndex]) {
                             toast.error("No contact selected");
@@ -2100,6 +2119,16 @@ const Output: React.FC<OutputInterface> = ({
                         {sendingEmail && "Sending..."}
                         {!sendingEmail && emailMessage && "Sent"}
                       </button>
+                      <span className="relative top-[15px]">
+                          <svg id="send-email-info" width="14px" height="14px" viewBox="0 0 24 24" fill="#555555" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M12 17.75C12.4142 17.75 12.75 17.4142 12.75 17V11C12.75 10.5858 12.4142 10.25 12 10.25C11.5858 10.25 11.25 10.5858 11.25 11V17C11.25 17.4142 11.5858 17.75 12 17.75Z" fill="#1C274C"/>
+                          <path d="M12 7C12.5523 7 13 7.44772 13 8C13 8.55228 12.5523 9 12 9C11.4477 9 11 8.55228 11 8C11 7.44772 11.4477 7 12 7Z" fill="#1C274C"/>
+                          <path fill-rule="evenodd" clip-rule="evenodd" d="M1.25 12C1.25 6.06294 6.06294 1.25 12 1.25C17.9371 1.25 22.75 6.06294 22.75 12C22.75 17.9371 17.9371 22.75 12 22.75C6.06294 22.75 1.25 17.9371 1.25 12ZM12 2.75C6.89137 2.75 2.75 6.89137 2.75 12C2.75 17.1086 6.89137 21.25 12 21.25C17.1086 21.25 21.25 17.1086 21.25 12C21.25 6.89137 17.1086 2.75 12 2.75Z" fill="#1C274C"/>
+                        </svg>
+                      </span>
+                      <ReactTooltip anchorSelect="#send-email-info" place="top">
+                        Send this email
+                      </ReactTooltip>
                     </div>
                     {/* Email Sent Date - remaining width */}
                     <div
@@ -2121,7 +2150,7 @@ const Output: React.FC<OutputInterface> = ({
                         }}
                       >
                         {combinedResponses[currentIndex]?.lastemailupdateddate
-                          ? `Pitch generated: ${formatLocalDateTime(
+                          ? `Krafted: ${formatLocalDateTime(
                               combinedResponses[currentIndex]
                                 ?.lastemailupdateddate
                             )}`
@@ -2138,7 +2167,7 @@ const Output: React.FC<OutputInterface> = ({
                         }}
                       >
                         {combinedResponses[currentIndex]?.emailsentdate
-                          ? `Email sent: ${formatLocalDateTime(
+                          ? `Emailed: ${formatLocalDateTime(
                               combinedResponses[currentIndex]?.emailsentdate
                             )}`
                           : ""}
@@ -2483,11 +2512,12 @@ const Output: React.FC<OutputInterface> = ({
                                 !isResetEnabled ||
                                 isRegenerating
                               }
-                              className="button square-40  justify-center"
+                              className="button square-40  !bg-transparent justify-center !disabled:bg-transparent"
                               style={{
                                 display: "flex",
                                 alignItems: "center",
                                 borderRadius: "4px",
+                                background:'none !important',
                                 cursor:
                                   combinedResponses[currentIndex] &&
                                   !isRegenerating
