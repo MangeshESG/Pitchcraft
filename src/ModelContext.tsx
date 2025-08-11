@@ -28,9 +28,11 @@ interface ModelProviderProps {
 }
 
 export const ModelProvider: React.FC<ModelProviderProps> = ({ children }) => {
-  const [selectedModelName, setSelectedModelName] = useState('');
+const [selectedModelName, setSelectedModelName] = useState(() => localStorage.getItem("selectedModel") || "");
     // State to manage selected Zoho view ID
     const [selectedZohoviewId, setSelectedZohoviewId] = useState('');
+
+
 
   return (
     <ModelContext.Provider value={{ selectedModelName, setSelectedModelName ,selectedZohoviewId, setSelectedZohoviewId}}>

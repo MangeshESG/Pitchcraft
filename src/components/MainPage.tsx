@@ -314,6 +314,7 @@ const MainPage: React.FC = () => {
 
   const [isLoadingClientSettings, setIsLoadingClientSettings] = useState(false);
   const clientID = sessionStorage.getItem("clientId");
+  const [lastLoadedClientId, setLastLoadedClientId] = useState<string | null>(null);
 
 
 
@@ -4205,6 +4206,8 @@ const handleCampaignChange = async (
                   searchTermFormOnSubmit={searchTermFormOnSubmit}
                 preloadedSettings={clientSettings} // ADD THIS LINE
                 isLoadingSettings={isLoadingClientSettings} // ADD THIS LINE
+                lastLoadedClientId={lastLoadedClientId}
+                setLastLoadedClientId={setLastLoadedClientId}
               />
             )}
 
