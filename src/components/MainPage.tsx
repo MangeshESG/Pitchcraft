@@ -1551,7 +1551,7 @@ const replaceAllPlaceholders = (text: string, replacements: Record<string, strin
           emailSubject: subjectLine,
         }));
       }
-
+      debugger;
       // ✅ Replace the database update logic in REGENERATION BLOCK
       try {
         if (id && pitchData.response?.content) {
@@ -1560,7 +1560,7 @@ const replaceAllPlaceholders = (text: string, replacements: Record<string, strin
           
           if (segmentId) {
             // ✅ For segment-based campaigns, get dataFileId from contact
-            updateDataFileId = entry.dataFileId || entry.data_file_id;
+            updateDataFileId = entry.datafileid || entry.data_file_id;
             
             if (!updateDataFileId) {
               setOutputForm((prevOutputForm) => ({
@@ -3205,7 +3205,7 @@ const handleCampaignChange = async (
                           className=" text-[#333333] text-lg"
                         />
                       </span>
-                      <span className="menu-text">Template</span>
+                      <span className="menu-text">Templates</span>
                     </button>
                   </li>
                   <li

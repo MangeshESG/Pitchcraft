@@ -587,83 +587,51 @@ const Output: React.FC<OutputInterface> = ({
     const content = e.currentTarget.innerHTML;
     setEditableContent(content);
   };
-  // Define the saveToZoho function in your component
-  const saveToZoho = async (
-    content: string,
-    responseId: string | number | undefined,
-    subject: string | undefined
-  ): Promise<any> => {
-    if (!responseId) {
-      throw new Error("Contact ID is required to update in Zoho");
+
+interface SaveToCrmUpdateEmailParams {
+  clientId: number;
+  dataFileId: number;
+  contactId: number;
+  emailSubject: string;
+  emailBody: string;
+}
+
+const saveToCrmUpdateEmail = async ({
+  clientId,
+  dataFileId,
+  contactId,
+  emailSubject,
+  emailBody,
+}: SaveToCrmUpdateEmailParams): Promise<any> => {
+  if (!contactId) throw new Error("Contact ID is required to update");
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/Crm/contacts/update-email`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        clientId: clientId ?? 0,
+        dataFileId: dataFileId ?? 0,
+        contactId,
+        emailSubject: emailSubject ?? "",
+        emailBody: emailBody ?? "",
+      }),
+    });
+
+    if (!response.ok) {
+      const errJson = await response.json();
+      throw new Error(errJson.message || "Failed to update contact via CRM API");
     }
 
-    try {
-      // Get contact details from the current item
-      const currentContact = combinedResponses[currentIndex];
-      const full_name =
-        currentContact?.name || currentContact?.full_Name || "N/A";
-      const company_name =
-        currentContact?.company ||
-        currentContact?.account_name_friendlySingle_Line_12 ||
-        "N/A";
-      const email = currentContact?.email || "N/A";
+    return await response.json();
+  } catch (error) {
+    console.error("Error saving to CRM contacts API:", error);
+    throw error;
+  }
+};
 
-      // Make API call to update Zoho
-      const updateContactResponse = await fetch(
-        `${API_BASE_URL}/api/auth/updatezoho`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            contactId: responseId,
-            emailBody: content,
-            email_subject: subject || "",
-            accountId: "String", // Change to proper account id if available
-          }),
-        }
-      );
-
-      if (!updateContactResponse.ok) {
-        const updateContactError = await updateContactResponse.json();
-        console.error("Failed to update in Zoho:", updateContactError);
-
-        setOutputForm((prevOutputForm) => ({
-          ...prevOutputForm,
-          generatedContent:
-            `<span style="color: orange">[${formatDateTime(
-              new Date()
-            )}] Updating contact in database incomplete for contact ${full_name} with company name ${company_name}. Error: ${
-              updateContactError.Message || JSON.stringify(updateContactError)
-            }</span><br/>` + prevOutputForm.generatedContent,
-        }));
-
-        throw new Error(
-          `Failed to update in Zoho: ${
-            updateContactError.Message || JSON.stringify(updateContactError)
-          }`
-        );
-      }
-
-      // Success case
-      console.log("Successfully updated in Zoho");
-
-      setOutputForm((prevOutputForm) => ({
-        ...prevOutputForm,
-        generatedContent:
-          `<span style="color: green">[${formatDateTime(
-            new Date()
-          )}] Updated pitch and subject in database for contact ${full_name} with company name ${company_name}.</span><br/>` +
-          prevOutputForm.generatedContent,
-      }));
-
-      return await updateContactResponse.json();
-    } catch (error) {
-      console.error("Error saving to Zoho:", error);
-      throw error;
-    }
-  };
 
   // You'll need this helper function
   const formatDateTime = (date: Date): string => {
@@ -691,11 +659,16 @@ const Output: React.FC<OutputInterface> = ({
       };
 
       // First save to Zoho before updating UI - now passing the subject
-      await saveToZoho(
-        editableContent,
-        combinedResponses[currentIndex]?.id,
-        currentSubject
-      );
+      const currentItem = combinedResponses[currentIndex];
+      const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
+
+      await saveToCrmUpdateEmail({
+        clientId: Number(effectiveUserId),                 
+        dataFileId: Number(currentItem?.datafileid) || 0,   
+        contactId: Number(currentItem?.id),
+        emailSubject: currentItem?.subject || "",
+        emailBody: editableContent,
+      });
 
       // Update combinedResponses
       const updatedCombinedResponses = [...combinedResponses];
