@@ -3316,92 +3316,89 @@ const handleCampaignChange = async (
                       <span className="menu-text">Output</span>
                     </button>
                   </li>
-                  {userRole === "ADMIN" && (
-                    <li
-                      className={`${tab === "Mail" ? "active" : ""} ${
-                        showMailSubmenu
-                          ? "has-submenu submenu-open"
-                          : "has-submenu"
-                      }`}
-                    >
-                      <button
-                        onClick={() => {
-                          if (tab !== "Mail") {
-                            setTab("Mail");
-                            setShowMailSubmenu(true);
-                            setShowContactsSubmenu(false);
-                          } else {
-                            setShowMailSubmenu((prev) => !prev);
-                          }
-
-                        }}
-                        className="side-menu-button"
-                      >
-                        <span className="menu-icon">
-                          <FontAwesomeIcon
-                            icon={faEnvelope}
-                            className=" text-[#333333] text-lg"
-                          />
-                        </span>
-                        <span className="menu-text">Mail</span>
-                        <span className="submenu-arrow">
-                          <FontAwesomeIcon
-                            icon={faAngleRight}
-                            className=" text-[#333333] text-lg"
-                          />
-                        </span>
-                      </button>
-                      {showMailSubmenu && (
-                        <ul className="submenu">
-                          <li
-                            className={
-                              mailSubTab === "Dashboard" ? "active" : ""
-                            }
-                          >
-                            <button
-                              onClick={() => {
-                                setMailSubTab("Dashboard");
-                                setTab("Mail");
-                              }}
-                              className="submenu-button"
-                            >
-                              Dashboard
-                            </button>
-                          </li>
-                          <li
-                            className={
-                              mailSubTab === "Configuration" ? "active" : ""
-                            }
-                          >
-                            <button
-                              onClick={() => {
-                                setMailSubTab("Configuration");
-                                setTab("Mail");
-                              }}
-                              className="submenu-button"
-                            >
-                              Configuration
-                            </button>
-                          </li>
-                          <li
-                            className={
-                              mailSubTab === "Schedule" ? "active" : ""
-                            }
-                          >
-                            <button
-                              onClick={() => {
-                                setMailSubTab("Schedule");
-                                setTab("Mail");
-                              }}
-                              className="submenu-button"
-                            >
-                              Schedule
-                            </button>
-                          </li>
-                        </ul>
-                      )}
-                    </li>
-                  )}
+                  <li
+  className={`${tab === "Mail" ? "active" : ""} ${
+    showMailSubmenu
+      ? "has-submenu submenu-open"
+      : "has-submenu"
+  }`}
+>
+  <button
+    onClick={() => {
+      if (tab !== "Mail") {
+        setTab("Mail");
+        setShowMailSubmenu(true);
+        setShowContactsSubmenu(false);
+      } else {
+        setShowMailSubmenu((prev) => !prev);
+      }
+    }}
+    className="side-menu-button"
+  >
+    <span className="menu-icon">
+      <FontAwesomeIcon
+        icon={faEnvelope}
+        className=" text-[#333333] text-lg"
+      />
+    </span>
+    <span className="menu-text">Mail</span>
+    <span className="submenu-arrow">
+      <FontAwesomeIcon
+        icon={faAngleRight}
+        className=" text-[#333333] text-lg"
+      />
+    </span>
+  </button>
+  {showMailSubmenu && (
+    <ul className="submenu">
+      <li
+        className={
+          mailSubTab === "Dashboard" ? "active" : ""
+        }
+      >
+        <button
+          onClick={() => {
+            setMailSubTab("Dashboard");
+            setTab("Mail");
+          }}
+          className="submenu-button"
+        >
+          Dashboard
+        </button>
+      </li>
+      <li
+        className={
+          mailSubTab === "Configuration" ? "active" : ""
+        }
+      >
+        <button
+          onClick={() => {
+            setMailSubTab("Configuration");
+            setTab("Mail");
+          }}
+          className="submenu-button"
+        >
+          Configuration
+        </button>
+      </li>
+      <li
+        className={
+          mailSubTab === "Schedule" ? "active" : ""
+        }
+      >
+        <button
+          onClick={() => {
+            setMailSubTab("Schedule");
+            setTab("Mail");
+          }}
+          className="submenu-button"
+        >
+          Schedule
+        </button>
+      </li>
+    </ul>
+  )}
+</li>
                   {userRole === "ADMIN" && (
                     <li className={tab === "Settings" ? "active" : ""}>
                       <button
@@ -4211,7 +4208,7 @@ const handleCampaignChange = async (
               />
             )}
 
-            {tab === "Mail" && userRole === "ADMIN" && (
+            {tab === "Mail" && (
               <Mail
                 selectedClient={selectedClient}
                 outputForm={outputForm}

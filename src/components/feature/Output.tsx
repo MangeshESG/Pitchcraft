@@ -828,7 +828,7 @@ const saveToCrmUpdateEmail = async ({
       const requestBody = {
         clientId: effectiveUserId,
         contactid: currentContact.id,
-        dataFileId: selectedZohoviewId,
+        dataFileId: currentContact.datafileid || 0,
         toEmail: currentContact.email,
         subject: subjectToUse,
         body: currentContact.pitch || "", // Using the pitch as the email body
@@ -859,14 +859,31 @@ const saveToCrmUpdateEmail = async ({
       // Update the contact's email sent status
       try {
         // Update local state
-        const updatedResponses = [...combinedResponses];
-        updatedResponses[currentIndex] = {
-          ...updatedResponses[currentIndex],
+        const updatedItem = {
+          ...combinedResponses[currentIndex],
           emailsentdate: new Date().toISOString(),
-          lastemailupdateddate: new Date().toISOString(),
           PG_Added_Correctly: true,
         };
-        setCombinedResponses(updatedResponses);
+        setCombinedResponses((prev) =>
+          prev.map((item, i) => (i === currentIndex ? updatedItem : item))
+        );
+
+        const allResponsesIndex = allResponses.findIndex(
+          (item) => item.id === updatedItem.id
+        );
+        if (allResponsesIndex !== -1) {
+          const updatedAll = [...allResponses];
+          updatedAll[allResponsesIndex] = updatedItem;
+          setAllResponses(updatedAll);
+        }
+        const existingResponseIndex = existingResponse.findIndex(
+          (item) => item.id === updatedItem.id
+        );
+        if (existingResponseIndex !== -1) {
+          const updatedExisting = [...existingResponse];
+          updatedExisting[existingResponseIndex] = updatedItem;
+          setexistingResponse(updatedExisting);
+        }
 
         // If the API returns nextContactId, you might want to handle navigation
         if (response.data.nextContactId) {
@@ -2651,149 +2668,76 @@ const saveToCrmUpdateEmail = async ({
                 />
               )}
 
-              <Modal
-                show={openModals["modal-output-2"]}
-                closeModal={() => {
-                  handleModalClose("modal-output-2");
-                  setIsEditing(false); // Optionally exit edit mode globally
-                }}
-                buttonLabel=""
-              >
-                <form className="full-height">
-                  <h2 className="left">Edit Email Body – Full View</h2>
-
-                  <div className="form-group">
-                    <label>Email Body</label>
-                    <div className="editor-toolbar">
-                      <button
-                        type="button"
-                        onClick={() => document.execCommand("bold")}
-                      >
-                        <strong>B</strong>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => document.execCommand("italic")}
-                      >
-                        <em>I</em>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => document.execCommand("underline")}
-                      >
-                        <u>U</u>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => document.execCommand("strikeThrough")}
-                      >
-                        <s>S</s>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          document.execCommand("insertUnorderedList")
-                        }
-                      >
-                        •
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          document.execCommand("insertOrderedList")
-                        }
-                      >
-                        1.
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const url = prompt("Enter link URL:");
-                          if (url)
-                            document.execCommand("createLink", false, url);
-                        }}
-                      >
-                        🔗
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const url = prompt("Enter image URL:");
-                          if (url)
-                            document.execCommand("insertImage", false, url);
-                        }}
-                      >
-                        🖼️
-                      </button>
-                    </div>
-
-                    {/* Scrollable content area */}
-                    <div
-                      className="full-modal-scroller"
-                      style={{
-                        maxHeight: "60vh", // Adjust height as needed
-                        overflowY: "auto",
-                        overflowX: "hidden",
-                        marginBottom: "20px",
-                        paddingRight: "8px", // for better UX
-                      }}
-                    >
-                      <div
-                        ref={editorRef}
-                        contentEditable={true}
-                        suppressContentEditableWarning={true}
-                        className="textarea-full-height preview-content-area"
-                        dangerouslySetInnerHTML={{
-                          __html: editableContent,
-                        }}
-                        onInput={(e) =>
-                          setEditableContent(e.currentTarget.innerHTML)
-                        }
-                        onBlur={(e) =>
-                          setEditableContent(e.currentTarget.innerHTML)
-                        }
-                        style={{
-                          minHeight: "500px",
-                          padding: "10px",
-                          border: "1px solid #ccc",
-                          borderRadius: "4px",
-                          fontFamily: "inherit",
-                          fontSize: "inherit",
-                          whiteSpace: "normal",
-                          overflowY: "auto",
-                          overflowX: "auto",
-                          boxSizing: "border-box",
-                          wordWrap: "break-word",
-                          width: "100%",
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-group d-flex editor-actions">
-                    <button
-                      type="button"
-                      className="action-button button mr-10"
-                      onClick={() => {
-                        if (editorRef.current) {
-                          setEditableContent(editorRef.current.innerHTML);
-                          saveEditedContent();
-                        }
-                        handleModalClose("modal-output-2");
-                      }}
-                    >
-                      Save Changes
-                    </button>
-                    <button
-                      type="button"
-                      className="secondary button"
-                      onClick={() => handleModalClose("modal-output-2")}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              </Modal>
+<Modal
+  show={openModals["modal-output-2"]}
+  closeModal={() => {
+    handleModalClose("modal-output-2");
+    setIsEditing(false);
+  }}
+  buttonLabel=""
+>
+  <form
+    className="full-height"
+    style={{
+      margin: 0,
+      padding: 0,
+      maxHeight: "85vh",
+      overflow: "auto",
+      minWidth: 0,
+    }}
+  >
+    <div style={{ display: "flex", justifyContent: "space-between" }}>
+      <h2 style={{ margin: 0, padding: "12px 0" }}>Edit Email Body – Full View</h2>
+      <button
+        type="button"
+        style={{
+          border: "none",
+          background: "transparent",
+          fontSize: "1.7rem",
+          cursor: "pointer",
+        }}
+        onClick={() => {
+          handleModalClose("modal-output-2");
+          setIsEditing(false);
+        }}
+        aria-label="Close"
+        title="Close"
+      >×</button>
+    </div>
+    <div>
+      <label>Email Body</label>
+      <div>
+        <div
+          ref={editorRef}
+          contentEditable={true}
+          suppressContentEditableWarning={true}
+          className="textarea-full-height preview-content-area"
+          dangerouslySetInnerHTML={{
+            __html: editableContent,
+          }}
+          onInput={e => setEditableContent(e.currentTarget.innerHTML)}
+          onBlur={e => setEditableContent(e.currentTarget.innerHTML)}
+          style={{
+            minHeight: "340px",
+            height: "auto",
+            maxHeight: "none",
+            overflow: "visible",
+            background: "#fff",
+            width: "100%",
+            padding: "10px",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            fontFamily: "inherit",
+            fontSize: "inherit",
+            whiteSpace: "normal",
+            boxSizing: "border-box",
+            wordWrap: "break-word",
+          }}
+        />
+      </div>
+    </div>
+  </form>
+</Modal>
             </>
           )}
           {tab2 === "Stages" && userRole === "ADMIN" && (

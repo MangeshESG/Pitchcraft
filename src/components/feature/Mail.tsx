@@ -1041,10 +1041,53 @@ const tabHandler = (e: React.MouseEvent<HTMLButtonElement>) => {
     });
   }, [effectiveUserId]);
 
+
+  // Add these states for the new UI
+const [mailboxSearch, setMailboxSearch] = useState("");
+const [scheduleSearch, setScheduleSearch] = useState("");
+const [mailboxActionsAnchor, setMailboxActionsAnchor] = useState<string | null>(null);
+const [scheduleActionsAnchor, setScheduleActionsAnchor] = useState<string | null>(null);
+const [showScheduleModal, setShowScheduleModal] = useState(false);
+
+// Menu button style constant
+const menuBtnStyle = {
+  display: "block",
+  width: "100%",
+  padding: "8px 18px",
+  textAlign: "left" as const,
+  background: "none",
+  border: "none",
+  color: "#222",
+  fontSize: "15px",
+  cursor: "pointer",
+};
+
+// For Mail component - add these useEffects
+useEffect(() => {
+  const handleClickOutside = (event: MouseEvent) => {
+    const target = event.target as HTMLElement;
+    const isActionsButton = target.closest('.segment-actions-btn');
+    const isActionsMenu = target.closest('.segment-actions-menu');
+    
+    if (!isActionsButton && !isActionsMenu) {
+      setMailboxActionsAnchor(null);
+      setScheduleActionsAnchor(null);
+    }
+  };
+
+  if (mailboxActionsAnchor || scheduleActionsAnchor) {
+    document.addEventListener('click', handleClickOutside);
+  }
+
+  return () => {
+    document.removeEventListener('click', handleClickOutside);
+  };
+}, [mailboxActionsAnchor, scheduleActionsAnchor]);
+
   return (
-    <div className="login-box gap-down">
-       {tab === "Dashboard" && (
-          <MailDashboard
+  <div className="login-box gap-down">
+    {tab === "Dashboard" && (
+      <MailDashboard
         effectiveUserId={effectiveUserId}
         token={token}
         isVisible={tab === "Dashboard"}
@@ -1053,651 +1096,758 @@ const tabHandler = (e: React.MouseEvent<HTMLButtonElement>) => {
       />
     )}
 
-      {tab === "Configuration" && (
+{tab === "Configuration" && (
         <>
-          <div className="tabs secondary d-flex align-center">
-            <div className="input-section edit-section w-full">
-              {/* Inline edit Link mailbox form */}
-              {/* <h4 className="mt-0">
-            {editingId ? "Edit Link mailbox" : "Link mailbox"}
-          </h4>
-          <form onSubmit={handleSubmitSMTP}>
-            <div className="row flex-col-640">
-              <div className="col col-12-640">
-                <div className="form-group">
-                  <label>Host</label>
-                  <input
-                    name="server"
-                    placeholder="Host"
-                    value={form.server}
-                    onChange={handleChangeSMTP}
-                    required
-                  />
-                  <br />
-                </div>
-              </div>
-              <div className="col col-12-640">
-                <div className="form-group">
-                  <label>Port</label>
-                  <input
-                    name="port"
-                    type="number"
-                    placeholder="Port"
-                    value={form.port}
-                    onChange={handleChangeSMTP}
-                    required
-                  />
-                  <br />
-                </div>
-              </div>
-              <div className="col col-12-640">
-                <div className="form-group">
-                  <label>Username</label>
-                  <input
-                    name="username"
-                    placeholder="Username"
-                    value={form.username}
-                    onChange={handleChangeSMTP}
-                    required
-                  />
-                  <br />
-                </div>
-              </div>
-              <div className="col col-12-640">
-                <div className="form-group">
-                  <label>Password</label>
-                  <input
-                    name="password"
-                    type="password"
-                    placeholder="Password"
-                    value={form.password}
-                    onChange={handleChangeSMTP}
-                    required
-                  />
-                  <br />
-                </div>
-              </div>
-              <div className="col col-12-640">
-                <div className="form-group">
-                  <label>From email</label>
-                  <input
-                    name="fromEmail"
-                    placeholder="From email"
-                    value={form.fromEmail}
-                    onChange={handleChangeSMTP}
-                    required
-                  />
-                  <br />
-                </div>
-              </div>
-            </div>
-            <div className="d-flex justify-end">
-              <div className="form-group d-flex align-center justify-end">
-                <input
-                  type="checkbox"
-                  name="usessl"
-                  checked={form.usessl}
-                  onChange={handleChangeSMTP}
-                />
-                <span className="ml-5 font-size-12 nowrap mr-10">
-                  Use SSL
-                </span>
-                <button className="save-button button full" type="submit">
-                  {editingId ? "Update" : "Add"}
-                </button>
-              </div>
-            </div>
-          </form> */}
 
-              <h2 className="!text-left">Mailboxes</h2>
-              <div className="table-container mb-[30px]">
-                <table
-                  className="responsive-table"
-                  style={{ border: "1" }}
-                  cellPadding="10"
-                  width="100%"
-                >
-                  <thead>
-                    <tr>
-                      <th>Server</th>
-                      <th>Port</th>
-                      <th>Username</th>
-                      <th>From email address</th>
-                      <th>SSL</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {smtpList.map((item, index) => (
-                      <tr key={item.id || index}>
-                        <td>{item.server}</td>
-                        <td>{item.port}</td>
-                        <td>{item.username}</td>
-                        <td>{item.fromEmail}</td>
-                        <td>{item.usessl ? "False" : "True"}</td>
-                        <td>
-                          <button
-                            className="save-button button small"
-                            onClick={() => handleEdit(item)}
-                          >
-                            Edit
-                          </button>{" "}
-                          <button
-                            className="save-button button small"
-                            onClick={() => handleDelete(item.id)}
-                          >
-                            Delete
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                    {smtpList.length === 0 && (
-                      <tr>
-                        <td colSpan={6}>No records found.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-                {/* Add Prompt Modal */}
-                <Modal
-                  show={openModals["modal-edit-link-mailbox"]}
-                  closeModal={() => handleModalClose("modal-edit-link-mailbox")}
-                  buttonLabel="Close"
-                  size="!w-[500px] !h-[auto]"
-                >
-                  <form onSubmit={handleSubmitSMTP}>
-                    <h2 className="!text-left">Edit link mailbox</h2>
-                    <div className="flex gap-4">
-                      <div className="form-group flex-1">
-                        <label>Host</label>
-                        <input
-                          name="server"
-                          placeholder="Host"
-                          value={form.server}
-                          onChange={handleChangeSMTP}
-                          required
-                        />
-                      </div>
-                      <div className="form-group flex-1">
-                        <label>Port</label>
-                        <input
-                          name="port"
-                          type="number"
-                          placeholder="Port"
-                          value={form.port}
-                          onChange={handleChangeSMTP}
-                          required
-                        />
-                      </div>
-                    </div>
-                    <div className="flex gap-4">
-                      <div className="form-group flex-1">
-                        <label>Username</label>
-                        <input
-                          name="username"
-                          placeholder="Username"
-                          value={form.username}
-                          onChange={handleChangeSMTP}
-                          required
-                        />
-                      </div>
-                      <div className="form-group flex-1">
-                        <label>Password</label>
-                        <input
-                          name="password"
-                          type="password"
-                          placeholder="Password"
-                          value={form.password}
-                          onChange={handleChangeSMTP}
-                          required
-                        />
-                      </div>
-                    </div>
-                    <div className="flex">
-                      <div className="form-group  flex-1">
-                        <label>From email</label>
-                        <input
-                          name="fromEmail"
-                          placeholder="From email"
-                          value={form.fromEmail}
-                          onChange={handleChangeSMTP}
-                          required
-                        />
-                      </div>
-                    </div>
-                    <div className="d-flex justify-end">
-                      <span className="flex items-center">
-                        <input
-                          type="checkbox"
-                          name="usessl"
-                          checked={form.usessl}
-                          onChange={handleChangeSMTP}
-                          id="use-ssl"
-                        />
-                        <label
-                          className="ml-5 !mb-[0] font-size-12 nowrap mr-10 font-[600]"
-                          htmlFor="use-ssl"
-                        >
-                          Use SSL
-                        </label>
-                      </span>
-                      <button
-                        className="save-button button min-w-[150px]"
-                        type="submit"
-                      >
-                        {editingId ? "Update" : "Add"}
-                      </button>
-                    </div>
-                  </form>
-                </Modal>
-              </div>
+  <div className="data-campaigns-container">
+    {/* Mailboxes Section */}
+    <div className="section-wrapper">
+      <h2 className="section-title">Mailboxes</h2>
+      
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        marginBottom: 16,
+        gap: 16,
+      }}>
+        <input
+          type="text"
+          className="search-input"
+          style={{ width: 340 }}
+          placeholder="Search mailbox by server or username"
+          value={mailboxSearch}
+          onChange={(e) => setMailboxSearch(e.target.value)}
+        />
+        <button
+          className="button primary"
+          style={{ marginLeft: "auto" }}
+          onClick={() => handleModalOpen("modal-add-mailbox")}
+        >
+          + Add mailbox
+        </button>
+      </div>
 
-              {/* BCC Email Management Section */}
-              <h2 className="!text-left">BCC Email Management</h2>
-              <div className="bcc-email-section">
-                {bccError && <div className="error-message">{bccError}</div>}
-                <div className="bcc-add-form">
-                  <div className="row align-center">
-                    <div className="col col-8 col-12-640">
-                      <div className="form-group mb-0">
-                        <input
-                          type="email"
-                          placeholder="Add BCC Email"
-                          value={newBccEmail}
-                          onChange={(e) => setNewBccEmail(e.target.value)}
-                          disabled={bccLoading}
-                          className="form-control"
-                        />
-                      </div>
-                    </div>
-                    <div className="col col-4 col-12-640">
-                      <button
-                        className="save-button button small full"
-                        onClick={handleAddBcc}
-                        disabled={bccLoading || !newBccEmail}
-                      >
-                        {bccLoading ? "Adding..." : "Add BCC"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bcc-list mt-3">
-                  {bccLoading ? (
-                    <div className="loading-message">Loading BCC emails...</div>
-                  ) : bccEmails.length === 0 ? (
-                    <div className="empty-message">
-                      No BCC emails configured.
-                    </div>
-                  ) : (
-                    <div className="table-container">
-                      <table
-                        className="responsive-table"
-                        cellPadding="10"
-                        width="100%"
-                      >
-                        <thead>
-                          <tr>
-                            <th>BCC Email Address</th>
-                            <th>Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {bccEmails.map((email) => (
-                            <tr key={email.id}>
-                              <td>{email.bccEmailAddress}</td>
-                              <td>
-                                <button
-                                  className="secondary button small"
-                                  onClick={() => handleDeleteBcc(email.id)}
-                                  disabled={bccLoading}
-                                  title="Delete this BCC address"
-                                >
-                                  Delete
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-      {tab === "Schedule" && (
-        <div className="tabs secondary d-flex align-center">
-          <div className="input-section edit-section">
-            <div className="table-container">
-              <h5>{editingId ? "Edit Schedule" : "Add Schedule"}</h5>
-              <form onSubmit={handleSubmitSchedule} className="space-y-4">
-                <div className="row">
-                  <div className="col col-3">
-                    <div className="form-group">
-                      <label>
-                        Sequence Name: <span className="required">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        name="title"
-                        value={formData.title || ""} // Remove trim() here
-                        onChange={handleChange}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="col col-3">
-                    <div className="form-group">
-                      <label>
-                        List{" "}
-                        <span className="required">*</span>
-                      </label>
-                      <select
-                        name="model"
-                        id="model"
-                        onChange={handleZohoModelChange1}
-                        value={selectedZohoviewId1?.trim() || ""}
-                        className={
-                          !selectedZohoviewId1 ? "highlight-required" : ""
-                        }
-                        disabled={
-                          scheduleDataLoading || scheduleDataFiles.length === 0
-                        }
-                      >
-                        <option value="">Select a list</option>
-                        {scheduleDataFiles.map((file) => (
-                          <option key={file.id} value={file.id.toString()}>
-                            {file.name}
-                          </option>
-                        ))}
-                      </select>
-                      {!selectedZohoviewId1 && scheduleDataFiles.length > 0 && (
-                        <small className="error-text">
-                          Select a list
-                        </small>
-                      )}
-                      {scheduleDataLoading && (
-                        <small>Loading list...</small>
-                      )}
-                      {!scheduleDataLoading &&
-                        scheduleDataFiles.length === 0 && (
-                          <small>No list available</small>
-                        )}
-                    </div>
-                    {(emailLoading || scheduleDataLoading) && (
-                      <div className="loader-overlay">
-                        <div className="loader"></div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="col col-3">
-                    <div className="form-group">
-                      <label>Timezone:</label>
-                      <select
-                        name="timeZone"
-                        value={formData.timeZone?.trim() || ""}
-                        onChange={handleChange}
-                        className={
-                          !formData.timeZone ? "highlight-required" : ""
-                        }
-                      >
-                        <option value="">Please select timezone</option>
-                        {timezoneOptions.map((tz) => (
-                          <option key={tz.value} value={tz.value}>
-                            {tz.label}
-                          </option>
-                        ))}
-                      </select>
-                      {!formData.timeZone && (
-                        <small className="error-text">
-                          Please select a timezone
-                        </small>
-                      )}
-                    </div>
-                  </div>
-                  <div className="col col-3">
-                    <div className="form-group">
-                      <label>From</label>
-                      <select
-                        value={selectedUser}
-                        onChange={handleChangeSmtpUsers}
-                      >
-                        <option value="">Select email</option>
-                        {smtpUsers.map((user) => (
-                          <option key={user.id} value={user.id}>
-                            {user.username}
-                          </option>
-                        ))}
-                      </select>
-                      {!selectedUser && (
-                        <small className="error-text">
-                          Please select a from email
-                        </small>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="row">
-                  <div className="col col-3">
-                    <div className="form-group">
-                      <label>BCC</label>
-                      <input
-                        type="text"
-                        name="bccEmail"
-                        value={formData.bccEmail?.trim() || ""}
-                        onChange={handleChange}
-                        pattern="[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-                      />
-                      {bccError && (
-                        <small style={{ color: "red" }}>{bccError}</small>
-                      )}
-                    </div>
-                  </div>
-                  <div className="col col-3">
-                    <div className="form-group">
-                      <label>
-                        Scheduled date <span className="required">*</span>
-                      </label>
-                      <input
-                        type="date"
-                        name="scheduledDate"
-                        value={formData.scheduledDate || ""}
-                        onChange={handleChange}
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div className="col col-3">
-                    <div className="form-group">
-                      <label>
-                        Scheduled time <span className="required">*</span>
-                      </label>
-                      <input
-                        type="time"
-                        name="scheduledTime"
-                        value={formData.scheduledTime || ""}
-                        onChange={handleChange}
-                        required
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  className="save-button button full"
-                  disabled={!isFormValid}
-                >
-                  {editingId
-                    ? "Edit Schedule Delivery"
-                    : "Add Schedule Delivery"}
-                </button>
-              </form>
-
-              {/* Pagination controls */}
-              <div className="d-flex flex-col-1200 mb-10-991 mt-10-991">
-                <h5>Scheduled </h5>
-                <div
-                  className="d-flex mr-10 align-center"
-                  style={{ justifyContent: "flex-end", padding: "0 72%" }}
-                >
-                  <button
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      padding: "5px 10px",
-                      backgroundColor: "#f0f0f0",
-                      border: "1px solid #ccc",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                    }}
-                    title="Click to go to the previous generated email"
-                  >
-                    <img
-                      src={singleprvIcon}
-                      alt="Previous"
+      <table className="contacts-table" style={{ background: "#fff" }}>
+        <thead>
+          <tr>
+            <th>Server</th>
+            <th>Port</th>
+            <th>Username</th>
+            <th>From email</th>
+            <th>SSL</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {smtpList.length === 0 ? (
+            <tr>
+              <td colSpan={6} style={{ textAlign: "center" }}>
+                No mailboxes configured.
+              </td>
+            </tr>
+          ) : (
+            smtpList
+              .filter(item => 
+                item.server?.toLowerCase().includes(mailboxSearch.toLowerCase()) ||
+                item.username?.toLowerCase().includes(mailboxSearch.toLowerCase())
+              )
+              .map((item, index) => (
+                <tr key={item.id || index}>
+                  <td>{item.server}</td>
+                  <td>{item.port}</td>
+                  <td>{item.username}</td>
+                  <td>{item.fromEmail}</td>
+                  <td>{item.usessl ? "Yes" : "No"}</td>
+                  <td style={{ position: "relative" }}>
+                    <button
+                      className="segment-actions-btn"
                       style={{
-                        width: "20px",
-                        height: "20px",
-                        objectFit: "contain",
-                        marginRight: "5px",
+                        border: "none",
+                        background: "none",
+                        fontSize: 24,
+                        cursor: "pointer",
+                        padding: "2px 10px",
                       }}
-                    />
-                    <span>Previous</span>
-                  </button>
-
-                  {Array.from({ length: totalPages }, (_, idx) => idx + 1).map(
-                    (page) => (
-                      <button
-                        key={page}
+                      onClick={() =>
+                        setMailboxActionsAnchor(
+                          item.id?.toString() === mailboxActionsAnchor
+                            ? null
+                            : item.id?.toString() ?? null  // Convert undefined to null
+                      )
+                      }
+                    >
+                      ⋮
+                    </button>
+                    {mailboxActionsAnchor === item.id?.toString() && (
+                      <div
+                        className="segment-actions-menu"
                         style={{
-                          display: "flex",
-                          alignItems: "center",
-                          padding: "5px 10px",
-                          backgroundColor: "#f0f0f0",
-                          border: "1px solid #ccc",
-                          borderRadius: "4px",
-                          cursor: "pointer",
+                          position: "absolute",
+                          right: 0,
+                          top: 32,
+                          background: "#fff",
+                          border: "1px solid #eee",
+                          borderRadius: 6,
+                          boxShadow: "0 2px 16px rgba(0,0,0,0.12)",
+                          zIndex: 101,
+                          minWidth: 160,
                         }}
-                        onClick={() => handlePageChange(page)}
                       >
-                        {page}
-                      </button>
-                    )
-                  )}
+                        <button
+                          onClick={() => {
+                            handleEdit(item);
+                            setMailboxActionsAnchor(null);
+                          }}
+                          style={menuBtnStyle}
+                        >
+                          ✏️ Edit
+                        </button>
+                        <button
+                          onClick={() => {
+                            handleDelete(item.id);
+                            setMailboxActionsAnchor(null);
+                          }}
+                          style={{ ...menuBtnStyle, color: "#c00" }}
+                        >
+                          🗑️ Delete
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))
+          )}
+        </tbody>
+      </table>
+    </div>
 
+    {/* BCC Email Management Section */}
+    <div className="section-wrapper" style={{ marginTop: 40 }}>
+      <h2 className="section-title">BCC Email Management</h2>
+      <div style={{ marginBottom: 4, color: "#555" }}>
+        Add BCC email addresses to receive copies of all sent emails.
+      </div>
+
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        marginBottom: 16,
+        gap: 16,
+      }}>
+        <input
+          type="email"
+          className="search-input"
+          style={{ width: 340 }}
+          placeholder="Enter BCC email address"
+          value={newBccEmail}
+          onChange={(e) => setNewBccEmail(e.target.value)}
+        />
+        <button
+          className="button primary"
+          style={{ marginLeft: "auto" }}
+          onClick={handleAddBcc}
+          disabled={bccLoading || !newBccEmail}
+        >
+          {bccLoading ? "Adding..." : "+ Add BCC"}
+        </button>
+      </div>
+
+      {bccError && (
+        <div style={{ color: "#c00", marginBottom: 16 }}>{bccError}</div>
+      )}
+
+      <table className="contacts-table" style={{ background: "#fff" }}>
+        <thead>
+          <tr>
+            <th>BCC Email Address</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {bccLoading && bccEmails.length === 0 ? (
+            <tr>
+              <td colSpan={2} style={{ textAlign: "center" }}>
+                Loading BCC emails...
+              </td>
+            </tr>
+          ) : bccEmails.length === 0 ? (
+            <tr>
+              <td colSpan={2} style={{ textAlign: "center" }}>
+                No BCC emails configured.
+              </td>
+            </tr>
+          ) : (
+            bccEmails.map((email) => (
+              <tr key={email.id}>
+                <td>{email.bccEmailAddress}</td>
+                <td>
                   <button
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages}
+                    className="button secondary small"
+                    onClick={() => handleDeleteBcc(email.id)}
+                    disabled={bccLoading}
                     style={{
-                      display: "flex",
-                      alignItems: "center",
-                      padding: "5px 10px",
-                      backgroundColor: "#f0f0f0",
-                      border: "1px solid #ccc",
+                      padding: "6px 12px",
+                      fontSize: "14px",
+                      background: "#dc3545",
+                      color: "#fff",
+                      border: "none",
                       borderRadius: "4px",
-                      cursor: "pointer",
+                      cursor: bccLoading ? "not-allowed" : "pointer",
                     }}
-                    title="Click to go to the next generated email"
                   >
-                    <span>Next</span>
-                    <img
-                      src={singlenextIcon}
-                      alt="Next"
-                      style={{
-                        width: "20px",
-                        height: "20px",
-                        objectFit: "contain",
-                        marginLeft: "5px",
-                      }}
-                    />
+                    Delete
                   </button>
-                </div>
-              </div>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
 
-              <table
-                className="responsive-table"
-                style={{ border: "1" }}
-                cellPadding="10"
-                width="100%"
-              >
-                <thead>
-                  <tr>
-                    <th>Sequence name</th>
-                    <th>List</th>
-                    <th>From</th>
-                    <th>Scheduled date</th>
-                    <th>Scheduled time</th>
-                    <th>Timezone</th>
-                    <th>BCC</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {currentData.length === 0 ? (
-                    <tr>
-                      <td colSpan={8}>No data found</td>
-                    </tr>
-                  ) : (
-                    currentData.map((item, index) => {
-                      // Find the data file name
-                      const dataFile = scheduleDataFiles.find(
-                        (file) => file.id === item.dataFileId
-                      );
-
-                      // Find the SMTP user email
-                      const smtpUser = smtpUsers.find(
-                        (user) => user.id === item.smtpID
-                      );
-
-                      // Format date and time
-                      const scheduledDate = item.scheduledDate
-                        ? new Date(item.scheduledDate).toLocaleDateString()
-                        : "-";
-
-                      const scheduledTime = item.scheduledTime || "-";
-
-                      return (
-                        <tr key={item.id || index}>
-                          <td>{item.title}</td>
-                          <td>{dataFile?.name || item.zohoviewName || "-"}</td>
-                          <td>{smtpUser?.username || "-"}</td>
-                          <td>{scheduledDate}</td>
-                          <td>{scheduledTime}</td>
-                          <td>{item.timeZone}</td>
-                          <td>{item.bccEmail}</td>
-                          <td>
-                            <button
-                              className="save-button button small"
-                              onClick={() => handleEditSchedule(item)}
-                            >
-                              Edit
-                            </button>{" "}
-                            <button
-                              className="save-button button small"
-                              onClick={() => handleDeleteSchedule(item.id)}
-                            >
-                              Delete
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
+  {/* Add/Edit Mailbox Modal */}
+ {/* Replace your Modal component with this custom modal */}
+{(openModals["modal-add-mailbox"] || editingId !== null) && (
+  <div
+    style={{
+      position: "fixed",
+      zIndex: 99999,
+      inset: 0,
+      background: "rgba(0,0,0,0.6)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+    }}
+    onClick={() => {
+      // Close modal when clicking backdrop
+      handleModalClose("modal-add-mailbox");
+      setEditingId(null);
+      setForm({
+        server: "",
+        port: "",
+        username: "",
+        password: "",
+        fromEmail: "",
+        usessl: false,
+      });
+    }}
+  >
+    <div
+      style={{
+        background: "#fff",
+        padding: "24px",
+        borderRadius: "8px",
+        width: "500px",
+        maxHeight: "90vh",
+        overflow: "auto",
+        boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+      }}
+      onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
+    >
+      <form onSubmit={handleSubmitSMTP}>
+        <h2 className="!text-left">{editingId ? "Edit mailbox" : "Add mailbox"}</h2>
+        <div className="flex gap-4">
+          <div className="form-group flex-1">
+            <label>Host <span style={{ color: "red" }}>*</span></label>
+            <input
+              name="server"
+              placeholder="smtp.example.com"
+              value={form.server}
+              onChange={handleChangeSMTP}
+              required
+            />
+          </div>
+          <div className="form-group flex-1">
+            <label>Port <span style={{ color: "red" }}>*</span></label>
+            <input
+              name="port"
+              type="number"
+              placeholder="587"
+              value={form.port}
+              onChange={handleChangeSMTP}
+              required
+            />
           </div>
         </div>
-      )}
+        <div className="flex gap-4">
+          <div className="form-group flex-1">
+            <label>Username <span style={{ color: "red" }}>*</span></label>
+            <input
+              name="username"
+              placeholder="user@example.com"
+              value={form.username}
+              onChange={handleChangeSMTP}
+              required
+            />
+          </div>
+          <div className="form-group flex-1">
+            <label>Password <span style={{ color: "red" }}>*</span></label>
+            <input
+              name="password"
+              type="password"
+              placeholder="••••••••"
+              value={form.password}
+              onChange={handleChangeSMTP}
+              required
+            />
+          </div>
+        </div>
+        <div className="form-group">
+          <label>From email <span style={{ color: "red" }}>*</span></label>
+          <input
+            name="fromEmail"
+            type="email"
+            placeholder="sender@example.com"
+            value={form.fromEmail}
+            onChange={handleChangeSMTP}
+            required
+          />
+        </div>
+        <div className="d-flex justify-end" style={{ marginTop: 16 }}>
+          <span className="flex items-center">
+            <input
+              type="checkbox"
+              name="usessl"
+              checked={form.usessl}
+              onChange={handleChangeSMTP}
+              id="use-ssl"
+            />
+            <label
+              className="ml-5 !mb-[0] font-size-12 nowrap mr-10 font-[600]"
+              htmlFor="use-ssl"
+            >
+              Use SSL
+            </label>
+          </span>
+          <button
+            className="save-button button min-w-[150px]"
+            type="submit"
+          >
+            {editingId ? "Update" : "Add"}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
+  </>
+
+)}
+    
+{/* Schedule Tab */}
+{tab === "Schedule" && (
+  <>
+
+  <div className="data-campaigns-container">
+    <div className="section-wrapper">
+      <h2 className="section-title">Email Schedules</h2>
+      <div style={{ marginBottom: 4, color: "#555" }}>
+        Create and manage email delivery schedules for your campaigns.
+      </div>
+
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        marginBottom: 16,
+        gap: 16,
+      }}>
+        <input
+          type="text"
+          className="search-input"
+          style={{ width: 340 }}
+          placeholder="Search schedules..."
+          value={scheduleSearch}
+          onChange={(e) => setScheduleSearch(e.target.value)}
+        />
+        <button
+          className="button primary"
+          style={{ marginLeft: "auto" }}
+          onClick={() => setShowScheduleModal(true)}
+        >
+          + Create schedule
+        </button>
+      </div>
+
+      <table className="contacts-table" style={{ background: "#fff" }}>
+        <thead>
+          <tr>
+            <th>Sequence name</th>
+            <th>List</th>
+            <th>From</th>
+            <th>Scheduled date</th>
+            <th>Scheduled time</th>
+            <th>Timezone</th>
+            <th>BCC</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {scheduleList.length === 0 ? (
+            <tr>
+              <td colSpan={8} style={{ textAlign: "center" }}>
+                No schedules found.
+              </td>
+            </tr>
+          ) : (
+            scheduleList
+              .filter(item =>
+                item.title?.toLowerCase().includes(scheduleSearch.toLowerCase()) ||
+                item.zohoviewName?.toLowerCase().includes(scheduleSearch.toLowerCase())
+              )
+              .map((item, index) => {
+                const dataFile = scheduleDataFiles.find(
+                  (file) => file.id === item.dataFileId
+                );
+                const smtpUser = smtpUsers.find(
+                  (user) => user.id === item.smtpID
+                );
+                const scheduledDate = item.scheduledDate
+                  ? new Date(item.scheduledDate).toLocaleDateString()
+                  : "-";
+                const scheduledTime = item.scheduledTime || "-";
+
+                return (
+                  <tr key={item.id || index}>
+                    <td>{item.title}</td>
+                    <td>{dataFile?.name || item.zohoviewName || "-"}</td>
+                    <td>{smtpUser?.username || "-"}</td>
+                    <td>{scheduledDate}</td>
+                    <td>{scheduledTime}</td>
+                    <td>{item.timeZone}</td>
+                    <td>{item.bccEmail || "-"}</td>
+                    <td style={{ position: "relative" }}>
+                      <button
+                        className="segment-actions-btn"
+                        style={{
+                          border: "none",
+                          background: "none",
+                          fontSize: 24,
+                          cursor: "pointer",
+                          padding: "2px 10px",
+                        }}
+                        onClick={() =>
+                        setScheduleActionsAnchor(
+                          item.id?.toString() === scheduleActionsAnchor
+                            ? null
+                            : item.id?.toString() ?? null  // Convert undefined to null
+                        )
+                      }
+                      >
+                        ⋮
+                      </button>
+                      {scheduleActionsAnchor === item.id?.toString() && (
+                        <div
+                          className="segment-actions-menu"
+                          style={{
+                            position: "absolute",
+                            right: 0,
+                            top: 32,
+                            background: "#fff",
+                            border: "1px solid #eee",
+                            borderRadius: 6,
+                            boxShadow: "0 2px 16px rgba(0,0,0,0.12)",
+                            zIndex: 101,
+                            minWidth: 160,
+                          }}
+                        >
+                                                    <button
+                            onClick={() => {
+                              handleEditSchedule(item);
+                              setScheduleActionsAnchor(null);
+                              setShowScheduleModal(true);
+                            }}
+                            style={menuBtnStyle}
+                          >
+                            ✏️ Edit
+                          </button>
+                          <button
+                            onClick={() => {
+                              handleDeleteSchedule(item.id);
+                              setScheduleActionsAnchor(null);
+                            }}
+                            style={{ ...menuBtnStyle, color: "#c00" }}
+                          >
+                            🗑️ Delete
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })
+          )}
+        </tbody>
+      </table>
+
+      {/* Pagination controls */}
+      <div className="d-flex align-center justify-end" style={{ marginTop: 16 }}>
+        <button
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            padding: "5px 10px",
+            backgroundColor: "#f0f0f0",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            cursor: currentPage === 1 ? "not-allowed" : "pointer",
+            marginRight: 8,
+          }}
+        >
+          <img src={singleprvIcon} alt="Previous" style={{ width: 20, height: 20, marginRight: 5 }} />
+          <span>Previous</span>
+        </button>
+
+        {Array.from({ length: totalPages }, (_, idx) => idx + 1).map((page) => (
+          <button
+            key={page}
+            style={{
+              padding: "5px 10px",
+              backgroundColor: currentPage === page ? "#007bff" : "#f0f0f0",
+              color: currentPage === page ? "#fff" : "#333",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
+              cursor: "pointer",
+              marginRight: 8,
+            }}
+            onClick={() => handlePageChange(page)}
+          >
+            {page}
+          </button>
+        ))}
+
+        <button
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            padding: "5px 10px",
+            backgroundColor: "#f0f0f0",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+          }}
+        >
+          <span>Next</span>
+          <img src={singlenextIcon} alt="Next" style={{ width: 20, height: 20, marginLeft: 5 }} />
+        </button>
+      </div>
+    </div>
+  </div>
+
+  {/* Schedule Modal */}
+  {showScheduleModal && (
+    <div
+      style={{
+        position: "fixed",
+        zIndex: 99999,
+        inset: 0,
+        background: "rgba(0,0,0,0.6)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <div
+        style={{
+          background: "#fff",
+          padding: 32,
+          borderRadius: 8,
+          width: "90%",
+          maxWidth: 800,
+          maxHeight: "90vh",
+          overflow: "auto",
+          boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+        }}
+      >
+        <h2 style={{ marginTop: 0, marginBottom: 24 }}>
+          {editingId ? "Edit Schedule" : "Create Schedule"}
+        </h2>
+        
+        <form onSubmit={handleSubmitSchedule}>
+          <div className="row" style={{ gap: 16 }}>
+            <div className="col col-6" style={{ marginBottom: 16 }}>
+              <div className="form-group">
+                <label>
+                  Sequence Name <span style={{ color: "red" }}>*</span>
+                </label>
+                <input
+                  type="text"
+                  name="title"
+                  value={formData.title || ""}
+                  onChange={handleChange}
+                  placeholder="Enter sequence name"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="col col-6" style={{ marginBottom: 16 }}>
+              <div className="form-group">
+                <label>
+                  List <span style={{ color: "red" }}>*</span>
+                </label>
+                <select
+                  name="model"
+                  onChange={handleZohoModelChange1}
+                  value={selectedZohoviewId1 || ""}
+                  disabled={scheduleDataLoading || scheduleDataFiles.length === 0}
+                  required
+                >
+                  <option value="">Select a list</option>
+                  {scheduleDataFiles.map((file) => (
+                    <option key={file.id} value={file.id.toString()}>
+                      {file.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+                        <div className="col col-6" style={{ marginBottom: 16 }}>
+              <div className="form-group">
+                <label>
+                  Timezone <span style={{ color: "red" }}>*</span>
+                </label>
+                <select
+                  name="timeZone"
+                  value={formData.timeZone || ""}
+                  onChange={handleChange}
+                  required
+                >
+                  <option value="">Select timezone</option>
+                  {timezoneOptions.map((tz) => (
+                    <option key={tz.value} value={tz.value}>
+                      {tz.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="col col-6" style={{ marginBottom: 16 }}>
+              <div className="form-group">
+                <label>
+                  From <span style={{ color: "red" }}>*</span>
+                </label>
+                <select
+                  value={selectedUser}
+                  onChange={handleChangeSmtpUsers}
+                  required
+                >
+                  <option value="">Select email</option>
+                  {smtpUsers.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.username}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="col col-6" style={{ marginBottom: 16 }}>
+              <div className="form-group">
+                <label>BCC Email</label>
+                <input
+                  type="email"
+                  name="bccEmail"
+                  value={formData.bccEmail || ""}
+                  onChange={handleChange}
+                  placeholder="Optional BCC email"
+                />
+                {bccError && (
+                  <small style={{ color: "red" }}>{bccError}</small>
+                )}
+              </div>
+            </div>
+
+            <div className="col col-6" style={{ marginBottom: 16 }}>
+              <div className="form-group">
+                <label>
+                  Scheduled Date <span style={{ color: "red" }}>*</span>
+                </label>
+                <input
+                  type="date"
+                  name="scheduledDate"
+                  value={formData.scheduledDate || ""}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="col col-6" style={{ marginBottom: 16 }}>
+              <div className="form-group">
+                <label>
+                  Scheduled Time <span style={{ color: "red" }}>*</span>
+                </label>
+                <input
+                  type="time"
+                  name="scheduledTime"
+                  value={formData.scheduledTime || ""}
+                  onChange={handleChange}
+                  required
+                />
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 24 }}>
+            <button
+              type="button"
+              onClick={() => {
+                setShowScheduleModal(false);
+                setEditingId(null);
+                setFormData({
+                  title: "",
+                  timeZone: "",
+                  scheduledDate: "",
+                  scheduledTime: "",
+                  EmailDeliver: "",
+                  bccEmail: "",
+                  smtpID: "",
+                });
+                setSelectedZohoviewId1("");
+                setSelectedUser("");
+              }}
+              className="button secondary"
+              style={{
+                padding: "8px 16px",
+                border: "1px solid #ddd",
+                background: "#fff",
+                borderRadius: "4px",
+                cursor: "pointer",
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="button primary"
+              disabled={!isFormValid}
+              style={{
+                padding: "8px 16px",
+                background: isFormValid ? "#007bff" : "#ccc",
+                color: "#fff",
+                border: "none",
+                borderRadius: "4px",
+                cursor: isFormValid ? "pointer" : "not-allowed",
+              }}
+            >
+              {editingId ? "Update Schedule" : "Create Schedule"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )}
+  </>
+
+)}
+              
     </div>
   );
 };
