@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from "react";
 import API_BASE_URL from "../../config";
+import { useSelector } from "react-redux";
+import { RootState } from "../../Redux/store";
+import { useAppData } from "../../contexts/AppDataContext";
+
 
 interface CampaignManagementProps {
   selectedClient: string;
@@ -12,6 +16,17 @@ interface ZohoClient {
   zohoviewName: string;
   TotalContact?: string;
 }
+
+interface Segment {
+  id: number;
+  name: string;
+  description: string;
+  dataFileId: number;
+  clientId: number;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
 
 interface Prompt {
   id: number;
@@ -41,6 +56,17 @@ interface DataFile {
   created_at: string;
   contacts: any[];
 }
+const menuBtnStyle = {
+  display: "block",
+  width: "100%",
+  padding: "8px 18px",
+  textAlign: "left" as const,
+  background: "none",
+  border: "none",
+  color: "#222",
+  fontSize: "15px",
+  cursor: "pointer",
+};
 
 const CampaignManagement: React.FC<CampaignManagementProps> = ({
   selectedClient,
@@ -58,28 +84,47 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
   // State for Data Files
   const [dataFiles, setDataFiles] = useState<DataFile[]>([]);
 
+    // Add new state for table UI
+  const [campaignSearch, setCampaignSearch] = useState("");
+  const [campaignActionsAnchor, setCampaignActionsAnchor] = useState<string | null>(null);
+  const [showCreateCampaignModal, setShowCreateCampaignModal] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+
   // State for Campaigns
   const [promptList, setPromptList] = useState<Prompt[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
-  const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
+  const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(
+    null
+  );
   const [campaignForm, setCampaignForm] = useState({
     campaignName: "",
     promptId: "",
     zohoViewId: "", // Keeping the same field name for backward compatibility
+    segmentId: "", // For segment selection
     description: "",
   });
+  const userId = useSelector((state: RootState) => state.auth.userId);
+
+  const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
+  const [segments, setSegments] = useState<Segment[]>([]);
+
+const { refreshTrigger, saveFormState, getFormState, triggerRefresh } = useAppData(); // ADD triggerRefresh here
+
 
   // Fetch Data Files by Client ID
   const fetchDataFiles = async () => {
-    if (!selectedClient) {
+    if (!effectiveUserId) {
       console.log("No client selected, skipping data files fetch");
       return;
     }
 
     setIsLoading(true);
     try {
-    const url = `${API_BASE_URL}/api/crm/datafile-byclientid?clientId=${selectedClient}`;
+      const url = `${API_BASE_URL}/api/crm/datafile-byclientid?clientId=${effectiveUserId}`;
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -95,14 +140,13 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
 
   // Fetch Zoho Client data (keeping for backward compatibility)
   const fetchZohoClient = async () => {
-    if (!selectedClient) {
-      console.log("No client selected, skipping fetch");
+    if (!effectiveUserId) {
       return;
     }
 
     setIsLoading(true);
     try {
-      const url = `${API_BASE_URL}/api/auth/zohoclientid/${selectedClient}`;
+      const url = `${API_BASE_URL}/api/auth/zohoclientid/${effectiveUserId}`;
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -118,14 +162,14 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
 
   // Fetch Prompts
   const fetchPromptsList = async () => {
-    if (!selectedClient) {
+    if (!effectiveUserId) {
       console.log("No client selected, skipping fetch");
       return;
     }
 
     setIsLoading(true);
     try {
-      const url = `${API_BASE_URL}/api/auth/getprompts/${selectedClient}`;
+      const url = `${API_BASE_URL}/api/auth/getprompts/${effectiveUserId}`;
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -141,14 +185,14 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
 
   // Fetch Campaigns
   const fetchCampaigns = async () => {
-    if (!selectedClient) {
+    if (!effectiveUserId) {
       console.log("No client selected, skipping campaign fetch");
       return;
     }
 
     setIsLoading(true);
     try {
-      const url = `${API_BASE_URL}/api/auth/campaigns/client/${selectedClient}`;
+      const url = `${API_BASE_URL}/api/auth/campaigns/client/${effectiveUserId}`;
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -179,389 +223,692 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
     }));
   };
 
-  const handleCampaignSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const campaignId = e.target.value;
-    if (!campaignId) {
-      setSelectedCampaign(null);
-      setCampaignForm({
-        campaignName: "",
-        promptId: "",
-        zohoViewId: "",
-        description: "",
-      });
-      return;
-    }
+// Update handleCampaignSelect to handle both zohoViewId and segmentId
+const handleCampaignSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const campaignId = e.target.value;
+  if (!campaignId) {
+    setSelectedCampaign(null);
+    setCampaignForm({
+      campaignName: "",
+      promptId: "",
+      zohoViewId: "",
+      segmentId: "", // Add this
+      description: "",
+    });
+    return;
+  }
 
-    const campaign = campaigns.find((c) => c.id.toString() === campaignId);
-    if (campaign) {
-      setSelectedCampaign(campaign);
+  const campaign = campaigns.find((c) => c.id.toString() === campaignId);
+  if (campaign) {
+    setSelectedCampaign(campaign);
 
-      setCampaignForm({
-        campaignName: campaign.campaignName,
-        promptId: campaign.promptId.toString(),
-        zohoViewId: campaign.zohoViewId,
-        description: campaign.description || "",
-      });
+    setCampaignForm({
+      campaignName: campaign.campaignName,
+      promptId: campaign.promptId.toString(),
+      zohoViewId: (campaign as any).zohoViewId || "", // Handle both old and new campaigns
+      segmentId: (campaign as any).segmentId?.toString() || "", // Add this
+      description: campaign.description || "",
+    });
 
-      const prompt = promptList.find((p) => p.id === campaign.promptId);
-      setSelectedPrompt(prompt || null);
-    }
-  };
+    const prompt = promptList.find((p) => p.id === campaign.promptId);
+    setSelectedPrompt(prompt || null);
+  }
+};
 
-  const handleCampaignFormChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    >
-  ) => {
+   const handleCampaignFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setCampaignForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    const newForm = { ...campaignForm, [name]: value };
+    setCampaignForm(newForm);
+    saveFormState('campaign-form', newForm); // Add this line
   };
 
-  const createCampaign = async () => {
-    if (
-      !campaignForm.campaignName ||
-      !campaignForm.promptId ||
-      !campaignForm.zohoViewId ||
-      !selectedClient
-    ) {
-      alert("Please fill all fields for the campaign");
-      return;
+
+    useEffect(() => {
+    if (effectiveUserId && refreshTrigger > 0) {
+      fetchDataFiles();
+      fetchSegments();
+    }
+  }, [refreshTrigger, effectiveUserId]);
+
+  useEffect(() => {
+    const savedForm = getFormState('campaign-form');
+    if (Object.keys(savedForm).length > 0) {
+      setCampaignForm(savedForm);
+    }
+  }, []); // Add this useEffect
+
+  
+const createCampaign = async () => {
+  // Check that either zohoViewId OR segmentId is provided (not both, not neither)
+  const hasDataFile = !!campaignForm.zohoViewId;
+  const hasSegment = !!campaignForm.segmentId;
+  
+  if (!campaignForm.campaignName || !campaignForm.promptId || !effectiveUserId) {
+    alert("Please fill all required fields for the campaign");
+    return;
+  }
+
+  if ((!hasDataFile && !hasSegment) || (hasDataFile && hasSegment)) {
+    alert("Please select either a data file OR a segment (not both)");
+    return;
+  }
+
+  setIsLoading(true);
+  try {
+    const requestBody: any = {
+      campaignName: campaignForm.campaignName,
+      promptId: parseInt(campaignForm.promptId),
+      clientId: parseInt(effectiveUserId),
+      description: campaignForm.description,
+    };
+
+    // Add either zohoViewId or segmentId
+    if (hasDataFile) {
+      requestBody.zohoViewId = campaignForm.zohoViewId;
+    } else {
+      requestBody.segmentId = parseInt(campaignForm.segmentId);
     }
 
-    setIsLoading(true);
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/campaigns`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          campaignName: campaignForm.campaignName,
-          promptId: parseInt(campaignForm.promptId),
-          zohoViewId: campaignForm.zohoViewId, // This might need to be updated based on your backend expectations
-          clientId: parseInt(selectedClient),
-          description: campaignForm.description,
-        }),
-      });
+    const response = await fetch(`${API_BASE_URL}/api/auth/campaigns`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestBody),
+    });
 
-      if (!response.ok) {
-        throw new Error("Failed to create campaign");
-      }
-
-      alert("Campaign created successfully");
-
-      setCampaignForm({
-        campaignName: "",
-        promptId: "",
-        zohoViewId: "",
-        description: "",
-      });
-
-      await fetchCampaigns();
-    } catch (error) {
-      console.error("Error creating campaign:", error);
-      alert("Failed to create campaign");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const updateCampaign = async () => {
-    if (
-      !selectedCampaign ||
-      !campaignForm.campaignName ||
-      !campaignForm.promptId ||
-      !campaignForm.zohoViewId
-    ) {
-      alert("Please select a campaign and fill all fields");
-      return;
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Failed to create campaign");
     }
 
-    setIsLoading(true);
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/updatecampaign`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          id: selectedCampaign.id,
-          campaignName: campaignForm.campaignName,
-          promptId: parseInt(campaignForm.promptId),
-          zohoViewId: campaignForm.zohoViewId,
-          description: campaignForm.description,
-        }),
-      });
+    alert("Campaign created successfully");
 
-      if (!response.ok) {
-        throw new Error("Failed to update campaign");
-      }
+    setCampaignForm({
+      campaignName: "",
+      promptId: "",
+      zohoViewId: "",
+      segmentId: "",
+      description: "",
+    });
+    setShowCreateCampaignModal(false);
 
-      alert("Campaign updated successfully");
-      await fetchCampaigns();
-    } catch (error) {
-      console.error("Error updating campaign:", error);
-      alert("Failed to update campaign");
-    } finally {
-      setIsLoading(false);
+    await fetchCampaigns();
+    
+    
+    triggerRefresh();
+        
+  } catch (error) {
+    console.error("Error creating campaign:", error);
+    alert(`Failed to create campaign: ${error}`);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+
+const updateCampaign = async () => {
+  const hasDataFile = !!campaignForm.zohoViewId;
+  const hasSegment = !!campaignForm.segmentId;
+  
+  if (!selectedCampaign || !campaignForm.campaignName || !campaignForm.promptId) {
+    alert("Please select a campaign and fill all required fields");
+    return;
+  }
+
+  if ((!hasDataFile && !hasSegment) || (hasDataFile && hasSegment)) {
+    alert("Please select either a data file OR a segment (not both)");
+    return;
+  }
+
+  setIsLoading(true);
+  try {
+    const requestBody: any = {
+      id: selectedCampaign.id,
+      campaignName: campaignForm.campaignName,
+      promptId: parseInt(campaignForm.promptId),
+      description: campaignForm.description,
+    };
+
+    // Add either zohoViewId or segmentId
+    if (hasDataFile) {
+      requestBody.zohoViewId = campaignForm.zohoViewId;
+      requestBody.segmentId = null;
+    } else {
+      requestBody.segmentId = parseInt(campaignForm.segmentId);
+      requestBody.zohoViewId = null;
     }
-  };
+
+    const response = await fetch(`${API_BASE_URL}/api/auth/updatecampaign`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Failed to update campaign");
+    }
+
+    alert("Campaign updated successfully");
+
+    setShowCreateCampaignModal(false);
+
+    await fetchCampaigns();
+    
+    
+    triggerRefresh();
+        
+  } catch (error) {
+    console.error("Error updating campaign:", error);
+    alert(`Failed to update campaign: ${error}`);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   const deleteCampaign = async () => {
-    if (!selectedCampaign) {
-      alert("Please select a campaign to delete");
-      return;
-    }
+  if (!selectedCampaign) {
+    alert("Please select a campaign to delete");
+    return;
+  }
 
-    if (!window.confirm("Are you sure you want to delete this campaign?")) {
-      return;
-    }
+  if (!window.confirm("Are you sure you want to delete this campaign?")) {
+    return;
+  }
 
-    setIsLoading(true);
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/auth/deletecampaign/${selectedCampaign.id}`,
-        {
-          method: "POST",
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to delete campaign");
+  setIsLoading(true);
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/auth/deletecampaign/${selectedCampaign.id}`,
+      {
+        method: "POST",
       }
+    );
 
-      alert("Campaign deleted successfully");
+    if (!response.ok) {
+      throw new Error("Failed to delete campaign");
+    }
 
+    alert("Campaign deleted successfully");
+
+    setSelectedCampaign(null);
+    setCampaignForm({
+      campaignName: "",
+      promptId: "",
+      zohoViewId: "",
+      segmentId: "",
+      description: "",
+    });
+
+    await fetchCampaigns();
+    
+    await fetchCampaigns();
+    
+    triggerRefresh();
+  } catch (error) {
+    console.error("Error deleting campaign:", error);
+    alert("Failed to delete campaign");
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+  // Load data when client changes
+// Update your useEffect
+useEffect(() => {
+  if (effectiveUserId) {
+    fetchDataFiles();
+    fetchSegments(); // Add this line
+    fetchPromptsList();
+    fetchCampaigns();
+  }
+}, [effectiveUserId]);
+
+
+  // Add this function with your other fetch functions
+const fetchSegments = async () => {
+  if (!effectiveUserId) {
+    console.log("No client selected, skipping segments fetch");
+    return;
+  }
+
+  setIsLoading(true);
+  try {
+    const url = `${API_BASE_URL}/api/Crm/get-segments-by-client?clientId=${effectiveUserId}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data: Segment[] = await response.json();
+    setSegments(data);
+  } catch (error) {
+    console.error("Error fetching segments:", error);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+// Add this function to handle data source selection
+const handleDataSourceChange = (type: 'datafile' | 'segment', value: string) => {
+  if (type === 'datafile') {
+    setCampaignForm(prev => ({
+      ...prev,
+      zohoViewId: value,
+      segmentId: "" // Clear segment when datafile is selected
+    }));
+  } else {
+    setCampaignForm(prev => ({
+      ...prev,
+      segmentId: value,
+      zohoViewId: "" // Clear datafile when segment is selected
+    }));
+  }
+};
+
+  const filteredCampaigns = campaigns.filter(campaign =>
+    campaign.campaignName?.toLowerCase().includes(campaignSearch.toLowerCase()) ||
+    campaign.description?.toLowerCase().includes(campaignSearch.toLowerCase())
+  );
+
+  // Add this useEffect after your other hooks
+useEffect(() => {
+  const handleClickOutside = (event: MouseEvent) => {
+    // Check if the click is outside the actions menu
+    const target = event.target as HTMLElement;
+    const isActionsButton = target.closest('.segment-actions-btn');
+    const isActionsMenu = target.closest('.segment-actions-menu');
+    
+    if (!isActionsButton && !isActionsMenu) {
+      setCampaignActionsAnchor(null);
+    }
+  };
+
+  // Add event listener when menu is open
+  if (campaignActionsAnchor) {
+    document.addEventListener('click', handleClickOutside);
+  }
+
+  // Cleanup
+  return () => {
+    document.removeEventListener('click', handleClickOutside);
+  };
+}, [campaignActionsAnchor]);
+
+  return (
+    <div className="data-campaigns-container">
+      <div className="section-wrapper">
+        <h2 className="section-title">Campaigns</h2>
+        <div style={{ marginBottom: 4, color: "#555" }}>
+          Create and manage campaigns to generate personalized content for your contacts.
+        </div>
+
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          marginBottom: 16,
+          gap: 16,
+        }}>
+          <input
+            type="text"
+            className="search-input"
+            style={{ width: 340 }}
+            placeholder="Search campaigns..."
+            value={campaignSearch}
+            onChange={(e) => setCampaignSearch(e.target.value)}
+          />
+          <button
+            className="button primary"
+            style={{ marginLeft: "auto" }}
+            onClick={() => {
+              setShowCreateCampaignModal(true);
+              setSelectedCampaign(null);
+              setCampaignForm({
+                campaignName: "",
+                promptId: "",
+                zohoViewId: "",
+                segmentId: "",
+                description: "",
+              });
+              setSelectedPrompt(null);
+            }}
+          >
+            + Create campaign
+          </button>
+        </div>
+
+        <table className="contacts-table" style={{ background: "#fff" }}>
+          <thead>
+            <tr>
+              <th>Campaign Name</th>
+              <th>Template</th>
+              <th>Data Source</th>
+              <th>Description</th>
+              <th>Created Date</th>
+              <th style={{ minWidth: 48 }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              <tr>
+                <td colSpan={6} style={{ textAlign: "center" }}>
+                  Loading campaigns...
+                </td>
+              </tr>
+            ) : filteredCampaigns.length === 0 ? (
+              <tr>
+                <td colSpan={6} style={{ textAlign: "center" }}>
+                  No campaigns found.
+                </td>
+              </tr>
+            ) : (
+                            filteredCampaigns.map((campaign) => {
+                const prompt = promptList.find(p => p.id === campaign.promptId);
+                const dataFile = dataFiles.find(df => df.id.toString() === (campaign as any).zohoViewId);
+                const segment = segments.find(s => s.id === (campaign as any).segmentId);
+                
+                return (
+                  <tr key={campaign.id}>
+                    <td>{campaign.campaignName}</td>
+                    <td>{prompt?.name || "-"}</td>
+                    <td>
+                      {dataFile ? (
+                        <span>List: {dataFile.name}</span>
+                      ) : segment ? (
+                        <span>Segment: {segment.name}</span>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
+                    <td>{campaign.description || "-"}</td>
+                    <td>{new Date().toLocaleDateString()}</td>
+                    <td style={{ position: "relative" }}>
+                      <button
+                        className="segment-actions-btn"
+                        style={{
+                          border: "none",
+                          background: "none",
+                          fontSize: 24,
+                          cursor: "pointer",
+                          padding: "2px 10px",
+                        }}
+                        onClick={() =>
+                          setCampaignActionsAnchor(
+                            campaign.id.toString() === campaignActionsAnchor
+                              ? null
+                              : campaign.id.toString()
+                          )
+                        }
+                      >
+                        ⋮
+                      </button>
+                      {campaignActionsAnchor === campaign.id.toString() && (
+                        <div
+                          className="segment-actions-menu"
+                          style={{
+                            position: "absolute",
+                            right: 0,
+                            top: 32,
+                            background: "#fff",
+                            border: "1px solid #eee",
+                            borderRadius: 6,
+                            boxShadow: "0 2px 16px rgba(0,0,0,0.12)",
+                            zIndex: 101,
+                            minWidth: 160,
+                          }}
+                        >
+                          <button
+                            onClick={() => {
+                              setSelectedCampaign(campaign);
+                              setCampaignForm({
+                                campaignName: campaign.campaignName,
+                                promptId: campaign.promptId.toString(),
+                                zohoViewId: (campaign as any).zohoViewId || "",
+                                segmentId: (campaign as any).segmentId?.toString() || "",
+                                description: campaign.description || "",
+                              });
+                              const prompt = promptList.find((p) => p.id === campaign.promptId);
+                              setSelectedPrompt(prompt || null);
+                              setShowCreateCampaignModal(true);
+                              setCampaignActionsAnchor(null);
+                            }}
+                            style={menuBtnStyle}
+                          >
+                            ✏️ Edit
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`Are you sure you want to delete "${campaign.campaignName}"?`)) {
+                                setSelectedCampaign(campaign);
+                                deleteCampaign();
+                              }
+                              setCampaignActionsAnchor(null);
+                            }}
+                            style={{ ...menuBtnStyle, color: "#c00" }}
+                          >
+                            🗑️ Delete
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Create/Edit Campaign Modal */}
+{showCreateCampaignModal && (
+    <div
+    style={{
+      position: "fixed",
+      zIndex: 99999,
+      inset: 0,
+      background: "rgba(0,0,0,0.6)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+    }}
+    onClick={() => {
+      // Close modal when clicking on backdrop
+      setShowCreateCampaignModal(false);
       setSelectedCampaign(null);
       setCampaignForm({
         campaignName: "",
         promptId: "",
         zohoViewId: "",
+        segmentId: "",
         description: "",
       });
+      setSelectedPrompt(null);
+    }}
+  >
+    <div
+      style={{
+        background: "#fff",
+        padding: 32,
+        borderRadius: 8,
+        width: "90%",
+        maxWidth: 700,
+        maxHeight: "90vh",
+        overflow: "auto",
+        boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+      }}
+      onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside modal
 
-      await fetchCampaigns();
-    } catch (error) {
-      console.error("Error deleting campaign:", error);
-      alert("Failed to delete campaign");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    >
+      <h2 style={{ marginTop: 0, marginBottom: 24 }}>
+        {selectedCampaign ? "Edit Campaign" : "Create Campaign"}
+      </h2>
 
-  // Load data when client changes
-  useEffect(() => {
-    if (selectedClient) {
-      // fetchZohoClient(); // Commenting out if not needed anymore
-      fetchDataFiles(); // Fetch data files instead
-      fetchPromptsList();
-      fetchCampaigns();
-    }
-  }, [selectedClient]);
-
-  return (
-    <div className="campaign-management-container">
-      <h2 className="page-title">Campaign Management</h2>
-      
-      <div className="login-box gap-down d-flex">
-        <div className="input-section edit-section">
-          
-          {/* Campaign Configuration Section */}
-          <div className="row mt-3">
-            <div className="col col-12">
-              <h3 className="left mt-0">Campaign Configuration</h3>
-            </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div style={{ gridColumn: "1 / -1" }}>
+          <div className="form-group">
+            <label>
+              Campaign Name <span style={{ color: "red" }}>*</span>
+            </label>
+            <input
+              type="text"
+              name="campaignName"
+              value={campaignForm.campaignName}
+              onChange={handleCampaignFormChange}
+              placeholder="Enter campaign name"
+            />
           </div>
-         <div className="row flex-wrap-768">
-              <div className="col col-3 col-12-768">
-                <div className="form-group">
-                  <label>Campaign Name</label>
-                  <input
-                    type="text"
-                    name="campaignName"
-                    value={campaignForm.campaignName}
-                    onChange={handleCampaignFormChange}
-                    placeholder="Enter campaign name"
-                  />
-                </div>
-              </div>
+        </div>
 
-              <div className="col col-3 col-12-768">
-                <div className="form-group">
-                  <label>Description</label>
-                  <textarea
-                    name="description"
-                    value={campaignForm.description || ""}
-                    onChange={handleCampaignFormChange}
-                    placeholder="Enter campaign description"
-                    rows={3}
-                  ></textarea>
-                </div>
-              </div>
+        <div>
+          <div className="form-group">
+            <label>
+              Template <span style={{ color: "red" }}>*</span>
+            </label>
+            <select
+              value={selectedPrompt?.id || ""}
+              onChange={handlePromptSelect}
+              className="form-control"
+            >
+              <option value="">Select a template</option>
+              {promptList.map((prompt) => (
+                <option key={prompt.id} value={prompt.id}>
+                  {prompt.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
-              <div className="col col-3 col-12-768">
-                <div className="form-group">
-                  <label>Select Template</label>
-                  <select
-                    value={selectedPrompt?.id || ""}
-                    onChange={handlePromptSelect}
-                    className="form-control"
-                  >
-                    <option value="">Select a template</option>
-                    {promptList.map((prompt) => (
-                      <option key={prompt.id} value={prompt.id}>
-                        {prompt.name}
-                      </option>
-                    ))}
-                  </select>
-                  {!isLoading && promptList.length === 0 && selectedClient && (
-                    <div className="text-muted mt-1">
-                      No templates found for this client
-                    </div>
-                  )}
-                </div>
-              </div>
+        {/* List Dropdown */}
+        <div>
+          <div className="form-group">
+            <label>
+              List
+            </label>
+            <select
+              name="zohoViewId"
+              value={campaignForm.zohoViewId}
+              onChange={(e) => handleDataSourceChange('datafile', e.target.value)}
+              className="form-control"
+              disabled={!!campaignForm.segmentId}
+            >
+              <option value="">Select a list</option>
+              {dataFiles.map((file) => (
+                <option key={file.id} value={file.id}>
+                  {file.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
-              <div className="col col-3 col-12-768">
-                <div className="form-group">
-                  <label>Select Data File</label>
-                  <select
-                    name="zohoViewId"
-                    value={campaignForm.zohoViewId}
-                    onChange={handleCampaignFormChange}
-                    className="form-control"
-                  >
-                    <option value="">Select a data file</option>
-                    {dataFiles.map((file) => (
-                      <option key={file.id} value={file.id.toString()}>
-                        {file.name}
-                      </option>
-                    ))}
-                  </select>
-                  {!isLoading && dataFiles.length === 0 && selectedClient && (
-                    <div className="text-muted mt-1">
-                      No data files found for this client
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+        {/* Segment Dropdown */}
+        <div style={{ gridColumn: "1 / -1" }}>
+          <div className="form-group">
+            <label>
+              Segment
+            </label>
+            <select
+              name="segmentId"
+              value={campaignForm.segmentId}
+              onChange={(e) => handleDataSourceChange('segment', e.target.value)}
+              className="form-control"
+              disabled={!!campaignForm.zohoViewId}
+            >
+              <option value="">Select a segment</option>
+              {segments.map((segment) => (
+                <option key={segment.id} value={segment.id}>
+                  {segment.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
-            <div className="row mt-3 flex-wrap-640">
-              <div className="col col-3 col-12-640">
-                <div className="form-group">
-                  <label>Select Campaign to Manage</label>
-                  <select
-                    value={selectedCampaign?.id || ""}
-                    onChange={handleCampaignSelect}
-                    className="form-control"
-                  >
-                    <option value="">Select a campaign</option>
-                    {campaigns.map((campaign) => (
-                      <option key={campaign.id} value={campaign.id}>
-                        {campaign.campaignName}
-                      </option>
-                    ))}
-                  </select>
-                  {!isLoading && campaigns.length === 0 && selectedClient && (
-                    <div className="text-muted mt-1">
-                      No campaigns found for this client
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="col col-3 col-12-640">
-                <div className="form-group d-flex justify-end-991 mt-24 mt-0-991">
-                  <button
-                    className="save-button button small d-flex justify-center align-center mr-2 button-full-640"
-                    onClick={createCampaign}
-                    disabled={
-                      isLoading ||
-                      !campaignForm.campaignName ||
-                      !campaignForm.promptId ||
-                      !campaignForm.zohoViewId
-                    }
-                  >
-                    {isLoading ? (
-                      <span>Saving...</span>
-                    ) : (
-                      <>
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="#FFFFFF"
-                          viewBox="0 0 30 30"
-                          width="22px"
-                          height="22px"
-                        >
-                          <path d="M15,3C8.373,3,3,8.373,3,15c0,6.627,5.373,12,12,12s12-5.373,12-12C27,8.373,21.627,3,15,3z M21,16h-5v5 c0,0.553-0.448,1-1,1s-1-0.447-1-1v-5H9c-0.552,0-1-0.447-1-1s0.448-1,1-1h5V9c0-0.553,0.448-1,1-1s1,0.447,1,1v5h5 c0.552,0,1,0.447,1,1S21.552,16,21,16z" />
-                        </svg>
-                        <span className="ml-5">Create</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <div className="col col-3 col-12-640">
-                <div className="form-group d-flex justify-end-991 mt-24 mt-0-991">
-                  <button
-                    className="secondary button d-flex justify-center align-center mr-2 button-full-640"
-                    onClick={updateCampaign}
-                    disabled={isLoading || !selectedCampaign}
-                  >
-                    {isLoading ? (
-                      <span>Updating...</span>
-                    ) : (
-                      <>
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="#FFFFFF"
-                          viewBox="0 0 24 24"
-                          width="18px"
-                          height="18px"
-                        >
-                          <path d="M21.7 13.35l-1 1-2.05-2.05 1-1c.21-.21.54-.21.75 0l1.3 1.3c.2.21.2.54 0 .75zM19.7 14.35l-2.05-2.05-7.15 7.15v2.05h2.05l7.15-7.15zM12 2c-5.51 0-10 4.49-10 10s4.49 10 10 10 10-4.49 10-10-4.49-10-10-10zM2 12C2 6.49 6.49 2 12 2c5.51 0 10 4.49 10 10 0 5.51-4.49 10-10 10-5.51 0-10-4.49-10-10z" />
-                        </svg>
-                        <span className="ml-5">Update</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <div className="col col-3 col-12-640">
-                <div className="form-group d-flex justify-end-991 mt-24 mt-0-991">
-                  <button
-                    className="delete-button button d-flex justify-center align-center button-full-640"
-                    onClick={deleteCampaign}
-                    disabled={isLoading || !selectedCampaign}
-                  >
-                    {isLoading ? (
-                      <span>Deleting...</span>
-                    ) : (
-                      <>
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="#FFFFFF"
-                          viewBox="0 0 50 50"
-                          width="18px"
-                          height="18px"
-                        >
-                          <path d="M 21 2 C 19.354545 2 18 3.3545455 18 5 L 18 7 L 8 7 A 1.0001 1.0001 0 1 0 8 9 L 9 9 L 9 45 C 9 46.654 10.346 48 12 48 L 38 48 C 39.654 48 41 46.654 41 45 L 41 9 L 42 9 A 1.0001 1.0001 0 1 0 42 7 L 32 7 L 32 5 C 32 3.3545455 30.645455 2 29 2 L 21 2 z" />
-                        </svg>
-                        <span className="ml-5">Delete</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
+        <div style={{ gridColumn: "1 / -1" }}>
+          <div className="form-group">
+            <label>Description</label>
+            <textarea
+              name="description"
+              value={campaignForm.description || ""}
+              onChange={handleCampaignFormChange}
+              placeholder="Enter campaign description"
+              rows={3}
+              style={{ width: "100%" }}
+            />
+          </div>
         </div>
       </div>
+
+      <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 24 }}>
+        <button
+          type="button"
+          onClick={() => {
+            setShowCreateCampaignModal(false);
+            setSelectedCampaign(null);
+            setCampaignForm({
+              campaignName: "",
+              promptId: "",
+              zohoViewId: "",
+              segmentId: "",
+              description: "",
+            });
+            setSelectedPrompt(null);
+          }}
+          className="button secondary"
+          style={{
+            padding: "8px 16px",
+            border: "1px solid #ddd",
+            background: "#fff",
+            borderRadius: "4px",
+            cursor: "pointer",
+          }}
+        >
+          Cancel
+        </button>
+        <button
+          onClick={selectedCampaign ? updateCampaign : createCampaign}
+          className="button primary"
+          disabled={
+            isLoading ||
+            !campaignForm.campaignName ||
+            !campaignForm.promptId ||
+            (!campaignForm.zohoViewId && !campaignForm.segmentId)
+          }
+          style={{
+            padding: "8px 16px",
+            background:
+              !isLoading &&
+              campaignForm.campaignName &&
+              campaignForm.promptId &&
+              (campaignForm.zohoViewId || campaignForm.segmentId)
+                ? "#007bff"
+                : "#ccc",
+            color: "#fff",
+            border: "none",
+            borderRadius: "4px",
+            cursor:
+              !isLoading &&
+              campaignForm.campaignName &&
+              campaignForm.promptId &&
+              (campaignForm.zohoViewId || campaignForm.segmentId)
+                ? "pointer"
+                : "not-allowed",
+          }}
+        >
+          {isLoading ? (
+            selectedCampaign ? "Updating..." : "Creating..."
+          ) : (
+            selectedCampaign ? "Update Campaign" : "Create Campaign"
+          )}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 };

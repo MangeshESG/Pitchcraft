@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import Modal from "../common/Modal";
 import API_BASE_URL from "../../config";
 import { useModel } from "../../ModelContext";
+import { useAppData } from "../../contexts/AppDataContext";
+
 
 interface SettingsProps {
   selectedClient: string;
@@ -9,6 +11,10 @@ interface SettingsProps {
   settingsForm: any;
   settingsFormHandler: (e: React.ChangeEvent<HTMLInputElement>) => void;
   settingsFormOnSubmit: (e: any) => void;
+  preloadedSettings?: any; // ADD THIS
+  isLoadingSettings?: boolean; // ADD THIS
+  lastLoadedClientId: string | null;
+  setLastLoadedClientId: React.Dispatch<React.SetStateAction<string | null>>;
 }
 
 interface Prompt {
@@ -99,14 +105,18 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
   searchTermFormOnSubmit,
   selectedClient,
   fetchClientSettings,
+  preloadedSettings, // ADD THIS
+  isLoadingSettings = false, // ADD THIS
+  lastLoadedClientId,
+  setLastLoadedClientId,
 }) => {
   const [openModals, setOpenModals] = useState<{ [key: string]: boolean }>({});
-  const { setSelectedModelName } = useModel(); // Destructure setSelectedModelName from context
-
+const { selectedModelName, setSelectedModelName } = useModel();
   const [models, setModels] = useState<Model[]>([]);
 
   // Added state for selected model
   const [selectedModel, setSelectedModel] = useState<string>("");
+  const { refreshTrigger, clientSettings } = useAppData();
 
   useEffect(() => {
     const fetchModels = async () => {
@@ -158,111 +168,74 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
       output: "",
     });
 
-  // CHANGE THIS useEffect
-  useEffect(() => {
-    const loadClientSettings = async () => {
-      if (selectedClient) {
-        try {
-          const response = await fetchClientSettings(Number(selectedClient));
-          const settings = Array.isArray(response) ? response[0] : response;
-          console.log("Full settings object:", settings);
+ // REPLACE the useEffect I provided earlier with this corrected version:
+useEffect(() => {
+  if (!selectedClient) return;
+  if (selectedClient === lastLoadedClientId) return;
 
-          if (settings) {
-            // Update model selection
-            if (settings.model_name || settings.modelName) {
-              const modelName = settings.model_name || settings.modelName;
-              setSelectedModel(modelName);
-              setSelectedModelName(modelName);
-              localStorage.setItem("selectedModel", modelName);
-            }
+  (async () => {
+    try {
+      setIsLoading(true);
 
-            // Update search term form
-            setLocalSearchTermForm((prev) => ({
-              ...prev,
-              searchCount: settings.searchCount?.toString() || "",
-              searchTerm: settings.searchTerm || "",
-              instructions: settings.instruction || settings.instructions || "",
-            }));
+      // Use preloaded/context data if available, or fetch from server
+      const settings =
+        clientSettings ||
+        preloadedSettings ||
+        (await fetchClientSettings(Number(selectedClient)));
 
-            searchTermFormHandler({
-              target: {
-                name: "searchCount",
-                value: settings.searchCount?.toString() || "",
-              },
-            } as any);
-
-            searchTermFormHandler({
-              target: {
-                name: "searchTerm",
-                value: settings.searchTerm || "",
-              },
-            } as any);
-
-            searchTermFormHandler({
-              target: {
-                name: "instructions",
-                value: settings.instruction || settings.instructions || "",
-              },
-            } as any);
-
-            // FIX: Update system instructions correctly
-            settingsFormHandler({
-              target: {
-                name: "systemInstructions",
-                value:
-                  settings.system_instruction ||
-                  settings.systemInstructions ||
-                  "",
-              },
-            } as any);
-
-            // FIX: Update subject instructions correctly
-            settingsFormHandler({
-              target: {
-                name: "subjectInstructions",
-                value:
-                  settings.subject_instruction ||
-                  settings.subjectInstructions ||
-                  "",
-              },
-            } as any);
-
-            // Also update local state
-            setLocalSettingsForm((prev) => ({
-              ...prev,
-              systemInstructions:
-                settings.system_instruction ||
-                settings.systemInstructions ||
-                "",
-              subjectInstructions:
-                settings.subject_instruction ||
-                settings.subjectInstructions ||
-                "",
-            }));
-          }
-        } catch (error) {
-          console.error("Error loading client settings:", error);
+      if (settings && Object.keys(settings).length > 0) {
+        if (settings.modelName) {
+          setSelectedModel(settings.modelName);
+          setSelectedModelName(settings.modelName);
+          localStorage.setItem("selectedModel", settings.modelName);
         }
-      }
-    };
 
-    loadClientSettings();
-  }, [selectedClient]);
+        const newSearchTermData = {
+          searchCount: settings.searchCount?.toString() || "",
+          searchTerm: settings.searchTerm || "",
+          instructions: settings.instructions || "",
+        };
+        setLocalSearchTermForm((prev) => ({
+          ...prev,
+          ...newSearchTermData,
+        }));
+        Object.entries(newSearchTermData).forEach(([key, value]) => {
+          searchTermFormHandler({ target: { name: key, value } } as any);
+        });
+
+        const newSettingsData = {
+          systemInstructions: settings.systemInstructions || "",
+          subjectInstructions: settings.subjectInstructions || "",
+        };
+        setLocalSettingsForm((prev) => ({
+          ...prev,
+          ...newSettingsData,
+        }));
+        Object.entries(newSettingsData).forEach(([key, value]) => {
+          settingsFormHandler({ target: { name: key, value } } as any);
+        });
+
+        await Promise.all([fetchZohoClient(), fetchDemoAccountStatus()]);
+      }
+
+      setLastLoadedClientId(selectedClient);
+    } catch (error) {
+      console.error("Error loading client settings:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  })();
+}, [selectedClient, lastLoadedClientId]);
 
   // Modify handleModelChange to update local state
 
-  const handleModelChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    const modelName = event.target.value;
-    setSelectedModel(modelName);
-    setSelectedModelName(modelName);
-    localStorage.setItem("selectedModel", modelName);
-    // Specify the type for prev
-    setLocalSettingsForm((prev: SettingsForm) => ({
-      ...prev,
-      model: modelName,
-    }));
-    settingsFormHandler(event); // Call the original handler if needed
-  };
+const handleModelChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+  const modelName = event.target.value;
+  setSelectedModel(modelName);
+  setSelectedModelName(modelName);         // context
+  localStorage.setItem("selectedModel", modelName);
+};
+
 
   const handleModalClose = (id: string) => {
     setOpenModals((prev) => ({ ...prev, [id]: false }));
@@ -633,7 +606,6 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
     }
   };
 
-
   const [tab, setTab] = useState("Processes");
   const tabHandler = (e: React.ChangeEvent<any>) => {
     const { innerText } = e.target;
@@ -714,7 +686,6 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
   return (
     <div className="login-box gap-down d-flex">
       <div className="input-section edit-section">
-        
         {tab === "Processes" && (
           <>
             <div className="row flex-wrap">
@@ -760,6 +731,10 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
                     <strong>Company website: </strong>
                     <br /> {"{website}"}
                   </li>
+                  <li className="mb-5 mb-10-640">
+                    <strong>Current date </strong>
+                    <br /> {"{date}"}
+                  </li>
                 </ul>
               </div>
             </div>
@@ -775,7 +750,7 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
                     <select
                       name="model"
                       id="model"
-                      value={selectedModel}
+                      value={selectedModel|| selectedModelName}
                       onChange={handleModelChange}
                     >
                       <option value="">Select model</option>
@@ -1064,8 +1039,6 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
             </div>
           </>
         )}
-
-       
       </div>
     </div>
   );

@@ -6,8 +6,7 @@ import previousIcon from "../../assets/images/previous.png";
 import nextIcon from "../../assets/images/Next.png";
 import singleprvIcon from "../../assets/images/SinglePrv.png";
 import singlenextIcon from "../../assets/images/SingleNext.png";
-import excelIcon from "../../assets/images/icons/excel.png";
-import emailIcon from "../../assets/images/icons/email.png";
+import { useAppData } from "../../contexts/AppDataContext";
 
 import * as XLSX from "xlsx";
 import FileSaver from "file-saver";
@@ -35,6 +34,16 @@ interface Prompt {
   template?: string;
 }
 
+interface Campaign {
+  id: number;
+  campaignName: string;
+  promptId: number;
+  zohoViewId: string;
+  clientId: number;
+  description?: string;
+}
+
+
 interface OutputInterface {
   outputForm: {
     generatedContent: string;
@@ -43,6 +52,7 @@ interface OutputInterface {
     currentPrompt: string;
     searchResults: string[];
     allScrapedData: string;
+    
   };
   isResetEnabled: boolean; // Add this prop
 
@@ -104,7 +114,7 @@ interface OutputInterface {
   >;
   selectedClient: string;
   isStarted?: boolean;
-  handleStart?: () => void;
+  handleStart?: (startIndex?: number) => void; // Change this line
   handlePauseResume?: () => void;
   handleReset?: () => void;
   isPitchUpdateCompleted?: boolean;
@@ -134,6 +144,12 @@ interface OutputInterface {
   subjectText?: string;
   setSubjectText?: (value: string) => void;
   selectedPrompt: Prompt | null;
+  handleStop?: () => void; // Move this here - as a separate property
+  isStopRequested?: boolean; // Add this line
+
+
+
+
 }
 
 const Output: React.FC<OutputInterface> = ({
@@ -154,7 +170,7 @@ const Output: React.FC<OutputInterface> = ({
   seteveryscrapedData,
   allSearchTermBodies,
   setallSearchTermBodies,
-  onClearContent, // Add this line
+  onClearContent,
   allsummery,
   setallsummery,
   existingResponse,
@@ -166,8 +182,8 @@ const Output: React.FC<OutputInterface> = ({
   fetchAndDisplayEmailBodies,
   selectedZohoviewId,
   onClearExistingResponse,
-  isResetEnabled, // Receive the prop
-  zohoClient, // Add this to the destructured props
+  isResetEnabled,
+  zohoClient,
   onRegenerateContact,
   recentlyAddedOrUpdatedId,
   setRecentlyAddedOrUpdatedId,
@@ -176,6 +192,7 @@ const Output: React.FC<OutputInterface> = ({
   handleStart,
   handlePauseResume,
   handleReset,
+  handleStop, // Add this line
   isPitchUpdateCompleted,
   allRecordsProcessed,
   isDemoAccount,
@@ -201,8 +218,11 @@ const Output: React.FC<OutputInterface> = ({
   setSubjectMode,
   subjectText,
   setSubjectText,
+  isStopRequested, // Add this line
+
 }) => {
   const [isCopyText, setIsCopyText] = useState(false);
+  const { refreshTrigger } = useAppData(); // Make sure this includes refreshTrigger
 
   const copyToClipboardHandler = async () => {
     const contentToCopy = combinedResponses[currentIndex]?.pitch || "";
@@ -315,13 +335,6 @@ const Output: React.FC<OutputInterface> = ({
     setExistingDataIndex(0); // Reset the index
   };
 
-  useEffect(() => {
-    // Keep currentIndex as is when new responses are added
-    if (currentIndex >= combinedResponses.length) {
-      setCurrentIndex(combinedResponses.length - 1);
-    }
-  }, [allResponses, currentIndex, setCurrentIndex]);
-
   const clearUsage = () => {
     setOutputForm((prevOutputForm: any) => ({
       ...prevOutputForm,
@@ -330,6 +343,16 @@ const Output: React.FC<OutputInterface> = ({
   };
 
   const [combinedResponses, setCombinedResponses] = useState<any[]>([]);
+
+  useEffect(() => {
+    // Keep currentIndex as is when new responses are added
+    if (
+      currentIndex >= combinedResponses.length &&
+      combinedResponses.length > 0
+    ) {
+      setCurrentIndex(Math.max(0, combinedResponses.length - 1));
+    }
+  }, [allResponses, currentIndex, setCurrentIndex, combinedResponses.length]);
 
   useEffect(() => {
     // Prioritize allResponses, then add unique existingResponses
@@ -564,83 +587,51 @@ const Output: React.FC<OutputInterface> = ({
     const content = e.currentTarget.innerHTML;
     setEditableContent(content);
   };
-  // Define the saveToZoho function in your component
-  const saveToZoho = async (
-    content: string,
-    responseId: string | number | undefined,
-    subject: string | undefined
-  ): Promise<any> => {
-    if (!responseId) {
-      throw new Error("Contact ID is required to update in Zoho");
+
+interface SaveToCrmUpdateEmailParams {
+  clientId: number;
+  dataFileId: number;
+  contactId: number;
+  emailSubject: string;
+  emailBody: string;
+}
+
+const saveToCrmUpdateEmail = async ({
+  clientId,
+  dataFileId,
+  contactId,
+  emailSubject,
+  emailBody,
+}: SaveToCrmUpdateEmailParams): Promise<any> => {
+  if (!contactId) throw new Error("Contact ID is required to update");
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/Crm/contacts/update-email`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        clientId: clientId ?? 0,
+        dataFileId: dataFileId ?? 0,
+        contactId,
+        emailSubject: emailSubject ?? "",
+        emailBody: emailBody ?? "",
+      }),
+    });
+
+    if (!response.ok) {
+      const errJson = await response.json();
+      throw new Error(errJson.message || "Failed to update contact via CRM API");
     }
 
-    try {
-      // Get contact details from the current item
-      const currentContact = combinedResponses[currentIndex];
-      const full_name =
-        currentContact?.name || currentContact?.full_Name || "N/A";
-      const company_name =
-        currentContact?.company ||
-        currentContact?.account_name_friendlySingle_Line_12 ||
-        "N/A";
-      const email = currentContact?.email || "N/A";
+    return await response.json();
+  } catch (error) {
+    console.error("Error saving to CRM contacts API:", error);
+    throw error;
+  }
+};
 
-      // Make API call to update Zoho
-      const updateContactResponse = await fetch(
-        `${API_BASE_URL}/api/auth/updatezoho`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            contactId: responseId,
-            emailBody: content,
-            email_subject: subject || "",
-            accountId: "String", // Change to proper account id if available
-          }),
-        }
-      );
-
-      if (!updateContactResponse.ok) {
-        const updateContactError = await updateContactResponse.json();
-        console.error("Failed to update in Zoho:", updateContactError);
-
-        setOutputForm((prevOutputForm) => ({
-          ...prevOutputForm,
-          generatedContent:
-            `<span style="color: orange">[${formatDateTime(
-              new Date()
-            )}] Updating contact in database incomplete for contact ${full_name} with company name ${company_name}. Error: ${
-              updateContactError.Message || JSON.stringify(updateContactError)
-            }</span><br/>` + prevOutputForm.generatedContent,
-        }));
-
-        throw new Error(
-          `Failed to update in Zoho: ${
-            updateContactError.Message || JSON.stringify(updateContactError)
-          }`
-        );
-      }
-
-      // Success case
-      console.log("Successfully updated in Zoho");
-
-      setOutputForm((prevOutputForm) => ({
-        ...prevOutputForm,
-        generatedContent:
-          `<span style="color: green">[${formatDateTime(
-            new Date()
-          )}] Updated pitch and subject in database for contact ${full_name} with company name ${company_name}.</span><br/>` +
-          prevOutputForm.generatedContent,
-      }));
-
-      return await updateContactResponse.json();
-    } catch (error) {
-      console.error("Error saving to Zoho:", error);
-      throw error;
-    }
-  };
 
   // You'll need this helper function
   const formatDateTime = (date: Date): string => {
@@ -668,11 +659,16 @@ const Output: React.FC<OutputInterface> = ({
       };
 
       // First save to Zoho before updating UI - now passing the subject
-      await saveToZoho(
-        editableContent,
-        combinedResponses[currentIndex]?.id,
-        currentSubject
-      );
+      const currentItem = combinedResponses[currentIndex];
+      const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
+
+      await saveToCrmUpdateEmail({
+        clientId: Number(effectiveUserId),                 
+        dataFileId: Number(currentItem?.datafileid) || 0,   
+        contactId: Number(currentItem?.id),
+        emailSubject: currentItem?.subject || "",
+        emailBody: editableContent,
+      });
 
       // Update combinedResponses
       const updatedCombinedResponses = [...combinedResponses];
@@ -801,117 +797,130 @@ const Output: React.FC<OutputInterface> = ({
     }
   }, [effectiveUserId, token]);
 
- const handleSendEmail = async (subjectFromButton: string) => {
-    setEmailMessage("");
-    setEmailError("");
+const handleSendEmail = async (subjectFromButton: string) => {
+  setEmailMessage("");
+  setEmailError("");
 
-    const subjectToUse = subjectFromButton || emailFormData.Subject;
+  const subjectToUse = subjectFromButton || emailFormData.Subject;
 
-    if (!subjectToUse || !emailFormData.BccEmail || !selectedSmtpUser) {
-      setEmailError(
-        "Please fill in all required fields: Subject, BCC Email, and From Email."
-      );
+  // Remove BCC email from the required fields check
+  if (!subjectToUse || !selectedSmtpUser) {
+    setEmailError(
+      "Please fill in all required fields: Subject and From Email."
+    );
+    return;
+  }
+
+  setSendingEmail(true);
+
+  try {
+    const currentContact = combinedResponses[currentIndex];
+
+    // Ensure we have the required contact information
+    if (!currentContact || !currentContact.id) {
+      setEmailError("No valid contact selected");
+      setSendingEmail(false);
       return;
     }
 
-    setSendingEmail(true);
+    console.log("Sending email to:", currentContact?.name);
 
-    try {
-      const currentContact = combinedResponses[currentIndex];
-      
-      // Ensure we have the required contact information
-      if (!currentContact || !currentContact.id) {
-        setEmailError("No valid contact selected");
-        setSendingEmail(false);
-        return;
+    // Prepare the request body according to the new API structure
+    const requestBody = {
+      clientId: effectiveUserId,
+      contactid: currentContact.id,
+      dataFileId: currentContact.datafileid || 0,
+      toEmail: currentContact.email,
+      subject: subjectToUse,
+      body: currentContact.pitch || "", // Using the pitch as the email body
+      bccEmail: emailFormData.BccEmail || "", // Send empty string if no BCC
+      smtpId: selectedSmtpUser,
+      fullName: currentContact.name,
+      countryOrAddress: currentContact.location || "",
+      companyName: currentContact.company || "",
+      website: currentContact.website || "",
+      linkedinUrl: currentContact.linkedin || "",
+      jobTitle: currentContact.title || "",
+    };
+
+    // Rest of the function remains the same...
+    const response = await axios.post(
+      `${API_BASE_URL}/api/email/send-singleEmail`,
+      requestBody,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
       }
+    );
 
-      console.log("Sending email to:", currentContact?.name);
+    setEmailMessage(response.data.message || "Email sent successfully!");
+    toast.success("Email sent successfully!");
 
-      const response = await axios.post(
-        `${API_BASE_URL}/api/email/send-singleEmail`,
-        {},
-        {
-          params: {
-            clientId: effectiveUserId,
-            dataFileId: selectedZohoviewId, // Assuming this is your dataFileId
-            contactId: currentContact.id,
-            smtpId: selectedSmtpUser,
-            ...(emailFormData.BccEmail && { bccEmail: emailFormData.BccEmail }),
-          },
-          headers: {
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        }
+    // Update the contact's email sent status
+    try {
+      // Update local state
+      const updatedItem = {
+        ...combinedResponses[currentIndex],
+        emailsentdate: new Date().toISOString(),
+        PG_Added_Correctly: true,
+      };
+      setCombinedResponses((prev) =>
+        prev.map((item, i) => (i === currentIndex ? updatedItem : item))
       );
 
-      setEmailMessage(response.data.message || "Email sent successfully!");
-      toast.success("Email sent successfully!");
-
-      // Update the contact's email sent status
-      try {
-        const updatePayload = {
-          Id: currentContact.id,
-          Last_Email_Body_Updated: new Date().toISOString(),
-          PG_Added_Correctly: true,
-        };
-
-        const updateResponse = await axios.post(
-          `${API_BASE_URL}/api/auth/update-contact-fields`,
-          updatePayload,
-          {
-            headers: {
-              "Content-Type": "application/json",
-              ...(token && { Authorization: `Bearer ${token}` }),
-            },
-          }
-        );
-
-        // Update local state
-        const updatedResponses = [...combinedResponses];
-        updatedResponses[currentIndex] = {
-          ...updatedResponses[currentIndex],
-          emailsentdate: new Date().toISOString(),
-          lastemailupdateddate: new Date().toISOString(),
-          PG_Added_Correctly: true,
-        };
-        setCombinedResponses(updatedResponses);
-
-        // If the API returns nextContactId, you might want to handle navigation
-        if (response.data.nextContactId) {
-          // Optional: Auto-navigate to next contact or store for later use
-          console.log("Next contact ID:", response.data.nextContactId);
-        }
-      } catch (updateError) {
-        console.error("Failed to update contact record:", updateError);
-        if (axios.isAxiosError(updateError)) {
-          console.error("Update error details:", updateError.response?.data);
-        }
-        toast.warning("Email sent but failed to update record status");
+      const allResponsesIndex = allResponses.findIndex(
+        (item) => item.id === updatedItem.id
+      );
+      if (allResponsesIndex !== -1) {
+        const updatedAll = [...allResponses];
+        updatedAll[allResponsesIndex] = updatedItem;
+        setAllResponses(updatedAll);
+      }
+      const existingResponseIndex = existingResponse.findIndex(
+        (item) => item.id === updatedItem.id
+      );
+      if (existingResponseIndex !== -1) {
+        const updatedExisting = [...existingResponse];
+        updatedExisting[existingResponseIndex] = updatedItem;
+        setexistingResponse(updatedExisting);
       }
 
-      setTimeout(() => {
-        setShowEmailModal(false);
-        setEmailMessage("");
-      }, 2000);
-    } catch (err) {
-      if (axios.isAxiosError(err)) {
-        setEmailError(
-          err.response?.data?.message ||
-            err.response?.data ||
-            "Failed to send email."
-        );
-      } else if (err instanceof Error) {
-        setEmailError(err.message);
-      } else {
-        setEmailError("An unknown error occurred.");
+           // If the API returns nextContactId, you might want to handle navigation
+      if (response.data.nextContactId) {
+        // Optional: Auto-navigate to next contact or store for later use
+        console.log("Next contact ID:", response.data.nextContactId);
       }
-      toast.error("Failed to send email");
-    } finally {
-      setSendingEmail(false);
+    } catch (updateError) {
+      console.error("Failed to update contact record:", updateError);
+      if (axios.isAxiosError(updateError)) {
+        console.error("Update error details:", updateError.response?.data);
+      }
+      toast.warning("Email sent but failed to update record status");
     }
-  };
 
+    setTimeout(() => {
+      setShowEmailModal(false);
+      setEmailMessage("");
+    }, 2000);
+  } catch (err) {
+    if (axios.isAxiosError(err)) {
+      setEmailError(
+        err.response?.data?.message ||
+          err.response?.data ||
+          "Failed to send email."
+      );
+    } else if (err instanceof Error) {
+      setEmailError(err.message);
+    } else {
+      setEmailError("An unknown error occurred.");
+    }
+    toast.error("Failed to send email");
+  } finally {
+    setSendingEmail(false);
+  }
+};
   //-----------------------------------------
   const aggressiveCleanHTML = (html: string): string => {
     // Parse and rebuild the HTML with controlled spacing
@@ -1064,102 +1073,51 @@ const Output: React.FC<OutputInterface> = ({
       .replace(",", "");
   }
 
+  // Add this useEffect after the existing combinedResponses useEffect
+  useEffect(() => {
+    console.log(
+      "combinedResponses updated:",
+      combinedResponses.length,
+      "items"
+    );
+    console.log("Current index:", currentIndex);
+    console.log("Current contact:", combinedResponses[currentIndex]);
+
+    // Force a re-render if we have data but UI shows NA
+    if (combinedResponses.length > 0 && currentIndex === 0) {
+      const contact = combinedResponses[0];
+      if (contact && contact.name !== "N/A") {
+        // Data is valid, force update
+        setCurrentIndex(0);
+      }
+    }
+  }, [combinedResponses]);
+
+    useEffect(() => {
+    // This will trigger when campaigns are created/updated/deleted
+    console.log('Campaigns updated in Output component:', campaigns?.length);
+  }, [campaigns, refreshTrigger]); // Add refreshTrigger dependency
+
+
   return (
     <div className="login-box gap-down">
-      <div className="output-control-bar d-flex justify-between align-center mb-20">
-        <div className="control-buttons d-flex align-center">
-          {!isStarted ? (
-            <button
-              className="primary-button"
-              onClick={handleStart}
-              disabled={
-                (!selectedPrompt?.name || !selectedZohoviewId) &&
-                !selectedCampaign
-              }
-              title="Click to generate hyper-personalized emails using the selected template for contacts in the selected data file"
-            >
-              Start
-            </button>
-          ) : (
-            <>
-              <button
-                className="primary-button"
-                onClick={handlePauseResume}
-                disabled={isPaused && (!isPitchUpdateCompleted || isProcessing)}
-                title={
-                  isPaused
-                    ? allRecordsProcessed
-                      ? "Click to start a new process"
-                      : "Click to resume the generation of emails"
-                    : "Click to pause the generation of emails"
-                }
-              >
-                {isPaused
-                  ? allRecordsProcessed
-                    ? "Start"
-                    : "Resume"
-                  : "Pause"}
-              </button>
+      <div className="d-flex justify-between align-center mb-20 border-b pb-[15px] mb-[15px]">
+<div className="control-buttons d-flex align-center">
+  
+  
+   
+  
+  
 
-              {isPaused && (
-                <button
-                  className="secondary-button ml-10"
-                  onClick={handleReset}
-                  disabled={
-                    !isPitchUpdateCompleted || isProcessing || !isPaused
-                  }
-                  title="Click to reset so that the generation of emails begins again from the first of the contacts in the selected data file"
-                >
-                  Reset
-                </button>
-              )}
-            </>
-          )}
-          {userRole === "ADMIN" && (
-            <button
-              className="secondary-button nowrap"
-              onClick={handleClearAll}
-              disabled={!isPitchUpdateCompleted || isProcessing || !isPaused}
-              title="Clear all data and reset the application state"
-            >
-              Reset all
-            </button>
-          )}
-           {!isDemoAccount && (
-            <>
-            <div className="form-group d-flex align-center mb-0 mr-20">
-                <label className="font-size-medium font-500 mb-0 mr-10">
-                  Delay(secs)
-                </label>
-                <input
-                  type="number"
-                  value={delayTime}
-                  onChange={(e: any) => setDelay?.(e.target.value)}
-                  className="height-35"
-                  style={{ width: "55px" }}
-                />
-              </div>
-              <label className="checkbox-label mr-20">
-                <input
-                  type="checkbox"
-                  checked={settingsForm.overwriteDatabase}
-                  name="overwriteDatabase"
-                  id="overwriteDatabase"
-                  onChange={settingsFormHandler}
-                />
-                <span>Overwrite existing</span>
-              </label> 
-            </>
-          )}
-        </div>
+</div>
       </div>
 
       {/* Add the selection dropdowns and subject line section */}
-      <div className="output-control-bar d-flex justify-between align-center mb-20">
-        <div className="input-section edit-section">
+      <div className="d-flex justify-between align-center mb-0">
+        <div className="input-section edit-section w-[100%]">
           {/* Dropdowns Row */}
-          <div className="row flex-col-768">
-            <div className="col col-3 col-12-768">
+          <div className="flex gap-4">
+            <div className="col-4">
               <div className="form-group">
                 <label>
                   Campaign <span className="required">*</span>
@@ -1167,7 +1125,6 @@ const Output: React.FC<OutputInterface> = ({
                 <select
                   onChange={handleCampaignChange}
                   value={selectedCampaign}
-                  
                 >
                   <option value="">Select a campaign</option>
                   {campaigns?.map((campaign) => (
@@ -1244,58 +1201,53 @@ const Output: React.FC<OutputInterface> = ({
               )}
             </div> */}
 
-           
-<div className="col col-4 col-12-768 d-flex align-center">
-  <div className="form-group d-flex align-center" style={{ flexWrap: "wrap" }}>
-    <label style={{ width: "100%" }}>Subject</label>
+            <div className="col-5">
+              <div className="form-group" style={{ flexWrap: "wrap" }}>
+                <label style={{ width: "100%" }}>Subject</label>
 
-    <select
-      onChange={(e) => setSubjectMode?.(e.target.value)}
-      value={subjectMode}
-      className="height-35"
-      style={{ minWidth: 150, marginRight: 10 }}
-    >
-      <option value="AI generated">AI generated</option>
-      <option value="With Placeholder">With placeholder</option>
-    </select>
+                <div className="flex">
+                  <select
+                    onChange={(e) => setSubjectMode?.(e.target.value)}
+                    value={subjectMode}
+                    className="height-35"
+                    style={{ minWidth: 150, marginRight: 10 }}
+                  >
+                    <option value="AI generated">AI generated</option>
+                    <option value="With Placeholder">With placeholder</option>
+                  </select>
+                  <input
+                    type="text"
+                    placeholder="Enter subject here"
+                    value={subjectText}
+                    onChange={(e) => setSubjectText?.(e.target.value)}
+                    disabled={subjectMode !== "With Placeholder"}
+                  />
+                </div>
+              </div>
+            </div>
 
-    <input
-      type="text"
-      placeholder="Enter subject here"
-      value={subjectText}
-      onChange={(e) => setSubjectText?.(e.target.value)}
-      disabled={subjectMode !== "With Placeholder"}
-      className="height-35"
-      style={{ flex: 1, minWidth: 200, marginRight: 10 }}
-    />
-  </div>
-</div>
-
-
-
-            <div className="col col-3 col-12-768">
-  <div className="form-group">
-    <label>Language</label>
-    <select
-      onChange={handleLanguageChange}
-      value={selectedLanguage}
-      className="height-35"
-    >
-      <option value="">Select a language</option>
-      {languages
-        ?.sort((a, b) => a.localeCompare(b))
-        .map((language, index) => (
-          <option key={index} value={language}>
-            {language}
-          </option>
-        ))}
-    </select>
-  </div>
-</div>
+            <div className="">
+              <div className="form-group">
+                <label>Language</label>
+                <select
+                  onChange={handleLanguageChange}
+                  value={selectedLanguage}
+                  className="height-35"
+                >
+                  <option value="">Select a language</option>
+                  {languages
+                    ?.sort((a, b) => a.localeCompare(b))
+                    .map((language, index) => (
+                      <option key={index} value={language}>
+                        {language}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </div>
           </div>
 
           {/* Subject Line Row */}
-          
         </div>
       </div>
 
@@ -1304,27 +1256,24 @@ const Output: React.FC<OutputInterface> = ({
       {userRole === "ADMIN" && (
         <div className="row pb-2 d-flex align-center justify-end">
           <div className="col col-12">
-            <div className="form-group d-flex justify-between">
-              <label className="mb-0">Usage</label>
-            </div>
-            <div className="form-group d-flex justify-between">
-              <span className="pos-relative full-width">
+            <div className="form-group">
+              <label>Usage</label>
+              <span className="pos-relative full-width flex">
                 <textarea
                   placeholder="Usage"
                   rows={1}
                   name="tkUsage"
                   value={outputForm.usage}
-                  className="full-width"
+                  className="full-width p-[0.5rem]"
                   onChange={outputFormHandler}
                 ></textarea>
+                <button
+                  className="secondary-button ml-10 button clear-button small d-flex align-center h-[100%] justify-center"
+                  onClick={clearUsage}
+                >
+                  Clear Usage
+                </button>
               </span>
-              <button
-                className="ml-10 button clear-button small d-flex align-center h-[100%] justify-center"
-                onClick={clearUsage}
-                style={{ height: "40px" }}
-              >
-                Clear Usage
-              </button>
             </div>
           </div>
         </div>
@@ -1355,24 +1304,13 @@ const Output: React.FC<OutputInterface> = ({
                   </button>
                 </li>
               )}
-              <div className="d-flex align-center">
+              <div className="d-flex align-center gap-1 mr-3">
                 <button
                   onClick={handleFirstPage}
-                  disabled={
-                    !isResetEnabled ||
-                    (currentIndex === 0 && !combinedResponses[0]?.prevPageToken)
-                  }
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    padding: "5px 10px",
-                    backgroundColor: "#f0f0f0",
-                    border: "1px solid #ccc",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                    height: "35px",
-                  }}
+                  disabled={isProcessing} 
+
                   title="Click to go to the first generated email"
+                  className="secondary-button h-[35px] w-[38px] !px-[5px] !py-[10px] flex justify-center items-center"
                 >
                   <img
                     src={previousIcon}
@@ -1381,27 +1319,13 @@ const Output: React.FC<OutputInterface> = ({
                       width: "20px",
                       height: "20px",
                       objectFit: "contain",
-                      marginRight: "5px",
                     }}
                   />
                 </button>
                 <button
                   onClick={handlePrevPage}
-                  disabled={
-                    !isResetEnabled ||
-                    (currentIndex === 0 && !combinedResponses[0]?.prevPageToken)
-                  }
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    padding: "5px 10px",
-                    backgroundColor: "#f0f0f0",
-                    border: "1px solid #ccc",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                    height: "35px",
-                    marginLeft: "3px",
-                  }}
+                  disabled={isProcessing || currentIndex === 0}
+                  className="secondary-button flex justify-center items-center !px-[10px] h-[35px]"
                   title="Click to go to the previous generated email"
                 >
                   <img
@@ -1411,7 +1335,8 @@ const Output: React.FC<OutputInterface> = ({
                       width: "20px",
                       height: "20px",
                       objectFit: "contain",
-                      marginRight: "5px",
+                      marginRight: "2px",
+                      marginLeft:"-7px"
                     }}
                   />
                   <span>Prev</span>
@@ -1419,24 +1344,8 @@ const Output: React.FC<OutputInterface> = ({
 
                 <button
                   onClick={handleNextPage}
-                  disabled={
-                    !isResetEnabled ||
-                    emailLoading ||
-                    (currentIndex === combinedResponses.length - 1 &&
-                      !combinedResponses[combinedResponses.length - 1]
-                        ?.nextPageToken)
-                  }
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    padding: "5px 10px",
-                    backgroundColor: "#f0f0f0",
-                    border: "1px solid #ccc",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                    height: "35px",
-                    marginLeft: "3px",
-                  }}
+                  disabled={isProcessing || currentIndex === combinedResponses.length - 1}
+                  className="secondary-button !h-[35px] !py-[10px] !px-[10px] flex justify-center items-center"
                   title="Click to go to the next generated email"
                 >
                   <span>Next</span>
@@ -1447,31 +1356,17 @@ const Output: React.FC<OutputInterface> = ({
                       width: "20px",
                       height: "20px",
                       objectFit: "contain",
-                      marginLeft: "5px",
+                      marginLeft: "2px",
+                      marginRight:"-7px"
                     }}
                   />
                 </button>
 
                 <button
                   onClick={handleLastPage}
-                  disabled={
-                    !isResetEnabled ||
-                    emailLoading ||
-                    (currentIndex === combinedResponses.length - 1 &&
-                      !combinedResponses[combinedResponses.length - 1]
-                        ?.nextPageToken)
-                  }
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    padding: "5px 10px",
-                    backgroundColor: "#f0f0f0",
-                    border: "1px solid #ccc",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                    height: "35px",
-                    marginLeft: "3px",
-                  }}
+                  disabled={isProcessing || currentIndex === combinedResponses.length - 1} // Simplified condition
+
+                  className="secondary-button h-[35px] w-[38px] !px-[5px] !py-[10px] flex justify-center items-center !px-[10px]"
                   title="Click to go to the last generated email"
                 >
                   <img
@@ -1481,7 +1376,7 @@ const Output: React.FC<OutputInterface> = ({
                       width: "20px",
                       height: "20px",
                       objectFit: "contain",
-                      marginLeft: "5px",
+                      marginLeft: "2px",
                     }}
                   />
                 </button>
@@ -1492,7 +1387,121 @@ const Output: React.FC<OutputInterface> = ({
                   </div>
                 )}
               </div>
+              
+              <div className="mtext-center d-flex align-center mr-20 mt-10-991 font-size-medium">
+                {combinedResponses.length > 0 && (
+                  <>
+                    <span>
+                      {/* <strong>Contact:</strong> {currentIndex + 1} of{" "} */}
+                      <strong>Contact:</strong> 
+                      {/* Input box to enter index */}
+                      <input
+                        type="number"
+                        value={inputValue}
+                        onChange={handleIndexChange}
+                        onBlur={() => {
+                          // When input loses focus, ensure it shows a valid value
+                          if (
+                            inputValue.trim() === "" ||
+                            isNaN(parseInt(inputValue, 10))
+                          ) {
+                            setInputValue((currentIndex + 1).toString());
+                          }
+                        }}
+                        className="form-control text-center !mx-2"
+                        style={{ width: "70px", padding: "8px" }}
+                      />
+                       of{" "}
+                      {
+                        // Get total contacts from the selected view or all views
+                        selectedZohoviewId
+                          ? (() => {
+                              const selectedView = zohoClient.find(
+                                (client) =>
+                                  client.zohoviewId === selectedZohoviewId
+                              );
+                              return selectedView
+                                ? selectedView.totalContact
+                                : combinedResponses.length;
+                            })()
+                          : zohoClient.reduce(
+                              (sum, client) => sum + client.totalContact,
+                              0
+                            )
+                      }{" "}
+                      <span className="opacity-60">
+                        ({combinedResponses.length} loaded)
+                      </span>
+                    </span>
+                    <span style={{ whiteSpace: "pre" }}> </span>
+                    <span style={{ whiteSpace: "pre" }}> </span>
+
+                    
+                  </>
+                )}
+              </div>
             </ul>
+            <div className="flex">
+              <div className="flex mr-4">
+                {isResetEnabled ? ( // Changed from !isProcessing to isResetEnabled
+                  <button
+                    className="primary-button bg-[#3f9f42]"
+                    onClick={() => handleStart?.(currentIndex)}
+                    disabled={
+                      (!selectedPrompt?.name || !selectedZohoviewId) &&
+                      !selectedCampaign
+                    }
+                    title={`Click to generate hyper-personalized emails starting from contact ${currentIndex + 1}`}
+                  >
+                    Generate
+                  </button>
+                ) : (
+                  <button
+                    className="primary-button bg-[#3f9f42]"
+                    onClick={handleStop}
+                    disabled={isStopRequested} // Disable if stop is already requested
+                    title="Click to stop the generation of emails"
+                  >
+                    Stop
+                  </button>
+                )}
+              </div>
+              <div className="flex mr-4">
+
+               <button
+                className="secondary-button nowrap"
+                onClick={handleClearAll}
+                disabled={!isResetEnabled} // Changed from isProcessing to !isResetEnabled
+                title="Clear all data and reset the application state"
+              >
+                Reset all
+              </button>
+              </div>
+              <div className="!mb-[0px] flex align-center">
+                <label className="checkbox-label !mb-[0px] mr-[5px] flex align-center">
+                  <input
+                    type="checkbox"
+                    checked={settingsForm?.overwriteDatabase}
+                    name="overwriteDatabase"
+                    id="overwriteDatabase"
+                    onChange={settingsFormHandler}
+                    className="!mr-0"
+                  />
+                  <span className="text-[14px]">Overwrite</span>
+                </label>
+                <span>
+                  <ReactTooltip anchorSelect="#overwrite-checkbox" place="top">
+                    Reset all company level intel
+                  </ReactTooltip>
+                  <svg id="overwrite-checkbox" width="14px" height="14px" viewBox="0 0 24 24" fill="#555555" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 17.75C12.4142 17.75 12.75 17.4142 12.75 17V11C12.75 10.5858 12.4142 10.25 12 10.25C11.5858 10.25 11.25 10.5858 11.25 11V17C11.25 17.4142 11.5858 17.75 12 17.75Z" fill="#1C274C"/>
+                    <path d="M12 7C12.5523 7 13 7.44772 13 8C13 8.55228 12.5523 9 12 9C11.4477 9 11 8.55228 11 8C11 7.44772 11.4477 7 12 7Z" fill="#1C274C"/>
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M1.25 12C1.25 6.06294 6.06294 1.25 12 1.25C17.9371 1.25 22.75 6.06294 22.75 12C22.75 17.9371 17.9371 22.75 12 22.75C6.06294 22.75 1.25 17.9371 1.25 12ZM12 2.75C6.89137 2.75 2.75 6.89137 2.75 12C2.75 17.1086 6.89137 21.25 12 21.25C17.1086 21.25 21.25 17.1086 21.25 12C21.25 6.89137 17.1086 2.75 12 2.75Z" fill="#1C274C"/>
+                  </svg>
+                </span>
+              </div>
+              
+            </div>
             <div className="d-flex flex-col-1200 mb-10-991 mt-10-991">
               <div className="d-flex flex-col-768 mt-10-1200">
                 {/* Add the Excel export link */}
@@ -1586,8 +1595,8 @@ const Output: React.FC<OutputInterface> = ({
           </div>
           {tab2 === "Output" && (
             <>
-              <div className="form-group">
-                <div className="d-flex mb-10 align-items-center">
+              <div className="form-group mb-0">
+                {/* <div className="d-flex mb-10 align-items-center">
                   {userRole === "ADMIN" && (
                     <button
                       className="button clear-button small d-flex align-center"
@@ -1596,10 +1605,10 @@ const Output: React.FC<OutputInterface> = ({
                       <span>Clear output</span>
                     </button>
                   )}
-                </div>
+                </div> */}
 
                 {/* THIS MESSAGE MOVED HERE, ABOVE OUTPUT */}
-                {isPaused && !isResetEnabled && (
+                {isStopRequested && !isResetEnabled && (
                   <div
                     style={{
                       color: "red",
@@ -1614,7 +1623,7 @@ const Output: React.FC<OutputInterface> = ({
 
                 <span className="pos-relative">
                   <pre
-                    className="w-full p-3 border border-gray-300 rounded-lg overflow-y-auto height-50"
+                    className="w-full p-3 py-[5px] border border-gray-300 rounded-lg overflow-y-auto h-[45px] min-h-[45px] break-words whitespace-pre-wrap text-[13px]"
                     dangerouslySetInnerHTML={{
                       __html: formatOutput(outputForm.generatedContent),
                     }}
@@ -1637,7 +1646,7 @@ const Output: React.FC<OutputInterface> = ({
                     className="full-view-icon d-flex align-center justify-center"
                     onClick={() => handleModalOpen("modal-output-1")}
                   >
-                    <svg width="40px" height="40px" viewBox="0 0 512 512">
+                    <svg width="30px" height="30px" viewBox="0 0 512 512">
                       <polyline
                         points="304 96 416 96 416 208"
                         fill="none"
@@ -1669,159 +1678,27 @@ const Output: React.FC<OutputInterface> = ({
                   </button>
                 </span>
               </div>
-              <div className="form-group">
-                <div className="d-flex mb-10 align-items-center justify-between flex-col-991">
-                  <div className="d-flex"></div>
-
-                  <div className="d-flex">
-                    <div className="d-flex ml-10 output-responsive-button-group justify-center-991 col-12-991 flex-col-640">
-                      <button
-                        className={`button pad-10 d-flex align-center align-self-center output-email-width-button-mobile justify-center
-                        ${outputEmailWidth === "Mobile" && "bg-active"}
-                        `}
-                        onClick={() => toggleOutputEmailWidth("Mobile")}
-                      >
-                        <svg
-                          fill="#000000"
-                          data-name="Layer 1"
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 120 120"
-                          style={{ width: "20px" }}
-                        >
-                          <path d="M85.81 120H34.19a8.39 8.39 0 0 1-8.38-8.39V8.39A8.39 8.39 0 0 1 34.19 0h51.62a8.39 8.39 0 0 1 8.38 8.39v103.22a8.39 8.39 0 0 1-8.38 8.39zM34.19 3.87a4.52 4.52 0 0 0-4.51 4.52v103.22a4.52 4.52 0 0 0 4.51 4.52h51.62a4.52 4.52 0 0 0 4.51-4.52V8.39a4.52 4.52 0 0 0-4.51-4.52z" />
-                          <path d="M73.7 10.32H46.3L39.28 3.3 42.01.57l5.89 5.88h24.2L77.99.57l2.73 2.73-7.02 7.02zM47.1 103.23h25.81v3.87H47.1z" />
-                        </svg>
-                        {/* <span className="ml-3 font-size-medium">Mobile View</span> */}
-                      </button>
-                      <button
-                        className={`button pad-10 ml-5 d-flex align-center align-self-center output-email-width-button-tab justify-center
-                        ${outputEmailWidth === "Tab" && "bg-active"}
-                        `}
-                        onClick={() => toggleOutputEmailWidth("Tab")}
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          xmlnsXlink="http://www.w3.org/1999/xlink"
-                          fill="#000000"
-                          version="1.1"
-                          id="Capa_1"
-                          width="20px"
-                          height="20px"
-                          viewBox="0 0 54.355 54.355"
-                          xmlSpace="preserve"
-                        >
-                          <g>
-                            <g>
-                              <path d="M8.511,54.355h37.333c1.379,0,2.5-1.121,2.5-2.5V2.5c0-1.378-1.121-2.5-2.5-2.5H8.511c-1.379,0-2.5,1.122-2.5,2.5v49.354    C6.011,53.234,7.133,54.355,8.511,54.355z M9.011,3h36.333v48.354H9.011V3z" />
-                              <path d="M40.928,6.678h-27.5c-0.827,0-1.5,0.673-1.5,1.5v34.25c0,0.827,0.673,1.5,1.5,1.5h27.5c0.827,0,1.5-0.673,1.5-1.5V8.178    C42.428,7.351,41.755,6.678,40.928,6.678z M41.428,42.428c0,0.275-0.224,0.5-0.5,0.5h-27.5c-0.276,0-0.5-0.225-0.5-0.5V8.178    c0-0.276,0.224-0.5,0.5-0.5h27.5c0.276,0,0.5,0.224,0.5,0.5V42.428z" />
-                              <path d="M27.178,45.013c-1.378,0-2.499,1.121-2.499,2.499s1.121,2.499,2.499,2.499c1.377,0,2.498-1.121,2.498-2.499    S28.556,45.013,27.178,45.013z M27.178,49.01c-0.827,0-1.499-0.672-1.499-1.499s0.672-1.499,1.499-1.499    c0.826,0,1.498,0.672,1.498,1.499S28.005,49.01,27.178,49.01z" />
-                            </g>
-                          </g>
-                        </svg>
-                        {/* <span className="ml-3 font-size-medium">Tab View</span> */}
-                      </button>
-                      <button
-                        className={`button pad-10 ml-5 d-flex align-center align-self-center output-email-width-button-desktop justify-center
-                        ${outputEmailWidth === "" && "bg-active"}
-                        `}
-                        onClick={() => toggleOutputEmailWidth("")}
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="#000000"
-                          width="20"
-                          height="20"
-                          viewBox="0 -3 32 32"
-                          preserveAspectRatio="xMidYMid"
-                        >
-                          <path d="M30.000,21.000 L17.000,21.000 L17.000,24.000 L22.047,24.000 C22.600,24.000 23.047,24.448 23.047,25.000 C23.047,25.552 22.600,26.000 22.047,26.000 L10.047,26.000 C9.494,26.000 9.047,25.552 9.047,25.000 C9.047,24.448 9.494,24.000 10.047,24.000 L15.000,24.000 L15.000,21.000 L2.000,21.000 C0.898,21.000 0.000,20.103 0.000,19.000 L0.000,2.000 C0.000,0.897 0.898,0.000 2.000,0.000 L30.000,0.000 C31.103,0.000 32.000,0.897 32.000,2.000 L32.000,19.000 C32.000,20.103 31.103,21.000 30.000,21.000 ZM2.000,2.000 L2.000,19.000 L29.997,19.000 L30.000,2.000 L2.000,2.000 Z" />
-                        </svg>
-                        {/* <span className="ml-5 font-size-medium">Desktop</span> */}
-                      </button>
-                    </div>
-
-                    {/* Your existing Generated/Existing indicator */}
-                    {combinedResponses[currentIndex]?.generated ? (
-                      <span
-                        className="generated-indicator d-flex align-center"
-                        title="Generated Content"
-                      >
-                        Generated
-                      </span>
-                    ) : (
-                      combinedResponses[currentIndex] && (
-                        <span
-                          className="existing-indicator d-flex align-center ml-10"
-                          title="Existing Content"
-                        >
-                          Existing
-                        </span>
-                      )
-                    )}
-                  </div>
-                </div>
-                <div className="d-flex mb-10">
-                  <div className="text-center mt-2 d-flex align-center mr-20 mt-10-991 font-size-medium">
-                    {combinedResponses.length > 0 && (
-                      <>
-                        <span>
-                          Contact {currentIndex + 1} of{" "}
-                          {
-                            // Get total contacts from the selected view or all views
-                            selectedZohoviewId
-                              ? (() => {
-                                  const selectedView = zohoClient.find(
-                                    (client) =>
-                                      client.zohoviewId === selectedZohoviewId
-                                  );
-                                  return selectedView
-                                    ? selectedView.totalContact
-                                    : combinedResponses.length;
-                                })()
-                              : zohoClient.reduce(
-                                  (sum, client) => sum + client.totalContact,
-                                  0
-                                )
-                          }{" "}
-                          ({combinedResponses.length} loaded)
-                        </span>
-                        <span style={{ whiteSpace: "pre" }}> </span>
-                        <span style={{ whiteSpace: "pre" }}> </span>
-
-                        {/* Input box to enter index */}
-                        <input
-                          type="number"
-                          value={inputValue}
-                          onChange={handleIndexChange}
-                          onBlur={() => {
-                            // When input loses focus, ensure it shows a valid value
-                            if (
-                              inputValue.trim() === "" ||
-                              isNaN(parseInt(inputValue, 10))
-                            ) {
-                              setInputValue((currentIndex + 1).toString());
-                            }
-                          }}
-                          className="form-control text-center mx-2"
-                          style={{ width: "70px", padding: "8px" }}
-                        />
-                      </>
-                    )}
-                  </div>
+              <div className="form-group mb-0">
+                <div className="d-flex justify-between w-full">
                   <div
                     className="contact-info lh-35 align-center d-inline-block word-wrap--break-word word-break--break-all"
-                    style={{ color: "red" }}
+                    style={{ color: "#3f9f42" }}
                   >
-                    <strong style={{ whiteSpace: "pre" }}>Contact: </strong>
+                    {/* <strong style={{ whiteSpace: "pre" }}>Contact: </strong> */}
+                    {/* <span style={{ whiteSpace: "pre" }}> </span> */}
+                    {combinedResponses[currentIndex]?.name || "NA"},
                     <span style={{ whiteSpace: "pre" }}> </span>
-                    {combinedResponses[currentIndex]?.name || "NA"} |
+                    {combinedResponses[currentIndex]?.title || "NA"} at
                     <span style={{ whiteSpace: "pre" }}> </span>
-                    {combinedResponses[currentIndex]?.title || "NA"} |
+                    {combinedResponses[currentIndex]?.company || "NA"} in 
                     <span style={{ whiteSpace: "pre" }}> </span>
-                    {combinedResponses[currentIndex]?.company || "NA"} |
+                    {combinedResponses[currentIndex]?.location || "NA"}
                     <span style={{ whiteSpace: "pre" }}> </span>
-                    {combinedResponses[currentIndex]?.location || "NA"} |
-                    <span style={{ whiteSpace: "pre" }}> </span>
+                    {/* <span className="inline-block relative top-[6px] mr-[3px]">
+                      <svg width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M14 7H16C18.7614 7 21 9.23858 21 12C21 14.7614 18.7614 17 16 17H14M10 7H8C5.23858 7 3 9.23858 3 12C3 14.7614 5.23858 17 8 17H10M8 12H16" stroke="#3f9f42" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </span> */}
                     <a
                       href={
                         combinedResponses[currentIndex]?.website &&
@@ -1834,10 +1711,14 @@ const Output: React.FC<OutputInterface> = ({
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      {combinedResponses[currentIndex]?.website || "NA"}
+                      <span className="inline-block relative top-[8px] mr-[3px]">
+                        <svg width="26px" height="26px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path fill-rule="evenodd" clip-rule="evenodd" d="M9.83824 18.4467C10.0103 18.7692 10.1826 19.0598 10.3473 19.3173C8.59745 18.9238 7.07906 17.9187 6.02838 16.5383C6.72181 16.1478 7.60995 15.743 8.67766 15.4468C8.98112 16.637 9.40924 17.6423 9.83824 18.4467ZM11.1618 17.7408C10.7891 17.0421 10.4156 16.1695 10.1465 15.1356C10.7258 15.0496 11.3442 15 12.0001 15C12.6559 15 13.2743 15.0496 13.8535 15.1355C13.5844 16.1695 13.2109 17.0421 12.8382 17.7408C12.5394 18.3011 12.2417 18.7484 12 19.0757C11.7583 18.7484 11.4606 18.3011 11.1618 17.7408ZM9.75 12C9.75 12.5841 9.7893 13.1385 9.8586 13.6619C10.5269 13.5594 11.2414 13.5 12.0001 13.5C12.7587 13.5 13.4732 13.5593 14.1414 13.6619C14.2107 13.1384 14.25 12.5841 14.25 12C14.25 11.4159 14.2107 10.8616 14.1414 10.3381C13.4732 10.4406 12.7587 10.5 12.0001 10.5C11.2414 10.5 10.5269 10.4406 9.8586 10.3381C9.7893 10.8615 9.75 11.4159 9.75 12ZM8.38688 10.0288C8.29977 10.6478 8.25 11.3054 8.25 12C8.25 12.6946 8.29977 13.3522 8.38688 13.9712C7.11338 14.3131 6.05882 14.7952 5.24324 15.2591C4.76698 14.2736 4.5 13.168 4.5 12C4.5 10.832 4.76698 9.72644 5.24323 8.74088C6.05872 9.20472 7.1133 9.68686 8.38688 10.0288ZM10.1465 8.86445C10.7258 8.95042 11.3442 9 12.0001 9C12.6559 9 13.2743 8.95043 13.8535 8.86447C13.5844 7.83055 13.2109 6.95793 12.8382 6.2592C12.5394 5.69894 12.2417 5.25156 12 4.92432C11.7583 5.25156 11.4606 5.69894 11.1618 6.25918C10.7891 6.95791 10.4156 7.83053 10.1465 8.86445ZM15.6131 10.0289C15.7002 10.6479 15.75 11.3055 15.75 12C15.75 12.6946 15.7002 13.3521 15.6131 13.9711C16.8866 14.3131 17.9412 14.7952 18.7568 15.2591C19.233 14.2735 19.5 13.1679 19.5 12C19.5 10.8321 19.233 9.72647 18.7568 8.74093C17.9413 9.20477 16.8867 9.6869 15.6131 10.0289ZM17.9716 7.46178C17.2781 7.85231 16.39 8.25705 15.3224 8.55328C15.0189 7.36304 14.5908 6.35769 14.1618 5.55332C13.9897 5.23077 13.8174 4.94025 13.6527 4.6827C15.4026 5.07623 16.921 6.08136 17.9716 7.46178ZM8.67765 8.55325C7.61001 8.25701 6.7219 7.85227 6.02839 7.46173C7.07906 6.08134 8.59745 5.07623 10.3472 4.6827C10.1826 4.94025 10.0103 5.23076 9.83823 5.5533C9.40924 6.35767 8.98112 7.36301 8.67765 8.55325ZM15.3224 15.4467C15.0189 16.637 14.5908 17.6423 14.1618 18.4467C13.9897 18.7692 13.8174 19.0598 13.6527 19.3173C15.4026 18.9238 16.921 17.9186 17.9717 16.5382C17.2782 16.1477 16.3901 15.743 15.3224 15.4467ZM12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21Z" fill="#3f9f42"/>
+                        </svg>
+                      </span>
+                      {/* {combinedResponses[currentIndex]?.website || "NA"} */}
                     </a>
-                    <span style={{ whiteSpace: "pre" }}> </span>|
-                    <span style={{ whiteSpace: "pre" }}> </span>
+                    {/* <span style={{ whiteSpace: "pre" }}> </span>| */}
                     <ReactTooltip anchorSelect="#li-icon-tooltip" place="top">
                       Open this contact in LinkedIn
                     </ReactTooltip>
@@ -1847,7 +1728,7 @@ const Output: React.FC<OutputInterface> = ({
                       rel="noopener noreferrer"
                       style={{
                         verticalAlign: "middle",
-                        height: "27px",
+                        height: "25px",
                         display: "inline-block",
                       }}
                       id="li-icon-tooltip"
@@ -1897,7 +1778,7 @@ const Output: React.FC<OutputInterface> = ({
                       className="ml-5"
                       style={{
                         verticalAlign: "middle",
-                        height: "31px",
+                        height: "33px",
                         display: "inline-block",
                       }}
                       id="email-icon-tooltip"
@@ -1917,17 +1798,104 @@ const Output: React.FC<OutputInterface> = ({
                       </svg>
                     </a>
                   </div>
+                  <div className="d-flex mb-10 align-items-center justify-between flex-col-991">
+                    <div className="d-flex">
+                      <div className="d-flex ml-10 output-responsive-button-group justify-center-991 col-12-991 flex-col-640">
+                        <button
+                          className={`button pad-10 d-flex align-center align-self-center output-email-width-button-mobile justify-center
+                              ${outputEmailWidth === "Mobile" && "bg-active"}
+                              `}
+                          onClick={() => toggleOutputEmailWidth("Mobile")}
+                        >
+                          <svg
+                            fill="#000000"
+                            data-name="Layer 1"
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 120 120"
+                            style={{ width: "20px" }}
+                          >
+                            <path d="M85.81 120H34.19a8.39 8.39 0 0 1-8.38-8.39V8.39A8.39 8.39 0 0 1 34.19 0h51.62a8.39 8.39 0 0 1 8.38 8.39v103.22a8.39 8.39 0 0 1-8.38 8.39zM34.19 3.87a4.52 4.52 0 0 0-4.51 4.52v103.22a4.52 4.52 0 0 0 4.51 4.52h51.62a4.52 4.52 0 0 0 4.51-4.52V8.39a4.52 4.52 0 0 0-4.51-4.52z" />
+                            <path d="M73.7 10.32H46.3L39.28 3.3 42.01.57l5.89 5.88h24.2L77.99.57l2.73 2.73-7.02 7.02zM47.1 103.23h25.81v3.87H47.1z" />
+                          </svg>
+                          {/* <span className="ml-3 font-size-medium">Mobile View</span> */}
+                        </button>
+                        <button
+                          className={`button pad-10 ml-5 d-flex align-center align-self-center output-email-width-button-tab justify-center
+                              ${outputEmailWidth === "Tab" && "bg-active"}
+                              `}
+                          onClick={() => toggleOutputEmailWidth("Tab")}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            xmlnsXlink="http://www.w3.org/1999/xlink"
+                            fill="#000000"
+                            version="1.1"
+                            id="Capa_1"
+                            width="20px"
+                            height="20px"
+                            viewBox="0 0 54.355 54.355"
+                            xmlSpace="preserve"
+                          >
+                            <g>
+                              <g>
+                                <path d="M8.511,54.355h37.333c1.379,0,2.5-1.121,2.5-2.5V2.5c0-1.378-1.121-2.5-2.5-2.5H8.511c-1.379,0-2.5,1.122-2.5,2.5v49.354    C6.011,53.234,7.133,54.355,8.511,54.355z M9.011,3h36.333v48.354H9.011V3z" />
+                                <path d="M40.928,6.678h-27.5c-0.827,0-1.5,0.673-1.5,1.5v34.25c0,0.827,0.673,1.5,1.5,1.5h27.5c0.827,0,1.5-0.673,1.5-1.5V8.178    C42.428,7.351,41.755,6.678,40.928,6.678z M41.428,42.428c0,0.275-0.224,0.5-0.5,0.5h-27.5c-0.276,0-0.5-0.225-0.5-0.5V8.178    c0-0.276,0.224-0.5,0.5-0.5h27.5c0.276,0,0.5,0.224,0.5,0.5V42.428z" />
+                                <path d="M27.178,45.013c-1.378,0-2.499,1.121-2.499,2.499s1.121,2.499,2.499,2.499c1.377,0,2.498-1.121,2.498-2.499    S28.556,45.013,27.178,45.013z M27.178,49.01c-0.827,0-1.499-0.672-1.499-1.499s0.672-1.499,1.499-1.499    c0.826,0,1.498,0.672,1.498,1.499S28.005,49.01,27.178,49.01z" />
+                              </g>
+                            </g>
+                          </svg>
+                          {/* <span className="ml-3 font-size-medium">Tab View</span> */}
+                        </button>
+                        <button
+                          className={`button pad-10 ml-5 d-flex align-center align-self-center output-email-width-button-desktop justify-center
+                              ${outputEmailWidth === "" && "bg-active"}
+                              `}
+                          onClick={() => toggleOutputEmailWidth("")}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="#000000"
+                            width="20"
+                            height="20"
+                            viewBox="0 -3 32 32"
+                            preserveAspectRatio="xMidYMid"
+                          >
+                            <path d="M30.000,21.000 L17.000,21.000 L17.000,24.000 L22.047,24.000 C22.600,24.000 23.047,24.448 23.047,25.000 C23.047,25.552 22.600,26.000 22.047,26.000 L10.047,26.000 C9.494,26.000 9.047,25.552 9.047,25.000 C9.047,24.448 9.494,24.000 10.047,24.000 L15.000,24.000 L15.000,21.000 L2.000,21.000 C0.898,21.000 0.000,20.103 0.000,19.000 L0.000,2.000 C0.000,0.897 0.898,0.000 2.000,0.000 L30.000,0.000 C31.103,0.000 32.000,0.897 32.000,2.000 L32.000,19.000 C32.000,20.103 31.103,21.000 30.000,21.000 ZM2.000,2.000 L2.000,19.000 L29.997,19.000 L30.000,2.000 L2.000,2.000 Z" />
+                          </svg>
+                          {/* <span className="ml-5 font-size-medium">Desktop</span> */}
+                        </button>
+                      </div>
+
+                      {/* Your existing Generated/Existing indicator */}
+                      {/* {combinedResponses[currentIndex]?.generated ? (
+                            <span
+                              className="generated-indicator d-flex align-center"
+                              title="Generated Content"
+                            >
+                              Generated
+                            </span>
+                          ) : (
+                            combinedResponses[currentIndex] && (
+                              <span
+                                className="existing-indicator d-flex align-center ml-10"
+                                title="Existing Content"
+                              >
+                                Existing
+                              </span>
+                            )
+                          )} */}
+                    </div>
+                  </div>
                 </div>
                 <div className="form-group" style={{ marginBottom: "20px" }}>
                   <div
                     style={{
                       display: "flex",
-                      gap: "15px",
-                      alignItems: "center", // changed from flex-start to center
+                      alignItems: "start", // changed from flex-start to center
                     }}
                   >
                     {/* Subject field - 48% width */}
-                    <div style={{ flex: "0 0 40%" }}>
+                    <div style={{ flex: "0 0 50%", paddingRight: "15px" }}>
                       <label
                         style={{
                           display: "block",
@@ -1943,11 +1911,11 @@ const Output: React.FC<OutputInterface> = ({
                         style={{
                           minHeight: "30px",
                           maxHeight: "120px",
-                          padding: "10px",
+                          padding: "8px",
                           border: "1px solid #ccc",
                           borderRadius: "4px",
                           fontFamily: "inherit",
-                          fontSize: "inherit",
+                          fontSize: "14px",
                           backgroundColor: "#f9f9f9",
                           overflowY: "auto",
                           width: "100%",
@@ -1961,7 +1929,7 @@ const Output: React.FC<OutputInterface> = ({
                     </div>
 
                     {/* BCC field - 20% width */}
-                    <div style={{ flex: "0 0 15%" }}>
+                    <div style={{ flex: "0 0 15%", paddingRight: "15px" }}>
                       <label
                         style={{
                           display: "block",
@@ -2048,7 +2016,7 @@ const Output: React.FC<OutputInterface> = ({
                     </div>
 
                     {/* From Email field - 20% width */}
-                    <div style={{ flex: "0 0 15%" }}>
+                    <div style={{ flex: "0 0 15%", paddingRight: "15px" }}>
                       <label
                         style={{
                           display: "block",
@@ -2099,7 +2067,7 @@ const Output: React.FC<OutputInterface> = ({
                       <button
                         id="output-send-email-btn"
                         type="button"
-                        className="button save-button x-small d-flex align-center align-self-center ml-10 my-5-640 mr-10"
+                        className="button save-button x-small d-flex align-center align-self-center my-5-640 mr-[5px]"
                         onClick={async () => {
                           if (!combinedResponses[currentIndex]) {
                             toast.error("No contact selected");
@@ -2136,13 +2104,23 @@ const Output: React.FC<OutputInterface> = ({
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          marginTop: "25px",
+                          marginTop: "30px",
                         }}
                       >
                         {!sendingEmail && emailMessage === "" && "Send"}
                         {sendingEmail && "Sending..."}
                         {!sendingEmail && emailMessage && "Sent"}
                       </button>
+                      <span className="relative top-[15px]">
+                          <svg id="send-email-info" width="14px" height="14px" viewBox="0 0 24 24" fill="#555555" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M12 17.75C12.4142 17.75 12.75 17.4142 12.75 17V11C12.75 10.5858 12.4142 10.25 12 10.25C11.5858 10.25 11.25 10.5858 11.25 11V17C11.25 17.4142 11.5858 17.75 12 17.75Z" fill="#1C274C"/>
+                          <path d="M12 7C12.5523 7 13 7.44772 13 8C13 8.55228 12.5523 9 12 9C11.4477 9 11 8.55228 11 8C11 7.44772 11.4477 7 12 7Z" fill="#1C274C"/>
+                          <path fill-rule="evenodd" clip-rule="evenodd" d="M1.25 12C1.25 6.06294 6.06294 1.25 12 1.25C17.9371 1.25 22.75 6.06294 22.75 12C22.75 17.9371 17.9371 22.75 12 22.75C6.06294 22.75 1.25 17.9371 1.25 12ZM12 2.75C6.89137 2.75 2.75 6.89137 2.75 12C2.75 17.1086 6.89137 21.25 12 21.25C17.1086 21.25 21.25 17.1086 21.25 12C21.25 6.89137 17.1086 2.75 12 2.75Z" fill="#1C274C"/>
+                        </svg>
+                      </span>
+                      <ReactTooltip anchorSelect="#send-email-info" place="top">
+                        Send this email
+                      </ReactTooltip>
                     </div>
                     {/* Email Sent Date - remaining width */}
                     <div
@@ -2152,7 +2130,6 @@ const Output: React.FC<OutputInterface> = ({
                         flexDirection: "column",
                         alignItems: "flex-start",
                         justifyContent: "center",
-                        paddingTop: "25px",
                         marginLeft: "0px", // keeps alignment similar to your existing pitch date
                       }}
                     >
@@ -2165,7 +2142,7 @@ const Output: React.FC<OutputInterface> = ({
                         }}
                       >
                         {combinedResponses[currentIndex]?.lastemailupdateddate
-                          ? `Pitch generated: ${formatLocalDateTime(
+                          ? `Krafted: ${formatLocalDateTime(
                               combinedResponses[currentIndex]
                                 ?.lastemailupdateddate
                             )}`
@@ -2182,7 +2159,7 @@ const Output: React.FC<OutputInterface> = ({
                         }}
                       >
                         {combinedResponses[currentIndex]?.emailsentdate
-                          ? `Email sent: ${formatLocalDateTime(
+                          ? `Emailed: ${formatLocalDateTime(
                               combinedResponses[currentIndex]?.emailsentdate
                             )}`
                           : ""}
@@ -2465,8 +2442,8 @@ const Output: React.FC<OutputInterface> = ({
                           >
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
-                              width="22px"
-                              height="22px"
+                              width="28px"
+                              height="28px"
                               viewBox="0 0 24 24"
                               fill="none"
                             >
@@ -2527,12 +2504,12 @@ const Output: React.FC<OutputInterface> = ({
                                 !isResetEnabled ||
                                 isRegenerating
                               }
-                              className="ml-5 button square-40  justify-center"
+                              className="button square-40  !bg-transparent justify-center !disabled:bg-transparent"
                               style={{
                                 display: "flex",
                                 alignItems: "center",
-                                backgroundColor: "#f0f0f0",
                                 borderRadius: "4px",
+                                background:'none !important',
                                 cursor:
                                   combinedResponses[currentIndex] &&
                                   !isRegenerating
@@ -2547,8 +2524,8 @@ const Output: React.FC<OutputInterface> = ({
                             >
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
-                                width="15px"
-                                height="15px"
+                                width="20px"
+                                height="20px"
                                 viewBox="0 0 16 16"
                                 fill="none"
                               >
@@ -2569,7 +2546,7 @@ const Output: React.FC<OutputInterface> = ({
                           </ReactTooltip>
                           <button
                             id="copy-to-clipboard-tooltip"
-                            className={`button d-flex align-center square-40 ml-5 justify-center ${
+                            className={`button d-flex align-center square-40 justify-center ${
                               isCopyText && "save-button auto-width"
                             }`}
                             onClick={copyToClipboardHandler}
@@ -2577,8 +2554,8 @@ const Output: React.FC<OutputInterface> = ({
                             {isCopyText ? (
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
-                                width="18px"
-                                height="18px"
+                                width="24px"
+                                height="24px"
                                 viewBox="0 0 24 24"
                                 fill="none"
                               >
@@ -2601,8 +2578,8 @@ const Output: React.FC<OutputInterface> = ({
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
                                 fill="#000000"
-                                width="20px"
-                                height="20px"
+                                width="24px"
+                                height="24px"
                                 viewBox="0 0 32 32"
                                 version="1.1"
                               >
@@ -2621,7 +2598,7 @@ const Output: React.FC<OutputInterface> = ({
                         className="full-view-icon d-flex align-center justify-center"
                         onClick={() => handleModalOpen("modal-output-2")}
                       >
-                        <svg width="40px" height="40px" viewBox="0 0 512 512">
+                        <svg width="30px" height="30px" viewBox="0 0 512 512">
                           <polyline
                             points="304 96 416 96 416 208"
                             fill="none"
@@ -2680,149 +2657,76 @@ const Output: React.FC<OutputInterface> = ({
                 />
               )}
 
-              <Modal
-                show={openModals["modal-output-2"]}
-                closeModal={() => {
-                  handleModalClose("modal-output-2");
-                  setIsEditing(false); // Optionally exit edit mode globally
-                }}
-                buttonLabel=""
-              >
-                <form className="full-height">
-                  <h2 className="left">Edit Email Body – Full View</h2>
-
-                  <div className="form-group">
-                    <label>Email Body</label>
-                    <div className="editor-toolbar">
-                      <button
-                        type="button"
-                        onClick={() => document.execCommand("bold")}
-                      >
-                        <strong>B</strong>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => document.execCommand("italic")}
-                      >
-                        <em>I</em>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => document.execCommand("underline")}
-                      >
-                        <u>U</u>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => document.execCommand("strikeThrough")}
-                      >
-                        <s>S</s>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          document.execCommand("insertUnorderedList")
-                        }
-                      >
-                        •
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          document.execCommand("insertOrderedList")
-                        }
-                      >
-                        1.
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const url = prompt("Enter link URL:");
-                          if (url)
-                            document.execCommand("createLink", false, url);
-                        }}
-                      >
-                        🔗
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const url = prompt("Enter image URL:");
-                          if (url)
-                            document.execCommand("insertImage", false, url);
-                        }}
-                      >
-                        🖼️
-                      </button>
-                    </div>
-
-                    {/* Scrollable content area */}
-                    <div
-                      className="full-modal-scroller"
-                      style={{
-                        maxHeight: "60vh", // Adjust height as needed
-                        overflowY: "auto",
-                        overflowX: "hidden",
-                        marginBottom: "20px",
-                        paddingRight: "8px", // for better UX
-                      }}
-                    >
-                      <div
-                        ref={editorRef}
-                        contentEditable={true}
-                        suppressContentEditableWarning={true}
-                        className="textarea-full-height preview-content-area"
-                        dangerouslySetInnerHTML={{
-                          __html: editableContent,
-                        }}
-                        onInput={(e) =>
-                          setEditableContent(e.currentTarget.innerHTML)
-                        }
-                        onBlur={(e) =>
-                          setEditableContent(e.currentTarget.innerHTML)
-                        }
-                        style={{
-                          minHeight: "500px",
-                          padding: "10px",
-                          border: "1px solid #ccc",
-                          borderRadius: "4px",
-                          fontFamily: "inherit",
-                          fontSize: "inherit",
-                          whiteSpace: "normal",
-                          overflowY: "auto",
-                          overflowX: "auto",
-                          boxSizing: "border-box",
-                          wordWrap: "break-word",
-                          width: "100%",
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-group d-flex editor-actions">
-                    <button
-                      type="button"
-                      className="action-button button mr-10"
-                      onClick={() => {
-                        if (editorRef.current) {
-                          setEditableContent(editorRef.current.innerHTML);
-                          saveEditedContent();
-                        }
-                        handleModalClose("modal-output-2");
-                      }}
-                    >
-                      Save Changes
-                    </button>
-                    <button
-                      type="button"
-                      className="secondary button"
-                      onClick={() => handleModalClose("modal-output-2")}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              </Modal>
+<Modal
+  show={openModals["modal-output-2"]}
+  closeModal={() => {
+    handleModalClose("modal-output-2");
+    setIsEditing(false);
+  }}
+  buttonLabel=""
+>
+  <form
+    className="full-height"
+    style={{
+      margin: 0,
+      padding: 0,
+      maxHeight: "85vh",
+      overflow: "auto",
+      minWidth: 0,
+    }}
+  >
+    <div style={{ display: "flex", justifyContent: "space-between" }}>
+      <h2 style={{ margin: 0, padding: "12px 0" }}>Edit Email Body – Full View</h2>
+      <button
+        type="button"
+        style={{
+          border: "none",
+          background: "transparent",
+          fontSize: "1.7rem",
+          cursor: "pointer",
+        }}
+        onClick={() => {
+          handleModalClose("modal-output-2");
+          setIsEditing(false);
+        }}
+        aria-label="Close"
+        title="Close"
+      >×</button>
+    </div>
+    <div>
+      <label>Email Body</label>
+      <div>
+        <div
+          ref={editorRef}
+          contentEditable={true}
+          suppressContentEditableWarning={true}
+          className="textarea-full-height preview-content-area"
+          dangerouslySetInnerHTML={{
+            __html: editableContent,
+          }}
+          onInput={e => setEditableContent(e.currentTarget.innerHTML)}
+          onBlur={e => setEditableContent(e.currentTarget.innerHTML)}
+          style={{
+            minHeight: "340px",
+            height: "auto",
+            maxHeight: "none",
+            overflow: "visible",
+            background: "#fff",
+            width: "100%",
+            padding: "10px",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            fontFamily: "inherit",
+            fontSize: "inherit",
+            whiteSpace: "normal",
+            boxSizing: "border-box",
+            wordWrap: "break-word",
+          }}
+        />
+      </div>
+    </div>
+  </form>
+</Modal>
             </>
           )}
           {tab2 === "Stages" && userRole === "ADMIN" && (

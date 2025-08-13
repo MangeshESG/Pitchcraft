@@ -24,6 +24,9 @@ body {
   margin-left: -15px;
   margin-right: -15px;
 }
+.row.no-margin{
+  margin:0;
+}
 .col {
   flex: 1;
   padding: 0 15px;
@@ -158,6 +161,9 @@ body {
 }
 .mb-0 {
   margin-bottom: 0;
+}
+.mb-0-imp{
+  margin-bottom: 0px  !important;
 }
 .mb-5 {
   margin-bottom: 5px;
@@ -536,7 +542,6 @@ pre span {
 .tabs.secondary {
   box-shadow: none;
   background-color: transparent;
-  border-bottom: 1px solid #dddddd;
   border-radius: 0;
 }
 
@@ -607,10 +612,6 @@ pre span {
 }
 
 .login-box {
-  background: white;
-  padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   width: 100%;
 }
 .user-form {
@@ -679,6 +680,8 @@ pre span {
   color: #222222;
   text-align: center;
   margin: 0 0 20px;
+  font-size: 20px;
+  font-weight: 600;
 }
 .login-box h2.left {
   text-align: left;
@@ -699,23 +702,39 @@ pre span {
   margin-bottom: 0.5rem;
   font-weight: 600;
   font-size: 14px;
+  color: #333333;
 }
 .form-group label.mb-0 {
   margin-bottom: 0;
 }
 
+input[type="checkbox"], input[type="radio"]  {
+    accent-color: #3f9f42; 
+  }
+
 .form-group input,
 .form-group select {
   width: 100%;
-  padding: 0.75rem;
+  padding: 0.5rem 0.75rem;
   border: 1px solid #ddd;
   border-radius: 4px;
   margin: 0;
+  height: 40px;
+  font-size: 14px;
 }
 
 /* .form-group input[type="number"] {
   width: 70px;
 } */
+
+.sub-title {
+  font-size: 16px;
+  margin: 0 0 15px;
+  border-bottom: 1px solid #dddddd;
+  padding: 0 0 10px;
+  font-weight: 600;
+  color:#000000;
+}
 
 .form-group input.height-35 {
   height: 35px;
@@ -1022,6 +1041,7 @@ textarea {
   border: 1px solid #ddd;
   border-radius: 4px;
   resize: none;
+  font-size: 15px;
 }
 
 .footer {
@@ -1190,7 +1210,6 @@ textarea {
 } */
 
 .main-head {
-  padding: 10px;
   flex-wrap: wrap;
 }
 
@@ -1711,14 +1730,8 @@ textarea {
 
 /* Side Menu Styles */
 .side-menu {
-  width: 260px;
-  background-color: #f8f9fa;
-  border-right: 1px solid #e0e0e0;
+  width: 250px;
   overflow-y: auto;
-}
-
-.side-menu-inner {
-  padding: 20px 0;
 }
 
 .side-menu-list {
@@ -1727,16 +1740,12 @@ textarea {
   padding: 0;
 }
 
-.side-menu-list li {
-  margin-bottom: 5px;
-}
-
 .side-menu-button {
   width: 100%;
   padding: 12px 20px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
   background: none;
   border: none;
   text-align: left;
@@ -1744,18 +1753,19 @@ textarea {
   transition: all 0.2s ease;
   font-size: 14px;
   color: #333;
+  border-left: 3px solid transparent;
 }
 
 .side-menu-button:hover {
-  background-color: #e8f4f8;
-  color: #0066cc;
+  background-color: #ededed;
+  /* color: #4caf50; */
 }
 
 .side-menu-list li.active .side-menu-button {
-  background-color: #e8f4f8;
-  color: #0066cc;
-  font-weight: 600;
-  border-left: 3px solid #0066cc;
+    background-color: #d0d0d02b;
+    color: #3f9f42;
+    font-weight: 600;
+    border-left: 3px solid #3f9f42;
 }
 
 .menu-icon {
@@ -1764,8 +1774,13 @@ textarea {
   text-align: center;
 }
 
+.side-menu ul li.active .menu-icon svg, .side-menu ul li.active .menu-text{
+    color: #3f9f42;
+}
+
 .menu-text {
   flex: 1;
+  font-size: 1rem;
 }
 
 /* Main Content Area */
@@ -1793,18 +1808,15 @@ textarea {
 }
 
 .primary-button {
+  background-color: #3f9f42;
   padding: 8px 20px;
-  background-color: #0066cc;
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-weight: 500;
+  font-weight: 600;
   transition: background-color 0.2s;
-}
-
-.primary-button:hover:not(:disabled) {
-  background-color: #0052a3;
+  font-size: 15px;
 }
 
 .primary-button:disabled {
@@ -1819,8 +1831,9 @@ textarea {
   border: 1px solid #ddd;
   border-radius: 4px;
   cursor: pointer;
-  font-weight: 500;
+  font-weight: 600;
   transition: all 0.2s;
+  font-size: 15px;
 }
 
 .secondary-button:hover:not(:disabled) {
@@ -1835,10 +1848,7 @@ textarea {
 
 /* Tab Content */
 .tab-content {
-  flex: 1;
-  padding: 20px;
   overflow-y: auto;
-  background-color: #f8f9fa;
     width: 100%; /* Ensure full width */
 
 }
@@ -1853,6 +1863,12 @@ textarea {
 
 .checkbox-label input[type="checkbox"] {
   cursor: pointer;
+    padding: 0 !important;
+    width: auto;
+    height: auto;
+    margin: 0px 5px 0 0;
+    position: relative;
+    top: 1px;
 }
 
 /* Responsive adjustments */
@@ -1945,7 +1961,7 @@ textarea {
 .submenu-arrow {
   position: absolute;
   right: 20px;
-  top: 50%;
+  top: 27px;
   transform: translateY(-50%);
   transition: transform 0.3s ease;
   color: #007bff;
@@ -1963,7 +1979,7 @@ textarea {
   padding: 0;
   margin: 0;
   background-color: #f8f9fa;
-  border-left: 3px solid #007bff;
+  border-left: 3px solid #4CAF50;
   margin-left: 0;
   margin-top: 0;
   overflow: hidden;
@@ -1989,7 +2005,7 @@ textarea {
   text-align: left;
   cursor: pointer;
   font-size: 14px;
-  color: #6c757d;
+  color: #333333;
   transition: all 0.2s ease;
   font-weight: 400;
 }
@@ -2002,28 +2018,17 @@ textarea {
 
 /* Active state for submenu buttons */
 .submenu li.active .submenu-button {
-  background-color: #e7f3ff;
-  color: #007bff;
+  background-color: #e4f5e5;
+  color: #4caf50;
   font-weight: 500;
   position: relative;
 }
 
-/* Active indicator line */
-.submenu li.active .submenu-button::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background-color: #007bff;
-}
-
 /* Ensure Mail button stays highlighted when submenu is open */
-.side-menu-list li.has-submenu.submenu-open > .side-menu-button,
+.side-menu-list li.has-submenu.submenu-open > .side-menu-button,.submenu-arrow
 .side-menu-list li.has-submenu.active > .side-menu-button {
-  background-color: #f0f4f8;
-  color: #007bff;
+  background-color: #ededed;
+  color: #4caf50;
 }
 
 /* Smooth animation for submenu */
@@ -2049,6 +2054,7 @@ textarea {
   left: 30px;
   color: #6c757d;
   font-size: 8px;
+  display: none;
 }
 
 .submenu li.active .submenu-button::before {

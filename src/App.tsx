@@ -8,6 +8,8 @@ import { Provider } from "react-redux";
 import { PersistGate } from "redux-persist/integration/react";
 import store, { persistor } from "./Redux/store";
 import ProtectedRoute from "./ProtectedRoute";
+import { AppDataProvider } from './contexts/AppDataContext';
+
 const UserComp = lazy(() => import("./components/User") as any);
 
 const App: React.FC = () => {
@@ -35,32 +37,34 @@ const App: React.FC = () => {
   return (
     <Provider store={store}>
       <PersistGate loading={null} persistor={persistor}>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<LoginPage />} />
+        <AppDataProvider> {/* Add this line */}
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<LoginPage />} />
 
-            <Route element={<ProtectedRoute />}>
-              <Route path="/main" element={<MainPage />} />
-              <Route
-                path="/user"
-                element={
-                  <Suspense
-                    fallback={
-                      <h4 className="d-flex align-center justify-center">
-                        Loading...
-                      </h4>
-                    }
-                  >
-                    <UserComp />
-                  </Suspense>
-                }
-              />
-              <Route path="/amend-prompt/:id" element={<AmendPrompt />} />
-            </Route>
-            <Route path="*" element={<Navigate to="/" replace />} />
+              <Route element={<ProtectedRoute />}>
+                <Route path="/main" element={<MainPage />} />
+                <Route
+                  path="/user"
+                  element={
+                    <Suspense
+                      fallback={
+                        <h4 className="d-flex align-center justify-center">
+                          Loading...
+                        </h4>
+                      }
+                    >
+                      <UserComp />
+                    </Suspense>
+                  }
+                />
+                <Route path="/amend-prompt/:id" element={<AmendPrompt />} />
+              </Route>
+              <Route path="*" element={<Navigate to="/" replace />} />
 
-          </Routes>
-        </BrowserRouter>
+            </Routes>
+          </BrowserRouter>
+        </AppDataProvider> {/* Add this line */}
       </PersistGate>
     </Provider>
   );

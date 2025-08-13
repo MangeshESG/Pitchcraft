@@ -1,35 +1,35 @@
 import React, { useRef, useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import {
+  faAngleRight,
+  faBars,
+  faBullhorn,
+  faEnvelopeOpen,
+  faGear,
+  faList,
+} from "@fortawesome/free-solid-svg-icons";
+import { faEnvelope, faFileAlt } from "@fortawesome/free-regular-svg-icons";
 import "./MainPage.css";
 import Modal from "./common/Modal";
-import Tabs from "./common/Tabs";
-import { getPrompts, createPrompts, deletePrompt } from "../api/axios";
 import { useSelector } from "react-redux";
 import ReactQuill from "react-quill-new";
 import { Tooltip as ReactTooltip } from "react-tooltip";
 import Mail from "./feature/Mail";
 import "react-quill-new/dist/quill.snow.css";
 import { RootState } from "../Redux/store";
-import {
-  copyToClipboard,
-  generateSystemPrompt,
-  sortByAscending,
-} from "../utils/utils";
 import { systemPrompt, Languages } from "../utils/label";
 import Output from "./feature/Output";
 import Settings from "./feature/Settings";
 import DataFile from "./feature/datafile";
 import axios from "axios";
 import Header from "./common/Header";
-import * as FileSaver from "file-saver";
-import * as XLSX from "xlsx";
 import API_BASE_URL from "../config";
 import { useDispatch } from "react-redux";
 import { useModel } from "../ModelContext";
-import { fetchClientSettings } from "../slices/clientSettingsSlice"; // adjust path if needed
 import { AppDispatch } from "../Redux/store"; // ✅ import AppDispatch
-import DataCampaigns from "./feature/DataCampaigns"; // Adjust the path based on your file structure
+import DataCampaigns from "./feature/ContactList"; // Adjust the path based on your file structure
 import CampaignManagement from "./feature/CampaignManagement";
+import { useAppData } from "../contexts/AppDataContext";
 
 
 interface Prompt {
@@ -40,6 +40,8 @@ interface Prompt {
   createdAt?: string;
   template?: string;
 }
+
+
 
 const modules = {
   toolbar: [
@@ -101,8 +103,8 @@ interface OutputInterface {
     currentPrompt: string;
     searchResults: string[];
     allScrapedData: string;
-    onClearContent?: (clearContent: () => void) => void; // Add this line
   };
+  isResetEnabled: boolean;
 
   onRegenerateContact?: (
     tab: string,
@@ -130,7 +132,7 @@ interface OutputInterface {
   setAllResponses: React.Dispatch<React.SetStateAction<any[]>>;
   currentIndex: number;
   setCurrentIndex: React.Dispatch<React.SetStateAction<number>>;
-  onClearOutput: () => void; // Add this line
+  onClearOutput: () => void;
   allprompt: any[];
   setallprompt: React.Dispatch<React.SetStateAction<any[]>>;
   allsearchResults: any[];
@@ -139,12 +141,59 @@ interface OutputInterface {
   seteveryscrapedData: React.Dispatch<React.SetStateAction<any[]>>;
   allSearchTermBodies: string[];
   setallSearchTermBodies: React.Dispatch<React.SetStateAction<string[]>>;
+  onClearContent?: (clearContent: () => void) => void;
   allsummery: any[];
   setallsummery: React.Dispatch<React.SetStateAction<any[]>>;
   existingResponse: any[];
   setexistingResponse: React.Dispatch<React.SetStateAction<any[]>>;
-  handleNextPage: () => Promise<void>;
-  handlePrevPage: () => Promise<void>;
+  currentPage: number;
+  setCurrentPage: React.Dispatch<React.SetStateAction<number>>;
+  prevPageToken: string | null;
+  nextPageToken: string | null;
+  fetchAndDisplayEmailBodies: (
+    zohoviewId: string,
+    pageToken?: string | null,
+    direction?: "next" | "previous" | null
+  ) => Promise<void>;
+  selectedZohoviewId: string;
+  onClearExistingResponse?: (clearFunction: () => void) => void;
+  recentlyAddedOrUpdatedId?: string | number | null;
+  setRecentlyAddedOrUpdatedId?: React.Dispatch<
+    React.SetStateAction<string | number | null>
+  >;
+  selectedClient: string;
+  isStarted?: boolean;
+  handleStart?: (startIndex?: number) => void;
+  handlePauseResume?: () => void;
+  handleReset?: () => void;
+  handleStop?: () => void; // Add this line
+  isPitchUpdateCompleted?: boolean;
+  allRecordsProcessed?: boolean;
+  isDemoAccount?: boolean;
+  settingsForm?: any;
+  settingsFormHandler?: (e: any) => void;
+  delayTime?: string;
+  setDelay?: (value: string) => void;
+  selectedCampaign?: string;
+  isProcessing?: boolean;
+  handleClearAll?: () => void;
+  campaigns?: any[];
+  handleCampaignChange?: (e: any) => void;
+  selectionMode?: string;
+  promptList?: any[];
+  handleSelectChange?: (e: any) => void;
+  userRole?: string; // Make sure this is included
+  dataFiles?: any[];
+  handleZohoModelChange?: (e: any) => void;
+  emailLoading?: boolean;
+  languages?: any[];
+  selectedLanguage?: string;
+  handleLanguageChange?: (e: any) => void;
+  subjectMode?: string;
+  setSubjectMode?: (value: string) => void;
+  subjectText?: string;
+  setSubjectText?: (value: string) => void;
+  selectedPrompt: Prompt | null;
 }
 interface EmailEntry {
   email_subject: string;
@@ -168,6 +217,14 @@ interface SettingsFormType {
 }
 
 const MainPage: React.FC = () => {
+    // Context and hooks
+
+ const appData = useAppData();
+  const triggerRefresh = appData.triggerRefresh;
+  const setClientSettings = appData.setClientSettings;
+  const clientSettings = appData.clientSettings;
+  const refreshTrigger = appData.refreshTrigger;
+
   const [formData, setFormData] = useState({
     Server: "",
     Port: "",
@@ -246,9 +303,20 @@ const MainPage: React.FC = () => {
     browserVersion,
   } = useSelector((state: RootState) => state.auth);
 
-    const [tab, setTab] = useState<string>("Template");
+  //submenu
+  const [tab, setTab] = useState<string>("Template");
   const [mailSubTab, setMailSubTab] = useState<string>("Dashboard");
   const [showMailSubmenu, setShowMailSubmenu] = useState<boolean>(false);
+  const [showContactsSubmenu, setShowContactsSubmenu] = useState(false);
+  const [contactsSubTab, setContactsSubTab] = useState("List");
+
+  const [showDataFileUpload, setShowDataFileUpload] = useState(false);
+
+  const [isLoadingClientSettings, setIsLoadingClientSettings] = useState(false);
+  const clientID = sessionStorage.getItem("clientId");
+  const [lastLoadedClientId, setLastLoadedClientId] = useState<string | null>(null);
+
+
 
   interface DataFile {
     id: number;
@@ -279,6 +347,41 @@ const MainPage: React.FC = () => {
     setLastProcessedIndex(0);
   };
 
+    // Campaign fetching effect
+
+ useEffect(() => {
+    const fetchCampaigns = async () => {
+      if (!selectedClient && !clientID) {
+        setCampaigns([]);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        let url = `${API_BASE_URL}/api/auth/campaigns/client`;
+        if (selectedClient) {
+          url += `/${selectedClient}`;
+        } else if (clientID) {
+          url += `/${clientID}`;
+        }
+
+        const response = await fetch(url);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        setCampaigns(data);
+      } catch (error) {
+        console.error("Error fetching campaigns:", error);
+        setCampaigns([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCampaigns();
+  }, [selectedClient, clientID, refreshTrigger]);
   //Dropdown Of Client
   useEffect(() => {
     const fetchClientData = async () => {
@@ -380,7 +483,6 @@ const MainPage: React.FC = () => {
       : Object.values(Languages)[0]
   );
 
-  const clientID = sessionStorage.getItem("clientId");
   const [zohoClient, setZohoClient] = useState<ZohoClient[]>([]);
 
   const handleLanguageChange = (
@@ -434,19 +536,42 @@ const MainPage: React.FC = () => {
     fetchPromptsList();
   }, [selectedClient, fetchPromptsList]);
 
-  const handleClientChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedClient(event.target.value);
+ const handleClientChange = async (event: React.ChangeEvent<HTMLSelectElement>) => {
+  const newClientId = event.target.value;
+  setSelectedClient(newClientId);
 
-    // Clear existing selections when client changes
-    // Clear existing selections when client changes
-    setSelectedPrompt(null);
-    setSelectedZohoviewId("");
-    setSelectedCampaign("");
-    setSelectionMode("manual");
+  // Clear existing selections when client changes
+  setSelectedPrompt(null);
+  setSelectedZohoviewId("");
+  setSelectedCampaign("");
+  setSelectionMode("manual");
+  setPromptList([]);
 
-    // Clear the prompt list immediately when a new client is selected
-    setPromptList([]);
-  };
+  // Immediately load client settings using YOUR existing function
+  if (newClientId) {
+    setIsLoadingClientSettings(true);
+    try {
+      console.log("Loading settings for client:", newClientId);
+      const settings = await fetchClientSettings(Number(newClientId)); // This uses YOUR function
+      console.log("Settings loaded:", settings);
+      
+      // Store settings in context
+      setClientSettings(settings);
+      
+      // Trigger refresh for all components
+      triggerRefresh();
+    } catch (error) {
+      console.error("Error loading client settings:", error);
+      setClientSettings(null);
+    } finally {
+      setIsLoadingClientSettings(false);
+    }
+  } else {
+    setClientSettings(null);
+    triggerRefresh();
+  }
+};
+
 
   useEffect(() => {
     const isAdminString = sessionStorage.getItem("isAdmin");
@@ -683,7 +808,6 @@ const MainPage: React.FC = () => {
     }
   };
 
-
   const tabHandler = (e: React.MouseEvent<HTMLButtonElement>) => {
     const { innerText } = e.currentTarget;
     setTab(innerText);
@@ -716,85 +840,125 @@ const MainPage: React.FC = () => {
 
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [endTime, setEndTime] = useState<Date | null>(null);
-
-  
+  const [cachedContacts, setCachedContacts] = useState<any[]>([]);
 
   const fetchAndDisplayEmailBodies = useCallback(
-    async (
-      zohoviewId: string, // Format: "clientId,dataFileId"
-      pageToken: string | null = null,
-      direction: "next" | "previous" | null = null
-    ) => {
-      try {
-        setEmailLoading(true);
+  async (
+    zohoviewId: string, // Format: "clientId,dataFileId" OR "segment_segmentId"
+    pageToken: string | null = null,
+    direction: "next" | "previous" | null = null
+  ) => {
+    try {
+      setEmailLoading(true);
 
-        const effectiveUserId =
-          selectedClient !== "" ? Number(selectedClient) : Number(userId);
+      const effectiveUserId =
+        selectedClient !== "" ? Number(selectedClient) : Number(userId);
 
-        if (!effectiveUserId || effectiveUserId <= 0) {
-          console.error("Invalid userId or clientID:", effectiveUserId);
-          return;
+      if (!effectiveUserId || effectiveUserId <= 0) {
+        console.error("Invalid userId or clientID:", effectiveUserId);
+        return;
+      }
+
+      let contactsData = [];
+
+      // ✅ Check if this is a segment-based call
+      if (zohoviewId.startsWith("segment_")) {
+        // Extract segmentId from "segment_123" format
+        const segmentId = zohoviewId.replace("segment_", "");
+        console.log("Fetching segment contacts for segmentId:", segmentId);
+
+        // ✅ Fetch from segment API
+        const url = `${API_BASE_URL}/api/Crm/segment/${segmentId}/contacts`;
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          throw new Error("Failed to fetch segment contacts");
         }
 
+        const fetchedSegmentData = await response.json();
+        contactsData = fetchedSegmentData || [];
+        console.log("Fetched segment contacts:", contactsData);
+
+      } else {
+        // ✅ Original datafile logic (unchanged)
         // Parse zohoviewId to get clientId and dataFileId
         const [clientId, dataFileId] = zohoviewId.split(",");
 
-        // ✅ Use effectiveUserId instead of selectedClient in URL
+        // Use effectiveUserId instead of selectedClient in URL
         const url = `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${dataFileId}`;
-
         const response = await fetch(url);
+        
         if (!response.ok) {
           throw new Error("Failed to fetch email bodies");
         }
 
         const fetchedEmailData = await response.json();
-        const contactsData = fetchedEmailData.contacts || [];
-
-        if (!Array.isArray(contactsData)) {
-          console.error("Invalid data format");
-          return;
-        }
-
-        const emailResponses = contactsData.map((entry: any) => ({
-          id: entry.id,
-          name: entry.full_name || "N/A",
-          title: entry.job_title || "N/A",
-          company: entry.company_name || "N/A",
-          location: entry.country_or_address || "N/A",
-          website: entry.website || "N/A",
-          linkedin: entry.linkedin_url || "N/A",
-          pitch: entry.email_body || "No email body found",
-          timestamp: entry.created_at || new Date().toISOString(),
-          nextPageToken: null,
-          prevPageToken: null,
-          generated: false,
-          subject: entry.email_subject || "N/A",
-          email: entry.email || "N/A",
-          lastemailupdateddate: entry.updated_at || "N/A",
-          emailsentdate: entry.email_sent_at || "N/A",
-        }));
-
-        const newItemsCount = emailResponses.length;
-        const naPlaceholders = new Array(newItemsCount).fill("NA");
-        const emptyArrayPlaceholders = new Array(newItemsCount).fill([]);
-
-        setexistingResponse(emailResponses);
-        setAllResponses(emailResponses);
-        setallprompt(naPlaceholders);
-        setallsearchResults(emptyArrayPlaceholders);
-        seteveryscrapedData(naPlaceholders);
-        setallsummery(naPlaceholders);
-        setallSearchTermBodies(naPlaceholders);
-        setCurrentIndex(0);
-       
-      } catch (error) {
-        console.error("Error fetching email bodies:", error);
-      } finally {
-        setEmailLoading(false);
+        contactsData = fetchedEmailData.contacts || [];
+        console.log("Fetched datafile contacts:", contactsData);
       }
-    },
-    [selectedClient, userId]
-  );
+
+      // ✅ Rest of the function remains exactly the same
+      setCachedContacts(contactsData);
+
+      if (!Array.isArray(contactsData)) {
+        console.error("Invalid data format");
+        return;
+      }
+
+      const emailResponses = contactsData.map((entry: any) => ({
+        id: entry.id,
+        datafileid: entry.dataFileId || "N/A",
+        name: entry.full_name || "N/A",
+        title: entry.job_title || "N/A",
+        company: entry.company_name || "N/A",
+        location: entry.country_or_address || "N/A",
+        website: entry.website || "N/A",
+        linkedin: entry.linkedin_url || "N/A",
+        pitch: entry.email_body || "No email body found",
+        timestamp: entry.created_at || new Date().toISOString(),
+        nextPageToken: null,
+        prevPageToken: null,
+        generated: false,
+        subject: entry.email_subject || "N/A",
+        email: entry.email || "N/A",
+        lastemailupdateddate: entry.updated_at || "N/A",
+        emailsentdate: entry.email_sent_at || "N/A",
+      }));
+
+      const newItemsCount = emailResponses.length;
+      const naPlaceholders = new Array(newItemsCount).fill("NA");
+      const emptyArrayPlaceholders = new Array(newItemsCount).fill([]);
+
+      setexistingResponse(emailResponses);
+      setAllResponses(emailResponses);
+      setallprompt(naPlaceholders);
+      setallsearchResults(emptyArrayPlaceholders);
+      seteveryscrapedData(naPlaceholders);
+      setallsummery(naPlaceholders);
+      setallSearchTermBodies(naPlaceholders);
+
+      // Find first valid contact BEFORE setting index
+      let validIndex = 0;
+      for (let i = 0; i < emailResponses.length; i++) {
+        const contact = emailResponses[i];
+        if (contact.name !== "N/A" && contact.company !== "N/A") {
+          validIndex = i;
+          break;
+        }
+      }
+
+      // Set to the valid index directly
+      setCurrentIndex(validIndex);
+      console.log("Setting current index to:", validIndex);
+    } catch (error) {
+      console.error("Error fetching email bodies:", error);
+    } finally {
+      setEmailLoading(false);
+    }
+  },
+  [selectedClient, userId]
+);
+
 
   const sendEmail = async (
     cost: number,
@@ -914,6 +1078,8 @@ const MainPage: React.FC = () => {
       console.error(`Error sending ${reportType.toLowerCase()}:`, error);
     }
   };
+
+
   var cost = 0;
   var failedReq = 0;
   var successReq = 0;
@@ -977,133 +1143,808 @@ const MainPage: React.FC = () => {
   };
 
   const goToTab = async (
-    tab: string,
-    options?: {
-      regenerate?: boolean;
-      regenerateIndex?: number;
-      nextPageToken?: string | null;
-      prevPageToken?: string | null;
-    }
-  ) => {
-    setTab(tab);
-    // If already processing, show loader and prevent multiple starts
-    if (isProcessing) {
-      return;
-    }
-    // Fetch default values from API
-    const defaultValues = await fetchClientSettings(Number(clientID));
-    // Determine which values to use
-    const selectedModelNameA = selectedModelName || defaultValues.modelName;
-    const searchterm = searchTermForm.searchTerm || defaultValues.searchTerm;
-    const searchCount = searchTermForm.searchCount || defaultValues.searchCount;
-    const instructionsParamA =
-      searchTermForm.instructions || defaultValues.instructions;
-    const systemInstructionsA =
-      settingsForm.systemInstructions || defaultValues.systemInstructions;
-    const subject_instruction =
-      settingsForm.subjectInstructions || defaultValues.subjectInstructions;
+  tab: string,
+  options?: {
+    regenerate?: boolean;
+    regenerateIndex?: number;
+    nextPageToken?: string | null;
+    prevPageToken?: string | null;
+    startFromIndex?: number;
+    useCachedData?: boolean;
+  }
+) => {
 
-    const startTime = new Date();
+const replaceAllPlaceholders = (text: string, replacements: Record<string, string>) => {
+  if (!text) return "";
+  
+  let result = text;
+  
+  // Log what we're working with
+  console.log("Original text (first 200 chars):", text.substring(0, 200));
+  console.log("Replacements:", replacements);
+  
+  // Simple split-join approach which is more reliable
+  Object.entries(replacements).forEach(([key, value]) => {
+    const placeholder = `{${key}}`;
+    const cleanValue = value || "";
+    
+    console.log(`Looking for: "${placeholder}", replacing with: "${cleanValue}"`);
+    console.log(`Found ${(text.match(new RegExp(placeholder.replace(/[{}]/g, '\\$&'), 'g')) || []).length} occurrences`);
+    
+    // Use split-join which is more reliable than regex for literal strings
+    result = result.split(placeholder).join(cleanValue);
+  });
+  
+  console.log("Result (first 200 chars):", result.substring(0, 200));
+  console.log("Remaining placeholders:", result.match(/\{[^}]+\}/g) || 'none');
+  
+  return result;
+};
 
-    let parsedClientId: number;
-    let parsedDataFileId: number;
 
-    if (selectedZohoviewId && selectedZohoviewId.includes(",")) {
+  setTab(tab);
+  // If already processing, show loader and prevent multiple starts
+  if (isProcessing) {
+    return;
+  }
+  
+  // Fetch default values from API
+  const defaultValues = await fetchClientSettings(Number(clientID));
+  // Determine which values to use
+  const selectedModelNameA = selectedModelName || defaultValues.modelName;
+  const searchterm = searchTermForm.searchTerm || defaultValues.searchTerm;
+  const searchCount = searchTermForm.searchCount || defaultValues.searchCount;
+  const instructionsParamA =
+    searchTermForm.instructions || defaultValues.instructions;
+  const systemInstructionsA =
+    settingsForm.systemInstructions || defaultValues.systemInstructions;
+  const subject_instruction =
+    settingsForm.subjectInstructions || defaultValues.subjectInstructions;
+
+  const startTime = new Date();
+
+  let parsedClientId: number;
+  let parsedDataFileId: number | null = null;
+  let segmentId: string | null = null;
+
+  if (selectedZohoviewId) {
+    if (selectedZohoviewId.startsWith("segment_")) {
+      // ✅ Handle segment-based campaign
+      segmentId = selectedZohoviewId.replace("segment_", "");
+      parsedClientId = selectedClient !== "" ? Number(selectedClient) : Number(userId);
+      parsedDataFileId = null; // No dataFileId for segments
+      console.log("Using segment-based campaign, segmentId:", segmentId);
+    } else if (selectedZohoviewId.includes(",")) {
+      // ✅ Handle datafile-based campaign (existing logic)
       const [clientIdStr, dataFileIdStr] = selectedZohoviewId.split(",");
       parsedClientId = parseInt(clientIdStr);
       parsedDataFileId = parseInt(dataFileIdStr);
+      console.log("Using datafile-based campaign, dataFileId:", parsedDataFileId);
     } else {
-      // Fallback if format is different
+      // ✅ Fallback for different format
       parsedDataFileId = parseInt(selectedZohoviewId);
-      parsedClientId =
-        selectedClient !== "" ? Number(selectedClient) : Number(userId);
+      parsedClientId = selectedClient !== "" ? Number(selectedClient) : Number(userId);
     }
+  } else {
+    parsedClientId = selectedClient !== "" ? Number(selectedClient) : Number(userId);
+  }
 
-    // Use the parsed client ID consistently throughout
-    const effectiveUserId =
-      parsedClientId ||
-      (selectedClient !== "" ? Number(selectedClient) : Number(userId));
+  // Use the parsed client ID consistently throughout
+  const effectiveUserId =
+    parsedClientId ||
+    (selectedClient !== "" ? Number(selectedClient) : Number(userId));
 
-    if (!effectiveUserId || effectiveUserId <= 0) {
-      console.error("Invalid userId or clientID:", effectiveUserId);
+  if (!effectiveUserId || effectiveUserId <= 0) {
+    console.error("Invalid userId or clientID:", effectiveUserId);
+    return;
+  }
+
+  setStartTime(startTime);
+  let generatedPitches: any[] = []; // Declare and initialize generatedPitches
+
+  try {
+    setIsProcessing(true);
+
+    // ======= REGENERATION BLOCK START =======
+    if (!selectedPrompt) {
+      // Determine which variables are missing
+      const missingVars = [];
+      if (!selectedPrompt) missingVars.push("prompt template");
+
+      // Create error message
+      const errorMessage = `<span style="color: red">[${formatDateTime(
+        new Date()
+      )}] Error: Cannot generate pitch  Missing required parameters: ${missingVars.join(
+        ", "
+      )}</span>`;
+
+      // Update the form with error message
+      setOutputForm((prev) => ({
+        ...prev,
+        generatedContent: errorMessage + "<br/>" + prev.generatedContent,
+      }));
+
+      // Set states to stop processing
+      setIsProcessing(false);
+      setIsPitchUpdateCompleted(true);
+      setIsPaused(true);
       return;
     }
 
-    setStartTime(startTime);
-    let generatedPitches: any[] = []; // Declare and initialize generatedPitches
+    if (options?.regenerate) {
+      // Use the regenerateIndex to get the specific contact from allResponses
+      const index =
+        typeof options.regenerateIndex === "number"
+          ? options.regenerateIndex
+          : 0;
 
-    try {
-      setIsProcessing(true);
-      // ======= REGENERATION BLOCK START =======
-      if (!selectedPrompt) {
-        // Determine which variables are missing
-        const missingVars = [];
-        if (!selectedPrompt) missingVars.push("prompt template");
+      // Get the entry directly from allResponses instead of fetching again
+      const entry = allResponses[index];
 
-        // Create error message
-        const errorMessage = `<span style="color: red">[${formatDateTime(
-          new Date()
-        )}] Error: Cannot generate pitch  Missing required parameters: ${missingVars.join(
-          ", "
-        )}</span>`;
-
-        // Update the form with error message
-        setOutputForm((prev) => ({
-          ...prev,
-          generatedContent: errorMessage + "<br/>" + prev.generatedContent,
-        }));
-
-        // Set states to stop processing
+      if (!entry) {
         setIsProcessing(false);
         setIsPitchUpdateCompleted(true);
         setIsPaused(true);
         return;
       }
 
-      if (options?.regenerate) {
-        // Parse selectedZohoviewId to get clientId and dataFileId
-        const [clientIdStr, dataFileIdStr] = selectedZohoviewId.split(",");
+      // Map new API fields to existing variables
+      const company_name_friendly = entry.company_name || entry.company;
+      const full_name = entry.full_name || entry.name;
+      const job_title = entry.job_title || entry.title;
+      const location = entry.country_or_address || entry.location;
+      const linkedin_url = entry.linkedin_url || entry.linkedin;
+      const website = entry.website;
+      const company_name = entry.company_name || entry.company;
+      const emailbody = entry.email_body || entry.pitch;
+      const id = entry.id;
+      
+      // --- Get current date in readable format ---
+      const currentDate = new Date().toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
 
-        // Use the regenerateIndex to get the specific contact from allResponses
-        const index =
-          typeof options.regenerateIndex === "number"
-            ? options.regenerateIndex
-            : 0;
+      // --- Generate new pitch as per your normal contact process ---
+      const replacements = {
+        company_name: company_name || "",
+        company_name_friendly: company_name_friendly || "",
+        job_title: job_title || "",
+        location: location || "",
+        full_name: full_name || "",
+        linkedin_url: linkedin_url || "",
+        website: website || "",
+        date: currentDate
+      };
 
-        // Get the entry directly from allResponses instead of fetching again
-        const entry = allResponses[index];
+      const searchTermBody = replaceAllPlaceholders(searchterm, replacements);
 
-        if (!entry) {
+    const filledInstructions = replaceAllPlaceholders(instructionsParamA, replacements);
+
+
+      const cacheKey = JSON.stringify({
+        searchTerm: searchTermBody,
+        instructions: filledInstructions,
+        modelName: selectedModelNameA,
+        searchCount,
+      });
+
+      let scrapeData: any;
+      let cacheHit = false;
+      if (processCacheRef.current[cacheKey]) {
+        scrapeData = processCacheRef.current[cacheKey];
+        cacheHit = true;
+      } else {
+        setOutputForm((prev) => ({
+          ...prev,
+          generatedContent:
+            `<span style="color: orange">[${formatDateTime(
+              new Date()
+            )}] Crafting phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${
+              entry.email
+            }</span><br/>` + prev.generatedContent,
+        }));
+        const scrapeResponse = await fetch(
+          `${API_BASE_URL}/api/auth/process`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              searchTerm: searchTermBody,
+              instructions: filledInstructions,
+              modelName: selectedModelNameA,
+              searchCount: searchCount,
+            }),
+          }
+        );
+        if (!scrapeResponse.ok) {
           setIsProcessing(false);
           setIsPitchUpdateCompleted(true);
           setIsPaused(true);
           return;
         }
+        scrapeData = await scrapeResponse.json();
+        processCacheRef.current[cacheKey] = scrapeData;
+      }
 
-        // Map new API fields to existing variables
-        const company_name_friendly = entry.company_name || entry.company;
-        const full_name = entry.full_name || entry.name;
-        const job_title = entry.job_title || entry.title;
-        const location = entry.country_or_address || entry.location;
-        const linkedin_url = entry.linkedin_url || entry.linkedin;
-        const website = entry.website;
-        const company_name = entry.company_name || entry.company;
-        const emailbody = entry.email_body || entry.pitch;
-        const id = entry.id;
+      if (cacheHit) {
+        setOutputForm((prev) => ({
+          ...prev,
+          generatedContent:
+            `<span style="color: #b38f00">[${formatDateTime(
+              new Date()
+            )}] Loading phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${
+              entry.email
+            }</span><br/>` + prev.generatedContent,
+        }));
+      }
 
-        // --- Generate new pitch as per your normal contact process ---
-        const searchTermBody = searchterm
-          .replace("{company_name}", company_name)
-          .replace("{website}", website);
+      const summary = scrapeData.pitchResponse || {};
+      const searchResults = scrapeData.searchResults || [];
+      const scrappedData = summary.content || "";
 
-        const filledInstructions = instructionsParamA
+      if (!scrappedData) {
+        setIsProcessing(false);
+        setIsPitchUpdateCompleted(true);
+        setIsPaused(true);
+        return;
+      }
+
+      let systemPrompt = systemInstructionsA;
+      const replacedPromptText = (selectedPrompt?.text || "")
+        .replace("{search_output_summary}", scrappedData)
+        .replace("{company_name}", company_name)
+        .replace("{job_title}", job_title)
+        .replace("{location}", location)
+        .replace("{full_name}", full_name)
+        .replace("{linkedin_url}", company_name_friendly)
+        .replace("{linkedin_url}", linkedin_url)
+        .replace("{website}", website)
+        .replace("{date}", currentDate);
+
+      const promptToSend = `\n${systemPrompt}\n${replacedPromptText}`;
+
+      setOutputForm((prev) => ({
+        ...prev,
+        currentPrompt: promptToSend,
+        searchResults: scrapeData.searchResults || [],
+        allScrapedData: scrapeData.allScrapedData || "",
+      }));
+
+      const requestBody = {
+        scrappedData: systemPrompt,
+        prompt: `${selectedPrompt?.text}`
           .replace("{company_name}", company_name)
           .replace("{job_title}", job_title)
           .replace("{location}", location)
           .replace("{full_name}", full_name)
           .replace("{linkedin_url}", linkedin_url)
           .replace("{linkedin_url}", company_name_friendly)
-          .replace("{website}", website);
+          .replace("{search_output_summary}", scrappedData)
+          .replace("{website}", website)
+          .replace("{date}", currentDate),
+
+        ModelName: selectedModelNameA,
+      };
+
+      const pitchResponse = await fetch(
+        `${API_BASE_URL}/api/auth/generatepitch`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+        }
+      );
+
+      const pitchData = await pitchResponse.json();
+      if (!pitchResponse.ok) {
+        setIsProcessing(false);
+        setIsPitchUpdateCompleted(true);
+        setIsPaused(true);
+        return;
+      }
+
+      const dataAnalysis = analyzeScrapedData(
+        scrapeData.allScrapedData || ""
+      );
+      setOutputForm((prev) => ({
+        ...prev,
+        searchResults: searchResults,
+        allScrapedData: scrapeData.allScrapedData || "",
+        generatedContent:
+          `<span style="color: green">[${formatDateTime(
+            new Date()
+          )}] Pitch successfully crafted(att:${searchCount} org:${
+            dataAnalysis.original
+          } ass:${
+            dataAnalysis.assisted
+          }), for contact ${full_name} with company name ${company_name} and domain ${
+            entry.email
+          }</span><br/>` + prev.generatedContent,
+        linkLabel: pitchData.response.content,
+      }));
+
+      //----------------------------------------------------------------------------------------
+      let subjectLine = "";
+      if (subjectMode === "AI generated") {
+        const filledSubjectInstruction = subject_instruction
+          .replace("{company_name}", company_name)
+          .replace("{job_title}", job_title)
+          .replace("{location}", location)
+          .replace("{full_name}", full_name)
+          .replace("{linkedin_url}", linkedin_url)
+          .replace("{search_output_summary}", scrappedData)
+          .replace("{generated_pitch}", pitchData.response.content)
+          .replace("{website}", website)
+          .replace("{date}", currentDate);
+
+        const subjectRequestBody = {
+          scrappedData: filledSubjectInstruction,
+          prompt: pitchData.response.content,
+          ModelName: selectedModelNameA,
+        };
+
+        setOutputForm((prev) => ({
+          ...prev,
+          generatedContent:
+            `<span style="color: blue">[${formatDateTime(
+              new Date()
+            )}]  Crafting phase #3 concinnus, for contact ${full_name} with company name ${company_name} and domain ${
+              entry.email
+            }</span><br/>` + prev.generatedContent,
+        }));
+
+        const subjectResponse = await fetch(
+          `${API_BASE_URL}/api/auth/generatepitch`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(subjectRequestBody),
+          }
+        );
+
+        if (subjectResponse.ok) {
+          const subjectData = await subjectResponse.json();
+          subjectLine = subjectData.response?.content || "";
+
+          setOutputForm((prev) => ({
+            ...prev,
+            generatedContent:
+              `<span style="color: green">[${formatDateTime(
+                new Date()
+              )}] Subject successfully crafted, for contact ${full_name} with company name ${company_name} and domain ${
+                entry.email
+              }</span><br/>` + prev.generatedContent,
+            emailSubject: subjectLine,
+          }));
+        } else {
+          setOutputForm((prev) => ({
+            ...prev,
+            generatedContent:
+              `<span style="color: orange">[${formatDateTime(
+                new Date()
+              )}] Email subject generation failed for contact ${full_name}, using default</span><br/>` +
+              prev.generatedContent,
+          }));
+        }
+      } else if (subjectMode === "With Placeholder") {
+        subjectLine = (subjectText || "")
+          .replace("{company_name}", company_name)
+          .replace("{job_title}", job_title)
+          .replace("{location}", location)
+          .replace("{full_name}", full_name)
+          .replace("{linkedin_url}", linkedin_url)
+          .replace("{search_output_summary}", scrappedData)
+          .replace("{generated_pitch}", pitchData.response?.content || "")
+          .replace("{website}", website)
+          .replace("{date}", currentDate);
+
+        setOutputForm((prev) => ({
+          ...prev,
+          generatedContent:
+            `<span style="color: green">[${formatDateTime(
+              new Date()
+            )}] Subject using user placeholder for contact ${full_name} with company name ${company_name} and domain ${
+              entry.email
+            }</span><br/>` + prev.generatedContent,
+          emailSubject: subjectLine,
+        }));
+      }
+      debugger;
+      // ✅ Replace the database update logic in REGENERATION BLOCK
+      try {
+        if (id && pitchData.response?.content) {
+          // ✅ Determine the dataFileId to use for update
+          let updateDataFileId: number | null = null;
+          
+          if (segmentId) {
+            // ✅ For segment-based campaigns, get dataFileId from contact
+            updateDataFileId = entry.datafileid || entry.data_file_id;
+            
+            if (!updateDataFileId) {
+              setOutputForm((prevOutputForm) => ({
+                ...prevOutputForm,
+                generatedContent:
+                  `<span style="color: orange">[${formatDateTime(
+                    new Date()
+                  )}] No dataFileId found for segment contact ${full_name}</span><br/>` +
+                  prevOutputForm.generatedContent,
+              }));
+              // Continue processing but skip database update
+            }
+          } else if (parsedDataFileId) {
+            // ✅ For datafile-based campaigns, use parsed dataFileId
+            updateDataFileId = parsedDataFileId;
+          }
+
+          // ✅ Only update if we have a valid dataFileId
+          if (updateDataFileId) {
+            const updateContactResponse = await fetch(
+              `${API_BASE_URL}/api/crm/contacts/update-email`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  clientId: effectiveUserId,
+                  dataFileId: updateDataFileId,
+                  contactId: id,
+                  emailSubject: subjectLine,
+                  emailBody: pitchData.response.content,
+                }),
+              }
+            );
+
+            if (!updateContactResponse.ok) {
+              const updateContactError = await updateContactResponse.json();
+              setOutputForm((prevOutputForm) => ({
+                ...prevOutputForm,
+                generatedContent:
+                  `<span style="color: orange">[${formatDateTime(
+                    new Date()
+                  )}] Updating contact in database incomplete for ${full_name}. Error: ${updateContactError.Message || 'Unknown error'}</span><br/>` +
+                  prevOutputForm.generatedContent,
+              }));
+            } else {
+              setOutputForm((prevOutputForm) => ({
+                ...prevOutputForm,
+                generatedContent:
+                  `<span style="color: green">[${formatDateTime(
+                    new Date()
+                  )}] Updated pitch in database for ${full_name}.</span><br/>` +
+                  prevOutputForm.generatedContent,
+              }));
+            }
+          }
+        }
+      } catch (updateError) {
+        setOutputForm((prevOutputForm) => ({
+          ...prevOutputForm,
+          generatedContent:
+            `<span style="color: orange">[${formatDateTime(
+              new Date()
+            )}] Database update error for ${full_name}.</span><br/>` +
+            prevOutputForm.generatedContent,
+        }));
+      }
+
+      const newResponse = {
+        ...entry,
+        name: full_name || "N/A",
+        title: job_title || "N/A",
+        company: company_name_friendly || "N/A",
+        location: location || "N/A",
+        website: website || "N/A",
+        linkedin: linkedin_url || "N/A",
+        pitch: pitchData.response.content,
+        subject: subjectLine,
+        timestamp: new Date().toISOString(),
+        id,
+        nextPageToken: null,
+        prevPageToken: null,
+        generated: true,
+        lastemailupdateddate: new Date().toISOString(),
+        emailsentdate: entry.email_sent_at || "N/A",
+      };
+      const regenIndex = allResponses.findIndex((r) => r.id === id);
+
+            // ---- Update all relevant state arrays by id ----
+      setexistingResponse((prev) =>
+        prev.map((resp) => (resp.id === id ? newResponse : resp))
+      );
+
+      setAllResponses((prev) =>
+        prev.map((resp) => (resp.id === id ? newResponse : resp))
+      );
+
+      setallprompt((prev) => {
+        const updated = [...prev];
+        if (regenIndex > -1) updated[regenIndex] = promptToSend;
+        else updated.push(promptToSend);
+        return updated;
+      });
+      
+      setallsearchResults((prev) => {
+        const updated = [...prev];
+        if (regenIndex > -1) updated[regenIndex] = searchResults;
+        else updated.push(searchResults);
+        return updated;
+      });
+      
+      seteveryscrapedData((prev) => {
+        const updated = [...prev];
+        if (regenIndex > -1)
+          updated[regenIndex] = scrapeData.allScrapedData || "";
+        else updated.push(scrapeData.allScrapedData || "");
+        return updated;
+      });
+      
+      setallsummery((prev) => {
+        const updated = [...prev];
+        if (regenIndex > -1)
+          updated[regenIndex] = scrapeData.pitchResponse?.content || "";
+        else updated.push(scrapeData.pitchResponse?.content || "");
+        return updated;
+      });
+      
+      setallSearchTermBodies((prev) => {
+        const updated = [...prev];
+        if (regenIndex > -1) updated[regenIndex] = searchTermBody;
+        else updated.push(searchTermBody);
+        return updated;
+      });
+
+      setRecentlyAddedOrUpdatedId(id);
+
+      setIsProcessing(false);
+      setIsPitchUpdateCompleted(true);
+      setIsPaused(true);
+      return;
+    }
+    // ======= REGENERATION BLOCK END =======
+
+    // Main processing loop - fetch all contacts at once
+    let moreRecords = true;
+    let currentIndex = 0;
+    let shouldReplaceFromIndex = false;
+
+    const currentDate = new Date().toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+  if (
+  options?.startFromIndex !== undefined &&
+  options.startFromIndex >= 0
+) {
+  currentIndex = options.startFromIndex;
+  shouldReplaceFromIndex = true;
+} else {
+  currentIndex = 0; // Only use 0 if no specific index is provided
+}
+
+    let foundRecordWithoutPitch = false;
+
+    // Show loader
+    setOutputForm((prevForm) => ({
+      ...prevForm,
+      generatedContent:
+        '<span style="color: blue">Processing initiated...please wait...</span><br/>' +
+        prevForm.generatedContent,
+    }));
+
+    // Declare contacts variable before the if/else block
+    let contacts: any[] = [];
+
+    // Use cached data if available and flag is set
+    if (options?.useCachedData && cachedContacts.length > 0) {
+      contacts = cachedContacts;
+    } else {
+      // ✅ Fetch contacts based on campaign type
+      if (segmentId) {
+        // Fetch from segment API
+        console.log("Fetching contacts from segment API, segmentId:", segmentId);
+        const response = await fetch(
+          `${API_BASE_URL}/api/Crm/segment/${segmentId}/contacts`
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch segment contacts");
+        }
+
+        const data = await response.json();
+        contacts = data || []; // Segment API returns contacts directly
+        console.log("Fetched segment contacts:", contacts.length);
+        
+      } else if (parsedDataFileId) {
+        // Fetch from datafile API (existing logic)
+        console.log("Fetching contacts from datafile API, dataFileId:", parsedDataFileId);
+        const response = await fetch(
+          `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${parsedDataFileId}`
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch datafile contacts");
+        }
+
+        const data = await response.json();
+        contacts = data.contacts || [];
+        console.log("Fetched datafile contacts:", contacts.length);
+        
+      } else {
+        throw new Error("No valid data source found (neither segment nor datafile)");
+      }
+    }
+
+    if (!Array.isArray(contacts)) {
+      console.error("Invalid data format");
+      moreRecords = false;
+    }
+
+    // Process all contacts
+    for (let i = currentIndex; i < contacts.length; i++) { // Start from currentIndex instead of 0
+      const entry = contacts[i];
+
+      
+      if (stopRef.current === true) {
+        setLastProcessedToken(null);
+        setLastProcessedIndex(i); // This should be the actual index being processed
+        setIsProcessing(false); // Now set processing to false
+
+        return;
+      }
+
+      // Process the entry
+      const urlParam: string = `https://www.${entry.email.split("@")[1]}`;
+      try {
+        var company_name_friendly = entry.company_name;
+        var full_name = entry.full_name;
+        var job_title = entry.job_title;
+        var location = entry.country_or_address;
+        var linkedin_url = entry.linkedin_url;
+        var emailbody = entry.email_body;
+        var website = entry.website;
+        var company_name = entry.company_name;
+
+        // Check if email already exists and if we should overwrite
+        if (entry.email_body && !settingsForm.overwriteDatabase) {
+          const responseIndex = shouldReplaceFromIndex
+            ? i
+            : allResponses.length;
+
+          setOutputForm((prevOutputForm) => ({
+            ...prevOutputForm,
+            generatedContent:
+              `<span style="color: orange">[${formatDateTime(
+                new Date()
+              )}] Pitch crafted for contact ${full_name} with company name ${company_name} and domain ${
+                entry.email
+              } </span><br/>` + prevOutputForm.generatedContent,
+            linkLabel: entry.email_body,
+          }));
+
+          await delay(delayTime * 1000);
+
+          const existingResponse = {
+            ...entry,
+            name: entry.full_name || "N/A",
+            title: entry.job_title || "N/A",
+            company: entry.company_name || "N/A",
+            location: entry.country_or_address || "N/A",
+            website: entry.website || "N/A",
+            linkedin: entry.linkedin_url || "N/A",
+            pitch: entry.email_body,
+            timestamp: new Date().toISOString(),
+            generated: false,
+            nextPageToken: null,
+            prevPageToken: null,
+            id: entry.id,
+            subject: entry.email_subject || "N/A",
+            lastemailupdateddate: entry.updated_at || "N/A",
+            emailsentdate: entry.email_sent_at || "N/A",
+          };
+
+          setAllResponses((prevResponses) => {
+            const updated = [...prevResponses];
+            if (responseIndex < updated.length) {
+              updated[responseIndex] = existingResponse;
+            } else {
+              updated.push(existingResponse);
+            }
+            setCurrentIndex(responseIndex);
+            return updated;
+          });
+
+          // Update these to use responseIndex logic
+          setallprompt((prevPrompts) => {
+            const updated = [...prevPrompts];
+            if (responseIndex < updated.length) {
+              updated[responseIndex] = "";
+            } else {
+              updated.push("");
+            }
+            return updated;
+          });
+
+          setallsearchResults((prevSearchResults) => {
+            const updated = [...prevSearchResults];
+            if (responseIndex < updated.length) {
+              updated[responseIndex] = [];
+            } else {
+              updated.push([]);
+            }
+            return updated;
+          });
+
+          seteveryscrapedData((prevScrapedData) => {
+            const updated = [...prevScrapedData];
+            if (responseIndex < updated.length) {
+              updated[responseIndex] = "";
+            } else {
+              updated.push("");
+            }
+            return updated;
+          });
+
+          setallsummery((prevSummery) => {
+            const updated = [...prevSummery];
+            if (responseIndex < updated.length) {
+              updated[responseIndex] = "";
+            } else {
+              updated.push("");
+            }
+            return updated;
+          });
+
+          setallSearchTermBodies((prevSearchTermBodies) => {
+            const updated = [...prevSearchTermBodies];
+            if (responseIndex < updated.length) {
+              updated[responseIndex] = "";
+            } else {
+              updated.push("");
+            }
+            return updated;
+          });
+
+          continue;
+        } else {
+          foundRecordWithoutPitch = true;
+
+          if (isDemoAccount) {
+            setOutputForm((prevOutputForm) => ({
+              ...prevOutputForm,
+              generatedContent:
+                `<span style="color: blue">[${formatDateTime(
+                  new Date()
+                )}] Subscription: Trial mode. Processing is paused. Contact support on Live Chat (bottom right) or London: +44 (0) 207 660 4243 | New York: +1 (0) 315 400 2402 or email info@dataji.co </span><br/>` +
+                prevOutputForm.generatedContent,
+            }));
+
+            moreRecords = false;
+            stopRef.current = true;
+            setLastProcessedToken(null);
+            setLastProcessedIndex(i);
+            break;
+          }
+        }
+
+        // Step 1: Scrape Website with caching
+const replacements = {
+  company_name: company_name || "",
+  company_name_friendly: company_name_friendly || "",
+  job_title: job_title || "",
+  location: location || "",
+  full_name: full_name || "",
+  linkedin_url: linkedin_url || "",
+  website: website || "",
+  date: currentDate
+};
+
+const searchTermBody = replaceAllPlaceholders(searchterm, replacements);
+const filledInstructions = replaceAllPlaceholders(instructionsParamA, replacements);
 
         const cacheKey = JSON.stringify({
           searchTerm: searchTermBody,
@@ -1114,19 +1955,21 @@ const MainPage: React.FC = () => {
 
         let scrapeData: any;
         let cacheHit = false;
+
         if (processCacheRef.current[cacheKey]) {
           scrapeData = processCacheRef.current[cacheKey];
           cacheHit = true;
         } else {
-          setOutputForm((prev) => ({
-            ...prev,
+          setOutputForm((prevOutputForm) => ({
+            ...prevOutputForm,
             generatedContent:
               `<span style="color: orange">[${formatDateTime(
                 new Date()
               )}] Crafting phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${
                 entry.email
-              }</span><br/>` + prev.generatedContent,
+              }</span><br/>` + prevOutputForm.generatedContent,
           }));
+
           const scrapeResponse = await fetch(
             `${API_BASE_URL}/api/auth/process`,
             {
@@ -1141,39 +1984,82 @@ const MainPage: React.FC = () => {
             }
           );
           if (!scrapeResponse.ok) {
-            setIsProcessing(false);
-            setIsPitchUpdateCompleted(true);
-            setIsPaused(true);
-            return;
+            scrapfailedreq += 1;
+            setOutputForm((prevOutputForm) => ({
+              ...prevOutputForm,
+              searchResults: [],
+              allScrapedData: "",
+              generatedContent:
+                `<span style="color: red">[${formatDateTime(
+                  new Date()
+                )}] Centum nulla analysis incomplete for contact ${full_name} with company name ${company_name} and domain ${
+                  entry.email
+                }</span><br/>` + prevOutputForm.generatedContent,
+              usage:
+                `Cost: $${cost.toFixed(6)}    ` +
+                `Failed Requests: ${failedReq}    ` +
+                `Success Requests: ${successReq}              ` +
+                `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
+                `Total Tokens Used: ${totaltokensused}   `,
+            }));
+            generatedPitches.push({
+              ...entry,
+              pitch: "Error scraping website",
+            });
+            continue;
           }
           scrapeData = await scrapeResponse.json();
           processCacheRef.current[cacheKey] = scrapeData;
         }
 
+        // Always show if data is from cache or not
         if (cacheHit) {
-          setOutputForm((prev) => ({
-            ...prev,
+          setOutputForm((prevOutputForm) => ({
+            ...prevOutputForm,
             generatedContent:
               `<span style="color: #b38f00">[${formatDateTime(
                 new Date()
               )}] Loading phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${
                 entry.email
-              }</span><br/>` + prev.generatedContent,
+              }</span><br/>` + prevOutputForm.generatedContent,
           }));
         }
+
+        console.log("All cached values:", processCacheRef.current);
 
         const summary = scrapeData.pitchResponse || {};
         const searchResults = scrapeData.searchResults || [];
         const scrappedData = summary.content || "";
 
         if (!scrappedData) {
-          setIsProcessing(false);
-          setIsPitchUpdateCompleted(true);
-          setIsPaused(true);
-          return;
+          const formattedTime = formatDateTime(new Date());
+          scrapfailedreq += 1;
+          setOutputForm((prevOutputForm) => ({
+            ...prevOutputForm,
+            searchResults: scrapeData.searchResults || [],
+            allScrapedData: scrapeData.allScrapedData || "",
+            generatedContent:
+              `<span style="color: red">[${formatDateTime(
+                new Date()
+              )}] Centum nulla analysis incomplete for contact ${full_name} with company name ${company_name} and domain ${
+                entry.email
+              }</span><br/>` + prevOutputForm.generatedContent,
+            usage:
+              `Cost: $${cost.toFixed(6)}    ` +
+              `Failed Requests: ${failedReq}    ` +
+              `Success Requests: ${successReq}              ` +
+              `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
+              `Total Tokens Used: ${totaltokensused}   `,
+          }));
+          generatedPitches.push({
+            ...entry,
+            pitch: "Error scraping website",
+          });
+          continue;
         }
 
         let systemPrompt = systemInstructionsA;
+
         const replacedPromptText = (selectedPrompt?.text || "")
           .replace("{search_output_summary}", scrappedData)
           .replace("{company_name}", company_name)
@@ -1182,15 +2068,49 @@ const MainPage: React.FC = () => {
           .replace("{full_name}", full_name)
           .replace("{linkedin_url}", company_name_friendly)
           .replace("{linkedin_url}", linkedin_url)
-          .replace("{website}", website);
+          .replace("{website}", website)
+          .replace("{date}", currentDate);
 
-        const promptToSend = `\n${systemPrompt}\n${replacedPromptText}`;
+        const promptToSend = `
+        
+        ${systemPrompt}
+         
+        ${replacedPromptText}`
+          .replace("{search_output_summary}", scrappedData)
+          .replace("{company_name}", company_name)
+          .replace("{job_title}", job_title)
+          .replace("{location}", location)
+          .replace("{full_name}", full_name)
+          .replace("{linkedin_url}", company_name_friendly)
+          .replace("{linkedin_url}", linkedin_url)
+          .replace("{website}", website)
+          .replace("{date}", currentDate);
 
-        setOutputForm((prev) => ({
-          ...prev,
+        setOutputForm((prevState) => ({
+          ...prevState,
           currentPrompt: promptToSend,
           searchResults: scrapeData.searchResults || [],
           allScrapedData: scrapeData.allScrapedData || "",
+        }));
+
+        const dataAnalysis = analyzeScrapedData(
+          scrapeData.allScrapedData || ""
+        );
+
+        setOutputForm((prevOutputForm) => ({
+          ...prevOutputForm,
+          searchResults: scrapeData.searchResults || [],
+          allScrapedData: scrapeData.allScrapedData || "",
+          generatedContent:
+            `<span style="color: blue">[${formatDateTime(
+              new Date()
+            )}] Crafting phase #2 integritas (att:${searchCount} org:${
+              dataAnalysis.original
+            } ass:${
+              dataAnalysis.assisted
+            }), for contact ${full_name} with company name ${company_name} and domain ${
+              entry.email
+            }</span><br/>` + prevOutputForm.generatedContent,
         }));
 
         const requestBody = {
@@ -1203,7 +2123,8 @@ const MainPage: React.FC = () => {
             .replace("{linkedin_url}", linkedin_url)
             .replace("{linkedin_url}", company_name_friendly)
             .replace("{search_output_summary}", scrappedData)
-            .replace("{website}", website),
+            .replace("{website}", website)
+            .replace("{date}", currentDate),
           ModelName: selectedModelNameA,
         };
 
@@ -1218,33 +2139,78 @@ const MainPage: React.FC = () => {
 
         const pitchData = await pitchResponse.json();
         if (!pitchResponse.ok) {
-          setIsProcessing(false);
-          setIsPitchUpdateCompleted(true);
-          setIsPaused(true);
-          return;
+          const formattedTime = formatDateTime(new Date());
+          failedReq += 1;
+          cost += parseFloat(pitchData?.response?.currentCost);
+          totaltokensused += parseFloat(pitchData?.response?.totalTokens);
+          setOutputForm((prevOutputForm) => ({
+            ...prevOutputForm,
+            searchResults: scrapeData.searchResults || [],
+            allScrapedData: scrapeData.allScrapedData || "",
+            generatedContent:
+              `<span style="color: red">[${formatDateTime(
+                new Date()
+              )}] Phase #2 integritas incomplete for contact ${full_name} with company name ${company_name} and domain ${
+                entry.email
+              }</span><br/>` + prevOutputForm.generatedContent,
+            usage:
+              `Cost: $${cost.toFixed(6)}    ` +
+              `Failed Requests: ${failedReq}    ` +
+              `Success Requests: ${successReq}                ` +
+              `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
+              `Total Tokens Used: ${totaltokensused}   `,
+          }));
+          generatedPitches.push({
+            ...entry,
+            pitch: "Error Crafting pitch",
+          });
+          continue;
         }
 
-        const dataAnalysis = analyzeScrapedData(
-          scrapeData.allScrapedData || ""
-        );
-        setOutputForm((prev) => ({
-          ...prev,
-          searchResults: searchResults,
+        successReq += 1;
+        cost += parseFloat(pitchData?.response?.currentCost);
+        totaltokensused += parseFloat(pitchData?.response?.totalTokens);
+        console.log(`Cosstdata ${pitchData}`);
+
+        // Success: Update UI with the generated pitch
+        setOutputForm((prevOutputForm) => ({
+          ...prevOutputForm,
+          searchResults: scrapeData.searchResults || [],
           allScrapedData: scrapeData.allScrapedData || "",
           generatedContent:
             `<span style="color: green">[${formatDateTime(
               new Date()
-            )}] Pitch successfully crafted(att:${searchCount} org:${
-              dataAnalysis.original
-            } ass:${
-              dataAnalysis.assisted
-            }), for contact ${full_name} with company name ${company_name} and domain ${
+            )}] Pitch successfully crafted for contact ${full_name} with company name ${company_name} and domain ${
               entry.email
-            }</span><br/>` + prev.generatedContent,
+            }</span><br/>` + prevOutputForm.generatedContent,
+          usage:
+            `Cost: $${cost.toFixed(6)}    ` +
+            `Failed Requests: ${failedReq}    ` +
+            `Success Requests: ${successReq}                  ` +
+            `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
+            `Total Tokens Used: ${totaltokensused}   `,
+        }));
+
+        setOutputForm((prevOutputForm) => ({
+          ...prevOutputForm,
           linkLabel: pitchData.response.content,
         }));
 
-        //----------------------------------------------------------------------------------------
+        generatedPitches.push({
+          ...entry,
+          name: entry.full_name || "N/A",
+          title: entry.job_title || "N/A",
+          company: entry.company_name || "N/A",
+          location: entry.country_or_address || "N/A",
+          website: entry.website || "N/A",
+          linkedin: entry.linkedin_url || "N/A",
+          pitch: pitchData.response.content,
+          subject: entry.email_subject || "N/A",
+          lastemailupdateddate: entry.updated_at || "N/A",
+          emailsentdate: entry.email_sent_at || "N/A",
+        });
+
+        // Generate subject line
         let subjectLine = "";
         if (subjectMode === "AI generated") {
           const filledSubjectInstruction = subject_instruction
@@ -1255,7 +2221,8 @@ const MainPage: React.FC = () => {
             .replace("{linkedin_url}", linkedin_url)
             .replace("{search_output_summary}", scrappedData)
             .replace("{generated_pitch}", pitchData.response.content)
-            .replace("{website}", website);
+            .replace("{website}", website)
+            .replace("{date}", currentDate);
 
           const subjectRequestBody = {
             scrappedData: filledSubjectInstruction,
@@ -1268,7 +2235,7 @@ const MainPage: React.FC = () => {
             generatedContent:
               `<span style="color: blue">[${formatDateTime(
                 new Date()
-              )}]  Crafting phase #3 concinnus, for contact ${full_name} with company name ${company_name} and domain ${
+              )}] Crafting phase #3 concinnus, for contact ${full_name} with company name ${company_name} and domain ${
                 entry.email
               }</span><br/>` + prev.generatedContent,
           }));
@@ -1302,8 +2269,9 @@ const MainPage: React.FC = () => {
               generatedContent:
                 `<span style="color: orange">[${formatDateTime(
                   new Date()
-                )}] Email subject generation failed for contact ${full_name}, using default</span><br/>` +
-                prev.generatedContent,
+                )}] Subject generation failed for contact ${full_name} with company name ${company_name} and domain ${
+                  entry.email
+                }</span><br/>` + prev.generatedContent,
             }));
           }
         } else if (subjectMode === "With Placeholder") {
@@ -1315,7 +2283,9 @@ const MainPage: React.FC = () => {
             .replace("{linkedin_url}", linkedin_url)
             .replace("{search_output_summary}", scrappedData)
             .replace("{generated_pitch}", pitchData.response?.content || "")
-            .replace("{website}", website);
+            .replace("{website}", website)
+            .replace("{date}", currentDate);
+
           setOutputForm((prev) => ({
             ...prev,
             generatedContent:
@@ -1328,687 +2298,144 @@ const MainPage: React.FC = () => {
           }));
         }
 
-        try {
-          if (id && pitchData.response?.content && parsedDataFileId) {
-            const updateContactResponse = await fetch(
-              `${API_BASE_URL}/api/crm/contacts/update-email`,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  ClientId: effectiveUserId, // Use the consistent effectiveUserId
-                  DataFileId: parsedDataFileId, // Use the parsed value
-                  ContactId: id,
-                  EmailSubject: subjectLine,
-                  EmailBody: pitchData.response.content,
-                }),
-              }
-            );
+        // Update the linkLabel to show both subject and pitch
+        setOutputForm((prevOutputForm) => ({
+          ...prevOutputForm,
+          linkLabel: pitchData.response.content,
+          emailSubject: subjectLine,
+        }));
 
-            if (!updateContactResponse.ok) {
-              const updateContactError = await updateContactResponse.json();
-              setOutputForm((prevOutputForm) => ({
-                ...prevOutputForm,
-                generatedContent:
-                  `<span style="color: orange">[${formatDateTime(
-                    new Date()
-                  )}] Updating contact in database incomplete for contact ${full_name} with company name ${company_name} and domain ${
-                    entry.email
-                  }. Error: ${updateContactError.Message}</span><br/>` +
-                  prevOutputForm.generatedContent,
-              }));
-            } else {
-              setOutputForm((prevOutputForm) => ({
-                ...prevOutputForm,
-                generatedContent:
-                  `<span style="color: green">[${formatDateTime(
-                    new Date()
-                  )}] Updated pitch in database for contact ${full_name} with company name ${company_name} and domain ${
-                    entry.email
-                  }.</span><br/>` + prevOutputForm.generatedContent,
-              }));
-            }
-          }
-        } catch (zohoError) {
-          setOutputForm((prevOutputForm) => ({
-            ...prevOutputForm,
-            generatedContent:
-              `<span style="color: orange">[${formatDateTime(
-                new Date()
-              )}] Updating contact in database incomplete for contact ${full_name} with company name ${company_name} and domain ${
-                entry.email
-              }. Error: </span><br/>` + prevOutputForm.generatedContent,
-          }));
-        }
+        // Update generatedPitches to include subject
+        generatedPitches.push({
+          ...entry,
+          name: entry.full_name || "N/A",
+          title: entry.job_title || "N/A",
+          company: entry.company_name || "N/A",
+          location: entry.country_or_address || "N/A",
+          website: entry.website || "N/A",
+          linkedin: entry.linkedin_url || "N/A",
+          pitch: pitchData.response.content,
+          subject: subjectLine,
+          lastemailupdateddate: entry.updated_at || "N/A",
+          emailsentdate: entry.email_sent_at || "N/A",
+        });
 
+        // Update newResponse to include subject
         const newResponse = {
           ...entry,
-          name: full_name || "N/A",
-          title: job_title || "N/A",
-          company: company_name_friendly || "N/A",
-          location: location || "N/A",
-          website: website || "N/A",
-          linkedin: linkedin_url || "N/A",
+          name: entry.full_name || "N/A",
+          title: entry.job_title || "N/A",
+          company: entry.company_name || "N/A",
+          location: entry.country_or_address || "N/A",
+          website: entry.website || "N/A",
+          linkedin: entry.linkedin_url || "N/A",
           pitch: pitchData.response.content,
           subject: subjectLine,
           timestamp: new Date().toISOString(),
-          id,
+          id: entry.id,
           nextPageToken: null,
           prevPageToken: null,
           generated: true,
           lastemailupdateddate: new Date().toISOString(),
           emailsentdate: entry.email_sent_at || "N/A",
         };
-        const regenIndex = allResponses.findIndex((r) => r.id === id);
+        const responseIndex = shouldReplaceFromIndex
+          ? currentIndex + (i - currentIndex)
+          : allResponses.length;
 
-        // ---- Update all relevant state arrays by id ----
-        setexistingResponse((prev) =>
-          prev.map((resp) => (resp.id === id ? newResponse : resp))
-        );
-
-        setAllResponses((prev) =>
-          prev.map((resp) => (resp.id === id ? newResponse : resp))
-        );
-
-        setallprompt((prev) => {
-          const updated = [...prev];
-          if (regenIndex > -1) updated[regenIndex] = promptToSend;
-          else updated.push(promptToSend);
-          return updated;
-        });
-        setallsearchResults((prev) => {
-          const updated = [...prev];
-          if (regenIndex > -1) updated[regenIndex] = searchResults;
-          else updated.push(searchResults);
-          return updated;
-        });
-        seteveryscrapedData((prev) => {
-          const updated = [...prev];
-          if (regenIndex > -1)
-            updated[regenIndex] = scrapeData.allScrapedData || "";
-          else updated.push(scrapeData.allScrapedData || "");
-          return updated;
-        });
-        setallsummery((prev) => {
-          const updated = [...prev];
-          if (regenIndex > -1)
-            updated[regenIndex] = scrapeData.pitchResponse?.content || "";
-          else updated.push(scrapeData.pitchResponse?.content || "");
-          return updated;
-        });
-        setallSearchTermBodies((prev) => {
-          const updated = [...prev];
-          if (regenIndex > -1) updated[regenIndex] = searchTermBody;
-          else updated.push(searchTermBody);
+        setAllResponses((prevResponses) => {
+          const updated = [...prevResponses];
+          if (responseIndex < updated.length) {
+            // Replace existing entry
+            updated[responseIndex] = newResponse;
+          } else {
+            // Add new entry
+            updated.push(newResponse);
+          }
           return updated;
         });
 
-        setRecentlyAddedOrUpdatedId(id);
+        // Similarly update other arrays at the correct index
+        setallprompt((prevPrompts) => {
+          const updated = [...prevPrompts];
+          if (responseIndex < updated.length) {
+            updated[responseIndex] = promptToSend;
+          } else {
+            updated.push(promptToSend);
+          }
+          return updated;
+        });
 
-        setIsProcessing(false);
-        setIsPitchUpdateCompleted(true);
-        setIsPaused(true);
-        return;
-      }
-      // ======= REGENERATION BLOCK END =======
+        setallsearchResults((prevSearchResults) => {
+          const updated = [...prevSearchResults];
+          if (responseIndex < updated.length) {
+            updated[responseIndex] = scrapeData.searchResults || [];
+          } else {
+            updated.push(scrapeData.searchResults || []);
+          }
+          return updated;
+        });
 
-      // Main processing loop - fetch all contacts at once
-      let moreRecords = true;
-      let currentIndex = isPaused ? lastProcessedIndex : 0;
-      let foundRecordWithoutPitch = false;
+        seteveryscrapedData((prevScrapedData) => {
+          const updated = [...prevScrapedData];
+          if (responseIndex < updated.length) {
+            updated[responseIndex] = scrapeData.allScrapedData || "";
+          } else {
+            updated.push(scrapeData.allScrapedData || "");
+          }
+          return updated;
+        });
 
-      // Show loader
-      setOutputForm((prevForm) => ({
-        ...prevForm,
-        generatedContent:
-          '<span style="color: blue">Processing initiated...please wait...</span><br/>' +
-          prevForm.generatedContent,
-      }));
-      const dataFileIdStr = selectedZohoviewId;
+        setallsummery((prevSummery) => {
+          const updated = [...prevSummery];
+          if (responseIndex < updated.length) {
+            updated[responseIndex] = scrapeData.pitchResponse?.content || "";
+          } else {
+            updated.push(scrapeData.pitchResponse?.content || "");
+          }
+          return updated;
+        });
 
-      // Fetch all contacts from new API
-      const response = await fetch(
-        `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${dataFileIdStr}`
-      );
+        setallSearchTermBodies((prevSearchTermBodies) => {
+          const updated = [...prevSearchTermBodies];
+          if (responseIndex < updated.length) {
+            updated[responseIndex] = searchTermBody;
+          } else {
+            updated.push(searchTermBody);
+          }
+          return updated;
+        });
+        setCurrentIndex(responseIndex);
+        setRecentlyAddedOrUpdatedId(newResponse.id);
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch email bodies");
-      }
-
-      const data = await response.json();
-      const contacts = data.contacts || [];
-
-      if (!Array.isArray(contacts)) {
-        console.error("Invalid data format");
-        moreRecords = false;
-      }
-
-      // Process all contacts
-      for (let i = currentIndex; i < contacts.length; i++) {
-        const entry = contacts[i];
-
-        if (stopRef.current === true) {
-          setLastProcessedToken(null);
-          setLastProcessedIndex(i);
-          return;
-        }
-
-        // Process the entry
-        const urlParam: string = `https://www.${entry.email.split("@")[1]}`;
+        // ✅ Update database with new API (in main processing loop)
         try {
-          var company_name_friendly = entry.company_name;
-          var full_name = entry.full_name;
-          var job_title = entry.job_title;
-          var location = entry.country_or_address;
-          var linkedin_url = entry.linkedin_url;
-          var emailbody = entry.email_body;
-          var website = entry.website;
-          var company_name = entry.company_name;
-
-          // Check if email already exists and if we should overwrite
-          if (entry.email_body && !settingsForm.overwriteDatabase) {
-            setOutputForm((prevOutputForm) => ({
-              ...prevOutputForm,
-              generatedContent:
-                `<span style="color: orange">[${formatDateTime(
-                  new Date()
-                )}] Pitch crafted for contact ${full_name} with company name ${company_name} and domain ${
-                  entry.email
-                } </span><br/>` + prevOutputForm.generatedContent,
-              linkLabel: entry.email_body,
-            }));
-
-            await delay(delayTime * 1000);
-
-            const existingResponse = {
-              ...entry,
-              name: entry.full_name || "N/A",
-              title: entry.job_title || "N/A",
-              company: entry.company_name || "N/A",
-              location: entry.country_or_address || "N/A",
-              website: entry.website || "N/A",
-              linkedin: entry.linkedin_url || "N/A",
-              pitch: entry.email_body,
-              timestamp: new Date().toISOString(),
-              generated: false,
-              nextPageToken: null,
-              prevPageToken: null,
-              id: entry.id,
-              subject: entry.email_subject || "N/A",
-              lastemailupdateddate: entry.updated_at || "N/A",
-              emailsentdate: entry.email_sent_at || "N/A",
-            };
-
-            setAllResponses((prevResponses) => {
-              const newResponses = [...prevResponses, existingResponse];
-              setCurrentIndex(newResponses.length - 1);
-              return newResponses;
-            });
-            generatedPitches.push(existingResponse);
-
-            setallprompt((prevPrompts) => [...prevPrompts, ""]);
-            setallsearchResults((prevSearchResults) => [
-              ...prevSearchResults,
-              [],
-            ]);
-            seteveryscrapedData((prevScrapedData) => [...prevScrapedData, ""]);
-            setallsummery((prevSummery) => [...prevSummery, ""]);
-            setallSearchTermBodies((prevSearchTermBodies) => [
-              ...prevSearchTermBodies,
-              "",
-            ]);
-
-            continue;
-          } else {
-            foundRecordWithoutPitch = true;
-
-            if (isDemoAccount) {
-              setOutputForm((prevOutputForm) => ({
-                ...prevOutputForm,
-                generatedContent:
-                  `<span style="color: blue">[${formatDateTime(
-                    new Date()
-                  )}] Subscription: Trial mode. Processing is paused. Contact support on Live Chat (bottom right) or London: +44 (0) 207 660 4243 | New York: +1 (0) 315 400 2402 or email info@dataji.co </span><br/>` +
-                  prevOutputForm.generatedContent,
-              }));
-
-              moreRecords = false;
-              stopRef.current = true;
-              setLastProcessedToken(null);
-              setLastProcessedIndex(i);
-              break;
-            }
-          }
-
-          // Step 1: Scrape Website with caching
-          const searchTermBody = searchterm
-            .replace("{company_name}", company_name)
-            .replace("{website}", website);
-          const filledInstructions = instructionsParamA
-            .replace("{company_name}", company_name)
-            .replace("{job_title}", job_title)
-            .replace("{location}", location)
-            .replace("{full_name}", full_name)
-            .replace("{linkedin_url}", linkedin_url)
-            .replace("{linkedin_url}", company_name_friendly)
-            .replace("{website}", website);
-
-          const cacheKey = JSON.stringify({
-            searchTerm: searchTermBody,
-            instructions: filledInstructions,
-            modelName: selectedModelNameA,
-            searchCount,
-          });
-
-          let scrapeData: any;
-          let cacheHit = false;
-
-          if (processCacheRef.current[cacheKey]) {
-            scrapeData = processCacheRef.current[cacheKey];
-            cacheHit = true;
-          } else {
-            setOutputForm((prevOutputForm) => ({
-              ...prevOutputForm,
-              generatedContent:
-                `<span style="color: orange">[${formatDateTime(
-                  new Date()
-                )}] Crafting phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${
-                  entry.email
-                }</span><br/>` + prevOutputForm.generatedContent,
-            }));
-
-            const scrapeResponse = await fetch(
-              `${API_BASE_URL}/api/auth/process`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  searchTerm: searchTermBody,
-                  instructions: filledInstructions,
-                  modelName: selectedModelNameA,
-                  searchCount: searchCount,
-                }),
+          if (entry.id && pitchData.response.content) {
+            // ✅ Determine the dataFileId to use for update
+            let updateDataFileId: number | null = null;
+            
+            if (segmentId) {
+              // ✅ For segment-based campaigns, get dataFileId from contact
+              updateDataFileId = entry.dataFileId || entry.data_file_id;
+              
+              if (!updateDataFileId) {
+                setOutputForm((prevOutputForm) => ({
+                  ...prevOutputForm,
+                  generatedContent:
+                    `<span style="color: orange">[${formatDateTime(
+                      new Date()
+                    )}] No dataFileId found for segment contact ${full_name}</span><br/>` +
+                    prevOutputForm.generatedContent,
+                }));
+                // Continue processing but skip database update
               }
-            );
-            if (!scrapeResponse.ok) {
-              scrapfailedreq += 1;
-              setOutputForm((prevOutputForm) => ({
-                ...prevOutputForm,
-                searchResults: [],
-                allScrapedData: "",
-                generatedContent:
-                  `<span style="color: red">[${formatDateTime(
-                    new Date()
-                  )}] Centum nulla analysis incomplete for contact ${full_name} with company name ${company_name} and domain ${
-                    entry.email
-                  }</span><br/>` + prevOutputForm.generatedContent,
-                usage:
-                  `Cost: $${cost.toFixed(6)}    ` +
-                  `Failed Requests: ${failedReq}    ` +
-                  `Success Requests: ${successReq}              ` +
-                  `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
-                  `Total Tokens Used: ${totaltokensused}   `,
-              }));
-              generatedPitches.push({
-                ...entry,
-                pitch: "Error scraping website",
-              });
-              continue;
+            } else if (parsedDataFileId) {
+              // ✅ For datafile-based campaigns, use parsed dataFileId
+              updateDataFileId = parsedDataFileId;
             }
-            scrapeData = await scrapeResponse.json();
-            processCacheRef.current[cacheKey] = scrapeData;
-          }
 
-          // Always show if data is from cache or not
-          if (cacheHit) {
-            setOutputForm((prevOutputForm) => ({
-              ...prevOutputForm,
-              generatedContent:
-                `<span style="color: #b38f00">[${formatDateTime(
-                  new Date()
-                )}] Loading phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${
-                  entry.email
-                }</span><br/>` + prevOutputForm.generatedContent,
-            }));
-          }
-
-          console.log("All cached values:", processCacheRef.current);
-
-          const summary = scrapeData.pitchResponse || {};
-          const searchResults = scrapeData.searchResults || [];
-          const scrappedData = summary.content || "";
-
-          if (!scrappedData) {
-            const formattedTime = formatDateTime(new Date());
-            scrapfailedreq += 1;
-            setOutputForm((prevOutputForm) => ({
-              ...prevOutputForm,
-              searchResults: scrapeData.searchResults || [],
-              allScrapedData: scrapeData.allScrapedData || "",
-              generatedContent:
-                `<span style="color: red">[${formatDateTime(
-                  new Date()
-                )}] Centum nulla analysis incomplete for contact ${full_name} with company name ${company_name} and domain ${
-                  entry.email
-                }</span><br/>` + prevOutputForm.generatedContent,
-              usage:
-                `Cost: $${cost.toFixed(6)}    ` +
-                `Failed Requests: ${failedReq}    ` +
-                `Success Requests: ${successReq}              ` +
-                `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
-                `Total Tokens Used: ${totaltokensused}   `,
-            }));
-            generatedPitches.push({
-              ...entry,
-              pitch: "Error scraping website",
-            });
-            continue;
-          }
-
-          let systemPrompt = systemInstructionsA;
-
-          const replacedPromptText = (selectedPrompt?.text || "")
-            .replace("{search_output_summary}", scrappedData)
-            .replace("{company_name}", company_name)
-            .replace("{job_title}", job_title)
-            .replace("{location}", location)
-            .replace("{full_name}", full_name)
-            .replace("{linkedin_url}", company_name_friendly)
-            .replace("{linkedin_url}", linkedin_url)
-            .replace("{website}", website);
-
-          const promptToSend = `
-          
-          ${systemPrompt}
-           
-          ${replacedPromptText}`
-            .replace("{search_output_summary}", scrappedData)
-            .replace("{company_name}", company_name)
-            .replace("{job_title}", job_title)
-            .replace("{location}", location)
-            .replace("{full_name}", full_name)
-            .replace("{linkedin_url}", company_name_friendly)
-            .replace("{linkedin_url}", linkedin_url)
-            .replace("{website}", website);
-
-          setOutputForm((prevState) => ({
-            ...prevState,
-            currentPrompt: promptToSend,
-            searchResults: scrapeData.searchResults || [],
-            allScrapedData: scrapeData.allScrapedData || "",
-          }));
-
-          const dataAnalysis = analyzeScrapedData(
-            scrapeData.allScrapedData || ""
-          );
-
-          setOutputForm((prevOutputForm) => ({
-            ...prevOutputForm,
-            searchResults: scrapeData.searchResults || [],
-            allScrapedData: scrapeData.allScrapedData || "",
-            generatedContent:
-              `<span style="color: blue">[${formatDateTime(
-                new Date()
-              )}] Crafting phase #2 integritas (att:${searchCount} org:${
-                dataAnalysis.original
-              } ass:${
-                dataAnalysis.assisted
-              }), for contact ${full_name} with company name ${company_name} and domain ${
-                entry.email
-              }</span><br/>` + prevOutputForm.generatedContent,
-          }));
-
-          const requestBody = {
-            scrappedData: systemPrompt,
-            prompt: `${selectedPrompt?.text}`
-              .replace("{company_name}", company_name)
-              .replace("{job_title}", job_title)
-              .replace("{location}", location)
-              .replace("{full_name}", full_name)
-              .replace("{linkedin_url}", linkedin_url)
-              .replace("{linkedin_url}", company_name_friendly)
-              .replace("{search_output_summary}", scrappedData)
-              .replace("{website}", website),
-            ModelName: selectedModelNameA,
-          };
-
-          const pitchResponse = await fetch(
-            `${API_BASE_URL}/api/auth/generatepitch`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(requestBody),
-            }
-          );
-
-          const pitchData = await pitchResponse.json();
-          if (!pitchResponse.ok) {
-            const formattedTime = formatDateTime(new Date());
-            failedReq += 1;
-            cost += parseFloat(pitchData?.response?.currentCost);
-            totaltokensused += parseFloat(pitchData?.response?.totalTokens);
-            setOutputForm((prevOutputForm) => ({
-              ...prevOutputForm,
-              searchResults: scrapeData.searchResults || [],
-              allScrapedData: scrapeData.allScrapedData || "",
-              generatedContent:
-                `<span style="color: red">[${formatDateTime(
-                  new Date()
-                )}] Phase #2 integritas incomplete for contact ${full_name} with company name ${company_name} and domain ${
-                  entry.email
-                }</span><br/>` + prevOutputForm.generatedContent,
-              usage:
-                `Cost: $${cost.toFixed(6)}    ` +
-                `Failed Requests: ${failedReq}    ` +
-                `Success Requests: ${successReq}                ` +
-                `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
-                `Total Tokens Used: ${totaltokensused}   `,
-            }));
-            generatedPitches.push({
-              ...entry,
-              pitch: "Error Crafting pitch",
-            });
-            continue;
-          }
-
-          successReq += 1;
-          cost += parseFloat(pitchData?.response?.currentCost);
-          totaltokensused += parseFloat(pitchData?.response?.totalTokens);
-          console.log(`Cosstdata ${pitchData}`);
-
-          // Success: Update UI with the generated pitch
-          setOutputForm((prevOutputForm) => ({
-            ...prevOutputForm,
-            searchResults: scrapeData.searchResults || [],
-            allScrapedData: scrapeData.allScrapedData || "",
-            generatedContent:
-              `<span style="color: green">[${formatDateTime(
-                new Date()
-              )}] Pitch successfully crafted for contact ${full_name} with company name ${company_name} and domain ${
-                entry.email
-              }</span><br/>` + prevOutputForm.generatedContent,
-            usage:
-              `Cost: $${cost.toFixed(6)}    ` +
-              `Failed Requests: ${failedReq}    ` +
-              `Success Requests: ${successReq}                  ` +
-              `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
-              `Total Tokens Used: ${totaltokensused}   `,
-          }));
-
-          setOutputForm((prevOutputForm) => ({
-            ...prevOutputForm,
-            linkLabel: pitchData.response.content,
-          }));
-
-          generatedPitches.push({
-            ...entry,
-            name: entry.full_name || "N/A",
-            title: entry.job_title || "N/A",
-            company: entry.company_name || "N/A",
-            location: entry.country_or_address || "N/A",
-            website: entry.website || "N/A",
-            linkedin: entry.linkedin_url || "N/A",
-            pitch: pitchData.response.content,
-            subject: entry.email_subject || "N/A",
-            lastemailupdateddate: entry.updated_at || "N/A",
-            emailsentdate: entry.email_sent_at || "N/A",
-          });
-
-          // Generate subject line
-          let subjectLine = "";
-          if (subjectMode === "AI generated") {
-            const filledSubjectInstruction = subject_instruction
-              .replace("{company_name}", company_name)
-              .replace("{job_title}", job_title)
-              .replace("{location}", location)
-              .replace("{full_name}", full_name)
-              .replace("{linkedin_url}", linkedin_url)
-              .replace("{search_output_summary}", scrappedData)
-              .replace("{generated_pitch}", pitchData.response.content)
-              .replace("{website}", website);
-
-            const subjectRequestBody = {
-              scrappedData: filledSubjectInstruction,
-              prompt: pitchData.response.content,
-              ModelName: selectedModelNameA,
-            };
-
-            setOutputForm((prev) => ({
-              ...prev,
-              generatedContent:
-                `<span style="color: blue">[${formatDateTime(
-                  new Date()
-                )}] Crafting phase #3 concinnus, for contact ${full_name} with company name ${company_name} and domain ${
-                  entry.email
-                }</span><br/>` + prev.generatedContent,
-            }));
-
-            const subjectResponse = await fetch(
-              `${API_BASE_URL}/api/auth/generatepitch`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(subjectRequestBody),
-              }
-            );
-
-            if (subjectResponse.ok) {
-              const subjectData = await subjectResponse.json();
-              subjectLine = subjectData.response?.content || "";
-
-              setOutputForm((prev) => ({
-                ...prev,
-                generatedContent:
-                  `<span style="color: green">[${formatDateTime(
-                    new Date()
-                  )}] Subject successfully crafted, for contact ${full_name} with company name ${company_name} and domain ${
-                    entry.email
-                  }</span><br/>` + prev.generatedContent,
-                emailSubject: subjectLine,
-              }));
-            } else {
-              setOutputForm((prev) => ({
-                ...prev,
-                generatedContent:
-                  `<span style="color: orange">[${formatDateTime(
-                    new Date()
-                  )}] Subject generation failed for contact ${full_name} with company name ${company_name} and domain ${
-                    entry.email
-                  }</span><br/>` + prev.generatedContent,
-              }));
-            }
-          } else if (subjectMode === "With Placeholder") {
-            subjectLine = (subjectText || "")
-              .replace("{company_name}", company_name)
-              .replace("{job_title}", job_title)
-              .replace("{location}", location)
-              .replace("{full_name}", full_name)
-              .replace("{linkedin_url}", linkedin_url)
-              .replace("{search_output_summary}", scrappedData)
-              .replace("{generated_pitch}", pitchData.response?.content || "")
-              .replace("{website}", website);
-
-            setOutputForm((prev) => ({
-              ...prev,
-              generatedContent:
-                `<span style="color: green">[${formatDateTime(
-                  new Date()
-                )}] Subject using user placeholder for contact ${full_name} with company name ${company_name} and domain ${
-                  entry.email
-                }</span><br/>` + prev.generatedContent,
-              emailSubject: subjectLine,
-            }));
-          }
-
-          // Update the linkLabel to show both subject and pitch
-          setOutputForm((prevOutputForm) => ({
-            ...prevOutputForm,
-            linkLabel: pitchData.response.content,
-            emailSubject: subjectLine,
-          }));
-
-          // Update generatedPitches to include subject
-          generatedPitches.push({
-            ...entry,
-            name: entry.full_name || "N/A",
-            title: entry.job_title || "N/A",
-            company: entry.company_name || "N/A",
-            location: entry.country_or_address || "N/A",
-            website: entry.website || "N/A",
-            linkedin: entry.linkedin_url || "N/A",
-            pitch: pitchData.response.content,
-            subject: subjectLine,
-            lastemailupdateddate: entry.updated_at || "N/A",
-            emailsentdate: entry.email_sent_at || "N/A",
-          });
-
-          // Update newResponse to include subject
-          const newResponse = {
-            ...entry,
-            name: entry.full_name || "N/A",
-            title: entry.job_title || "N/A",
-            company: entry.company_name || "N/A",
-            location: entry.country_or_address || "N/A",
-            website: entry.website || "N/A",
-            linkedin: entry.linkedin_url || "N/A",
-            pitch: pitchData.response.content,
-            subject: subjectLine,
-            timestamp: new Date().toISOString(),
-            id: entry.id,
-            nextPageToken: null,
-            prevPageToken: null,
-            generated: true,
-            lastemailupdateddate: new Date().toISOString(),
-            emailsentdate: entry.email_sent_at || "N/A",
-          };
-
-          setAllResponses((prevResponses) => [...prevResponses, newResponse]);
-          generatedPitches.push(newResponse);
-          setallprompt((prevPrompts) => [...prevPrompts, promptToSend]);
-          setallsearchResults((prevSearchResults) => [
-            ...prevSearchResults,
-            scrapeData.searchResults || [],
-          ]);
-          seteveryscrapedData((prevScrapedData) => [
-            ...prevScrapedData,
-            scrapeData.allScrapedData || "",
-          ]);
-          setallsummery((prevSummery) => [
-            ...prevSummery,
-            scrapeData.pitchResponse.content || [],
-          ]);
-          setallSearchTermBodies((prevSearchTermBodies) => [
-            ...prevSearchTermBodies,
-            searchTermBody,
-          ]);
-          setRecentlyAddedOrUpdatedId(newResponse.id);
-          const dataFileIdStr = selectedZohoviewId;
-
-          // Update database with new API
-          try {
-            if (entry.id && pitchData.response.content && parsedDataFileId) {
+            // ✅ Only update if we have a valid dataFileId
+            if (updateDataFileId) {
               const updateContactResponse = await fetch(
                 `${API_BASE_URL}/api/crm/contacts/update-email`,
                 {
@@ -2017,11 +2444,11 @@ const MainPage: React.FC = () => {
                     "Content-Type": "application/json",
                   },
                   body: JSON.stringify({
-                    ClientId: effectiveUserId, // Use consistent value
-                    DataFileId: parsedDataFileId, // Use parsed value
-                    ContactId: entry.id,
-                    EmailSubject: subjectLine,
-                    EmailBody: pitchData.response.content,
+                    clientId: effectiveUserId,
+                    dataFileId: updateDataFileId,
+                    contactId: entry.id,
+                    emailSubject: subjectLine,
+                    emailBody: pitchData.response.content,
                   }),
                 }
               );
@@ -2033,9 +2460,7 @@ const MainPage: React.FC = () => {
                   generatedContent:
                     `<span style="color: orange">[${formatDateTime(
                       new Date()
-                    )}] Updating contact in database incomplete for contact ${full_name} with company name ${company_name} and domain ${
-                      entry.email
-                    }. Error: ${updateContactError.Message}</span><br/>` +
+                    )}] Updating contact in database incomplete for ${full_name}. Error: ${updateContactError.Message || 'Unknown error'}</span><br/>` +
                     prevOutputForm.generatedContent,
                 }));
               } else {
@@ -2044,118 +2469,107 @@ const MainPage: React.FC = () => {
                   generatedContent:
                     `<span style="color: green">[${formatDateTime(
                       new Date()
-                    )}] Updated pitch in database for contact ${full_name} with company name ${company_name} and domain ${
-                      entry.email
-                    }.</span><br/>` + prevOutputForm.generatedContent,
+                    )}] Updated pitch in database for ${full_name}.</span><br/>` +
+                    prevOutputForm.generatedContent,
                 }));
               }
-            } else {
-              setOutputForm((prevOutputForm) => ({
-                ...prevOutputForm,
-                generatedContent:
-                  `<span style="color: orange">[${formatDateTime(
-                    new Date()
-                  )}] Updating contact in database incomplete for contact ${full_name} with company name ${company_name} and domain ${
-                    entry.email
-                  }</span><br/>` + prevOutputForm.generatedContent,
-              }));
             }
-          } catch (zohoError) {
-            setOutputForm((prevOutputForm) => ({
-              ...prevOutputForm,
-              generatedContent:
-                `<span style="color: orange">[${formatDateTime(
-                  new Date()
-                )}] Updating contact in database incomplete for contact ${full_name} with company name ${company_name} and domain ${
-                  entry.email
-                }. Error: </span><br/>` + prevOutputForm.generatedContent,
-            }));
           }
-
-          console.log("Delaying " + delayTime + " secs");
-          // await delay(delayTime * 1000); // 1-second delay
-        } catch (error) {
-          setOutputForm((prevOutputForm: any) => ({
+        } catch (updateError) {
+          setOutputForm((prevOutputForm) => ({
             ...prevOutputForm,
             generatedContent:
-              `<span style="color: red">[${formatDateTime(
+              `<span style="color: orange">[${formatDateTime(
                 new Date()
-              )}] Phase #2 integritas incomplete for contact ${
-                entry.full_name
-              } with company name ${entry.company_name} and domain ${
-                entry.email
-              }</span><br/>` + prevOutputForm.generatedContent,
-            usage:
-              `Cost: $${cost.toFixed(6)}    ` +
-              `Failed Requests: ${failedReq}    ` +
-              `Success Requests: ${successReq}                ` +
-              `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
-              `Total Tokens Used: ${totaltokensused}   `,
+              )}] Database update error for ${full_name}.</span><br/>` +
+              prevOutputForm.generatedContent,
           }));
-          console.error(`Error processing entry ${entry.email}:`, error);
-          generatedPitches.push({
-            ...entry,
-            pitch: "Error generating pitch",
-          });
         }
+
+        console.log("Delaying " + delayTime + " secs");
+        // await delay(delayTime * 1000); // 1-second delay
+      } catch (error) {
+        setOutputForm((prevOutputForm: any) => ({
+          ...prevOutputForm,
+          generatedContent:
+            `<span style="color: red">[${formatDateTime(
+              new Date()
+            )}] Phase #2 integritas incomplete for contact ${
+              entry.full_name
+            } with company name ${entry.company_name} and domain ${
+              entry.email
+            }</span><br/>` + prevOutputForm.generatedContent,
+          usage:
+            `Cost: $${cost.toFixed(6)}    ` +
+            `Failed Requests: ${failedReq}    ` +
+            `Success Requests: ${successReq}                ` +
+            `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
+            `Total Tokens Used: ${totaltokensused}   `,
+        }));
+        console.error(`Error processing entry ${entry.email}:`, error);
+        generatedPitches.push({
+          ...entry,
+          pitch: "Error generating pitch",
+        });
       }
+    }
 
-      // Set processing to false when completely done
-      if (!moreRecords) {
-        setAllRecordsProcessed(true);
-      }
+    // Set processing to false when completely done
+    if (!moreRecords) {
+      setAllRecordsProcessed(true);
+    }
 
-      moreRecords = false; // No pagination in new API
+    moreRecords = false; // No pagination in new API
 
-      // Process completed successfully
-      if (!stopRef.current) {
-        // Reset all tracking variables
-        setLastProcessedToken(null);
-        setLastProcessedIndex(0);
-        stopRef.current = false;
-        setIsPaused(true);
-      }
-
-      // Capture the end time after processing all entries
-      const endTime = new Date();
-      setEndTime(endTime);
-
-      // Calculate time spent
-      const timeSpent = endTime.getTime() - startTime.getTime();
-      const hours = Math.floor((timeSpent % 86400000) / 3600000);
-      const minutes = Math.floor(((timeSpent % 86400000) % 3600000) / 60000);
-      const formattedTimeSpent = `${hours} hours ${minutes} minutes`;
-
-      // Send email report
-      sendEmail(
-        cost,
-        failedReq,
-        successReq,
-        scrapfailedreq,
-        totaltokensused,
-        formattedTimeSpent,
-        startTime,
-        endTime,
-        generatedPitches,
-        selectedPrompt?.text
-      );
-    } catch (error) {
-      // Ensure processing is set to false even if there's an error
-      setIsProcessing(false);
-      console.error("Error:", error);
-      setOutputForm((prevForm) => ({
-        ...prevForm,
-        generatedContent:
-          `<span style="color: red"> Error: </span><br/>` +
-          prevForm.generatedContent,
-      }));
-    } finally {
-      // Ensure processing is set to false
-      setIsProcessing(false);
-      setIsPitchUpdateCompleted(true); // Set to true when pitch is updated
+    // Process completed successfully
+    if (!stopRef.current) {
+      // Reset all tracking variables
+      setLastProcessedToken(null);
+      setLastProcessedIndex(0);
+      stopRef.current = false;
       setIsPaused(true);
     }
-  };
+
+    // Capture the end time after processing all entries
+    const endTime = new Date();
+    setEndTime(endTime);
+
+    // Calculate time spent
+    const timeSpent = endTime.getTime() - startTime.getTime();
+    const hours = Math.floor((timeSpent % 86400000) / 3600000);
+    const minutes = Math.floor(((timeSpent % 86400000) % 3600000) / 60000);
+    const formattedTimeSpent = `${hours} hours ${minutes} minutes`;
+
+    // Send email report
+    sendEmail(
+      cost,
+      failedReq,
+      successReq,
+      scrapfailedreq,
+      totaltokensused,
+      formattedTimeSpent,
+      startTime,
+      endTime,
+      generatedPitches,
+      selectedPrompt?.text
+    );
+  } catch (error) {
+    // Ensure processing is set to false even if there's an error
+    setIsProcessing(false);
+    console.error("Error:", error);
+    setOutputForm((prevForm) => ({
+      ...prevForm,
+      generatedContent:
+        `<span style="color: red"> Error: </span><br/>` +
+        prevForm.generatedContent,
+    }));
+  } finally {
+    // Ensure processing is set to false
+    setIsProcessing(false);
+    setIsPitchUpdateCompleted(true); // Set to true when pitch is updated
+    setIsPaused(true);
+  }
+};
 
   const [outputForm, setOutputForm] = useState<OutputInterface["outputForm"]>({
     generatedContent: "",
@@ -2218,9 +2632,6 @@ const MainPage: React.FC = () => {
   const searchTermFormOnSubmit = async (e: any) => {
     e.preventDefault();
     try {
-      console.log(searchTermForm.searchTerm, "searchTermForm");
-      console.log(searchTermForm.instructions);
-      console.log(searchTermForm.searchCount); // Log the number value
 
       const requestBody = searchTermForm.searchTerm; // Send only the search term in the body
 
@@ -2261,6 +2672,7 @@ const MainPage: React.FC = () => {
       }));
     }
   };
+
   const [settingsForm, setSettingsForm] = useState({
     emailTemplate: "",
     viewId: "",
@@ -2291,6 +2703,7 @@ const MainPage: React.FC = () => {
     },
     [] // Empty dependency array
   );
+
   const settingsFormOnSubmit = (e: any) => {
     e.preventDefault();
     console.log(outputForm, "outputForm");
@@ -2383,6 +2796,7 @@ const MainPage: React.FC = () => {
     pitch: string;
     timestamp: string;
   }
+  
   const IsAdmin = sessionStorage.getItem("IsAdmin");
 
   // State for data files
@@ -2398,14 +2812,15 @@ const MainPage: React.FC = () => {
       setLoading(true);
 
       try {
-        const clientIdToUse = selectedClient || clientID;
-        const url = `${API_BASE_URL}/api/Crm/by-client?clientId=${clientIdToUse}`;
+        const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
+
+        const url = `${API_BASE_URL}/api/Crm/datafile-byclientid?clientId=${effectiveUserId}`;
 
         const response = await fetch(url);
 
         if (!response.ok) {
           if (response.status === 404) {
-            console.log(`No data files found for client: ${clientIdToUse}`);
+            console.log(`No data files found for client: ${effectiveUserId}`);
             setDataFiles([]);
             return;
           }
@@ -2436,96 +2851,85 @@ const MainPage: React.FC = () => {
     }
   };
 
-  const handleStart = async () => {
-    //await handleReset();   // Now this is valid
-    await handleClearAll();
+  const handleStart = async (startIndex?: number) => {
+  if (!selectedPrompt) return;
+  
+  // Use the passed startIndex or current index, don't clear all data
+  const indexToStart = startIndex !== undefined ? startIndex : currentIndex;
+  
+  setAllRecordsProcessed(false);
+  setIsStarted(true);
+  setIsPaused(false);
+  setIsProcessing(true);
+  stopRef.current = false;
 
-    if (!selectedPrompt) return;
-    setAllRecordsProcessed(false);
-    setIsStarted(true);
-    setIsPaused(false);
-    stopRef.current = false;
-    goToTab("Output");
-  };
+  goToTab("Output", {
+    startFromIndex: indexToStart,
+    useCachedData: true,
+  });
+};
 
-  const handlePauseResume = async () => {
-    if (isStarted) {
-      if (isPaused) {
-        // Check if we've processed all records
-        if (allRecordsProcessed) {
-          // If all records are processed and user clicks "Start", reset first then start new process
-          handleReset(); // Reset everything
-          handleStart(); // Start a new process
-          return;
-        }
-        // Only allow resume if pitch update is completed
-        if (isPitchUpdateCompleted && !isProcessing) {
-          setIsPaused(false);
-          stopRef.current = false;
-          setIsPitchUpdateCompleted(false); // Reset the completion status
-          goToTab("Output");
-        }
-      } else {
-        // Pause logic
-        setIsPaused(true);
-        stopRef.current = true;
+  const handleStop = async () => {
+  if (isProcessing) {
+    setIsPaused(true);
+    stopRef.current = true;
 
-        // Calculate time spent so far
-        const currentTime = new Date();
-        let timeSpent = "";
+    // Calculate time spent so far
+    const currentTime = new Date();
+    let timeSpent = "";
 
-        if (startTime) {
-          const timeDiff = currentTime.getTime() - startTime.getTime();
-          const hours = Math.floor((timeDiff % 86400000) / 3600000);
-          const minutes = Math.floor(((timeDiff % 86400000) % 3600000) / 60000);
-          timeSpent = `${hours} hours ${minutes} minutes`;
-        }
-
-        // Get the current values from the usage string
-        const usageText = outputForm.usage;
-
-        // Extract values using regex
-        const costMatch = usageText.match(/Cost: \$([0-9.]+)/);
-        const failedReqMatch = usageText.match(/Failed Requests: ([0-9]+)/);
-        const successReqMatch = usageText.match(/Success Requests: ([0-9]+)/);
-        const scrapfailedReqMatch = usageText.match(
-          /Scraped Data Failed Requests: ([0-9]+)/
-        );
-        const totaltokensusedMatch = usageText.match(
-          /Total Tokens Used: ([0-9]+)/
-        );
-
-        const currentCost = costMatch ? parseFloat(costMatch[1]) : cost;
-        const currentFailedReq = failedReqMatch
-          ? parseInt(failedReqMatch[1])
-          : failedReq;
-        const currentSuccessReq = successReqMatch
-          ? parseInt(successReqMatch[1])
-          : successReq;
-        const currentScrapfailedReq = scrapfailedReqMatch
-          ? parseInt(scrapfailedReqMatch[1])
-          : scrapfailedreq; // Fixed variable name
-        const currentTotaltokensused = totaltokensusedMatch
-          ? parseInt(totaltokensusedMatch[1])
-          : totaltokensused;
-
-        // Send email with the values from the usage display
-        await sendEmail(
-          currentCost,
-          currentFailedReq,
-          currentSuccessReq,
-          currentScrapfailedReq,
-          currentTotaltokensused,
-          timeSpent,
-          startTime,
-          currentTime, // Use current time as the end time
-          allResponses, // Use all responses gathered so far
-          selectedPrompt?.text || "No prompt template was selected",
-          true // Add a flag to indicate this is a pause report
-        );
-      }
+    if (startTime) {
+      const timeDiff = currentTime.getTime() - startTime.getTime();
+      const hours = Math.floor((timeDiff % 86400000) / 3600000);
+      const minutes = Math.floor(((timeDiff % 86400000) % 3600000) / 60000);
+      timeSpent = `${hours} hours ${minutes} minutes`;
     }
-  };
+
+    // Get the current values from the usage string
+    const usageText = outputForm.usage;
+
+    // Extract values using regex
+    const costMatch = usageText.match(/Cost: \$([0-9.]+)/);
+    const failedReqMatch = usageText.match(/Failed Requests: ([0-9]+)/);
+    const successReqMatch = usageText.match(/Success Requests: ([0-9]+)/);
+    const scrapfailedReqMatch = usageText.match(
+      /Scraped Data Failed Requests: ([0-9]+)/
+    );
+    const totaltokensusedMatch = usageText.match(
+      /Total Tokens Used: ([0-9]+)/
+    );
+
+    const currentCost = costMatch ? parseFloat(costMatch[1]) : cost;
+    const currentFailedReq = failedReqMatch
+      ? parseInt(failedReqMatch[1])
+      : failedReq;
+    const currentSuccessReq = successReqMatch
+      ? parseInt(successReqMatch[1])
+      : successReq;
+    const currentScrapfailedReq = scrapfailedReqMatch
+      ? parseInt(scrapfailedReqMatch[1])
+      : scrapfailedreq;
+    const currentTotaltokensused = totaltokensusedMatch
+      ? parseInt(totaltokensusedMatch[1])
+      : totaltokensused;
+
+    // Send email with the values from the usage display
+    await sendEmail(
+      currentCost,
+      currentFailedReq,
+      currentSuccessReq,
+      currentScrapfailedReq,
+      currentTotaltokensused,
+      timeSpent,
+      startTime,
+      currentTime,
+      allResponses,
+      selectedPrompt?.text || "No prompt template was selected",
+      true // Flag to indicate this is a stop report
+    );
+
+  }
+};
 
   const handleReset = () => {
     // Only allow reset if paused
@@ -2597,53 +3001,7 @@ const MainPage: React.FC = () => {
     }
   }, [isDemoAccount]);
 
-  useEffect(() => {
-    const fetchCampaigns = async () => {
-      // Only proceed if there's a client selected
-      if (!selectedClient && !clientID) {
-        setCampaigns([]); // Clear campaigns when no client is selected
-        return;
-      }
 
-      setLoading(true);
-      try {
-        let url = `${API_BASE_URL}/api/auth/campaigns/client`;
-        if (selectedClient) {
-          url += `/${selectedClient}`;
-        } else if (clientID) {
-          url += `/${clientID}`;
-        }
-
-        console.log(
-          `Fetching campaigns for client: ${
-            selectedClient || clientID
-          } from ${url}`
-        );
-
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        console.log(
-          `Received ${data.length} campaigns for client ${
-            selectedClient || clientID
-          }`,
-          data
-        );
-
-        setCampaigns(data);
-      } catch (error) {
-        console.error("Error fetching campaigns:", error);
-        setCampaigns([]); // Clear campaigns on error
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCampaigns();
-  }, [selectedClient, clientID]);
 
 const handleCampaignChange = async (
   event: React.ChangeEvent<HTMLSelectElement>
@@ -2661,7 +3019,7 @@ const handleCampaignChange = async (
 
     // Find the selected campaign
     const campaign = campaigns.find((c) => c.id.toString() === campaignId);
-    console.log('Selected campaign:', campaign);
+    console.log("Selected campaign:", campaign);
 
     if (campaign) {
       // Set the corresponding prompt
@@ -2672,28 +3030,34 @@ const handleCampaignChange = async (
         setSelectedPrompt(promptMatch);
       }
 
-      // The zohoViewId field actually contains the dataFileId
-      const dataFileId = campaign.zohoViewId; // This is '31' in your example
-      console.log('Campaign dataFileId:', dataFileId);
-      setSelectedZohoviewId(dataFileId);
+      // ✅ Check if campaign is segment-based or datafile-based
+      const segmentId = (campaign as any).segmentId;
+      const dataFileId = campaign.zohoViewId;
+      
+      console.log("Campaign segmentId:", segmentId);
+      console.log("Campaign dataFileId:", dataFileId);
 
-      // Fetch data for this data file
+      // Get the client ID
+      const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
+
+      // Fetch data based on campaign type
       try {
-        if (!dataFileId) {
-          console.error('Campaign has no dataFileId');
+        if (segmentId) {
+          // ✅ Campaign uses segment
+          console.log("Using segment-based campaign");
+          setSelectedZohoviewId(`segment_${segmentId}`);
+          await fetchAndDisplayEmailBodies(`segment_${segmentId}`);
+        } else if (dataFileId) {
+          // ✅ Campaign uses datafile - existing logic
+          console.log("Using datafile-based campaign");
+          setSelectedZohoviewId(dataFileId);
+          await fetchAndDisplayEmailBodies(`${effectiveUserId},${dataFileId}`);
+        } else {
+          console.error("Campaign has neither segmentId nor dataFileId");
           return;
         }
-
-        // Get the client ID
-        const clientIdToUse = campaign.clientId.toString() || selectedClient || clientID;
-        console.log('Using client ID:', clientIdToUse);
-        
-        // Pass in format: "clientId,dataFileId"
-        // This matches your existing API call pattern
-        await fetchAndDisplayEmailBodies(`${clientIdToUse},${dataFileId}`);
-        
       } catch (error) {
-        console.error("Error fetching email bodies:", error);
+        console.error("Error fetching contacts:", error);
       }
     }
   } else {
@@ -2705,62 +3069,56 @@ const handleCampaignChange = async (
     setexistingResponse([]);
   }
 };
-
   const handleClearAll = () => {
-    // Confirm before proceeding
-    {
-      stopRef.current = true;
+  stopRef.current = true;
 
-      processCacheRef.current = {}; // Clear the process cache
-      setAllRecordsProcessed(false); // Reset all records processed flag
+  processCacheRef.current = {};
+  setAllRecordsProcessed(false);
 
-      // Reset all state variables
-      setIsStarted(false);
-      setIsPaused(false);
-      setIsProcessing(false);
-      setIsPitchUpdateCompleted(false);
+  // Reset all state variables
+  setIsStarted(false);
+  setIsPaused(false);
+  setIsProcessing(false); // Add this line
+  setIsPitchUpdateCompleted(false);
 
-      // Reset last processed token and index
-      setLastProcessedToken(null);
-      setLastProcessedIndex(0);
+  // Reset last processed token and index
+  setLastProcessedToken(null);
+  setLastProcessedIndex(0);
 
-      // Clear all accumulated data
-      setAllResponses([]);
-      setallsearchResults([]);
-      seteveryscrapedData([]);
-      setallprompt([]);
-      setallSearchTermBodies([]);
-      setallsummery([]);
+  // Clear all accumulated data
+  setAllResponses([]);
+  setallsearchResults([]);
+  seteveryscrapedData([]);
+  setallprompt([]);
+  setallSearchTermBodies([]);
+  setallsummery([]);
 
-      // Reset output form
-      setOutputForm({
-        generatedContent: "",
-        linkLabel: "",
-        usage: "",
-        currentPrompt: "",
-        searchResults: [],
-        allScrapedData: "",
-      });
+  // Reset output form
+  setOutputForm({
+    generatedContent: "",
+    linkLabel: "",
+    usage: "",
+    currentPrompt: "",
+    searchResults: [],
+    allScrapedData: "",
+  });
 
-      // Clear any existing content
-      clearContentFunction?.();
+  clearContentFunction?.();
 
-      // Reset cost and request tracking variables
-      cost = 0;
-      failedReq = 0;
-      successReq = 0;
-      scrapfailedreq = 0;
-      totaltokensused = 0;
+  // Reset cost and request tracking variables
+  cost = 0;
+  failedReq = 0;
+  successReq = 0;
+  scrapfailedreq = 0;
+  totaltokensused = 0;
 
-      // Reset existingResponse and related index in Output.tsx
-      setexistingResponse([]); // Use the state setter directly
-      setCurrentIndex(0); // Reset currentIndex in Output.tsx
-      setCurrentPage(0); // Resetting the current page to 0
+  setexistingResponse([]);
+  setCurrentIndex(0);
+  setCurrentPage(0);
 
-      localStorage.removeItem("cachedResponses");
-      localStorage.removeItem("currentIndex");
-    }
-  };
+  localStorage.removeItem("cachedResponses");
+  localStorage.removeItem("currentIndex");
+};
 
   const handleExcelDataProcessed = async (processedData: any[]) => {
     console.log("Excel data processed:", processedData);
@@ -2796,580 +3154,726 @@ const handleCampaignChange = async (
 
   const [selectedDataFileId, setSelectedDataFileId] = useState("");
 
-  return (
-    <div className="login-container pitch-page flex-col d-flex">
-        <Header 
-      connectTo={true}
-      selectedClient={selectedClient}
-      handleClientChange={handleClientChange}
-      clientNames={clientNames}
-      userRole={userRole}
-    />
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-      <div className="main-content-wrapper d-flex">
-        {/* Side Menu */}
-        <div className="side-menu">
-          <div className="side-menu-inner">
-            <ul className="side-menu-list">
-              <li className={tab === "Template" ? "active" : ""}>
-                <button
-                  onClick={() => setTab("Template")}
-                  className="side-menu-button"
-                  title="Click to view the original non-personalized email template"
-                >
-                  <span className="menu-icon">📄</span>
-                  <span className="menu-text">Template</span>
-                </button>
-              </li>
-              <li className={tab === "DataCampaigns" ? "active" : ""}>
-                <button
-                  onClick={() => setTab("DataCampaigns")}
-                  className="side-menu-button"
-                  title="Manage data files and campaigns"
-                >
-                  <span className="menu-icon">📊</span>
-                  <span className="menu-text">Lists</span>
-                </button>
-              </li>
-               <li className={tab === "Campaigns" ? "active" : ""}>
+  return (
+    // <div className="login-container pitch-page flex-col d-flex">
+    <div className="flex h-screen bg-gray-100">
+      {/* Sidebar */}
+      {isSidebarOpen && (
+        <aside
+          className={`bg-white border-r shadow-sm flex flex-col transition-all duration-300`}
+        >
+          <div className="p-2 text-xl font-bold border-b">
+            <div className="flex justify-between items-start">
+              <img
+                src={"https://www.pitchkraft.ai/images/pitch_logo.png"}
+                alt="Pitchcraft Logo"
+                style={{ height: "100px" }}
+              />
+              <button
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                className="w-[40px] h-[40px] flex items-center justify-center rounded-md bg-gray-200 hover:bg-gray-300 mt-[10px]"
+              >
+                <FontAwesomeIcon
+                  icon={faBars}
+                  className=" text-[#333333] text-2xl"
+                />
+              </button>
+            </div>
+          </div>
+
+          <nav className="flex-1 py-4 space-y-2">
+            {/* Side Menu */}
+            <div className="side-menu">
+              <div className="side-menu-inner">
+                <ul className="side-menu-list">
+                  <li className={tab === "Template" ? "active" : ""}>
+                    <button
+                      onClick={() => {
+                        setTab("Template");
+                        setShowMailSubmenu(false);
+                        setShowContactsSubmenu(false);
+
+                      }}
+                      className="side-menu-button"
+                      title="Click to view the original non-personalized email template"
+                    >
+                      <span className="menu-icon">
+                        <FontAwesomeIcon
+                          icon={faFileAlt}
+                          className=" text-[#333333] text-lg"
+                        />
+                      </span>
+                      <span className="menu-text">Templates</span>
+                    </button>
+                  </li>
+                  <li
+                    className={`${tab === "DataCampaigns" ? "active" : ""} ${
+                      showContactsSubmenu
+                        ? "has-submenu submenu-open"
+                        : "has-submenu"
+                    }`}
+                  >
+                    <button
+                      onClick={() => {
+                        if (tab !== "DataCampaigns") {
+                          setTab("DataCampaigns");
+                          setShowContactsSubmenu(true);
+                          setShowMailSubmenu(false);
+                        } else {
+                          setShowContactsSubmenu((prev) => !prev);
+                        }
+                      }}
+                      className="side-menu-button"
+                      title="Manage contacts and segments"
+                    >
+                      <span className="menu-icon">
+                        <FontAwesomeIcon
+                          icon={faList}
+                          className=" text-[#333333] text-lg"
+                        />
+                      </span>
+                      <span className="menu-text">Contacts</span>
+                      <span className="submenu-arrow">
+                        <FontAwesomeIcon
+                          icon={faAngleRight}
+                          className=" text-[#333333] text-lg"
+                        />
+                      </span>
+                    </button>
+                    {showContactsSubmenu && (
+                      <ul className="submenu">
+                        <li
+                          className={contactsSubTab === "List" ? "active" : ""}
+                        >
+                          <button
+                            onClick={() => {
+                              setContactsSubTab("List");
+                              setTab("DataCampaigns");
+                              setShowMailSubmenu(false);
+                            }}
+                            className="submenu-button"
+                          >
+                            Lists
+                          </button>
+                        </li>
+                        <li
+                          className={
+                            contactsSubTab === "Segment" ? "active" : ""
+                          }
+                        >
+                          <button
+                            onClick={() => {
+                              setContactsSubTab("Segment");
+                              setTab("DataCampaigns");
+                              setShowMailSubmenu(false);
+                            }}
+                            className="submenu-button"
+                          >
+                            Segments
+                          </button>
+                        </li>
+                      </ul>
+                    )}
+                  </li>
+
+                  <li className={tab === "Campaigns" ? "active" : ""}>
+                    <button
+                      onClick={() => {
+                        setTab("Campaigns");
+                        setShowMailSubmenu(false);
+                        setShowContactsSubmenu(false);
+                      }}
+                      className="side-menu-button"
+                      title="Manage campaigns"
+                    >
+                      <span className="menu-icon">
+                        <FontAwesomeIcon
+                          icon={faBullhorn}
+                          className=" text-[#333333] text-lg"
+                        />
+                      </span>
+                      <span className="menu-text">Campaigns</span>
+                    </button>
+                  </li>
+                  <li className={tab === "Output" ? "active" : ""}>
+                    <button
+                      onClick={() => {
+                        setTab("Output");
+                        setShowMailSubmenu(false);
+                        setShowContactsSubmenu(false);
+                      }}
+                      className="side-menu-button"
+                      title="Click to view the hyper-personalized emails being generated"
+                    >
+                      <span className="menu-icon">
+                        <FontAwesomeIcon
+                          icon={faEnvelopeOpen}
+                          className=" text-[#333333] text-lg"
+                        />
+                      </span>
+                      <span className="menu-text">Output</span>
+                    </button>
+                  </li>
+                  <li
+  className={`${tab === "Mail" ? "active" : ""} ${
+    showMailSubmenu
+      ? "has-submenu submenu-open"
+      : "has-submenu"
+  }`}
+>
+  <button
+    onClick={() => {
+      if (tab !== "Mail") {
+        setTab("Mail");
+        setShowMailSubmenu(true);
+        setShowContactsSubmenu(false);
+      } else {
+        setShowMailSubmenu((prev) => !prev);
+      }
+    }}
+    className="side-menu-button"
+  >
+    <span className="menu-icon">
+      <FontAwesomeIcon
+        icon={faEnvelope}
+        className=" text-[#333333] text-lg"
+      />
+    </span>
+    <span className="menu-text">Mail</span>
+    <span className="submenu-arrow">
+      <FontAwesomeIcon
+        icon={faAngleRight}
+        className=" text-[#333333] text-lg"
+      />
+    </span>
+  </button>
+  {showMailSubmenu && (
+    <ul className="submenu">
+      <li
+        className={
+          mailSubTab === "Dashboard" ? "active" : ""
+        }
+      >
         <button
           onClick={() => {
-            setTab("Campaigns");
-            setShowMailSubmenu(false);
+            setMailSubTab("Dashboard");
+            setTab("Mail");
           }}
-          className="side-menu-button"
-          title="Manage campaigns"
+          className="submenu-button"
         >
-          <span className="menu-icon">📢</span>
-          <span className="menu-text">Campaigns</span>
+          Dashboard
         </button>
       </li>
-              <li className={tab === "Output" ? "active" : ""}>
-                <button
-                  onClick={() => setTab("Output")}
-                  className="side-menu-button"
-                  title="Click to view the hyper-personalized emails being generated"
-                >
-                  <span className="menu-icon">📤</span>
-                  <span className="menu-text">Output</span>
-                </button>
-              </li>
-            {userRole === "ADMIN" && (
-  <li className={`${tab === "Mail" ? "active" : ""} ${showMailSubmenu ? "has-submenu submenu-open" : "has-submenu"}`}>
-    <button
-      onClick={() => {
-        setTab("Mail");
-        setShowMailSubmenu(!showMailSubmenu);
-      }}
-      className="side-menu-button"
-    >
-      <span className="menu-icon">✉️</span>
-      <span className="menu-text">Mail</span>
-      <span className="submenu-arrow">▶</span>
-    </button>
-    {showMailSubmenu && (
-      <ul className="submenu">
-        <li className={mailSubTab === "Dashboard" ? "active" : ""}>
-          <button
-            onClick={() => {
-              setMailSubTab("Dashboard");
-              setTab("Mail");
-            }}
-            className="submenu-button"
-          >
-            Dashboard
-          </button>
-        </li>
-        <li className={mailSubTab === "Configuration" ? "active" : ""}>
-          <button
-            onClick={() => {
-              setMailSubTab("Configuration");
-              setTab("Mail");
-            }}
-            className="submenu-button"
-          >
-            Configuration
-          </button>
-        </li>
-        <li className={mailSubTab === "Schedule" ? "active" : ""}>
-          <button
-            onClick={() => {
-              setMailSubTab("Schedule");
-              setTab("Mail");
-            }}
-            className="submenu-button"
-          >
-            Schedule
-          </button>
-        </li>
-      </ul>
-    )}
-  </li>
-)}
-              {userRole === "ADMIN" && (
-                <li className={tab === "Settings" ? "active" : ""}>
-                  <button
-                    onClick={() => setTab("Settings")}
-                    className="side-menu-button"
-                  >
-                    <span className="menu-icon">⚙️</span>
-                    <span className="menu-text">Settings</span>
-                  </button>
-                </li>
-              )}
-            </ul>
-          </div>
-        </div>
+      <li
+        className={
+          mailSubTab === "Configuration" ? "active" : ""
+        }
+      >
+        <button
+          onClick={() => {
+            setMailSubTab("Configuration");
+            setTab("Mail");
+          }}
+          className="submenu-button"
+        >
+          Configuration
+        </button>
+      </li>
+      <li
+        className={
+          mailSubTab === "Schedule" ? "active" : ""
+        }
+      >
+        <button
+          onClick={() => {
+            setMailSubTab("Schedule");
+            setTab("Mail");
+          }}
+          className="submenu-button"
+        >
+          Schedule
+        </button>
+      </li>
+    </ul>
+  )}
+</li>
+                  {userRole === "ADMIN" && (
+                    <li className={tab === "Settings" ? "active" : ""}>
+                      <button
+                        onClick={() => {
+                          setTab("Settings");
+                          setShowMailSubmenu(false);
+                          setShowContactsSubmenu(false);
+                        }}
+                        className="side-menu-button"
+                      >
+                        <span className="menu-icon">
+                          <FontAwesomeIcon
+                            icon={faGear}
+                            className=" text-[#333333] text-lg"
+                          />
+                        </span>
+                        <span className="menu-text">Settings</span>
+                      </button>
+                    </li>
+                  )}
+                </ul>
+              </div>
+            </div>
+          </nav>
+        </aside>
+      )}
 
-        {/* Main Content Area */}
-        <div className="main-content">
-         
+      {/* Content Area */}
+      <div className="flex flex-col flex-1">
+        {/* Header */}
+        <header className="bg-white shadow-sm border-b p-2 px-4 flex justify-between items-center min-h-[77px]">
+          {!isSidebarOpen && (
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="w-[40px] h-[40px] flex items-center justify-center rounded-md bg-gray-200 hover:bg-gray-300 mr-[15px]"
+            >
+              <FontAwesomeIcon
+                icon={faBars}
+                className=" text-[#333333] text-2xl"
+              />
+            </button>
+          )}
+          <Header
+            connectTo={true}
+            selectedClient={selectedClient}
+            handleClientChange={handleClientChange}
+            clientNames={clientNames}
+            userRole={userRole}
+          />
+        </header>
 
-          {/* Tab Content */}
-          <div className="tab-content">
-            {tab === "Template" && (
-              <>
-                <div className="login-box gap-down d-flex">
-                  <div className="input-section edit-section">
-                    <div className="row flex-col-768">
-                      
+        {/* Inner Main Content */}
+        <main className="flex-1 p-4 overflow-y-auto">
+          <div className="bg-white rounded-md shadow-md p-6">
+            {/* Main Content Area */}
 
-                      <div className="col col-4 col-12-768">
-                        <div className="form-group">
-                          <label>
-                            Original non-personalized email templates
-                          </label>
-                          <select
-                            onChange={handleSelectChange}
-                            value={selectedPrompt?.name || ""}
-                            className={
-                              !selectedPrompt?.name ? "highlight-required" : ""
-                            }
-                            disabled={
-                              userRole !== "ADMIN" 
-                              
-                            }
-                          >
-                            <option value="">Please select a template</option>
-                            {promptList.map((prompt: Prompt) => (
-                              <option key={prompt.id} value={prompt.name}>
-                                {prompt.name}
-                              </option>
-                            ))}
-                          </select>
+            {/* Tab Content */}
+            <div className="tab-content">
+              {tab === "Template" && (
+                <>
+                  <h1 className="text-[22px] mb-15 pb-4 border-b border-[#cccccc] font-semibold">
+                    Templates
+                  </h1>
+                  <div className="login-box gap-down !mb-[0px] d-flex">
+                    <div className="input-section edit-section w-[100%]">
+                      <div className="row flex-col-768 mb-[20px]">
+                        <div className="col col-12 col-12-768 flex items-end gap-2">
+                          <div className="form-group mb-0-imp">
+                            <label>
+                              Original non-personalized email templates
+                            </label>
+                            <select
+                              onChange={handleSelectChange}
+                              value={selectedPrompt?.name || ""}
+                              className={
+                                !selectedPrompt?.name
+                                  ? "highlight-required"
+                                  : ""
+                              }
+                            >
+                              <option value="">Please select a template</option>
+                              {promptList.map((prompt: Prompt) => (
+                                <option key={prompt.id} value={prompt.name}>
+                                  {prompt.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="add-a-prompt">
+                            <ReactTooltip
+                              anchorSelect="#output-add-a-prompt-tooltip"
+                              place="top"
+                            >
+                              Add a prompt
+                            </ReactTooltip>
+                            <button
+                              id="output-add-a-prompt-tooltip"
+                              className="save-button button square-40 d-flex justify-center align-center button-full-width-480"
+                              onClick={() =>
+                                handleModalOpen("modal-add-prompt")
+                              }
+                              disabled={userRole !== "ADMIN"}
+
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="#FFFFFF"
+                                viewBox="0 0 30 30"
+                                width="22px"
+                                height="22px"
+                              >
+                                <path d="M15,3C8.373,3,3,8.373,3,15c0,6.627,5.373,12,12,12s12-5.373,12-12C27,8.373,21.627,3,15,3z M21,16h-5v5 c0,0.553-0.448,1-1,1s-1-0.447-1-1v-5H9c-0.552,0-1-0.447-1-1s0.448-1,1-1h5V9c0-0.553,0.448-1,1-1s1,0.447,1,1v5h5 c0.552,0,1,0.447,1,1S21.552,16,21,16z" />
+                              </svg>
+                            </button>
+                          </div>
                         </div>
                       </div>
 
-                    </div>
-
-                    
-
-                    <div className="row">
-                      <div className="col-12 col">
-                        {userRole === "ADMIN" && (
-                          <div className="tabs secondary d-flex justify-between-991 flex-col-768 bb-0-768">
-                            <ul className="d-flex bb-1-768">
-                              <li>
-                                <button
-                                  type="button"
-                                  onClick={tabHandler2}
-                                  className={`button ${
-                                    tab2 === "Template" ? "active" : ""
-                                  }`}
-                                >
-                                  Template
-                                </button>
-                              </li>
-                              <li>
-                                <button
-                                  type="button"
-                                  onClick={tabHandler2}
-                                  className={`button ${
-                                    tab2 === "Instructions" ? "active" : ""
-                                  }`}
-                                >
-                                  Instructions
-                                </button>
-                              </li>
-                            </ul>
-
-                            <div className="d-flex align-self-center ml-10 ml-768-0 mt-10-768 flex-col-480 full-width">
-                              <ReactTooltip
-                                anchorSelect="#output-edit-prompt-tooltip"
-                                place="top"
-                              >
-                                Edit prompt
-                              </ReactTooltip>
-                              <button
-                                id="output-edit-prompt-tooltip"
-                                className={`save-button button justify-center square-40 d-flex align-center button-full-width-480 mb-10-480 ${
-                                  selectedPrompt?.name !== "Select a prompt"
-                                    ? ""
-                                    : "disabled"
-                                }`}
-                                disabled={
-                                  !selectedPrompt?.name ||
-                                  selectedPrompt?.name === "Select a prompt"
-                                }
-                                onClick={() => {
-                                  handleModalOpen("modal-edit-prompt");
-                                  setEditHandler();
-                                }}
-                              >
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  width="22px"
-                                  height="22px"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                >
-                                  <path
-                                    d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
-                                    stroke="#ffffff"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                  />
-                                </svg>
-                              </button>
-
-                              <span className="d-flex justify-right ml-10 ml-0-480">
-                                <ReactTooltip
-                                  anchorSelect="#output-add-a-prompt-tooltip"
-                                  place="top"
-                                >
-                                  Add a prompt
-                                </ReactTooltip>
-                                <button
-                                  id="output-add-a-prompt-tooltip"
-                                  className="save-button button square-40 d-flex justify-center align-center button-full-width-480"
-                                  onClick={() =>
-                                    handleModalOpen("modal-add-prompt")
-                                  }
-                                >
-                                  <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    fill="#FFFFFF"
-                                    viewBox="0 0 30 30"
-                                    width="22px"
-                                    height="22px"
+                      <div className="row">
+                        <div className="col-12 col">
+                          {userRole === "ADMIN" && (
+                            <div className="tabs secondary d-flex justify-between-991 flex-col-768 bb-0-768">
+                              <ul className="d-flex bb-1-768">
+                                <li>
+                                  <button
+                                    type="button"
+                                    onClick={tabHandler2}
+                                    className={`button ${
+                                      tab2 === "Template" ? "active" : ""
+                                    }`}
                                   >
-                                    <path d="M15,3C8.373,3,3,8.373,3,15c0,6.627,5.373,12,12,12s12-5.373,12-12C27,8.373,21.627,3,15,3z M21,16h-5v5 c0,0.553-0.448,1-1,1s-1-0.447-1-1v-5H9c-0.552,0-1-0.447-1-1s0.448-1,1-1h5V9c0-0.553,0.448-1,1-1s1,0.447,1,1v5h5 c0.552,0,1,0.447,1,1S21.552,16,21,16z" />
-                                  </svg>
-                                </button>
+                                    Template
+                                  </button>
+                                </li>
+                                <li>
+                                  <button
+                                    type="button"
+                                    onClick={tabHandler2}
+                                    className={`button ${
+                                      tab2 === "Instructions" ? "active" : ""
+                                    }`}
+                                  >
+                                    Instructions
+                                  </button>
+                                </li>
+                              </ul>
 
+                              <div className="d-flex align-self-center ml-10 ml-768-0 mt-10-768 flex-col-480 full-width">
                                 <ReactTooltip
-                                  anchorSelect="#output-delete-prompt-tooltip"
+                                  anchorSelect="#output-edit-prompt-tooltip"
                                   place="top"
                                 >
-                                  Delete prompt
+                                  Edit prompt
                                 </ReactTooltip>
                                 <button
-                                  id="output-delete-prompt-tooltip"
-                                  className="secondary button square-40 d-flex justify-center align-center ml-10 button-full-width-480"
+                                  id="output-edit-prompt-tooltip"
+                                  className={`save-button button justify-center square-40 d-flex align-center button-full-width-480 mb-10-480 ${
+                                    selectedPrompt?.name !== "Select a prompt"
+                                      ? ""
+                                      : "disabled"
+                                  }`}
                                   disabled={
                                     !selectedPrompt?.name ||
                                     selectedPrompt?.name === "Select a prompt"
                                   }
-                                  onClick={() =>
-                                    handleModalOpen("modal-confirm-delete")
-                                  }
+                                  onClick={() => {
+                                    handleModalOpen("modal-edit-prompt");
+                                    setEditHandler();
+                                  }}
                                 >
                                   <svg
                                     xmlns="http://www.w3.org/2000/svg"
-                                    fill="#FFFFFF"
-                                    viewBox="0 0 50 50"
-                                    width="18px"
-                                    height="18px"
-                                    style={{
-                                      position: "relative",
-                                      marginTop: "-2px",
-                                    }}
+                                    width="22px"
+                                    height="22px"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
                                   >
-                                    <path d="M 21 2 C 19.354545 2 18 3.3545455 18 5 L 18 7 L 8 7 A 1.0001 1.0001 0 1 0 8 9 L 9 9 L 9 45 C 9 46.654 10.346 48 12 48 L 38 48 C 39.654 48 41 46.654 41 45 L 41 9 L 42 9 A 1.0001 1.0001 0 1 0 42 7 L 32 7 L 32 5 C 32 3.3545455 30.645455 2 29 2 L 21 2 z M 21 4 L 29 4 C 29.554545 4 30 4.4454545 30 5 L 30 7 L 20 7 L 20 5 C 20 4.4454545 20.445455 4 21 4 z M 19 14 C 19.552 14 20 14.448 20 15 L 20 40 C 20 40.553 19.552 41 19 41 C 18.448 41 18 40.553 18 40 L 18 15 C 18 14.448 18.448 14 19 14 z M 25 14 C 25.552 14 26 14.448 26 15 L 26 40 C 26 40.553 25.552 41 25 41 C 24.448 41 24 40.553 24 40 L 24 15 C 24 14.448 24.448 14 25 14 z M 31 14 C 31.553 14 32 14.448 32 15 L 32 40 C 32 40.553 31.553 41 31 41 C 30.447 41 30 40.553 30 40 L 30 15 C 30 14.448 30.447 14 31 14 z" />
+                                    <path
+                                      d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
+                                      stroke="#ffffff"
+                                      strokeWidth="2"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                    />
+                                  </svg>
+                                </button>
+
+                                <span className="d-flex justify-right ml-0-480">
+                                  <ReactTooltip
+                                    anchorSelect="#output-delete-prompt-tooltip"
+                                    place="top"
+                                  >
+                                    Delete prompt
+                                  </ReactTooltip>
+                                  <button
+                                    id="output-delete-prompt-tooltip"
+                                    className="secondary button square-40 d-flex justify-center align-center ml-10 button-full-width-480"
+                                    disabled={
+                                      !selectedPrompt?.name ||
+                                      selectedPrompt?.name === "Select a prompt"
+                                    }
+                                    onClick={() =>
+                                      handleModalOpen("modal-confirm-delete")
+                                    }
+                                  >
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      fill="#FFFFFF"
+                                      viewBox="0 0 50 50"
+                                      width="18px"
+                                      height="18px"
+                                      style={{
+                                        position: "relative",
+                                        marginTop: "-2px",
+                                      }}
+                                    >
+                                      <path d="M 21 2 C 19.354545 2 18 3.3545455 18 5 L 18 7 L 8 7 A 1.0001 1.0001 0 1 0 8 9 L 9 9 L 9 45 C 9 46.654 10.346 48 12 48 L 38 48 C 39.654 48 41 46.654 41 45 L 41 9 L 42 9 A 1.0001 1.0001 0 1 0 42 7 L 32 7 L 32 5 C 32 3.3545455 30.645455 2 29 2 L 21 2 z M 21 4 L 29 4 C 29.554545 4 30 4.4454545 30 5 L 30 7 L 20 7 L 20 5 C 20 4.4454545 20.445455 4 21 4 z M 19 14 C 19.552 14 20 14.448 20 15 L 20 40 C 20 40.553 19.552 41 19 41 C 18.448 41 18 40.553 18 40 L 18 15 C 18 14.448 18.448 14 19 14 z M 25 14 C 25.552 14 26 14.448 26 15 L 26 40 C 26 40.553 25.552 41 25 41 C 24.448 41 24 40.553 24 40 L 24 15 C 24 14.448 24.448 14 25 14 z M 31 14 C 31.553 14 32 14.448 32 15 L 32 40 C 32 40.553 31.553 41 31 41 C 30.447 41 30 40.553 30 40 L 30 15 C 30 14.448 30.447 14 31 14 z" />
+                                    </svg>
+                                  </button>
+                                </span>
+                              </div>
+                            </div>
+                          )}
+
+                          {tab2 === "Template" && (
+                            <div className="form-group">
+                              <label>Template</label>
+                              <span className="pos-relative">
+                                <pre
+                                  className={`no-content height-400 ql-editor ${
+                                    !selectedPrompt?.template
+                                      ? "text-light"
+                                      : ""
+                                  }`}
+                                  dangerouslySetInnerHTML={{
+                                    __html:
+                                      selectedPrompt?.template ??
+                                      "Template will appear here",
+                                  }}
+                                ></pre>
+
+                                <Modal
+                                  show={openModals["modal-addInput"]}
+                                  closeModal={() =>
+                                    handleModalClose("modal-addInput")
+                                  }
+                                  buttonLabel="Ok"
+                                >
+                                  <label>Template</label>
+                                  <ReactQuill
+                                    theme="snow"
+                                    className="adjust-quill-height"
+                                    value={
+                                      selectedPrompt
+                                        ? formatTextForDisplay(
+                                            selectedPrompt.text
+                                          )
+                                        : ""
+                                    }
+                                    defaultValue={selectedPrompt?.text}
+                                    onChange={(value: string) =>
+                                      handleViewPromptRTE(
+                                        formatTextForEditor(value)
+                                      )
+                                    }
+                                    modules={modules}
+                                  />
+                                </Modal>
+                                <button
+                                  className="full-view-icon d-flex align-center justify-center"
+                                  type="button"
+                                  onClick={() =>
+                                    handleModalOpen("modal-addInput")
+                                  }
+                                >
+                                  <svg
+                                    width="30px"
+                                    height="30px"
+                                    viewBox="0 0 512 512"
+                                  >
+                                    <polyline
+                                      points="304 96 416 96 416 208"
+                                      fill="none"
+                                      stroke="#000000"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth="32"
+                                    />
+                                    <line
+                                      x1="405.77"
+                                      y1="106.2"
+                                      x2="111.98"
+                                      y2="400.02"
+                                      fill="none"
+                                      stroke="#000000"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth="32"
+                                    />
+                                    <polyline
+                                      points="208 416 96 416 96 304"
+                                      fill="none"
+                                      stroke="#000000"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth="32"
+                                    />
                                   </svg>
                                 </button>
                               </span>
                             </div>
-                          </div>
-                        )}
+                          )}
 
-                        {tab2 === "Template" && (
-                          <div className="form-group">
-                            <label>Template</label>
-                            <span className="pos-relative">
-                              <pre
-                                className={`no-content height-400 ql-editor ${
-                                  !selectedPrompt?.template ? "text-light" : ""
-                                }`}
-                                dangerouslySetInnerHTML={{
-                                  __html:
-                                    selectedPrompt?.template ??
-                                    "Template will appear here",
-                                }}
-                              ></pre>
+                          {tab2 === "Instructions" && userRole === "ADMIN" && (
+                            <div className="form-group">
+                              <label>Instructions</label>
+                              <span className="pos-relative">
+                                <pre
+                                  className={`no-content height-400 ql-editor ${
+                                    !selectedPrompt?.text ? "text-light" : ""
+                                  }`}
+                                  dangerouslySetInnerHTML={{
+                                    __html:
+                                      selectedPrompt?.text ??
+                                      "Template will appear here",
+                                  }}
+                                ></pre>
 
-                              <Modal
-                                show={openModals["modal-addInput"]}
-                                closeModal={() =>
-                                  handleModalClose("modal-addInput")
-                                }
-                                buttonLabel="Ok"
-                              >
-                                <label>Template</label>
-                                <ReactQuill
-                                  theme="snow"
-                                  className="adjust-quill-height"
-                                  value={
-                                    selectedPrompt
-                                      ? formatTextForDisplay(
-                                          selectedPrompt.text
-                                        )
-                                      : ""
+                                <Modal
+                                  show={openModals["modal-addInput"]}
+                                  closeModal={() =>
+                                    handleModalClose("modal-addInput")
                                   }
-                                  defaultValue={selectedPrompt?.text}
-                                  onChange={(value: string) =>
-                                    handleViewPromptRTE(
-                                      formatTextForEditor(value)
-                                    )
-                                  }
-                                  modules={modules}
-                                />
-                              </Modal>
-                              <button
-                                className="full-view-icon d-flex align-center justify-center"
-                                type="button"
-                                onClick={() =>
-                                  handleModalOpen("modal-addInput")
-                                }
-                              >
-                                <svg
-                                  width="40px"
-                                  height="40px"
-                                  viewBox="0 0 512 512"
+                                  buttonLabel="Ok"
                                 >
-                                  <polyline
-                                    points="304 96 416 96 416 208"
-                                    fill="none"
-                                    stroke="#000000"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="32"
+                                  <label>Instructions</label>
+                                  <ReactQuill
+                                    theme="snow"
+                                    className="adjust-quill-height"
+                                    value={
+                                      selectedPrompt
+                                        ? formatTextForDisplay(
+                                            selectedPrompt.text
+                                          )
+                                        : ""
+                                    }
+                                    defaultValue={selectedPrompt?.text}
+                                    onChange={(value: string) =>
+                                      handleViewPromptRTE(
+                                        formatTextForEditor(value)
+                                      )
+                                    }
+                                    modules={modules}
                                   />
-                                  <line
-                                    x1="405.77"
-                                    y1="106.2"
-                                    x2="111.98"
-                                    y2="400.02"
-                                    fill="none"
-                                    stroke="#000000"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="32"
-                                  />
-                                  <polyline
-                                    points="208 416 96 416 96 304"
-                                    fill="none"
-                                    stroke="#000000"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="32"
-                                  />
-                                </svg>
-                              </button>
-                            </span>
-                          </div>
-                        )}
-
-                        {tab2 === "Instructions" && userRole === "ADMIN" && (
-                          <div className="form-group">
-                            <label>Instructions</label>
-                            <span className="pos-relative">
-                              <pre
-                                className={`no-content height-400 ql-editor ${
-                                  !selectedPrompt?.text ? "text-light" : ""
-                                }`}
-                                dangerouslySetInnerHTML={{
-                                  __html:
-                                    selectedPrompt?.text ??
-                                    "Template will appear here",
-                                }}
-                              ></pre>
-
-                              <Modal
-                                show={openModals["modal-addInput"]}
-                                closeModal={() =>
-                                  handleModalClose("modal-addInput")
-                                }
-                                buttonLabel="Ok"
-                              >
-                                <label>Instructions</label>
-                                <ReactQuill
-                                  theme="snow"
-                                  className="adjust-quill-height"
-                                  value={
-                                    selectedPrompt
-                                      ? formatTextForDisplay(
-                                          selectedPrompt.text
-                                        )
-                                      : ""
+                                </Modal>
+                                <button
+                                  className="full-view-icon d-flex align-center justify-center"
+                                  type="button"
+                                  onClick={() =>
+                                    handleModalOpen("modal-addInput")
                                   }
-                                  defaultValue={selectedPrompt?.text}
-                                  onChange={(value: string) =>
-                                    handleViewPromptRTE(
-                                      formatTextForEditor(value)
-                                    )
-                                  }
-                                  modules={modules}
-                                />
-                              </Modal>
-                              <button
-                                className="full-view-icon d-flex align-center justify-center"
-                                type="button"
-                                onClick={() =>
-                                  handleModalOpen("modal-addInput")
-                                }
-                              >
-                                <svg
-                                  width="40px"
-                                  height="40px"
-                                  viewBox="0 0 512 512"
                                 >
-                                  <polyline
-                                    points="304 96 416 96 416 208"
-                                    fill="none"
-                                    stroke="#000000"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="32"
-                                  />
-                                  <line
-                                    x1="405.77"
-                                    y1="106.2"
-                                    x2="111.98"
-                                    y2="400.02"
-                                    fill="none"
-                                    stroke="#000000"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="32"
-                                  />
-                                  <polyline
-                                    points="208 416 96 416 96 304"
-                                    fill="none"
-                                    stroke="#000000"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="32"
-                                  />
-                                </svg>
-                              </button>
-                            </span>
-                          </div>
-                        )}
-
-                        <div className="form-group d-flex justify-between mb-0">
-                          {/* Modals */}
-
-                          {/* Add Prompt Modal */}
-                          <Modal
-                            show={openModals["modal-add-prompt"]}
-                            closeModal={() =>
-                              handleModalClose("modal-add-prompt")
-                            }
-                            buttonLabel="Close"
-                          >
-                            <form
-                              onSubmit={addPromptSubmitHandler}
-                              className="full-height"
-                            >
-                              <h2 className="left">Add a prompt</h2>
-                              <div className="form-group">
-                                <label>Prompt name</label>
-                                <input
-                                  type="text"
-                                  name="promptName"
-                                  placeholder="Enter prompt name"
-                                  value={addPrompt.promptName}
-                                  onChange={addPromptHandler}
-                                />
-                              </div>
-
-                              {userRole === "ADMIN" && (
-                                <div className="tabs secondary">
-                                  <ul className="d-flex">
-                                    <li>
-                                      <button
-                                        type="button"
-                                        onClick={tabHandler4}
-                                        className={`button ${
-                                          tab4 === "Template" ? "active" : ""
-                                        }`}
-                                      >
-                                        Template
-                                      </button>
-                                    </li>
-                                    <li>
-                                      <button
-                                        type="button"
-                                        onClick={tabHandler4}
-                                        className={`button ${
-                                          tab4 === "Instructions"
-                                            ? "active"
-                                            : ""
-                                        }`}
-                                      >
-                                        Instructions
-                                      </button>
-                                    </li>
-                                  </ul>
-                                </div>
-                              )}
-
-                              {tab4 === "Template" && (
-                                <div className="form-group edit-prompt-form-height">
-                                  <label>Template</label>
-                                  <span className="pos-relative">
-                                    <ReactQuill
-                                      className="adjust-quill-height"
-                                      theme="snow"
-                                      value={
-                                        addPrompt?.promptTemplate
-                                          ? formatTextForDisplay(
-                                              addPrompt?.promptTemplate
-                                            )
-                                          : ""
-                                      }
-                                      defaultValue={addPrompt?.promptTemplate}
-                                      onChange={(value: string) =>
-                                        handleAddPromptTemplateRTE(
-                                          formatTextForEditor(value)
-                                        )
-                                      }
-                                      modules={modules}
+                                  <svg
+                                    width="30px"
+                                    height="30px"
+                                    viewBox="0 0 512 512"
+                                  >
+                                    <polyline
+                                      points="304 96 416 96 416 208"
+                                      fill="none"
+                                      stroke="#000000"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth="32"
                                     />
-                                  </span>
-                                </div>
-                              )}
+                                    <line
+                                      x1="405.77"
+                                      y1="106.2"
+                                      x2="111.98"
+                                      y2="400.02"
+                                      fill="none"
+                                      stroke="#000000"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth="32"
+                                    />
+                                    <polyline
+                                      points="208 416 96 416 96 304"
+                                      fill="none"
+                                      stroke="#000000"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth="32"
+                                    />
+                                  </svg>
+                                </button>
+                              </span>
+                            </div>
+                          )}
 
-                              {tab4 === "Instructions" &&
-                                userRole === "ADMIN" && (
+                          <div className="form-group d-flex justify-between mb-0">
+                            {/* Modals */}
+
+                            {/* Add Prompt Modal */}
+                            <Modal
+                              show={openModals["modal-add-prompt"]}
+                              closeModal={() =>
+                                handleModalClose("modal-add-prompt")
+                              }
+                              buttonLabel="Close"
+                            >
+                              <form
+                                onSubmit={addPromptSubmitHandler}
+                                className="full-height"
+                              >
+                                <h2 className="left">Add a prompt</h2>
+                                <div className="form-group">
+                                  <label>Prompt name</label>
+                                  <input
+                                    type="text"
+                                    name="promptName"
+                                    placeholder="Enter prompt name"
+                                    value={addPrompt.promptName}
+                                    onChange={addPromptHandler}
+                                  />
+                                </div>
+
+                                {userRole === "ADMIN" && (
+                                  <div className="tabs secondary">
+                                    <ul className="d-flex">
+                                      <li>
+                                        <button
+                                          type="button"
+                                          onClick={tabHandler4}
+                                          className={`button ${
+                                            tab4 === "Template" ? "active" : ""
+                                          }`}
+                                        >
+                                          Template
+                                        </button>
+                                      </li>
+                                      <li>
+                                        <button
+                                          type="button"
+                                          onClick={tabHandler4}
+                                          className={`button ${
+                                            tab4 === "Instructions"
+                                              ? "active"
+                                              : ""
+                                          }`}
+                                        >
+                                          Instructions
+                                        </button>
+                                      </li>
+                                    </ul>
+                                  </div>
+                                )}
+
+                                {tab4 === "Template" && (
                                   <div className="form-group edit-prompt-form-height">
-                                    <label>Instructions</label>
+                                    <label>Template</label>
                                     <span className="pos-relative">
                                       <ReactQuill
                                         className="adjust-quill-height"
                                         theme="snow"
                                         value={
-                                          addPrompt?.promptInput
+                                          addPrompt?.promptTemplate
                                             ? formatTextForDisplay(
-                                                addPrompt?.promptInput
+                                                addPrompt?.promptTemplate
                                               )
                                             : ""
                                         }
-                                        defaultValue={addPrompt?.promptInput}
+                                        defaultValue={addPrompt?.promptTemplate}
                                         onChange={(value: string) =>
-                                          handleAddPromptInPutRTE(
+                                          handleAddPromptTemplateRTE(
                                             formatTextForEditor(value)
                                           )
                                         }
@@ -3379,121 +3883,123 @@ const handleCampaignChange = async (
                                   </div>
                                 )}
 
-                              <div className="form-group d-flex">
-                                <button
-                                  type="submit"
-                                  className="action-button button mr-10"
-                                >
-                                  Save prompt
-                                </button>
-                                {addPromptAlert && (
-                                  <span className="alert alert-success ml-10">
-                                    Prompt added successfully.
-                                  </span>
-                                )}
-                              </div>
-                            </form>
-                          </Modal>
-
-                          {/* Edit Prompt Modal */}
-                          <Modal
-                            show={openModals["modal-edit-prompt"]}
-                            closeModal={() =>
-                              handleModalClose("modal-edit-prompt")
-                            }
-                            buttonLabel="Close"
-                          >
-                            <form
-                              onSubmit={editPromptSubmitHandler}
-                              className="full-height"
-                            >
-                              <h2 className="left">Edit Prompt</h2>
-                              <div className="form-group">
-                                <label>Prompt name</label>
-                                <input
-                                  type="text"
-                                  name="promptName"
-                                  placeholder="Enter prompt name"
-                                  value={editPrompt?.promptName}
-                                  onChange={editPromptHandler}
-                                />
-                              </div>
-
-                              {userRole === "ADMIN" && (
-                                <div className="tabs secondary">
-                                  <ul className="d-flex">
-                                    <li>
-                                      <button
-                                        type="button"
-                                        onClick={tabHandler3}
-                                        className={`button ${
-                                          tab3 === "Template" ? "active" : ""
-                                        }`}
-                                      >
-                                        Template
-                                      </button>
-                                    </li>
-                                    <li>
-                                      <button
-                                        type="button"
-                                        onClick={tabHandler3}
-                                        className={`button ${
-                                          tab3 === "Instructions"
-                                            ? "active"
-                                            : ""
-                                        }`}
-                                      >
-                                        Instructions
-                                      </button>
-                                    </li>
-                                  </ul>
-                                </div>
-                              )}
-
-                              {tab3 === "Template" && (
-                                <div className="form-group edit-prompt-form-height">
-                                  <label>Template</label>
-                                  <span className="pos-relative">
-                                    <ReactQuill
-                                      className="height-350 adjust-quill-height"
-                                      theme="snow"
-                                      value={
-                                        editPrompt?.promptTemplate
-                                          ? formatTextForDisplay(
-                                              editPrompt?.promptTemplate
+                                {tab4 === "Instructions" &&
+                                  userRole === "ADMIN" && (
+                                    <div className="form-group edit-prompt-form-height">
+                                      <label>Instructions</label>
+                                      <span className="pos-relative">
+                                        <ReactQuill
+                                          className="adjust-quill-height"
+                                          theme="snow"
+                                          value={
+                                            addPrompt?.promptInput
+                                              ? formatTextForDisplay(
+                                                  addPrompt?.promptInput
+                                                )
+                                              : ""
+                                          }
+                                          defaultValue={addPrompt?.promptInput}
+                                          onChange={(value: string) =>
+                                            handleAddPromptInPutRTE(
+                                              formatTextForEditor(value)
                                             )
-                                          : ""
-                                      }
-                                      defaultValue={editPrompt?.promptTemplate}
-                                      onChange={(value: string) =>
-                                        handleEditPromptTemplateRTE(
-                                          formatTextForEditor(value)
-                                        )
-                                      }
-                                      modules={modules}
-                                    />
-                                  </span>
-                                </div>
-                              )}
+                                          }
+                                          modules={modules}
+                                        />
+                                      </span>
+                                    </div>
+                                  )}
 
-                              {tab3 === "Instructions" &&
-                                userRole === "ADMIN" && (
+                                <div className="form-group d-flex">
+                                  <button
+                                    type="submit"
+                                    className="action-button button mr-10"
+                                  >
+                                    Save prompt
+                                  </button>
+                                  {addPromptAlert && (
+                                    <span className="alert alert-success ml-10">
+                                      Prompt added successfully.
+                                    </span>
+                                  )}
+                                </div>
+                              </form>
+                            </Modal>
+
+                            {/* Edit Prompt Modal */}
+                            <Modal
+                              show={openModals["modal-edit-prompt"]}
+                              closeModal={() =>
+                                handleModalClose("modal-edit-prompt")
+                              }
+                              buttonLabel="Close"
+                            >
+                              <form
+                                onSubmit={editPromptSubmitHandler}
+                                className="full-height"
+                              >
+                                <h2 className="left">Edit Prompt</h2>
+                                <div className="form-group">
+                                  <label>Prompt name</label>
+                                  <input
+                                    type="text"
+                                    name="promptName"
+                                    placeholder="Enter prompt name"
+                                    value={editPrompt?.promptName}
+                                    onChange={editPromptHandler}
+                                  />
+                                </div>
+
+                                {userRole === "ADMIN" && (
+                                  <div className="tabs secondary">
+                                    <ul className="d-flex">
+                                      <li>
+                                        <button
+                                          type="button"
+                                          onClick={tabHandler3}
+                                          className={`button ${
+                                            tab3 === "Template" ? "active" : ""
+                                          }`}
+                                        >
+                                          Template
+                                        </button>
+                                      </li>
+                                      <li>
+                                        <button
+                                          type="button"
+                                          onClick={tabHandler3}
+                                          className={`button ${
+                                            tab3 === "Instructions"
+                                              ? "active"
+                                              : ""
+                                          }`}
+                                        >
+                                          Instructions
+                                        </button>
+                                      </li>
+                                    </ul>
+                                  </div>
+                                )}
+
+                                {tab3 === "Template" && (
                                   <div className="form-group edit-prompt-form-height">
-                                    <label>Instructions</label>
-                                    <span className="pos-relative">
+                                    <label>Template</label>
+                                    <span className="pos-relative h-full">
                                       <ReactQuill
                                         className="height-350 adjust-quill-height"
                                         theme="snow"
                                         value={
-                                          editPrompt?.promptInput
+                                          editPrompt?.promptTemplate
                                             ? formatTextForDisplay(
-                                                editPrompt?.promptInput
+                                                editPrompt?.promptTemplate
                                               )
                                             : ""
                                         }
-                                        defaultValue={editPrompt?.promptInput}
+                                        defaultValue={
+                                          editPrompt?.promptTemplate
+                                        }
                                         onChange={(value: string) =>
-                                          handleEditPromptInputRTE(
+                                          handleEditPromptTemplateRTE(
                                             formatTextForEditor(value)
                                           )
                                         }
@@ -3503,211 +4009,258 @@ const handleCampaignChange = async (
                                   </div>
                                 )}
 
-                              <div className="form-group d-flex">
-                                <button
-                                  type="submit"
-                                  className="action-button button mr-10"
-                                >
-                                  Save changes
-                                </button>
-                                {editPromptAlert && (
-                                  <span className="alert alert-success ml-10">
-                                    Prompt edited successfully.
-                                  </span>
-                                )}
-                              </div>
-                            </form>
-                          </Modal>
+                                {tab3 === "Instructions" &&
+                                  userRole === "ADMIN" && (
+                                    <div className="form-group edit-prompt-form-height">
+                                      <label>Instructions</label>
+                                      <span className="pos-relative h-full">
+                                        <ReactQuill
+                                          className="height-350 adjust-quill-height"
+                                          theme="snow"
+                                          value={
+                                            editPrompt?.promptInput
+                                              ? formatTextForDisplay(
+                                                  editPrompt?.promptInput
+                                                )
+                                              : ""
+                                          }
+                                          defaultValue={editPrompt?.promptInput}
+                                          onChange={(value: string) =>
+                                            handleEditPromptInputRTE(
+                                              formatTextForEditor(value)
+                                            )
+                                          }
+                                          modules={modules}
+                                        />
+                                      </span>
+                                    </div>
+                                  )}
 
-                          {/* Delete Confirmation Modal */}
-                          <Modal
-                            show={openModals["modal-confirm-delete"]}
-                            closeModal={() =>
-                              handleModalClose("modal-confirm-delete")
-                            }
-                            buttonLabel=""
-                            size="auto-width"
-                          >
-                            <h3 className="center text-center mt-0">
-                              Are you sure want to delete?
-                            </h3>
-                            <div className="button-group mb-0 d-flex justify-center">
-                              <button
-                                className="button save-button small"
-                                onClick={deletePromptHandler}
-                              >
-                                Yes
-                              </button>
-                              <button
-                                className="button button secondary small ml-5"
-                                onClick={() =>
-                                  handleModalClose("modal-confirm-delete")
-                                }
-                              >
-                                No
-                              </button>
-                            </div>
-                          </Modal>
+                                <div className="form-group d-flex">
+                                  <button
+                                    type="submit"
+                                    className="action-button button mr-10"
+                                  >
+                                    Save changes
+                                  </button>
+                                  {editPromptAlert && (
+                                    <span className="alert alert-success ml-10">
+                                      Prompt edited successfully.
+                                    </span>
+                                  )}
+                                </div>
+                              </form>
+                            </Modal>
+
+                            {/* Delete Confirmation Modal */}
+                            <Modal
+                              show={openModals["modal-confirm-delete"]}
+                              closeModal={() =>
+                                handleModalClose("modal-confirm-delete")
+                              }
+                              buttonLabel=""
+                              size="auto-width"
+                            >
+                              <h3 className="center text-center mt-0 sub-title">
+                                Are you sure want to delete?
+                              </h3>
+                              <div className="button-group mb-0 d-flex justify-center">
+                                <button
+                                  className="button save-button small"
+                                  onClick={deletePromptHandler}
+                                >
+                                  Yes
+                                </button>
+                                <button
+                                  className="button button secondary small ml-5"
+                                  onClick={() =>
+                                    handleModalClose("modal-confirm-delete")
+                                  }
+                                >
+                                  No
+                                </button>
+                              </div>
+                            </Modal>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </>
+                </>
+              )}
+            </div>
+
+            {tab === "DataCampaigns" && !showDataFileUpload && (
+              <DataCampaigns
+                selectedClient={selectedClient}
+                onDataProcessed={handleExcelDataProcessed}
+                isProcessing={isProcessing}
+                initialTab={contactsSubTab}
+                onTabChange={setContactsSubTab}
+                onAddContactClick={() => setShowDataFileUpload(true)} // Add this
+              />
+            )}
+
+            {tab === "DataCampaigns" && showDataFileUpload && (
+              <DataFile
+                selectedClient={selectedClient}
+                onDataProcessed={(data) => {
+                  handleExcelDataProcessed(data);
+                  setShowDataFileUpload(false); // Return to contacts list
+                  // Optionally refresh data or perform other actions
+                }}
+                isProcessing={isProcessing}
+                onBack={() => setShowDataFileUpload(false)} // Add back functionality
+              />
+            )}
+            {tab === "Campaigns" && (
+              <CampaignManagement
+                selectedClient={selectedClient}
+                userRole={userRole}
+              />
+            )}
+            {tab === "Output" && (
+              <Output
+                outputForm={outputForm}
+                outputFormHandler={outputFormHandler}
+                setOutputForm={setOutputForm}
+                allResponses={allResponses}
+                isPaused={isPaused}
+                setAllResponses={setAllResponses}
+                currentIndex={currentIndex}
+                setCurrentIndex={setCurrentIndex}
+                onClearOutput={clearOutputForm}
+                allprompt={allprompt}
+                setallprompt={setallprompt}
+                allsearchResults={allsearchResults}
+                setallsearchResults={setallsearchResults}
+                everyscrapedData={everyscrapedData}
+                seteveryscrapedData={seteveryscrapedData}
+                allSearchTermBodies={allSearchTermBodies}
+                setallSearchTermBodies={setallSearchTermBodies}
+                onClearContent={handleClearContent}
+                setallsummery={setallsummery}
+                allsummery={allsummery}
+                existingResponse={existingResponse}
+                setexistingResponse={setexistingResponse}
+                currentPage={currentPage}
+                setCurrentPage={setCurrentPage}
+                prevPageToken={prevPageToken}
+                nextPageToken={nextPageToken}
+                fetchAndDisplayEmailBodies={fetchAndDisplayEmailBodies}
+                selectedZohoviewId={selectedZohoviewId}
+                onClearExistingResponse={setClearExistingResponse}
+                isResetEnabled={!isProcessing}
+                zohoClient={zohoClient}
+                onRegenerateContact={goToTab}
+                recentlyAddedOrUpdatedId={recentlyAddedOrUpdatedId}
+                setRecentlyAddedOrUpdatedId={setRecentlyAddedOrUpdatedId}
+                selectedClient={selectedClient}
+                isStarted={isStarted}
+                handleStart={handleStart}
+                handleReset={handleReset}
+                isPitchUpdateCompleted={isPitchUpdateCompleted}
+                allRecordsProcessed={allRecordsProcessed}
+                isDemoAccount={isDemoAccount}
+                settingsForm={settingsForm}
+                settingsFormHandler={settingsFormHandler}
+                delayTime={delayTime.toString()} // Convert number to string
+                setDelay={(value: string) => setDelay(parseInt(value) || 0)} // Convert string back to number
+                handleClearAll={handleClearAll}
+                campaigns={campaigns}
+                selectedCampaign={selectedCampaign}
+                handleCampaignChange={handleCampaignChange}
+                selectionMode={selectionMode}
+                promptList={promptList}
+                handleSelectChange={handleSelectChange}
+                userRole={userRole}
+                dataFiles={dataFiles}
+                handleZohoModelChange={handleZohoModelChange}
+                emailLoading={emailLoading}
+                languages={Object.values(Languages)}
+                selectedLanguage={selectedLanguage}
+                handleLanguageChange={handleLanguageChange}
+                subjectMode={subjectMode}
+                setSubjectMode={setSubjectMode}
+                subjectText={subjectText}
+                setSubjectText={setSubjectText}
+                selectedPrompt={selectedPrompt} // Make sure this is passed
+                handleStop={handleStop}
+                isStopRequested={stopRef.current} // Add this line
+
+                
+              />
+            )}
+
+            {tab === "Settings" && userRole === "ADMIN" && (
+              <Settings
+                 selectedClient={selectedClient}
+                  fetchClientSettings={fetchClientSettings}
+                  settingsForm={settingsForm}
+                  settingsFormHandler={settingsFormHandler}
+                  settingsFormOnSubmit={settingsFormOnSubmit}
+                  searchTermForm={searchTermForm}
+                  searchTermFormHandler={searchTermFormHandler}
+                  searchTermFormOnSubmit={searchTermFormOnSubmit}
+                preloadedSettings={clientSettings} // ADD THIS LINE
+                isLoadingSettings={isLoadingClientSettings} // ADD THIS LINE
+                lastLoadedClientId={lastLoadedClientId}
+                setLastLoadedClientId={setLastLoadedClientId}
+              />
+            )}
+
+            {tab === "Mail" && (
+              <Mail
+                selectedClient={selectedClient}
+                outputForm={outputForm}
+                outputFormHandler={outputFormHandler}
+                setOutputForm={setOutputForm}
+                allResponses={allResponses}
+                isPaused={isPaused}
+                setAllResponses={setAllResponses}
+                currentIndex={currentIndex}
+                setCurrentIndex={setCurrentIndex}
+                onClearOutput={clearOutputForm}
+                allprompt={allprompt}
+                setallprompt={setallprompt}
+                allsearchResults={allsearchResults}
+                setallsearchResults={setallsearchResults}
+                everyscrapedData={everyscrapedData}
+                seteveryscrapedData={seteveryscrapedData}
+                allSearchTermBodies={allSearchTermBodies}
+                setallSearchTermBodies={setallSearchTermBodies}
+                onClearContent={handleClearContent}
+                setallsummery={setallsummery}
+                allsummery={allsummery}
+                existingResponse={existingResponse}
+                setexistingResponse={setexistingResponse}
+                currentPage={currentPage}
+                setCurrentPage={setCurrentPage}
+                prevPageToken={prevPageToken}
+                nextPageToken={nextPageToken}
+                fetchAndDisplayEmailBodies={fetchAndDisplayEmailBodies}
+                selectedZohoviewId={selectedZohoviewId}
+                onClearExistingResponse={setClearExistingResponse}
+                isResetEnabled={!isProcessing}
+                zohoClient={zohoClient}
+                initialTab={mailSubTab}
+                onTabChange={setMailSubTab}
+              />
+            )}
+
+            {/* Stop Confirmation Popup */}
+            {showPopup && (
+              <div className="popup">
+                <p>Do you want to stop the process?</p>
+                <button onClick={() => handlePopupResponse(true)}>Yes</button>
+                <button onClick={() => handlePopupResponse(false)}>No</button>
+              </div>
             )}
           </div>
-
-          {tab === "DataCampaigns" && (
-            <DataCampaigns
-              selectedClient={selectedClient}
-              onDataProcessed={handleExcelDataProcessed}
-              isProcessing={isProcessing}
-              // Add campaign-related props after you share Settings.tsx
-            />
-          )}
-          {tab === "Campaigns" && (
-          <CampaignManagement
-            selectedClient={selectedClient}
-            userRole={userRole}
-          />
-        )}
-          {tab === "Output" && (
-            <Output
-              outputForm={outputForm}
-              outputFormHandler={outputFormHandler}
-              setOutputForm={setOutputForm}
-              allResponses={allResponses}
-              isPaused={isPaused}
-              setAllResponses={setAllResponses}
-              currentIndex={currentIndex}
-              setCurrentIndex={setCurrentIndex}
-              onClearOutput={clearOutputForm}
-              allprompt={allprompt}
-              setallprompt={setallprompt}
-              allsearchResults={allsearchResults}
-              setallsearchResults={setallsearchResults}
-              everyscrapedData={everyscrapedData}
-              seteveryscrapedData={seteveryscrapedData}
-              allSearchTermBodies={allSearchTermBodies}
-              setallSearchTermBodies={setallSearchTermBodies}
-              onClearContent={handleClearContent}
-              setallsummery={setallsummery}
-              allsummery={allsummery}
-              existingResponse={existingResponse}
-              setexistingResponse={setexistingResponse}
-              currentPage={currentPage}
-              setCurrentPage={setCurrentPage}
-              prevPageToken={prevPageToken}
-              nextPageToken={nextPageToken}
-              fetchAndDisplayEmailBodies={fetchAndDisplayEmailBodies}
-              selectedZohoviewId={selectedZohoviewId}
-              onClearExistingResponse={setClearExistingResponse}
-              isResetEnabled={!isProcessing}
-              zohoClient={zohoClient}
-              onRegenerateContact={goToTab}
-              recentlyAddedOrUpdatedId={recentlyAddedOrUpdatedId}
-              setRecentlyAddedOrUpdatedId={setRecentlyAddedOrUpdatedId}
-              selectedClient={selectedClient}
-              isStarted={isStarted}
-              handleStart={handleStart}
-              handlePauseResume={handlePauseResume}
-              handleReset={handleReset}
-              isPitchUpdateCompleted={isPitchUpdateCompleted}
-              allRecordsProcessed={allRecordsProcessed}
-              isDemoAccount={isDemoAccount}
-              settingsForm={settingsForm}
-              settingsFormHandler={settingsFormHandler}
-              delayTime={delayTime.toString()} // Convert number to string
-              setDelay={(value: string) => setDelay(parseInt(value) || 0)} // Convert string back to number
-              handleClearAll={handleClearAll}
-              campaigns={campaigns}
-              selectedCampaign={selectedCampaign}
-              handleCampaignChange={handleCampaignChange}
-              selectionMode={selectionMode}
-              promptList={promptList}
-              handleSelectChange={handleSelectChange}
-              userRole={userRole}
-              dataFiles={dataFiles}
-              handleZohoModelChange={handleZohoModelChange}
-              emailLoading={emailLoading}
-              languages={Object.values(Languages)}
-              selectedLanguage={selectedLanguage}
-              handleLanguageChange={handleLanguageChange}
-              subjectMode={subjectMode}
-              setSubjectMode={setSubjectMode}
-              subjectText={subjectText}
-              setSubjectText={setSubjectText}
-              selectedPrompt={selectedPrompt}  // Make sure this is passed
-
-
-            />
-          )}
-
-          {tab === "Settings" && userRole === "ADMIN" && (
-            <Settings
-              settingsForm={settingsForm}
-              settingsFormHandler={settingsFormHandler}
-              settingsFormOnSubmit={settingsFormOnSubmit}
-              searchTermForm={searchTermForm}
-              searchTermFormHandler={searchTermFormHandler}
-              searchTermFormOnSubmit={searchTermFormOnSubmit}
-              selectedClient={selectedClient}
-              fetchClientSettings={fetchClientSettings}
-            />
-          )}
-
-          {tab === "Mail" && userRole === "ADMIN" && (
-            <Mail
-              selectedClient={selectedClient}
-              outputForm={outputForm}
-              outputFormHandler={outputFormHandler}
-              setOutputForm={setOutputForm}
-              allResponses={allResponses}
-              isPaused={isPaused}
-              setAllResponses={setAllResponses}
-              currentIndex={currentIndex}
-              setCurrentIndex={setCurrentIndex}
-              onClearOutput={clearOutputForm}
-              allprompt={allprompt}
-              setallprompt={setallprompt}
-              allsearchResults={allsearchResults}
-              setallsearchResults={setallsearchResults}
-              everyscrapedData={everyscrapedData}
-              seteveryscrapedData={seteveryscrapedData}
-              allSearchTermBodies={allSearchTermBodies}
-              setallSearchTermBodies={setallSearchTermBodies}
-              onClearContent={handleClearContent}
-              setallsummery={setallsummery}
-              allsummery={allsummery}
-              existingResponse={existingResponse}
-              setexistingResponse={setexistingResponse}
-              currentPage={currentPage}
-              setCurrentPage={setCurrentPage}
-              prevPageToken={prevPageToken}
-              nextPageToken={nextPageToken}
-              fetchAndDisplayEmailBodies={fetchAndDisplayEmailBodies}
-              selectedZohoviewId={selectedZohoviewId}
-              onClearExistingResponse={setClearExistingResponse}
-              isResetEnabled={!isProcessing}
-              zohoClient={zohoClient}
-              initialTab={mailSubTab}
-              onTabChange={setMailSubTab}
-            />
-          )}
-        </div>
+        </main>
       </div>
-
-      {/* Stop Confirmation Popup */}
-      {showPopup && (
-        <div className="popup">
-          <p>Do you want to stop the process?</p>
-          <button onClick={() => handlePopupResponse(true)}>Yes</button>
-          <button onClick={() => handlePopupResponse(false)}>No</button>
-        </div>
-      )}
     </div>
   );
-  
 };
 
 export default MainPage;
