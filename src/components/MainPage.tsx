@@ -3478,7 +3478,6 @@ const handleCampaignChange = async (
                                   ? "highlight-required"
                                   : ""
                               }
-                              disabled={userRole !== "ADMIN"}
                             >
                               <option value="">Please select a template</option>
                               {promptList.map((prompt: Prompt) => (
@@ -3501,6 +3500,8 @@ const handleCampaignChange = async (
                               onClick={() =>
                                 handleModalOpen("modal-add-prompt")
                               }
+                              disabled={userRole !== "ADMIN"}
+
                             >
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"

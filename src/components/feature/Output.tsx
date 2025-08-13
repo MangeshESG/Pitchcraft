@@ -797,129 +797,130 @@ const saveToCrmUpdateEmail = async ({
     }
   }, [effectiveUserId, token]);
 
-  const handleSendEmail = async (subjectFromButton: string) => {
-    setEmailMessage("");
-    setEmailError("");
+const handleSendEmail = async (subjectFromButton: string) => {
+  setEmailMessage("");
+  setEmailError("");
 
-    const subjectToUse = subjectFromButton || emailFormData.Subject;
+  const subjectToUse = subjectFromButton || emailFormData.Subject;
 
-    if (!subjectToUse || !emailFormData.BccEmail || !selectedSmtpUser) {
-      setEmailError(
-        "Please fill in all required fields: Subject, BCC Email, and From Email."
-      );
+  // Remove BCC email from the required fields check
+  if (!subjectToUse || !selectedSmtpUser) {
+    setEmailError(
+      "Please fill in all required fields: Subject and From Email."
+    );
+    return;
+  }
+
+  setSendingEmail(true);
+
+  try {
+    const currentContact = combinedResponses[currentIndex];
+
+    // Ensure we have the required contact information
+    if (!currentContact || !currentContact.id) {
+      setEmailError("No valid contact selected");
+      setSendingEmail(false);
       return;
     }
 
-    setSendingEmail(true);
+    console.log("Sending email to:", currentContact?.name);
 
-    try {
-      const currentContact = combinedResponses[currentIndex];
+    // Prepare the request body according to the new API structure
+    const requestBody = {
+      clientId: effectiveUserId,
+      contactid: currentContact.id,
+      dataFileId: currentContact.datafileid || 0,
+      toEmail: currentContact.email,
+      subject: subjectToUse,
+      body: currentContact.pitch || "", // Using the pitch as the email body
+      bccEmail: emailFormData.BccEmail || "", // Send empty string if no BCC
+      smtpId: selectedSmtpUser,
+      fullName: currentContact.name,
+      countryOrAddress: currentContact.location || "",
+      companyName: currentContact.company || "",
+      website: currentContact.website || "",
+      linkedinUrl: currentContact.linkedin || "",
+      jobTitle: currentContact.title || "",
+    };
 
-      // Ensure we have the required contact information
-      if (!currentContact || !currentContact.id) {
-        setEmailError("No valid contact selected");
-        setSendingEmail(false);
-        return;
+    // Rest of the function remains the same...
+    const response = await axios.post(
+      `${API_BASE_URL}/api/email/send-singleEmail`,
+      requestBody,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
       }
+    );
 
-      console.log("Sending email to:", currentContact?.name);
+    setEmailMessage(response.data.message || "Email sent successfully!");
+    toast.success("Email sent successfully!");
 
-      // Prepare the request body according to the new API structure
-      const requestBody = {
-        clientId: effectiveUserId,
-        contactid: currentContact.id,
-        dataFileId: currentContact.datafileid || 0,
-        toEmail: currentContact.email,
-        subject: subjectToUse,
-        body: currentContact.pitch || "", // Using the pitch as the email body
-        bccEmail: emailFormData.BccEmail,
-        smtpId: selectedSmtpUser,
-        fullName: currentContact.name,
-        countryOrAddress: currentContact.location || "",
-        companyName: currentContact.company || "",
-        website: currentContact.website || "",
-        linkedinUrl: currentContact.linkedin || "",
-        jobTitle: currentContact.title || "",
+    // Update the contact's email sent status
+    try {
+      // Update local state
+      const updatedItem = {
+        ...combinedResponses[currentIndex],
+        emailsentdate: new Date().toISOString(),
+        PG_Added_Correctly: true,
       };
-
-      const response = await axios.post(
-        `${API_BASE_URL}/api/email/send-singleEmail`,
-        requestBody,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        }
+      setCombinedResponses((prev) =>
+        prev.map((item, i) => (i === currentIndex ? updatedItem : item))
       );
 
-      setEmailMessage(response.data.message || "Email sent successfully!");
-      toast.success("Email sent successfully!");
-
-      // Update the contact's email sent status
-      try {
-        // Update local state
-        const updatedItem = {
-          ...combinedResponses[currentIndex],
-          emailsentdate: new Date().toISOString(),
-          PG_Added_Correctly: true,
-        };
-        setCombinedResponses((prev) =>
-          prev.map((item, i) => (i === currentIndex ? updatedItem : item))
-        );
-
-        const allResponsesIndex = allResponses.findIndex(
-          (item) => item.id === updatedItem.id
-        );
-        if (allResponsesIndex !== -1) {
-          const updatedAll = [...allResponses];
-          updatedAll[allResponsesIndex] = updatedItem;
-          setAllResponses(updatedAll);
-        }
-        const existingResponseIndex = existingResponse.findIndex(
-          (item) => item.id === updatedItem.id
-        );
-        if (existingResponseIndex !== -1) {
-          const updatedExisting = [...existingResponse];
-          updatedExisting[existingResponseIndex] = updatedItem;
-          setexistingResponse(updatedExisting);
-        }
-
-        // If the API returns nextContactId, you might want to handle navigation
-        if (response.data.nextContactId) {
-          // Optional: Auto-navigate to next contact or store for later use
-          console.log("Next contact ID:", response.data.nextContactId);
-        }
-      } catch (updateError) {
-        console.error("Failed to update contact record:", updateError);
-        if (axios.isAxiosError(updateError)) {
-          console.error("Update error details:", updateError.response?.data);
-        }
-        toast.warning("Email sent but failed to update record status");
+      const allResponsesIndex = allResponses.findIndex(
+        (item) => item.id === updatedItem.id
+      );
+      if (allResponsesIndex !== -1) {
+        const updatedAll = [...allResponses];
+        updatedAll[allResponsesIndex] = updatedItem;
+        setAllResponses(updatedAll);
+      }
+      const existingResponseIndex = existingResponse.findIndex(
+        (item) => item.id === updatedItem.id
+      );
+      if (existingResponseIndex !== -1) {
+        const updatedExisting = [...existingResponse];
+        updatedExisting[existingResponseIndex] = updatedItem;
+        setexistingResponse(updatedExisting);
       }
 
-      setTimeout(() => {
-        setShowEmailModal(false);
-        setEmailMessage("");
-      }, 2000);
-    } catch (err) {
-      if (axios.isAxiosError(err)) {
-        setEmailError(
-          err.response?.data?.message ||
-            err.response?.data ||
-            "Failed to send email."
-        );
-      } else if (err instanceof Error) {
-        setEmailError(err.message);
-      } else {
-        setEmailError("An unknown error occurred.");
+           // If the API returns nextContactId, you might want to handle navigation
+      if (response.data.nextContactId) {
+        // Optional: Auto-navigate to next contact or store for later use
+        console.log("Next contact ID:", response.data.nextContactId);
       }
-      toast.error("Failed to send email");
-    } finally {
-      setSendingEmail(false);
+    } catch (updateError) {
+      console.error("Failed to update contact record:", updateError);
+      if (axios.isAxiosError(updateError)) {
+        console.error("Update error details:", updateError.response?.data);
+      }
+      toast.warning("Email sent but failed to update record status");
     }
-  };
 
+    setTimeout(() => {
+      setShowEmailModal(false);
+      setEmailMessage("");
+    }, 2000);
+  } catch (err) {
+    if (axios.isAxiosError(err)) {
+      setEmailError(
+        err.response?.data?.message ||
+          err.response?.data ||
+          "Failed to send email."
+      );
+    } else if (err instanceof Error) {
+      setEmailError(err.message);
+    } else {
+      setEmailError("An unknown error occurred.");
+    }
+    toast.error("Failed to send email");
+  } finally {
+    setSendingEmail(false);
+  }
+};
   //-----------------------------------------
   const aggressiveCleanHTML = (html: string): string => {
     // Parse and rebuild the HTML with controlled spacing
@@ -1104,33 +1105,10 @@ const saveToCrmUpdateEmail = async ({
 <div className="control-buttons d-flex align-center">
   
   
-  {userRole === "ADMIN" && (
-    <button
-      className="secondary-button nowrap"
-      onClick={handleClearAll}
-      disabled={!isResetEnabled} // Changed from isProcessing to !isResetEnabled
-      title="Clear all data and reset the application state"
-    >
-      Reset all
-    </button>
-  )}
+   
   
-  {!isDemoAccount && (
-    <>
-      <div className="flex items-center mb-0 mr-1">
-        <label className="font-size-medium font-500 !mb-0 mr-10">
-          Delay(secs)
-        </label>
-        <input
-          type="number"
-          value={delayTime}
-          onChange={(e: any) => setDelay?.(e.target.value)}
-          className="h-[40px]"
-          style={{ width: "65px" }}
-        />
-      </div>
-    </>
-  )}
+  
+
 </div>
       </div>
 
@@ -1487,6 +1465,17 @@ const saveToCrmUpdateEmail = async ({
                     Stop
                   </button>
                 )}
+              </div>
+              <div className="flex mr-4">
+
+               <button
+                className="secondary-button nowrap"
+                onClick={handleClearAll}
+                disabled={!isResetEnabled} // Changed from isProcessing to !isResetEnabled
+                title="Clear all data and reset the application state"
+              >
+                Reset all
+              </button>
               </div>
               <div className="!mb-[0px] flex align-center">
                 <label className="checkbox-label !mb-[0px] mr-[5px] flex align-center">

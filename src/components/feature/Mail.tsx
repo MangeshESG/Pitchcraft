@@ -1640,210 +1640,224 @@ useEffect(() => {
 
   {/* Schedule Modal */}
   {showScheduleModal && (
+  <div
+    style={{
+      position: "fixed",
+      zIndex: 99999,
+      inset: 0,
+      background: "rgba(0,0,0,0.6)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+    }}
+    onClick={() => {
+      // Close modal when clicking backdrop
+      setShowScheduleModal(false);
+      setEditingId(null);
+      setFormData({
+        title: "",
+        timeZone: "",
+        scheduledDate: "",
+        scheduledTime: "",
+        EmailDeliver: "",
+        bccEmail: "",
+        smtpID: "",
+      });
+      setSelectedZohoviewId1("");
+      setSelectedUser("");
+    }}
+  >
     <div
       style={{
-        position: "fixed",
-        zIndex: 99999,
-        inset: 0,
-        background: "rgba(0,0,0,0.6)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
+        background: "#fff",
+        padding: "32px",
+        borderRadius: "8px",
+        width: "90%",
+        maxWidth: "720px",
+        boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
       }}
+      onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
     >
-      <div
-        style={{
-          background: "#fff",
-          padding: 32,
-          borderRadius: 8,
-          width: "90%",
-          maxWidth: 800,
-          maxHeight: "90vh",
-          overflow: "auto",
-          boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
-        }}
-      >
-        <h2 style={{ marginTop: 0, marginBottom: 24 }}>
-          {editingId ? "Edit Schedule" : "Create Schedule"}
-        </h2>
-        
-        <form onSubmit={handleSubmitSchedule}>
-          <div className="row" style={{ gap: 16 }}>
-            <div className="col col-6" style={{ marginBottom: 16 }}>
-              <div className="form-group">
-                <label>
-                  Sequence Name <span style={{ color: "red" }}>*</span>
-                </label>
-                <input
-                  type="text"
-                  name="title"
-                  value={formData.title || ""}
-                  onChange={handleChange}
-                  placeholder="Enter sequence name"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="col col-6" style={{ marginBottom: 16 }}>
-              <div className="form-group">
-                <label>
-                  List <span style={{ color: "red" }}>*</span>
-                </label>
-                <select
-                  name="model"
-                  onChange={handleZohoModelChange1}
-                  value={selectedZohoviewId1 || ""}
-                  disabled={scheduleDataLoading || scheduleDataFiles.length === 0}
-                  required
-                >
-                  <option value="">Select a list</option>
-                  {scheduleDataFiles.map((file) => (
-                    <option key={file.id} value={file.id.toString()}>
-                      {file.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-                        <div className="col col-6" style={{ marginBottom: 16 }}>
-              <div className="form-group">
-                <label>
-                  Timezone <span style={{ color: "red" }}>*</span>
-                </label>
-                <select
-                  name="timeZone"
-                  value={formData.timeZone || ""}
-                  onChange={handleChange}
-                  required
-                >
-                  <option value="">Select timezone</option>
-                  {timezoneOptions.map((tz) => (
-                    <option key={tz.value} value={tz.value}>
-                      {tz.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="col col-6" style={{ marginBottom: 16 }}>
-              <div className="form-group">
-                <label>
-                  From <span style={{ color: "red" }}>*</span>
-                </label>
-                <select
-                  value={selectedUser}
-                  onChange={handleChangeSmtpUsers}
-                  required
-                >
-                  <option value="">Select email</option>
-                  {smtpUsers.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.username}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="col col-6" style={{ marginBottom: 16 }}>
-              <div className="form-group">
-                <label>BCC Email</label>
-                <input
-                  type="email"
-                  name="bccEmail"
-                  value={formData.bccEmail || ""}
-                  onChange={handleChange}
-                  placeholder="Optional BCC email"
-                />
-                {bccError && (
-                  <small style={{ color: "red" }}>{bccError}</small>
-                )}
-              </div>
-            </div>
-
-            <div className="col col-6" style={{ marginBottom: 16 }}>
-              <div className="form-group">
-                <label>
-                  Scheduled Date <span style={{ color: "red" }}>*</span>
-                </label>
-                <input
-                  type="date"
-                  name="scheduledDate"
-                  value={formData.scheduledDate || ""}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="col col-6" style={{ marginBottom: 16 }}>
-              <div className="form-group">
-                <label>
-                  Scheduled Time <span style={{ color: "red" }}>*</span>
-                </label>
-                <input
-                  type="time"
-                  name="scheduledTime"
-                  value={formData.scheduledTime || ""}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-            </div>
+      <h2 style={{ marginTop: 0, marginBottom: 24 }}>
+        {editingId ? "Edit Schedule" : "Create Schedule"}
+      </h2>
+      
+      <form onSubmit={handleSubmitSchedule}>
+        <div style={{ 
+          display: "grid", 
+          gridTemplateColumns: "1fr 1fr", 
+          gap: "20px",
+          marginBottom: "24px"
+        }}>
+          <div className="form-group">
+            <label>
+              Sequence Name <span style={{ color: "red" }}>*</span>
+            </label>
+            <input
+              type="text"
+              name="title"
+              value={formData.title || ""}
+              onChange={handleChange}
+              placeholder="Enter sequence name"
+              required
+              style={{ width: "100%" }}
+            />
           </div>
 
-          <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", marginTop: 24 }}>
-            <button
-              type="button"
-              onClick={() => {
-                setShowScheduleModal(false);
-                setEditingId(null);
-                setFormData({
-                  title: "",
-                  timeZone: "",
-                  scheduledDate: "",
-                  scheduledTime: "",
-                  EmailDeliver: "",
-                  bccEmail: "",
-                  smtpID: "",
-                });
-                setSelectedZohoviewId1("");
-                setSelectedUser("");
-              }}
-              className="button secondary"
-              style={{
-                padding: "8px 16px",
-                border: "1px solid #ddd",
-                background: "#fff",
-                borderRadius: "4px",
-                cursor: "pointer",
-              }}
+          <div className="form-group">
+            <label>
+              List <span style={{ color: "red" }}>*</span>
+            </label>
+            <select
+              name="model"
+              onChange={handleZohoModelChange1}
+              value={selectedZohoviewId1 || ""}
+              disabled={scheduleDataLoading || scheduleDataFiles.length === 0}
+              required
+              style={{ width: "100%" }}
             >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="button primary"
-              disabled={!isFormValid}
-              style={{
-                padding: "8px 16px",
-                background: isFormValid ? "#007bff" : "#ccc",
-                color: "#fff",
-                border: "none",
-                borderRadius: "4px",
-                cursor: isFormValid ? "pointer" : "not-allowed",
-              }}
-            >
-              {editingId ? "Update Schedule" : "Create Schedule"}
-            </button>
+              <option value="">Select a list</option>
+              {scheduleDataFiles.map((file) => (
+                <option key={file.id} value={file.id.toString()}>
+                  {file.name}
+                </option>
+              ))}
+            </select>
           </div>
-        </form>
-      </div>
+
+          <div className="form-group">
+            <label>
+              Timezone <span style={{ color: "red" }}>*</span>
+            </label>
+            <select
+              name="timeZone"
+              value={formData.timeZone || ""}
+              onChange={handleChange}
+              required
+              style={{ width: "100%" }}
+            >
+              <option value="">Select timezone</option>
+              {timezoneOptions.map((tz) => (
+                <option key={tz.value} value={tz.value}>
+                  {tz.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>
+              From <span style={{ color: "red" }}>*</span>
+            </label>
+            <select
+              value={selectedUser}
+              onChange={handleChangeSmtpUsers}
+              required
+              style={{ width: "100%" }}
+            >
+              <option value="">Select email</option>
+              {smtpUsers.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.username}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>BCC Email</label>
+            <input
+              type="email"
+              name="bccEmail"
+              value={formData.bccEmail || ""}
+              onChange={handleChange}
+              placeholder="Optional BCC email"
+              style={{ width: "100%" }}
+            />
+            {bccError && (
+              <small style={{ color: "red" }}>{bccError}</small>
+            )}
+          </div>
+
+          <div className="form-group">
+            <label>
+              Scheduled Date <span style={{ color: "red" }}>*</span>
+            </label>
+            <input
+              type="date"
+              name="scheduledDate"
+              value={formData.scheduledDate || ""}
+              onChange={handleChange}
+              required
+              style={{ width: "100%" }}
+            />
+          </div>
+
+          <div className="form-group">
+            <label>
+              Scheduled Time <span style={{ color: "red" }}>*</span>
+            </label>
+            <input
+              type="time"
+              name="scheduledTime"
+              value={formData.scheduledTime || ""}
+              onChange={handleChange}
+              required
+              style={{ width: "100%" }}
+            />
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+          <button
+            type="button"
+            onClick={() => {
+              setShowScheduleModal(false);
+              setEditingId(null);
+              setFormData({
+                title: "",
+                timeZone: "",
+                scheduledDate: "",
+                scheduledTime: "",
+                EmailDeliver: "",
+                bccEmail: "",
+                smtpID: "",
+              });
+              setSelectedZohoviewId1("");
+              setSelectedUser("");
+            }}
+            className="button secondary"
+            style={{
+              padding: "8px 16px",
+              border: "1px solid #ddd",
+              background: "#fff",
+              borderRadius: "4px",
+              cursor: "pointer",
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="button primary"
+            disabled={!isFormValid}
+            style={{
+              padding: "8px 16px",
+              background: isFormValid ? "#007bff" : "#ccc",
+              color: "#fff",
+              border: "none",
+              borderRadius: "4px",
+              cursor: isFormValid ? "pointer" : "not-allowed",
+            }}
+          >
+            {editingId ? "Update Schedule" : "Create Schedule"}
+          </button>
+        </div>
+      </form>
     </div>
-  )}
+  </div>
+)}
+            
   </>
 
 )}
