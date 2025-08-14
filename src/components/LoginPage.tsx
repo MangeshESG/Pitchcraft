@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./LoginPage.css";
+import { Link } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import {
   saveUserId,
@@ -18,8 +19,19 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loader, setLoader] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [trustThisDevice, setTrustThisDevice] = useState(false);
+  const [otpMessage, setOtpMessage] = useState("");
+  const [showOtp, setShowOtp] = useState(false);
   const navigate = useNavigate();
   const dispatch = useDispatch();
+const getCookie = (name: string): string | null => {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
+  return null;
+};
+
 
   // Function to get browser information
   const getBrowserInfo = () => {
@@ -30,27 +42,19 @@ const LoginPage: React.FC = () => {
       browserName = "Chrome";
       const chromeVersion = userAgent.match(/Chrome\/(\d+)/);
       if (chromeVersion) browserVersion = chromeVersion[1];
-    }
-    // Detect Firefox
-    else if (userAgent.indexOf("Firefox") > -1) {
+    } else if (userAgent.indexOf("Firefox") > -1) {
       browserName = "Firefox";
       const firefoxVersion = userAgent.match(/Firefox\/(\d+)/);
       if (firefoxVersion) browserVersion = firefoxVersion[1];
-    }
-    // Detect Safari
-    else if (userAgent.indexOf("Safari") > -1) {
+    } else if (userAgent.indexOf("Safari") > -1) {
       browserName = "Safari";
       const safariVersion = userAgent.match(/Version\/(\d+)/);
       if (safariVersion) browserVersion = safariVersion[1];
-    }
-    // Detect Edge
-    else if (userAgent.indexOf("Edg") > -1) {
+    } else if (userAgent.indexOf("Edg") > -1) {
       browserName = "Edge";
       const edgeVersion = userAgent.match(/Edg\/(\d+)/);
       if (edgeVersion) browserVersion = edgeVersion[1];
-    }
-    // Detect IE
-    else if (
+    } else if (
       userAgent.indexOf("MSIE") > -1 ||
       userAgent.indexOf("Trident/") > -1
     ) {
@@ -58,20 +62,13 @@ const LoginPage: React.FC = () => {
       const ieVersion = userAgent.match(/(?:MSIE |rv:)(\d+)/);
       if (ieVersion) browserVersion = ieVersion[1];
     }
-
     return { browserName, browserVersion };
   };
 
-  // Helper functions
-  const formatDate = (date: Date) => {
-    // Example: 2024-06-13
-    return date.toISOString().split("T")[0];
-  };
+  const formatDate = (date: Date) => date.toISOString().split("T")[0];
 
-  const formatTime = (date: Date) => {
-    // Example: 14:23:45 GMT
-    return date.toISOString().split("T")[1].split(".")[0] + " GMT";
-  };
+  const formatTime = (date: Date) =>
+    date.toISOString().split("T")[1].split(".")[0] + " GMT";
 
   const sendLoginNotificationEmail = async (
     clientName: string,
@@ -81,7 +78,6 @@ const LoginPage: React.FC = () => {
       const now = new Date();
       const { browserName, browserVersion } = getBrowserInfo();
 
-      // Get IP address (this will be done server-side for accuracy)
       let ipAddress = "Unavailable";
       try {
         const ipResponse = await fetch("https://api.ipify.org?format=json");
@@ -93,14 +89,13 @@ const LoginPage: React.FC = () => {
         console.error("Error fetching IP address:", error);
       }
 
-      // Prepare IP link
       const ipLink =
         ipAddress !== "Unavailable"
           ? `<a href="https://whatismyipaddress.com/ip/${ipAddress}" target="_blank">${ipAddress}</a>`
           : ipAddress;
 
       const emailData = {
-        To: "info@groupji.co, rushikeshg@groupji.co", //
+        To: "info@groupji.co, rushikeshg@groupji.co",
         Subject: `Login Activity - ${clientName}`,
         Body: `
         <html>
@@ -188,39 +183,48 @@ const LoginPage: React.FC = () => {
     e.preventDefault();
     setError("");
     setLoader(true);
-    debugger;
     try {
-      // Special handling for the demo password
       const isDemoLogin = password.toLowerCase() === "pitchcraft123";
-
-      // For demo login, we'll send a special username and the "real" password
       const loginUsername = isDemoLogin ? "Acme" : username;
       const loginPassword = isDemoLogin ? "Ace2025%" : password;
-      // Call the existing login endpoint
-      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+       const trustNumberFromCookie = getCookie("trustenumber");
+
+    // If there's no cookie, continue without showing any error
+    // Don't halt the process if no cookie exists
+    const trustedNumber = trustNumberFromCookie || "0"; // Default to an empty string if no cookie
+
+      const response = await fetch("https://test.pitchkraft.ai/api/Login/login", {
         method: "POST",
         headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
+          "Content-Type": "application/json",
         },
-        body: new URLSearchParams({
+        body: JSON.stringify({
           username: loginUsername,
           password: loginPassword,
+          trustednumber: trustedNumber,
         }),
       });
 
+      const data = await response.json();
+
+      if (data.success && data.message === "OTP sent successfully") {
+        setShowOtp(true);
+        setOtpMessage("");
+        setLoader(false);
+        return;
+      }
+
       if (response.ok) {
-        const data = await response.json();
         const token = data.token;
         const clientID = data.clientID;
         const IsAdmin = data.isadmin;
-        const IsDemoAccount = data.isDemoAccount || isDemoLogin; // Set demo flag if using demo password
+        const IsDemoAccount = data.isDemoAccount || isDemoLogin;
         const FirstName = isDemoLogin ? "John" : data.firstName;
         const LastName = isDemoLogin ? "Doe" : data.lastName;
         const companyName = data.companyName || "Acme Corporation";
 
-        // In demo mode, we use the original entered username for tracking
         const clientName = isDemoLogin
-          ? username // Use what the user actually entered
+          ? username
           : [FirstName, LastName].filter(Boolean).join(" ") || username;
 
         sessionStorage.setItem("clientId", clientID);
@@ -229,17 +233,9 @@ const LoginPage: React.FC = () => {
 
         if (token) {
           dispatch(setToken(token));
-          // In demo mode, we still save the original username for tracking
-          // This helps identify who used the demo login
           dispatch(saveUserName(isDemoLogin ? username : loginUsername));
-
-          // For display purposes, we might want John Doe:
-          if (FirstName) {
-            dispatch(saveFirstName(FirstName));
-          }
-          if (LastName) {
-            dispatch(saveLastName(LastName));
-          }
+          if (FirstName) dispatch(saveFirstName(FirstName));
+          if (LastName) dispatch(saveLastName(LastName));
 
           const getUserIdFromToken = (token: string) => {
             try {
@@ -276,16 +272,12 @@ const LoginPage: React.FC = () => {
 
             let ipAddress = "Unavailable";
             try {
-              const ipResponse = await fetch(
-                "https://api.ipify.org?format=json"
-              );
+              const ipResponse = await fetch("https://api.ipify.org?format=json");
               if (ipResponse.ok) {
                 const ipData = await ipResponse.json();
                 ipAddress = ipData.ip;
               }
-            } catch (error) {
-              // Optionally log error
-            }
+            } catch (error) {}
 
             dispatch(
               saveLoginDeviceInfo({
@@ -295,11 +287,9 @@ const LoginPage: React.FC = () => {
               })
             );
 
-            // Special handling for email if this was a demo login
             if (isDemoLogin) {
-              // Add "DEMO LOGIN" to the subject to make it clear
               await sendLoginNotificationEmail(
-                `DEMO Client: ${username}`, // Make it clear this was demo login with the entered username
+                `DEMO Client: ${username}`,
                 companyName
               );
             } else {
@@ -326,6 +316,42 @@ const LoginPage: React.FC = () => {
     }
   };
 
+  const handleVerifyOtp = async () => {
+  setOtpMessage("");
+  setLoader(true);
+  try {
+    const response = await fetch(
+      `https://test.pitchkraft.ai/api/Login/verify_trust_otp?username=${username}&otp=${otp}&trustthisdivice=${trustThisDevice}`,
+      {
+        method: "POST",
+        headers: {
+          accept: "*/*",
+        },
+        body: "",
+      }
+    );
+
+    if (response.ok) {
+      const data = await response.json();
+
+      // Save trustenumber cookie (expires in 7 days)
+      const trustenumber = data.trustenumber;
+      if (trustenumber) {
+        document.cookie = `trustenumber=${trustenumber}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Lax`;
+      }
+
+      setOtpMessage("OTP Verified Successfully!");
+      navigate("/main");
+    } else {
+      setOtpMessage("OTP verification failed. Please try again.");
+    }
+  } catch (error) {
+    setOtpMessage("Error verifying OTP. Please try again.");
+  } finally {
+    setLoader(false);
+  }
+};
+
   useEffect(() => {
     return () => {
       setLoader(false);
@@ -335,58 +361,122 @@ const LoginPage: React.FC = () => {
   return (
     <div className="login-container page d-flex flex-col">
       <h1 style={{ color: "white" }}>Login to Pitchcraft</h1>
+
+      {!showOtp ? (
+        <div className="login-box mb-10">
+          <form onSubmit={handleLogin}>
+            <div className="form-group">
+              <label>User name</label>
+              <input
+                type="text"
+                placeholder="Email address"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+              />
+            </div>
+            <div className="form-group">
+              <label>Password</label>
+              <input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                marginBottom: "10px",
+              }}
+            >
+              <Link
+                to="/forgot-password"
+                style={{ color: "#0b0404ff", textDecoration: "none" }}
+              >
+                Forgot Password
+              </Link>
+            </div>
+            <div className="form-group mb-0">
+              <button
+                type="submit"
+                className="button save-button d-flex justify-center"
+                disabled={loader}
+              >
+                {loader && (
+                  <svg
+                    className={`${loader && "spin"}`}
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="#ffffff"
+                    height="20px"
+                    width="20px"
+                    version="1.1"
+                    id="Capa_1"
+                    viewBox="0 0 491.236 491.236"
+                  >
+                    <g>
+                      <g>
+                        <path d="M55.89,262.818c-3-26-0.5-51.1,6.3-74.3c22.6-77.1,93.5-133.8,177.6-134.8v-50.4c0-2.8,3.5-4.3,5.8-2.6l103.7,76.2 c1.7,1.3,1.7,4,0,5.2l-103.7,76.2c-2.3,1.7-5.8,0.2-5.8-2.6v-48.1c-68,0.9-124.5,46.6-140.3,112.2c-3.1,12.2-4.2,26-3.4,41.3 c1.4,31.1,15.6,60.4,40.1,78.7c18.2,14.3,42.4,22.6,69.8,22.6c49.2,0,89.1-39.9,89.1-89.1v-46c0-2.5,3.1-3.8,4.8-2l19.4,20.7 c6.9,7.3,12.3,16.2,15.6,26.3c0.1,0.2,0.3,0.5,0.4,0.7c-1.7,40.2-34.4,72.5-74.9,72.5c-31.1,0-57.9-20-68.2-48.1 C64.99,288.318,60.59,275.418,55.89,262.818z" />
+                      </g>
+                    </g>
+                  </svg>
+                )}
+                &nbsp;Login
+              </button>
+            </div>
+            
+           </form>
+           <div className="register-link mt-10">
+            <p>Don't have an account?</p>
+            <button
+              type="button"
+              className="button save-button d-flex justify-center"
+              onClick={() => navigate("/register")}
+            >
+              Register
+            </button>
+          </div>
+      </div>
+    ) : (
       <div className="login-box mb-10">
-        <form onSubmit={handleLogin}>
-          {" "}
-          {/* Use onSubmit directly */}
+        <form onSubmit={(e) => { e.preventDefault(); handleVerifyOtp(); }}>
           <div className="form-group">
-            <label>User name</label>
+            <label htmlFor="otp">Enter OTP</label>
             <input
               type="text"
-              placeholder="Email address"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              id="otp"
+              placeholder="Enter OTP"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
             />
           </div>
           <div className="form-group">
-            <label>Password</label>
+          <label className="checkbox-label">
             <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              type="checkbox"
+              className="custom-checkbox"
+              checked={trustThisDevice}
+              onChange={() => setTrustThisDevice(!trustThisDevice)}
             />
-          </div>
+            Trust this device
+          </label>
+        </div>
           <div className="form-group mb-0">
             <button
               type="submit"
               className="button save-button d-flex justify-center"
+              disabled={loader}
             >
-              {loader && (
-                <svg
-                  className={`${loader && "spin"}`}
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="#ffffff"
-                  height="20px"
-                  width="20px"
-                  version="1.1"
-                  id="Capa_1"
-                  viewBox="0 0 491.236 491.236"
-                >
-                  <g>
-                    <g>
-                      <path d="M55.89,262.818c-3-26-0.5-51.1,6.3-74.3c22.6-77.1,93.5-133.8,177.6-134.8v-50.4c0-2.8,3.5-4.3,5.8-2.6l103.7,76.2    c1.7,1.3,1.7,3.9,0,5.1l-103.6,76.2c-2.4,1.7-5.8,0.2-5.8-2.6v-50.3c-55.3,0.9-102.5,35-122.8,83.2c-7.7,18.2-11.6,38.3-10.5,59.4    c1.5,29,12.4,55.7,29.6,77.3c9.2,11.5,7,28.3-4.9,37c-11.3,8.3-27.1,6-35.8-5C74.19,330.618,59.99,298.218,55.89,262.818z     M355.29,166.018c17.3,21.5,28.2,48.3,29.6,77.3c1.1,21.2-2.9,41.3-10.5,59.4c-20.3,48.2-67.5,82.4-122.8,83.2v-50.3    c0-2.8-3.5-4.3-5.8-2.6l-103.7,76.2c-1.7,1.3-1.7,3.9,0,5.1l103.6,76.2c2.4,1.7,5.8,0.2,5.8-2.6v-50.4    c84.1-0.9,155.1-57.6,177.6-134.8c6.8-23.2,9.2-48.3,6.3-74.3c-4-35.4-18.2-67.8-39.5-94.4c-8.8-11-24.5-13.3-35.8-5    C348.29,137.718,346.09,154.518,355.29,166.018z" />
-                    </g>
-                  </g>
-                </svg>
-              )}
-              <span className="ml-5">Log in</span>
+              {loader ? "Verifying..." : "Verify OTP"}
             </button>
           </div>
+          {otpMessage && <p>{otpMessage}</p>}
         </form>
       </div>
-      {error && <div className="alert alert-danger error-message">{error}</div>}
-    </div>
+    )}
+
+    {error && <p style={{ color: "red" }}>{error}</p>}
+  </div>
   );
 };
 

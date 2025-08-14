@@ -78,4 +78,29 @@
   margin-bottom: 1rem;
 }
 
+.register-link {
+  margin-top: 15px;
+  text-align: center;
+}
+
+.register-button {
+  padding: 10px 20px;
+  background-color: #4cafef;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.register-button:hover {
+  background-color: #2196f3;
+}
+.success-message {
+  color: green;
+  background-color: #e6ffed;
+  border: 1px solid #a2f5a2;
+  padding: 10px;
+  border-radius: 4px;
+  margin-top: 10px;
+}
 
