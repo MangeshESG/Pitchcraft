@@ -797,13 +797,14 @@ const saveToCrmUpdateEmail = async ({
     }
   }, [effectiveUserId, token]);
 
-const handleSendEmail = async (subjectFromButton: string) => {
+const handleSendEmail = async (
+  subjectFromButton: string,
+  targetContact: typeof combinedResponses[number] | null = null
+) => {
   setEmailMessage("");
   setEmailError("");
 
   const subjectToUse = subjectFromButton || emailFormData.Subject;
-
-  // Remove BCC email from the required fields check
   if (!subjectToUse || !selectedSmtpUser) {
     setEmailError(
       "Please fill in all required fields: Subject and From Email."
@@ -814,7 +815,7 @@ const handleSendEmail = async (subjectFromButton: string) => {
   setSendingEmail(true);
 
   try {
-    const currentContact = combinedResponses[currentIndex];
+    const currentContact = targetContact || combinedResponses[currentIndex];
 
     // Ensure we have the required contact information
     if (!currentContact || !currentContact.id) {
@@ -1099,17 +1100,147 @@ const handleSendEmail = async (subjectFromButton: string) => {
   }, [campaigns, refreshTrigger]); // Add refreshTrigger dependency
 
 
+const [isBulkSending, setIsBulkSending] = useState(false);
+const [bulkSendIndex, setBulkSendIndex] = useState(currentIndex);
+const stopBulkRef = useRef(false);
+
+const sendEmailsInBulk = async (startIndex = 0) => {
+  
+  
+  // Check if we have SMTP user selected BEFORE starting
+  if (!selectedSmtpUser) {
+    return; // Exit early
+  }
+
+  setIsBulkSending(true);
+  stopBulkRef.current = false;
+
+  let index = startIndex;
+  let sentCount = 0;
+  let skippedCount = 0;
+
+  while (index < combinedResponses.length && !stopBulkRef.current) {
+    // Update current index to show the contact being processed
+    setCurrentIndex(index);
+    
+    const contact = combinedResponses[index];
+  
+
+    try {
+      // Prepare subject and request body
+      const subjectToUse = contact.subject || "No subject";
+      console.log('Subject:', subjectToUse);
+
+      if (!contact.id) {
+        index++;
+        skippedCount++;
+        setBulkSendIndex(index);
+        await new Promise(res => setTimeout(res, 500)); // Small delay before next
+        continue;
+      }
+
+      const requestBody = {
+        clientId: effectiveUserId,
+        contactid: contact.id,
+        dataFileId: contact.datafileid || 0,
+        toEmail: contact.email,
+        subject: subjectToUse,
+        body: contact.pitch || "",
+        bccEmail: emailFormData.BccEmail || "",
+        smtpId: selectedSmtpUser,
+        fullName: contact.name,
+        countryOrAddress: contact.location || "",
+        companyName: contact.company || "",
+        website: contact.website || "",
+        linkedinUrl: contact.linkedin || "",
+        jobTitle: contact.title || "",
+      };
+
+      
+     
+
+      const response = await axios.post(
+        `${API_BASE_URL}/api/email/send-singleEmail`,
+        requestBody,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      sentCount++;
+
+      // UPDATE local state for this contact
+      const updatedItem = {
+        ...contact,
+        emailsentdate: new Date().toISOString(),
+        PG_Added_Correctly: true,
+      };
+      
+      // Update combinedResponses
+      setCombinedResponses(prev =>
+        prev.map((item, i) => (i === index ? updatedItem : item))
+      );
+
+      // Update allResponses if needed
+      const allResponsesIndex = allResponses.findIndex(
+        (item) => item.id === contact.id
+      );
+      if (allResponsesIndex !== -1) {
+        setAllResponses(prev => {
+          const updated = [...prev];
+          updated[allResponsesIndex] = updatedItem;
+          return updated;
+        });
+      }
+
+      // Update existingResponse if needed
+      const existingResponseIndex = existingResponse.findIndex(
+        (item) => item.id === contact.id
+      );
+      if (existingResponseIndex !== -1) {
+        setexistingResponse(prev => {
+          const updated = [...prev];
+          updated[existingResponseIndex] = updatedItem;
+          return updated;
+        });
+      }
+
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+      }
+      skippedCount++;
+    }
+
+    index++;
+    setBulkSendIndex(index);
+    
+    // Show progress
+    const progress = `Progress: ${index}/${combinedResponses.length} (Sent: ${sentCount}, Skipped: ${skippedCount})`;
+    
+    // Wait before processing next email
+    await new Promise(res => setTimeout(res, 1200)); // Throttle emails
+  }
+
+  setIsBulkSending(false);
+  stopBulkRef.current = false;
+  
+  
+  
+};
+
+const stopBulkSending = () => {
+  stopBulkRef.current = true;
+  setIsBulkSending(false);
+};
+
+
   return (
     <div className="login-box gap-down">
       <div className="d-flex justify-between align-center mb-20 border-b pb-[15px] mb-[15px]">
-<div className="control-buttons d-flex align-center">
-  
-  
-   
-  
-  
 
-</div>
       </div>
 
       {/* Add the selection dropdowns and subject line section */}
@@ -1202,6 +1333,8 @@ const handleSendEmail = async (subjectFromButton: string) => {
             </div> */}
 
             <div className="col-5">
+                    {!isDemoAccount && (
+
               <div className="form-group" style={{ flexWrap: "wrap" }}>
                 <label style={{ width: "100%" }}>Subject</label>
 
@@ -1224,9 +1357,12 @@ const handleSendEmail = async (subjectFromButton: string) => {
                   />
                 </div>
               </div>
+                    )}
             </div>
 
             <div className="">
+                    {!isDemoAccount && (
+
               <div className="form-group">
                 <label>Language</label>
                 <select
@@ -1244,7 +1380,9 @@ const handleSendEmail = async (subjectFromButton: string) => {
                     ))}
                 </select>
               </div>
+                    )}
             </div>
+            
           </div>
 
           {/* Subject Line Row */}
@@ -1443,7 +1581,9 @@ const handleSendEmail = async (subjectFromButton: string) => {
             </ul>
             <div className="flex">
               <div className="flex mr-4">
+                
                 {isResetEnabled ? ( // Changed from !isProcessing to isResetEnabled
+                
                   <button
                     className="primary-button bg-[#3f9f42]"
                     onClick={() => handleStart?.(currentIndex)}
@@ -1467,6 +1607,7 @@ const handleSendEmail = async (subjectFromButton: string) => {
                 )}
               </div>
               <div className="flex mr-4">
+             {!isDemoAccount && (
 
                <button
                 className="secondary-button nowrap"
@@ -1476,8 +1617,11 @@ const handleSendEmail = async (subjectFromButton: string) => {
               >
                 Reset all
               </button>
+              )}
               </div>
               <div className="!mb-[0px] flex align-center">
+                {!isDemoAccount && (
+
                 <label className="checkbox-label !mb-[0px] mr-[5px] flex align-center">
                   <input
                     type="checkbox"
@@ -1489,6 +1633,9 @@ const handleSendEmail = async (subjectFromButton: string) => {
                   />
                   <span className="text-[14px]">Overwrite</span>
                 </label>
+              )}
+              {!isDemoAccount && (
+
                 <span>
                   <ReactTooltip anchorSelect="#overwrite-checkbox" place="top">
                     Reset all company level intel
@@ -1499,6 +1646,8 @@ const handleSendEmail = async (subjectFromButton: string) => {
                     <path fill-rule="evenodd" clip-rule="evenodd" d="M1.25 12C1.25 6.06294 6.06294 1.25 12 1.25C17.9371 1.25 22.75 6.06294 22.75 12C22.75 17.9371 17.9371 22.75 12 22.75C6.06294 22.75 1.25 17.9371 1.25 12ZM12 2.75C6.89137 2.75 2.75 6.89137 2.75 12C2.75 17.1086 6.89137 21.25 12 21.25C17.1086 21.25 21.25 17.1086 21.25 12C21.25 6.89137 17.1086 2.75 12 2.75Z" fill="#1C274C"/>
                   </svg>
                 </span>
+                )}
+                
               </div>
               
             </div>
@@ -2121,7 +2270,50 @@ const handleSendEmail = async (subjectFromButton: string) => {
                       <ReactTooltip anchorSelect="#send-email-info" place="top">
                         Send this email
                       </ReactTooltip>
+                        <button
+                          type="button"
+                          className="button save-button x-small d-flex align-center align-self-center my-5-640 mr-[5px]"
+                          onClick={() => {
+                            console.log('Button clicked, isBulkSending:', isBulkSending);
+                            
+                            if (isBulkSending) {
+                              console.log('Stopping bulk send...');
+                              stopBulkSending();
+                            } else {
+                              // Check if SMTP is selected before starting
+                              if (!selectedSmtpUser) {
+                                toast.error("Please select From email first");
+                                return;
+                              }
+                              console.log('Starting bulk send...');
+                              sendEmailsInBulk(currentIndex);
+                            }
+                          }}
+                          disabled={
+                            sessionStorage.getItem("isDemoAccount") === "true"
+                          }
+                          style={{
+                            cursor:
+                              sessionStorage.getItem("isDemoAccount") !== "true"
+                                ? "pointer"
+                                : "not-allowed",
+                            padding: "5px 15px",
+                            opacity:
+                              sessionStorage.getItem("isDemoAccount") !== "true"
+                                ? 1
+                                : 0.6,
+                            height: "38px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            marginTop: "30px",
+                          }}
+                        >
+                          {isBulkSending ? "Stop" : "Send All"}
+                        </button>
                     </div>
+
+                 
                     {/* Email Sent Date - remaining width */}
                     <div
                       style={{

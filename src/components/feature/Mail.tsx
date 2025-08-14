@@ -177,9 +177,11 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
 
 
   
-  const [isCopyText, setIsCopyText] = useState(false);
+const [isCopyText, setIsCopyText] = useState(false);
 const { saveFormState, getFormState, refreshTrigger } = useAppData();
-  const [openModals, setOpenModals] = useState<{ [key: string]: boolean }>({});
+const [openModals, setOpenModals] = useState<{ [key: string]: boolean }>({});
+  const isDemoAccount = sessionStorage.getItem("isDemoAccount") === "true";
+
 
   const handleModalOpen = (id: string) => {
     setOpenModals((prev) => ({ ...prev, [id]: true }));
@@ -1118,6 +1120,7 @@ useEffect(() => {
           value={mailboxSearch}
           onChange={(e) => setMailboxSearch(e.target.value)}
         />
+        {!isDemoAccount && (
         <button
           className="button primary"
           style={{ marginLeft: "auto" }}
@@ -1125,6 +1128,7 @@ useEffect(() => {
         >
           + Add mailbox
         </button>
+        )}
       </div>
 
       <table className="contacts-table" style={{ background: "#fff" }}>
@@ -1193,6 +1197,8 @@ useEffect(() => {
                           minWidth: 160,
                         }}
                       >
+                              {!isDemoAccount && (
+
                         <button
                           onClick={() => {
                             handleEdit(item);
@@ -1202,6 +1208,8 @@ useEffect(() => {
                         >
                           ✏️ Edit
                         </button>
+                              )}
+                              {!isDemoAccount && (
                         <button
                           onClick={() => {
                             handleDelete(item.id);
@@ -1211,6 +1219,7 @@ useEffect(() => {
                         >
                           🗑️ Delete
                         </button>
+                              )}
                       </div>
                     )}
                   </td>
@@ -1281,6 +1290,7 @@ useEffect(() => {
               <tr key={email.id}>
                 <td>{email.bccEmailAddress}</td>
                 <td>
+                  {!isDemoAccount && (
                   <button
                     className="button secondary small"
                     onClick={() => handleDeleteBcc(email.id)}
@@ -1297,6 +1307,7 @@ useEffect(() => {
                   >
                     Delete
                   </button>
+                  )}
                 </td>
               </tr>
             ))
@@ -1460,6 +1471,7 @@ useEffect(() => {
           value={scheduleSearch}
           onChange={(e) => setScheduleSearch(e.target.value)}
         />
+        {!isDemoAccount && (
         <button
           className="button primary"
           style={{ marginLeft: "auto" }}
@@ -1467,6 +1479,7 @@ useEffect(() => {
         >
           + Create schedule
         </button>
+        )}
       </div>
 
       <table className="contacts-table" style={{ background: "#fff" }}>
@@ -1537,6 +1550,7 @@ useEffect(() => {
                         ⋮
                       </button>
                       {scheduleActionsAnchor === item.id?.toString() && (
+                        
                         <div
                           className="segment-actions-menu"
                           style={{
@@ -1551,7 +1565,9 @@ useEffect(() => {
                             minWidth: 160,
                           }}
                         >
-                                                    <button
+                                {!isDemoAccount && (
+
+                            <button
                             onClick={() => {
                               handleEditSchedule(item);
                               setScheduleActionsAnchor(null);
@@ -1561,6 +1577,8 @@ useEffect(() => {
                           >
                             ✏️ Edit
                           </button>
+                                )}
+                                {!isDemoAccount && (
                           <button
                             onClick={() => {
                               handleDeleteSchedule(item.id);
@@ -1570,6 +1588,7 @@ useEffect(() => {
                           >
                             🗑️ Delete
                           </button>
+                                )}
                         </div>
                       )}
                     </td>

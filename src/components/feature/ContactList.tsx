@@ -105,6 +105,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   );
   const [showColumnSettings, setShowColumnSettings] = useState(false);
   const [showAddContactModal, setShowAddContactModal] = useState(false);
+  const isDemoAccount = sessionStorage.getItem("isDemoAccount") === "true";
 
   // Column configuration - excluding email_subject and email_body
   const [columns, setColumns] = useState<ColumnConfig[]>([
@@ -923,6 +924,8 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                                 minWidth: 160,
                               }}
                             >
+                              {!isDemoAccount && (
+
                               <button
                                 onClick={() => {
                                   setEditingList(file);
@@ -936,6 +939,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                               >
                                 ✏️ Rename
                               </button>
+                              )}
                               <button
                                 onClick={() => {
                                   setSelectedDataFileForView(file);
@@ -949,6 +953,8 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                               >
                                 👁️ View
                               </button>
+                          {!isDemoAccount && (
+
                               <button
                                 onClick={() => {
                                   setEditingList(file);
@@ -959,6 +965,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                               >
                                 🗑️ Delete
                               </button>
+                              )}
                             </div>
                           )}
                         </td>
@@ -1437,6 +1444,8 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                                     minWidth: 160,
                                   }}
                                 >
+                                        {!isDemoAccount && (
+
                                   <button
                                     onClick={() => {
                                       setEditingSegment(segment);
@@ -1450,6 +1459,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                                   >
                                     ✏️ Rename
                                   </button>
+                                      )}
                                   <button
                                     onClick={() => {
                                       setSelectedSegmentForView(segment);
@@ -1463,6 +1473,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                                   >
                                     👁️ View
                                   </button>
+                                      {!isDemoAccount && (
                                   <button
                                     onClick={() => {
                                       setEditingSegment(segment);
@@ -1473,6 +1484,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                                   >
                                     🗑️ Delete
                                   </button>
+                                      )}
                                 </div>
                               )}
                             </td>
