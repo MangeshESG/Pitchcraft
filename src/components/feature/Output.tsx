@@ -2270,47 +2270,47 @@ const stopBulkSending = () => {
                       <ReactTooltip anchorSelect="#send-email-info" place="top">
                         Send this email
                       </ReactTooltip>
-                        <button
-                          type="button"
-                          className="button save-button x-small d-flex align-center align-self-center my-5-640 mr-[5px]"
-                          onClick={() => {
-                            console.log('Button clicked, isBulkSending:', isBulkSending);
-                            
-                            if (isBulkSending) {
-                              console.log('Stopping bulk send...');
-                              stopBulkSending();
-                            } else {
-                              // Check if SMTP is selected before starting
-                              if (!selectedSmtpUser) {
-                                toast.error("Please select From email first");
-                                return;
-                              }
-                              console.log('Starting bulk send...');
-                              sendEmailsInBulk(currentIndex);
-                            }
-                          }}
-                          disabled={
-                            sessionStorage.getItem("isDemoAccount") === "true"
-                          }
-                          style={{
-                            cursor:
-                              sessionStorage.getItem("isDemoAccount") !== "true"
-                                ? "pointer"
-                                : "not-allowed",
-                            padding: "5px 15px",
-                            opacity:
-                              sessionStorage.getItem("isDemoAccount") !== "true"
-                                ? 1
-                                : 0.6,
-                            height: "38px",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            marginTop: "30px",
-                          }}
-                        >
-                          {isBulkSending ? "Stop" : "Send All"}
-                        </button>
+<button
+  type="button"
+  className="button save-button x-small d-flex align-center align-self-center my-5-640 mr-[5px]"
+  onClick={() => {
+    console.log('Button clicked, isBulkSending:', isBulkSending);
+    
+    if (isBulkSending) {
+      console.log('Stopping bulk send...');
+      stopBulkSending();
+    } else {
+      // Check if SMTP is selected before starting
+      if (!selectedSmtpUser) {
+        toast.error("Please select From email first");
+        return;
+      }
+      console.log('Starting bulk send...');
+      sendEmailsInBulk(currentIndex);
+    }
+  }}
+  disabled={
+    sessionStorage.getItem("isDemoAccount") === "true"
+  }
+  style={{
+    cursor:
+      sessionStorage.getItem("isDemoAccount") !== "true"
+        ? "pointer"
+        : "not-allowed",
+    padding: "5px 15px",
+    opacity:
+      sessionStorage.getItem("isDemoAccount") !== "true"
+        ? 1
+        : 0.6,
+    height: "38px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: "30px",
+  }}
+>
+  {isBulkSending ? "Stop" : "Send All"}
+</button>
                     </div>
 
                  

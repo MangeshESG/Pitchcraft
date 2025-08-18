@@ -359,28 +359,32 @@ const getFormattedValue = (item: any, column: ColumnConfig): React.ReactNode => 
   };
 
   // Handle select all
-  const handleSelectAll = () => {
-    if (onSelectAll) {
-      onSelectAll();
-    } else if (onSelectItem) {
-      const currentPageIds = displayData.map(item => item[primaryKey]?.toString()).filter(Boolean);
-      const allSelected = currentPageIds.every(id => selectedItems?.has(id));
-      
-      currentPageIds.forEach(id => {
-        if (allSelected) {
-          // Deselect all
-          if (selectedItems?.has(id)) {
-            onSelectItem(id);
-          }
-        } else {
-          // Select all
-          if (!selectedItems?.has(id)) {
-            onSelectItem(id);
-          }
+const handleSelectAll = () => {
+  if (onSelectAll) {
+    onSelectAll();
+  } else if (onSelectItem) {
+    // Use ALL filtered data instead of only current page
+    const allIds = filteredData
+      .map(item => item[primaryKey]?.toString())
+      .filter(Boolean);
+
+    const allSelected = allIds.every(id => selectedItems?.has(id));
+
+    allIds.forEach(id => {
+      if (allSelected) {
+        // Deselect all
+        if (selectedItems?.has(id)) {
+          onSelectItem(id);
         }
-      });
-    }
-  };
+      } else {
+        // Select all
+        if (!selectedItems?.has(id)) {
+          onSelectItem(id);
+        }
+      }
+    });
+  }
+};
 
   // Click outside handler for column panel
   useEffect(() => {
@@ -488,16 +492,16 @@ const getFormattedValue = (item: any, column: ColumnConfig): React.ReactNode => 
                     <th key={column.key} style={{ width: column.width }}>
                       {column.key === "checkbox" ? (
                         <input
-                          type="checkbox"
-                          checked={
-                            selectedItems && displayData.length > 0
-                              ? displayData.every(item => 
-                                  selectedItems.has(item[primaryKey]?.toString())
-                                )
-                              : false
-                          }
-                          onChange={handleSelectAll}
-                        />
+                        type="checkbox"
+                        checked={
+                          selectedItems && filteredData.length > 0
+                            ? filteredData.every(item =>
+                                selectedItems.has(item[primaryKey]?.toString())
+                              )
+                            : false
+                        }
+                        onChange={handleSelectAll}
+                      />
                       ) : (
                         column.label
                       )}

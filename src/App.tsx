@@ -1,4 +1,3 @@
-// src/App.tsx
 import React, { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import LoginPage from "./components/LoginPage";
@@ -64,7 +63,7 @@ const App: React.FC = () => {
 
             </Routes>
           </BrowserRouter>
-        </AppDataProvider> {/* Add this line */}
+        </AppDataProvider> 
       </PersistGate>
     </Provider>
   );
