@@ -1,106 +1,112 @@
+/* 🌟 Page Container */
 .page.login-container {
   display: flex;
   justify-content: center;
   align-items: center;
   height: 100vh;
-  /*background-color: #f4f4f4;*/
   background: url('../assets/images/loginbg.jpeg') center center/cover no-repeat #f4f4f4;
 }
 
-.page.login-container .login-box {
+/* 🌟 Box Wrapper */
+.login-box {
   background: white;
-  padding: 1.5rem;
+  padding: 2rem;
   border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
   width: 400px;
+  animation: fadeIn 0.4s ease-in-out;
 }
 
+/* Fade-in animation for smooth UX */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* 🌟 Headings */
 .login-box h2 {
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
+  text-align: center;
+  font-size: 20px;
+  font-weight: bold;
   color: #4c2d72;
 }
 
+/* 🌟 Form */
 .login-box form {
   display: flex;
   flex-direction: column;
 }
 
+/* Labels */
 .login-box label {
   margin-bottom: 0.5rem;
-  font-weight: bold;
+  font-weight: 600;
+  color: #333;
 }
 
+/* Inputs */
 .login-box input {
   padding: 0.75rem;
-  margin-bottom: 1rem;
   border: 1px solid #ddd;
   border-radius: 4px;
-  margin: 0;
-}
-
-.options {
-  display: flex;
-  justify-content: space-between;
   margin-bottom: 1rem;
+  font-size: 14px;
+}
+.login-box input:focus {
+  outline: none;
+  border-color: #4c2d72;
+  box-shadow: 0 0 5px rgba(76, 45, 114, 0.3);
 }
 
-.reset-link {
-  color: #d74e89;
-  text-decoration: none;
-}
-
-.login-button {
+/* 🌟 Buttons */
+.login-button,
+.register-button {
   background: linear-gradient(to right, #d74e89, #4c2d72);
   color: white;
+  font-weight: 600;
   padding: 0.75rem;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  min-width: 100px;
+  margin-top: 0.5rem;
+  transition: all 0.3s ease;
 }
 
-.login-button:hover {
+.login-button:hover,
+.register-button:hover {
   opacity: 0.9;
 }
 
+/* 🌟 Links for switch between views */
 .register-link {
   margin-top: 1rem;
   text-align: center;
+  font-size: 14px;
+  color: #333;
 }
-
 .register-link a {
   color: #d74e89;
+  font-weight: 600;
   text-decoration: none;
+  cursor: pointer;
+}
+.register-link a:hover {
+  text-decoration: underline;
 }
 
+/* 🌟 Messages */
 .error-message {
   color: red;
   margin-bottom: 1rem;
-}
-
-.register-link {
-  margin-top: 15px;
-  text-align: center;
-}
-
-.register-button {
-  padding: 10px 20px;
-  background-color: #4cafef;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-}
-
-.register-button:hover {
-  background-color: #2196f3;
+  font-size: 14px;
 }
 .success-message {
   color: green;
   background-color: #e6ffed;
   border: 1px solid #a2f5a2;
-  padding: 10px;
+  padding: 8px;
+  font-size: 14px;
   border-radius: 4px;
   margin-top: 10px;
 }
-
