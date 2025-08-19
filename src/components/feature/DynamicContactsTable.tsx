@@ -23,7 +23,6 @@ interface DynamicContactsTableProps {
   currentPage?: number;
   pageSize?: number;
   onPageChange?: (pg: number) => void;
-  onSelectAll?: () => void;
   selectedItems?: Set<string>;
   onSelectItem?: (id: string) => void;
   totalItems?: number;
@@ -58,7 +57,6 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   currentPage = 1,
   pageSize = 20,
   onPageChange,
-  onSelectAll,
   selectedItems,
   onSelectItem,
   totalItems,
@@ -293,21 +291,29 @@ useEffect(() => {
 }, [data.length]);
 
   // Dynamic filtering
-  const getFilteredData = () => {
-    if (!search.trim()) return data;
+const getFilteredData = () => {
+  if (!search.trim()) return data;
 
-    const searchLower = search.toLowerCase();
-    const fieldsToSearch = searchFields.length > 0 ? searchFields : 
-      columns.filter(col => col.searchable !== false).map(col => col.key);
+  const searchLower = search.toLowerCase();
+  const fieldsToSearch = searchFields.length > 0 ? searchFields : 
+    columns.filter(col => col.searchable !== false).map(col => col.key);
 
-    return data.filter(item => {
-      return fieldsToSearch.some(field => {
-        const value = item[field];
-        if (value === null || value === undefined) return false;
-        return String(value).toLowerCase().includes(searchLower);
-      });
+  const filtered = data.filter(item => {
+    return fieldsToSearch.some(field => {
+      const value = item[field];
+      if (value === null || value === undefined) return false;
+      return String(value).toLowerCase().includes(searchLower);
     });
-  };
+  });
+  
+  console.log('Search Debug:', {
+    searchTerm: search,
+    originalCount: data.length,
+    filteredCount: filtered.length
+  });
+  
+  return filtered;
+};
 
   // Get value with formatting
  // REPLACE the getFormattedValue function with:
@@ -359,31 +365,30 @@ const getFormattedValue = (item: any, column: ColumnConfig): React.ReactNode => 
   };
 
   // Handle select all
-const handleSelectAll = () => {
-  if (onSelectAll) {
-    onSelectAll();
-  } else if (onSelectItem) {
-    // Use ALL filtered data instead of only current page
-    const allIds = filteredData
-      .map(item => item[primaryKey]?.toString())
-      .filter(Boolean);
+// Simplest solution - Replace the entire handleSelectAll function with this:
+const handleSelectAll = (checked: boolean) => {
+  if (!onSelectItem) return;
 
-    const allSelected = allIds.every(id => selectedItems?.has(id));
+  const allIds = filteredData.map(item => item[primaryKey]?.toString()).filter(Boolean);
+  
+  console.log('Select All Debug:', {
+    checked,
+    filteredDataLength: filteredData.length,
+    allDataLength: data.length,
+    searchTerm: search,
+    idsToSelect: allIds.length
+  });
 
-    allIds.forEach(id => {
-      if (allSelected) {
-        // Deselect all
-        if (selectedItems?.has(id)) {
-          onSelectItem(id);
-        }
-      } else {
-        // Select all
-        if (!selectedItems?.has(id)) {
-          onSelectItem(id);
-        }
+  // Use Promise.resolve to break out of React's batch update
+  allIds.forEach(id => {
+    Promise.resolve().then(() => {
+      if (checked && !selectedItems?.has(id)) {
+        onSelectItem(id);
+      } else if (!checked && selectedItems?.has(id)) {
+        onSelectItem(id);
       }
     });
-  }
+  });
 };
 
   // Click outside handler for column panel
@@ -457,11 +462,13 @@ const handleSelectAll = () => {
               Total: {totalItems} items
             </span>
           )}
-          {showCheckboxes && selectedItems && selectedItems.size > 0 && (
-            <span style={{ color: "#186bf3" }}>
-              {selectedItems.size} selected
-            </span>
-          )}
+{showCheckboxes && selectedItems && selectedItems.size > 0 && (
+  <span style={{ color: "#186bf3" }}>
+    {filteredData.every(item => selectedItems.has(item[primaryKey]?.toString()))
+      ? `${filteredData.length} selected`
+      : `${selectedItems.size} selected`}
+  </span>
+)}
           {viewMode === "table" && (
             <button
               className="button secondary"
@@ -491,17 +498,14 @@ const handleSelectAll = () => {
                   {visibleColumns.map((column) => (
                     <th key={column.key} style={{ width: column.width }}>
                       {column.key === "checkbox" ? (
-                        <input
-                        type="checkbox"
-                        checked={
-                          selectedItems && filteredData.length > 0
-                            ? filteredData.every(item =>
-                                selectedItems.has(item[primaryKey]?.toString())
-                              )
-                            : false
-                        }
-                        onChange={handleSelectAll}
-                      />
+<input
+  type="checkbox"
+  checked={
+    filteredData.length > 0 &&
+    filteredData.every(item => selectedItems?.has(item[primaryKey]?.toString()))
+  }
+  onChange={(e) => handleSelectAll(e.target.checked)}
+/>
                       ) : (
                         column.label
                       )}

@@ -943,27 +943,39 @@ useEffect(() => {
   };
 
   // Selection Handlers
-  const handleSelectEmailLog = (logId: string) => {
-    const newSelection = new Set(selectedEmailLogs);
+const handleSelectEmailLog = (logId: string) => {
+  setSelectedEmailLogs(prev => {
+    const newSelection = new Set(prev);
     if (newSelection.has(logId)) {
       newSelection.delete(logId);
     } else {
       newSelection.add(logId);
     }
-    setSelectedEmailLogs(newSelection);
-  };
+    return newSelection;
+  });
+};
 
-  const handleSelectAllEmailLogs = () => {
-    const currentPageLogs = transformEmailLogsForTable(allEmailLogs).slice(
-      (emailLogsCurrentPage - 1) * 20,
-      emailLogsCurrentPage * 20
-    );
-    if (selectedEmailLogs.size === currentPageLogs.length && currentPageLogs.length > 0) {
-      setSelectedEmailLogs(new Set());
+
+const handleSelectAllEmailLogs = () => {
+  const currentPageLogs = transformEmailLogsForTable(getFilteredEmailLogs()).slice(
+    (emailLogsCurrentPage - 1) * 20,
+    emailLogsCurrentPage * 20
+  );
+  
+  setSelectedEmailLogs(prev => {
+    const newSelection = new Set(prev);
+    if (prev.size === currentPageLogs.length && currentPageLogs.length > 0) {
+      // Clear all
+      return new Set();
     } else {
-      setSelectedEmailLogs(new Set(currentPageLogs.map((log) => log.id.toString())));
+      // Select all on current page
+      currentPageLogs.forEach(log => {
+        newSelection.add(log.id.toString());
+      });
+      return newSelection;
     }
-  };
+  });
+};
 
   // Segment Creation
   const handleSaveEmailSegment = async () => {
@@ -1407,42 +1419,24 @@ useEffect(() => {
       ? setEmailLogsCurrentPage
       : setCurrentPage
   }
-  onSelectAll={
-    emailFilterType === "email-logs"
-      ? handleSelectAllEmailLogs
-      : () => {
-          const currentPageContacts = getFilteredEmailContacts().slice(
-            (currentPage - 1) * 20,
-            currentPage * 20
-          );
-          if (
-            detailSelectedContacts.size === currentPageContacts.length &&
-            currentPageContacts.length > 0
-          ) {
-            setDetailSelectedContacts(new Set());
-          } else {
-            setDetailSelectedContacts(
-              new Set(currentPageContacts.map((c) => c.id.toString()))
-            );
-          }
-        }
-  }
-  selectedItems={
+    selectedItems={
     emailFilterType === "email-logs"
       ? selectedEmailLogs
       : detailSelectedContacts
   }
   onSelectItem={
     emailFilterType === "email-logs"
-      ? handleSelectEmailLog
+      ? handleSelectEmailLog  // This already uses functional updates after our change above
       : (id: string) => {
-          const newSelection = new Set(detailSelectedContacts);
-          if (newSelection.has(id)) {
-            newSelection.delete(id);
-          } else {
-            newSelection.add(id);
-          }
-          setDetailSelectedContacts(newSelection);
+          setDetailSelectedContacts(prev => {
+            const newSelection = new Set(prev);
+            if (newSelection.has(id)) {
+              newSelection.delete(id);
+            } else {
+              newSelection.add(id);
+            }
+            return newSelection;
+          });
         }
   }
   totalItems={
@@ -1451,14 +1445,17 @@ useEffect(() => {
       : getFilteredEmailContacts().length
   }
   
+  // Remove the onSelectAll prop completely - let DynamicContactsTable handle it internally
+  // The internal handleSelectAll in DynamicContactsTable will call onSelectItem for each item
+  
   // Configuration settings
-  autoGenerateColumns={false}  // DISABLE auto-generation
-  customColumns={              // USE your existing columns
+  autoGenerateColumns={false}
+  customColumns={
     emailFilterType === "email-logs"
       ? emailLogsColumns
       : emailColumns
   }
-  customFormatters={{           // ADD formatters back for proper display
+  customFormatters={{
     // Date formatting
     timestamp: (value: any) => formatMailTimestamp(value),
     sentAt: (value: any) => formatMailTimestamp(value),
@@ -1504,7 +1501,7 @@ useEffect(() => {
     hasClicked: (value: any) => value ? "✅" : "-",
     
     // Name formatting with warning
-    full_name: (value: any, item: any) => {
+     full_name: (value: any, item: any) => {
       if (item.contactId === 0) {
         return `${value} ⚠️`;
       }
@@ -1561,7 +1558,7 @@ useEffect(() => {
         </a>
       );
     },
-    targetUrl: (value: any) => {
+      targetUrl: (value: any) => {
       if (!value || value === '-') return '-';
       return (
         <a

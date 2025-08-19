@@ -211,29 +211,31 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   );
 
   // Handle contact selection
-  const handleSelectContact = (contactId: string) => {
-    const newSelection = new Set(selectedContacts);
+const handleSelectContact = (contactId: string) => {
+  setSelectedContacts(prev => {
+    const newSelection = new Set(prev);
     if (newSelection.has(contactId)) {
       newSelection.delete(contactId);
     } else {
       newSelection.add(contactId);
     }
-    setSelectedContacts(newSelection);
-  };
+    return newSelection;
+  });
+};
 
   // Handle select all
-  const handleSelectAll = () => {
-    if (
-      selectedContacts.size === paginatedContacts.length &&
-      paginatedContacts.length > 0
-    ) {
-      setSelectedContacts(new Set());
+const handleSelectAll = () => {
+  const currentPageContacts = paginatedContacts.map(c => c.id.toString());
+  
+  setSelectedContacts(prev => {
+    if (prev.size === currentPageContacts.length && currentPageContacts.length > 0) {
+      return new Set();
     } else {
-      setSelectedContacts(
-        new Set(paginatedContacts.map((c) => c.id.toString()))
-      );
+      return new Set(currentPageContacts);
     }
-  };
+  });
+};
+
 
   // Toggle column visibility
   const toggleColumnVisibility = (columnKey: string) => {
@@ -516,33 +518,32 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   };
 
   // Add handlers for detail view
-  const handleDetailSelectContact = (contactId: string) => {
-    const newSelection = new Set(detailSelectedContacts);
+const handleDetailSelectContact = (contactId: string) => {
+  setDetailSelectedContacts(prev => {
+    const newSelection = new Set(prev);
     if (newSelection.has(contactId)) {
       newSelection.delete(contactId);
     } else {
       newSelection.add(contactId);
     }
-    setDetailSelectedContacts(newSelection);
-  };
+    return newSelection;
+  });
+};
 
-  const handleDetailSelectAll = () => {
-    const currentPageContacts = detailContacts.slice(
-      (detailCurrentPage - 1) * detailPageSize,
-      detailCurrentPage * detailPageSize
-    );
-    if (
-      detailSelectedContacts.size === currentPageContacts.length &&
-      currentPageContacts.length > 0
-    ) {
-      setDetailSelectedContacts(new Set());
+const handleDetailSelectAll = () => {
+  const currentPageContacts = detailContacts.slice(
+    (detailCurrentPage - 1) * detailPageSize,
+    detailCurrentPage * detailPageSize
+  ).map(c => c.id.toString());
+  
+  setDetailSelectedContacts(prev => {
+    if (prev.size === currentPageContacts.length && currentPageContacts.length > 0) {
+      return new Set();
     } else {
-      setDetailSelectedContacts(
-        new Set(currentPageContacts.map((c) => c.id.toString()))
-      );
+      return new Set(currentPageContacts);
     }
-  };
-
+  });
+};
   // Effect to fetch contacts when viewing detail
   useEffect(() => {
     if (viewMode === "detail" && selectedDataFileForView) {
@@ -986,7 +987,6 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   currentPage={detailCurrentPage}
   pageSize={detailPageSize}
   onPageChange={setDetailCurrentPage}
-  onSelectAll={handleDetailSelectAll}
   selectedItems={detailSelectedContacts}
   onSelectItem={handleDetailSelectContact}
   totalItems={detailTotalContacts}
@@ -1506,7 +1506,6 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   currentPage={detailCurrentPage}
   pageSize={detailPageSize}
   onPageChange={setDetailCurrentPage}
-  onSelectAll={handleDetailSelectAll}
   selectedItems={detailSelectedContacts}
   onSelectItem={handleDetailSelectContact}
   totalItems={detailTotalContacts}
