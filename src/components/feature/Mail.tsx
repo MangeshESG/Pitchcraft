@@ -29,7 +29,8 @@ interface scheduleFetch {
   zohoViewName: string;
   isSent: boolean;
   testIsSent: boolean;
-  dataFileId: number;
+  dataFileId: number | null;  
+  segmentId?: number | null;   
 }
 
 interface SmtpUser {
@@ -99,7 +100,15 @@ interface EmailContact {
   hasClicked?: boolean;
 }
 
-
+interface Segment {
+  id: number;
+  name: string;
+  description: string;
+  dataFileId: number;
+  clientId: number;
+  createdAt: string;
+  updatedAt: string | null;
+}
 
 
 interface OutputInterface {
@@ -175,7 +184,8 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
 }) => {
 
 
-
+const [segments, setSegments] = useState<Segment[]>([]);
+const [segmentsLoading, setSegmentsLoading] = useState(false);
   
 const [isCopyText, setIsCopyText] = useState(false);
 const { saveFormState, getFormState, refreshTrigger } = useAppData();
@@ -208,6 +218,8 @@ const tabHandler = (e: React.MouseEvent<HTMLButtonElement>) => {
     onTabChange(innerText);
   }
 };
+
+
 
 
   const [tab2, setTab2] = useState("Output");
@@ -250,15 +262,6 @@ const tabHandler = (e: React.MouseEvent<HTMLButtonElement>) => {
   }, [onClearContent]);
   const userId = sessionStorage.getItem("clientId");
   const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
-
-
-
-
-
-
-
-
-
 
 
   const token = sessionStorage.getItem("token");
@@ -427,31 +430,48 @@ const tabHandler = (e: React.MouseEvent<HTMLButtonElement>) => {
     name: string;
   } | null>(null);
 
-  useEffect(() => {
-    const fetchScheduleDataFiles = async () => {
-      if (tab === "Schedule" && effectiveUserId) {
-        setScheduleDataLoading(true);
-        try {
-          const response = await axios.get(
+useEffect(() => {
+  const fetchScheduleData = async () => {
+    if (tab === "Schedule" && effectiveUserId) {
+      setScheduleDataLoading(true);
+      setSegmentsLoading(true);
+      
+      try {
+        // Fetch data files
+        const [dataFilesResponse, segmentsResponse] = await Promise.all([
+          axios.get(
             `${API_BASE_URL}/api/crm/datafile-byclientid?clientId=${effectiveUserId}`,
             {
               headers: {
                 ...(token && { Authorization: `Bearer ${token}` }),
               },
             }
-          );
-          setScheduleDataFiles(response.data);
-        } catch (error) {
-          console.error("Error fetching schedule data files:", error);
-          setScheduleDataFiles([]);
-        } finally {
-          setScheduleDataLoading(false);
-        }
+          ),
+          axios.get(
+            `${API_BASE_URL}/api/Crm/get-segments-by-client?clientId=${effectiveUserId}`,
+            {
+              headers: {
+                ...(token && { Authorization: `Bearer ${token}` }),
+              },
+            }
+          )
+        ]);
+        
+        setScheduleDataFiles(dataFilesResponse.data);
+        setSegments(segmentsResponse.data);
+      } catch (error) {
+        console.error("Error fetching schedule data:", error);
+        setScheduleDataFiles([]);
+        setSegments([]);
+      } finally {
+        setScheduleDataLoading(false);
+        setSegmentsLoading(false);
       }
-    };
+    }
+  };
 
-    fetchScheduleDataFiles();
-  }, [tab, effectiveUserId, token]);
+  fetchScheduleData();
+}, [tab, effectiveUserId, token]);
 // Add this useEffect after your existing useEffects
 
   // Clear schedule data when user changes
@@ -460,26 +480,38 @@ const tabHandler = (e: React.MouseEvent<HTMLButtonElement>) => {
     setScheduleDataFiles([]);
   }, [effectiveUserId]);
 
-  const handleZohoModelChange1 = async (
-    event: React.ChangeEvent<HTMLSelectElement>
-  ) => {
-    const selectedId = event.target.value;
-    setSelectedZohoviewId1(selectedId);
+ const handleZohoModelChange1 = async (
+  event: React.ChangeEvent<HTMLSelectElement>
+) => {
+  const selectedValue = event.target.value;
+  setSelectedZohoviewId1(selectedValue);
 
-    // Find and store the complete file object
-    const selectedFile = scheduleDataFiles.find(
-      (file) => file.id.toString() === selectedId
-    );
-    setSelectedScheduleFile(selectedFile || null);
-
-    if (selectedId) {
-      try {
-        await fetchAndDisplayEmailBodies1(selectedId);
-      } catch (error) {
-        console.error("Error fetching email bodies:", error);
-      }
+  if (selectedValue) {
+    const [type, id] = selectedValue.split('-');
+    
+    if (type === 'list') {
+      const selectedFile = scheduleDataFiles.find(
+        (file) => file.id.toString() === id
+      );
+      setSelectedScheduleFile(selectedFile || null);
+    } else if (type === 'segment') {
+      const selectedSegment = segments.find(
+        (segment) => segment.id.toString() === id
+      );
+      // Handle segment selection - you might want to store this differently
+      setSelectedScheduleFile({ 
+        id: selectedSegment?.id || 0, 
+        name: selectedSegment?.name || '' 
+      });
     }
-  };
+
+    try {
+      await fetchAndDisplayEmailBodies1(id);
+    } catch (error) {
+      console.error("Error fetching email bodies:", error);
+    }
+  }
+};
 
   const fetchAndDisplayEmailBodies1 = useCallback(
     async (
@@ -595,107 +627,130 @@ const tabHandler = (e: React.MouseEvent<HTMLButtonElement>) => {
     setSteps(newSteps);
   };
   // Submit form
-  const handleSubmit = async (e: any) => {
-    e.preventDefault();
+const handleSubmit = async (e: any) => {
+  e.preventDefault();
 
-    const selectedTimeZone = formData.timeZone;
-    const deliveryOption = formData.EmailDeliver;
+  const selectedTimeZone = formData.timeZone;
+  const deliveryOption = formData.EmailDeliver;
 
-    // Calculate base delivery time
-    let deliverMoment = moment().tz(selectedTimeZone);
+  let deliverMoment = moment().tz(selectedTimeZone);
 
-    switch (deliveryOption) {
-      case "0":
-        break; // Immediately → keep current time
-      case "1h":
-        deliverMoment.add(1, "hours");
-        break;
-      case "2h":
-        deliverMoment.add(2, "hours");
-        break;
-      case "24h":
-        deliverMoment.add(24, "hours");
-        break;
-      case "7d":
-        deliverMoment.add(7, "days");
-        break;
-      case "30d":
-        deliverMoment.add(30, "days");
-        break;
-      case "custom":
-        //deliverMoment.add(30, 'days');
-        break;
-      default:
-        break;
-    }
+  switch (deliveryOption) {
+    case "0":
+      break;
+    case "1h":
+      deliverMoment.add(1, "hours");
+      break;
+    case "2h":
+      deliverMoment.add(2, "hours");
+      break;
+    case "24h":
+      deliverMoment.add(24, "hours");
+      break;
+    case "7d":
+      deliverMoment.add(7, "days");
+      break;
+    case "30d":
+      deliverMoment.add(30, "days");
+      break;
+    case "custom":
+      break;
+    default:
+      break;
+  }
 
-    // Convert to UTC
-    const utcMoment = deliverMoment.clone().utc();
+  const utcMoment = deliverMoment.clone().utc();
 
-    let stepsPayload = [
-      {
-        ScheduledDate: utcMoment.format("YYYY-MM-DD"),
-        ScheduledTime: utcMoment.format("HH:mm:ss"),
-      },
-    ];
+  let stepsPayload = [
+    {
+      scheduledDate: utcMoment.format("YYYY-MM-DD"),
+      scheduledTime: utcMoment.format("HH:mm:ss"),
+    },
+  ];
 
-    if (formData.EmailDeliver === "custom") {
-      // Prepare steps array → convert to UTC
-      stepsPayload = steps.map((step) => {
-        const localMoment = moment(step.datetime).tz(selectedTimeZone);
-        const utcMoment = localMoment.clone().utc();
+  if (formData.EmailDeliver === "custom") {
+    stepsPayload = steps.map((step) => {
+      const localMoment = moment(step.datetime).tz(selectedTimeZone);
+      const utcMoment = localMoment.clone().utc();
 
-        return {
-          ScheduledDate: utcMoment.format("YYYY-MM-DD"),
-          ScheduledTime: utcMoment.format("HH:mm:ss"),
-        };
-      });
-    }
+      return {
+        scheduledDate: utcMoment.format("YYYY-MM-DD"),
+        scheduledTime: utcMoment.format("HH:mm:ss"),
+      };
+    });
+  }
 
-    const payload = {
-      Title: formData.title,
-      zohoviewName: selectedZohoviewId1, //zohoviewId
-      TimeZone: formData.timeZone,
-      Steps: stepsPayload,
-      SmtpID: selectedUser,
-      BccEmail: formData.bccEmail,
-    };
+  // Parse the selected value to determine if it's a list or segment
+  const [type, id] = selectedZohoviewId1.split('-');
+  let selectedName = '';
+  let dataFileId: number | null = null;
+  let segmentId: number | null = null;
 
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/email/create-sequence?ClientId=${effectiveUserId}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-          body: JSON.stringify(payload),
-        }
-      );
-      const data = await response.json();
-      setResponse(data);
-      if (response.ok) {
-        toast.success(data.message);
-        alert(data.message);
-        setFormData({
-          title: "",
-          timeZone: "",
-          scheduledDate: "",
-          scheduledTime: "",
-          EmailDeliver: "", // <--- include this even if you no longer use it!
-          bccEmail: "",
-          smtpID: "",
-        });
-      } else {
-        console.error("Server responded with an error:", data);
-        toast.error("Something went wrong");
-      }
-    } catch (error) {
-      console.error("Error:", error);
-    }
+  if (type === 'list') {
+    const selectedFile = scheduleDataFiles.find(
+      (file) => file.id.toString() === id
+    );
+    selectedName = selectedFile?.name || '';
+    dataFileId = parseInt(id) || null;
+    segmentId = null;
+  } else if (type === 'segment') {
+    const selectedSegment = segments.find(
+      (segment) => segment.id.toString() === id
+    );
+    selectedName = selectedSegment?.name || '';
+    segmentId = parseInt(id) || null;
+    dataFileId = null;
+  }
+
+  const payload = {
+    title: formData.title,
+    zohoviewName: selectedName,
+    timeZone: formData.timeZone,
+    steps: stepsPayload,
+    smtpID: parseInt(selectedUser) || 0,
+    bccEmail: formData.bccEmail,
+    dataFileId: dataFileId,
+    segmentId: segmentId,
+    testIsSent: false
   };
 
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/email/create-sequence?ClientId=${effectiveUserId}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+    const data = await response.json();
+    setResponse(data);
+    if (response.ok) {
+      toast.success(data.message);
+      alert(data.message);
+      setFormData({
+        title: "",
+        timeZone: "",
+        scheduledDate: "",
+        scheduledTime: "",
+        EmailDeliver: "",
+        bccEmail: "",
+        smtpID: "",
+      });
+      setSelectedZohoviewId1(""); // Clear selection
+      setSelectedUser(""); // Clear SMTP selection
+    } else {
+            console.error("Server responded with an error:", data);
+      toast.error(data.message || "Something went wrong");
+    }
+  } catch (error) {
+    console.error("Error:", error);
+    toast.error("Failed to create schedule");
+  }
+};
 
 
   const [smtpUsers, setSmtpUsers] = useState<SmtpUser[]>([]);
@@ -776,124 +831,147 @@ const tabHandler = (e: React.MouseEvent<HTMLButtonElement>) => {
   };
 
   // Handle Add/Update Submit
-  const handleSubmitSchedule = async (e: any) => {
-    e.preventDefault();
+const handleSubmitSchedule = async (e: any) => {
+  e.preventDefault();
 
-    const selectedTimeZone = formData.timeZone;
-    const scheduledDate = formData.scheduledDate;
-    const scheduledTime = formData.scheduledTime;
+  const selectedTimeZone = formData.timeZone;
+  const scheduledDate = formData.scheduledDate;
+  const scheduledTime = formData.scheduledTime;
 
-    if (!scheduledDate || !scheduledTime) {
-      alert("Please select both scheduled date and time.");
-      return;
+  if (!scheduledDate || !scheduledTime) {
+    alert("Please select both scheduled date and time.");
+    return;
+  }
+
+  const localMoment = moment.tz(
+    `${scheduledDate}T${scheduledTime}`,
+    selectedTimeZone
+  );
+
+  const utcMoment = localMoment.clone().utc();
+
+  const stepsPayload = [
+    {
+      scheduledDate: utcMoment.format("YYYY-MM-DD"),
+      scheduledTime: utcMoment.format("HH:mm:ss"),
+    },
+  ];
+
+  // Parse the selected value to determine if it's a list or segment
+  const [type, id] = selectedZohoviewId1.split('-');
+  let selectedName = '';
+  let dataFileId: number | null = null;  // Changed to allow null
+  let segmentId: number | null = null;   // Changed to allow null
+
+  if (type === 'list') {
+    const selectedFile = scheduleDataFiles.find(
+      (file) => file.id.toString() === id
+    );
+    selectedName = selectedFile?.name || '';
+    dataFileId = parseInt(id) || null;
+    segmentId = null;  // Explicitly set to null
+  } else if (type === 'segment') {
+    const selectedSegment = segments.find(
+      (segment) => segment.id.toString() === id
+    );
+    selectedName = selectedSegment?.name || '';
+    segmentId = parseInt(id) || null;
+    dataFileId = null;  // Explicitly set to null
+  }
+
+  const payload = {
+    title: formData.title,
+    zohoviewName: selectedName,
+    timeZone: formData.timeZone,
+    steps: stepsPayload,
+    smtpID: parseInt(selectedUser) || 0,
+    bccEmail: formData.bccEmail,
+    dataFileId: dataFileId,  // Will be null for segments
+    segmentId: segmentId,    // Will be null for lists
+    testIsSent: false
+  };
+
+  try {
+    if (editingId) {
+      await axios.post(
+        `${API_BASE_URL}/api/email/update-sequence/${editingId}?ClientId=${effectiveUserId}`,
+        payload,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+      alert("Schedule updated successfully");
+    } else {
+      await axios.post(
+        `${API_BASE_URL}/api/email/create-sequence?ClientId=${effectiveUserId}`,
+        payload,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+      alert("Schedule added successfully");
     }
 
-    const localMoment = moment.tz(
-      `${scheduledDate}T${scheduledTime}`,
-      selectedTimeZone
-    );
-
-    const utcMoment = localMoment.clone().utc();
-
-    const stepsPayload = [
-      {
-        ScheduledDate: utcMoment.format("YYYY-MM-DD"),
-        ScheduledTime: utcMoment.format("HH:mm:ss"),
-      },
-    ];
-
-    // Find the selected file to get its name
-    const selectedFile = scheduleDataFiles.find(
-      (file) => file.id.toString() === selectedZohoviewId1
-    );
-
-    const payload = {
-      Title: formData.title,
-      zohoviewName: selectedFile?.name || "", // Send the file name
-      dataFileId: parseInt(selectedZohoviewId1) || 0, // Add dataFileId as number
-      TimeZone: formData.timeZone,
-      Steps: stepsPayload,
-      SmtpID: selectedUser,
-      BccEmail: formData.bccEmail,
-    };
-
-    try {
-      if (editingId) {
-        await axios.post(
-          `${API_BASE_URL}/api/email/update-sequence/${editingId}?ClientId=${effectiveUserId}`,
-          payload,
-          {
-            headers: {
-              "Content-Type": "application/json",
-              ...(token && { Authorization: `Bearer ${token}` }),
-            },
-          }
-        );
-        alert("Schedule updated successfully");
-      } else {
-        await axios.post(
-          `${API_BASE_URL}/api/email/create-sequence?ClientId=${effectiveUserId}`,
-          payload,
-          {
-            headers: {
-              "Content-Type": "application/json",
-              ...(token && { Authorization: `Bearer ${token}` }),
-            },
-          }
-        );
-        alert("Schedule added successfully");
-      }
-
-      setFormData({
-        title: "",
-        timeZone: "",
-        scheduledDate: "",
-        scheduledTime: "",
-        EmailDeliver: "",
-        bccEmail: "",
-        smtpID: "",
-      });
-      setEditingId(null);
-      fetchSchedule();
-    } catch (err) {
-      console.error(err);
+    setFormData({
+      title: "",
+      timeZone: "",
+      scheduledDate: "",
+      scheduledTime: "",
+      EmailDeliver: "",
+      bccEmail: "",
+      smtpID: "",
+    });
+    setEditingId(null);
+    setSelectedZohoviewId1("");
+    setSelectedUser("");
+    setShowScheduleModal(false);
+    fetchSchedule();
+  } catch (err) {
+    console.error(err);
+    if (axios.isAxiosError(err)) {
+      alert(`Failed to schedule mail: ${err.response?.data?.message || err.message}`);
+    } else {
       alert("Failed to schedule mail. Please check the details.");
     }
-  };
+  }
+};
   // Edit Handler
-  const handleEditSchedule = (item: any) => {
-    setFormData({
-      title: item.title || "",
-      timeZone: item.timeZone || item.TimeZone || "",
-      scheduledDate:
-        (item.scheduledDate && item.scheduledDate.slice(0, 10)) ||
-        (item.ScheduledDate && item.ScheduledDate.slice(0, 10)) ||
-        (item.steps && item.steps[0]?.ScheduledDate) ||
-        "",
-      scheduledTime:
-        item.scheduledTime ||
-        item.ScheduledTime ||
-        (item.steps && item.steps[0]?.ScheduledTime) ||
-        "",
-      EmailDeliver: item.EmailDeliver || "",
-      bccEmail: item.bccEmail || "",
-      smtpID: item.smtpID || "",
-    });
-    setEditingId(item.id);
+const handleEditSchedule = (item: any) => {
+  setFormData({
+    title: item.title || "",
+    timeZone: item.timeZone || item.TimeZone || "",
+    scheduledDate:
+      (item.scheduledDate && item.scheduledDate.slice(0, 10)) ||
+      (item.ScheduledDate && item.ScheduledDate.slice(0, 10)) ||
+      (item.steps && item.steps[0]?.ScheduledDate) ||
+      "",
+    scheduledTime:
+      item.scheduledTime ||
+      item.ScheduledTime ||
+      (item.steps && item.steps[0]?.ScheduledTime) ||
+      "",
+    EmailDeliver: item.EmailDeliver || "",
+    bccEmail: item.bccEmail || "",
+    smtpID: item.smtpID || "",
+  });
+  setEditingId(item.id);
 
-    // Set the dataFileId as string for the select value
-    setSelectedZohoviewId1(item.dataFileId?.toString() || "");
+  // Set the appropriate selection based on whether it's a list or segment
+  if (item.segmentId && item.segmentId > 0) {
+    setSelectedZohoviewId1(`segment-${item.segmentId}`);
+  } else if (item.dataFileId && item.dataFileId > 0) {
+    setSelectedZohoviewId1(`list-${item.dataFileId}`);
+  }
 
-    // If you need to set the selected file object as well
-    const selectedFile = scheduleDataFiles.find(
-      (file) => file.id === item.dataFileId
-    );
-    if (selectedFile) {
-      setSelectedScheduleFile(selectedFile);
-    }
-
-    setSelectedUser(item.smtpID);
-  };
+  setSelectedUser(item.smtpID);
+  setShowScheduleModal(true);
+};
 
   // Delete Handler (Assuming you create this API in backend)
   const handleDeleteSchedule = async (id: any) => {
@@ -1486,7 +1564,7 @@ useEffect(() => {
         <thead>
           <tr>
             <th>Sequence name</th>
-            <th>List</th>
+            <th>List/Segment</th>
             <th>From</th>
             <th>Scheduled date</th>
             <th>Scheduled time</th>
@@ -1523,7 +1601,18 @@ useEffect(() => {
                 return (
                   <tr key={item.id || index}>
                     <td>{item.title}</td>
-                    <td>{dataFile?.name || item.zohoviewName || "-"}</td>
+                    <td>
+                      {(() => {
+                        if (item.segmentId) {
+                          const segment = segments.find(s => s.id === item.segmentId);
+                          return segment ? `${segment.name} (Segment)` : item.zohoviewName || "-";
+                        } else if (item.dataFileId) {
+                          const dataFile = scheduleDataFiles.find(f => f.id === item.dataFileId);
+                          return dataFile ? `${dataFile.name} (List)` : item.zohoviewName || "-";
+                        }
+                        return item.zohoviewName || "-";
+                      })()}
+                    </td>
                     <td>{smtpUser?.username || "-"}</td>
                     <td>{scheduledDate}</td>
                     <td>{scheduledTime}</td>
@@ -1724,25 +1813,38 @@ useEffect(() => {
           </div>
 
           <div className="form-group">
-            <label>
-              List <span style={{ color: "red" }}>*</span>
-            </label>
-            <select
-              name="model"
-              onChange={handleZohoModelChange1}
-              value={selectedZohoviewId1 || ""}
-              disabled={scheduleDataLoading || scheduleDataFiles.length === 0}
-              required
-              style={{ width: "100%" }}
-            >
-              <option value="">Select a list</option>
-              {scheduleDataFiles.map((file) => (
-                <option key={file.id} value={file.id.toString()}>
-                  {file.name}
-                </option>
-              ))}
-            </select>
-          </div>
+  <label>
+    List/Segment <span style={{ color: "red" }}>*</span>
+  </label>
+  <select
+    name="model"
+    onChange={handleZohoModelChange1}
+    value={selectedZohoviewId1 || ""}
+    disabled={scheduleDataLoading || segmentsLoading || (scheduleDataFiles.length === 0 && segments.length === 0)}
+    required
+    style={{ width: "100%" }}
+  >
+    <option value="">Select a list or segment</option>
+{scheduleDataFiles.length > 0 && (
+  <optgroup label="Lists">
+    {scheduleDataFiles.map((file) => (
+      <option key={`list-${file.id}`} value={`list-${file.id}`}>
+        {file.name}
+      </option>
+    ))}
+  </optgroup>
+)}
+{segments.length > 0 && (
+  <optgroup label="Segments">
+    {segments.map((segment) => (
+      <option key={`segment-${segment.id}`} value={`segment-${segment.id}`}>
+        {segment.name}
+      </option>
+    ))}
+  </optgroup>
+)}
+</select>
+</div>
 
           <div className="form-group">
             <label>

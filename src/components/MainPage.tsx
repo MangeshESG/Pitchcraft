@@ -3479,7 +3479,7 @@ const handleCampaignChange = async (
                                   : ""
                               }
                             >
-                              <option value="">Please select a template</option>
+                              <option value="">Select template</option>
                               {promptList.map((prompt: Prompt) => (
                                 <option key={prompt.id} value={prompt.name}>
                                   {prompt.name}
