@@ -3393,7 +3393,7 @@ const handleCampaignChange = async (
           }}
           className="submenu-button"
         >
-          Schedule
+          Schedules
         </button>
       </li>
     </ul>

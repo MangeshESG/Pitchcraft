@@ -402,18 +402,92 @@ const tabHandler = (e: React.MouseEvent<HTMLButtonElement>) => {
   //End SMTP
 
   //Schedule Tab js code
-  const timezoneOptions = [
-    { value: "GMT Standard Time", label: "Europe/London" },
-    { value: "W. Europe Standard Time", label: "Europe/Amsterdam" },
-    { value: "Central Europe Standard Time", label: "Europe/Berlin" },
-    { value: "Eastern Standard Time", label: "America/New_York" },
-    { value: "Central Standard Time", label: "America/Chicago" },
-    { value: "Mountain Standard Time", label: "America/Denver" },
-    { value: "Pacific Standard Time", label: "America/Los_Angeles" },
-    { value: "India Standard Time", label: "Asia/Kolkata" },
+// Update your timezoneOptions array with IANA timezone mappings
+const timezoneOptions = [
+  // Americas
+  { value: "Eastern Standard Time", label: "America/New_York (EST/EDT)", iana: "America/New_York" },
+  { value: "Central Standard Time", label: "America/Chicago (CST/CDT)", iana: "America/Chicago" },
+  { value: "Mountain Standard Time", label: "America/Denver (MST/MDT)", iana: "America/Denver" },
+  { value: "Pacific Standard Time", label: "America/Los_Angeles (PST/PDT)", iana: "America/Los_Angeles" },
+  { value: "Alaskan Standard Time", label: "America/Anchorage (AKST/AKDT)", iana: "America/Anchorage" },
+  { value: "Hawaiian Standard Time", label: "Pacific/Honolulu (HST)", iana: "Pacific/Honolulu" },
+  { value: "Canada Central Standard Time", label: "America/Regina (CST)", iana: "America/Regina" },
+  { value: "Mexico Standard Time", label: "America/Mexico_City (CST)", iana: "America/Mexico_City" },
+  { value: "Central America Standard Time", label: "America/Guatemala (CST)", iana: "America/Guatemala" },
+  { value: "US Eastern Standard Time", label: "America/Indianapolis (EST)", iana: "America/Indiana/Indianapolis" },
+  { value: "SA Pacific Standard Time", label: "America/Bogota (COT)", iana: "America/Bogota" },
+  { value: "Venezuela Standard Time", label: "America/Caracas (VET)", iana: "America/Caracas" },
+  { value: "Atlantic Standard Time", label: "America/Halifax (AST/ADT)", iana: "America/Halifax" },
+  { value: "Newfoundland Standard Time", label: "America/St_Johns (NST/NDT)", iana: "America/St_Johns" },
+  { value: "E. South America Standard Time", label: "America/Sao_Paulo (BRT)", iana: "America/Sao_Paulo" },
+  { value: "Argentina Standard Time", label: "America/Buenos_Aires (ART)", iana: "America/Argentina/Buenos_Aires" },
+  { value: "SA Western Standard Time", label: "America/La_Paz (BOT)", iana: "America/La_Paz" },
+  { value: "Pacific SA Standard Time", label: "America/Santiago (CLT/CLST)", iana: "America/Santiago" },
+  
+  // Europe
+  { value: "GMT Standard Time", label: "Europe/London (GMT/BST)", iana: "Europe/London" },
+  { value: "Greenwich Standard Time", label: "Atlantic/Reykjavik (GMT)", iana: "Atlantic/Reykjavik" },
+  { value: "W. Europe Standard Time", label: "Europe/Amsterdam (CET/CEST)", iana: "Europe/Amsterdam" },
+  { value: "Central Europe Standard Time", label: "Europe/Berlin (CET/CEST)", iana: "Europe/Berlin" },
+  { value: "Romance Standard Time", label: "Europe/Paris (CET/CEST)", iana: "Europe/Paris" },
+  { value: "Central European Standard Time", label: "Europe/Warsaw (CET/CEST)", iana: "Europe/Warsaw" },
+  { value: "W. Central Africa Standard Time", label: "Africa/Lagos (WAT)", iana: "Africa/Lagos" },
+  { value: "E. Europe Standard Time", label: "Europe/Bucharest (EET/EEST)", iana: "Europe/Bucharest" },
+  { value: "GTB Standard Time", label: "Europe/Athens (EET/EEST)", iana: "Europe/Athens" },
+  { value: "FLE Standard Time", label: "Europe/Helsinki (EET/EEST)", iana: "Europe/Helsinki" },
+  { value: "Turkey Standard Time", label: "Europe/Istanbul (TRT)", iana: "Europe/Istanbul" },
+  { value: "Russian Standard Time", label: "Europe/Moscow (MSK)", iana: "Europe/Moscow" },
+  { value: "E. Africa Standard Time", label: "Africa/Nairobi (EAT)", iana: "Africa/Nairobi" },
+  { value: "South Africa Standard Time", label: "Africa/Johannesburg (SAST)", iana: "Africa/Johannesburg" },
+  
+  // Middle East
+  { value: "Israel Standard Time", label: "Asia/Jerusalem (IST/IDT)", iana: "Asia/Jerusalem" },
+  { value: "Egypt Standard Time", label: "Africa/Cairo (EET)", iana: "Africa/Cairo" },
+  { value: "Arabic Standard Time", label: "Asia/Baghdad (AST)", iana: "Asia/Baghdad" },
+  { value: "Arab Standard Time", label: "Asia/Riyadh (AST)", iana: "Asia/Riyadh" },
+  { value: "Iran Standard Time", label: "Asia/Tehran (IRST/IRDT)", iana: "Asia/Tehran" },
+  { value: "Arabian Standard Time", label: "Asia/Dubai (GST)", iana: "Asia/Dubai" },
+    { value: "Jordan Standard Time", label: "Asia/Amman (EET/EEST)", iana: "Asia/Amman" },
+  
+  // Asia
+  { value: "Pakistan Standard Time", label: "Asia/Karachi (PKT)", iana: "Asia/Karachi" },
+  { value: "India Standard Time", label: "Asia/Kolkata (IST)", iana: "Asia/Kolkata" },
+  { value: "Sri Lanka Standard Time", label: "Asia/Colombo (IST)", iana: "Asia/Colombo" },
+  { value: "Nepal Standard Time", label: "Asia/Kathmandu (NPT)", iana: "Asia/Kathmandu" },
+  { value: "Bangladesh Standard Time", label: "Asia/Dhaka (BST)", iana: "Asia/Dhaka" },
+  { value: "Myanmar Standard Time", label: "Asia/Yangon (MMT)", iana: "Asia/Yangon" },
+  { value: "SE Asia Standard Time", label: "Asia/Bangkok (ICT)", iana: "Asia/Bangkok" },
+  { value: "North Asia Standard Time", label: "Asia/Krasnoyarsk (KRAT)", iana: "Asia/Krasnoyarsk" },
+  { value: "China Standard Time", label: "Asia/Shanghai (CST)", iana: "Asia/Shanghai" },
+  { value: "Singapore Standard Time", label: "Asia/Singapore (SGT)", iana: "Asia/Singapore" },
+  { value: "W. Australia Standard Time", label: "Australia/Perth (AWST)", iana: "Australia/Perth" },
+  { value: "Taipei Standard Time", label: "Asia/Taipei (CST)", iana: "Asia/Taipei" },
+  { value: "Tokyo Standard Time", label: "Asia/Tokyo (JST)", iana: "Asia/Tokyo" },
+  { value: "Korea Standard Time", label: "Asia/Seoul (KST)", iana: "Asia/Seoul" },
+  { value: "Yakutsk Standard Time", label: "Asia/Yakutsk (YAKT)", iana: "Asia/Yakutsk" },
+  { value: "Cen. Australia Standard Time", label: "Australia/Adelaide (ACST/ACDT)", iana: "Australia/Adelaide" },
+  { value: "AUS Central Standard Time", label: "Australia/Darwin (ACST)", iana: "Australia/Darwin" },
+  { value: "E. Australia Standard Time", label: "Australia/Brisbane (AEST)", iana: "Australia/Brisbane" },
+  { value: "AUS Eastern Standard Time", label: "Australia/Sydney (AEST/AEDT)", iana: "Australia/Sydney" },
+  { value: "Tasmania Standard Time", label: "Australia/Hobart (AEST/AEDT)", iana: "Australia/Hobart" },
+  { value: "Vladivostok Standard Time", label: "Asia/Vladivostok (VLAT)", iana: "Asia/Vladivostok" },
+  
+  // Pacific
+  { value: "West Pacific Standard Time", label: "Pacific/Port_Moresby (PGT)", iana: "Pacific/Port_Moresby" },
+  { value: "Central Pacific Standard Time", label: "Pacific/Guadalcanal (SBT)", iana: "Pacific/Guadalcanal" },
+  { value: "Fiji Standard Time", label: "Pacific/Fiji (FJT/FJST)", iana: "Pacific/Fiji" },
+  { value: "New Zealand Standard Time", label: "Pacific/Auckland (NZST/NZDT)", iana: "Pacific/Auckland" },
+  { value: "Tonga Standard Time", label: "Pacific/Tongatapu (TOT)", iana: "Pacific/Tongatapu" },
+  { value: "Samoa Standard Time", label: "Pacific/Apia (SST)", iana: "Pacific/Apia" },
+  
+  // UTC Options
+  { value: "UTC-11", label: "UTC-11:00", iana: "Etc/GMT+11" },
+  { value: "UTC-02", label: "UTC-02:00", iana: "Etc/GMT+2" },
+  { value: "UTC", label: "UTC+00:00", iana: "UTC" },
+  { value: "UTC+12", label: "UTC+12:00", iana: "Etc/GMT-12" },
+  { value: "UTC+13", label: "UTC+13:00", iana: "Etc/GMT-13" },
+];
 
-    // Add more Windows timezone IDs as needed
-  ];
 
   //Fetch Zoho View
   const [selectedZohoviewId1, setSelectedZohoviewId1] = useState<string>("");
@@ -843,11 +917,17 @@ const handleSubmitSchedule = async (e: any) => {
     return;
   }
 
+    // Find the IANA timezone from the selected Windows timezone
+  const selectedTz = timezoneOptions.find(tz => tz.value === selectedTimeZone);
+  const ianaTimezone = selectedTz?.iana || "UTC";
+
+  // Create moment object with the local time in the selected timezone
   const localMoment = moment.tz(
     `${scheduledDate}T${scheduledTime}`,
-    selectedTimeZone
+    ianaTimezone
   );
 
+  // Convert to UTC
   const utcMoment = localMoment.clone().utc();
 
   const stepsPayload = [
@@ -860,8 +940,8 @@ const handleSubmitSchedule = async (e: any) => {
   // Parse the selected value to determine if it's a list or segment
   const [type, id] = selectedZohoviewId1.split('-');
   let selectedName = '';
-  let dataFileId: number | null = null;  // Changed to allow null
-  let segmentId: number | null = null;   // Changed to allow null
+  let dataFileId: number | null = null;
+  let segmentId: number | null = null;
 
   if (type === 'list') {
     const selectedFile = scheduleDataFiles.find(
@@ -869,14 +949,14 @@ const handleSubmitSchedule = async (e: any) => {
     );
     selectedName = selectedFile?.name || '';
     dataFileId = parseInt(id) || null;
-    segmentId = null;  // Explicitly set to null
+    segmentId = null;
   } else if (type === 'segment') {
     const selectedSegment = segments.find(
       (segment) => segment.id.toString() === id
     );
     selectedName = selectedSegment?.name || '';
     segmentId = parseInt(id) || null;
-    dataFileId = null;  // Explicitly set to null
+    dataFileId = null;
   }
 
   const payload = {
@@ -886,8 +966,8 @@ const handleSubmitSchedule = async (e: any) => {
     steps: stepsPayload,
     smtpID: parseInt(selectedUser) || 0,
     bccEmail: formData.bccEmail,
-    dataFileId: dataFileId,  // Will be null for segments
-    segmentId: segmentId,    // Will be null for lists
+    dataFileId: dataFileId,
+    segmentId: segmentId,
     testIsSent: false
   };
 
@@ -1593,9 +1673,8 @@ useEffect(() => {
                 const smtpUser = smtpUsers.find(
                   (user) => user.id === item.smtpID
                 );
-                const scheduledDate = item.scheduledDate
-                  ? new Date(item.scheduledDate).toLocaleDateString()
-                  : "-";
+                const scheduledDate = item.scheduledDate || "-";  
+
                 const scheduledTime = item.scheduledTime || "-";
 
                 return (

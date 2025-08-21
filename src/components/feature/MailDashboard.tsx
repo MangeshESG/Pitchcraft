@@ -1175,6 +1175,19 @@ const handleSelectAllEmailLogs = () => {
     return null;
   }
 
+  // Add this helper function to clean LinkedIn URLs
+const cleanLinkedInUrl = (url: string | undefined): string => {
+  if (!url || url === '-' || url === 'N/A') return '-';
+  
+  // Remove various URL-encoded separators that might be appended
+  return url
+    .replace(/%7C%7C$/, '')  // Remove %7C%7C (||)
+    .replace(/\|\|$/, '')     // Remove ||
+    .replace(/%7C$/, '')      // Remove single %7C (|)
+    .replace(/\|$/, '')       // Remove single |
+    .trim();
+};
+
 
 
   return (
@@ -1515,34 +1528,41 @@ const handleSelectAllEmailLogs = () => {
     },
     
     // URL formatting
-    linkedin_URL: (value: any) => {
-      if (!value || value === '-') return '-';
-      return (
-        <a
-          href={value}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ color: "#0066cc", textDecoration: "underline" }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          LinkedIn Profile
-        </a>
-      );
-    },
-    linkedIn: (value: any) => {
-      if (!value || value === '-') return '-';
-      return (
-        <a
-          href={value}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ color: "#0066cc", textDecoration: "underline" }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          LinkedIn Profile
-        </a>
-      );
-    },
+// URL formatting
+linkedin_URL: (value: any) => {
+  if (!value || value === '-') return '-';
+  const cleanUrl = cleanLinkedInUrl(value);
+  if (cleanUrl === '-') return '-';
+  
+  return (
+    <a
+      href={cleanUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{ color: "#0066cc", textDecoration: "underline" }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      LinkedIn Profile
+    </a>
+  );
+},
+linkedIn: (value: any) => {
+  if (!value || value === '-') return '-';
+  const cleanUrl = cleanLinkedInUrl(value);
+  if (cleanUrl === '-') return '-';
+  
+  return (
+    <a
+      href={cleanUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{ color: "#0066cc", textDecoration: "underline" }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      LinkedIn Profile
+    </a>
+  );
+},
     website: (value: any) => {
       if (!value || value === '-') return '-';
       const url = value.startsWith('http') ? value : `https://${value}`;
