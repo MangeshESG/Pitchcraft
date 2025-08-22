@@ -590,7 +590,6 @@ const Output: React.FC<OutputInterface> = ({
 
 interface SaveToCrmUpdateEmailParams {
   clientId: number;
-  dataFileId: number;
   contactId: number;
   emailSubject: string;
   emailBody: string;
@@ -598,12 +597,12 @@ interface SaveToCrmUpdateEmailParams {
 
 const saveToCrmUpdateEmail = async ({
   clientId,
-  dataFileId,
   contactId,
   emailSubject,
   emailBody,
 }: SaveToCrmUpdateEmailParams): Promise<any> => {
   if (!contactId) throw new Error("Contact ID is required to update");
+  if (!clientId) throw new Error("Client ID is required to update");
 
   try {
     const response = await fetch(`${API_BASE_URL}/api/Crm/contacts/update-email`, {
@@ -612,11 +611,11 @@ const saveToCrmUpdateEmail = async ({
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        clientId: clientId ?? 0,
-        dataFileId: dataFileId ?? 0,
+        clientId,
         contactId,
         emailSubject: emailSubject ?? "",
         emailBody: emailBody ?? "",
+        // dataFileId removed from request body
       }),
     });
 
@@ -664,7 +663,6 @@ const saveToCrmUpdateEmail = async ({
 
       await saveToCrmUpdateEmail({
         clientId: Number(effectiveUserId),                 
-        dataFileId: Number(currentItem?.datafileid) || 0,   
         contactId: Number(currentItem?.id),
         emailSubject: currentItem?.subject || "",
         emailBody: editableContent,
@@ -2556,8 +2554,13 @@ const stopBulkSending = () => {
                           borderRadius: "0 0 4px 4px",
                           fontFamily: "inherit",
                           fontSize: "inherit",
-                          whiteSpace: "pre",
+                          whiteSpace: "normal",
                           overflowY: "auto",
+                          overflowX: "auto", // Add horizontal overflow
+                          boxSizing: "border-box", // Add box-sizing
+                          wordWrap: "break-word", // Add word-wrap
+                          width: "100%", // Add width
+
                           outline: "none",
                         }}
                       />

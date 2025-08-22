@@ -619,9 +619,9 @@ const DataFile: React.FC<DataFileProps> = ({
           {/* Step 2: Map Columns */}
           {currentStep === 2 && (
             <div className="mapping-section mt-20">
-              <h4 className="mt-[20px]" style={{marginBottom:'5px'}} >Map Your Excel Columns</h4>
+              <h4 className="mt-[20px]" style={{marginBottom:'5px'}} >Map your excel Columns</h4>
               <p className="text-muted mb-20">
-                Please map your Excel columns to the required fields below:
+                Please map your excel columns to the required fields below:
               </p>
 
               <div className="mapping-container">
@@ -642,7 +642,7 @@ const DataFile: React.FC<DataFileProps> = ({
                           : ""
                       }`}
                     >
-                      <option value="">-- Select Column --</option>
+                      <option value="">--Do not include--</option>
                       {columnHeaders.map((header, index) => (
                         <option key={index} value={header}>
                           {header}

@@ -4,7 +4,7 @@
   align-items: center;
   height: 100vh;
   /*background-color: #f4f4f4;*/
-  background: url('../assets/images/loginbg.jpeg') center center/cover no-repeat #f4f4f4;
+  background: url('../assets/images/background.jpeg') center center/cover no-repeat #f4f4f4;
 }
 
 .page.login-container .login-box {

@@ -191,7 +191,24 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     setCurrentPage(1);
     setSelectedContacts(new Set());
   };
-
+// Replace the existing formatDate function with this:
+const formatDate = (dateString?: string | null) => {
+  if (!dateString) return "-";
+  
+  const date = new Date(dateString);
+  
+  // Check if date is valid
+  if (isNaN(date.getTime())) return "-";
+  
+  // Format as "DD MMM YYYY" (e.g., "21 May 2025")
+  const options: Intl.DateTimeFormatOptions = {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  };
+  
+  return date.toLocaleDateString('en-GB', options);
+};
   // Filter contacts based on search query
   const filteredContacts = contacts.filter((contact) => {
     const searchLower = searchQuery.toLowerCase();
@@ -246,11 +263,7 @@ const handleSelectAll = () => {
     );
   };
 
-  // Format date
-  const formatDate = (dateString?: string | null) => {
-    if (!dateString) return "-";
-    return new Date(dateString).toLocaleDateString();
-  };
+ 
 
   // Calculate pagination
   const totalPages = Math.ceil(filteredContacts.length / pageSize);
@@ -886,7 +899,7 @@ const handleDetailSelectAll = () => {
                         <td>{file.contacts?.length || 0}</td>
                         <td>
                           {file.created_at
-                            ? new Date(file.created_at).toLocaleString()
+                            ? formatDate(file.created_at)  // Use formatDate instead of toLocaleString
                             : "-"}
                         </td>
                         <td>{file.description || "-"}</td>
@@ -1401,9 +1414,7 @@ const handleDetailSelectAll = () => {
                             </td>
                             <td>
                               {segment.createdAt
-                                ? new Date(
-                                    segment.createdAt
-                                  ).toLocaleDateString()
+                                ? formatDate(segment.createdAt)  // Use formatDate instead of toLocaleDateString
                                 : "-"}
                             </td>
                             <td>{segment.description || "-"}</td>
