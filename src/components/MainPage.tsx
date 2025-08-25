@@ -842,6 +842,54 @@ const MainPage: React.FC = () => {
   const [endTime, setEndTime] = useState<Date | null>(null);
   const [cachedContacts, setCachedContacts] = useState<any[]>([]);
 
+
+  const [toneSettings, setToneSettings] = useState({
+  language: "English",
+  subjectTemplate: "",
+  emojis: "None",
+  tone: "Professional", 
+  chatty: "Medium",
+  creativity: "Medium",
+  reasoning: "Medium",
+  dateGreeting: "No",
+  dateFarewell: "No"
+});
+
+const toneSettingsHandler = (e: any) => {
+  const { name, value } = e.target;
+  setToneSettings(prev => ({
+    ...prev,
+    [name]: value
+  }));
+};
+
+const buildReplacements = (
+  entry: any,
+  currentDate: string,
+  toneSettings: any
+) => {
+  return {
+    company_name: entry.company_name || entry.company || "",
+    company_name_friendly: entry.company_name_friendly || entry.company || "",
+    job_title: entry.job_title || entry.title || "",
+    location: entry.country_or_address || entry.location || "",
+    full_name: entry.full_name || entry.name || "",
+    linkedin_url: entry.linkedin_url || entry.linkedin || "",
+    website: entry.website || "",
+    date: currentDate,
+    // Tone Settings tab values
+    language: toneSettings.language || "",
+    emojis: toneSettings.emojis || "",
+    tone: toneSettings.tone || "",
+    chatty: toneSettings.chatty || "",
+    creativity: toneSettings.creativity || "",
+    reasoning: toneSettings.reasoning || "",
+    dateGreeting: toneSettings.dateGreeting || "",
+    dateFarewell: toneSettings.dateFarewell || "",
+  };
+};
+
+
   const fetchAndDisplayEmailBodies = useCallback(
   async (
     zohoviewId: string, // Format: "clientId,dataFileId" OR "segment_segmentId"
@@ -1154,6 +1202,15 @@ const MainPage: React.FC = () => {
   }
 ) => {
 
+    // --- Get current date in readable format ---
+      const currentDate = new Date().toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+
+
+
 const replaceAllPlaceholders = (text: string, replacements: Record<string, string>) => {
   if (!text) return "";
   
@@ -1299,24 +1356,15 @@ const replaceAllPlaceholders = (text: string, replacements: Record<string, strin
       const emailbody = entry.email_body || entry.pitch;
       const id = entry.id;
       
-      // --- Get current date in readable format ---
+  
+    // --- Get current date in readable format ---
       const currentDate = new Date().toLocaleDateString("en-US", {
         year: "numeric",
         month: "long",
         day: "numeric",
       });
-
       // --- Generate new pitch as per your normal contact process ---
-      const replacements = {
-        company_name: company_name || "",
-        company_name_friendly: company_name_friendly || "",
-        job_title: job_title || "",
-        location: location || "",
-        full_name: full_name || "",
-        linkedin_url: linkedin_url || "",
-        website: website || "",
-        date: currentDate
-      };
+const replacements = buildReplacements(entry, currentDate, toneSettings);
 
       const searchTermBody = replaceAllPlaceholders(searchterm, replacements);
 
@@ -1391,17 +1439,9 @@ const replaceAllPlaceholders = (text: string, replacements: Record<string, strin
         return;
       }
 
-      let systemPrompt = systemInstructionsA;
-      const replacedPromptText = (selectedPrompt?.text || "")
-        .replace("{search_output_summary}", scrappedData)
-        .replace("{company_name}", company_name)
-        .replace("{job_title}", job_title)
-        .replace("{location}", location)
-        .replace("{full_name}", full_name)
-        .replace("{linkedin_url}", company_name_friendly)
-        .replace("{linkedin_url}", linkedin_url)
-        .replace("{website}", website)
-        .replace("{date}", currentDate);
+        let systemPrompt = replaceAllPlaceholders(systemInstructionsA, replacements);
+        let replacedPromptText = replaceAllPlaceholders(selectedPrompt?.text || "", replacements);
+
 
       const promptToSend = `\n${systemPrompt}\n${replacedPromptText}`;
 
@@ -1412,21 +1452,12 @@ const replaceAllPlaceholders = (text: string, replacements: Record<string, strin
         allScrapedData: scrapeData.allScrapedData || "",
       }));
 
-      const requestBody = {
-        scrappedData: systemPrompt,
-        prompt: `${selectedPrompt?.text}`
-          .replace("{company_name}", company_name)
-          .replace("{job_title}", job_title)
-          .replace("{location}", location)
-          .replace("{full_name}", full_name)
-          .replace("{linkedin_url}", linkedin_url)
-          .replace("{linkedin_url}", company_name_friendly)
-          .replace("{search_output_summary}", scrappedData)
-          .replace("{website}", website)
-          .replace("{date}", currentDate),
-
-        ModelName: selectedModelNameA,
-      };
+        // Request body
+          const requestBody = {
+          scrappedData: systemPrompt,
+          prompt: replacedPromptText,
+          ModelName: selectedModelNameA,
+        };
 
       const pitchResponse = await fetch(
         `${API_BASE_URL}/api/auth/generatepitch`,
@@ -1468,16 +1499,11 @@ const replaceAllPlaceholders = (text: string, replacements: Record<string, strin
       //----------------------------------------------------------------------------------------
       let subjectLine = "";
       if (subjectMode === "AI generated") {
-        const filledSubjectInstruction = subject_instruction
-          .replace("{company_name}", company_name)
-          .replace("{job_title}", job_title)
-          .replace("{location}", location)
-          .replace("{full_name}", full_name)
-          .replace("{linkedin_url}", linkedin_url)
-          .replace("{search_output_summary}", scrappedData)
-          .replace("{generated_pitch}", pitchData.response.content)
-          .replace("{website}", website)
-          .replace("{date}", currentDate);
+        const filledSubjectInstruction = replaceAllPlaceholders(subject_instruction, {
+        ...replacements,
+        generated_pitch: pitchData.response.content || "",
+        search_output_summary: scrappedData || ""
+      });
 
         const subjectRequestBody = {
           scrappedData: filledSubjectInstruction,
@@ -1932,16 +1958,8 @@ const replaceAllPlaceholders = (text: string, replacements: Record<string, strin
         }
 
         // Step 1: Scrape Website with caching
-const replacements = {
-  company_name: company_name || "",
-  company_name_friendly: company_name_friendly || "",
-  job_title: job_title || "",
-  location: location || "",
-  full_name: full_name || "",
-  linkedin_url: linkedin_url || "",
-  website: website || "",
-  date: currentDate
-};
+const replacements = buildReplacements(entry, currentDate, toneSettings);
+
 
 const searchTermBody = replaceAllPlaceholders(searchterm, replacements);
 const filledInstructions = replaceAllPlaceholders(instructionsParamA, replacements);
@@ -2058,33 +2076,16 @@ const filledInstructions = replaceAllPlaceholders(instructionsParamA, replacemen
           continue;
         }
 
-        let systemPrompt = systemInstructionsA;
+        let systemPrompt = replaceAllPlaceholders(systemInstructionsA, replacements);
 
-        const replacedPromptText = (selectedPrompt?.text || "")
-          .replace("{search_output_summary}", scrappedData)
-          .replace("{company_name}", company_name)
-          .replace("{job_title}", job_title)
-          .replace("{location}", location)
-          .replace("{full_name}", full_name)
-          .replace("{linkedin_url}", company_name_friendly)
-          .replace("{linkedin_url}", linkedin_url)
-          .replace("{website}", website)
-          .replace("{date}", currentDate);
+        let replacedPromptText = replaceAllPlaceholders(selectedPrompt?.text || "", replacements);
+
 
         const promptToSend = `
-        
-        ${systemPrompt}
-         
-        ${replacedPromptText}`
-          .replace("{search_output_summary}", scrappedData)
-          .replace("{company_name}", company_name)
-          .replace("{job_title}", job_title)
-          .replace("{location}", location)
-          .replace("{full_name}", full_name)
-          .replace("{linkedin_url}", company_name_friendly)
-          .replace("{linkedin_url}", linkedin_url)
-          .replace("{website}", website)
-          .replace("{date}", currentDate);
+          ${systemPrompt}
+
+          ${replacedPromptText}
+          `;
 
         setOutputForm((prevState) => ({
           ...prevState,
@@ -2113,20 +2114,11 @@ const filledInstructions = replaceAllPlaceholders(instructionsParamA, replacemen
             }</span><br/>` + prevOutputForm.generatedContent,
         }));
 
-        const requestBody = {
-          scrappedData: systemPrompt,
-          prompt: `${selectedPrompt?.text}`
-            .replace("{company_name}", company_name)
-            .replace("{job_title}", job_title)
-            .replace("{location}", location)
-            .replace("{full_name}", full_name)
-            .replace("{linkedin_url}", linkedin_url)
-            .replace("{linkedin_url}", company_name_friendly)
-            .replace("{search_output_summary}", scrappedData)
-            .replace("{website}", website)
-            .replace("{date}", currentDate),
-          ModelName: selectedModelNameA,
-        };
+       const requestBody = {
+        scrappedData: systemPrompt,
+        prompt: replacedPromptText,
+        ModelName: selectedModelNameA,
+      };
 
         const pitchResponse = await fetch(
           `${API_BASE_URL}/api/auth/generatepitch`,
@@ -2213,16 +2205,11 @@ const filledInstructions = replaceAllPlaceholders(instructionsParamA, replacemen
         // Generate subject line
         let subjectLine = "";
         if (subjectMode === "AI generated") {
-          const filledSubjectInstruction = subject_instruction
-            .replace("{company_name}", company_name)
-            .replace("{job_title}", job_title)
-            .replace("{location}", location)
-            .replace("{full_name}", full_name)
-            .replace("{linkedin_url}", linkedin_url)
-            .replace("{search_output_summary}", scrappedData)
-            .replace("{generated_pitch}", pitchData.response.content)
-            .replace("{website}", website)
-            .replace("{date}", currentDate);
+          const filledSubjectInstruction = replaceAllPlaceholders(subject_instruction, {
+            ...replacements,
+            generated_pitch: pitchData.response.content || "",
+            search_output_summary: scrappedData || ""
+          });
 
           const subjectRequestBody = {
             scrappedData: filledSubjectInstruction,
@@ -3155,6 +3142,10 @@ const handleCampaignChange = async (
   const [selectedDataFileId, setSelectedDataFileId] = useState("");
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  
+
+
 
   return (
     // <div className="login-container pitch-page flex-col d-flex">
@@ -4187,6 +4178,10 @@ const handleCampaignChange = async (
                 selectedPrompt={selectedPrompt} // Make sure this is passed
                 handleStop={handleStop}
                 isStopRequested={stopRef.current} // Add this line
+                toneSettings={toneSettings}                    // Add this line
+                toneSettingsHandler={toneSettingsHandler}      // Add this line
+               
+              
 
                 
               />

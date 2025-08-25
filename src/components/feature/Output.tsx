@@ -147,7 +147,8 @@ interface OutputInterface {
   handleStop?: () => void; // Move this here - as a separate property
   isStopRequested?: boolean; // Add this line
 
-
+  toneSettings?: any;
+  toneSettingsHandler?: (e: any) => void;
 
 
 }
@@ -219,13 +220,15 @@ const Output: React.FC<OutputInterface> = ({
   subjectText,
   setSubjectText,
   isStopRequested, // Add this line
+  toneSettings,        // Add this
+  toneSettingsHandler, // Add this
 
 }) => {
   const [isCopyText, setIsCopyText] = useState(false);
   const { refreshTrigger } = useAppData(); // Make sure this includes refreshTrigger
 
   const copyToClipboardHandler = async () => {
-    const contentToCopy = combinedResponses[currentIndex]?.pitch || "";
+  const contentToCopy = combinedResponses[currentIndex]?.pitch || "";
 
     if (contentToCopy) {
       try {
@@ -1440,7 +1443,15 @@ const stopBulkSending = () => {
                   </button>
                 </li>
               )}
-              <div className="d-flex align-center gap-1 mr-3">
+              <li>
+                <button
+                className={`tab-button ${tab2 === "Settings" ? "active" : ""}`}
+                onClick={() => setTab2("Settings")}
+              >
+                Settings
+              </button>
+              </li>              
+                <div className="d-flex align-center gap-1 mr-3">
                 <button
                   onClick={handleFirstPage}
                   disabled={isProcessing} 
@@ -3328,6 +3339,174 @@ const stopBulkSending = () => {
                 </div>
               )}
             </>
+          )}
+          {/* Add this after the Output tab and before the Stages tab */}
+          {tab2 === "Settings" && (
+            <div className="settings-tab-content">
+              <div className="col-5">
+              <div className="form-group" style={{ flexWrap: "wrap" }}>
+                <label style={{ width: "100%" }}>Subject</label>
+
+                <div className="flex">
+                  <select
+                    onChange={(e) => setSubjectMode?.(e.target.value)}
+                    value={subjectMode}
+                    className="height-35"
+                    style={{ minWidth: 150, marginRight: 10 }}
+                  >
+                    <option value="AI generated">AI generated</option>
+                    <option value="With Placeholder">With placeholder</option>
+                  </select>
+
+                  <input
+                    type="text"
+                    placeholder="Enter subject here"
+                    value={subjectText}
+                    onChange={(e) => setSubjectText?.(e.target.value)}
+                    disabled={subjectMode !== "With Placeholder"}
+                  />
+                </div>
+              </div>
+            
+          </div>
+              <div className="form-group">
+                <label>Language</label>
+                <select
+                  className="form-control"
+                  value={toneSettings?.language || "English"}
+                  onChange={(e) => toneSettingsHandler?.({ target: { name: 'language', value: e.target.value } })}
+                  disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+                >
+                  <option value="English">English</option>
+                  <option value="Spanish">Spanish</option>
+                  <option value="French">French</option>
+                  <option value="German">German</option>
+                  <option value="Italian">Italian</option>
+                  <option value="Portuguese">Portuguese</option>
+                  <option value="Dutch">Dutch</option>
+                  <option value="Russian">Russian</option>
+                  <option value="Chinese">Chinese</option>
+                  <option value="Japanese">Japanese</option>
+                  <option value="Korean">Korean</option>
+                </select>
+              </div>
+
+             
+              <div className="form-group">
+                <label>Emojis</label>
+                <select
+                  className="form-control"
+                  value={toneSettings?.emojis || "None"}
+                  onChange={(e) => toneSettingsHandler?.({ target: { name: 'emojis', value: e.target.value } })}
+                  disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+                >
+                  <option value="None">None</option>
+                  <option value="Minimal">Minimal</option>
+                  <option value="Few">Few</option>
+                  <option value="Many">Many</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Tone</label>
+                <select
+                  className="form-control"
+                  value={toneSettings?.tone || "Professional"}
+                  onChange={(e) => toneSettingsHandler?.({ target: { name: 'tone', value: e.target.value } })}
+                  disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+                >
+                  <option value="Professional">Professional</option>
+                  <option value="Casual">Casual</option>
+                  <option value="Formal">Formal</option>
+                  <option value="Friendly">Friendly</option>
+                  <option value="Enthusiastic">Enthusiastic</option>
+                  <option value="Conversational">Conversational</option>
+                  <option value="Persuasive">Persuasive</option>
+                  <option value="Empathetic">Empathetic</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Chatty Level</label>
+                <select
+                  className="form-control"
+                  value={toneSettings?.chatty || "Medium"}
+                  onChange={(e) => toneSettingsHandler?.({ target: { name: 'chatty', value: e.target.value } })}
+                  disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+                >
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Creativity Level</label>
+                <select
+                  className="form-control"
+                  value={toneSettings?.creativity || "Medium"}
+                  onChange={(e) => toneSettingsHandler?.({ target: { name: 'creativity', value: e.target.value } })}
+                  disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+                >
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Reasoning Level</label>
+                <select
+                  className="form-control"
+                  value={toneSettings?.reasoning || "Medium"}
+                  onChange={(e) => toneSettingsHandler?.({ target: { name: 'reasoning', value: e.target.value } })}
+                  disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+                >
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Date Related Greeting</label>
+                <select
+                  className="form-control"
+                  value={toneSettings?.dateGreeting || "No"}
+                  onChange={(e) => toneSettingsHandler?.({ target: { name: 'dateGreeting', value: e.target.value } })}
+                  disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+                >
+                  <option value="Yes">Yes</option>
+                  <option value="No">No</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Date Related Farewell</label>
+                <select
+                  className="form-control"
+                  value={toneSettings?.dateFarewell || "No"}
+                  onChange={(e) => toneSettingsHandler?.({ target: { name: 'dateFarewell', value: e.target.value } })}
+                  disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+                >
+                  <option value="Yes">Yes</option>
+                  <option value="No">No</option>
+                </select>
+              </div>
+
+              {sessionStorage.getItem("isDemoAccount") === "true" && (
+                <div className="demo-notice" style={{
+                  padding: "10px",
+                  background: "#fff3cd",
+                  border: "1px solid #ffeaa7",
+                  borderRadius: "4px",
+                  color: "#856404",
+                  marginTop: "20px"
+                }}>
+                  <strong>Demo Mode:</strong> Settings are visible but disabled. Upgrade your account to enable these features.
+                </div>
+              )}
+            </div>
           )}
         </>
       )}
