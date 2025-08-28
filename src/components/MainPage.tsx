@@ -866,7 +866,8 @@ const toneSettingsHandler = (e: any) => {
 const buildReplacements = (
   entry: any,
   currentDate: string,
-  toneSettings: any
+  toneSettings: any,
+  scrappedData?: string
 ) => {
   return {
     company_name: entry.company_name || entry.company || "",
@@ -877,6 +878,10 @@ const buildReplacements = (
     linkedin_url: entry.linkedin_url || entry.linkedin || "",
     website: entry.website || "",
     date: currentDate,
+
+    // ✅ Add here, with optional default
+    search_output_summary: scrappedData || "",
+
     // Tone Settings tab values
     language: toneSettings.language || "",
     emojis: toneSettings.emojis || "",
@@ -888,7 +893,6 @@ const buildReplacements = (
     dateFarewell: toneSettings.dateFarewell || "",
   };
 };
-
 
   const fetchAndDisplayEmailBodies = useCallback(
   async (
@@ -1364,11 +1368,11 @@ const replaceAllPlaceholders = (text: string, replacements: Record<string, strin
         day: "numeric",
       });
       // --- Generate new pitch as per your normal contact process ---
-const replacements = buildReplacements(entry, currentDate, toneSettings);
+      let replacements = buildReplacements(entry, currentDate, toneSettings);
 
       const searchTermBody = replaceAllPlaceholders(searchterm, replacements);
 
-    const filledInstructions = replaceAllPlaceholders(instructionsParamA, replacements);
+      const filledInstructions = replaceAllPlaceholders(instructionsParamA, replacements);
 
 
       const cacheKey = JSON.stringify({
@@ -1438,6 +1442,11 @@ const replacements = buildReplacements(entry, currentDate, toneSettings);
         setIsPaused(true);
         return;
       }
+
+     replacements = {
+        ...replacements,
+        search_output_summary: scrappedData || ""
+      };
 
         let systemPrompt = replaceAllPlaceholders(systemInstructionsA, replacements);
         let replacedPromptText = replaceAllPlaceholders(selectedPrompt?.text || "", replacements);
@@ -1958,7 +1967,7 @@ const replacements = buildReplacements(entry, currentDate, toneSettings);
         }
 
         // Step 1: Scrape Website with caching
-const replacements = buildReplacements(entry, currentDate, toneSettings);
+let replacements = buildReplacements(entry, currentDate, toneSettings);
 
 
 const searchTermBody = replaceAllPlaceholders(searchterm, replacements);
@@ -2075,6 +2084,11 @@ const filledInstructions = replaceAllPlaceholders(instructionsParamA, replacemen
           });
           continue;
         }
+        
+        replacements = {
+          ...replacements,
+          search_output_summary: scrappedData || ""
+        };
 
         let systemPrompt = replaceAllPlaceholders(systemInstructionsA, replacements);
 

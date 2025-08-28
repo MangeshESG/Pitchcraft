@@ -3,7 +3,6 @@ import axios from "axios";
 import type { EventItem, EmailLog } from "../../contexts/AppDataContext";
 import DynamicContactsTable from "./DynamicContactsTable";
 
-
 import {
   LineChart,
   Line,
@@ -25,7 +24,6 @@ interface DailyStats {
   opens: number;
   clicks: number;
 }
-
 
 interface EmailContact {
   id: number;
@@ -51,11 +49,22 @@ interface ColumnConfig {
   width?: string;
 }
 
+// Add Campaign interface
+interface Campaign {
+  id: number;
+  campaignName: string;
+  promptId: number;
+  zohoViewId: string | null;
+  segmentId: number | null;
+  clientId: number;
+  segmentName: string | null;
+  dataSource: "DataFile" | "Segment";
+}
+
 interface MailDashboardProps {
   effectiveUserId: string | null;
   token: string | null;
   isVisible: boolean;
-  // Add these new optional props
   externalData?: {
     allEventData: EventItem[];
     allEmailLogs: any[];
@@ -72,7 +81,6 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   token,
   isVisible,
 }) => {
-  // Update your useAppData call
   const { 
     saveFormState, 
     getFormState, 
@@ -80,12 +88,12 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     getDashboardData, 
     clearDashboardCacheForUser 
   } = useAppData();
-  // =================== ALL HOOKS MUST BE HERE - NO EXCEPTIONS ===================
+  
   const FORM_STATE_KEY = 'mail-dashboard';
 
-  // All useState hooks
-  const [selectedView, setSelectedView] = useState<string>("");
-  const [availableViews, setAvailableViews] = useState<{ id: number; name: string }[]>([]);
+  // All useState hooks - Changed selectedView to selectedCampaign
+  const [selectedCampaign, setSelectedCampaign] = useState<string>("");
+  const [availableCampaigns, setAvailableCampaigns] = useState<Campaign[]>([]);
   const [dashboardTab, setDashboardTab] = useState("Overview");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -109,7 +117,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   const [segmentName, setSegmentName] = useState("");
   const [segmentDescription, setSegmentDescription] = useState("");
   const [savingSegment, setSavingSegment] = useState(false);
-  const [dataFetchedForView, setDataFetchedForView] = useState<string>("");
+  const [dataFetchedForCampaign, setDataFetchedForCampaign] = useState<string>("");
 
   const [emailColumns, setEmailColumns] = useState<ColumnConfig[]>([
     { key: "checkbox", label: "", visible: true, width: "40px" },
@@ -126,6 +134,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     { key: "hasOpened", label: "Opened", visible: true },
     { key: "hasClicked", label: "Clicked", visible: true },
   ]);
+  
   const [emailLogsColumns, setEmailLogsColumns] = useState([
     { key: "checkbox", label: "", visible: true, width: "40px" },
     { key: "name", label: "Full Name", visible: true },
@@ -142,167 +151,175 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     { key: "errorMessage", label: "Error Message", visible: false },
   ]);
 
- 
+  // =================== ALL useEffect hooks ===================
 
-// =================== ALL useEffect hooks ===================
+  // 1. Initialize component - Updated to use selectedCampaign
+  useEffect(() => {
+    if (!effectiveUserId || !isVisible) return;
 
-// 1. Initialize component - restore state and load cached data together
-useEffect(() => {
-  if (!effectiveUserId || !isVisible) return;
-
-  const initializeComponent = async () => {
-    console.log('🔄 Initializing MailDashboard component');
-    
-    // Step 1: Restore saved state first
-    const savedState = getFormState(FORM_STATE_KEY);
-    let viewToLoad = selectedView;
-    
-    if (savedState && savedState.effectiveUserId === effectiveUserId) {
-      console.log('📥 Restoring saved state:', savedState);
+    const initializeComponent = async () => {
+      console.log('🔄 Initializing MailDashboard component');
       
-      // CRITICAL: Only restore selectedView if it's not empty
-      if (savedState.selectedView && savedState.selectedView !== '') {
-        setSelectedView(savedState.selectedView);
-        viewToLoad = savedState.selectedView;
-        console.log('✅ Restored selectedView:', savedState.selectedView);
+      const savedState = getFormState(FORM_STATE_KEY);
+      let campaignToLoad = selectedCampaign;
+      
+      if (savedState && savedState.effectiveUserId === effectiveUserId) {
+        console.log('📥 Restoring saved state:', savedState);
+        
+        if (savedState.selectedCampaign && savedState.selectedCampaign !== '') {
+          setSelectedCampaign(savedState.selectedCampaign);
+          campaignToLoad = savedState.selectedCampaign;
+          console.log('✅ Restored selectedCampaign:', savedState.selectedCampaign);
+        }
+        
+        if (savedState.dashboardTab && savedState.dashboardTab !== dashboardTab) {
+          setDashboardTab(savedState.dashboardTab);
+        }
+        if (savedState.startDate && savedState.startDate !== startDate) {
+          setStartDate(savedState.startDate);
+        }
+        if (savedState.endDate && savedState.endDate !== endDate) {
+          setEndDate(savedState.endDate);
+        }
+        if (savedState.emailFilterType && savedState.emailFilterType !== emailFilterType) {
+          setEmailFilterType(savedState.emailFilterType);
+        }
+        
+                await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
+      if (campaignToLoad) {
+        const cachedData = getDashboardData(campaignToLoad, effectiveUserId);
+        
+        if (cachedData) {
+          console.log('✅ Using cached data during initialization:', campaignToLoad);
+          console.log('📦 Initial cached data:', {
+            events: cachedData.allEventData.length,
+            emails: cachedData.allEmailLogs.length
+          });
+          
+          setAllEventData(cachedData.allEventData);
+          setAllEmailLogs(cachedData.allEmailLogs);
+          setEmailLogs(cachedData.emailLogs);
+          setDataFetchedForCampaign(campaignToLoad);
+          
+          processDataWithDateFilter(cachedData.allEventData, cachedData.allEmailLogs, startDate, endDate);
+          
+          console.log('✅ Initialization complete with cached data');
+        } else {
+          console.log('❌ No cached data found for campaign:', campaignToLoad);
+        }
       } else {
-        console.log('⚠️ Saved selectedView is empty, keeping current:', selectedView);
+        console.log('⚠️ No campaignToLoad available');
       }
-      
-      if (savedState.dashboardTab && savedState.dashboardTab !== dashboardTab) {
-        setDashboardTab(savedState.dashboardTab);
+    };
+
+    initializeComponent();
+  }, [effectiveUserId, isVisible]);
+
+  // 2. Load available campaigns - Updated API endpoint
+  useEffect(() => {
+    if (!effectiveUserId || !isVisible) return;
+
+    const loadAvailableCampaigns = async () => {
+      try {
+        const response = await axios.get(
+          `${API_BASE_URL}/api/auth/campaigns/client/${effectiveUserId}`,
+          { headers: { ...(token && { Authorization: `Bearer ${token}` }) } }
+        );
+        setAvailableCampaigns(response.data);
+      } catch (error) {
+        console.error("Dashboard: Error loading campaigns:", error);
+        setAvailableCampaigns([]);
       }
-      if (savedState.startDate && savedState.startDate !== startDate) {
-        setStartDate(savedState.startDate);
-      }
-      if (savedState.endDate && savedState.endDate !== endDate) {
-        setEndDate(savedState.endDate);
-      }
-      if (savedState.emailFilterType && savedState.emailFilterType !== emailFilterType) {
-        setEmailFilterType(savedState.emailFilterType);
-      }
-      
-      // Give React a moment to update state
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
+    };
+
+    loadAvailableCampaigns();
+  }, [effectiveUserId, token, isVisible]);
+
+  // 3. Fetch data when selectedCampaign changes
+  useEffect(() => {
+    if (!isVisible || !effectiveUserId || !selectedCampaign) return;
     
-    // Step 2: Try to load cached data for the view
-    if (viewToLoad) {
-      const cachedData = getDashboardData(viewToLoad, effectiveUserId);
+    if (dataFetchedForCampaign === selectedCampaign || loading) return;
+    
+    const cachedData = getDashboardData(selectedCampaign, effectiveUserId);
+    
+    if (cachedData) {
+      console.log('✅ Using cached data for campaign change:', selectedCampaign);
+      console.log('📦 Cached data details:', {
+        events: cachedData.allEventData.length,
+        emails: cachedData.allEmailLogs.length,
+        emailLogs: cachedData.emailLogs.length
+      });
       
-      if (cachedData) {
-        console.log('✅ Using cached data during initialization:', viewToLoad);
-        console.log('📦 Initial cached data:', {
-          events: cachedData.allEventData.length,
-          emails: cachedData.allEmailLogs.length
-        });
-        
-        setAllEventData(cachedData.allEventData);
-        setAllEmailLogs(cachedData.allEmailLogs);
-        setEmailLogs(cachedData.emailLogs);
-        setDataFetchedForView(viewToLoad);
-        
-        // Process data immediately
-        processDataWithDateFilter(cachedData.allEventData, cachedData.allEmailLogs, startDate, endDate);
-        
-        console.log('✅ Initialization complete with cached data');
-      } else {
-        console.log('❌ No cached data found for view:', viewToLoad);
-      }
+      setAllEventData(cachedData.allEventData);
+      setAllEmailLogs(cachedData.allEmailLogs);
+      setEmailLogs(cachedData.emailLogs);
+      setDataFetchedForCampaign(selectedCampaign);
+      
+      processDataWithDateFilter(cachedData.allEventData, cachedData.allEmailLogs, startDate, endDate);
+      
+      console.log('✅ State updated with cached data');
+      
     } else {
-      console.log('⚠️ No viewToLoad available');
+      console.log('❌ No cache found, fetching data for campaign:', selectedCampaign);
+      fetchLogsByCampaign(selectedCampaign);
     }
-  };
+  }, [selectedCampaign, isVisible, effectiveUserId, dataFetchedForCampaign, loading, getDashboardData]);
 
-  initializeComponent();
-}, [effectiveUserId, isVisible]);
+  // 4. Debug logging
+  useEffect(() => {
+    console.log('📊 Dashboard state changed:');
+    console.log('- Selected campaign:', selectedCampaign);
+    console.log('- Dashboard tab:', dashboardTab);
+    console.log('- Event data length:', allEventData.length);
+    console.log('- Email logs length:', allEmailLogs.length);
+    console.log('- Data fetched for campaign:', dataFetchedForCampaign);
+    console.log('- isVisible:', isVisible);
+  }, [selectedCampaign, dashboardTab, allEventData.length, allEmailLogs.length, dataFetchedForCampaign, isVisible]);
 
-// 2. Load available views
-useEffect(() => {
-  if (!effectiveUserId || !isVisible) return;
-
-  const loadAvailableViews = async () => {
-    try {
-      const response = await axios.get(
-        `${API_BASE_URL}/api/crm/datafile-byclientid?clientId=${effectiveUserId}`,
-        { headers: { ...(token && { Authorization: `Bearer ${token}` }) } }
-      );
-      setAvailableViews(response.data);
-    } catch (error) {
-      console.error("Dashboard: Error loading views:", error);
-      setAvailableViews([]);
+  // 5. Process data when date filters change
+  useEffect(() => {
+    if ((allEventData.length > 0 || allEmailLogs.length > 0) && isVisible) {
+      processDataWithDateFilter(allEventData, allEmailLogs, startDate, endDate);
     }
-  };
+  }, [startDate, endDate, allEventData, allEmailLogs, isVisible]);
 
-  loadAvailableViews();
-}, [effectiveUserId, token, isVisible]);
-
-// 3. Fetch data when selectedView changes (and not already cached/fetched)
-useEffect(() => {
-  if (!isVisible || !effectiveUserId || !selectedView) return;
-  
-  // Skip if we already have data for this view
-  if (dataFetchedForView === selectedView || loading) return;
-  
-  // Try cache first
-  const cachedData = getDashboardData(selectedView, effectiveUserId);
-  
-  if (cachedData) {
-    console.log('✅ Using cached data for view change:', selectedView);
-    console.log('📦 Cached data details:', {
-      events: cachedData.allEventData.length,
-      emails: cachedData.allEmailLogs.length,
-      emailLogs: cachedData.emailLogs.length
-    });
-    
-    // ✅ CRITICAL: Set ALL the state properly
-    setAllEventData(cachedData.allEventData);
-    setAllEmailLogs(cachedData.allEmailLogs);
-    setEmailLogs(cachedData.emailLogs);
-    setDataFetchedForView(selectedView);
-    
-    // ✅ CRITICAL: Process the data to update stats and UI
-    processDataWithDateFilter(cachedData.allEventData, cachedData.allEmailLogs, startDate, endDate);
-    
-    console.log('✅ State updated with cached data');
-    
-  } else {
-    console.log('❌ No cache found, fetching data for view:', selectedView);
-    fetchLogsByClientAndView(Number(effectiveUserId), selectedView);
-  }
-}, [selectedView, isVisible, effectiveUserId, dataFetchedForView, loading, getDashboardData]);
-
-
-
-// 4. Debug logging
-useEffect(() => {
-  console.log('📊 Dashboard state changed:');
-  console.log('- Selected view:', selectedView);
-  console.log('- Dashboard tab:', dashboardTab);
-  console.log('- Event data length:', allEventData.length);
-  console.log('- Email logs length:', allEmailLogs.length);
-  console.log('- Data fetched for view:', dataFetchedForView);
-  console.log('- isVisible:', isVisible);
-}, [selectedView, dashboardTab, allEventData.length, allEmailLogs.length, dataFetchedForView, isVisible]);
-
-// 5. Process data when date filters change
-useEffect(() => {
-  if ((allEventData.length > 0 || allEmailLogs.length > 0) && isVisible) {
-    processDataWithDateFilter(allEventData, allEmailLogs, startDate, endDate);
-  }
-}, [startDate, endDate, allEventData, allEmailLogs, isVisible]);
-
-// 6. Load email logs for email-logs filter type
+  // 6. Load email logs for email-logs filter type - Updated for campaigns
 useEffect(() => {
   if (!isVisible) return;
   
-  if (selectedView && emailFilterType === "email-logs" && effectiveUserId) {
+  if (selectedCampaign && emailFilterType === "email-logs" && effectiveUserId) {
     const loadEmailLogs = async () => {
       try {
-        const dataFileId = Number(selectedView);
-        const clientId = Number(effectiveUserId);
-        const logs = await fetchEmailLogs(clientId, dataFileId);
-        setEmailLogs(logs);
+        const campaign = availableCampaigns.find(c => c.id.toString() === selectedCampaign);
+        
+        if (campaign?.dataSource === "DataFile" && campaign.zohoViewId) {
+          // Existing logic for datafile
+          const dataFileId = Number(campaign.zohoViewId);
+          const clientId = Number(effectiveUserId);
+          const logs = await fetchEmailLogs(clientId, dataFileId);
+          setEmailLogs(logs);
+        }  else if (campaign?.dataSource === "Segment" && campaign.segmentId) {
+  console.log("Loading email logs for segment:", campaign.segmentId);
+  try {
+    const response = await axios.get(
+      `${API_BASE_URL}/api/Crm/segment-email-logs`,
+      {
+        params: { 
+          segmentId: campaign.segmentId,
+          clientId: Number(effectiveUserId)
+        },
+        headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+      }
+    );
+    setEmailLogs(response.data || []);
+  } catch (error) {
+    console.error('Error loading segment email logs:', error);
+    setEmailLogs([]);
+  }
+}
       } catch (error) {
         console.error('Error loading email logs:', error);
         setEmailLogs([]);
@@ -310,26 +327,22 @@ useEffect(() => {
     };
     loadEmailLogs();
   }
-}, [selectedView, emailFilterType, effectiveUserId, isVisible]);
+}, [selectedCampaign, emailFilterType, effectiveUserId, isVisible, availableCampaigns]);
 
-// 7. Clear cache when user changes (optional)
-useEffect(() => {
-  if (effectiveUserId) {
-    // Reset data fetched state when user changes
-    setDataFetchedForView("");
-    // You could also clear cache here if needed:
-    // clearDashboardCacheForUser(effectiveUserId);
-  }
-}, [effectiveUserId]);
+  // 7. Clear cache when user changes
+  useEffect(() => {
+    if (effectiveUserId) {
+      setDataFetchedForCampaign("");
+    }
+  }, [effectiveUserId]);
 
-// Add this useEffect after your existing ones:
+  // Auto-save state when selectedCampaign changes
 useEffect(() => {
-  // Save state whenever selectedView changes (and it's not empty)
-  if (selectedView && effectiveUserId) {
-    console.log('💾 Auto-saving state for selectedView:', selectedView);
+  if (selectedCampaign && effectiveUserId) {
+    console.log('💾 Auto-saving state for selectedCampaign:', selectedCampaign);
     saveCurrentState();
   }
-}, [selectedView]);
+}, [selectedCampaign, effectiveUserId, dashboardTab, startDate, endDate, emailFilterType]);
 
   // =================== NOW AFTER ALL HOOKS - EARLY RETURN ===================
   if (!effectiveUserId || !isVisible) {
@@ -337,25 +350,25 @@ useEffect(() => {
   }
 
   // =================== ALL FUNCTIONS AFTER EARLY RETURN ===================
- const saveCurrentState = () => {
-  // Only save if we have a valid selectedView
-  if (!selectedView) {
-    console.log('⚠️ Skipping state save - no selectedView');
-    return;
-  }
-  
-  const stateToSave = {
-    selectedView,
-    dashboardTab,
-    startDate,
-    endDate,
-    emailFilterType,
-    effectiveUserId,
+  const saveCurrentState = () => {
+    if (!selectedCampaign) {
+      console.log('⚠️ Skipping state save - no selectedCampaign');
+      return;
+    }
+    
+    const stateToSave = {
+      selectedCampaign,
+      dashboardTab,
+      startDate,
+      endDate,
+      emailFilterType,
+      effectiveUserId,
+    };
+    
+    console.log('💾 Saving current state:', stateToSave);
+    saveFormState(FORM_STATE_KEY, stateToSave);
   };
-  
-  console.log('💾 Saving current state:', stateToSave);
-  saveFormState(FORM_STATE_KEY, stateToSave);
-};
+
   const fetchEmailLogs = async (effectiveUserId: number, dataFileId: number) => {
     try {
       const response = await fetch(
@@ -375,42 +388,108 @@ useEffect(() => {
     }
   };
 
-  const fetchLogsByClientAndView = async (clientId: number, viewId: string) => {
+  // Updated fetchLogsByCampaign function
+ const fetchLogsByCampaign = async (campaignId: string) => {
   try {
     setLoading(true);
-    const dataFileId = Number(viewId);
+    
+    const campaign = availableCampaigns.find(c => c.id.toString() === campaignId);
+    if (!campaign) {
+      console.error("Campaign not found");
+      return;
+    }
 
-    const trackingResponse = await axios.get(
-      `${API_BASE_URL}/api/Crm/gettrackinglogs`,
-      {
-        params: { clientId, dataFileId },
-        headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+    const clientId = Number(effectiveUserId);
+    let allTrackingData: EventItem[] = [];
+    let allEmailLogsData: any[] = [];
+
+    if (campaign.dataSource === "DataFile" && campaign.zohoViewId) {
+      // Existing datafile logic
+      const dataFileId = Number(campaign.zohoViewId);
+      
+      const trackingResponse = await axios.get(
+        `${API_BASE_URL}/api/Crm/gettrackinglogs`,
+        {
+          params: { clientId, dataFileId },
+          headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+        }
+      );
+
+      allTrackingData = trackingResponse.data || [];
+      allEmailLogsData = await fetchEmailLogs(clientId, dataFileId);
+      
+    } else if (campaign.dataSource === "Segment" && campaign.segmentId) {
+      // New segment logic
+      try {
+        const segmentResponse = await axios.get(
+          `${API_BASE_URL}/track/tracking/segment`,
+          {
+            params: { 
+              segmentId: campaign.segmentId,
+              clientId: clientId 
+            },
+            headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+          }
+        );
+
+        // Assuming the segment API returns similar data structure
+        // You may need to adjust based on actual response structure
+        allTrackingData = segmentResponse.data || [];
+        
+        // For email logs, you might need a different API or extract from segment data
+        // This depends on your segment API structure
+       console.log("Segment tracking data received:", allTrackingData.length);
+
+// Try to fetch email logs for segment
+try {
+  const segmentEmailLogsResponse = await axios.get(
+    `${API_BASE_URL}/api/Crm/segment-email-logs`,
+    {
+      params: { 
+        segmentId: campaign.segmentId,
+        clientId: clientId 
+      },
+      headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+    }
+  );
+  allEmailLogsData = segmentEmailLogsResponse.data || [];
+} catch (emailLogError) {
+  console.log("No email logs found for segment, continuing with empty array");
+  allEmailLogsData = [];
+}
+        
+      } catch (segmentError: any) {
+        if (segmentError.response?.status === 404) {
+          console.error("No data found for segment:", campaign.segmentId);
+          // Continue with empty data rather than throwing
+        } else {
+          throw segmentError;
+        }
       }
-    );
-
-    const emailLogsData = await fetchEmailLogs(clientId, dataFileId);
-    const allTrackingData: EventItem[] = trackingResponse.data || [];
-    const allEmailLogsData = emailLogsData || [];
+    } else {
+      console.error("Campaign has neither valid dataFileId nor segmentId");
+      return;
+    }
 
     // Set state
     setAllEventData(allTrackingData);
     setAllEmailLogs(allEmailLogsData);
     setEmailLogs(allEmailLogsData);
     
-    // ✅ ALWAYS cache the data immediately after fetching - regardless of tab
-    saveDashboardData(viewId, {
+    // Cache the data
+    saveDashboardData(campaignId, {
       allEventData: allTrackingData,
       allEmailLogs: allEmailLogsData,
       emailLogs: allEmailLogsData,
       effectiveUserId: effectiveUserId!
     });
     
-    setDataFetchedForView(viewId);
+    setDataFetchedForCampaign(campaignId);
     
     // Process data for current view
     processDataWithDateFilter(allTrackingData, allEmailLogsData, startDate, endDate);
     
-    console.log(`✅ Data cached for view ${viewId} - ${allTrackingData.length} events, ${allEmailLogsData.length} email logs`);
+    console.log(`✅ Data cached for campaign ${campaignId} - ${allTrackingData.length} events, ${allEmailLogsData.length} email logs`);
     
   } catch (error) {
     console.error("Dashboard: Error fetching logs:", error);
@@ -421,13 +500,11 @@ useEffect(() => {
     setRequestCount(0);
     setDailyStats([]);
     setTotalStats({ sent: 0, opens: 0, clicks: 0 });
-    setDataFetchedForView(viewId);
+    setDataFetchedForCampaign(campaignId);
   } finally {
     setLoading(false);
   }
 };
-
-
 
   // Process data with date filtering
   const processDataWithDateFilter = (
@@ -531,47 +608,42 @@ useEffect(() => {
     setFilteredEventData(filteredTrackingData);
   };
 
-
-
-
-
-  // Event Handlers
-  const handleViewChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-  const newViewId = e.target.value;
-  const previousView = selectedView;
-  
-  console.log('🔄 View changing from', previousView, 'to', newViewId);
-  
-  setSelectedView(newViewId);
-  
-  // Save state immediately after setting new view
-  if (newViewId) {
-    const stateToSave = {
-      selectedView: newViewId, // Use the new value directly
-      dashboardTab,
-      startDate,
-      endDate,
-      emailFilterType,
-      effectiveUserId,
-    };
-    console.log('💾 Saving state on view change:', stateToSave);
-    saveFormState(FORM_STATE_KEY, stateToSave);
+  // Event Handlers - Updated for campaigns
+  const handleCampaignChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newCampaignId = e.target.value;
+    const previousCampaign = selectedCampaign;
     
-    // Reset dataFetchedForView if changing to different view
-    if (previousView !== newViewId) {
-      setDataFetchedForView("");
+    console.log('🔄 Campaign changing from', previousCampaign, 'to', newCampaignId);
+    
+    setSelectedCampaign(newCampaignId);
+    
+    // Save state immediately after setting new campaign
+    if (newCampaignId) {
+      const stateToSave = {
+        selectedCampaign: newCampaignId,
+        dashboardTab,
+        startDate,
+        endDate,
+        emailFilterType,
+        effectiveUserId,
+      };
+      console.log('💾 Saving state on campaign change:', stateToSave);
+      saveFormState(FORM_STATE_KEY, stateToSave);
+      
+      // Reset dataFetchedForCampaign if changing to different campaign
+      if (previousCampaign !== newCampaignId) {
+        setDataFetchedForCampaign("");
+      }
+    } else {
+      // Clear data if no campaign selected
+      setAllEventData([]);
+      setEmailLogs([]);
+      setDailyStats([]);
+      setTotalStats({ sent: 0, opens: 0, clicks: 0 });
+      setRequestCount(0);
+      setDataFetchedForCampaign("");
     }
-  } else {
-    // Clear data if no view selected
-    setAllEventData([]);
-    setEmailLogs([]);
-    setDailyStats([]);
-    setTotalStats({ sent: 0, opens: 0, clicks: 0 });
-    setRequestCount(0);
-    setDataFetchedForView("");
-  }
-};
-
+  };
 
   const handleDashboardTabChange = (tabName: string) => {
     setDashboardTab(tabName);
@@ -593,14 +665,14 @@ useEffect(() => {
   };
 
   const handleRefresh = async () => {
-    if (!selectedView) return;
+    if (!selectedCampaign) return;
     
     setIsRefreshing(true);
-    setDataFetchedForView(""); // Reset flag to allow refetch
+    setDataFetchedForCampaign(""); // Reset flag to allow refetch
     
     try {
       // Force fetch by bypassing cache
-      await fetchLogsByClientAndView(Number(effectiveUserId), selectedView);
+      await fetchLogsByCampaign(selectedCampaign);
     } catch (error) {
       console.error("Error refreshing data:", error);
     } finally {
@@ -635,6 +707,7 @@ useEffect(() => {
   };
 
   // Transform event data for table
+    // Transform event data for table
   const transformEventDataForTable = (eventData: EventItem[]): EmailContact[] => {
     const contacts: EmailContact[] = eventData
       .filter((item) => item.eventType === "Open" || item.eventType === "Click")
@@ -857,7 +930,7 @@ useEffect(() => {
     return (contact as any)[key] || "-";
   };
 
-   const getEmailLogValue = (log: any, key: string): any => {
+  const getEmailLogValue = (log: any, key: string): any => {
     switch (key) {
       case "full_name":
       case "name":
@@ -898,7 +971,7 @@ useEffect(() => {
             <a 
               href={log.website.startsWith('http') ? log.website : `https://${log.website}`} 
               target="_blank" 
-              rel="noopener noreferrer"
+                           rel="noopener noreferrer"
               style={{ color: "#0066cc", textDecoration: "underline" }}
               onClick={(e) => e.stopPropagation()}
             >
@@ -943,49 +1016,48 @@ useEffect(() => {
   };
 
   // Selection Handlers
-const handleSelectEmailLog = (logId: string) => {
-  setSelectedEmailLogs(prev => {
-    const newSelection = new Set(prev);
-    if (newSelection.has(logId)) {
-      newSelection.delete(logId);
-    } else {
-      newSelection.add(logId);
-    }
-    return newSelection;
-  });
-};
-
-
-const handleSelectAllEmailLogs = () => {
-  const currentPageLogs = transformEmailLogsForTable(getFilteredEmailLogs()).slice(
-    (emailLogsCurrentPage - 1) * 20,
-    emailLogsCurrentPage * 20
-  );
-  
-  setSelectedEmailLogs(prev => {
-    const newSelection = new Set(prev);
-    if (prev.size === currentPageLogs.length && currentPageLogs.length > 0) {
-      // Clear all
-      return new Set();
-    } else {
-      // Select all on current page
-      currentPageLogs.forEach(log => {
-        newSelection.add(log.id.toString());
-      });
+  const handleSelectEmailLog = (logId: string) => {
+    setSelectedEmailLogs(prev => {
+      const newSelection = new Set(prev);
+      if (newSelection.has(logId)) {
+        newSelection.delete(logId);
+      } else {
+        newSelection.add(logId);
+      }
       return newSelection;
-    }
-  });
-};
+    });
+  };
 
-  // Segment Creation
+  const handleSelectAllEmailLogs = () => {
+    const currentPageLogs = transformEmailLogsForTable(getFilteredEmailLogs()).slice(
+      (emailLogsCurrentPage - 1) * 20,
+      emailLogsCurrentPage * 20
+    );
+    
+    setSelectedEmailLogs(prev => {
+      const newSelection = new Set(prev);
+      if (prev.size === currentPageLogs.length && currentPageLogs.length > 0) {
+        // Clear all
+        return new Set();
+      } else {
+        // Select all on current page
+        currentPageLogs.forEach(log => {
+          newSelection.add(log.id.toString());
+        });
+        return newSelection;
+      }
+    });
+  };
+
+  // Segment Creation - Updated for campaigns
   const handleSaveEmailSegment = async () => {
     if (!segmentName.trim()) {
       alert("Please enter a segment name");
       return;
     }
 
-    if (!selectedView) {
-      alert("Please select a data file first");
+    if (!selectedCampaign) {
+      alert("Please select a campaign first");
       return;
     }
 
@@ -1026,10 +1098,31 @@ const handleSelectAllEmailLogs = () => {
 
       const uniqueContactIds = Array.from(new Set(contactIds));
 
+      // Get dataFileId from campaign
+      const campaign = availableCampaigns.find(c => c.id.toString() === selectedCampaign);
+
+let dataFileId: number | undefined;
+
+if (campaign?.dataSource === "DataFile" && campaign.zohoViewId) {
+  dataFileId = parseInt(campaign.zohoViewId);
+} else if (campaign?.dataSource === "Segment") {
+  // For segment-based campaigns, we need to get the original dataFileId
+  // You might need an API to get this information
+  alert("Creating segments from segment-based campaigns is not currently supported. Please select a data file-based campaign.");
+  setSavingSegment(false);
+  return;
+}
+
+if (!dataFileId) {
+  alert("Cannot determine data file for this campaign");
+  setSavingSegment(false);
+  return;
+}
+
       const segmentData = {
         name: segmentName,
         description: segmentDescription || "",
-        dataFileId: parseInt(selectedView),
+        dataFileId: dataFileId,
         contactIds: uniqueContactIds
       };
 
@@ -1176,25 +1269,24 @@ const handleSelectAllEmailLogs = () => {
   }
 
   // Add this helper function to clean LinkedIn URLs
-const cleanLinkedInUrl = (url: string | undefined): string => {
-  if (!url || url === '-' || url === 'N/A') return '-';
-  
-  // Remove various URL-encoded separators that might be appended
-  return url
-    .replace(/%7C%7C$/, '')  // Remove %7C%7C (||)
-    .replace(/\|\|$/, '')     // Remove ||
-    .replace(/%7C$/, '')      // Remove single %7C (|)
-    .replace(/\|$/, '')       // Remove single |
-    .trim();
-};
-
-
+  const cleanLinkedInUrl = (url: string | undefined): string => {
+    if (!url || url === '-' || url === 'N/A') return '-';
+    
+    // Remove various URL-encoded separators that might be appended
+    return url
+      .replace(/%7C%7C$/, '')  // Remove %7C%7C (||)
+      .replace(/\|\|$/, '')     // Remove ||
+      .replace(/%7C$/, '')      // Remove single %7C (|)
+      .replace(/\|$/, '')       // Remove single |
+      .trim();
+  };
 
   return (
     <div 
       className="dashboard-section" 
       style={{ display: isVisible ? 'block' : 'none' }}
-    >      {/* Dashboard Sub-tabs */}
+    >
+      {/* Dashboard Sub-tabs */}
       <div className="dashboard-tabs">
         <button
           className={dashboardTab === "Overview" ? "active" : ""}
@@ -1210,19 +1302,22 @@ const cleanLinkedInUrl = (url: string | undefined): string => {
         </button>
       </div>
 
-      {/* View Selection and Date Filters */}
+      {/* Campaign Selection and Date Filters - Updated */}
       <div className="form-controls">
         <div className="form-group">
-          <label>List <span style={{ color: "red" }}>*</span></label>
+          <label>Campaign <span style={{ color: "red" }}>*</span></label>
           <select
-            value={selectedView}
-            onChange={handleViewChange}
-            className={!selectedView ? "error" : ""}
+            value={selectedCampaign}
+            onChange={handleCampaignChange}
+            className={!selectedCampaign ? "error" : ""}
           >
-            <option value="">Select a list</option>
-            {availableViews.map((view) => (
-              <option key={view.id} value={view.id}>
-                {view.name}
+            <option value="">Select a campaign</option>
+            {availableCampaigns.map((campaign) => (
+              <option key={campaign.id} value={campaign.id}>
+                {campaign.campaignName}
+                {campaign.dataSource === "Segment" && campaign.segmentName && 
+                  ` (Segment: ${campaign.segmentName})`
+                }
               </option>
             ))}
           </select>
@@ -1268,7 +1363,7 @@ const cleanLinkedInUrl = (url: string | undefined): string => {
           <h3>Sent</h3>
           {loading ? (
             <p className="value">Loading...</p>
-          ) : !selectedView ? (
+          ) : !selectedCampaign ? (
             <p className="value">-</p>
           ) : (
             <p className="value">{requestCount}</p>
@@ -1279,7 +1374,7 @@ const cleanLinkedInUrl = (url: string | undefined): string => {
           <h3>Unique opens</h3>
           {loading ? (
             <p className="value">Loading...</p>
-          ) : !selectedView ? (
+          ) : !selectedCampaign ? (
             <p className="value">-</p>
           ) : (
             <>
@@ -1293,7 +1388,7 @@ const cleanLinkedInUrl = (url: string | undefined): string => {
           <h3>Unique clicks</h3>
           {loading ? (
             <p className="value">Loading...</p>
-          ) : !selectedView ? (
+          ) : !selectedCampaign ? (
             <p className="value">-</p>
           ) : (
             <>
@@ -1315,7 +1410,7 @@ const cleanLinkedInUrl = (url: string | undefined): string => {
                   ? filteredStats
                   : [{ date: "", sent: 0, opens: 0, clicks: 0 }]
               }
-              margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                           margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
             >
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" />
@@ -1402,243 +1497,240 @@ const cleanLinkedInUrl = (url: string | undefined): string => {
           </div>
 
           {/* ContactsTable Component */}
-<DynamicContactsTable
-  data={
-    emailFilterType === "email-logs"
-      ? transformEmailLogsForTable(getFilteredEmailLogs())
-      : getFilteredEmailContacts()
-  }
-  isLoading={isRefreshing || loading}
-  search={
-    emailFilterType === "email-logs"
-      ? emailLogsSearch
-      : detailSearchQuery
-  }
-  setSearch={
-    emailFilterType === "email-logs"
-      ? setEmailLogsSearch
-      : setDetailSearchQuery
-  }
-  showCheckboxes={true}
-  paginated={true}
-  currentPage={
-    emailFilterType === "email-logs"
-      ? emailLogsCurrentPage
-      : currentPage
-  }
-  pageSize={20}
-  onPageChange={
-    emailFilterType === "email-logs"
-      ? setEmailLogsCurrentPage
-      : setCurrentPage
-  }
-    selectedItems={
-    emailFilterType === "email-logs"
-      ? selectedEmailLogs
-      : detailSelectedContacts
-  }
-  onSelectItem={
-    emailFilterType === "email-logs"
-      ? handleSelectEmailLog  // This already uses functional updates after our change above
-      : (id: string) => {
-          setDetailSelectedContacts(prev => {
-            const newSelection = new Set(prev);
-            if (newSelection.has(id)) {
-              newSelection.delete(id);
-            } else {
-              newSelection.add(id);
+          <DynamicContactsTable
+            data={
+              emailFilterType === "email-logs"
+                ? transformEmailLogsForTable(getFilteredEmailLogs())
+                : getFilteredEmailContacts()
             }
-            return newSelection;
-          });
-        }
-  }
-  totalItems={
-    emailFilterType === "email-logs"
-      ? getFilteredEmailLogs().length
-      : getFilteredEmailContacts().length
-  }
-  
-  // Remove the onSelectAll prop completely - let DynamicContactsTable handle it internally
-  // The internal handleSelectAll in DynamicContactsTable will call onSelectItem for each item
-  
-  // Configuration settings
-  autoGenerateColumns={false}
-  customColumns={
-    emailFilterType === "email-logs"
-      ? emailLogsColumns
-      : emailColumns
-  }
-  customFormatters={{
-    // Date formatting
-    timestamp: (value: any) => formatMailTimestamp(value),
-    sentAt: (value: any) => formatMailTimestamp(value),
-    
-    // Status formatting
-    isSuccess: (value: any) => {
-      if (typeof value === 'string' && (value.includes('✅') || value.includes('❌'))) {
-        return (
-          <span style={{ 
-            color: value.includes('✅') ? "#28a745" : "#dc3545", 
-            fontWeight: 500 
-          }}>
-            {value}
-          </span>
-        );
-      }
-      return value ? "✅ Sent" : "❌ Failed";
-    },
-    
-    // Event type formatting
-    eventType: (value: any) => (
-      <span style={{
-        padding: '2px 8px',
-        borderRadius: '12px',
-        fontSize: '12px',
-        fontWeight: 500,
-        background: value === 'Open' ? '#e3f2fd' : '#f3e5f5',
-        color: value === 'Open' ? '#1976d2' : '#7b1fa2'
-      }}>
-        {value}
-      </span>
-    ),
-    
-    // Subject formatting
-    subject: (value: any) => {
-      if (!value || value === '-') return '-';
-      const truncated = value.length > 50 ? value.substring(0, 50) + "..." : value;
-      return <span title={value}>{truncated}</span>;
-    },
-    
-    // Boolean formatting
-    hasOpened: (value: any) => value ? "✅" : "-",
-    hasClicked: (value: any) => value ? "✅" : "-",
-    
-    // Name formatting with warning
-     full_name: (value: any, item: any) => {
-      if (item.contactId === 0) {
-        return `${value} ⚠️`;
-      }
-      return value || '-';
-    },
-    name: (value: any, item: any) => {
-      if (item.contactId === 0) {
-        return `${value} ⚠️`;
-      }
-      return value || '-';
-    },
-    
-    // URL formatting
-// URL formatting
-linkedin_URL: (value: any) => {
-  if (!value || value === '-') return '-';
-  const cleanUrl = cleanLinkedInUrl(value);
-  if (cleanUrl === '-') return '-';
-  
-  return (
-    <a
-      href={cleanUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      style={{ color: "#0066cc", textDecoration: "underline" }}
-      onClick={(e) => e.stopPropagation()}
-    >
-      LinkedIn Profile
-    </a>
-  );
-},
-linkedIn: (value: any) => {
-  if (!value || value === '-') return '-';
-  const cleanUrl = cleanLinkedInUrl(value);
-  if (cleanUrl === '-') return '-';
-  
-  return (
-    <a
-      href={cleanUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      style={{ color: "#0066cc", textDecoration: "underline" }}
-      onClick={(e) => e.stopPropagation()}
-    >
-      LinkedIn Profile
-    </a>
-  );
-},
-    website: (value: any) => {
-      if (!value || value === '-') return '-';
-      const url = value.startsWith('http') ? value : `https://${value}`;
-      return (
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ color: "#0066cc", textDecoration: "underline" }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          Website
-        </a>
-      );
-    },
-      targetUrl: (value: any) => {
-      if (!value || value === '-') return '-';
-      return (
-        <a
-          href={value}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ color: "#0066cc", textDecoration: "underline" }}
-          onClick={(e) => e.stopPropagation()}
-          title={value}
-        >
-          {value.length > 50 ? value.substring(0, 50) + "..." : value}
-        </a>
-      );
-    },
-    
-    // Email formatting
-    email: (value: any) => {
-      if (!value || value === '-') return '-';
-      return (
-        <a
-          href={`mailto:${value}`}
-          style={{ color: "#0066cc", textDecoration: "underline" }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {value}
-        </a>
-      );
-    },
-    toEmail: (value: any) => {
-      if (!value || value === '-') return '-';
-      return (
-        <a
-          href={`mailto:${value}`}
-          style={{ color: "#0066cc", textDecoration: "underline" }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {value}
-        </a>
-      );
-    }
-  }}
-  
-  searchFields={
-    emailFilterType === "email-logs" 
-      ? ['name', 'toEmail', 'company', 'jobTitle', 'subject', 'process_name', 'address']
-      : ['full_name', 'email', 'company', 'jobTitle', 'location']
-  }
-  primaryKey="id"
-  viewMode="table"
-  customHeader={
-    emailFilterType === "email-logs"
-      ? getEmailLogsHeader()
-      : getEngagementHeader()
-  }
-  onColumnsChange={
-    emailFilterType === "email-logs"
-      ? setEmailLogsColumns
-      : setEmailColumns
-  }
-/>
+            isLoading={isRefreshing || loading}
+            search={
+              emailFilterType === "email-logs"
+                ? emailLogsSearch
+                : detailSearchQuery
+            }
+            setSearch={
+              emailFilterType === "email-logs"
+                ? setEmailLogsSearch
+                : setDetailSearchQuery
+            }
+            showCheckboxes={true}
+            paginated={true}
+            currentPage={
+              emailFilterType === "email-logs"
+                ? emailLogsCurrentPage
+                : currentPage
+            }
+            pageSize={20}
+            onPageChange={
+              emailFilterType === "email-logs"
+                ? setEmailLogsCurrentPage
+                : setCurrentPage
+            }
+            selectedItems={
+              emailFilterType === "email-logs"
+                ? selectedEmailLogs
+                : detailSelectedContacts
+            }
+            onSelectItem={
+              emailFilterType === "email-logs"
+                ? handleSelectEmailLog
+                : (id: string) => {
+                    setDetailSelectedContacts(prev => {
+                      const newSelection = new Set(prev);
+                      if (newSelection.has(id)) {
+                        newSelection.delete(id);
+                      } else {
+                        newSelection.add(id);
+                      }
+                      return newSelection;
+                    });
+                  }
+            }
+            totalItems={
+              emailFilterType === "email-logs"
+                ? getFilteredEmailLogs().length
+                : getFilteredEmailContacts().length
+            }
+            
+            // Configuration settings
+            autoGenerateColumns={false}
+            customColumns={
+              emailFilterType === "email-logs"
+                ? emailLogsColumns
+                : emailColumns
+            }
+            customFormatters={{
+              // Date formatting
+              timestamp: (value: any) => formatMailTimestamp(value),
+              sentAt: (value: any) => formatMailTimestamp(value),
+              
+              // Status formatting
+              isSuccess: (value: any) => {
+                if (typeof value === 'string' && (value.includes('✅') || value.includes('❌'))) {
+                  return (
+                    <span style={{ 
+                      color: value.includes('✅') ? "#28a745" : "#dc3545", 
+                      fontWeight: 500 
+                    }}>
+                      {value}
+                    </span>
+                  );
+                }
+                return value ? "✅ Sent" : "❌ Failed";
+              },
+              
+              // Event type formatting
+              eventType: (value: any) => (
+                <span style={{
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  background: value === 'Open' ? '#e3f2fd' : '#f3e5f5',
+                  color: value === 'Open' ? '#1976d2' : '#7b1fa2'
+                }}>
+                  {value}
+                </span>
+              ),
+              
+              // Subject formatting
+              subject: (value: any) => {
+                if (!value || value === '-') return '-';
+                const truncated = value.length > 50 ? value.substring(0, 50) + "..." : value;
+                return <span title={value}>{truncated}</span>;
+              },
+              
+              // Boolean formatting
+              hasOpened: (value: any) => value ? "✅" : "-",
+              hasClicked: (value: any) => value ? "✅" : "-",
+              
+              // Name formatting with warning
+              full_name: (value: any, item: any) => {
+                if (item.contactId === 0) {
+                  return `${value} ⚠️`;
+                }
+                return value || '-';
+              },
+              name: (value: any, item: any) => {
+                if (item.contactId === 0) {
+                  return `${value} ⚠️`;
+                }
+                return value || '-';
+              },
+              
+              // URL formatting
+              linkedin_URL: (value: any) => {
+                if (!value || value === '-') return '-';
+                const cleanUrl = cleanLinkedInUrl(value);
+                if (cleanUrl === '-') return '-';
+                
+                return (
+                  <a
+                    href={cleanUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: "#0066cc", textDecoration: "underline" }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    LinkedIn Profile
+                  </a>
+                );
+              },
+              linkedIn: (value: any) => {
+                if (!value || value === '-') return '-';
+                const cleanUrl = cleanLinkedInUrl(value);
+                if (cleanUrl === '-') return '-';
+                
+                return (
+                  <a
+                    href={cleanUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: "#0066cc", textDecoration: "underline" }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    LinkedIn Profile
+                  </a>
+                );
+              },
+              website: (value: any) => {
+                if (!value || value === '-') return '-';
+                const url = value.startsWith('http') ? value : `https://${value}`;
+                return (
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: "#0066cc", textDecoration: "underline" }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Website
+                  </a>
+                );
+              },
+              targetUrl: (value: any) => {
+                if (!value || value === '-') return '-';
+                return (
+                  <a
+                    href={value}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: "#0066cc", textDecoration: "underline" }}
+                    onClick={(e) => e.stopPropagation()}
+                    title={value}
+                  >
+                    {value.length > 50 ? value.substring(0, 50) + "..." : value}
+                  </a>
+                );
+              },
+              
+              // Email formatting
+              email: (value: any) => {
+                if (!value || value === '-') return '-';
+                return (
+                  <a
+                    href={`mailto:${value}`}
+                    style={{ color: "#0066cc", textDecoration: "underline" }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {value}
+                  </a>
+                );
+              },
+              toEmail: (value: any) => {
+                if (!value || value === '-') return '-';
+                return (
+                  <a
+                    href={`mailto:${value}`}
+                    style={{ color: "#0066cc", textDecoration: "underline" }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {value}
+                  </a>
+                );
+              }
+            }}
+            
+            searchFields={
+              emailFilterType === "email-logs" 
+                ? ['name', 'toEmail', 'company', 'jobTitle', 'subject', 'process_name', 'address']
+                : ['full_name', 'email', 'company', 'jobTitle', 'location']
+            }
+            primaryKey="id"
+            viewMode="table"
+            customHeader={
+              emailFilterType === "email-logs"
+                ? getEmailLogsHeader()
+                : getEngagementHeader()
+            }
+            onColumnsChange={
+              emailFilterType === "email-logs"
+                ? setEmailLogsColumns
+                : setEmailColumns
+            }
+          />
+          
           {/* Email Logs Summary */}
           {emailFilterType === "email-logs" && (
             <div className="email-summary" style={{ marginTop: 20 }}>
@@ -1700,7 +1792,7 @@ linkedIn: (value: any) => {
                     } contact{(emailFilterType === "email-logs" ? selectedEmailLogs.size : detailSelectedContacts.size) > 1 ? "s" : ""}
                   </p>
                   <p style={{ margin: 0, fontSize: 14, color: "#666" }}>
-                    <strong>Data File:</strong> {availableViews.find(v => v.id.toString() === selectedView)?.name || "Unknown"}
+                    <strong>Campaign:</strong> {availableCampaigns.find(c => c.id.toString() === selectedCampaign)?.campaignName || "Unknown"}
                   </p>
                 </div>
 
@@ -1717,7 +1809,7 @@ linkedIn: (value: any) => {
                 </div>
 
                 <div className="form-group">
-                  <label>Description (optional)</label>
+                                   <label>Description (optional)</label>
                   <textarea
                     placeholder="Enter segment description"
                     value={segmentDescription}
@@ -1752,7 +1844,7 @@ linkedIn: (value: any) => {
                     disabled={
                       !segmentName.trim() ||
                       savingSegment ||
-                      !selectedView ||
+                      !selectedCampaign ||
                       (emailFilterType === "email-logs" ? selectedEmailLogs.size === 0 : detailSelectedContacts.size === 0)
                     }
                   >

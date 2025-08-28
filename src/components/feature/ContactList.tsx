@@ -792,6 +792,8 @@ const handleDetailSelectAll = () => {
     }
   };
 
+  
+
   return (
     <div className="data-campaigns-container">
       {/* Sub-tabs Navigation */}
