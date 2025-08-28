@@ -561,7 +561,7 @@ useEffect(() => {
             onChange={(e) => setCampaignSearch(e.target.value)}
           />
           <button
-            className="button primary"
+            className="save-button button auto-width small d-flex justify-between align-center"
             style={{ marginLeft: "auto" }}
             onClick={() => {
               setShowCreateCampaignModal(true);
@@ -627,7 +627,7 @@ useEffect(() => {
                     <td>{new Date().toLocaleDateString()}</td>
                     <td style={{ position: "relative" }}>
                       <button
-                        className="segment-actions-btn"
+                        className="segment-actions-btn font-[600]"
                         style={{
                           border: "none",
                           background: "none",

@@ -803,7 +803,7 @@ const handleDetailSelectAll = () => {
             <button
               type="button"
               onClick={() => handleTabChange("List")}
-              className={`button ${activeSubTab === "List" ? "active" : ""}`}
+              className={`button !pt-0 ${activeSubTab === "List" ? "active" : ""}`}
             >
               Lists
             </button>
@@ -812,7 +812,7 @@ const handleDetailSelectAll = () => {
             <button
               type="button"
               onClick={() => handleTabChange("Segment")}
-              className={`button ${activeSubTab === "Segment" ? "active" : ""}`}
+              className={`button !pt-0 ${activeSubTab === "Segment" ? "active" : ""}`}
             >
               Segments
             </button>
@@ -845,11 +845,11 @@ const handleDetailSelectAll = () => {
                     onChange={(e) => setListSearch(e.target.value)}
                   />
                   <button
-                    className="button primary"
+                    className="ml-10 save-button button auto-width small d-flex justify-between align-center"
                     style={{ marginLeft: "auto" }}
                     onClick={onAddContactClick}
                   >
-                    + Create a list
+                    <span className="text-[20px] mr-1">+</span> Create a list
                   </button>
                 </div>
                 <table
@@ -879,9 +879,9 @@ const handleDetailSelectAll = () => {
                       <tr key={file.id}>
                         <td>
                           <span
-                            className="list-link"
+                            className="list-link text-[#3f9f42]"
                             style={{
-                              color: "#186bf3",
+                              color: "",
                               cursor: "pointer",
                               textDecoration: "underline",
                             }}
@@ -907,7 +907,7 @@ const handleDetailSelectAll = () => {
                         <td>{file.description || "-"}</td>
                         <td style={{ position: "relative" }}>
                           <button
-                            className="segment-actions-btn"
+                            className="segment-actions-btn  font-[600]"
                             style={{
                               border: "none",
                               background: "none",
@@ -953,7 +953,7 @@ const handleDetailSelectAll = () => {
                                 }}
                                 style={menuBtnStyle}
                               >
-                                ✏️ Rename
+                                <span></span> Rename
                               </button>
                               )}
                               <button
@@ -1126,17 +1126,16 @@ const handleDetailSelectAll = () => {
                     boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
                   }}
                 >
-                  <h3 style={{ marginTop: 0, marginBottom: 16 }}>
+                  <h3 className="sub-title" style={{ marginTop: 0, marginBottom: 16 }}>
                     Rename list
                   </h3>
 
                   {/* Name field */}
-                  <div style={{ marginBottom: 16 }}>
+                  <div style={{ marginBottom: 16 }} className="form-group">
                     <label
                       style={{
                         display: "block",
                         marginBottom: 4,
-                        fontWeight: 500,
                       }}
                     >
                       List name <span style={{ color: "red" }}>*</span>
@@ -1156,12 +1155,11 @@ const handleDetailSelectAll = () => {
                   </div>
 
                   {/* Description field */}
-                  <div style={{ marginBottom: 16 }}>
+                  <div style={{ marginBottom: 16 }} className="form-group">
                     <label
                       style={{
                         display: "block",
                         marginBottom: 4,
-                        fontWeight: 500,
                       }}
                     >
                       Description <span style={{ color: "red" }}>*</span>
@@ -1222,7 +1220,7 @@ const handleDetailSelectAll = () => {
                           renamingListName.trim() &&
                           renamingListDescription.trim() &&
                           !isRenamingList
-                            ? "#007bff"
+                            ? "#3f9f42"
                             : "#ccc",
                         color: "#fff",
                         border: "none",
@@ -1344,7 +1342,7 @@ const handleDetailSelectAll = () => {
                     onChange={(e) => setSegmentSearchQuery(e.target.value)}
                   />
                   <button
-                    className="button primary"
+                    className="save-button button auto-width small d-flex justify-between align-center"
                     style={{ marginLeft: "auto" }}
                   >
                     + Create segment
@@ -1422,7 +1420,7 @@ const handleDetailSelectAll = () => {
                             <td>{segment.description || "-"}</td>
                             <td style={{ position: "relative" }}>
                               <button
-                                className="segment-actions-btn"
+                                className="segment-actions-btn font-[600] font-600"
                                 style={{
                                   border: "none",
                                   background: "none",

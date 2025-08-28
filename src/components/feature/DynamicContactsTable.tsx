@@ -428,7 +428,7 @@ const handleSelectAll = (checked: boolean) => {
                 Show/Hide Columns
               </button>
               {onAddItem && (
-                <button className="button primary" onClick={onAddItem}>
+                <button className="save-button button auto-width small d-flex justify-between align-center" onClick={onAddItem}>
                   + Add Item
                 </button>
               )}
@@ -696,11 +696,10 @@ const handleSelectAll = (checked: boolean) => {
             {/* Column Statistics */}
             <div
               style={{
-                marginTop: "20px",
                 padding: "12px",
                 background: "#f8f9fa",
                 borderRadius: "6px",
-                fontSize: "12px",
+                fontSize: "14px",
                 color: "#666",
               }}
             >
