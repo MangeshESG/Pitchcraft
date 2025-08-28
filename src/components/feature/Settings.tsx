@@ -684,280 +684,210 @@ const handleModelChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
   };
   //---------------------------------------------------------------
   return (
-    <div className="login-box gap-down d-flex">
-      <div className="input-section edit-section">
-        {tab === "Processes" && (
-          <>
-            <div className="row flex-wrap">
-              <div className="col col-3 col-6-991 col-12-640">
-                <ul>
-                  <li className="mb-5 mb-10-640">
-                    <strong>Name: </strong> <br />
-                    {"{full_name}"}
-                  </li>
-                  <li className="mb-5 mb-10-640">
-                    <strong>Linkedin URL: </strong>
-                    <br /> {"{linkedin_url}"}
-                  </li>
-                </ul>
-              </div>
-              <div className="col col-3 col-6-991 col-12-640">
-                <ul>
-                  <li className="mb-5 mb-10-640">
-                    <strong>Job title: </strong>
-                    <br /> {"{job_title}"}
-                  </li>
-                  <li className="mb-5 mb-10-640">
-                    <strong>Location: </strong>
-                    <br /> {"{location}"}
-                  </li>
-                </ul>
-              </div>
-              <div className="col col-3 col-6-991 col-12-640">
-                <ul>
-                  <li className="mb-5 mb-10-640">
-                    <strong>Company name: </strong>
-                    <br /> {"{company_name}"}
-                  </li>
-                  <li className="mb-5 mb-10-640">
-                    <strong> Company name friendly: </strong>
-                    <br /> {"{company_name_friendly}"}
-                  </li>
-                </ul>
-              </div>
-              <div className="col col-3 col-6-991 col-12-640">
-                <ul>
-                  <li className="mb-5 mb-10-640">
-                    <strong>Company website: </strong>
-                    <br /> {"{website}"}
-                  </li>
-                  <li className="mb-5 mb-10-640">
-                    <strong>Current date </strong>
-                    <br /> {"{date}"}
-                  </li>
-                </ul>
-              </div>
+    <div className="input-section edit-section">
+      {tab === "Processes" && (
+        <>
+          <div className="row flex-wrap p-[15px] !m-0 bg-[#ddf7dd] rounded-[10px] border-2 border-dashed border-[#3f9f42]">
+            <div className="col col-3 col-6-991 col-12-640">
+              <ul>
+                <li className="mb-5 mb-10-640">
+                  <strong>Name: </strong> <br />
+                  {"{full_name}"}
+                </li>
+                <li className="mb-5 mb-10-640">
+                  <strong>Linkedin URL: </strong>
+                  <br /> {"{linkedin_url}"}
+                </li>
+              </ul>
             </div>
-            <br />
-
-            <h3 className="left mt-0">Models</h3>
-            <form onSubmit={settingsFormOnSubmit}>
-              <div className="row">
-                <div className="col col-12 right">
-                  <div className="form-group">
-                    <label>Select model</label>
-
-                    <select
-                      name="model"
-                      id="model"
-                      value={selectedModel|| selectedModelName}
-                      onChange={handleModelChange}
-                    >
-                      <option value="">Select model</option>
-                      {models.map((model) => (
-                        <option key={model.id} value={model.modelName}>
-                          {model.modelName} - Input: $
-                          {model.inputPrice.toFixed(4)}, Output: $
-                          {model.outputPrice.toFixed(4)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-            </form>
-            <div className="mt-2">
-              <a
-                href="https://platform.openai.com/docs/pricing"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ fontSize: "12px" }}
-              >
-                View model pricing
-              </a>
+            <div className="col col-3 col-6-991 col-12-640">
+              <ul>
+                <li className="mb-5 mb-10-640">
+                  <strong>Job title: </strong>
+                  <br /> {"{job_title}"}
+                </li>
+                <li className="mb-5 mb-10-640">
+                  <strong>Location: </strong>
+                  <br /> {"{location}"}
+                </li>
+              </ul>
             </div>
+            <div className="col col-3 col-6-991 col-12-640">
+              <ul>
+                <li className="mb-5 mb-10-640">
+                  <strong>Company name: </strong>
+                  <br /> {"{company_name}"}
+                </li>
+                <li className="mb-5 mb-10-640">
+                  <strong> Company name friendly: </strong>
+                  <br /> {"{company_name_friendly}"}
+                </li>
+              </ul>
+            </div>
+            <div className="col col-3 col-6-991 col-12-640">
+              <ul>
+                <li className="mb-5 mb-10-640">
+                  <strong>Company website: </strong>
+                  <br /> {"{website}"}
+                </li>
+                <li className="mb-5 mb-10-640">
+                  <strong>Current date </strong>
+                  <br /> {"{date}"}
+                </li>
+              </ul>
+            </div>
+          </div>
 
-            <hr />
-            <h3 className="left mt-0 d-flex align-items-center">
-              <span className="ml-3">
-                Call #1 to Search API - Output is sent to 'Call #1 to AI API{" "}
-              </span>
-              <div className="col col-3"></div>
-            </h3>
+          <br />
 
-            <form onSubmit={searchTermFormOnSubmit}>
-              <div className="row">
-                <div className="col col-6">
-                  <div className="form-group">
-                    <label>Search terms</label>
-                    <input
-                      type="text"
-                      placeholder="Search terms"
-                      name="searchTerm"
-                      value={
-                        searchTermForm.searchTerm ||
-                        localSearchTermForm.searchTerm ||
-                        ""
-                      }
-                      onChange={(e) => {
-                        console.log("Search term changing to:", e.target.value);
-                        searchTermFormHandler(e);
-                        setLocalSearchTermForm((prev) => ({
-                          ...prev,
-                          searchTerm: e.target.value,
-                        }));
-                      }}
-                    />
-                  </div>
-                </div>
-                <div className="col col-6">
-                  <div className="form-group mb-0">
-                    <label className="sr-only">Search URL count</label>
-                    <select
-                      name="searchCount"
-                      value={
-                        searchTermForm.searchCount ||
-                        localSearchTermForm.searchCount ||
-                        ""
-                      }
-                      onChange={(e) => {
-                        console.log(
-                          "Search count changing to:",
-                          e.target.value
-                        );
-                        searchTermFormHandler(e);
-                        setLocalSearchTermForm((prev) => ({
-                          ...prev,
-                          searchCount: e.target.value,
-                        }));
-                      }}
-                      className="form-control"
-                    >
-                      <option value="">Select URL count</option>
-                      {[...Array(10)].map((_, index) => (
-                        <option key={index + 1} value={index + 1}>
-                          {index + 1}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <h3 className="left mt-20">
-                Call #1 to AI API - Output is {"{search_output_summary}"}{" "}
-              </h3>
-              <div className="row flex-wrap-640">
-                <div className="col col-10 col-12-640">
-                  <div className="form-group">
-                    <label>Instructions</label>
-                    <textarea
-                      placeholder=""
-                      rows={3}
-                      name="instructions"
-                      value={searchTermForm.instructions}
-                      onChange={searchTermFormHandler}
-                    ></textarea>
-                    {/* <input
-                    type="text"
-                    placeholder="Instructions"
-                    name="instructions"
-                    value={searchTermForm.instructions}
-                    onChange={searchTermFormHandler}
-                  /> */}
-                  </div>
-                </div>
-              </div>
-            </form>
-            <h3 className="left mt-20">Call #3 to AI API - Subject</h3>
+          <h3 className="left mt-0 sub-title">Models</h3>
+          <form onSubmit={settingsFormOnSubmit}>
             <div className="row">
-              <div className="col">
+              <div className="col col-12 right">
                 <div className="form-group">
-                  <label>Subject instructions (for the email subject)</label>
-                  <span className="pos-relative d-flex">
-                    <textarea
-                      placeholder="Subject instruction"
-                      rows={3}
-                      name="subjectInstructions"
-                      value={settingsForm.subjectInstructions}
-                      onChange={settingsFormHandler}
-                    ></textarea>
-                    <button
-                      type="button"
-                      className="full-view-icon d-flex align-center justify-center"
-                      onClick={() =>
-                        handleModalOpen("modal-subjectInstructions")
-                      }
-                    >
-                      <svg width="40px" height="40px" viewBox="0 0 512 512">
-                        <title>ionicons-v5-c</title>
-                        <polyline
-                          points="304 96 416 96 416 208"
-                          fill="none"
-                          stroke="#000000"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="32"
-                        />
-                        <line
-                          x1="405.77"
-                          y1="106.2"
-                          x2="111.98"
-                          y2="400.02"
-                          fill="none"
-                          stroke="#000000"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="32"
-                        />
-                        <polyline
-                          points="208 416 96 416 96 304"
-                          fill="none"
-                          stroke="#000000"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="32"
-                        />
-                      </svg>
-                    </button>
-                    <Modal
-                      show={openModals["modal-subjectInstructions"]}
-                      closeModal={() =>
-                        handleModalClose("modal-subjectInstructions")
-                      }
-                      buttonLabel="Ok"
-                    >
-                      <label>Subject instruction</label>
-                      <textarea
-                        placeholder="Subject instruction"
-                        rows={15}
-                        name="subjectInstructions"
-                        className="textarea-full-height"
-                        value={settingsForm.subjectInstructions}
-                        onChange={settingsFormHandler}
-                      ></textarea>
-                    </Modal>
-                  </span>
+                  <label>Select model</label>
+
+                  <select
+                    name="model"
+                    id="model"
+                    value={selectedModel|| selectedModelName}
+                    onChange={handleModelChange}
+                  >
+                    <option value="">Select model</option>
+                    {models.map((model) => (
+                      <option key={model.id} value={model.modelName}>
+                        {model.modelName} - Input: $
+                        {model.inputPrice.toFixed(4)}, Output: $
+                        {model.outputPrice.toFixed(4)}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </div>
-            <div className="form-group">
-              <div className="form-group">
-                <label>
-                  System instructions - prefixed to all prompt templates
-                </label>
-                <span className="pos-relative d-flex">
+          </form>
+          <div className="mt-2">
+            <a
+              href="https://platform.openai.com/docs/pricing"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ fontSize: "12px" }}
+            >
+              View model pricing
+            </a>
+          </div>
+
+          <hr />
+          <h3 className="left mt-0 d-flex align-items-center sub-title">
+            <span className="ml-3">
+              Call #1 to Search API - Output is sent to 'Call #1 to AI API{" "}
+            </span>
+            <div className="col col-3"></div>
+          </h3>
+
+          <form onSubmit={searchTermFormOnSubmit}>
+            <div className="row">
+              <div className="col col-6">
+                <div className="form-group">
+                  <label>Search terms</label>
+                  <input
+                    type="text"
+                    placeholder="Search terms"
+                    name="searchTerm"
+                    value={
+                      searchTermForm.searchTerm ||
+                      localSearchTermForm.searchTerm ||
+                      ""
+                    }
+                    onChange={(e) => {
+                      console.log("Search term changing to:", e.target.value);
+                      searchTermFormHandler(e);
+                      setLocalSearchTermForm((prev) => ({
+                        ...prev,
+                        searchTerm: e.target.value,
+                      }));
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="col col-6">
+                <div className="form-group mb-0 mt-[26px]">
+                  <label className="sr-only">Search URL count</label>
+                  <select
+                    name="searchCount"
+                    value={
+                      searchTermForm.searchCount ||
+                      localSearchTermForm.searchCount ||
+                      ""
+                    }
+                    onChange={(e) => {
+                      console.log(
+                        "Search count changing to:",
+                        e.target.value
+                      );
+                      searchTermFormHandler(e);
+                      setLocalSearchTermForm((prev) => ({
+                        ...prev,
+                        searchCount: e.target.value,
+                      }));
+                    }}
+                    className="form-control"
+                  >
+                    <option value="">Select URL count</option>
+                    {[...Array(10)].map((_, index) => (
+                      <option key={index + 1} value={index + 1}>
+                        {index + 1}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <h3 className="left mt-20 sub-title">
+              Call #1 to AI API - Output is {"{search_output_summary}"}{" "}
+            </h3>
+            <div className="row flex-wrap-640">
+              <div className="col col-10 col-12-640">
+                <div className="form-group">
+                  <label>Instructions</label>
                   <textarea
                     placeholder=""
                     rows={3}
-                    name="systemInstructions"
-                    value={settingsForm.systemInstructions}
+                    name="instructions"
+                    value={searchTermForm.instructions}
+                    onChange={searchTermFormHandler}
+                  ></textarea>
+                  {/* <input
+                  type="text"
+                  placeholder="Instructions"
+                  name="instructions"
+                  value={searchTermForm.instructions}
+                  onChange={searchTermFormHandler}
+                /> */}
+                </div>
+              </div>
+            </div>
+          </form>
+          <h3 className="left mt-20 sub-title">Call #3 to AI API - Subject</h3>
+          <div className="row">
+            <div className="col">
+              <div className="form-group">
+                <label>Subject instructions (for the email subject)</label>
+                <span className="pos-relative d-flex">
+                  <textarea
+                    placeholder="Subject instruction"
+                    rows={3}
+                    name="subjectInstructions"
+                    value={settingsForm.subjectInstructions}
                     onChange={settingsFormHandler}
                   ></textarea>
                   <button
                     type="button"
                     className="full-view-icon d-flex align-center justify-center"
-                    onClick={() => handleModalOpen("modal-systemInstructions")}
+                    onClick={() =>
+                      handleModalOpen("modal-subjectInstructions")
+                    }
                   >
                     <svg width="40px" height="40px" viewBox="0 0 512 512">
                       <title>ionicons-v5-c</title>
@@ -991,55 +921,124 @@ const handleModelChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
                     </svg>
                   </button>
                   <Modal
-                    show={openModals["modal-systemInstructions"]}
+                    show={openModals["modal-subjectInstructions"]}
                     closeModal={() =>
-                      handleModalClose("modal-systemInstructions")
+                      handleModalClose("modal-subjectInstructions")
                     }
                     buttonLabel="Ok"
                   >
-                    <label>System instruction</label>
+                    <label>Subject instruction</label>
                     <textarea
-                      placeholder=""
+                      placeholder="Subject instruction"
                       rows={15}
-                      name="systemInstructions"
-                      value={settingsForm.systemInstructions}
+                      name="subjectInstructions"
+                      className="textarea-full-height"
+                      value={settingsForm.subjectInstructions}
                       onChange={settingsFormHandler}
                     ></textarea>
                   </Modal>
                 </span>
               </div>
-              <div className="form-group d-flex justify-end">
-                <div className="d-flex align-center">
-                  <input
-                    type="checkbox"
-                    id="demoAccount"
-                    checked={isDemoAccount}
-                    onChange={(e) => setIsDemoAccount(e.target.checked)}
-                    style={{ marginRight: "8px" }}
-                  />
-                  <label
-                    htmlFor="demoAccount"
-                    style={{ margin: 0 }}
-                    className="nowrap"
-                  >
-                    Demo Account {isDemoAccount ? "(Yes)" : "(No)"}{" "}
-                    {/* Add visual confirmation */}
-                  </label>
-                </div>
-                <div className="d-flex ml-10">
-                  <button
-                    type="button"
-                    onClick={handleUpdateSettings}
-                    className="save-button button full"
-                  >
-                    Update Settings {/* Or "Save Settings" */}
-                  </button>
-                </div>
+            </div>
+          </div>
+          <div className="form-group">
+            <div className="form-group">
+              <label>
+                System instructions - prefixed to all prompt templates
+              </label>
+              <span className="pos-relative d-flex">
+                <textarea
+                  placeholder=""
+                  rows={3}
+                  name="systemInstructions"
+                  value={settingsForm.systemInstructions}
+                  onChange={settingsFormHandler}
+                ></textarea>
+                <button
+                  type="button"
+                  className="full-view-icon d-flex align-center justify-center"
+                  onClick={() => handleModalOpen("modal-systemInstructions")}
+                >
+                  <svg width="40px" height="40px" viewBox="0 0 512 512">
+                    <title>ionicons-v5-c</title>
+                    <polyline
+                      points="304 96 416 96 416 208"
+                      fill="none"
+                      stroke="#000000"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="32"
+                    />
+                    <line
+                      x1="405.77"
+                      y1="106.2"
+                      x2="111.98"
+                      y2="400.02"
+                      fill="none"
+                      stroke="#000000"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="32"
+                    />
+                    <polyline
+                      points="208 416 96 416 96 304"
+                      fill="none"
+                      stroke="#000000"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="32"
+                    />
+                  </svg>
+                </button>
+                <Modal
+                  show={openModals["modal-systemInstructions"]}
+                  closeModal={() =>
+                    handleModalClose("modal-systemInstructions")
+                  }
+                  buttonLabel="Ok"
+                >
+                  <label>System instruction</label>
+                  <textarea
+                    placeholder=""
+                    rows={15}
+                    name="systemInstructions"
+                    value={settingsForm.systemInstructions}
+                    onChange={settingsFormHandler}
+                  ></textarea>
+                </Modal>
+              </span>
+            </div>
+            <div className="d-flex justify-end">
+              <div className="d-flex align-center">
+                <input
+                  type="checkbox"
+                  id="demoAccount"
+                  checked={isDemoAccount}
+                  onChange={(e) => setIsDemoAccount(e.target.checked)}
+                  style={{ marginRight: "8px" }}
+                />
+                <label
+                  htmlFor="demoAccount"
+                  style={{ margin: 0 }}
+                  className="nowrap"
+                >
+                  Demo Account {isDemoAccount ? "(Yes)" : "(No)"}{" "}
+                  {/* Add visual confirmation */}
+                </label>
+              </div>
+              <div className="d-flex ml-10">
+                <button
+                  type="button"
+                  onClick={handleUpdateSettings}
+                  className="save-button button full"
+                >
+                  Update Settings {/* Or "Save Settings" */}
+                </button>
               </div>
             </div>
-          </>
-        )}
-      </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };

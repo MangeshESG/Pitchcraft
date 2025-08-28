@@ -3586,7 +3586,7 @@ const handleCampaignChange = async (
                                   </ReactTooltip>
                                   <button
                                     id="output-delete-prompt-tooltip"
-                                    className="secondary button square-40 d-flex justify-center align-center ml-10 button-full-width-480"
+                                    className="secondary button !p-[5px] square-40 d-flex justify-center align-center ml-10 button-full-width-480"
                                     disabled={
                                       !selectedPrompt?.name ||
                                       selectedPrompt?.name === "Select a prompt"

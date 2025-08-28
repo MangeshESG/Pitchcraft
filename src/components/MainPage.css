@@ -712,7 +712,9 @@ input[type="checkbox"], input[type="radio"]  {
     accent-color: #3f9f42; 
   }
 
-.form-group input,
+.form-group input[type=text],
+.form-group input[type=email],
+.form-group input[type=password],
 .form-group select {
   width: 100%;
   padding: 0.5rem 0.75rem;

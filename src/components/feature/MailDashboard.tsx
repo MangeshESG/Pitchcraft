@@ -1197,13 +1197,13 @@ const cleanLinkedInUrl = (url: string | undefined): string => {
     >      {/* Dashboard Sub-tabs */}
       <div className="dashboard-tabs">
         <button
-          className={dashboardTab === "Overview" ? "active" : ""}
+          className={dashboardTab === "Overview" ? "active !pt-0" : "!pt-0"}
           onClick={() => handleDashboardTabChange("Overview")}
         >
           Overview
         </button>
         <button
-          className={dashboardTab === "Details" ? "active" : ""}
+          className={dashboardTab === "Details" ? "active !pt-0" : "!pt-0"}
           onClick={() => handleDashboardTabChange("Details")}
         >
           Details
