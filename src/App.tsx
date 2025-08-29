@@ -22,7 +22,7 @@ const App: React.FC = () => {
     const interval = setInterval(() => {
       if (typeof (window as any).SignalZen !== "undefined") {
         clearInterval(interval);
-        new (window as any).SignalZen({ appId: "f2f70efc" }).load();
+        new (window as any).SignalZen({ appId: "239f3c3e" }).load();
       }
     }, 10);
 

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import API_BASE_URL from "../../config";
 import "./ContactList.css";
 import DynamicContactsTable from "./DynamicContactsTable"; 
+import AppModal from '../common/AppModal';
+import { useAppModal } from '../../hooks/useAppModal';
 
 
 
@@ -127,6 +129,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     { key: "email_sent_at", label: "Email Sent Date", visible: false },
   ]);
 
+  const appModal = useAppModal();
   // Existing states
   const [zohoClient, setZohoClient] = useState<ZohoClient[]>([]);
   const [selectedZohoViewForDeletion, setSelectedZohoViewForDeletion] =
@@ -342,7 +345,7 @@ const handleSelectAll = () => {
         throw new Error("Failed to save segment");
       }
 
-      alert("Segment saved successfully!");
+      appModal.showSuccess("Segment saved successfully!");
       setShowSaveSegmentModal(false);
       setSegmentName("");
       setSegmentDescription("");
@@ -359,7 +362,8 @@ const handleSelectAll = () => {
         fetchSegments();
       }
     } catch (error) {
-      alert("Failed to save segment");
+      appModal.showError("Failed to save segment");
+
     } finally {
       setSavingSegment(false);
     }
@@ -464,7 +468,7 @@ const handleSelectAll = () => {
       // Optionally show a toast: alert("List deleted successfully!");
       await fetchDataFiles(); // refresh the list
     } catch (err) {
-      alert("Failed to delete list");
+      appModal.showError("Failed to delete list");
     } finally {
       setIsLoading(false);
       setEditingList(null);
@@ -656,10 +660,10 @@ const handleDetailSelectAll = () => {
       setRenamingListDescription("");
 
       // Show success message
-      alert("List renamed successfully!");
+      appModal.showSuccess("List renamed successfully!");
     } catch (error) {
       console.error("Failed to rename list:", error);
-      alert("Failed to rename list. Please try again.");
+     appModal.showError("Failed to rename list. Please try again.");
     } finally {
       setIsRenamingList(false);
     }
@@ -769,10 +773,10 @@ const handleDetailSelectAll = () => {
       setRenamingSegmentDescription("");
 
       // Show success message
-      alert("Segment renamed successfully!");
+      appModal.showSuccess("Segment renamed successfully!");
     } catch (error) {
       console.error("Failed to rename segment:", error);
-      alert("Failed to rename segment. Please try again.");
+      appModal.showError("Failed to rename segment. Please try again.");
     } finally {
       setIsRenamingSegment(false);
     }
@@ -786,10 +790,10 @@ const handleDetailSelectAll = () => {
       // Remove segment from local state
       setSegments((prev) => prev.filter((s) => s.id !== segment.id));
 
-      alert("Segment deleted successfully!");
+      appModal.showSuccess("Segment deleted successfully!");
     } catch (error) {
       console.error("Failed to delete segment:", error);
-      alert("Failed to delete segment. Please try again.");
+      appModal.showError("Failed to delete segment. Please try again.");
     } finally {
       setIsLoadingSegments(false);
       setEditingSegment(null);
@@ -802,7 +806,7 @@ const handleDetailSelectAll = () => {
 // Helper function to convert data to CSV
 const downloadCSV = (data: any[], filename: string) => {
   if (!data || data.length === 0) {
-    alert('No data to export');
+    appModal.showWarning('No data to export');
     return;
   }
 
@@ -912,7 +916,7 @@ const handleDownloadList = async (file: DataFileItem) => {
     const contacts = data.contacts || [];
     
     if (contacts.length === 0) {
-      alert("No contacts to download");
+      appModal.showWarning("No contacts to download");
       return;
     }
     
@@ -922,7 +926,7 @@ const handleDownloadList = async (file: DataFileItem) => {
     
   } catch (error) {
     console.error("Error downloading list:", error);
-    alert("Failed to download list data");
+    appModal.showError("Failed to download list data");
   } finally {
     setIsLoading(false);
     setListActionsAnchor(null);
@@ -944,7 +948,7 @@ const handleDownloadSegment = async (segment: any) => {
     const contacts = await response.json();
     
     if (!contacts || contacts.length === 0) {
-      alert("No contacts to download");
+      appModal.showWarning("No contacts to download");
       return;
     }
     
@@ -954,7 +958,7 @@ const handleDownloadSegment = async (segment: any) => {
     
   } catch (error) {
     console.error("Error downloading segment:", error);
-    alert("Failed to download segment data");
+    appModal.showError("Failed to download segment data");
   } finally {
     setIsLoadingSegments(false);
     setSegmentActionsAnchor(null);
@@ -2029,6 +2033,11 @@ const handleDownloadSegment = async (segment: any) => {
           </div>
         </div>
       )}
+      <AppModal
+        isOpen={appModal.isOpen}
+        onClose={appModal.hideModal}
+        {...appModal.config}
+      />
     </div>
   );
 };

@@ -1,0 +1,204 @@
+/* App Modal Overlay - using app- prefix to avoid conflicts */
+.app-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+}
+
+.app-modal-overlay.open {
+  opacity: 1;
+  visibility: visible;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+}
+
+/* App Modal Container */
+.app-modal-container {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  transform: scale(0.7) translateY(20px);
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-modal-container.open {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+}
+
+/* Size variations */
+.app-modal-container.small {
+  width: 400px;
+}
+
+.app-modal-container.medium {
+  width: 600px;
+}
+
+.app-modal-container.large {
+  width: 800px;
+}
+
+/* App Modal Header */
+.app-modal-header {
+  display: flex;
+  align-items: center;
+  padding: 24px 24px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  position: relative;
+}
+
+.app-modal-icon {
+  width: 24px;
+  height: 24px;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.app-modal-icon.success {
+  color: #10b981;
+}
+
+.app-modal-icon.error {
+  color: #ef4444;
+}
+
+.app-modal-icon.warning {
+  color: #f59e0b;
+}
+
+.app-modal-icon.info {
+  color: #3b82f6;
+}
+
+.app-modal-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #111827;
+  flex: 1;
+}
+
+.app-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  font-size: 24px;
+  cursor: pointer;
+  border-radius: 6px;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.app-modal-close:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+/* App Modal Body */
+.app-modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.app-modal-message {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  color: #374151;
+}
+
+/* App Modal Footer */
+.app-modal-footer {
+  padding: 16px 24px 24px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* App Modal Buttons */
+.app-modal-button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 80px;
+}
+
+.app-modal-button.primary {
+  background: #3b82f6;
+  color: white;
+}
+
+.app-modal-button.primary:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.app-modal-button.secondary {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.app-modal-button.secondary:hover {
+  background: #d1d5db;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .app-modal-container {
+    width: calc(100vw - 32px) !important;
+    margin: 16px;
+  }
+  
+  .app-modal-header {
+    padding: 20px 20px 16px;
+  }
+  
+  .app-modal-body {
+    padding: 20px;
+  }
+  
+  .app-modal-footer {
+    padding: 16px 20px 20px;
+  }
+}
+
+/* Animation for spinner */
+@keyframes app-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.app-animate-spin {
+  animation: app-spin 1s linear infinite;
+}

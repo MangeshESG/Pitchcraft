@@ -334,7 +334,7 @@ const LoginPage: React.FC = () => {
 
   return (
     <div className="login-container page d-flex flex-col">
-      <h1 className="text-[24px] text-white mb-4">Login to Pitchcraft</h1>
+      <h1 className="text-[24px] text-white mb-4">Login to PitchKraft</h1>
       <div className="login-box mb-10">
         <form onSubmit={handleLogin}>
           {" "}

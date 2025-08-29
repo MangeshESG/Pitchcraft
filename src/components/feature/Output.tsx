@@ -1112,8 +1112,6 @@ const [bulkSendIndex, setBulkSendIndex] = useState(currentIndex);
 const stopBulkRef = useRef(false);
 
 const sendEmailsInBulk = async (startIndex = 0) => {
-  
-  
   // Check if we have SMTP user selected BEFORE starting
   if (!selectedSmtpUser) {
     return; // Exit early
@@ -1131,7 +1129,6 @@ const sendEmailsInBulk = async (startIndex = 0) => {
     setCurrentIndex(index);
     
     const contact = combinedResponses[index];
-  
 
     try {
       // Prepare subject and request body
@@ -1149,7 +1146,8 @@ const sendEmailsInBulk = async (startIndex = 0) => {
       const requestBody = {
         clientId: effectiveUserId,
         contactid: contact.id,
-        dataFileId: contact.datafileid || 0,
+        dataFileId: contact.datafileid === "null" || !contact.datafileid ? null : parseInt(contact.datafileid) || null,      
+        segmentId: contact.segmentId === "null" || !contact.segmentId ? null : parseInt(contact.segmentId) || null,
         toEmail: contact.email,
         subject: subjectToUse,
         body: contact.pitch || "",
@@ -1162,9 +1160,6 @@ const sendEmailsInBulk = async (startIndex = 0) => {
         linkedinUrl: contact.linkedin || "",
         jobTitle: contact.title || "",
       };
-
-      
-     
 
       const response = await axios.post(
         `${API_BASE_URL}/api/email/send-singleEmail`,
@@ -1216,7 +1211,9 @@ const sendEmailsInBulk = async (startIndex = 0) => {
       }
 
     } catch (err) {
+      console.error(`Error sending email to ${contact.email}:`, err);
       if (axios.isAxiosError(err)) {
+        console.error('API Error:', err.response?.data);
       }
       skippedCount++;
     }
@@ -1226,6 +1223,7 @@ const sendEmailsInBulk = async (startIndex = 0) => {
     
     // Show progress
     const progress = `Progress: ${index}/${combinedResponses.length} (Sent: ${sentCount}, Skipped: ${skippedCount})`;
+    console.log(progress); // Add console log to track progress
     
     // Wait before processing next email
     await new Promise(res => setTimeout(res, 1200)); // Throttle emails
@@ -1234,8 +1232,7 @@ const sendEmailsInBulk = async (startIndex = 0) => {
   setIsBulkSending(false);
   stopBulkRef.current = false;
   
-  
-  
+  console.log(`Bulk send completed. Sent: ${sentCount}, Skipped: ${skippedCount}`);
 };
 
 const stopBulkSending = () => {

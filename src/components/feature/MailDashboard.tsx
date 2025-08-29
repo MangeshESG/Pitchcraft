@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import type { EventItem, EmailLog } from "../../contexts/AppDataContext";
 import DynamicContactsTable from "./DynamicContactsTable";
+import AppModal from '../common/AppModal';
+import { useAppModal } from '../../hooks/useAppModal';
 
 import {
   LineChart,
@@ -151,6 +153,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     { key: "errorMessage", label: "Error Message", visible: false },
   ]);
 
+  const appModal = useAppModal();
   // =================== ALL useEffect hooks ===================
 
   // 1. Initialize component - Updated to use selectedCampaign
@@ -395,8 +398,7 @@ useEffect(() => {
     
     const campaign = availableCampaigns.find(c => c.id.toString() === campaignId);
     if (!campaign) {
-      console.error("Campaign not found");
-      return;
+    appModal.showError("Campaign not found");      return;
     }
 
     const clientId = Number(effectiveUserId);
@@ -1052,12 +1054,12 @@ try {
   // Segment Creation - Updated for campaigns
   const handleSaveEmailSegment = async () => {
     if (!segmentName.trim()) {
-      alert("Please enter a segment name");
-      return;
+    appModal.showWarning("Please select a campaign first");
+    return;
     }
 
     if (!selectedCampaign) {
-      alert("Please select a campaign first");
+    appModal.showWarning("Please select a campaign first");
       return;
     }
 
@@ -1076,7 +1078,7 @@ try {
           .filter((id): id is number => id !== null && id !== undefined);
         
         if (contactIds.length === 0) {
-          alert("No valid contacts selected. Please select contacts with valid contact IDs.");
+          appModal.showWarning("No valid contacts selected. Please select contacts with valid contact IDs.");
           setSavingSegment(false);
           return;
         }
@@ -1108,13 +1110,13 @@ if (campaign?.dataSource === "DataFile" && campaign.zohoViewId) {
 } else if (campaign?.dataSource === "Segment") {
   // For segment-based campaigns, we need to get the original dataFileId
   // You might need an API to get this information
-  alert("Creating segments from segment-based campaigns is not currently supported. Please select a data file-based campaign.");
+  appModal.showError("Creating segments from segment-based campaigns is not currently supported. Please select a data file-based campaign.");
   setSavingSegment(false);
   return;
 }
 
 if (!dataFileId) {
-  alert("Cannot determine data file for this campaign");
+  appModal.showError("Cannot determine data file for this campaign");
   setSavingSegment(false);
   return;
 }
@@ -1139,8 +1141,8 @@ if (!dataFileId) {
       );
 
       if (response.ok) {
-        alert(`Segment "${segmentName}" created successfully with ${uniqueContactIds.length} contacts!`);
-        
+        appModal.showSuccess(`Segment "${segmentName}" created successfully with ${uniqueContactIds.length} contacts!`, 'Segment Created');
+
         setShowSaveSegmentModal(false);
         setSegmentName("");
         setSegmentDescription("");
@@ -1152,11 +1154,11 @@ if (!dataFileId) {
         }
       } else {
         const errorData = await response.text();
-        alert(`Failed to create segment: ${errorData}`);
+        appModal.showError(`Failed to create segment: ${errorData}`);
       }
     } catch (error) {
       console.error("Error creating segment:", error);
-      alert("Error creating segment. Please try again.");
+      appModal.showError("Error creating segment. Please try again.");
     } finally {
       setSavingSegment(false);
     }
@@ -1856,6 +1858,11 @@ if (!dataFileId) {
           )}
         </>
       )}
+     <AppModal
+      isOpen={appModal.isOpen}
+      onClose={appModal.hideModal}
+      {...appModal.config}
+    />
     </div>
   );
 };
