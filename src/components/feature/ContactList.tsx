@@ -59,11 +59,11 @@ interface Contact {
   created_at?: string;
   updated_at?: string | null;
   email_sent_at?: string | null;
-  companyTelephone?: string;  // camelCase
-  companyEmployeeCount?: string;  // camelCase
-  companyIndustry?: string;  // camelCase
-  companyLinkedInURL?: string;  // camelCase with capital URL
-  companyEventLink?: string;  // camelCase
+  companyTelephone?: string;  
+  companyEmployeeCount?: string;  
+  companyIndustry?: string;  
+  companyLinkedInURL?: string;  
+  companyEventLink?: string;  
 }
 
 const getContactValue = (contact: Contact, key: string): any => {
@@ -799,57 +799,78 @@ const handleDetailSelectAll = () => {
 
 
 // Helper function to convert data to CSV
+// Helper function to convert data to CSV
 const downloadCSV = (data: any[], filename: string) => {
-  // Define the columns to export - matching your Excel screenshot
-  const headers = [
-    'Full Name',
-    'Email',
-    'Website',
-    'Company Name',
-    'Job Title',
-    'LinkedIn URL',
-    'Country Or Address',
-    'Company Telephone',
-    'Company Employee Count',
-    'Company Industry',
-    'Company LinkedIn URL',
-    'Company Event Link',
-    'Created Date',
-    'Updated Date',
-    'Email Sent Date'
+  if (!data || data.length === 0) {
+    alert('No data to export');
+    return;
+  }
+
+  // Define all possible columns
+  const allColumns = [
+    { key: 'full_name', header: 'Full Name' },
+    { key: 'email', header: 'Email' },
+    { key: 'website', header: 'Website' },
+    { key: 'company_name', header: 'Company Name' },
+    { key: 'job_title', header: 'Job Title' },
+    { key: 'linkedin_url', header: 'LinkedIn URL' },
+    { key: 'country_or_address', header: 'Country Or Address' },
+    { key: 'companyTelephone', header: 'Company Telephone' },
+    { key: 'companyEmployeeCount', header: 'Company Employee Count' },
+    { key: 'companyIndustry', header: 'Company Industry' },
+    { key: 'companyLinkedInURL', header: 'Company LinkedIn URL' },
+    { key: 'companyEventLink', header: 'Company Event Link' },
+    { key: 'created_at', header: 'Created Date' },
+    { key: 'updated_at', header: 'Updated Date' },
+    { key: 'email_sent_at', header: 'Email Sent Date' }
   ];
 
-  // Map the data to CSV rows using the exact field names from your API
+  // Check which columns have data
+  const columnsWithData = allColumns.filter(column => {
+    return data.some(contact => {
+      const value = contact[column.key];
+      // Check if value exists and is not empty
+      return value !== null && 
+             value !== undefined && 
+             value !== '' && 
+             value !== 'NA' && // Exclude 'NA' values
+             value !== '-';    // Exclude '-' values
+    });
+  });
+
+  // If no columns have data, alert and return
+  if (columnsWithData.length === 0) {
+    alert('No data to export');
+    return;
+  }
+
+  // Create header row with only columns that have data
+  const headers = columnsWithData.map(col => col.header);
+  
+  // Map the data to CSV rows
   const csvRows = [
     headers.join(','), // Header row
     ...data.map(contact => {
-      const row = [
-        contact.full_name || '',
-        contact.email || '',
-        contact.website || '',
-        contact.company_name || '',
-        contact.job_title || '',
-        contact.linkedin_url || '',
-        contact.country_or_address || '',
-        contact.companyTelephone || '',  // Note: camelCase
-        contact.companyEmployeeCount || '',  // Note: camelCase
-        contact.companyIndustry || '',  // Note: camelCase
-        contact.companyLinkedInURL || '',  // Note: camelCase with capital URL
-        contact.companyEventLink || '',  // Note: camelCase
-        contact.created_at ? formatDate(contact.created_at) : '',
-        contact.updated_at ? formatDate(contact.updated_at) : '',
-        contact.email_sent_at ? formatDate(contact.email_sent_at) : ''
-      ];
-      
-      // Escape values that contain commas, quotes, or newlines
-      return row.map(value => {
-        const stringValue = String(value || '');
-        // Check if value needs to be quoted
+      const row = columnsWithData.map(column => {
+        let value = contact[column.key] || '';
+        
+        // Format dates if it's a date column
+        if ((column.key === 'created_at' || column.key === 'updated_at' || column.key === 'email_sent_at') && value) {
+          value = formatDate(value);
+        }
+        
+        // Convert to string
+        const stringValue = String(value);
+        
+        // Escape values that contain commas, quotes, or newlines
         if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n') || stringValue.includes('\r')) {
           return `"${stringValue.replace(/"/g, '""')}"`;
         }
+        
         return stringValue;
-      }).join(',');
+      });
+      
+      return row.join(',');
     })
   ];
 
