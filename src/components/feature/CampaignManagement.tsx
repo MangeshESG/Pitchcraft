@@ -742,13 +742,13 @@ useEffect(() => {
       onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside modal
 
     >
-      <h2 style={{ marginTop: 0, marginBottom: 24 }}>
+      <h2 className="sub-title" style={{ marginTop: 0, marginBottom: 24 }}>
         {selectedCampaign ? "Edit Campaign" : "Create Campaign"}
       </h2>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 15 }}>
         <div style={{ gridColumn: "1 / -1" }}>
-          <div className="form-group">
+          <div className="form-group !mb-0">
             <label>
               Campaign Name <span style={{ color: "red" }}>*</span>
             </label>
@@ -763,7 +763,7 @@ useEffect(() => {
         </div>
 
         <div>
-          <div className="form-group">
+          <div className="form-group !mb-0">
             <label>
               Template <span style={{ color: "red" }}>*</span>
             </label>
@@ -784,7 +784,7 @@ useEffect(() => {
 
         {/* List Dropdown */}
         <div>
-          <div className="form-group">
+          <div className="form-group !mb-0">
             <label>
               List
             </label>
@@ -807,7 +807,7 @@ useEffect(() => {
 
         {/* Segment Dropdown */}
         <div style={{ gridColumn: "1 / -1" }}>
-          <div className="form-group">
+          <div className="form-group !mb-0">
             <label>
               Segment
             </label>
@@ -829,7 +829,7 @@ useEffect(() => {
         </div>
 
         <div style={{ gridColumn: "1 / -1" }}>
-          <div className="form-group">
+          <div className="form-group !mb-0">
             <label>Description</label>
             <textarea
               name="description"
@@ -871,7 +871,7 @@ useEffect(() => {
         </button>
         <button
           onClick={selectedCampaign ? updateCampaign : createCampaign}
-          className="button primary"
+          className="save-button button auto-width small d-flex justify-between align-center"
           disabled={
             isLoading ||
             !campaignForm.campaignName ||
@@ -885,7 +885,7 @@ useEffect(() => {
               campaignForm.campaignName &&
               campaignForm.promptId &&
               (campaignForm.zohoViewId || campaignForm.segmentId)
-                ? "#007bff"
+                ? "#3f9f42"
                 : "#ccc",
             color: "#fff",
             border: "none",
