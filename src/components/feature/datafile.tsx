@@ -6,12 +6,11 @@ import "./datafile.css";
 import API_BASE_URL from "../../config";
 import { useAppData } from "../../contexts/AppDataContext";
 
-
 interface DataFileProps {
   selectedClient: string;
   onDataProcessed: (data: any[]) => void;
   isProcessing?: boolean;
-  onBack?: () => void; // Add this
+  onBack?: () => void;
 }
 
 interface ColumnMapping {
@@ -28,6 +27,11 @@ interface ProcessedContact {
   company_website?: string;
   email_body?: string;
   email_subject?: string;
+  company_telephone?: string;
+  company_employee_count?: string;
+  company_industry?: string;
+  company_linkedin_url?: string;
+  company_event_link?: string;
 }
 
 const REQUIRED_FIELDS = [
@@ -37,9 +41,14 @@ const REQUIRED_FIELDS = [
   { key: "company", label: "Company", required: false },
   { key: "location", label: "Location", required: false },
   { key: "linkedin", label: "LinkedIn URL", required: false },
-  { key: "company_website", label: "Company website", required: false },
+  { key: "company_website", label: "Company Website", required: false },
   { key: "email_body", label: "Email Body", required: false },
   { key: "email_subject", label: "Email Subject", required: false },
+  { key: "company_telephone", label: "Company Telephone", required: false },
+  { key: "company_employee_count", label: "Company Employee Count", required: false },
+  { key: "company_industry", label: "Company Industry", required: false },
+  { key: "company_linkedin_url", label: "Company LinkedIn URL", required: false },
+  { key: "company_event_link", label: "Company Event Link", required: false },
 ];
 
 const DataFile: React.FC<DataFileProps> = ({
@@ -71,12 +80,13 @@ const DataFile: React.FC<DataFileProps> = ({
     description: "",
   });
   const [validatedData, setValidatedData] = useState<ProcessedContact[]>([]);
-  const { triggerRefresh } = useAppData(); // Add this line
+  const { triggerRefresh } = useAppData();
 
   interface DataFileInfo {
     name: string;
     description: string;
   }
+
   // Auto-detect column mappings
   const autoDetectColumns = (headers: string[]) => {
     const mappings: ColumnMapping = {};
@@ -132,6 +142,42 @@ const DataFile: React.FC<DataFileProps> = ({
         "subject",
         "message subject",
         "email title",
+      ],
+      company_telephone: [
+        "company telephone",
+        "company phone",
+        "telephone",
+        "phone",
+        "contact number",
+        "company contact",
+      ],
+      company_employee_count: [
+        "company employee count",
+        "employee count",
+        "employees",
+        "company size",
+        "headcount",
+        "staff count",
+      ],
+      company_industry: [
+        "company industry",
+        "industry",
+        "sector",
+        "business type",
+        "industry type",
+      ],
+      company_linkedin_url: [
+        "company linkedin url",
+        "company linkedin",
+        "business linkedin",
+        "organization linkedin",
+      ],
+      company_event_link: [
+        "company event link",
+        "event link",
+        "event url",
+        "conference link",
+        "meeting link",
       ],
     };
 
@@ -296,7 +342,7 @@ const DataFile: React.FC<DataFileProps> = ({
           validationErrors.push(
             `Row ${rowIndex + 2}: Missing required fields (name or email)`
           );
-        }
+                }
         isValid = false;
         invalidCount++;
       } else if (!isValidEmail(mappedRow.email)) {
@@ -353,6 +399,11 @@ const DataFile: React.FC<DataFileProps> = ({
           countryOrAddress: contact.location || "",
           emailSubject: contact.email_subject || "",
           emailBody: contact.email_body || "",
+          companyTelephone: contact.company_telephone || "",
+          companyEmployeeCount: contact.company_employee_count || "",
+          companyIndustry: contact.company_industry || "",
+          companyLinkedInURL: contact.company_linkedin_url || "",
+          companyEventLink: contact.company_event_link || "",
         })),
       };
 
@@ -374,7 +425,6 @@ const DataFile: React.FC<DataFileProps> = ({
       }
 
       triggerRefresh();
-
 
       const result = await response.json();
 
@@ -425,9 +475,14 @@ const DataFile: React.FC<DataFileProps> = ({
         "Company",
         "Location",
         "LinkedIn URL",
-        "Company website",
+        "Company Website",
         "Email Body",
         "Email Subject",
+        "Company Telephone",
+        "Company Employee Count",
+        "Company Industry",
+        "Company LinkedIn URL",
+        "Company Event Link",
       ],
       [
         "John Doe",
@@ -439,6 +494,11 @@ const DataFile: React.FC<DataFileProps> = ({
         "https://techcorp.com",
         "Hello, this is a sample email body.",
         "Sample Email Subject",
+        "+1-555-123-4567",
+        "100-500",
+        "Technology",
+        "https://linkedin.com/company/techcorp",
+        "https://techcorp.com/events/annual-conference",
       ],
     ];
 
@@ -616,7 +676,7 @@ const DataFile: React.FC<DataFileProps> = ({
             </div>
           )}
 
-          {/* Step 2: Map Columns */}
+                    {/* Step 2: Map Columns */}
           {currentStep === 2 && (
             <div className="mapping-section mt-20">
               <h4 className="mt-[20px]" style={{marginBottom:'5px'}} >Map your excel Columns</h4>
@@ -695,9 +755,15 @@ const DataFile: React.FC<DataFileProps> = ({
                 <table className="preview-table">
                   <thead>
                     <tr>
-                      {REQUIRED_FIELDS.map((field) => (
-                        <th key={field.key}>{field.label}</th>
-                      ))}
+                      <th>Name</th>
+                      <th>Email</th>
+                      <th>Job Title</th>
+                      <th>Company</th>
+                      <th>Location</th>
+                      <th>LinkedIn</th>
+                      <th>Website</th>
+                      <th>Phone</th>
+                      <th>Industry</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -708,8 +774,10 @@ const DataFile: React.FC<DataFileProps> = ({
                         <td>{row.job_title || "-"}</td>
                         <td>{row.company || "-"}</td>
                         <td>{row.location || "-"}</td>
-                        <td>{row.linkedin || "-"}</td>
-                        <td>{row.company_website || "-"}</td>
+                        <td>{row.linkedin ? "✓" : "-"}</td>
+                        <td>{row.company_website ? "✓" : "-"}</td>
+                        <td>{row.company_telephone || "-"}</td>
+                        <td>{row.company_industry || "-"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -851,6 +919,7 @@ const DataFile: React.FC<DataFileProps> = ({
           </p>
         </div>
       </Modal>
+
       {/* Data File Info Modal */}
       <Modal
         show={showDataFileModal}

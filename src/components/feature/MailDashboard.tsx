@@ -443,15 +443,15 @@ useEffect(() => {
 // Try to fetch email logs for segment
 try {
   const segmentEmailLogsResponse = await axios.get(
-    `${API_BASE_URL}/api/Crm/segment-email-logs`,
-    {
-      params: { 
-        segmentId: campaign.segmentId,
-        clientId: clientId 
-      },
-      headers: { ...(token && { Authorization: `Bearer ${token}` }) },
-    }
-  );
+  `${API_BASE_URL}/track/log/segment`,
+  {
+    params: { 
+      segmentId: campaign.segmentId,
+      clientId: clientId 
+    },
+    headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+  }
+);
   allEmailLogsData = segmentEmailLogsResponse.data || [];
 } catch (emailLogError) {
   console.log("No email logs found for segment, continuing with empty array");

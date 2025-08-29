@@ -315,6 +315,8 @@ const MainPage: React.FC = () => {
   const [isLoadingClientSettings, setIsLoadingClientSettings] = useState(false);
   const clientID = sessionStorage.getItem("clientId");
   const [lastLoadedClientId, setLastLoadedClientId] = useState<string | null>(null);
+  const [selectedSegmentId, setSelectedSegmentId] = useState<number | null>(null);
+
 
 
 
@@ -894,7 +896,7 @@ const buildReplacements = (
   };
 };
 
-  const fetchAndDisplayEmailBodies = useCallback(
+const fetchAndDisplayEmailBodies = useCallback(
   async (
     zohoviewId: string, // Format: "clientId,dataFileId" OR "segment_segmentId"
     pageToken: string | null = null,
@@ -912,11 +914,13 @@ const buildReplacements = (
       }
 
       let contactsData = [];
+      let dataFileId: string | null = null;
+      let segmentId: string | null = null;
 
       // ✅ Check if this is a segment-based call
       if (zohoviewId.startsWith("segment_")) {
         // Extract segmentId from "segment_123" format
-        const segmentId = zohoviewId.replace("segment_", "");
+        segmentId = zohoviewId.replace("segment_", "");
         console.log("Fetching segment contacts for segmentId:", segmentId);
 
         // ✅ Fetch from segment API
@@ -934,7 +938,8 @@ const buildReplacements = (
       } else {
         // ✅ Original datafile logic (unchanged)
         // Parse zohoviewId to get clientId and dataFileId
-        const [clientId, dataFileId] = zohoviewId.split(",");
+        const [clientId, extractedDataFileId] = zohoviewId.split(",");
+        dataFileId = extractedDataFileId;
 
         // Use effectiveUserId instead of selectedClient in URL
         const url = `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${dataFileId}`;
@@ -949,7 +954,7 @@ const buildReplacements = (
         console.log("Fetched datafile contacts:", contactsData);
       }
 
-      // ✅ Rest of the function remains exactly the same
+      // ✅ Rest of the function with added dataFileId and segmentId
       setCachedContacts(contactsData);
 
       if (!Array.isArray(contactsData)) {
@@ -959,7 +964,8 @@ const buildReplacements = (
 
       const emailResponses = contactsData.map((entry: any) => ({
         id: entry.id,
-        datafileid: entry.dataFileId || "N/A",
+        datafileid: dataFileId || "null", // Add dataFileId to response
+        segmentId: segmentId || "null", // Add segmentId to response
         name: entry.full_name || "N/A",
         title: entry.job_title || "N/A",
         company: entry.company_name || "N/A",
@@ -2084,7 +2090,7 @@ const filledInstructions = replaceAllPlaceholders(instructionsParamA, replacemen
           });
           continue;
         }
-        
+
         replacements = {
           ...replacements,
           search_output_summary: scrappedData || ""
@@ -3034,6 +3040,8 @@ const handleCampaignChange = async (
       // ✅ Check if campaign is segment-based or datafile-based
       const segmentId = (campaign as any).segmentId;
       const dataFileId = campaign.zohoViewId;
+      setSelectedSegmentId(segmentId || null); // <-- Add this
+
       
       console.log("Campaign segmentId:", segmentId);
       console.log("Campaign dataFileId:", dataFileId);
@@ -3065,11 +3073,14 @@ const handleCampaignChange = async (
     // If no campaign is selected, switch back to manual mode
     setSelectionMode("manual");
     setSelectedPrompt(null);
+    setSelectedSegmentId(null); // <-- Clear on deselection
     setSelectedZohoviewId("");
     setAllResponses([]);
     setexistingResponse([]);
   }
 };
+
+
   const handleClearAll = () => {
   stopRef.current = true;
 
@@ -4194,6 +4205,8 @@ const handleCampaignChange = async (
                 isStopRequested={stopRef.current} // Add this line
                 toneSettings={toneSettings}                    // Add this line
                 toneSettingsHandler={toneSettingsHandler}      // Add this line
+                selectedSegmentId={selectedSegmentId}
+
                
               
 

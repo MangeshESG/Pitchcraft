@@ -59,6 +59,11 @@ interface Contact {
   created_at?: string;
   updated_at?: string | null;
   email_sent_at?: string | null;
+  companyTelephone?: string;  // camelCase
+  companyEmployeeCount?: string;  // camelCase
+  companyIndustry?: string;  // camelCase
+  companyLinkedInURL?: string;  // camelCase with capital URL
+  companyEventLink?: string;  // camelCase
 }
 
 const getContactValue = (contact: Contact, key: string): any => {
@@ -792,6 +797,149 @@ const handleDetailSelectAll = () => {
     }
   };
 
+
+// Helper function to convert data to CSV
+const downloadCSV = (data: any[], filename: string) => {
+  // Define the columns to export - matching your Excel screenshot
+  const headers = [
+    'Full Name',
+    'Email',
+    'Website',
+    'Company Name',
+    'Job Title',
+    'LinkedIn URL',
+    'Country Or Address',
+    'Company Telephone',
+    'Company Employee Count',
+    'Company Industry',
+    'Company LinkedIn URL',
+    'Company Event Link',
+    'Created Date',
+    'Updated Date',
+    'Email Sent Date'
+  ];
+
+  // Map the data to CSV rows using the exact field names from your API
+  const csvRows = [
+    headers.join(','), // Header row
+    ...data.map(contact => {
+      const row = [
+        contact.full_name || '',
+        contact.email || '',
+        contact.website || '',
+        contact.company_name || '',
+        contact.job_title || '',
+        contact.linkedin_url || '',
+        contact.country_or_address || '',
+        contact.companyTelephone || '',  // Note: camelCase
+        contact.companyEmployeeCount || '',  // Note: camelCase
+        contact.companyIndustry || '',  // Note: camelCase
+        contact.companyLinkedInURL || '',  // Note: camelCase with capital URL
+        contact.companyEventLink || '',  // Note: camelCase
+        contact.created_at ? formatDate(contact.created_at) : '',
+        contact.updated_at ? formatDate(contact.updated_at) : '',
+        contact.email_sent_at ? formatDate(contact.email_sent_at) : ''
+      ];
+      
+      // Escape values that contain commas, quotes, or newlines
+      return row.map(value => {
+        const stringValue = String(value || '');
+        // Check if value needs to be quoted
+        if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n') || stringValue.includes('\r')) {
+          return `"${stringValue.replace(/"/g, '""')}"`;
+        }
+        return stringValue;
+      }).join(',');
+    })
+  ];
+
+  // Create CSV content with BOM for Excel compatibility
+  const BOM = '\uFEFF';
+  const csvContent = BOM + csvRows.join('\n');
+  
+  // Create blob and download
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  
+  link.setAttribute('href', url);
+  link.setAttribute('download', `${filename}.csv`);
+  link.style.visibility = 'hidden';
+  
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  // Clean up the URL object
+  URL.revokeObjectURL(url);
+};
+// Add these functions after your existing handler functions
+
+// Download list data
+const handleDownloadList = async (file: DataFileItem) => {
+  try {
+    setIsLoading(true);
+    
+    // Fetch all contacts for this list
+    const response = await fetch(
+      `${API_BASE_URL}/api/Crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${file.id}`
+    );
+    
+    if (!response.ok) throw new Error("Failed to fetch contacts");
+    
+    const data: ContactsResponse = await response.json();
+    const contacts = data.contacts || [];
+    
+    if (contacts.length === 0) {
+      alert("No contacts to download");
+      return;
+    }
+    
+    // Download as CSV
+    const filename = `${file.name.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().split('T')[0]}`;
+    downloadCSV(contacts, filename);
+    
+  } catch (error) {
+    console.error("Error downloading list:", error);
+    alert("Failed to download list data");
+  } finally {
+    setIsLoading(false);
+    setListActionsAnchor(null);
+  }
+};
+
+// Download segment data
+const handleDownloadSegment = async (segment: any) => {
+  try {
+    setIsLoadingSegments(true);
+    
+    // Fetch all contacts for this segment
+    const response = await fetch(
+      `${API_BASE_URL}/api/Crm/segment/${segment.id}/contacts`
+    );
+    
+    if (!response.ok) throw new Error("Failed to fetch segment contacts");
+    
+    const contacts = await response.json();
+    
+    if (!contacts || contacts.length === 0) {
+      alert("No contacts to download");
+      return;
+    }
+    
+    // Download as CSV
+    const filename = `${segment.name.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().split('T')[0]}`;
+    downloadCSV(contacts, filename);
+    
+  } catch (error) {
+    console.error("Error downloading segment:", error);
+    alert("Failed to download segment data");
+  } finally {
+    setIsLoadingSegments(false);
+    setSegmentActionsAnchor(null);
+  }
+};
+
   
 
   return (
@@ -968,6 +1116,12 @@ const handleDetailSelectAll = () => {
                                 style={menuBtnStyle}
                               >
                                 👁️ View
+                              </button>
+                                <button
+                                onClick={() => handleDownloadList(file)}
+                                style={menuBtnStyle}
+                              >
+                                📥 Download 
                               </button>
                           {!isDemoAccount && (
 

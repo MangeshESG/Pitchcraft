@@ -149,6 +149,8 @@ interface OutputInterface {
 
   toneSettings?: any;
   toneSettingsHandler?: (e: any) => void;
+  selectedSegmentId?: number | null; // Add this
+
 
 
 }
@@ -219,9 +221,11 @@ const Output: React.FC<OutputInterface> = ({
   setSubjectMode,
   subjectText,
   setSubjectText,
-  isStopRequested, // Add this line
-  toneSettings,        // Add this
-  toneSettingsHandler, // Add this
+  isStopRequested, 
+  toneSettings,        
+  toneSettingsHandler, 
+  selectedSegmentId,  
+
 
 }) => {
   const [isCopyText, setIsCopyText] = useState(false);
@@ -831,7 +835,9 @@ const handleSendEmail = async (
     const requestBody = {
       clientId: effectiveUserId,
       contactid: currentContact.id,
-      dataFileId: currentContact.datafileid || 0,
+      dataFileId: currentContact.datafileid === "null" || !currentContact.datafileid ? null : parseInt(currentContact.datafileid) || null,      
+      segmentId: currentContact.segmentId === "null" || !currentContact.segmentId ? null : parseInt(currentContact.segmentId) || null,
+
       toEmail: currentContact.email,
       subject: subjectToUse,
       body: currentContact.pitch || "", // Using the pitch as the email body
