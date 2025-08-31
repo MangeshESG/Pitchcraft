@@ -3168,17 +3168,22 @@ const handleCampaignChange = async (
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
-  
+  const clearUsage = () => {
+      setOutputForm((prevOutputForm: any) => ({
+        ...prevOutputForm,
+        usage: "", // Correctly clears the usage field
+      }));
+    };
 
 
 
   return (
     // <div className="login-container pitch-page flex-col d-flex">
-    <div className="flex h-screen bg-gray-100">
+    <div className="flex h-full bg-gray-100">
       {/* Sidebar */}
       {isSidebarOpen && (
         <aside
-          className={`bg-white border-r shadow-sm flex flex-col transition-all duration-300`}
+          className={`bg-white border-r shadow-sm flex flex-col transition-all duration-300 h-full`}
         >
           <div className="p-2 text-xl font-bold border-b">
             <div className="flex justify-between items-start">
@@ -3198,252 +3203,278 @@ const handleCampaignChange = async (
               </button>
             </div>
           </div>
-
-          <nav className="flex-1 py-4 space-y-2">
-            {/* Side Menu */}
-            <div className="side-menu">
-              <div className="side-menu-inner">
-                <ul className="side-menu-list">
-                  <li className={tab === "Template" ? "active" : ""}>
-                    <button
-                      onClick={() => {
-                        setTab("Template");
-                        setShowMailSubmenu(false);
-                        setShowContactsSubmenu(false);
-
-                      }}
-                      className="side-menu-button"
-                      title="Click to view the original non-personalized email template"
-                    >
-                      <span className="menu-icon">
-                        <FontAwesomeIcon
-                          icon={faFileAlt}
-                          className=" text-[#333333] text-lg"
-                        />
-                      </span>
-                      <span className="menu-text">Templates</span>
-                    </button>
-                  </li>
-                  <li
-                    className={`${tab === "DataCampaigns" ? "active" : ""} ${
-                      showContactsSubmenu
-                        ? "has-submenu submenu-open"
-                        : "has-submenu"
-                    }`}
-                  >
-                    <button
-                      onClick={() => {
-                        if (tab !== "DataCampaigns") {
-                          setTab("DataCampaigns");
-                          setShowContactsSubmenu(true);
-                          setShowMailSubmenu(false);
-                        } else {
-                          setShowContactsSubmenu((prev) => !prev);
-                        }
-                      }}
-                      className="side-menu-button"
-                      title="Manage contacts and segments"
-                    >
-                      <span className="menu-icon">
-                        <FontAwesomeIcon
-                          icon={faList}
-                          className=" text-[#333333] text-lg"
-                        />
-                      </span>
-                      <span className="menu-text">Contacts</span>
-                      <span className="submenu-arrow">
-                        <FontAwesomeIcon
-                          icon={faAngleRight}
-                          className=" text-[#333333] text-lg"
-                        />
-                      </span>
-                    </button>
-                    {showContactsSubmenu && (
-                      <ul className="submenu">
-                        <li
-                          className={contactsSubTab === "List" ? "active" : ""}
-                        >
-                          <button
-                            onClick={() => {
-                              setContactsSubTab("List");
-                              setTab("DataCampaigns");
-                              setShowMailSubmenu(false);
-                            }}
-                            className="submenu-button"
-                          >
-                            Lists
-                          </button>
-                        </li>
-                        <li
-                          className={
-                            contactsSubTab === "Segment" ? "active" : ""
-                          }
-                        >
-                          <button
-                            onClick={() => {
-                              setContactsSubTab("Segment");
-                              setTab("DataCampaigns");
-                              setShowMailSubmenu(false);
-                            }}
-                            className="submenu-button"
-                          >
-                            Segments
-                          </button>
-                        </li>
-                      </ul>
-                    )}
-                  </li>
-
-                  <li className={tab === "Campaigns" ? "active" : ""}>
-                    <button
-                      onClick={() => {
-                        setTab("Campaigns");
-                        setShowMailSubmenu(false);
-                        setShowContactsSubmenu(false);
-                      }}
-                      className="side-menu-button"
-                      title="Manage campaigns"
-                    >
-                      <span className="menu-icon">
-                        <FontAwesomeIcon
-                          icon={faBullhorn}
-                          className=" text-[#333333] text-lg"
-                        />
-                      </span>
-                      <span className="menu-text">Campaigns</span>
-                    </button>
-                  </li>
-                  <li className={tab === "Output" ? "active" : ""}>
-                    <button
-                      onClick={() => {
-                        setTab("Output");
-                        setShowMailSubmenu(false);
-                        setShowContactsSubmenu(false);
-                      }}
-                      className="side-menu-button"
-                      title="Click to view the hyper-personalized emails being generated"
-                    >
-                      <span className="menu-icon">
-                        <FontAwesomeIcon
-                          icon={faEnvelopeOpen}
-                          className=" text-[#333333] text-lg"
-                        />
-                      </span>
-                      <span className="menu-text">Output</span>
-                    </button>
-                  </li>
-                  <li
-  className={`${tab === "Mail" ? "active" : ""} ${
-    showMailSubmenu
-      ? "has-submenu submenu-open"
-      : "has-submenu"
-  }`}
->
-  <button
-    onClick={() => {
-      if (tab !== "Mail") {
-        setTab("Mail");
-        setShowMailSubmenu(true);
-        setShowContactsSubmenu(false);
-      } else {
-        setShowMailSubmenu((prev) => !prev);
-      }
-    }}
-    className="side-menu-button"
-  >
-    <span className="menu-icon">
-      <FontAwesomeIcon
-        icon={faEnvelope}
-        className=" text-[#333333] text-lg"
-      />
-    </span>
-    <span className="menu-text">Mail</span>
-    <span className="submenu-arrow">
-      <FontAwesomeIcon
-        icon={faAngleRight}
-        className=" text-[#333333] text-lg"
-      />
-    </span>
-  </button>
-  {showMailSubmenu && (
-    <ul className="submenu">
-      <li
-        className={
-          mailSubTab === "Dashboard" ? "active" : ""
-        }
-      >
-        <button
-          onClick={() => {
-            setMailSubTab("Dashboard");
-            setTab("Mail");
-          }}
-          className="submenu-button"
-        >
-          Dashboard
-        </button>
-      </li>
-      <li
-        className={
-          mailSubTab === "Configuration" ? "active" : ""
-        }
-      >
-        <button
-          onClick={() => {
-            setMailSubTab("Configuration");
-            setTab("Mail");
-          }}
-          className="submenu-button"
-        >
-          Configuration
-        </button>
-      </li>
-      <li
-        className={
-          mailSubTab === "Schedule" ? "active" : ""
-        }
-      >
-        <button
-          onClick={() => {
-            setMailSubTab("Schedule");
-            setTab("Mail");
-          }}
-          className="submenu-button"
-        >
-          Schedules
-        </button>
-      </li>
-    </ul>
-  )}
-</li>
-                  {userRole === "ADMIN" && (
-                    <li className={tab === "Settings" ? "active" : ""}>
+          <div className="overflow-y-auto h-full">
+            <nav className="flex-1 py-4 space-y-2">
+              {/* Side Menu */}
+              <div className="side-menu">
+                <div className="side-menu-inner">
+                  <ul className="side-menu-list">
+                    <li className={tab === "Template" ? "active" : ""}>
                       <button
                         onClick={() => {
-                          setTab("Settings");
+                          setTab("Template");
                           setShowMailSubmenu(false);
                           setShowContactsSubmenu(false);
+
+                        }}
+                        className="side-menu-button"
+                        title="Click to view the original non-personalized email template"
+                      >
+                        <span className="menu-icon">
+                          <FontAwesomeIcon
+                            icon={faFileAlt}
+                            className=" text-[#333333] text-lg"
+                          />
+                        </span>
+                        <span className="menu-text">Templates</span>
+                      </button>
+                    </li>
+                    <li
+                      className={`${tab === "DataCampaigns" ? "active" : ""} ${
+                        showContactsSubmenu
+                          ? "has-submenu submenu-open"
+                          : "has-submenu"
+                      }`}
+                    >
+                      <button
+                        onClick={() => {
+                          if (tab !== "DataCampaigns") {
+                            setTab("DataCampaigns");
+                            setShowContactsSubmenu(true);
+                            setShowMailSubmenu(false);
+                          } else {
+                            setShowContactsSubmenu((prev) => !prev);
+                          }
+                        }}
+                        className="side-menu-button"
+                        title="Manage contacts and segments"
+                      >
+                        <span className="menu-icon">
+                          <FontAwesomeIcon
+                            icon={faList}
+                            className=" text-[#333333] text-lg"
+                          />
+                        </span>
+                        <span className="menu-text">Contacts</span>
+                        <span className="submenu-arrow">
+                          <FontAwesomeIcon
+                            icon={faAngleRight}
+                            className=" text-[#333333] text-lg"
+                          />
+                        </span>
+                      </button>
+                      {showContactsSubmenu && (
+                        <ul className="submenu">
+                          <li
+                            className={contactsSubTab === "List" ? "active" : ""}
+                          >
+                            <button
+                              onClick={() => {
+                                setContactsSubTab("List");
+                                setTab("DataCampaigns");
+                                setShowMailSubmenu(false);
+                              }}
+                              className="submenu-button"
+                            >
+                              Lists
+                            </button>
+                          </li>
+                          <li
+                            className={
+                              contactsSubTab === "Segment" ? "active" : ""
+                            }
+                          >
+                            <button
+                              onClick={() => {
+                                setContactsSubTab("Segment");
+                                setTab("DataCampaigns");
+                                setShowMailSubmenu(false);
+                              }}
+                              className="submenu-button"
+                            >
+                              Segments
+                            </button>
+                          </li>
+                        </ul>
+                      )}
+                    </li>
+
+                    <li className={tab === "Campaigns" ? "active" : ""}>
+                      <button
+                        onClick={() => {
+                          setTab("Campaigns");
+                          setShowMailSubmenu(false);
+                          setShowContactsSubmenu(false);
+                        }}
+                        className="side-menu-button"
+                        title="Manage campaigns"
+                      >
+                        <span className="menu-icon">
+                          <FontAwesomeIcon
+                            icon={faBullhorn}
+                            className=" text-[#333333] text-lg"
+                          />
+                        </span>
+                        <span className="menu-text">Campaigns</span>
+                      </button>
+                    </li>
+                    <li className={tab === "Output" ? "active" : ""}>
+                      <button
+                        onClick={() => {
+                          setTab("Output");
+                          setShowMailSubmenu(false);
+                          setShowContactsSubmenu(false);
+                        }}
+                        className="side-menu-button"
+                        title="Click to view the hyper-personalized emails being generated"
+                      >
+                        <span className="menu-icon">
+                          <FontAwesomeIcon
+                            icon={faEnvelopeOpen}
+                            className=" text-[#333333] text-lg"
+                          />
+                        </span>
+                        <span className="menu-text">Output</span>
+                      </button>
+                    </li>
+                    <li
+                      className={`${tab === "Mail" ? "active" : ""} ${
+                        showMailSubmenu
+                          ? "has-submenu submenu-open"
+                          : "has-submenu"
+                      }`}
+                    >
+                      <button
+                        onClick={() => {
+                          if (tab !== "Mail") {
+                            setTab("Mail");
+                            setShowMailSubmenu(true);
+                            setShowContactsSubmenu(false);
+                          } else {
+                            setShowMailSubmenu((prev) => !prev);
+                          }
                         }}
                         className="side-menu-button"
                       >
                         <span className="menu-icon">
                           <FontAwesomeIcon
-                            icon={faGear}
+                            icon={faEnvelope}
                             className=" text-[#333333] text-lg"
                           />
                         </span>
-                        <span className="menu-text">Settings</span>
+                        <span className="menu-text">Mail</span>
+                        <span className="submenu-arrow">
+                          <FontAwesomeIcon
+                            icon={faAngleRight}
+                            className=" text-[#333333] text-lg"
+                          />
+                        </span>
                       </button>
+                      {showMailSubmenu && (
+                        <ul className="submenu">
+                          <li
+                            className={
+                              mailSubTab === "Dashboard" ? "active" : ""
+                            }
+                          >
+                            <button
+                              onClick={() => {
+                                setMailSubTab("Dashboard");
+                                setTab("Mail");
+                              }}
+                              className="submenu-button"
+                            >
+                              Dashboard
+                            </button>
+                          </li>
+                          <li
+                            className={
+                              mailSubTab === "Configuration" ? "active" : ""
+                            }
+                          >
+                            <button
+                              onClick={() => {
+                                setMailSubTab("Configuration");
+                                setTab("Mail");
+                              }}
+                              className="submenu-button"
+                            >
+                              Configuration
+                            </button>
+                          </li>
+                          <li
+                            className={
+                              mailSubTab === "Schedule" ? "active" : ""
+                            }
+                          >
+                            <button
+                              onClick={() => {
+                                setMailSubTab("Schedule");
+                                setTab("Mail");
+                              }}
+                              className="submenu-button"
+                            >
+                              Schedules
+                            </button>
+                          </li>
+                        </ul>
+                      )}
                     </li>
-                  )}
-                </ul>
+                    {userRole === "ADMIN" && (
+                      <li className={tab === "Settings" ? "active" : ""}>
+                        <button
+                          onClick={() => {
+                            setTab("Settings");
+                            setShowMailSubmenu(false);
+                            setShowContactsSubmenu(false);
+                          }}
+                          className="side-menu-button"
+                        >
+                          <span className="menu-icon">
+                            <FontAwesomeIcon
+                              icon={faGear}
+                              className=" text-[#333333] text-lg"
+                            />
+                          </span>
+                          <span className="menu-text">Settings</span>
+                        </button>
+                      </li>
+                    )}
+                  </ul>
+                </div>
               </div>
-            </div>
-          </nav>
+            </nav>
+            {/* Rest of Output component content */}
+            {userRole === "ADMIN" && (
+              <div className="pb-2 d-flex align-center justify-end p-4 w-[100%] border-t-[3px] border-t-[#eeeeee]">
+                <div className="form-group w-[100%]">
+                  <label>Usage</label>
+                  <span className="pos-relative full-width flex flex-col">
+                    <textarea
+                      placeholder="Usage"
+                      rows={4}
+                      name="tkUsage"
+                      value={outputForm.usage}
+                      className="full-width p-[0.5rem]"
+                      onChange={outputFormHandler}
+                    ></textarea>
+                    <button
+                      className="!bg-[#f5f5f5] mt-2 secondary-button button clear-button small d-flex align-center h-[100%] justify-center"
+                      onClick={clearUsage}
+                    >
+                      Clear Usage
+                    </button>
+                  </span>
+                </div>
+                
+              </div>
+            )}
+          </div>
         </aside>
       )}
 
       {/* Content Area */}
-      <div className="flex flex-col flex-1">
+      <div className="flex flex-col flex-1 h-full">
         {/* Header */}
         <header className="bg-white shadow-sm border-b p-2 px-4 flex justify-between items-center min-h-[77px]">
           {!isSidebarOpen && (
@@ -3467,7 +3498,7 @@ const handleCampaignChange = async (
         </header>
 
         {/* Inner Main Content */}
-        <main className="flex-1 p-4 overflow-y-auto">
+        <main className="flex-1 p-4  overflow-y-auto h-[calc(100%-87px)]">
           <div className="bg-white rounded-md shadow-md p-6">
             {/* Main Content Area */}
 

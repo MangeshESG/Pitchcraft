@@ -18,6 +18,7 @@ import {
 import ContactsTable from "./ContactsTable";
 import API_BASE_URL from "../../config";
 import { useAppData } from "../../contexts/AppDataContext";
+import { Tooltip as ReactTooltip } from "react-tooltip";
 
 // Interfaces
 interface DailyStats {
@@ -888,7 +889,7 @@ try {
           href={contact.linkedin_URL}
           target="_blank"
           rel="noopener noreferrer"
-          style={{ color: "#0066cc", textDecoration: "underline" }}
+          style={{ color: "#3f9f42", textDecoration: "underline" }}
           onClick={(e) => e.stopPropagation()}
         >
           LinkedIn Profile
@@ -903,7 +904,7 @@ try {
           href={contact.targetUrl}
           target="_blank"
           rel="noopener noreferrer"
-          style={{ color: "#0066cc", textDecoration: "underline" }}
+          style={{ color: "#3f9f42", textDecoration: "underline" }}
           onClick={(e) => e.stopPropagation()}
           title={contact.targetUrl}
         >
@@ -921,7 +922,7 @@ try {
           href={contact.website}
           target="_blank"
           rel="noopener noreferrer"
-          style={{ color: "#0066cc", textDecoration: "underline" }}
+          style={{ color: "#3f9f42", textDecoration: "underline" }}
           onClick={(e) => e.stopPropagation()}
         >
           Website
@@ -974,7 +975,7 @@ try {
               href={log.website.startsWith('http') ? log.website : `https://${log.website}`} 
               target="_blank" 
                            rel="noopener noreferrer"
-              style={{ color: "#0066cc", textDecoration: "underline" }}
+              style={{ color: "#3f9f42", textDecoration: "underline" }}
               onClick={(e) => e.stopPropagation()}
             >
               Website
@@ -990,7 +991,7 @@ try {
               href={log.linkedIn} 
               target="_blank" 
               rel="noopener noreferrer"
-              style={{ color: "#0066cc", textDecoration: "underline" }}
+              style={{ color: "#3f9f42", textDecoration: "underline" }}
               onClick={(e) => e.stopPropagation()}
             >
               LinkedIn Profile
@@ -1003,7 +1004,7 @@ try {
               href={log.linkedin_URL} 
               target="_blank" 
               rel="noopener noreferrer"
-              style={{ color: "#0066cc", textDecoration: "underline" }}
+              style={{ color: "#3f9f42", textDecoration: "underline" }}
               onClick={(e) => e.stopPropagation()}
             >
               LinkedIn Profile
@@ -1344,6 +1345,17 @@ if (!dataFileId) {
             min={startDate || undefined}
           />
         </div>
+        <div className="form-group flex items-start">
+          <ReactTooltip
+            anchorSelect="#mail-dashboard-refresh-analytics"
+            place="top"
+          >
+            Refresh the dashboard analytics
+          </ReactTooltip>
+          <span className="cursor-pointer -ml-[5px]" id="mail-dashboard-refresh-analytics">
+            <svg xmlns="http://www.w3.org/2000/svg" width="41px" height="41px" viewBox="0 0 30 30" fill="none"><g fill="#3f9f42" style={{transform:'translateY(5px)'}}><path d="M8 1.5A6.5 6.5 0 001.5 8 .75.75 0 010 8a8 8 0 0113.5-5.81v-.94a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zM15.25 7.25A.75.75 0 0116 8a8 8 0 01-13.5 5.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z"></path></g></svg>
+          </span>
+        </div>
 
         {(startDate || endDate) && (
           <button
@@ -1488,14 +1500,14 @@ if (!dataFileId) {
             >
               Sent
             </button>
-            <button
+            {/* <button
               onClick={handleRefresh}
               className="btn-refresh"
               disabled={isRefreshing}
               style={{ marginLeft: "auto" }}
             >
               {isRefreshing ? "Refreshing..." : "Refresh"}
-            </button>
+            </button> */}
           </div>
 
           {/* ContactsTable Component */}
@@ -1632,7 +1644,7 @@ if (!dataFileId) {
                     href={cleanUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{ color: "#0066cc", textDecoration: "underline" }}
+                    style={{ color: "#3f9f42", textDecoration: "underline" }}
                     onClick={(e) => e.stopPropagation()}
                   >
                     LinkedIn Profile
@@ -1649,7 +1661,7 @@ if (!dataFileId) {
                     href={cleanUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{ color: "#0066cc", textDecoration: "underline" }}
+                    style={{ color: "#3f9f42", textDecoration: "underline" }}
                     onClick={(e) => e.stopPropagation()}
                   >
                     LinkedIn Profile
@@ -1664,7 +1676,7 @@ if (!dataFileId) {
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{ color: "#0066cc", textDecoration: "underline" }}
+                    style={{ color: "#3f9f42", textDecoration: "underline" }}
                     onClick={(e) => e.stopPropagation()}
                   >
                     Website
@@ -1678,7 +1690,7 @@ if (!dataFileId) {
                     href={value}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{ color: "#0066cc", textDecoration: "underline" }}
+                    style={{ color: "#3f9f42", textDecoration: "underline" }}
                     onClick={(e) => e.stopPropagation()}
                     title={value}
                   >
@@ -1693,7 +1705,7 @@ if (!dataFileId) {
                 return (
                   <a
                     href={`mailto:${value}`}
-                    style={{ color: "#0066cc", textDecoration: "underline" }}
+                    style={{ color: "#3f9f42", textDecoration: "underline" }}
                     onClick={(e) => e.stopPropagation()}
                   >
                     {value}
@@ -1705,7 +1717,7 @@ if (!dataFileId) {
                 return (
                   <a
                     href={`mailto:${value}`}
-                    style={{ color: "#0066cc", textDecoration: "underline" }}
+                    style={{ color: "#3f9f42", textDecoration: "underline" }}
                     onClick={(e) => e.stopPropagation()}
                   >
                     {value}

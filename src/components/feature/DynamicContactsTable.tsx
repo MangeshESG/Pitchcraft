@@ -237,7 +237,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
               href={url}
               target="_blank"
               rel="noopener noreferrer"
-              style={{ color: "#0066cc", textDecoration: "underline" }}
+              style={{ color: "#3f9f42", textDecoration: "underline" }}
               onClick={(e) => e.stopPropagation()}
             >
               {value.length > 30 ? value.substring(0, 30) + '...' : value}
@@ -251,7 +251,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
           return (
             <a
               href={`mailto:${value}`}
-              style={{ color: "#0066cc", textDecoration: "underline" }}
+              style={{ color: "#3f9f42", textDecoration: "underline" }}
               onClick={(e) => e.stopPropagation()}
             >
               {value}
@@ -596,7 +596,6 @@ const handleSelectAll = (checked: boolean) => {
               width: "300px",
               background: "#fff",
               border: "1px solid #e0e0e0",
-              borderRadius: "8px 0 0 8px",
               boxShadow: "-4px 0 12px rgba(0,0,0,0.15)",
               padding: "20px",
               zIndex: 1000,
@@ -613,7 +612,7 @@ const handleSelectAll = (checked: boolean) => {
                 borderBottom: "1px solid #e0e0e0",
               }}
             >
-              <h3 style={{ margin: 0, fontSize: "18px", color: "#333" }}>
+              <h3 style={{ margin: 0, fontSize: "18px", fontWeight:'600', color: "#333" }}>
                 Show/Hide columns
               </h3>
               <button
@@ -631,6 +630,7 @@ const handleSelectAll = (checked: boolean) => {
             </div>
 
             <div
+              className="justify-start"
               style={{ display: "flex", flexDirection: "column", gap: "12px" }}
             >
               {columns
@@ -638,6 +638,7 @@ const handleSelectAll = (checked: boolean) => {
                 .map((column) => (
                   <label
                     key={column.key}
+                     className="items-start"
                     style={{
                       display: "flex",
                       alignItems: "center",

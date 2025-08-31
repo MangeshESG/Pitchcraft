@@ -252,7 +252,7 @@ body {
 }
 
 .stats-card.blue h3 {
-  color: #2196f3;
+  color:#3f9f42;
 }
 
 .stats-card .value {
@@ -266,7 +266,7 @@ body {
 }
 
 .stats-card.blue .value {
-  color: #2196f3;
+  color: #3f9f42;
 }
 
 .stats-card .percentage {

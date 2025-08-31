@@ -189,7 +189,7 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
             onChange={(e) => setSearch(e.target.value)}
           />
           {totalContacts !== undefined && (
-            <span style={{ fontWeight: 500 }}>
+            <span style={{ fontWeight: 600 }}>
               Total: {totalContacts} contacts
             </span>
           )}
@@ -215,7 +215,7 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
         {/* Table Content */}
         <div
           style={{
-            flex: 1,
+            width:'100%',
             marginRight: showColumnPanel ? "300px" : "0",
             transition: "margin-right 0.3s ease",
           }}
@@ -341,7 +341,7 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
               width: "300px",
               background: "#fff",
               border: "1px solid #e0e0e0",
-              borderRadius: "8px 0 0 8px",
+              
               boxShadow: "-4px 0 12px rgba(0,0,0,0.15)",
               padding: "20px",
               zIndex: 1000,
@@ -358,7 +358,7 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
                 borderBottom: "1px solid #e0e0e0",
               }}
             >
-              <h3 style={{ margin: 0, fontSize: "18px", color: "#333" }}>
+              <h3 style={{ margin: 0, fontSize: "18px",fontWeight:'600',  color: "#333" }}>
                 Show/Hide columns
               </h3>
               <button
@@ -375,7 +375,7 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
               </button>
             </div>
 
-            <div
+            <div className="justify-start"
               style={{ display: "flex", flexDirection: "column", gap: "12px" }}
             >
               {localColumns
@@ -383,6 +383,7 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
                 .map((column) => (
                   <label
                     key={column.key}
+                   className="items-start"
                     style={{
                       display: "flex",
                       alignItems: "center",
