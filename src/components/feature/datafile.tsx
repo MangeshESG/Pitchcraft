@@ -240,7 +240,7 @@ const DataFile: React.FC<DataFileProps> = ({
       !validTypes.includes(file.type) &&
       !file.name.match(/\.(xlsx|xls|csv)$/i)
     ) {
-      setErrors(["Please upload a valid Excel file (.xlsx, .xls, or .csv)"]);
+      setErrors(["Please upload a valid contacts data file (.xlsx, .xls, or .csv)"]);
       return;
     }
 
@@ -294,7 +294,7 @@ const DataFile: React.FC<DataFileProps> = ({
         }
       } catch (error) {
         setErrors([
-          "Failed to read the Excel file. Please ensure it's a valid Excel file.",
+          "Failed to read the contacts data file. Please ensure it's a valid contacts data file.",
         ]);
       }
     };
@@ -519,7 +519,7 @@ const DataFile: React.FC<DataFileProps> = ({
               </button>
             </div>
           )}
-          <h3 className="section-title mb-20">Excel File Upload</h3>
+          <h3 className="section-title mb-20">Contacts data file Upload</h3>
 
           {/* Progress Steps */}
           <div className="upload-steps d-flex justify-between mb-30">
@@ -554,7 +554,7 @@ const DataFile: React.FC<DataFileProps> = ({
           {currentStep === 1 && (
             <div className="upload-section">
               <div className="d-flex justify-between items-center mb-10">
-                <h4 className="!mb-0">Upload your excel file</h4>
+                <h4 className="!mb-0">Upload your contacts data file</h4>
                 <button
                   className="button secondary small flex items-center"
                   onClick={downloadTemplate}
@@ -626,7 +626,7 @@ const DataFile: React.FC<DataFileProps> = ({
                 <p className="mt-20 mb-10">
                   {isDragActive
                     ? "Drop the file here..."
-                    : "Drag & drop your Excel file here, or click to select"}
+                    : "Drag & drop your contacts data file here, or click to select"}
                 </p>
                 <small className="text-muted">
                   Supports: .xlsx, .xls, .csv (Max size: 10MB)
@@ -679,9 +679,9 @@ const DataFile: React.FC<DataFileProps> = ({
                     {/* Step 2: Map Columns */}
           {currentStep === 2 && (
             <div className="mapping-section mt-20">
-              <h4 className="mt-[20px]" style={{marginBottom:'5px'}} >Map your excel Columns</h4>
+              <h4 className="mt-[20px]" style={{marginBottom:'5px'}} >Map your contacts data file Columns</h4>
               <p className="text-muted mb-20">
-                Please map your excel columns to the required fields below:
+                Please map your contacts data file to the required fields below:
               </p>
 
               <div className="mapping-container">
