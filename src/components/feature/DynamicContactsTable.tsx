@@ -427,11 +427,7 @@ const handleSelectAll = (checked: boolean) => {
               >
                 Show/Hide Columns
               </button>
-              {onAddItem && (
-                <button className="save-button button auto-width small d-flex justify-between align-center" onClick={onAddItem}>
-                  + Add Item
-                </button>
-              )}
+             
             </div>
           </div>
 

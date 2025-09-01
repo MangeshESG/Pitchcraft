@@ -1600,7 +1600,7 @@ const stopBulkSending = () => {
         <>
           <div className="tabs secondary d-flex align-center flex-col-991 justify-between">
             <ul className="d-flex">
-              {userRole === "ADMIN" && (
+              
                 <li>
                   <button
                     onClick={tabHandler2}
@@ -1609,7 +1609,7 @@ const stopBulkSending = () => {
                     Output
                   </button>
                 </li>
-              )}
+             
               {userRole === "ADMIN" && (
                 <li>
                   <button

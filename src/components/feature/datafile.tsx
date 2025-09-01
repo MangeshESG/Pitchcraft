@@ -37,18 +37,18 @@ interface ProcessedContact {
 const REQUIRED_FIELDS = [
   { key: "name", label: "Name", required: true },
   { key: "email", label: "Email", required: true },
-  { key: "job_title", label: "Job Title", required: false },
+  { key: "job_title", label: "Job title", required: false },
   { key: "company", label: "Company", required: false },
   { key: "location", label: "Location", required: false },
   { key: "linkedin", label: "LinkedIn URL", required: false },
-  { key: "company_website", label: "Company Website", required: false },
-  { key: "email_body", label: "Email Body", required: false },
-  { key: "email_subject", label: "Email Subject", required: false },
-  { key: "company_telephone", label: "Company Telephone", required: false },
-  { key: "company_employee_count", label: "Company Employee Count", required: false },
-  { key: "company_industry", label: "Company Industry", required: false },
+  { key: "company_website", label: "Company website", required: false },
+  { key: "email_body", label: "Email body", required: false },
+  { key: "email_subject", label: "Email subject", required: false },
+  { key: "company_telephone", label: "Company telephone", required: false },
+  { key: "company_employee_count", label: "Company employee count", required: false },
+  { key: "company_industry", label: "Company industry", required: false },
   { key: "company_linkedin_url", label: "Company LinkedIn URL", required: false },
-  { key: "company_event_link", label: "Company Event Link", required: false },
+  { key: "company_event_link", label: "Company event link", required: false },
 ];
 
 const DataFile: React.FC<DataFileProps> = ({
@@ -519,7 +519,7 @@ const DataFile: React.FC<DataFileProps> = ({
               </button>
             </div>
           )}
-          <h3 className="section-title mb-20">Contacts data file Upload</h3>
+          <h3 className="section-title mb-20">Contacts data file upload</h3>
 
           {/* Progress Steps */}
           <div className="upload-steps d-flex justify-between mb-30">
@@ -679,7 +679,7 @@ const DataFile: React.FC<DataFileProps> = ({
                     {/* Step 2: Map Columns */}
           {currentStep === 2 && (
             <div className="mapping-section mt-20">
-              <h4 className="mt-[20px] sub-title" style={{marginBottom:'5px'}} >Map your excel Columns</h4>
+              <h4 className="mt-[20px] sub-title" style={{marginBottom:'5px'}} >Map your contacts data file columns</h4>
               <p className="text-muted mb-20">
                 Please map your contacts data file to the required fields below:
               </p>
@@ -775,8 +775,8 @@ const DataFile: React.FC<DataFileProps> = ({
                         <td>{row.job_title || "-"}</td>
                         <td>{row.company || "-"}</td>
                         <td>{row.location || "-"}</td>
-                        <td>{row.linkedin ? "✓" : "-"}</td>
-                        <td>{row.company_website ? "✓" : "-"}</td>
+                        <td>{row.linkedin || "-"}</td>
+                        <td>{row.company_website || "-"}</td>
                         <td>{row.company_telephone || "-"}</td>
                         <td>{row.company_industry || "-"}</td>
                       </tr>

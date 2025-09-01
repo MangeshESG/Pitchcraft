@@ -1386,7 +1386,7 @@ const handleDownloadSegment = async (segment: any) => {
                         marginBottom: 4,
                       }}
                     >
-                      Description <span style={{ color: "red" }}>*</span>
+                      Description <span style={{ color: "red" }}></span>
                     </label>
                     <textarea
                       value={renamingListDescription}
@@ -1565,12 +1565,7 @@ const handleDownloadSegment = async (segment: any) => {
                     value={segmentSearchQuery}
                     onChange={(e) => setSegmentSearchQuery(e.target.value)}
                   />
-                  <button
-                    className="save-button button auto-width small d-flex justify-between align-center"
-                    style={{ marginLeft: "auto" }}
-                  >
-                    + Create segment
-                  </button>
+                 
                 </div>
 
                 <table
@@ -1882,7 +1877,7 @@ const handleDownloadSegment = async (segment: any) => {
               <label
                 style={{ display: "block", marginBottom: 4, fontWeight: 500 }}
               >
-                Description <span style={{ color: "red" }}>*</span>
+                Description <span style={{ color: "red" }}></span>
               </label>
               <textarea
                 value={renamingSegmentDescription}

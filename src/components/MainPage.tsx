@@ -1155,11 +1155,12 @@ const fetchAndDisplayEmailBodies = useCallback(
 
     return `${day}.${month}.${year} ${hours}:${minutes}:${seconds}`;
   }
+  const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
 
   const fetchClientSettings = async (clientID: number): Promise<any> => {
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/auth/clientSettings/${clientID}`
+        `${API_BASE_URL}/api/auth/clientSettings/${effectiveUserId}`
       );
       if (!response.ok) {
         throw new Error("Failed to fetch client settings");
@@ -1601,7 +1602,7 @@ const replaceAllPlaceholders = (text: string, replacements: Record<string, strin
           
           if (segmentId) {
             // ✅ For segment-based campaigns, get dataFileId from contact
-            updateDataFileId = entry.datafileid || entry.data_file_id;
+            updateDataFileId = entry.dataFileId || entry.data_file_id;
             
             if (!updateDataFileId) {
               setOutputForm((prevOutputForm) => ({
@@ -1688,6 +1689,9 @@ const replaceAllPlaceholders = (text: string, replacements: Record<string, strin
         generated: true,
         lastemailupdateddate: new Date().toISOString(),
         emailsentdate: entry.email_sent_at || "N/A",
+        dataFileId: entry.dataFileId || entry.data_file_id || null,
+        segmentId: entry.segmentId || null,
+
       };
       const regenIndex = allResponses.findIndex((r) => r.id === id);
 
@@ -1886,6 +1890,8 @@ const replaceAllPlaceholders = (text: string, replacements: Record<string, strin
             subject: entry.email_subject || "N/A",
             lastemailupdateddate: entry.updated_at || "N/A",
             emailsentdate: entry.email_sent_at || "N/A",
+            dataFileId: entry.dataFileId || entry.data_file_id || null,
+            segmentId: entry.segmentId || null,
           };
 
           setAllResponses((prevResponses) => {
@@ -2345,6 +2351,8 @@ const filledInstructions = replaceAllPlaceholders(instructionsParamA, replacemen
           generated: true,
           lastemailupdateddate: new Date().toISOString(),
           emailsentdate: entry.email_sent_at || "N/A",
+          dataFileId: entry.dataFileId || entry.data_file_id || null,
+          segmentId: entry.segmentId || null,
         };
         const responseIndex = shouldReplaceFromIndex
           ? currentIndex + (i - currentIndex)
@@ -2423,7 +2431,7 @@ const filledInstructions = replaceAllPlaceholders(instructionsParamA, replacemen
             
             if (segmentId) {
               // ✅ For segment-based campaigns, get dataFileId from contact
-              updateDataFileId = entry.dataFileId || entry.data_file_id;
+                updateDataFileId = entry.dataFileId || entry.data_file_id || entry.datafileid;
               
               if (!updateDataFileId) {
                 setOutputForm((prevOutputForm) => ({
