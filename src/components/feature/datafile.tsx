@@ -679,7 +679,7 @@ const DataFile: React.FC<DataFileProps> = ({
                     {/* Step 2: Map Columns */}
           {currentStep === 2 && (
             <div className="mapping-section mt-20">
-              <h4 className="mt-[20px]" style={{marginBottom:'5px'}} >Map your contacts data file Columns</h4>
+              <h4 className="mt-[20px] sub-title" style={{marginBottom:'5px'}} >Map your excel Columns</h4>
               <p className="text-muted mb-20">
                 Please map your contacts data file to the required fields below:
               </p>
@@ -713,7 +713,8 @@ const DataFile: React.FC<DataFileProps> = ({
                 ))}
               </div>
 
-              <div className="button-group mt-30">
+              <div className="
+              flex justify-end gap-2">
                 <button onClick={resetUpload} className="button secondary">
                   Back
                 </button>

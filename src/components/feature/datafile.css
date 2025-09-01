@@ -165,7 +165,7 @@
 .mapping-container {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
+  gap: 15px;
   margin-bottom: 20px;
 }
 
@@ -182,7 +182,6 @@
 
 .mapping-container select {
   width: 100%;
-  padding: 0.75rem;
   border: 1px solid #ddd;
   border-radius: 4px;
   margin: 0;
@@ -774,10 +773,6 @@
     color: #fff;
     border-color: #444;
   }
-
-  .mapping-container label {
-    color: #ccc;
-  }
 }
 
 /* Fix dropdown text visibility */
@@ -844,9 +839,6 @@ select:not([value=""]) option {
 }
 
 .mapping-container {
-  flex: 1;
-  overflow-y: auto;
-  max-height: calc(100vh - 400px);
   padding-right: 10px; /* For scrollbar */
   margin-bottom: 30px; /* Space before buttons */
 }

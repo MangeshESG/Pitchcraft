@@ -153,12 +153,12 @@
 }
 
 .app-modal-button.primary {
-  background: #3b82f6;
+  background:#3f9f42;
   color: white;
 }
 
 .app-modal-button.primary:hover {
-  background: #2563eb;
+  background:#3f9f42;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
 }

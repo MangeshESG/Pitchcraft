@@ -342,13 +342,6 @@ const Output: React.FC<OutputInterface> = ({
     setExistingDataIndex(0); // Reset the index
   };
 
-  const clearUsage = () => {
-    setOutputForm((prevOutputForm: any) => ({
-      ...prevOutputForm,
-      usage: "", // Correctly clears the usage field
-    }));
-  };
-
   const [combinedResponses, setCombinedResponses] = useState<any[]>([]);
 
   useEffect(() => {
@@ -1243,16 +1236,12 @@ const stopBulkSending = () => {
 
   return (
     <div className="login-box gap-down">
-      <div className="d-flex justify-between align-center mb-20 border-b pb-[15px] mb-[15px]">
-
-      </div>
-
       {/* Add the selection dropdowns and subject line section */}
       <div className="d-flex justify-between align-center mb-0">
         <div className="input-section edit-section w-[100%]">
           {/* Dropdowns Row */}
           <div className="flex gap-4">
-            <div className="col-4">
+            <div>
               <div className="form-group">
                 <label>
                   Campaign <span className="required">*</span>
@@ -1285,6 +1274,78 @@ const stopBulkSending = () => {
                     </small>
                   </div>
                 )}
+            </div>
+            <div className="flex items-start mt-[26px]">
+              <div className="flex mr-4">
+                
+                {isResetEnabled ? ( // Changed from !isProcessing to isResetEnabled
+                
+                  <button
+                    className="primary-button bg-[#3f9f42]"
+                    onClick={() => handleStart?.(currentIndex)}
+                    disabled={
+                      (!selectedPrompt?.name || !selectedZohoviewId) &&
+                      !selectedCampaign
+                    }
+                    title={`Click to generate hyper-personalized emails starting from contact ${currentIndex + 1}`}
+                  >
+                    Generate
+                  </button>
+                ) : (
+                  <button
+                    className="primary-button bg-[#3f9f42]"
+                    onClick={handleStop}
+                    disabled={isStopRequested} // Disable if stop is already requested
+                    title="Click to stop the generation of emails"
+                  >
+                    Stop
+                  </button>
+                )}
+              </div>
+              <div className="flex mr-4">
+                {!isDemoAccount && (
+
+                <button
+                  className="secondary-button nowrap"
+                  onClick={handleClearAll}
+                  disabled={!isResetEnabled} // Changed from isProcessing to !isResetEnabled
+                  title="Clear all data and reset the application state"
+                >
+                  Reset all
+                </button>
+                )}
+              </div>
+              <div className="!mb-[0px] mt-2 flex align-center">
+                {!isDemoAccount && (
+
+                <label className="checkbox-label !mb-[0px] mr-[5px] flex align-center">
+                  <input
+                    type="checkbox"
+                    checked={settingsForm?.overwriteDatabase}
+                    name="overwriteDatabase"
+                    id="overwriteDatabase"
+                    onChange={settingsFormHandler}
+                    className="!mr-0"
+                  />
+                  <span className="text-[14px]">Overwrite</span>
+                </label>
+              )}
+              {!isDemoAccount && (
+
+                <span>
+                  <ReactTooltip anchorSelect="#overwrite-checkbox" place="top">
+                    Reset all company level intel
+                  </ReactTooltip>
+                  <svg id="overwrite-checkbox" width="14px" height="14px" viewBox="0 0 24 24" fill="#555555" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 17.75C12.4142 17.75 12.75 17.4142 12.75 17V11C12.75 10.5858 12.4142 10.25 12 10.25C11.5858 10.25 11.25 10.5858 11.25 11V17C11.25 17.4142 11.5858 17.75 12 17.75Z" fill="#1C274C"/>
+                    <path d="M12 7C12.5523 7 13 7.44772 13 8C13 8.55228 12.5523 9 12 9C11.4477 9 11 8.55228 11 8C11 7.44772 11.4477 7 12 7Z" fill="#1C274C"/>
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M1.25 12C1.25 6.06294 6.06294 1.25 12 1.25C17.9371 1.25 22.75 6.06294 22.75 12C22.75 17.9371 17.9371 22.75 12 22.75C6.06294 22.75 1.25 17.9371 1.25 12ZM12 2.75C6.89137 2.75 2.75 6.89137 2.75 12C2.75 17.1086 6.89137 21.25 12 21.25C17.1086 21.25 21.25 17.1086 21.25 12C21.25 6.89137 17.1086 2.75 12 2.75Z" fill="#1C274C"/>
+                  </svg>
+                </span>
+                )}
+                
+              </div>
+              
             </div>
 
             {/* <div className="col col-3 col-12-768">
@@ -1336,35 +1397,35 @@ const stopBulkSending = () => {
               )}
             </div> */}
 
-            <div className="col-5">
-                    {!isDemoAccount && (
+            {/* Subject */}
+            {/* <div>
+              {!isDemoAccount && (
+                <div className="form-group" style={{ flexWrap: "wrap" }}>
+                  <label style={{ width: "100%" }}>Subject</label>
 
-              <div className="form-group" style={{ flexWrap: "wrap" }}>
-                <label style={{ width: "100%" }}>Subject</label>
-
-                <div className="flex">
-                  <select
-                    onChange={(e) => setSubjectMode?.(e.target.value)}
-                    value={subjectMode}
-                    className="height-35"
-                    style={{ minWidth: 150, marginRight: 10 }}
-                  >
-                    <option value="AI generated">AI generated</option>
-                    <option value="With Placeholder">With placeholder</option>
-                  </select>
-                  <input
-                    type="text"
-                    placeholder="Enter subject here"
-                    value={subjectText}
-                    onChange={(e) => setSubjectText?.(e.target.value)}
-                    disabled={subjectMode !== "With Placeholder"}
-                  />
+                  <div className="flex">
+                    <select
+                      onChange={(e) => setSubjectMode?.(e.target.value)}
+                      value={subjectMode}
+                      className="height-35"
+                      style={{ minWidth: 150, marginRight: 10 }}
+                    >
+                      <option value="AI generated">AI generated</option>
+                      <option value="With Placeholder">With placeholder</option>
+                    </select>
+                    <input
+                      type="text"
+                      placeholder="Enter subject here"
+                      value={subjectText}
+                      onChange={(e) => setSubjectText?.(e.target.value)}
+                      disabled={subjectMode !== "With Placeholder"}
+                    />
+                  </div>
                 </div>
-              </div>
-                    )}
-            </div>
-
-            <div className="">
+              )}
+            </div> */}
+            {/* Language */}
+            {/* <div className="">
                     {!isDemoAccount && (
 
               <div className="form-group">
@@ -1385,76 +1446,10 @@ const stopBulkSending = () => {
                 </select>
               </div>
                     )}
-            </div>
-            
-          </div>
+            </div> */}
 
-          {/* Subject Line Row */}
-        </div>
-      </div>
-
-      {/* Rest of Output component content */}
-
-      {userRole === "ADMIN" && (
-        <div className="row pb-2 d-flex align-center justify-end">
-          <div className="col col-12">
-            <div className="form-group">
-              <label>Usage</label>
-              <span className="pos-relative full-width flex">
-                <textarea
-                  placeholder="Usage"
-                  rows={1}
-                  name="tkUsage"
-                  value={outputForm.usage}
-                  className="full-width p-[0.5rem]"
-                  onChange={outputFormHandler}
-                ></textarea>
-                <button
-                  className="secondary-button ml-10 button clear-button small d-flex align-center h-[100%] justify-center"
-                  onClick={clearUsage}
-                >
-                  Clear Usage
-                </button>
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* New Tab */}
-      {tab === "New" && (
-        <>
-          <div className="tabs secondary d-flex align-center flex-col-991 justify-between">
-            <ul className="d-flex">
-              {userRole === "ADMIN" && (
-                <li>
-                  <button
-                    onClick={tabHandler2}
-                    className={`button ${tab2 === "Output" ? "active" : ""}`}
-                  >
-                    Output
-                  </button>
-                </li>
-              )}
-              {userRole === "ADMIN" && (
-                <li>
-                  <button
-                    onClick={tabHandler2}
-                    className={`button ${tab2 === "Stages" ? "active" : ""}`}
-                  >
-                    Stages
-                  </button>
-                </li>
-              )}
-              <li>
-                <button
-                className={`tab-button ${tab2 === "Settings" ? "active" : ""}`}
-                onClick={() => setTab2("Settings")}
-              >
-                Settings
-              </button>
-              </li>              
-                <div className="d-flex align-center gap-1 mr-3">
+            {/* Navigation */}
+            <div className="d-flex align-start mt-[26px] gap-1">
                 <button
                   onClick={handleFirstPage}
                   disabled={isProcessing} 
@@ -1536,12 +1531,13 @@ const stopBulkSending = () => {
                     <div className="loader"></div>
                   </div>
                 )}
-              </div>
-              
-              <div className="mtext-center d-flex align-center mr-20 mt-10-991 font-size-medium">
+            </div>
+
+            {/* Contact Pagination with iinput box */}
+            <div className="mtext-center d-flex align-center mr-20 mt-10-991 font-size-medium">
                 {combinedResponses.length > 0 && (
                   <>
-                    <span>
+                    <span className="mt-[6px]">
                       {/* <strong>Contact:</strong> {currentIndex + 1} of{" "} */}
                       <strong>Contact:</strong> 
                       {/* Input box to enter index */}
@@ -1579,9 +1575,9 @@ const stopBulkSending = () => {
                               0
                             )
                       }{" "}
-                      <span className="opacity-60">
+                      {/* <span className="opacity-60">
                         ({combinedResponses.length} loaded)
-                      </span>
+                      </span> */}
                     </span>
                     <span style={{ whiteSpace: "pre" }}> </span>
                     <span style={{ whiteSpace: "pre" }}> </span>
@@ -1590,79 +1586,50 @@ const stopBulkSending = () => {
                   </>
                 )}
               </div>
-            </ul>
-            <div className="flex">
-              <div className="flex mr-4">
-                
-                {isResetEnabled ? ( // Changed from !isProcessing to isResetEnabled
-                
-                  <button
-                    className="primary-button bg-[#3f9f42]"
-                    onClick={() => handleStart?.(currentIndex)}
-                    disabled={
-                      (!selectedPrompt?.name || !selectedZohoviewId) &&
-                      !selectedCampaign
-                    }
-                    title={`Click to generate hyper-personalized emails starting from contact ${currentIndex + 1}`}
-                  >
-                    Generate
-                  </button>
-                ) : (
-                  <button
-                    className="primary-button bg-[#3f9f42]"
-                    onClick={handleStop}
-                    disabled={isStopRequested} // Disable if stop is already requested
-                    title="Click to stop the generation of emails"
-                  >
-                    Stop
-                  </button>
-                )}
-              </div>
-              <div className="flex mr-4">
-             {!isDemoAccount && (
+            
+          </div>
 
-               <button
-                className="secondary-button nowrap"
-                onClick={handleClearAll}
-                disabled={!isResetEnabled} // Changed from isProcessing to !isResetEnabled
-                title="Clear all data and reset the application state"
+          {/* Subject Line Row */}
+        </div>
+      </div>
+
+      
+
+      {/* New Tab */}
+      {tab === "New" && (
+        <>
+          <div className="tabs secondary d-flex align-center flex-col-991 justify-between">
+            <ul className="d-flex">
+              {userRole === "ADMIN" && (
+                <li>
+                  <button
+                    onClick={tabHandler2}
+                    className={`button ${tab2 === "Output" ? "active" : ""}`}
+                  >
+                    Output
+                  </button>
+                </li>
+              )}
+              {userRole === "ADMIN" && (
+                <li>
+                  <button
+                    onClick={tabHandler2}
+                    className={`button ${tab2 === "Stages" ? "active" : ""}`}
+                  >
+                    Stages
+                  </button>
+                </li>
+              )}
+              <li>
+                <button
+                className={`tab-button ${tab2 === "Settings" ? "active" : ""}`}
+                onClick={() => setTab2("Settings")}
               >
-                Reset all
+                Settings
               </button>
-              )}
-              </div>
-              <div className="!mb-[0px] flex align-center">
-                {!isDemoAccount && (
-
-                <label className="checkbox-label !mb-[0px] mr-[5px] flex align-center">
-                  <input
-                    type="checkbox"
-                    checked={settingsForm?.overwriteDatabase}
-                    name="overwriteDatabase"
-                    id="overwriteDatabase"
-                    onChange={settingsFormHandler}
-                    className="!mr-0"
-                  />
-                  <span className="text-[14px]">Overwrite</span>
-                </label>
-              )}
-              {!isDemoAccount && (
-
-                <span>
-                  <ReactTooltip anchorSelect="#overwrite-checkbox" place="top">
-                    Reset all company level intel
-                  </ReactTooltip>
-                  <svg id="overwrite-checkbox" width="14px" height="14px" viewBox="0 0 24 24" fill="#555555" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 17.75C12.4142 17.75 12.75 17.4142 12.75 17V11C12.75 10.5858 12.4142 10.25 12 10.25C11.5858 10.25 11.25 10.5858 11.25 11V17C11.25 17.4142 11.5858 17.75 12 17.75Z" fill="#1C274C"/>
-                    <path d="M12 7C12.5523 7 13 7.44772 13 8C13 8.55228 12.5523 9 12 9C11.4477 9 11 8.55228 11 8C11 7.44772 11.4477 7 12 7Z" fill="#1C274C"/>
-                    <path fill-rule="evenodd" clip-rule="evenodd" d="M1.25 12C1.25 6.06294 6.06294 1.25 12 1.25C17.9371 1.25 22.75 6.06294 22.75 12C22.75 17.9371 17.9371 22.75 12 22.75C6.06294 22.75 1.25 17.9371 1.25 12ZM12 2.75C6.89137 2.75 2.75 6.89137 2.75 12C2.75 17.1086 6.89137 21.25 12 21.25C17.1086 21.25 21.25 17.1086 21.25 12C21.25 6.89137 17.1086 2.75 12 2.75Z" fill="#1C274C"/>
-                  </svg>
-                </span>
-                )}
-                
-              </div>
-              
-            </div>
+              </li>              
+            </ul>
+            
             <div className="d-flex flex-col-1200 mb-10-991 mt-10-991">
               <div className="d-flex flex-col-768 mt-10-1200">
                 {/* Add the Excel export link */}
@@ -1680,7 +1647,7 @@ const stopBulkSending = () => {
                   }}
                   className="export-link ml-10 mr-10 my-5-640 green"
                   style={{
-                    color: "#0066cc",
+                    color: "#3f9f42",
                     textDecoration: "none",
                     cursor:
                       combinedResponses.length === 0 || isExporting
@@ -1784,7 +1751,7 @@ const stopBulkSending = () => {
 
                 <span className="pos-relative">
                   <pre
-                    className="w-full p-3 py-[5px] border border-gray-300 rounded-lg overflow-y-auto h-[45px] min-h-[45px] break-words whitespace-pre-wrap text-[13px]"
+                    className="w-full p-3 py-[5px] border border-gray-300 rounded-lg overflow-y-auto h-[30px] min-h-[30px] break-words whitespace-pre-wrap text-[13px]"
                     dangerouslySetInnerHTML={{
                       __html: formatOutput(outputForm.generatedContent),
                     }}
@@ -1804,7 +1771,7 @@ const stopBulkSending = () => {
                   </Modal>
                   {/* Add the full-view-icon button here */}
                   <button
-                    className="full-view-icon d-flex align-center justify-center"
+                    className="full-view-icon d-flex align-center justify-center !top-0 !right-0"
                     onClick={() => handleModalOpen("modal-output-1")}
                   >
                     <svg width="30px" height="30px" viewBox="0 0 512 512">
@@ -1839,20 +1806,20 @@ const stopBulkSending = () => {
                   </button>
                 </span>
               </div>
-              <div className="form-group mb-0">
+              <div className="form-group mb-0 mt-2">
                 <div className="d-flex justify-between w-full">
                   <div
-                    className="contact-info lh-35 align-center d-inline-block word-wrap--break-word word-break--break-all"
-                    style={{ color: "#3f9f42" }}
+                    className="contact-info !text-[18px] self-start leading-[35px] inline-block break-words break-all text-[#111] px-[10px] py-[5px] bg-[#f5f6fa] rounded-[5px] mt-[10px] mb-[10px] mr-[5px] ml-0 border border-[#b3b3b3]"
+                    style={{ color: "#111111" }}
                   >
                     {/* <strong style={{ whiteSpace: "pre" }}>Contact: </strong> */}
                     {/* <span style={{ whiteSpace: "pre" }}> </span> */}
-                    {combinedResponses[currentIndex]?.name || "NA"},
-                    <span style={{ whiteSpace: "pre" }}> </span>
-                    {combinedResponses[currentIndex]?.title || "NA"} at
-                    <span style={{ whiteSpace: "pre" }}> </span>
-                    {combinedResponses[currentIndex]?.company || "NA"} in 
-                    <span style={{ whiteSpace: "pre" }}> </span>
+                    {combinedResponses[currentIndex]?.name || "NA"}
+                    <span className="text-[25px] inline-block relative top-[4px] px-[10px]">&bull;</span>
+                    {combinedResponses[currentIndex]?.title || "NA"}
+                    <span className="text-[25px] inline-block relative top-[4px] px-[10px]">&bull;</span>
+                    {combinedResponses[currentIndex]?.company || "NA"} 
+                    <span className="text-[25px] inline-block relative top-[4px] px-[10px]">&bull;</span>
                     {combinedResponses[currentIndex]?.location || "NA"}
                     <span style={{ whiteSpace: "pre" }}> </span>
                     {/* <span className="inline-block relative top-[6px] mr-[3px]">
@@ -1889,7 +1856,7 @@ const stopBulkSending = () => {
                       rel="noopener noreferrer"
                       style={{
                         verticalAlign: "middle",
-                        height: "25px",
+                        height: "23px",
                         display: "inline-block",
                       }}
                       id="li-icon-tooltip"
@@ -1897,7 +1864,7 @@ const stopBulkSending = () => {
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         width="20px"
-                        height="20px"
+                        height="22px"
                         viewBox="0 0 24 24"
                         fill="#333333"
                       >
@@ -1936,17 +1903,17 @@ const stopBulkSending = () => {
                         combinedResponses[currentIndex]?.pitch || ""
                       )}`}
                       title="Open this email in your local email client"
-                      className="ml-5"
+                      className="ml-[3px]"
                       style={{
                         verticalAlign: "middle",
-                        height: "33px",
+                        height: "34px",
                         display: "inline-block",
                       }}
                       id="email-icon-tooltip"
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
-                        width="29px"
+                        width="33px"
                         viewBox="0 0 24 24"
                         fill="none"
                       >
@@ -1959,6 +1926,49 @@ const stopBulkSending = () => {
                       </svg>
                     </a>
                   </div>
+                  {/* Email Sent Date - remaining width */}
+                    <div
+                      style={{
+                        flex: "1",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "end",
+                        justifyContent: "center",
+                        marginLeft: "0px", // keeps alignment similar to your existing pitch date
+                      }}
+                    >
+                      {/* Pitch Generated Date */}
+                      <span
+                        style={{
+                          fontSize: "13px",
+                          color: "#666",
+                          fontStyle: "italic",
+                        }}
+                      >
+                        {combinedResponses[currentIndex]?.lastemailupdateddate
+                          ? `Krafted: ${formatLocalDateTime(
+                              combinedResponses[currentIndex]
+                                ?.lastemailupdateddate
+                            )}`
+                          : ""}
+                      </span>
+
+                      {/* Email Sent Date */}
+                      <span
+                        style={{
+                          fontSize: "13px",
+                          color: "#666",
+                          fontStyle: "italic",
+                          marginTop: "2px",
+                        }}
+                      >
+                        {combinedResponses[currentIndex]?.emailsentdate
+                          ? `Emailed: ${formatLocalDateTime(
+                              combinedResponses[currentIndex]?.emailsentdate
+                            )}`
+                          : ""}
+                      </span>
+                    </div>
                   <div className="d-flex mb-10 align-items-center justify-between flex-col-991">
                     <div className="d-flex">
                       <div className="d-flex ml-10 output-responsive-button-group justify-center-991 col-12-991 flex-col-640">
@@ -2273,7 +2283,7 @@ const stopBulkSending = () => {
                         {sendingEmail && "Sending..."}
                         {!sendingEmail && emailMessage && "Sent"}
                       </button>
-                      <span className="relative top-[15px]">
+                      {/* <span className="relative top-[15px]">
                           <svg id="send-email-info" width="14px" height="14px" viewBox="0 0 24 24" fill="#555555" xmlns="http://www.w3.org/2000/svg">
                           <path d="M12 17.75C12.4142 17.75 12.75 17.4142 12.75 17V11C12.75 10.5858 12.4142 10.25 12 10.25C11.5858 10.25 11.25 10.5858 11.25 11V17C11.25 17.4142 11.5858 17.75 12 17.75Z" fill="#1C274C"/>
                           <path d="M12 7C12.5523 7 13 7.44772 13 8C13 8.55228 12.5523 9 12 9C11.4477 9 11 8.55228 11 8C11 7.44772 11.4477 7 12 7Z" fill="#1C274C"/>
@@ -2282,10 +2292,10 @@ const stopBulkSending = () => {
                       </span>
                       <ReactTooltip anchorSelect="#send-email-info" place="top">
                         Send this email
-                      </ReactTooltip>
+                      </ReactTooltip> */}
                       <button
                         type="button"
-                        className="ml-1 button save-button x-small d-flex align-center align-self-center my-5-640 mr-[5px]"
+                        className="nowrap ml-1 button save-button x-small d-flex align-center align-self-center my-5-640 mr-[5px]"
                         onClick={() => {
                           console.log('Button clicked, isBulkSending:', isBulkSending);
                           
@@ -2327,49 +2337,7 @@ const stopBulkSending = () => {
                     </div>
 
                  
-                    {/* Email Sent Date - remaining width */}
-                    <div
-                      style={{
-                        flex: "1",
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "flex-start",
-                        justifyContent: "center",
-                        marginLeft: "0px", // keeps alignment similar to your existing pitch date
-                      }}
-                    >
-                      {/* Pitch Generated Date */}
-                      <span
-                        style={{
-                          fontSize: "13px",
-                          color: "#666",
-                          fontStyle: "italic",
-                        }}
-                      >
-                        {combinedResponses[currentIndex]?.lastemailupdateddate
-                          ? `Krafted: ${formatLocalDateTime(
-                              combinedResponses[currentIndex]
-                                ?.lastemailupdateddate
-                            )}`
-                          : ""}
-                      </span>
-
-                      {/* Email Sent Date */}
-                      <span
-                        style={{
-                          fontSize: "13px",
-                          color: "#666",
-                          fontStyle: "italic",
-                          marginTop: "5px",
-                        }}
-                      >
-                        {combinedResponses[currentIndex]?.emailsentdate
-                          ? `Emailed: ${formatLocalDateTime(
-                              combinedResponses[currentIndex]?.emailsentdate
-                            )}`
-                          : ""}
-                      </span>
-                    </div>
+                    
                   </div>
                 </div>
                 <span className="pos-relative d-flex justify-center">
@@ -3346,91 +3314,94 @@ const stopBulkSending = () => {
           )}
           {/* Add this after the Output tab and before the Stages tab */}
           {tab2 === "Settings" && (
-            <div className="settings-tab-content">
-              <div className="col-5">
-              <div className="form-group" style={{ flexWrap: "wrap" }}>
-                <label style={{ width: "100%" }}>Subject</label>
+            <div className="settings-tab-content w-full">
+              <div className="col-12 flex gap-4">
+                <div className="form-group flex-1">
+                  <label style={{ width: "100%" }}>Subject</label>
 
-                <div className="flex">
+                
+                    <select
+                      onChange={(e) => setSubjectMode?.(e.target.value)}
+                      value={subjectMode}
+                      className="height-35"
+                      style={{ minWidth: 150 }}
+                    >
+                      <option value="AI generated">AI generated</option>
+                      <option value="With Placeholder">With placeholder</option>
+                    </select>
+                
+                </div>
+                <div className="form-group flex-1 mt-[26px]">
+
+                  <div className="flex">
+                    <input
+                      type="text"
+                      placeholder="Enter subject here"
+                      value={subjectText}
+                      onChange={(e) => setSubjectText?.(e.target.value)}
+                      disabled={subjectMode !== "With Placeholder"}
+                    />
+                  </div>
+                </div>
+                 <div className="form-group flex-1">
+                  <label>Language</label>
                   <select
-                    onChange={(e) => setSubjectMode?.(e.target.value)}
-                    value={subjectMode}
-                    className="height-35"
-                    style={{ minWidth: 150, marginRight: 10 }}
+                    className="form-control"
+                    value={toneSettings?.language || "English"}
+                    onChange={(e) => toneSettingsHandler?.({ target: { name: 'language', value: e.target.value } })}
+                    disabled={sessionStorage.getItem("isDemoAccount") === "true"}
                   >
-                    <option value="AI generated">AI generated</option>
-                    <option value="With Placeholder">With placeholder</option>
+                    <option value="English">English</option>
+                    <option value="Spanish">Spanish</option>
+                    <option value="French">French</option>
+                    <option value="German">German</option>
+                    <option value="Italian">Italian</option>
+                    <option value="Portuguese">Portuguese</option>
+                    <option value="Dutch">Dutch</option>
+                    <option value="Russian">Russian</option>
+                    <option value="Chinese">Chinese</option>
+                    <option value="Japanese">Japanese</option>
+                    <option value="Korean">Korean</option>
                   </select>
-
-                  <input
-                    type="text"
-                    placeholder="Enter subject here"
-                    value={subjectText}
-                    onChange={(e) => setSubjectText?.(e.target.value)}
-                    disabled={subjectMode !== "With Placeholder"}
-                  />
+                </div>
+                <div className="form-group flex-1">
+                  <label>Emojis</label>
+                  <select
+                    className="form-control"
+                    value={toneSettings?.emojis || "None"}
+                    onChange={(e) => toneSettingsHandler?.({ target: { name: 'emojis', value: e.target.value } })}
+                    disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+                  >
+                    <option value="None">None</option>
+                    <option value="Minimal">Minimal</option>
+                    <option value="Few">Few</option>
+                    <option value="Many">Many</option>
+                  </select>
+                </div>
+                <div className="form-group flex-1">
+                  <label>Tone</label>
+                  <select
+                    className="form-control"
+                    value={toneSettings?.tone || "Professional"}
+                    onChange={(e) => toneSettingsHandler?.({ target: { name: 'tone', value: e.target.value } })}
+                    disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+                  >
+                    <option value="Professional">Professional</option>
+                    <option value="Casual">Casual</option>
+                    <option value="Formal">Formal</option>
+                    <option value="Friendly">Friendly</option>
+                    <option value="Enthusiastic">Enthusiastic</option>
+                    <option value="Conversational">Conversational</option>
+                    <option value="Persuasive">Persuasive</option>
+                    <option value="Empathetic">Empathetic</option>
+                  </select>
                 </div>
               </div>
-            
-          </div>
-              <div className="form-group">
-                <label>Language</label>
-                <select
-                  className="form-control"
-                  value={toneSettings?.language || "English"}
-                  onChange={(e) => toneSettingsHandler?.({ target: { name: 'language', value: e.target.value } })}
-                  disabled={sessionStorage.getItem("isDemoAccount") === "true"}
-                >
-                  <option value="English">English</option>
-                  <option value="Spanish">Spanish</option>
-                  <option value="French">French</option>
-                  <option value="German">German</option>
-                  <option value="Italian">Italian</option>
-                  <option value="Portuguese">Portuguese</option>
-                  <option value="Dutch">Dutch</option>
-                  <option value="Russian">Russian</option>
-                  <option value="Chinese">Chinese</option>
-                  <option value="Japanese">Japanese</option>
-                  <option value="Korean">Korean</option>
-                </select>
-              </div>
-
              
-              <div className="form-group">
-                <label>Emojis</label>
-                <select
-                  className="form-control"
-                  value={toneSettings?.emojis || "None"}
-                  onChange={(e) => toneSettingsHandler?.({ target: { name: 'emojis', value: e.target.value } })}
-                  disabled={sessionStorage.getItem("isDemoAccount") === "true"}
-                >
-                  <option value="None">None</option>
-                  <option value="Minimal">Minimal</option>
-                  <option value="Few">Few</option>
-                  <option value="Many">Many</option>
-                </select>
-              </div>
 
-              <div className="form-group">
-                <label>Tone</label>
-                <select
-                  className="form-control"
-                  value={toneSettings?.tone || "Professional"}
-                  onChange={(e) => toneSettingsHandler?.({ target: { name: 'tone', value: e.target.value } })}
-                  disabled={sessionStorage.getItem("isDemoAccount") === "true"}
-                >
-                  <option value="Professional">Professional</option>
-                  <option value="Casual">Casual</option>
-                  <option value="Formal">Formal</option>
-                  <option value="Friendly">Friendly</option>
-                  <option value="Enthusiastic">Enthusiastic</option>
-                  <option value="Conversational">Conversational</option>
-                  <option value="Persuasive">Persuasive</option>
-                  <option value="Empathetic">Empathetic</option>
-                </select>
-              </div>
-
-              <div className="form-group">
+              
+            <div className="col-12 flex gap-4">
+              <div className="form-group flex-1">
                 <label>Chatty Level</label>
                 <select
                   className="form-control"
@@ -3444,7 +3415,7 @@ const stopBulkSending = () => {
                 </select>
               </div>
 
-              <div className="form-group">
+              <div className="form-group flex-1">
                 <label>Creativity Level</label>
                 <select
                   className="form-control"
@@ -3458,7 +3429,7 @@ const stopBulkSending = () => {
                 </select>
               </div>
 
-              <div className="form-group">
+              <div className="form-group flex-1">
                 <label>Reasoning Level</label>
                 <select
                   className="form-control"
@@ -3472,7 +3443,7 @@ const stopBulkSending = () => {
                 </select>
               </div>
 
-              <div className="form-group">
+              <div className="form-group flex-1">
                 <label>Date Related Greeting</label>
                 <select
                   className="form-control"
@@ -3485,7 +3456,7 @@ const stopBulkSending = () => {
                 </select>
               </div>
 
-              <div className="form-group">
+              <div className="form-group flex-1">
                 <label>Date Related Farewell</label>
                 <select
                   className="form-control"
@@ -3497,6 +3468,8 @@ const stopBulkSending = () => {
                   <option value="No">No</option>
                 </select>
               </div>
+
+            </div>
 
               {sessionStorage.getItem("isDemoAccount") === "true" && (
                 <div className="demo-notice" style={{
