@@ -149,7 +149,10 @@ interface OutputInterface {
 
   toneSettings?: any;
   toneSettingsHandler?: (e: any) => void;
+  fetchToneSettings?: () => Promise<void>;
+  saveToneSettings?: () => Promise<boolean>;
   selectedSegmentId?: number | null; // Add this
+  handleSubjectTextChange?: (value: string) => void; // Add this
 
 
 
@@ -222,9 +225,12 @@ const Output: React.FC<OutputInterface> = ({
   subjectText,
   setSubjectText,
   isStopRequested, 
-  toneSettings,        
-  toneSettingsHandler, 
-  selectedSegmentId,  
+  toneSettings,
+  toneSettingsHandler,
+  fetchToneSettings,
+  saveToneSettings,
+  selectedSegmentId,
+  handleSubjectTextChange,  
 
 
 }) => {
@@ -1232,7 +1238,20 @@ const stopBulkSending = () => {
   stopBulkRef.current = true;
   setIsBulkSending(false);
 };
+const [isSavingSettings, setIsSavingSettings] = useState(false);
 
+const handleSaveSettings = async () => {
+  setIsSavingSettings(true);
+  try {
+    if (saveToneSettings) {
+      await saveToneSettings();
+    }
+  } catch (error) {
+    console.error('Error saving settings:', error);
+  } finally {
+    setIsSavingSettings(false);
+  }
+};
 
   return (
     <div className="login-box gap-down">
@@ -3313,178 +3332,220 @@ const stopBulkSending = () => {
             </>
           )}
           {/* Add this after the Output tab and before the Stages tab */}
-          {tab2 === "Settings" && (
-            <div className="settings-tab-content w-full">
-              <div className="col-12 flex gap-4">
-                <div className="form-group flex-1">
-                  <label style={{ width: "100%" }}>Subject</label>
+{tab2 === "Settings" && (
+  <div className="settings-tab-content w-full">
+    <div className="col-12 flex gap-4">
+      <div className="form-group flex-1">
+        <label style={{ width: "100%" }}>Subject</label>
+<select
+  onChange={(e) => {
+    const newMode = e.target.value;
+    
+    // Only call if setSubjectMode is defined
+    if (setSubjectMode) {
+      setSubjectMode(newMode);
+    }
+    
+    // Clear or set subjectText based on mode
+    if (newMode === "AI generated") {
+      // Call handleSubjectTextChange only if it exists
+      if (handleSubjectTextChange) {
+        handleSubjectTextChange("");
+      }
+    } else if (newMode === "With Placeholder" && toneSettings?.subjectTemplate) {
+      // Only call if setSubjectText is defined
+      if (setSubjectText) {
+        setSubjectText(toneSettings.subjectTemplate);
+      }
+    }
+  }}
+  value={subjectMode}
+  className="height-35"
+  style={{ minWidth: 150 }}
+>
+  <option value="AI generated">AI generated</option>
+  <option value="With Placeholder">With placeholder</option>
+</select>
+      </div>
+      <div className="form-group flex-1 mt-[26px]">
+        <div className="flex">
+          <input
+  type="text"
+  placeholder="Enter subject here"
+  value={subjectMode === "With Placeholder" ? subjectText : ""}
+  onChange={(e) => {
+    if (handleSubjectTextChange) {
+      handleSubjectTextChange(e.target.value);
+    }
+  }}
+  disabled={subjectMode !== "With Placeholder"}
+/>
+        </div>
+      </div>
+      <div className="form-group flex-1">
+        <label>Language</label>
+        <select
+          className="form-control"
+          value={toneSettings?.language || "English"}
+          onChange={(e) => toneSettingsHandler?.({ target: { name: 'language', value: e.target.value } })}
+          disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+        >
+          <option value="English">English</option>
+          <option value="Spanish">Spanish</option>
+          <option value="French">French</option>
+          <option value="German">German</option>
+          <option value="Italian">Italian</option>
+          <option value="Portuguese">Portuguese</option>
+          <option value="Dutch">Dutch</option>
+          <option value="Russian">Russian</option>
+          <option value="Chinese">Chinese</option>
+          <option value="Japanese">Japanese</option>
+          <option value="Korean">Korean</option>
+        </select>
+      </div>
+      <div className="form-group flex-1">
+        <label>Emojis</label>
+        <select
+          className="form-control"
+          value={toneSettings?.emojis || "None"}
+          onChange={(e) => toneSettingsHandler?.({ target: { name: 'emojis', value: e.target.value } })}
+          disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+        >
+          <option value="None">None</option>
+          <option value="Minimal">Minimal</option>
+          <option value="Few">Few</option>
+          <option value="Many">Many</option>
+        </select>
+      </div>
+      <div className="form-group flex-1">
+        <label>Tone</label>
+        <select
+          className="form-control"
+          value={toneSettings?.tone || "Professional"}
+          onChange={(e) => toneSettingsHandler?.({ target: { name: 'tone', value: e.target.value } })}
+          disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+        >
+          <option value="Professional">Professional</option>
+          <option value="Casual">Casual</option>
+          <option value="Formal">Formal</option>
+          <option value="Friendly">Friendly</option>
+          <option value="Enthusiastic">Enthusiastic</option>
+          <option value="Conversational">Conversational</option>
+          <option value="Persuasive">Persuasive</option>
+          <option value="Empathetic">Empathetic</option>
+        </select>
+      </div>
+    </div>
 
-                
-                    <select
-                      onChange={(e) => setSubjectMode?.(e.target.value)}
-                      value={subjectMode}
-                      className="height-35"
-                      style={{ minWidth: 150 }}
-                    >
-                      <option value="AI generated">AI generated</option>
-                      <option value="With Placeholder">With placeholder</option>
-                    </select>
-                
-                </div>
-                <div className="form-group flex-1 mt-[26px]">
+    <div className="col-12 flex gap-4">
+      <div className="form-group flex-1">
+        <label>Chatty Level</label>
+        <select
+          className="form-control"
+          value={toneSettings?.chatty || "Medium"}
+          onChange={(e) => toneSettingsHandler?.({ target: { name: 'chatty', value: e.target.value } })}
+          disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+        >
+          <option value="Low">Low</option>
+          <option value="Medium">Medium</option>
+          <option value="High">High</option>
+        </select>
+      </div>
 
-                  <div className="flex">
-                    <input
-                      type="text"
-                      placeholder="Enter subject here"
-                      value={subjectText}
-                      onChange={(e) => setSubjectText?.(e.target.value)}
-                      disabled={subjectMode !== "With Placeholder"}
-                    />
-                  </div>
-                </div>
-                 <div className="form-group flex-1">
-                  <label>Language</label>
-                  <select
-                    className="form-control"
-                    value={toneSettings?.language || "English"}
-                    onChange={(e) => toneSettingsHandler?.({ target: { name: 'language', value: e.target.value } })}
-                    disabled={sessionStorage.getItem("isDemoAccount") === "true"}
-                  >
-                    <option value="English">English</option>
-                    <option value="Spanish">Spanish</option>
-                    <option value="French">French</option>
-                    <option value="German">German</option>
-                    <option value="Italian">Italian</option>
-                    <option value="Portuguese">Portuguese</option>
-                    <option value="Dutch">Dutch</option>
-                    <option value="Russian">Russian</option>
-                    <option value="Chinese">Chinese</option>
-                    <option value="Japanese">Japanese</option>
-                    <option value="Korean">Korean</option>
-                  </select>
-                </div>
-                <div className="form-group flex-1">
-                  <label>Emojis</label>
-                  <select
-                    className="form-control"
-                    value={toneSettings?.emojis || "None"}
-                    onChange={(e) => toneSettingsHandler?.({ target: { name: 'emojis', value: e.target.value } })}
-                    disabled={sessionStorage.getItem("isDemoAccount") === "true"}
-                  >
-                    <option value="None">None</option>
-                    <option value="Minimal">Minimal</option>
-                    <option value="Few">Few</option>
-                    <option value="Many">Many</option>
-                  </select>
-                </div>
-                <div className="form-group flex-1">
-                  <label>Tone</label>
-                  <select
-                    className="form-control"
-                    value={toneSettings?.tone || "Professional"}
-                    onChange={(e) => toneSettingsHandler?.({ target: { name: 'tone', value: e.target.value } })}
-                    disabled={sessionStorage.getItem("isDemoAccount") === "true"}
-                  >
-                    <option value="Professional">Professional</option>
-                    <option value="Casual">Casual</option>
-                    <option value="Formal">Formal</option>
-                    <option value="Friendly">Friendly</option>
-                    <option value="Enthusiastic">Enthusiastic</option>
-                    <option value="Conversational">Conversational</option>
-                    <option value="Persuasive">Persuasive</option>
-                    <option value="Empathetic">Empathetic</option>
-                  </select>
-                </div>
-              </div>
-             
+      <div className="form-group flex-1">
+        <label>Creativity Level</label>
+        <select
+          className="form-control"
+          value={toneSettings?.creativity || "Medium"}
+          onChange={(e) => toneSettingsHandler?.({ target: { name: 'creativity', value: e.target.value } })}
+          disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+        >
+          <option value="Low">Low</option>
+          <option value="Medium">Medium</option>
+          <option value="High">High</option>
+        </select>
+      </div>
 
-              
-            <div className="col-12 flex gap-4">
-              <div className="form-group flex-1">
-                <label>Chatty Level</label>
-                <select
-                  className="form-control"
-                  value={toneSettings?.chatty || "Medium"}
-                  onChange={(e) => toneSettingsHandler?.({ target: { name: 'chatty', value: e.target.value } })}
-                  disabled={sessionStorage.getItem("isDemoAccount") === "true"}
-                >
-                  <option value="Low">Low</option>
-                  <option value="Medium">Medium</option>
-                  <option value="High">High</option>
-                </select>
-              </div>
+      <div className="form-group flex-1">
+        <label>Reasoning Level</label>
+        <select
+          className="form-control"
+          value={toneSettings?.reasoning || "Medium"}
+          onChange={(e) => toneSettingsHandler?.({ target: { name: 'reasoning', value: e.target.value } })}
+          disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+        >
+          <option value="Low">Low</option>
+          <option value="Medium">Medium</option>
+          <option value="High">High</option>
+        </select>
+      </div>
 
-              <div className="form-group flex-1">
-                <label>Creativity Level</label>
-                <select
-                  className="form-control"
-                  value={toneSettings?.creativity || "Medium"}
-                  onChange={(e) => toneSettingsHandler?.({ target: { name: 'creativity', value: e.target.value } })}
-                  disabled={sessionStorage.getItem("isDemoAccount") === "true"}
-                >
-                  <option value="Low">Low</option>
-                  <option value="Medium">Medium</option>
-                  <option value="High">High</option>
-                </select>
-              </div>
+      <div className="form-group flex-1">
+        <label>Date Related Greeting</label>
+        <select
+          className="form-control"
+          value={toneSettings?.dateGreeting || "No"}
+          onChange={(e) => toneSettingsHandler?.({ target: { name: 'dateGreeting', value: e.target.value } })}
+          disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+        >
+          <option value="Yes">Yes</option>
+          <option value="No">No</option>
+        </select>
+      </div>
 
-              <div className="form-group flex-1">
-                <label>Reasoning Level</label>
-                <select
-                  className="form-control"
-                  value={toneSettings?.reasoning || "Medium"}
-                  onChange={(e) => toneSettingsHandler?.({ target: { name: 'reasoning', value: e.target.value } })}
-                  disabled={sessionStorage.getItem("isDemoAccount") === "true"}
-                >
-                  <option value="Low">Low</option>
-                  <option value="Medium">Medium</option>
-                  <option value="High">High</option>
-                </select>
-              </div>
+      <div className="form-group flex-1">
+        <label>Date Related Farewell</label>
+        <select
+          className="form-control"
+          value={toneSettings?.dateFarewell || "No"}
+          onChange={(e) => toneSettingsHandler?.({ target: { name: 'dateFarewell', value: e.target.value } })}
+          disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+        >
+          <option value="Yes">Yes</option>
+          <option value="No">No</option>
+        </select>
+      </div>
+    </div>
 
-              <div className="form-group flex-1">
-                <label>Date Related Greeting</label>
-                <select
-                  className="form-control"
-                  value={toneSettings?.dateGreeting || "No"}
-                  onChange={(e) => toneSettingsHandler?.({ target: { name: 'dateGreeting', value: e.target.value } })}
-                  disabled={sessionStorage.getItem("isDemoAccount") === "true"}
-                >
-                  <option value="Yes">Yes</option>
-                  <option value="No">No</option>
-                </select>
-              </div>
+    {/* Add Save Button */}
+    {sessionStorage.getItem("isDemoAccount") !== "true" && (
+      <div className="mt-4 flex justify-end">
+        <button
+          onClick={handleSaveSettings}
+          disabled={isSavingSettings}
+          className="btn btn-primary"
+          style={{
+            padding: "10px 30px",
+            backgroundColor: "#007bff",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            cursor: isSavingSettings ? "not-allowed" : "pointer",
+            opacity: isSavingSettings ? 0.6 : 1,
+            fontSize: "16px",
+            fontWeight: "500",
+            marginTop: "20px"
+          }}
+        >
+          {isSavingSettings ? "Saving..." : "Save Settings"}
+        </button>
+      </div>
+    )}
 
-              <div className="form-group flex-1">
-                <label>Date Related Farewell</label>
-                <select
-                  className="form-control"
-                  value={toneSettings?.dateFarewell || "No"}
-                  onChange={(e) => toneSettingsHandler?.({ target: { name: 'dateFarewell', value: e.target.value } })}
-                  disabled={sessionStorage.getItem("isDemoAccount") === "true"}
-                >
-                  <option value="Yes">Yes</option>
-                  <option value="No">No</option>
-                </select>
-              </div>
-
-            </div>
-
-              {sessionStorage.getItem("isDemoAccount") === "true" && (
-                <div className="demo-notice" style={{
-                  padding: "10px",
-                  background: "#fff3cd",
-                  border: "1px solid #ffeaa7",
-                  borderRadius: "4px",
-                  color: "#856404",
-                  marginTop: "20px"
-                }}>
-                  <strong>Demo Mode:</strong> Settings are visible but disabled. Upgrade your account to enable these features.
-                </div>
-              )}
-            </div>
-          )}
+    {sessionStorage.getItem("isDemoAccount") === "true" && (
+      <div className="demo-notice" style={{
+        padding: "10px",
+        background: "#fff3cd",
+        border: "1px solid #ffeaa7",
+        borderRadius: "4px",
+        color: "#856404",
+        marginTop: "20px"
+      }}>
+        <strong>Demo Mode:</strong> Settings are visible but disabled. Upgrade your account to enable these features.
+      </div>
+    )}
+  </div>
+)}
         </>
       )}
     </div>

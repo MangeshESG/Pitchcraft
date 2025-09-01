@@ -843,6 +843,7 @@ const MainPage: React.FC = () => {
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [endTime, setEndTime] = useState<Date | null>(null);
   const [cachedContacts, setCachedContacts] = useState<any[]>([]);
+  const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
 
 
   const [toneSettings, setToneSettings] = useState({
@@ -864,6 +865,104 @@ const toneSettingsHandler = (e: any) => {
     [name]: value
   }));
 };
+
+const fetchToneSettings = async (clientId?: string) => {
+  try {
+    const id = clientId || effectiveUserId || sessionStorage.getItem("clientId");
+    const response = await fetch(`${API_BASE_URL}/api/Crm/get-tone-settings?clientId=${id}`, {
+      method: 'GET',
+      headers: {
+        'Accept': '*/*',
+        'Content-Type': 'application/json',
+      }
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      setToneSettings({
+        language: data.language,
+        subjectTemplate: data.subjectTemplate,
+        emojis: data.emojis,
+        tone: data.tone,
+        chatty: data.chattyLevel,
+        creativity: data.creativityLevel,
+        reasoning: data.reasoningLevel,
+        dateGreeting: data.dateGreeting,
+        dateFarewell: data.dateFarewell
+      });
+      
+      // Set subjectMode based on whether subjectTemplate exists
+      if (data.subjectTemplate && data.subjectTemplate.trim() !== "") {
+        setSubjectMode?.("With Placeholder");
+        setSubjectText?.(data.subjectTemplate);
+      } else {
+        setSubjectMode?.("AI generated");
+        setSubjectText?.("");
+      }
+    }
+  } catch (error) {
+    console.error('Error fetching tone settings:', error);
+  }
+};
+
+const handleSubjectTextChange = (value: string) => {
+  // Only call if setSubjectText is defined
+  if (setSubjectText) {
+    setSubjectText(value);
+  }
+  
+  // Also update toneSettings.subjectTemplate
+  setToneSettings(prev => ({
+    ...prev,
+    subjectTemplate: value
+  }));
+};
+// Update your saveToneSettings to use effectiveUserId
+const saveToneSettings = async () => {
+  try {
+    const clientId = effectiveUserId || sessionStorage.getItem("clientId");
+    const payload = {
+      language: toneSettings.language,
+      subjectTemplate: subjectMode === "With Placeholder" ? (subjectText || "") : "",
+      emojis: toneSettings.emojis,
+      tone: toneSettings.tone,
+      chattyLevel: toneSettings.chatty,
+      creativityLevel: toneSettings.creativity,
+      reasoningLevel: toneSettings.reasoning,
+      dateGreeting: toneSettings.dateGreeting,
+      dateFarewell: toneSettings.dateFarewell
+    };
+
+    const response = await fetch(`${API_BASE_URL}/api/Crm/save-tone-settings?clientId=${clientId}`, {
+      method: 'POST',
+      headers: {
+        'Accept': '*/*',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (response.ok) {
+      alert('Settings saved successfully!');
+      return true;
+    } else {
+      alert('Failed to save settings. Please try again.');
+      return false;
+    }
+  } catch (error) {
+    console.error('Error saving tone settings:', error);
+    alert('Error saving settings. Please try again.');
+    return false;
+  }
+};
+
+// Replace your existing useEffect with this one that watches for effectiveUserId changes
+useEffect(() => {
+  if (sessionStorage.getItem("isDemoAccount") !== "true" && effectiveUserId) {
+    fetchToneSettings();
+  }
+}, [effectiveUserId]); // Add effectiveUserId as dependency
+
 
 const buildReplacements = (
   entry: any,
@@ -1155,7 +1254,6 @@ const fetchAndDisplayEmailBodies = useCallback(
 
     return `${day}.${month}.${year} ${hours}:${minutes}:${seconds}`;
   }
-  const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
 
   const fetchClientSettings = async (clientID: number): Promise<any> => {
     try {
@@ -4242,9 +4340,13 @@ const handleCampaignChange = async (
                 selectedPrompt={selectedPrompt} // Make sure this is passed
                 handleStop={handleStop}
                 isStopRequested={stopRef.current} // Add this line
-                toneSettings={toneSettings}                    // Add this line
-                toneSettingsHandler={toneSettingsHandler}      // Add this line
+                toneSettings={toneSettings}
+                toneSettingsHandler={toneSettingsHandler}     // Add this line
                 selectedSegmentId={selectedSegmentId}
+                fetchToneSettings={fetchToneSettings}
+                saveToneSettings={saveToneSettings}
+                handleSubjectTextChange={handleSubjectTextChange}
+
 
                
               
