@@ -3,7 +3,8 @@ import Modal from "../common/Modal";
 import API_BASE_URL from "../../config";
 import { useModel } from "../../ModelContext";
 import { useAppData } from "../../contexts/AppDataContext";
-
+import AppModal from "../common/AppModal";
+import { useAppModal } from "../../hooks/useAppModal";
 
 interface SettingsProps {
   selectedClient: string;
@@ -111,12 +112,15 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
   setLastLoadedClientId,
 }) => {
   const [openModals, setOpenModals] = useState<{ [key: string]: boolean }>({});
-const { selectedModelName, setSelectedModelName } = useModel();
+  const { selectedModelName, setSelectedModelName } = useModel();
   const [models, setModels] = useState<Model[]>([]);
+
+  const appModal = useAppModal();
 
   // Added state for selected model
   const [selectedModel, setSelectedModel] = useState<string>("");
-const { refreshTrigger, clientSettings, setClientSettings, triggerRefresh } = useAppData();
+  const { refreshTrigger, clientSettings, setClientSettings, triggerRefresh } =
+    useAppData();
 
   useEffect(() => {
     const fetchModels = async () => {
@@ -168,118 +172,117 @@ const { refreshTrigger, clientSettings, setClientSettings, triggerRefresh } = us
       output: "",
     });
 
- // REPLACE the useEffect I provided earlier with this corrected version:
-useEffect(() => {
-  if (!selectedClient) return;
+  // REPLACE the useEffect I provided earlier with this corrected version:
+  useEffect(() => {
+    if (!selectedClient) return;
 
-  (async () => {
-    try {
-      setIsLoading(true);
+    (async () => {
+      try {
+        setIsLoading(true);
 
-      // Use clientSettings from context first, then preloaded, then fetch
-      let settings = clientSettings || preloadedSettings;
-      
-      // Only fetch if we don't have settings from context/props and it's a different client
-      if (!settings && selectedClient !== lastLoadedClientId) {
-        settings = await fetchClientSettings(Number(selectedClient));
+        // Use clientSettings from context first, then preloaded, then fetch
+        let settings = clientSettings || preloadedSettings;
+
+        // Only fetch if we don't have settings from context/props and it's a different client
+        if (!settings && selectedClient !== lastLoadedClientId) {
+          settings = await fetchClientSettings(Number(selectedClient));
+        }
+
+        // Only proceed if we have valid settings
+        if (settings && Object.keys(settings).length > 0) {
+          console.log("Applying settings to form:", settings); // Debug log
+
+          // Set Model
+          if (settings.modelName) {
+            setSelectedModel(settings.modelName);
+            setSelectedModelName(settings.modelName);
+            localStorage.setItem("selectedModel", settings.modelName);
+          }
+
+          // Update Search Term Form
+          const newSearchTermData = {
+            searchCount: settings.searchCount?.toString() || "",
+            searchTerm: settings.searchTerm || "",
+            instructions: settings.instructions || "",
+          };
+
+          // Update local state
+          setLocalSearchTermForm(newSearchTermData);
+
+          // Update parent form state for each field
+          if (searchTermFormHandler) {
+            searchTermFormHandler({
+              target: {
+                name: "searchCount",
+                value: newSearchTermData.searchCount,
+              },
+            } as React.ChangeEvent<HTMLInputElement>);
+
+            searchTermFormHandler({
+              target: {
+                name: "searchTerm",
+                value: newSearchTermData.searchTerm,
+              },
+            } as React.ChangeEvent<HTMLInputElement>);
+
+            searchTermFormHandler({
+              target: {
+                name: "instructions",
+                value: newSearchTermData.instructions,
+              },
+            } as React.ChangeEvent<HTMLInputElement>);
+          }
+
+          // Update Settings Form
+          const newSettingsData = {
+            systemInstructions: settings.systemInstructions || "",
+            subjectInstructions: settings.subjectInstructions || "",
+          };
+
+          // Update local state
+          setLocalSettingsForm((prev) => ({
+            ...prev,
+            ...newSettingsData,
+          }));
+
+          // Update parent form state for each field
+          if (settingsFormHandler) {
+            settingsFormHandler({
+              target: {
+                name: "systemInstructions",
+                value: newSettingsData.systemInstructions,
+              },
+            } as React.ChangeEvent<HTMLInputElement>);
+
+            settingsFormHandler({
+              target: {
+                name: "subjectInstructions",
+                value: newSettingsData.subjectInstructions,
+              },
+            } as React.ChangeEvent<HTMLInputElement>);
+          }
+
+          // Fetch additional data
+          await Promise.all([fetchZohoClient(), fetchDemoAccountStatus()]);
+        }
+
+        setLastLoadedClientId(selectedClient);
+      } catch (error) {
+        console.error("Error loading client settings:", error);
+      } finally {
+        setIsLoading(false);
       }
-
-      // Only proceed if we have valid settings
-      if (settings && Object.keys(settings).length > 0) {
-        console.log("Applying settings to form:", settings); // Debug log
-
-        // Set Model
-        if (settings.modelName) {
-          setSelectedModel(settings.modelName);
-          setSelectedModelName(settings.modelName);
-          localStorage.setItem("selectedModel", settings.modelName);
-        }
-
-        // Update Search Term Form
-        const newSearchTermData = {
-          searchCount: settings.searchCount?.toString() || "",
-          searchTerm: settings.searchTerm || "",
-          instructions: settings.instructions || "",
-        };
-        
-        // Update local state
-        setLocalSearchTermForm(newSearchTermData);
-        
-        // Update parent form state for each field
-        if (searchTermFormHandler) {
-          searchTermFormHandler({ 
-            target: { 
-              name: "searchCount", 
-              value: newSearchTermData.searchCount 
-            } 
-          } as React.ChangeEvent<HTMLInputElement>);
-          
-          searchTermFormHandler({ 
-            target: { 
-              name: "searchTerm", 
-              value: newSearchTermData.searchTerm 
-            } 
-          } as React.ChangeEvent<HTMLInputElement>);
-          
-          searchTermFormHandler({ 
-            target: { 
-              name: "instructions", 
-              value: newSearchTermData.instructions 
-            } 
-          } as React.ChangeEvent<HTMLInputElement>);
-        }
-
-        // Update Settings Form
-        const newSettingsData = {
-          systemInstructions: settings.systemInstructions || "",
-          subjectInstructions: settings.subjectInstructions || "",
-        };
-        
-        // Update local state
-        setLocalSettingsForm(prev => ({
-          ...prev,
-          ...newSettingsData
-        }));
-        
-        // Update parent form state for each field
-        if (settingsFormHandler) {
-          settingsFormHandler({ 
-            target: { 
-              name: "systemInstructions", 
-              value: newSettingsData.systemInstructions 
-            } 
-          } as React.ChangeEvent<HTMLInputElement>);
-          
-          settingsFormHandler({ 
-            target: { 
-              name: "subjectInstructions", 
-              value: newSettingsData.subjectInstructions 
-            } 
-          } as React.ChangeEvent<HTMLInputElement>);
-        }
-
-        // Fetch additional data
-        await Promise.all([fetchZohoClient(), fetchDemoAccountStatus()]);
-      }
-
-      setLastLoadedClientId(selectedClient);
-    } catch (error) {
-      console.error("Error loading client settings:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  })();
-}, [selectedClient, clientSettings, refreshTrigger, lastLoadedClientId]);
+    })();
+  }, [selectedClient, clientSettings, refreshTrigger, lastLoadedClientId]);
 
   // Modify handleModelChange to update local state
 
-const handleModelChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-  const modelName = event.target.value;
-  setSelectedModel(modelName);
-  setSelectedModelName(modelName);         // context
-  localStorage.setItem("selectedModel", modelName);
-};
-
+  const handleModelChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const modelName = event.target.value;
+    setSelectedModel(modelName);
+    setSelectedModelName(modelName); // context
+    localStorage.setItem("selectedModel", modelName);
+  };
 
   const handleModalClose = (id: string) => {
     setOpenModals((prev) => ({ ...prev, [id]: false }));
@@ -319,55 +322,66 @@ const handleModelChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     searchTermFormHandler(e); // Call the original handler
   };
 
-const handleUpdateSettings = async () => {
-  try {
-    // Prepare data in snake_case format as expected by API
-    const settingsData = {
-      model_name: selectedModel,
-      search_URL_count: parseInt(localSearchTermForm.searchCount || searchTermForm.searchCount) || 0,
-      search_term: localSearchTermForm.searchTerm || searchTermForm.searchTerm || "",
-      instruction: localSearchTermForm.instructions || searchTermForm.instructions || "",
-      system_instruction: localSettingsForm.systemInstructions || settingsForm.systemInstructions || "",
-      subject_instructions: localSettingsForm.subjectInstructions || settingsForm.subjectInstructions || "",
-    };
+  const handleUpdateSettings = async () => {
+    try {
+      // Prepare data in snake_case format as expected by API
+      const settingsData = {
+        model_name: selectedModel,
+        search_URL_count:
+          parseInt(
+            localSearchTermForm.searchCount || searchTermForm.searchCount
+          ) || 0,
+        search_term:
+          localSearchTermForm.searchTerm || searchTermForm.searchTerm || "",
+        instruction:
+          localSearchTermForm.instructions || searchTermForm.instructions || "",
+        system_instruction:
+          localSettingsForm.systemInstructions ||
+          settingsForm.systemInstructions ||
+          "",
+        subject_instructions:
+          localSettingsForm.subjectInstructions ||
+          settingsForm.subjectInstructions ||
+          "",
+      };
 
-    console.log("Sending update with:", settingsData);
+      console.log("Sending update with:", settingsData);
 
-    const response = await fetch(
-      `${API_BASE_URL}/api/auth/updateClientSettings/${selectedClient}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(settingsData),
+      const response = await fetch(
+        `${API_BASE_URL}/api/auth/updateClientSettings/${selectedClient}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(settingsData),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to update settings: ${response.statusText}`);
       }
-    );
 
-    if (!response.ok) {
-      throw new Error(`Failed to update settings: ${response.statusText}`);
-    }
-    
-    await updateDemoAccountStatus();
-    alert("Settings updated successfully");
+      await updateDemoAccountStatus();
+      appModal.showSuccess("Settings updated successfully");
 
-    // Refresh settings to ensure UI is in sync
-    const updatedSettings = await fetchClientSettings(Number(selectedClient));
-    
-    // Update context with new settings
-    if (setClientSettings) {
-      setClientSettings(updatedSettings);
+      // Refresh settings to ensure UI is in sync
+      const updatedSettings = await fetchClientSettings(Number(selectedClient));
+
+      // Update context with new settings
+      if (setClientSettings) {
+        setClientSettings(updatedSettings);
+      }
+
+      // Trigger refresh
+      if (triggerRefresh) {
+        triggerRefresh();
+      }
+    } catch (error) {
+      console.error("Error updating settings:", error);
+      appModal.showError("Failed to update settings. Please try again.");
     }
-    
-    // Trigger refresh
-    if (triggerRefresh) {
-      triggerRefresh();
-    }
-  } catch (error) {
-    console.error("Error updating settings:", error);
-    alert("Failed to update settings. Please try again.");
-  }
-};
+  };
 
   useEffect(() => {
     console.log("Form Values Updated:", {
@@ -399,7 +413,9 @@ const handleUpdateSettings = async () => {
       !zohoViewForm.zohoviewName ||
       !selectedClient
     ) {
-      alert("Please fill all fields and ensure a client is selected");
+      appModal.showError(
+        "Please fill all fields and ensure a client is selected"
+      );
       return;
     }
 
@@ -419,7 +435,9 @@ const handleUpdateSettings = async () => {
 
   const handleDeleteZohoView = async () => {
     if (!zohoViewForm.zohoviewId || !selectedClient) {
-      alert("Please enter Zoho View ID and ensure a client is selected");
+      appModal.showError(
+        "Please enter Zoho View ID and ensure a client is selected"
+      );
       return;
     }
 
@@ -460,13 +478,13 @@ const handleUpdateSettings = async () => {
       }
 
       const data = await response.json();
-      alert("Zoho view added successfully");
+      appModal.showSuccess("Zoho view added successfully");
       await fetchZohoClient();
 
       return data;
     } catch (error) {
       console.error("Error adding Zoho view:", error);
-      alert("Failed to add Zoho view");
+      appModal.showError("Failed to add Zoho view");
     } finally {
       setIsLoading(false);
     }
@@ -489,11 +507,11 @@ const handleUpdateSettings = async () => {
         throw new Error("Failed to delete Zoho view");
       }
 
-      alert("Zoho view deleted successfully");
+      appModal.showSuccess("Zoho view deleted successfully");
       await fetchZohoClient();
     } catch (error) {
       console.error("Error deleting Zoho view:", error);
-      alert("Failed to delete Zoho view");
+      appModal.showError("Failed to delete Zoho view");
     } finally {
       setIsLoading(false);
     }
@@ -790,7 +808,7 @@ const handleUpdateSettings = async () => {
                   <select
                     name="model"
                     id="model"
-                    value={selectedModel|| selectedModelName}
+                    value={selectedModel || selectedModelName}
                     onChange={handleModelChange}
                   >
                     <option value="">Select model</option>
@@ -861,10 +879,7 @@ const handleUpdateSettings = async () => {
                       ""
                     }
                     onChange={(e) => {
-                      console.log(
-                        "Search count changing to:",
-                        e.target.value
-                      );
+                      console.log("Search count changing to:", e.target.value);
                       searchTermFormHandler(e);
                       setLocalSearchTermForm((prev) => ({
                         ...prev,
@@ -925,9 +940,7 @@ const handleUpdateSettings = async () => {
                   <button
                     type="button"
                     className="full-view-icon d-flex align-center justify-center"
-                    onClick={() =>
-                      handleModalOpen("modal-subjectInstructions")
-                    }
+                    onClick={() => handleModalOpen("modal-subjectInstructions")}
                   >
                     <svg width="40px" height="40px" viewBox="0 0 512 512">
                       <title>ionicons-v5-c</title>
@@ -1079,6 +1092,12 @@ const handleUpdateSettings = async () => {
           </div>
         </>
       )}
+
+      <AppModal
+        isOpen={appModal.isOpen}
+        onClose={appModal.hideModal}
+        {...appModal.config}
+      />
     </div>
   );
 };

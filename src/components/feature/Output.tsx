@@ -1367,105 +1367,7 @@ const handleSaveSettings = async () => {
               
             </div>
 
-            {/* <div className="col col-3 col-12-768">
-              <div className="form-group">
-                <label>Original non-personalized email templates</label>
-                <select
-                  onChange={handleSelectChange}
-                  value={selectedPrompt?.name || ""}
-                  className={!selectedPrompt?.name ? "highlight-required" : ""}
-                  disabled={
-                    userRole !== "ADMIN" || selectionMode === "campaign"
-                  }
-                >
-                  <option value="">Please select a template</option>
-                  {promptList?.map((prompt: any) => (
-                    <option key={prompt.id} value={prompt.name}>
-                      {prompt.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="col col-3 col-12-768">
-              <div className="form-group">
-                <label>Data files of contacts</label>
-                <select
-                  name="model"
-                  id="model"
-                  onChange={handleZohoModelChange}
-                  value={selectedZohoviewId}
-                  className={!selectedZohoviewId ? "highlight-required" : ""}
-                  disabled={
-                    userRole !== "ADMIN" || selectionMode === "campaign"
-                  }
-                >
-                  <option value="">Please select a data file</option>
-                  {dataFiles?.map((file) => (
-                    <option key={file.id} value={file.id}>
-                      {file.name} - {file.data_file_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {emailLoading && (
-                <div className="loader-overlay">
-                  <div className="loader"></div>
-                </div>
-              )}
-            </div> */}
-
-            {/* Subject */}
-            {/* <div>
-              {!isDemoAccount && (
-                <div className="form-group" style={{ flexWrap: "wrap" }}>
-                  <label style={{ width: "100%" }}>Subject</label>
-
-                  <div className="flex">
-                    <select
-                      onChange={(e) => setSubjectMode?.(e.target.value)}
-                      value={subjectMode}
-                      className="height-35"
-                      style={{ minWidth: 150, marginRight: 10 }}
-                    >
-                      <option value="AI generated">AI generated</option>
-                      <option value="With Placeholder">With placeholder</option>
-                    </select>
-                    <input
-                      type="text"
-                      placeholder="Enter subject here"
-                      value={subjectText}
-                      onChange={(e) => setSubjectText?.(e.target.value)}
-                      disabled={subjectMode !== "With Placeholder"}
-                    />
-                  </div>
-                </div>
-              )}
-            </div> */}
-            {/* Language */}
-            {/* <div className="">
-                    {!isDemoAccount && (
-
-              <div className="form-group">
-                <label>Language</label>
-                <select
-                  onChange={handleLanguageChange}
-                  value={selectedLanguage}
-                  className="height-35"
-                >
-                  <option value="">Select a language</option>
-                  {languages
-                    ?.sort((a, b) => a.localeCompare(b))
-                    .map((language, index) => (
-                      <option key={index} value={language}>
-                        {language}
-                      </option>
-                    ))}
-                </select>
-              </div>
-                    )}
-            </div> */}
+            
 
             {/* Navigation */}
             <div className="d-flex align-start mt-[26px] gap-1">
@@ -1552,7 +1454,7 @@ const handleSaveSettings = async () => {
                 )}
             </div>
 
-            {/* Contact Pagination with iinput box */}
+            {/* Contact Index with input box */}
             <div className="mtext-center d-flex align-center mr-20 mt-10-991 font-size-medium">
                 {combinedResponses.length > 0 && (
                   <>
@@ -1561,21 +1463,24 @@ const handleSaveSettings = async () => {
                       <strong>Contact:</strong> 
                       {/* Input box to enter index */}
                       <input
-                        type="number"
-                        value={inputValue}
-                        onChange={handleIndexChange}
-                        onBlur={() => {
-                          // When input loses focus, ensure it shows a valid value
-                          if (
-                            inputValue.trim() === "" ||
-                            isNaN(parseInt(inputValue, 10))
-                          ) {
-                            setInputValue((currentIndex + 1).toString());
-                          }
-                        }}
-                        className="form-control text-center !mx-2"
-                        style={{ width: "70px", padding: "8px" }}
-                      />
+                          type="number"
+                          value={inputValue}
+                          onChange={handleIndexChange}
+                          onBlur={() => {
+                            // When input loses focus, ensure it shows a valid value
+                            if (
+                              inputValue.trim() === "" ||
+                              isNaN(parseInt(inputValue, 10)) ||
+                              parseInt(inputValue, 10) < 1
+                            ) {
+                              setInputValue((currentIndex + 1).toString());
+                            }
+                          }}
+                          min="1" // HTML5 validation to prevent negative numbers
+                          max={combinedResponses.length} // Prevent going beyond available contacts
+                          className="form-control text-center !mx-2"
+                          style={{ width: "70px", padding: "8px" }}
+                        />
                        of{" "}
                       {
                         // Get total contacts from the selected view or all views
@@ -1608,7 +1513,6 @@ const handleSaveSettings = async () => {
             
           </div>
 
-          {/* Subject Line Row */}
         </div>
       </div>
 

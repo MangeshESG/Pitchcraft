@@ -45,9 +45,17 @@ const REQUIRED_FIELDS = [
   { key: "email_body", label: "Email body", required: false },
   { key: "email_subject", label: "Email subject", required: false },
   { key: "company_telephone", label: "Company telephone", required: false },
-  { key: "company_employee_count", label: "Company employee count", required: false },
+  {
+    key: "company_employee_count",
+    label: "Company employee count",
+    required: false,
+  },
   { key: "company_industry", label: "Company industry", required: false },
-  { key: "company_linkedin_url", label: "Company LinkedIn URL", required: false },
+  {
+    key: "company_linkedin_url",
+    label: "Company LinkedIn URL",
+    required: false,
+  },
   { key: "company_event_link", label: "Company event link", required: false },
 ];
 
@@ -240,7 +248,9 @@ const DataFile: React.FC<DataFileProps> = ({
       !validTypes.includes(file.type) &&
       !file.name.match(/\.(xlsx|xls|csv)$/i)
     ) {
-      setErrors(["Please upload a valid contacts data file (.xlsx, .xls, or .csv)"]);
+      setErrors([
+        "Please upload a valid contacts data file (.xlsx, .xls, or .csv)",
+      ]);
       return;
     }
 
@@ -342,7 +352,7 @@ const DataFile: React.FC<DataFileProps> = ({
           validationErrors.push(
             `Row ${rowIndex + 2}: Missing required fields (name or email)`
           );
-                }
+        }
         isValid = false;
         invalidCount++;
       } else if (!isValidEmail(mappedRow.email)) {
@@ -586,7 +596,9 @@ const DataFile: React.FC<DataFileProps> = ({
               </div>
 
               <div
-                className={`dropzone justify-center text-center flex flex-col items-center ${isDragActive ? "active" : ""}`}
+                className={`dropzone justify-center text-center flex flex-col items-center ${
+                  isDragActive ? "active" : ""
+                }`}
                 onDragEnter={handleDragIn}
                 onDragLeave={handleDragOut}
                 onDragOver={handleDrag}
@@ -676,10 +688,15 @@ const DataFile: React.FC<DataFileProps> = ({
             </div>
           )}
 
-                    {/* Step 2: Map Columns */}
+          {/* Step 2: Map Columns */}
           {currentStep === 2 && (
             <div className="mapping-section mt-20">
-              <h4 className="mt-[20px] sub-title" style={{marginBottom:'5px'}} >Map your contacts data file columns</h4>
+              <h4
+                className="mt-[20px] sub-title"
+                style={{ marginBottom: "5px" }}
+              >
+                Map your contacts data file columns
+              </h4>
               <p className="text-muted mb-20">
                 Please map your contacts data file to the required fields below:
               </p>
@@ -713,8 +730,10 @@ const DataFile: React.FC<DataFileProps> = ({
                 ))}
               </div>
 
-              <div className="
-              flex justify-end gap-2">
+              <div
+                className="
+              flex justify-end gap-2"
+              >
                 <button onClick={resetUpload} className="button secondary">
                   Back
                 </button>
@@ -733,7 +752,7 @@ const DataFile: React.FC<DataFileProps> = ({
           {currentStep === 3 && (
             <div className="preview-section">
               <div className="d-flex justify-between align-center mb-20">
-                <h4 style={{marginBottom:0}}>Preview Your Data</h4>
+                <h4 style={{ marginBottom: 0 }}>Preview Your Data</h4>
                 <div className="stats-info">
                   <span className="badge badge-info">
                     Total: {processingStats.total}

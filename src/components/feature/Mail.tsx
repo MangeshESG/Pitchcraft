@@ -9,9 +9,10 @@ import API_BASE_URL from "../../config";
 import { toast } from "react-toastify";
 import ContactsTable from "./ContactsTable";
 import { useAppData } from "../../contexts/AppDataContext";
-import MailDashboard from './MailDashboard';
+import MailDashboard from "./MailDashboard";
 import type { EventItem, EmailLog } from "../../contexts/AppDataContext";
-
+import AppModal from "../common/AppModal";
+import { useAppModal } from "../../hooks/useAppModal";
 
 type MailTabType = "Dashboard" | "Configuration" | "Schedule";
 
@@ -29,8 +30,8 @@ interface scheduleFetch {
   zohoViewName: string;
   isSent: boolean;
   testIsSent: boolean;
-  dataFileId: number | null;  
-  segmentId?: number | null;   
+  dataFileId: number | null;
+  segmentId?: number | null;
 }
 
 interface SmtpUser {
@@ -110,7 +111,6 @@ interface Segment {
   updatedAt: string | null;
 }
 
-
 interface OutputInterface {
   outputForm: {
     generatedContent: string;
@@ -182,16 +182,13 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   initialTab = "Dashboard",
   onTabChange,
 }) => {
+  const [segments, setSegments] = useState<Segment[]>([]);
+  const [segmentsLoading, setSegmentsLoading] = useState(false);
 
-
-const [segments, setSegments] = useState<Segment[]>([]);
-const [segmentsLoading, setSegmentsLoading] = useState(false);
-  
-const [isCopyText, setIsCopyText] = useState(false);
-const { saveFormState, getFormState, refreshTrigger } = useAppData();
-const [openModals, setOpenModals] = useState<{ [key: string]: boolean }>({});
+  const [isCopyText, setIsCopyText] = useState(false);
+  const { saveFormState, getFormState, refreshTrigger } = useAppData();
+  const [openModals, setOpenModals] = useState<{ [key: string]: boolean }>({});
   const isDemoAccount = sessionStorage.getItem("isDemoAccount") === "true";
-
 
   const handleModalOpen = (id: string) => {
     setOpenModals((prev) => ({ ...prev, [id]: true }));
@@ -207,20 +204,18 @@ const [openModals, setOpenModals] = useState<{ [key: string]: boolean }>({});
     setTab(initialTab as MailTabType);
   }, [initialTab]);
 
-const tabHandler = (e: React.MouseEvent<HTMLButtonElement>) => {
-  const innerText = e.currentTarget.innerText as MailTabType;
-  setTab(innerText);
+  const tabHandler = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const innerText = e.currentTarget.innerText as MailTabType;
+    setTab(innerText);
 
-  // Save current state when changing tabs
+    // Save current state when changing tabs
 
+    if (onTabChange) {
+      onTabChange(innerText);
+    }
+  };
 
-  if (onTabChange) {
-    onTabChange(innerText);
-  }
-};
-
-
-
+  const appModal = useAppModal();
 
   const [tab2, setTab2] = useState("Output");
   const tabHandler2 = (e: React.ChangeEvent<any>) => {
@@ -262,7 +257,6 @@ const tabHandler = (e: React.MouseEvent<HTMLButtonElement>) => {
   }, [onClearContent]);
   const userId = sessionStorage.getItem("clientId");
   const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
-
 
   const token = sessionStorage.getItem("token");
   // SMTP View
@@ -338,7 +332,7 @@ const tabHandler = (e: React.MouseEvent<HTMLButtonElement>) => {
             },
           }
         );
-        alert("SMTP updated successfully");
+        appModal.showSuccess("SMTP updated successfully");
       } else {
         await axios.post(
           `${API_BASE_URL}/api/email/save-smtp?ClientId=${effectiveUserId}`,
@@ -350,7 +344,7 @@ const tabHandler = (e: React.MouseEvent<HTMLButtonElement>) => {
             },
           }
         );
-        alert("SMTP added successfully");
+        appModal.showSuccess("SMTP added successfully");
       }
 
       // Step 3: Clear form and refresh list
@@ -366,7 +360,7 @@ const tabHandler = (e: React.MouseEvent<HTMLButtonElement>) => {
       fetchSmtp();
     } catch (err) {
       console.error(err);
-      alert(
+      appModal.showError(
         "Failed to send test email or save SMTP. Please check the settings."
       );
     }
@@ -395,99 +389,362 @@ const tabHandler = (e: React.MouseEvent<HTMLButtonElement>) => {
         fetchSmtp();
       } catch (err) {
         console.error(err);
-        alert("Error deleting SMTP");
+        appModal.showError("Error deleting SMTP");
       }
     }
   };
   //End SMTP
 
   //Schedule Tab js code
-// Update your timezoneOptions array with IANA timezone mappings
-const timezoneOptions = [
-  // Americas
-  { value: "Eastern Standard Time", label: "America/New_York (EST/EDT)", iana: "America/New_York" },
-  { value: "Central Standard Time", label: "America/Chicago (CST/CDT)", iana: "America/Chicago" },
-  { value: "Mountain Standard Time", label: "America/Denver (MST/MDT)", iana: "America/Denver" },
-  { value: "Pacific Standard Time", label: "America/Los_Angeles (PST/PDT)", iana: "America/Los_Angeles" },
-  { value: "Alaskan Standard Time", label: "America/Anchorage (AKST/AKDT)", iana: "America/Anchorage" },
-  { value: "Hawaiian Standard Time", label: "Pacific/Honolulu (HST)", iana: "Pacific/Honolulu" },
-  { value: "Canada Central Standard Time", label: "America/Regina (CST)", iana: "America/Regina" },
-  { value: "Mexico Standard Time", label: "America/Mexico_City (CST)", iana: "America/Mexico_City" },
-  { value: "Central America Standard Time", label: "America/Guatemala (CST)", iana: "America/Guatemala" },
-  { value: "US Eastern Standard Time", label: "America/Indianapolis (EST)", iana: "America/Indiana/Indianapolis" },
-  { value: "SA Pacific Standard Time", label: "America/Bogota (COT)", iana: "America/Bogota" },
-  { value: "Venezuela Standard Time", label: "America/Caracas (VET)", iana: "America/Caracas" },
-  { value: "Atlantic Standard Time", label: "America/Halifax (AST/ADT)", iana: "America/Halifax" },
-  { value: "Newfoundland Standard Time", label: "America/St_Johns (NST/NDT)", iana: "America/St_Johns" },
-  { value: "E. South America Standard Time", label: "America/Sao_Paulo (BRT)", iana: "America/Sao_Paulo" },
-  { value: "Argentina Standard Time", label: "America/Buenos_Aires (ART)", iana: "America/Argentina/Buenos_Aires" },
-  { value: "SA Western Standard Time", label: "America/La_Paz (BOT)", iana: "America/La_Paz" },
-  { value: "Pacific SA Standard Time", label: "America/Santiago (CLT/CLST)", iana: "America/Santiago" },
-  
-  // Europe
-  { value: "GMT Standard Time", label: "Europe/London (GMT/BST)", iana: "Europe/London" },
-  { value: "Greenwich Standard Time", label: "Atlantic/Reykjavik (GMT)", iana: "Atlantic/Reykjavik" },
-  { value: "W. Europe Standard Time", label: "Europe/Amsterdam (CET/CEST)", iana: "Europe/Amsterdam" },
-  { value: "Central Europe Standard Time", label: "Europe/Berlin (CET/CEST)", iana: "Europe/Berlin" },
-  { value: "Romance Standard Time", label: "Europe/Paris (CET/CEST)", iana: "Europe/Paris" },
-  { value: "Central European Standard Time", label: "Europe/Warsaw (CET/CEST)", iana: "Europe/Warsaw" },
-  { value: "W. Central Africa Standard Time", label: "Africa/Lagos (WAT)", iana: "Africa/Lagos" },
-  { value: "E. Europe Standard Time", label: "Europe/Bucharest (EET/EEST)", iana: "Europe/Bucharest" },
-  { value: "GTB Standard Time", label: "Europe/Athens (EET/EEST)", iana: "Europe/Athens" },
-  { value: "FLE Standard Time", label: "Europe/Helsinki (EET/EEST)", iana: "Europe/Helsinki" },
-  { value: "Turkey Standard Time", label: "Europe/Istanbul (TRT)", iana: "Europe/Istanbul" },
-  { value: "Russian Standard Time", label: "Europe/Moscow (MSK)", iana: "Europe/Moscow" },
-  { value: "E. Africa Standard Time", label: "Africa/Nairobi (EAT)", iana: "Africa/Nairobi" },
-  { value: "South Africa Standard Time", label: "Africa/Johannesburg (SAST)", iana: "Africa/Johannesburg" },
-  
-  // Middle East
-  { value: "Israel Standard Time", label: "Asia/Jerusalem (IST/IDT)", iana: "Asia/Jerusalem" },
-  { value: "Egypt Standard Time", label: "Africa/Cairo (EET)", iana: "Africa/Cairo" },
-  { value: "Arabic Standard Time", label: "Asia/Baghdad (AST)", iana: "Asia/Baghdad" },
-  { value: "Arab Standard Time", label: "Asia/Riyadh (AST)", iana: "Asia/Riyadh" },
-  { value: "Iran Standard Time", label: "Asia/Tehran (IRST/IRDT)", iana: "Asia/Tehran" },
-  { value: "Arabian Standard Time", label: "Asia/Dubai (GST)", iana: "Asia/Dubai" },
-    { value: "Jordan Standard Time", label: "Asia/Amman (EET/EEST)", iana: "Asia/Amman" },
-  
-  // Asia
-  { value: "Pakistan Standard Time", label: "Asia/Karachi (PKT)", iana: "Asia/Karachi" },
-  { value: "India Standard Time", label: "Asia/Kolkata (IST)", iana: "Asia/Kolkata" },
-  { value: "Sri Lanka Standard Time", label: "Asia/Colombo (IST)", iana: "Asia/Colombo" },
-  { value: "Nepal Standard Time", label: "Asia/Kathmandu (NPT)", iana: "Asia/Kathmandu" },
-  { value: "Bangladesh Standard Time", label: "Asia/Dhaka (BST)", iana: "Asia/Dhaka" },
-  { value: "Myanmar Standard Time", label: "Asia/Yangon (MMT)", iana: "Asia/Yangon" },
-  { value: "SE Asia Standard Time", label: "Asia/Bangkok (ICT)", iana: "Asia/Bangkok" },
-  { value: "North Asia Standard Time", label: "Asia/Krasnoyarsk (KRAT)", iana: "Asia/Krasnoyarsk" },
-  { value: "China Standard Time", label: "Asia/Shanghai (CST)", iana: "Asia/Shanghai" },
-  { value: "Singapore Standard Time", label: "Asia/Singapore (SGT)", iana: "Asia/Singapore" },
-  { value: "W. Australia Standard Time", label: "Australia/Perth (AWST)", iana: "Australia/Perth" },
-  { value: "Taipei Standard Time", label: "Asia/Taipei (CST)", iana: "Asia/Taipei" },
-  { value: "Tokyo Standard Time", label: "Asia/Tokyo (JST)", iana: "Asia/Tokyo" },
-  { value: "Korea Standard Time", label: "Asia/Seoul (KST)", iana: "Asia/Seoul" },
-  { value: "Yakutsk Standard Time", label: "Asia/Yakutsk (YAKT)", iana: "Asia/Yakutsk" },
-  { value: "Cen. Australia Standard Time", label: "Australia/Adelaide (ACST/ACDT)", iana: "Australia/Adelaide" },
-  { value: "AUS Central Standard Time", label: "Australia/Darwin (ACST)", iana: "Australia/Darwin" },
-  { value: "E. Australia Standard Time", label: "Australia/Brisbane (AEST)", iana: "Australia/Brisbane" },
-  { value: "AUS Eastern Standard Time", label: "Australia/Sydney (AEST/AEDT)", iana: "Australia/Sydney" },
-  { value: "Tasmania Standard Time", label: "Australia/Hobart (AEST/AEDT)", iana: "Australia/Hobart" },
-  { value: "Vladivostok Standard Time", label: "Asia/Vladivostok (VLAT)", iana: "Asia/Vladivostok" },
-  
-  // Pacific
-  { value: "West Pacific Standard Time", label: "Pacific/Port_Moresby (PGT)", iana: "Pacific/Port_Moresby" },
-  { value: "Central Pacific Standard Time", label: "Pacific/Guadalcanal (SBT)", iana: "Pacific/Guadalcanal" },
-  { value: "Fiji Standard Time", label: "Pacific/Fiji (FJT/FJST)", iana: "Pacific/Fiji" },
-  { value: "New Zealand Standard Time", label: "Pacific/Auckland (NZST/NZDT)", iana: "Pacific/Auckland" },
-  { value: "Tonga Standard Time", label: "Pacific/Tongatapu (TOT)", iana: "Pacific/Tongatapu" },
-  { value: "Samoa Standard Time", label: "Pacific/Apia (SST)", iana: "Pacific/Apia" },
-  
-  // UTC Options
-  { value: "UTC-11", label: "UTC-11:00", iana: "Etc/GMT+11" },
-  { value: "UTC-02", label: "UTC-02:00", iana: "Etc/GMT+2" },
-  { value: "UTC", label: "UTC+00:00", iana: "UTC" },
-  { value: "UTC+12", label: "UTC+12:00", iana: "Etc/GMT-12" },
-  { value: "UTC+13", label: "UTC+13:00", iana: "Etc/GMT-13" },
-];
+  // Update your timezoneOptions array with IANA timezone mappings
+  const timezoneOptions = [
+    // Americas
+    {
+      value: "Eastern Standard Time",
+      label: "America/New_York (EST/EDT)",
+      iana: "America/New_York",
+    },
+    {
+      value: "Central Standard Time",
+      label: "America/Chicago (CST/CDT)",
+      iana: "America/Chicago",
+    },
+    {
+      value: "Mountain Standard Time",
+      label: "America/Denver (MST/MDT)",
+      iana: "America/Denver",
+    },
+    {
+      value: "Pacific Standard Time",
+      label: "America/Los_Angeles (PST/PDT)",
+      iana: "America/Los_Angeles",
+    },
+    {
+      value: "Alaskan Standard Time",
+      label: "America/Anchorage (AKST/AKDT)",
+      iana: "America/Anchorage",
+    },
+    {
+      value: "Hawaiian Standard Time",
+      label: "Pacific/Honolulu (HST)",
+      iana: "Pacific/Honolulu",
+    },
+    {
+      value: "Canada Central Standard Time",
+      label: "America/Regina (CST)",
+      iana: "America/Regina",
+    },
+    {
+      value: "Mexico Standard Time",
+      label: "America/Mexico_City (CST)",
+      iana: "America/Mexico_City",
+    },
+    {
+      value: "Central America Standard Time",
+      label: "America/Guatemala (CST)",
+      iana: "America/Guatemala",
+    },
+    {
+      value: "US Eastern Standard Time",
+      label: "America/Indianapolis (EST)",
+      iana: "America/Indiana/Indianapolis",
+    },
+    {
+      value: "SA Pacific Standard Time",
+      label: "America/Bogota (COT)",
+      iana: "America/Bogota",
+    },
+    {
+      value: "Venezuela Standard Time",
+      label: "America/Caracas (VET)",
+      iana: "America/Caracas",
+    },
+    {
+      value: "Atlantic Standard Time",
+      label: "America/Halifax (AST/ADT)",
+      iana: "America/Halifax",
+    },
+    {
+      value: "Newfoundland Standard Time",
+      label: "America/St_Johns (NST/NDT)",
+      iana: "America/St_Johns",
+    },
+    {
+      value: "E. South America Standard Time",
+      label: "America/Sao_Paulo (BRT)",
+      iana: "America/Sao_Paulo",
+    },
+    {
+      value: "Argentina Standard Time",
+      label: "America/Buenos_Aires (ART)",
+      iana: "America/Argentina/Buenos_Aires",
+    },
+    {
+      value: "SA Western Standard Time",
+      label: "America/La_Paz (BOT)",
+      iana: "America/La_Paz",
+    },
+    {
+      value: "Pacific SA Standard Time",
+      label: "America/Santiago (CLT/CLST)",
+      iana: "America/Santiago",
+    },
 
+    // Europe
+    {
+      value: "GMT Standard Time",
+      label: "Europe/London (GMT/BST)",
+      iana: "Europe/London",
+    },
+    {
+      value: "Greenwich Standard Time",
+      label: "Atlantic/Reykjavik (GMT)",
+      iana: "Atlantic/Reykjavik",
+    },
+    {
+      value: "W. Europe Standard Time",
+      label: "Europe/Amsterdam (CET/CEST)",
+      iana: "Europe/Amsterdam",
+    },
+    {
+      value: "Central Europe Standard Time",
+      label: "Europe/Berlin (CET/CEST)",
+      iana: "Europe/Berlin",
+    },
+    {
+      value: "Romance Standard Time",
+      label: "Europe/Paris (CET/CEST)",
+      iana: "Europe/Paris",
+    },
+    {
+      value: "Central European Standard Time",
+      label: "Europe/Warsaw (CET/CEST)",
+      iana: "Europe/Warsaw",
+    },
+    {
+      value: "W. Central Africa Standard Time",
+      label: "Africa/Lagos (WAT)",
+      iana: "Africa/Lagos",
+    },
+    {
+      value: "E. Europe Standard Time",
+      label: "Europe/Bucharest (EET/EEST)",
+      iana: "Europe/Bucharest",
+    },
+    {
+      value: "GTB Standard Time",
+      label: "Europe/Athens (EET/EEST)",
+      iana: "Europe/Athens",
+    },
+    {
+      value: "FLE Standard Time",
+      label: "Europe/Helsinki (EET/EEST)",
+      iana: "Europe/Helsinki",
+    },
+    {
+      value: "Turkey Standard Time",
+      label: "Europe/Istanbul (TRT)",
+      iana: "Europe/Istanbul",
+    },
+    {
+      value: "Russian Standard Time",
+      label: "Europe/Moscow (MSK)",
+      iana: "Europe/Moscow",
+    },
+    {
+      value: "E. Africa Standard Time",
+      label: "Africa/Nairobi (EAT)",
+      iana: "Africa/Nairobi",
+    },
+    {
+      value: "South Africa Standard Time",
+      label: "Africa/Johannesburg (SAST)",
+      iana: "Africa/Johannesburg",
+    },
+
+    // Middle East
+    {
+      value: "Israel Standard Time",
+      label: "Asia/Jerusalem (IST/IDT)",
+      iana: "Asia/Jerusalem",
+    },
+    {
+      value: "Egypt Standard Time",
+      label: "Africa/Cairo (EET)",
+      iana: "Africa/Cairo",
+    },
+    {
+      value: "Arabic Standard Time",
+      label: "Asia/Baghdad (AST)",
+      iana: "Asia/Baghdad",
+    },
+    {
+      value: "Arab Standard Time",
+      label: "Asia/Riyadh (AST)",
+      iana: "Asia/Riyadh",
+    },
+    {
+      value: "Iran Standard Time",
+      label: "Asia/Tehran (IRST/IRDT)",
+      iana: "Asia/Tehran",
+    },
+    {
+      value: "Arabian Standard Time",
+      label: "Asia/Dubai (GST)",
+      iana: "Asia/Dubai",
+    },
+    {
+      value: "Jordan Standard Time",
+      label: "Asia/Amman (EET/EEST)",
+      iana: "Asia/Amman",
+    },
+
+    // Asia
+    {
+      value: "Pakistan Standard Time",
+      label: "Asia/Karachi (PKT)",
+      iana: "Asia/Karachi",
+    },
+    {
+      value: "India Standard Time",
+      label: "Asia/Kolkata (IST)",
+      iana: "Asia/Kolkata",
+    },
+    {
+      value: "Sri Lanka Standard Time",
+      label: "Asia/Colombo (IST)",
+      iana: "Asia/Colombo",
+    },
+    {
+      value: "Nepal Standard Time",
+      label: "Asia/Kathmandu (NPT)",
+      iana: "Asia/Kathmandu",
+    },
+    {
+      value: "Bangladesh Standard Time",
+      label: "Asia/Dhaka (BST)",
+      iana: "Asia/Dhaka",
+    },
+    {
+      value: "Myanmar Standard Time",
+      label: "Asia/Yangon (MMT)",
+      iana: "Asia/Yangon",
+    },
+    {
+      value: "SE Asia Standard Time",
+      label: "Asia/Bangkok (ICT)",
+      iana: "Asia/Bangkok",
+    },
+    {
+      value: "North Asia Standard Time",
+      label: "Asia/Krasnoyarsk (KRAT)",
+      iana: "Asia/Krasnoyarsk",
+    },
+    {
+      value: "China Standard Time",
+      label: "Asia/Shanghai (CST)",
+      iana: "Asia/Shanghai",
+    },
+    {
+      value: "Singapore Standard Time",
+      label: "Asia/Singapore (SGT)",
+      iana: "Asia/Singapore",
+    },
+    {
+      value: "W. Australia Standard Time",
+      label: "Australia/Perth (AWST)",
+      iana: "Australia/Perth",
+    },
+    {
+      value: "Taipei Standard Time",
+      label: "Asia/Taipei (CST)",
+      iana: "Asia/Taipei",
+    },
+    {
+      value: "Tokyo Standard Time",
+      label: "Asia/Tokyo (JST)",
+      iana: "Asia/Tokyo",
+    },
+    {
+      value: "Korea Standard Time",
+      label: "Asia/Seoul (KST)",
+      iana: "Asia/Seoul",
+    },
+    {
+      value: "Yakutsk Standard Time",
+      label: "Asia/Yakutsk (YAKT)",
+      iana: "Asia/Yakutsk",
+    },
+    {
+      value: "Cen. Australia Standard Time",
+      label: "Australia/Adelaide (ACST/ACDT)",
+      iana: "Australia/Adelaide",
+    },
+    {
+      value: "AUS Central Standard Time",
+      label: "Australia/Darwin (ACST)",
+      iana: "Australia/Darwin",
+    },
+    {
+      value: "E. Australia Standard Time",
+      label: "Australia/Brisbane (AEST)",
+      iana: "Australia/Brisbane",
+    },
+    {
+      value: "AUS Eastern Standard Time",
+      label: "Australia/Sydney (AEST/AEDT)",
+      iana: "Australia/Sydney",
+    },
+    {
+      value: "Tasmania Standard Time",
+      label: "Australia/Hobart (AEST/AEDT)",
+      iana: "Australia/Hobart",
+    },
+    {
+      value: "Vladivostok Standard Time",
+      label: "Asia/Vladivostok (VLAT)",
+      iana: "Asia/Vladivostok",
+    },
+
+    // Pacific
+    {
+      value: "West Pacific Standard Time",
+      label: "Pacific/Port_Moresby (PGT)",
+      iana: "Pacific/Port_Moresby",
+    },
+    {
+      value: "Central Pacific Standard Time",
+      label: "Pacific/Guadalcanal (SBT)",
+      iana: "Pacific/Guadalcanal",
+    },
+    {
+      value: "Fiji Standard Time",
+      label: "Pacific/Fiji (FJT/FJST)",
+      iana: "Pacific/Fiji",
+    },
+    {
+      value: "New Zealand Standard Time",
+      label: "Pacific/Auckland (NZST/NZDT)",
+      iana: "Pacific/Auckland",
+    },
+    {
+      value: "Tonga Standard Time",
+      label: "Pacific/Tongatapu (TOT)",
+      iana: "Pacific/Tongatapu",
+    },
+    {
+      value: "Samoa Standard Time",
+      label: "Pacific/Apia (SST)",
+      iana: "Pacific/Apia",
+    },
+
+    // UTC Options
+    { value: "UTC-11", label: "UTC-11:00", iana: "Etc/GMT+11" },
+    { value: "UTC-02", label: "UTC-02:00", iana: "Etc/GMT+2" },
+    { value: "UTC", label: "UTC+00:00", iana: "UTC" },
+    { value: "UTC+12", label: "UTC+12:00", iana: "Etc/GMT-12" },
+    { value: "UTC+13", label: "UTC+13:00", iana: "Etc/GMT-13" },
+  ];
 
   //Fetch Zoho View
   const [selectedZohoviewId1, setSelectedZohoviewId1] = useState<string>("");
@@ -504,49 +761,49 @@ const timezoneOptions = [
     name: string;
   } | null>(null);
 
-useEffect(() => {
-  const fetchScheduleData = async () => {
-    if (tab === "Schedule" && effectiveUserId) {
-      setScheduleDataLoading(true);
-      setSegmentsLoading(true);
-      
-      try {
-        // Fetch data files
-        const [dataFilesResponse, segmentsResponse] = await Promise.all([
-          axios.get(
-            `${API_BASE_URL}/api/crm/datafile-byclientid?clientId=${effectiveUserId}`,
-            {
-              headers: {
-                ...(token && { Authorization: `Bearer ${token}` }),
-              },
-            }
-          ),
-          axios.get(
-            `${API_BASE_URL}/api/Crm/get-segments-by-client?clientId=${effectiveUserId}`,
-            {
-              headers: {
-                ...(token && { Authorization: `Bearer ${token}` }),
-              },
-            }
-          )
-        ]);
-        
-        setScheduleDataFiles(dataFilesResponse.data);
-        setSegments(segmentsResponse.data);
-      } catch (error) {
-        console.error("Error fetching schedule data:", error);
-        setScheduleDataFiles([]);
-        setSegments([]);
-      } finally {
-        setScheduleDataLoading(false);
-        setSegmentsLoading(false);
-      }
-    }
-  };
+  useEffect(() => {
+    const fetchScheduleData = async () => {
+      if (tab === "Schedule" && effectiveUserId) {
+        setScheduleDataLoading(true);
+        setSegmentsLoading(true);
 
-  fetchScheduleData();
-}, [tab, effectiveUserId, token]);
-// Add this useEffect after your existing useEffects
+        try {
+          // Fetch data files
+          const [dataFilesResponse, segmentsResponse] = await Promise.all([
+            axios.get(
+              `${API_BASE_URL}/api/crm/datafile-byclientid?clientId=${effectiveUserId}`,
+              {
+                headers: {
+                  ...(token && { Authorization: `Bearer ${token}` }),
+                },
+              }
+            ),
+            axios.get(
+              `${API_BASE_URL}/api/Crm/get-segments-by-client?clientId=${effectiveUserId}`,
+              {
+                headers: {
+                  ...(token && { Authorization: `Bearer ${token}` }),
+                },
+              }
+            ),
+          ]);
+
+          setScheduleDataFiles(dataFilesResponse.data);
+          setSegments(segmentsResponse.data);
+        } catch (error) {
+          console.error("Error fetching schedule data:", error);
+          setScheduleDataFiles([]);
+          setSegments([]);
+        } finally {
+          setScheduleDataLoading(false);
+          setSegmentsLoading(false);
+        }
+      }
+    };
+
+    fetchScheduleData();
+  }, [tab, effectiveUserId, token]);
+  // Add this useEffect after your existing useEffects
 
   // Clear schedule data when user changes
   useEffect(() => {
@@ -554,38 +811,38 @@ useEffect(() => {
     setScheduleDataFiles([]);
   }, [effectiveUserId]);
 
- const handleZohoModelChange1 = async (
-  event: React.ChangeEvent<HTMLSelectElement>
-) => {
-  const selectedValue = event.target.value;
-  setSelectedZohoviewId1(selectedValue);
+  const handleZohoModelChange1 = async (
+    event: React.ChangeEvent<HTMLSelectElement>
+  ) => {
+    const selectedValue = event.target.value;
+    setSelectedZohoviewId1(selectedValue);
 
-  if (selectedValue) {
-    const [type, id] = selectedValue.split('-');
-    
-    if (type === 'list') {
-      const selectedFile = scheduleDataFiles.find(
-        (file) => file.id.toString() === id
-      );
-      setSelectedScheduleFile(selectedFile || null);
-    } else if (type === 'segment') {
-      const selectedSegment = segments.find(
-        (segment) => segment.id.toString() === id
-      );
-      // Handle segment selection - you might want to store this differently
-      setSelectedScheduleFile({ 
-        id: selectedSegment?.id || 0, 
-        name: selectedSegment?.name || '' 
-      });
-    }
+    if (selectedValue) {
+      const [type, id] = selectedValue.split("-");
 
-    try {
-      await fetchAndDisplayEmailBodies1(id);
-    } catch (error) {
-      console.error("Error fetching email bodies:", error);
+      if (type === "list") {
+        const selectedFile = scheduleDataFiles.find(
+          (file) => file.id.toString() === id
+        );
+        setSelectedScheduleFile(selectedFile || null);
+      } else if (type === "segment") {
+        const selectedSegment = segments.find(
+          (segment) => segment.id.toString() === id
+        );
+        // Handle segment selection - you might want to store this differently
+        setSelectedScheduleFile({
+          id: selectedSegment?.id || 0,
+          name: selectedSegment?.name || "",
+        });
+      }
+
+      try {
+        await fetchAndDisplayEmailBodies1(id);
+      } catch (error) {
+        console.error("Error fetching email bodies:", error);
+      }
     }
-  }
-};
+  };
 
   const fetchAndDisplayEmailBodies1 = useCallback(
     async (
@@ -610,7 +867,7 @@ useEffect(() => {
           console.error("Invalid data format");
           return;
         }
-       
+
         const emailResponses = fetchedEmailData.data.map(
           (entry: EmailEntry) => ({
             id: entry.id,
@@ -701,131 +958,130 @@ useEffect(() => {
     setSteps(newSteps);
   };
   // Submit form
-const handleSubmit = async (e: any) => {
-  e.preventDefault();
+  const handleSubmit = async (e: any) => {
+    e.preventDefault();
 
-  const selectedTimeZone = formData.timeZone;
-  const deliveryOption = formData.EmailDeliver;
+    const selectedTimeZone = formData.timeZone;
+    const deliveryOption = formData.EmailDeliver;
 
-  let deliverMoment = moment().tz(selectedTimeZone);
+    let deliverMoment = moment().tz(selectedTimeZone);
 
-  switch (deliveryOption) {
-    case "0":
-      break;
-    case "1h":
-      deliverMoment.add(1, "hours");
-      break;
-    case "2h":
-      deliverMoment.add(2, "hours");
-      break;
-    case "24h":
-      deliverMoment.add(24, "hours");
-      break;
-    case "7d":
-      deliverMoment.add(7, "days");
-      break;
-    case "30d":
-      deliverMoment.add(30, "days");
-      break;
-    case "custom":
-      break;
-    default:
-      break;
-  }
+    switch (deliveryOption) {
+      case "0":
+        break;
+      case "1h":
+        deliverMoment.add(1, "hours");
+        break;
+      case "2h":
+        deliverMoment.add(2, "hours");
+        break;
+      case "24h":
+        deliverMoment.add(24, "hours");
+        break;
+      case "7d":
+        deliverMoment.add(7, "days");
+        break;
+      case "30d":
+        deliverMoment.add(30, "days");
+        break;
+      case "custom":
+        break;
+      default:
+        break;
+    }
 
-  const utcMoment = deliverMoment.clone().utc();
+    const utcMoment = deliverMoment.clone().utc();
 
-  let stepsPayload = [
-    {
-      scheduledDate: utcMoment.format("YYYY-MM-DD"),
-      scheduledTime: utcMoment.format("HH:mm:ss"),
-    },
-  ];
-
-  if (formData.EmailDeliver === "custom") {
-    stepsPayload = steps.map((step) => {
-      const localMoment = moment(step.datetime).tz(selectedTimeZone);
-      const utcMoment = localMoment.clone().utc();
-
-      return {
+    let stepsPayload = [
+      {
         scheduledDate: utcMoment.format("YYYY-MM-DD"),
         scheduledTime: utcMoment.format("HH:mm:ss"),
-      };
-    });
-  }
+      },
+    ];
 
-  // Parse the selected value to determine if it's a list or segment
-  const [type, id] = selectedZohoviewId1.split('-');
-  let selectedName = '';
-  let dataFileId: number | null = null;
-  let segmentId: number | null = null;
+    if (formData.EmailDeliver === "custom") {
+      stepsPayload = steps.map((step) => {
+        const localMoment = moment(step.datetime).tz(selectedTimeZone);
+        const utcMoment = localMoment.clone().utc();
 
-  if (type === 'list') {
-    const selectedFile = scheduleDataFiles.find(
-      (file) => file.id.toString() === id
-    );
-    selectedName = selectedFile?.name || '';
-    dataFileId = parseInt(id) || null;
-    segmentId = null;
-  } else if (type === 'segment') {
-    const selectedSegment = segments.find(
-      (segment) => segment.id.toString() === id
-    );
-    selectedName = selectedSegment?.name || '';
-    segmentId = parseInt(id) || null;
-    dataFileId = null;
-  }
-
-  const payload = {
-    title: formData.title,
-    zohoviewName: selectedName,
-    timeZone: formData.timeZone,
-    steps: stepsPayload,
-    smtpID: parseInt(selectedUser) || 0,
-    bccEmail: formData.bccEmail,
-    dataFileId: dataFileId,
-    segmentId: segmentId,
-    testIsSent: false
-  };
-
-  try {
-    const response = await fetch(
-      `${API_BASE_URL}/api/email/create-sequence?ClientId=${effectiveUserId}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-        body: JSON.stringify(payload),
-      }
-    );
-    const data = await response.json();
-    setResponse(data);
-    if (response.ok) {
-      toast.success(data.message);
-      alert(data.message);
-      setFormData({
-        title: "",
-        timeZone: "",
-        scheduledDate: "",
-        scheduledTime: "",
-        EmailDeliver: "",
-        bccEmail: "",
-        smtpID: "",
+        return {
+          scheduledDate: utcMoment.format("YYYY-MM-DD"),
+          scheduledTime: utcMoment.format("HH:mm:ss"),
+        };
       });
-      setSelectedZohoviewId1(""); // Clear selection
-      setSelectedUser(""); // Clear SMTP selection
-    } else {
-            console.error("Server responded with an error:", data);
-      toast.error(data.message || "Something went wrong");
     }
-  } catch (error) {
-    console.error("Error:", error);
-    toast.error("Failed to create schedule");
-  }
-};
 
+    // Parse the selected value to determine if it's a list or segment
+    const [type, id] = selectedZohoviewId1.split("-");
+    let selectedName = "";
+    let dataFileId: number | null = null;
+    let segmentId: number | null = null;
+
+    if (type === "list") {
+      const selectedFile = scheduleDataFiles.find(
+        (file) => file.id.toString() === id
+      );
+      selectedName = selectedFile?.name || "";
+      dataFileId = parseInt(id) || null;
+      segmentId = null;
+    } else if (type === "segment") {
+      const selectedSegment = segments.find(
+        (segment) => segment.id.toString() === id
+      );
+      selectedName = selectedSegment?.name || "";
+      segmentId = parseInt(id) || null;
+      dataFileId = null;
+    }
+
+    const payload = {
+      title: formData.title,
+      zohoviewName: selectedName,
+      timeZone: formData.timeZone,
+      steps: stepsPayload,
+      smtpID: parseInt(selectedUser) || 0,
+      bccEmail: formData.bccEmail,
+      dataFileId: dataFileId,
+      segmentId: segmentId,
+      testIsSent: false,
+    };
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/email/create-sequence?ClientId=${effectiveUserId}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+      const data = await response.json();
+      setResponse(data);
+      if (response.ok) {
+        toast.success(data.message);
+        alert(data.message);
+        setFormData({
+          title: "",
+          timeZone: "",
+          scheduledDate: "",
+          scheduledTime: "",
+          EmailDeliver: "",
+          bccEmail: "",
+          smtpID: "",
+        });
+        setSelectedZohoviewId1(""); // Clear selection
+        setSelectedUser(""); // Clear SMTP selection
+      } else {
+        console.error("Server responded with an error:", data);
+        toast.error(data.message || "Something went wrong");
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      toast.error("Failed to create schedule");
+    }
+  };
 
   const [smtpUsers, setSmtpUsers] = useState<SmtpUser[]>([]);
   const [selectedUser, setSelectedUser] = useState("");
@@ -849,7 +1105,7 @@ const handleSubmit = async (e: any) => {
           //alert(error.response?.data?.message || error.message);
         } else {
           console.error("Unknown error:", error);
-          alert("An unexpected error occurred.");
+          appModal.showError("An unexpected error occurred.");
         }
       }
     };
@@ -905,153 +1161,161 @@ const handleSubmit = async (e: any) => {
   };
 
   // Handle Add/Update Submit
-const handleSubmitSchedule = async (e: any) => {
-  e.preventDefault();
+  const handleSubmitSchedule = async (e: any) => {
+    e.preventDefault();
 
-  const selectedTimeZone = formData.timeZone;
-  const scheduledDate = formData.scheduledDate;
-  const scheduledTime = formData.scheduledTime;
+    const selectedTimeZone = formData.timeZone;
+    const scheduledDate = formData.scheduledDate;
+    const scheduledTime = formData.scheduledTime;
 
-  if (!scheduledDate || !scheduledTime) {
-    alert("Please select both scheduled date and time.");
-    return;
-  }
+    if (!scheduledDate || !scheduledTime) {
+      appModal.showError("Please select both scheduled date and time.");
+      return;
+    }
 
     // Find the IANA timezone from the selected Windows timezone
-  const selectedTz = timezoneOptions.find(tz => tz.value === selectedTimeZone);
-  const ianaTimezone = selectedTz?.iana || "UTC";
-
-  // Create moment object with the local time in the selected timezone
-  const localMoment = moment.tz(
-    `${scheduledDate}T${scheduledTime}`,
-    ianaTimezone
-  );
-
-  // Convert to UTC
-  const utcMoment = localMoment.clone().utc();
-
-  const stepsPayload = [
-    {
-      scheduledDate: utcMoment.format("YYYY-MM-DD"),
-      scheduledTime: utcMoment.format("HH:mm:ss"),
-    },
-  ];
-
-  // Parse the selected value to determine if it's a list or segment
-  const [type, id] = selectedZohoviewId1.split('-');
-  let selectedName = '';
-  let dataFileId: number | null = null;
-  let segmentId: number | null = null;
-
-  if (type === 'list') {
-    const selectedFile = scheduleDataFiles.find(
-      (file) => file.id.toString() === id
+    const selectedTz = timezoneOptions.find(
+      (tz) => tz.value === selectedTimeZone
     );
-    selectedName = selectedFile?.name || '';
-    dataFileId = parseInt(id) || null;
-    segmentId = null;
-  } else if (type === 'segment') {
-    const selectedSegment = segments.find(
-      (segment) => segment.id.toString() === id
-    );
-    selectedName = selectedSegment?.name || '';
-    segmentId = parseInt(id) || null;
-    dataFileId = null;
-  }
+    const ianaTimezone = selectedTz?.iana || "UTC";
 
-  const payload = {
-    title: formData.title,
-    zohoviewName: selectedName,
-    timeZone: formData.timeZone,
-    steps: stepsPayload,
-    smtpID: parseInt(selectedUser) || 0,
-    bccEmail: formData.bccEmail,
-    dataFileId: dataFileId,
-    segmentId: segmentId,
-    testIsSent: false
+    // Create moment object with the local time in the selected timezone
+    const localMoment = moment.tz(
+      `${scheduledDate}T${scheduledTime}`,
+      ianaTimezone
+    );
+
+    // Convert to UTC
+    const utcMoment = localMoment.clone().utc();
+
+    const stepsPayload = [
+      {
+        scheduledDate: utcMoment.format("YYYY-MM-DD"),
+        scheduledTime: utcMoment.format("HH:mm:ss"),
+      },
+    ];
+
+    // Parse the selected value to determine if it's a list or segment
+    const [type, id] = selectedZohoviewId1.split("-");
+    let selectedName = "";
+    let dataFileId: number | null = null;
+    let segmentId: number | null = null;
+
+    if (type === "list") {
+      const selectedFile = scheduleDataFiles.find(
+        (file) => file.id.toString() === id
+      );
+      selectedName = selectedFile?.name || "";
+      dataFileId = parseInt(id) || null;
+      segmentId = null;
+    } else if (type === "segment") {
+      const selectedSegment = segments.find(
+        (segment) => segment.id.toString() === id
+      );
+      selectedName = selectedSegment?.name || "";
+      segmentId = parseInt(id) || null;
+      dataFileId = null;
+    }
+
+    const payload = {
+      title: formData.title,
+      zohoviewName: selectedName,
+      timeZone: formData.timeZone,
+      steps: stepsPayload,
+      smtpID: parseInt(selectedUser) || 0,
+      bccEmail: formData.bccEmail,
+      dataFileId: dataFileId,
+      segmentId: segmentId,
+      testIsSent: false,
+    };
+
+    try {
+      if (editingId) {
+        await axios.post(
+          `${API_BASE_URL}/api/email/update-sequence/${editingId}?ClientId=${effectiveUserId}`,
+          payload,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+          }
+        );
+        appModal.showSuccess("Schedule updated successfully");
+      } else {
+        await axios.post(
+          `${API_BASE_URL}/api/email/create-sequence?ClientId=${effectiveUserId}`,
+          payload,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+          }
+        );
+        appModal.showSuccess("Schedule added successfully");
+      }
+
+      setFormData({
+        title: "",
+        timeZone: "",
+        scheduledDate: "",
+        scheduledTime: "",
+        EmailDeliver: "",
+        bccEmail: "",
+        smtpID: "",
+      });
+      setEditingId(null);
+      setSelectedZohoviewId1("");
+      setSelectedUser("");
+      setShowScheduleModal(false);
+      fetchSchedule();
+    } catch (err) {
+      console.error(err);
+      if (axios.isAxiosError(err)) {
+        appModal.showError(
+          `Failed to schedule mail: ${
+            err.response?.data?.message || err.message
+          }`
+        );
+      } else {
+        appModal.showError(
+          "Failed to schedule mail. Please check the details."
+        );
+      }
+    }
   };
-
-  try {
-    if (editingId) {
-      await axios.post(
-        `${API_BASE_URL}/api/email/update-sequence/${editingId}?ClientId=${effectiveUserId}`,
-        payload,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        }
-      );
-      alert("Schedule updated successfully");
-    } else {
-      await axios.post(
-        `${API_BASE_URL}/api/email/create-sequence?ClientId=${effectiveUserId}`,
-        payload,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        }
-      );
-      alert("Schedule added successfully");
-    }
-
-    setFormData({
-      title: "",
-      timeZone: "",
-      scheduledDate: "",
-      scheduledTime: "",
-      EmailDeliver: "",
-      bccEmail: "",
-      smtpID: "",
-    });
-    setEditingId(null);
-    setSelectedZohoviewId1("");
-    setSelectedUser("");
-    setShowScheduleModal(false);
-    fetchSchedule();
-  } catch (err) {
-    console.error(err);
-    if (axios.isAxiosError(err)) {
-      alert(`Failed to schedule mail: ${err.response?.data?.message || err.message}`);
-    } else {
-      alert("Failed to schedule mail. Please check the details.");
-    }
-  }
-};
   // Edit Handler
-const handleEditSchedule = (item: any) => {
-  setFormData({
-    title: item.title || "",
-    timeZone: item.timeZone || item.TimeZone || "",
-    scheduledDate:
-      (item.scheduledDate && item.scheduledDate.slice(0, 10)) ||
-      (item.ScheduledDate && item.ScheduledDate.slice(0, 10)) ||
-      (item.steps && item.steps[0]?.ScheduledDate) ||
-      "",
-    scheduledTime:
-      item.scheduledTime ||
-      item.ScheduledTime ||
-      (item.steps && item.steps[0]?.ScheduledTime) ||
-      "",
-    EmailDeliver: item.EmailDeliver || "",
-    bccEmail: item.bccEmail || "",
-    smtpID: item.smtpID || "",
-  });
-  setEditingId(item.id);
+  const handleEditSchedule = (item: any) => {
+    setFormData({
+      title: item.title || "",
+      timeZone: item.timeZone || item.TimeZone || "",
+      scheduledDate:
+        (item.scheduledDate && item.scheduledDate.slice(0, 10)) ||
+        (item.ScheduledDate && item.ScheduledDate.slice(0, 10)) ||
+        (item.steps && item.steps[0]?.ScheduledDate) ||
+        "",
+      scheduledTime:
+        item.scheduledTime ||
+        item.ScheduledTime ||
+        (item.steps && item.steps[0]?.ScheduledTime) ||
+        "",
+      EmailDeliver: item.EmailDeliver || "",
+      bccEmail: item.bccEmail || "",
+      smtpID: item.smtpID || "",
+    });
+    setEditingId(item.id);
 
-  // Set the appropriate selection based on whether it's a list or segment
-  if (item.segmentId && item.segmentId > 0) {
-    setSelectedZohoviewId1(`segment-${item.segmentId}`);
-  } else if (item.dataFileId && item.dataFileId > 0) {
-    setSelectedZohoviewId1(`list-${item.dataFileId}`);
-  }
+    // Set the appropriate selection based on whether it's a list or segment
+    if (item.segmentId && item.segmentId > 0) {
+      setSelectedZohoviewId1(`segment-${item.segmentId}`);
+    } else if (item.dataFileId && item.dataFileId > 0) {
+      setSelectedZohoviewId1(`list-${item.dataFileId}`);
+    }
 
-  setSelectedUser(item.smtpID);
-  setShowScheduleModal(true);
-};
+    setSelectedUser(item.smtpID);
+    setShowScheduleModal(true);
+  };
 
   // Delete Handler (Assuming you create this API in backend)
   const handleDeleteSchedule = async (id: any) => {
@@ -1069,7 +1333,7 @@ const handleEditSchedule = (item: any) => {
         fetchSchedule();
       } catch (err) {
         console.error(err);
-        alert("Error deleting SMTP");
+        appModal.showError("Error deleting SMTP");
       }
     }
   };
@@ -1080,7 +1344,6 @@ const handleEditSchedule = (item: any) => {
   const toggleOutputEmailWidth = (deviceName: string) => {
     setOutputEmailWidth(deviceName);
   };
-
 
   //const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -1097,7 +1360,6 @@ const handleEditSchedule = (item: any) => {
     if (pageNumber < 1 || pageNumber > totalPages) return;
     setCurrentPage(pageNumber);
   };
-
 
   // BCC Email Management states
   const [bccEmails, setBccEmails] = useState<BccEmail[]>([]);
@@ -1171,8 +1433,7 @@ const handleEditSchedule = (item: any) => {
     }
   };
 
-
-    const [dashboardData, setDashboardData] = useState({
+  const [dashboardData, setDashboardData] = useState({
     allEventData: [] as EventItem[],
     allEmailLogs: [] as any[],
     emailLogs: [] as EmailLog[],
@@ -1183,9 +1444,9 @@ const handleEditSchedule = (item: any) => {
 
   // Add dashboard data handlers
   const handleDashboardDataChange = useCallback((data: any) => {
-    setDashboardData(prev => ({
+    setDashboardData((prev) => ({
       ...prev,
-      ...data
+      ...data,
     }));
   }, []);
 
@@ -1201,882 +1462,998 @@ const handleEditSchedule = (item: any) => {
     });
   }, [effectiveUserId]);
 
-
   // Add these states for the new UI
-const [mailboxSearch, setMailboxSearch] = useState("");
-const [scheduleSearch, setScheduleSearch] = useState("");
-const [mailboxActionsAnchor, setMailboxActionsAnchor] = useState<string | null>(null);
-const [scheduleActionsAnchor, setScheduleActionsAnchor] = useState<string | null>(null);
-const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [mailboxSearch, setMailboxSearch] = useState("");
+  const [scheduleSearch, setScheduleSearch] = useState("");
+  const [mailboxActionsAnchor, setMailboxActionsAnchor] = useState<
+    string | null
+  >(null);
+  const [scheduleActionsAnchor, setScheduleActionsAnchor] = useState<
+    string | null
+  >(null);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
 
-// Menu button style constant
-const menuBtnStyle = {
-  width: "100%",
-  padding: "8px 18px",
-  textAlign: "left" as const,
-  background: "none",
-  border: "none",
-  color: "#222",
-  fontSize: "15px",
-  cursor: "pointer",
-};
+  // Menu button style constant
+  const menuBtnStyle = {
+    width: "100%",
+    padding: "8px 18px",
+    textAlign: "left" as const,
+    background: "none",
+    border: "none",
+    color: "#222",
+    fontSize: "15px",
+    cursor: "pointer",
+  };
 
-// For Mail component - add these useEffects
-useEffect(() => {
-  const handleClickOutside = (event: MouseEvent) => {
-    const target = event.target as HTMLElement;
-    const isActionsButton = target.closest('.segment-actions-btn');
-    const isActionsMenu = target.closest('.segment-actions-menu');
-    
-    if (!isActionsButton && !isActionsMenu) {
-      setMailboxActionsAnchor(null);
-      setScheduleActionsAnchor(null);
+  // For Mail component - add these useEffects
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      const isActionsButton = target.closest(".segment-actions-btn");
+      const isActionsMenu = target.closest(".segment-actions-menu");
+
+      if (!isActionsButton && !isActionsMenu) {
+        setMailboxActionsAnchor(null);
+        setScheduleActionsAnchor(null);
+      }
+    };
+
+    if (mailboxActionsAnchor || scheduleActionsAnchor) {
+      document.addEventListener("click", handleClickOutside);
     }
-  };
 
-  if (mailboxActionsAnchor || scheduleActionsAnchor) {
-    document.addEventListener('click', handleClickOutside);
-  }
-
-  return () => {
-    document.removeEventListener('click', handleClickOutside);
-  };
-}, [mailboxActionsAnchor, scheduleActionsAnchor]);
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, [mailboxActionsAnchor, scheduleActionsAnchor]);
 
   return (
-  <div className="login-box gap-down">
-    {tab === "Dashboard" && (
-      <MailDashboard
-        effectiveUserId={effectiveUserId}
-        token={token}
-        isVisible={tab === "Dashboard"}
-        externalData={dashboardData}
-        onDataChange={handleDashboardDataChange}
-      />
-    )}
-
-{tab === "Configuration" && (
-        <>
-
-  <div className="data-campaigns-container">
-    {/* Mailboxes Section */}
-    <div className="section-wrapper">
-      <h2 className="section-title">Mailboxes</h2>
-      
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        marginBottom: 16,
-        gap: 16,
-      }}>
-        <input
-          type="text"
-          className="search-input"
-          style={{ width: 340 }}
-          placeholder="Search mailbox by server or username"
-          value={mailboxSearch}
-          onChange={(e) => setMailboxSearch(e.target.value)}
+    <div className="login-box gap-down">
+      {tab === "Dashboard" && (
+        <MailDashboard
+          effectiveUserId={effectiveUserId}
+          token={token}
+          isVisible={tab === "Dashboard"}
+          externalData={dashboardData}
+          onDataChange={handleDashboardDataChange}
         />
-        {!isDemoAccount && (
-        <button
-          className="save-button button auto-width small d-flex justify-between align-center"
-          style={{ marginLeft: "auto" }}
-          onClick={() => handleModalOpen("modal-add-mailbox")}
-        >
-          + Add mailbox
-        </button>
-        )}
-      </div>
-
-      <table className="contacts-table" style={{ background: "#fff" }}>
-        <thead>
-          <tr>
-            <th>Server</th>
-            <th>Port</th>
-            <th>Username</th>
-            <th>From email</th>
-            <th>SSL</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {smtpList.length === 0 ? (
-            <tr>
-              <td colSpan={6} style={{ textAlign: "center" }}>
-                No mailboxes configured.
-              </td>
-            </tr>
-          ) : (
-            smtpList
-              .filter(item => 
-                item.server?.toLowerCase().includes(mailboxSearch.toLowerCase()) ||
-                item.username?.toLowerCase().includes(mailboxSearch.toLowerCase())
-              )
-              .map((item, index) => (
-                <tr key={item.id || index}>
-                  <td>{item.server}</td>
-                  <td>{item.port}</td>
-                  <td>{item.username}</td>
-                  <td>{item.fromEmail}</td>
-                  <td>{item.usessl ? "Yes" : "No"}</td>
-                  <td style={{ position: "relative" }}>
-                    <button
-                      className="segment-actions-btn"
-                      style={{
-                        border: "none",
-                        background: "none",
-                        fontSize: 24,
-                        cursor: "pointer",
-                        padding: "2px 10px",
-                      }}
-                      onClick={() =>
-                        setMailboxActionsAnchor(
-                          item.id?.toString() === mailboxActionsAnchor
-                            ? null
-                            : item.id?.toString() ?? null  // Convert undefined to null
-                      )
-                      }
-                    >
-                      ⋮
-                    </button>
-                    {mailboxActionsAnchor === item.id?.toString() && (
-                      <div
-                        className="segment-actions-menu py-[10px]"
-                        style={{
-                          position: "absolute",
-                          right: 0,
-                          top: 32,
-                          background: "#fff",
-                          border: "1px solid #eee",
-                          borderRadius: 6,
-                          boxShadow: "0 2px 16px rgba(0,0,0,0.12)",
-                          zIndex: 101,
-                          minWidth: 160,
-                        }}
-                      >
-                              {!isDemoAccount && (
-
-                        <button
-                          onClick={() => {
-                            handleEdit(item);
-                            setMailboxActionsAnchor(null);
-                          }}
-                          style={menuBtnStyle}
-                        className="flex gap-2 items-center"
-                          >
-                            <span>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="28px" height="28px" viewBox="0 0 24 24" fill="none"><path d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
-                                  </span>
-                                  <span className="font-[600]">Edit</span>
-                        </button>
-                              )}
-                              {!isDemoAccount && (
-                        <button
-                          onClick={() => {
-                            handleDelete(item.id);
-                            setMailboxActionsAnchor(null);
-                          }}
-                          style={{ ...menuBtnStyle }}
-                        className="flex gap-2 items-center"
-                          >
-                            <span className="ml-[3px]">
-                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50" width="22px" height="22px"><path d="M 21 2 C 19.354545 2 18 3.3545455 18 5 L 18 7 L 8 7 A 1.0001 1.0001 0 1 0 8 9 L 9 9 L 9 45 C 9 46.654 10.346 48 12 48 L 38 48 C 39.654 48 41 46.654 41 45 L 41 9 L 42 9 A 1.0001 1.0001 0 1 0 42 7 L 32 7 L 32 5 C 32 3.3545455 30.645455 2 29 2 L 21 2 z M 21 4 L 29 4 C 29.554545 4 30 4.4454545 30 5 L 30 7 L 20 7 L 20 5 C 20 4.4454545 20.445455 4 21 4 z M 19 14 C 19.552 14 20 14.448 20 15 L 20 40 C 20 40.553 19.552 41 19 41 C 18.448 41 18 40.553 18 40 L 18 15 C 18 14.448 18.448 14 19 14 z M 25 14 C 25.552 14 26 14.448 26 15 L 26 40 C 26 40.553 25.552 41 25 41 C 24.448 41 24 40.553 24 40 L 24 15 C 24 14.448 24.448 14 25 14 z M 31 14 C 31.553 14 32 14.448 32 15 L 32 40 C 32 40.553 31.553 41 31 41 C 30.447 41 30 40.553 30 40 L 30 15 C 30 14.448 30.447 14 31 14 z"></path></svg>
-                            </span>
-                            <span className="font-[600]">Delete</span>
-                        </button>
-                              )}
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))
-          )}
-        </tbody>
-      </table>
-    </div>
-
-    {/* BCC Email Management Section */}
-    <div className="section-wrapper" style={{ marginTop: 40 }}>
-      <h2 className="section-title">BCC Email Management</h2>
-      <div style={{ marginBottom: 4, color: "#555" }}>
-        Add BCC email addresses to receive copies of all sent emails.
-      </div>
-
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        marginBottom: 16,
-        gap: 16,
-      }}>
-        <input
-          type="email"
-          className="search-input"
-          style={{ width: 340 }}
-          placeholder="Enter BCC email address"
-          value={newBccEmail}
-          onChange={(e) => setNewBccEmail(e.target.value)}
-        />
-        <button
-          className="save-button button auto-width small d-flex justify-between align-center"
-          style={{ marginLeft: "auto" }}
-          onClick={handleAddBcc}
-          disabled={bccLoading || !newBccEmail}
-        >
-          {bccLoading ? "Adding..." : "+ Add BCC"}
-        </button>
-      </div>
-
-      {bccError && (
-        <div style={{ color: "#c00", marginBottom: 16 }}>{bccError}</div>
       )}
 
-      <table className="contacts-table" style={{ background: "#fff" }}>
-        <thead>
-          <tr>
-            <th>BCC Email Address</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {bccLoading && bccEmails.length === 0 ? (
-            <tr>
-              <td colSpan={2} style={{ textAlign: "center" }}>
-                Loading BCC emails...
-              </td>
-            </tr>
-          ) : bccEmails.length === 0 ? (
-            <tr>
-              <td colSpan={2} style={{ textAlign: "center" }}>
-                No BCC emails configured.
-              </td>
-            </tr>
-          ) : (
-            bccEmails.map((email) => (
-              <tr key={email.id}>
-                <td>{email.bccEmailAddress}</td>
-                <td>
-                  {!isDemoAccount && (
+      {tab === "Configuration" && (
+        <>
+          <div className="data-campaigns-container">
+            {/* Mailboxes Section */}
+            <div className="section-wrapper">
+              <h2 className="section-title">Mailboxes</h2>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  marginBottom: 16,
+                  gap: 16,
+                }}
+              >
+                <input
+                  type="text"
+                  className="search-input"
+                  style={{ width: 340 }}
+                  placeholder="Search mailbox by server or username"
+                  value={mailboxSearch}
+                  onChange={(e) => setMailboxSearch(e.target.value)}
+                />
+                {!isDemoAccount && (
                   <button
-                    className="button secondary small"
-                    onClick={() => handleDeleteBcc(email.id)}
-                    disabled={bccLoading}
+                    className="save-button button auto-width small d-flex justify-between align-center"
+                    style={{ marginLeft: "auto" }}
+                    onClick={() => handleModalOpen("modal-add-mailbox")}
+                  >
+                    + Add mailbox
+                  </button>
+                )}
+              </div>
+
+              <table className="contacts-table" style={{ background: "#fff" }}>
+                <thead>
+                  <tr>
+                    <th>Server</th>
+                    <th>Port</th>
+                    <th>Username</th>
+                    <th>From email</th>
+                    <th>SSL</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {smtpList.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} style={{ textAlign: "center" }}>
+                        No mailboxes configured.
+                      </td>
+                    </tr>
+                  ) : (
+                    smtpList
+                      .filter(
+                        (item) =>
+                          item.server
+                            ?.toLowerCase()
+                            .includes(mailboxSearch.toLowerCase()) ||
+                          item.username
+                            ?.toLowerCase()
+                            .includes(mailboxSearch.toLowerCase())
+                      )
+                      .map((item, index) => (
+                        <tr key={item.id || index}>
+                          <td>{item.server}</td>
+                          <td>{item.port}</td>
+                          <td>{item.username}</td>
+                          <td>{item.fromEmail}</td>
+                          <td>{item.usessl ? "Yes" : "No"}</td>
+                          <td style={{ position: "relative" }}>
+                            <button
+                              className="segment-actions-btn"
+                              style={{
+                                border: "none",
+                                background: "none",
+                                fontSize: 24,
+                                cursor: "pointer",
+                                padding: "2px 10px",
+                              }}
+                              onClick={() =>
+                                setMailboxActionsAnchor(
+                                  item.id?.toString() === mailboxActionsAnchor
+                                    ? null
+                                    : item.id?.toString() ?? null // Convert undefined to null
+                                )
+                              }
+                            >
+                              ⋮
+                            </button>
+                            {mailboxActionsAnchor === item.id?.toString() && (
+                              <div
+                                className="segment-actions-menu py-[10px]"
+                                style={{
+                                  position: "absolute",
+                                  right: 0,
+                                  top: 32,
+                                  background: "#fff",
+                                  border: "1px solid #eee",
+                                  borderRadius: 6,
+                                  boxShadow: "0 2px 16px rgba(0,0,0,0.12)",
+                                  zIndex: 101,
+                                  minWidth: 160,
+                                }}
+                              >
+                                {!isDemoAccount && (
+                                  <button
+                                    onClick={() => {
+                                      handleEdit(item);
+                                      setMailboxActionsAnchor(null);
+                                    }}
+                                    style={menuBtnStyle}
+                                    className="flex gap-2 items-center"
+                                  >
+                                    <span>
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        width="28px"
+                                        height="28px"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                      >
+                                        <path
+                                          d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
+                                          stroke="#000000"
+                                          stroke-width="2"
+                                          stroke-linecap="round"
+                                          stroke-linejoin="round"
+                                        ></path>
+                                      </svg>
+                                    </span>
+                                    <span className="font-[600]">Edit</span>
+                                  </button>
+                                )}
+                                {!isDemoAccount && (
+                                  <button
+                                    onClick={() => {
+                                      handleDelete(item.id);
+                                      setMailboxActionsAnchor(null);
+                                    }}
+                                    style={{ ...menuBtnStyle }}
+                                    className="flex gap-2 items-center"
+                                  >
+                                    <span className="ml-[3px]">
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        viewBox="0 0 50 50"
+                                        width="22px"
+                                        height="22px"
+                                      >
+                                        <path d="M 21 2 C 19.354545 2 18 3.3545455 18 5 L 18 7 L 8 7 A 1.0001 1.0001 0 1 0 8 9 L 9 9 L 9 45 C 9 46.654 10.346 48 12 48 L 38 48 C 39.654 48 41 46.654 41 45 L 41 9 L 42 9 A 1.0001 1.0001 0 1 0 42 7 L 32 7 L 32 5 C 32 3.3545455 30.645455 2 29 2 L 21 2 z M 21 4 L 29 4 C 29.554545 4 30 4.4454545 30 5 L 30 7 L 20 7 L 20 5 C 20 4.4454545 20.445455 4 21 4 z M 19 14 C 19.552 14 20 14.448 20 15 L 20 40 C 20 40.553 19.552 41 19 41 C 18.448 41 18 40.553 18 40 L 18 15 C 18 14.448 18.448 14 19 14 z M 25 14 C 25.552 14 26 14.448 26 15 L 26 40 C 26 40.553 25.552 41 25 41 C 24.448 41 24 40.553 24 40 L 24 15 C 24 14.448 24.448 14 25 14 z M 31 14 C 31.553 14 32 14.448 32 15 L 32 40 C 32 40.553 31.553 41 31 41 C 30.447 41 30 40.553 30 40 L 30 15 C 30 14.448 30.447 14 31 14 z"></path>
+                                      </svg>
+                                    </span>
+                                    <span className="font-[600]">Delete</span>
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* BCC Email Management Section */}
+            <div className="section-wrapper" style={{ marginTop: 40 }}>
+              <h2 className="section-title">BCC Email Management</h2>
+              <div style={{ marginBottom: 4, color: "#555" }}>
+                Add BCC email addresses to receive copies of all sent emails.
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  marginBottom: 16,
+                  gap: 16,
+                }}
+              >
+                <input
+                  type="email"
+                  className="search-input"
+                  style={{ width: 340 }}
+                  placeholder="Enter BCC email address"
+                  value={newBccEmail}
+                  onChange={(e) => setNewBccEmail(e.target.value)}
+                />
+                <button
+                  className="save-button button auto-width small d-flex justify-between align-center"
+                  style={{ marginLeft: "auto" }}
+                  onClick={handleAddBcc}
+                  disabled={bccLoading || !newBccEmail}
+                >
+                  {bccLoading ? "Adding..." : "+ Add BCC"}
+                </button>
+              </div>
+
+              {bccError && (
+                <div style={{ color: "#c00", marginBottom: 16 }}>
+                  {bccError}
+                </div>
+              )}
+
+              <table className="contacts-table" style={{ background: "#fff" }}>
+                <thead>
+                  <tr>
+                    <th>BCC Email Address</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {bccLoading && bccEmails.length === 0 ? (
+                    <tr>
+                      <td colSpan={2} style={{ textAlign: "center" }}>
+                        Loading BCC emails...
+                      </td>
+                    </tr>
+                  ) : bccEmails.length === 0 ? (
+                    <tr>
+                      <td colSpan={2} style={{ textAlign: "center" }}>
+                        No BCC emails configured.
+                      </td>
+                    </tr>
+                  ) : (
+                    bccEmails.map((email) => (
+                      <tr key={email.id}>
+                        <td>{email.bccEmailAddress}</td>
+                        <td>
+                          {!isDemoAccount && (
+                            <button
+                              className="button secondary small"
+                              onClick={() => handleDeleteBcc(email.id)}
+                              disabled={bccLoading}
+                              style={{
+                                padding: "6px 12px",
+                                fontSize: "14px",
+                                background: "#dc3545",
+                                color: "#fff",
+                                border: "none",
+                                borderRadius: "4px",
+                                cursor: bccLoading ? "not-allowed" : "pointer",
+                              }}
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Add/Edit Mailbox Modal */}
+          {/* Replace your Modal component with this custom modal */}
+          {(openModals["modal-add-mailbox"] || editingId !== null) && (
+            <div
+              style={{
+                position: "fixed",
+                zIndex: 99999,
+                inset: 0,
+                background: "rgba(0,0,0,0.6)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+              onClick={() => {
+                // Close modal when clicking backdrop
+                handleModalClose("modal-add-mailbox");
+                setEditingId(null);
+                setForm({
+                  server: "",
+                  port: "",
+                  username: "",
+                  password: "",
+                  fromEmail: "",
+                  usessl: false,
+                });
+              }}
+            >
+              <div
+                style={{
+                  background: "#fff",
+                  padding: "24px",
+                  borderRadius: "8px",
+                  width: "500px",
+                  maxHeight: "90vh",
+                  overflow: "auto",
+                  boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+                }}
+                onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
+              >
+                <form onSubmit={handleSubmitSMTP}>
+                  <h2 className="!text-left">
+                    {editingId ? "Edit mailbox" : "Add mailbox"}
+                  </h2>
+                  <div className="flex gap-4">
+                    <div className="form-group flex-1">
+                      <label>
+                        Host <span style={{ color: "red" }}>*</span>
+                      </label>
+                      <input
+                        name="server"
+                        placeholder="smtp.example.com"
+                        value={form.server}
+                        onChange={handleChangeSMTP}
+                        required
+                      />
+                    </div>
+                    <div className="form-group flex-1">
+                      <label>
+                        Port <span style={{ color: "red" }}>*</span>
+                      </label>
+                      <input
+                        name="port"
+                        type="number"
+                        placeholder="587"
+                        value={form.port}
+                        onChange={handleChangeSMTP}
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-4">
+                    <div className="form-group flex-1">
+                      <label>
+                        Username <span style={{ color: "red" }}>*</span>
+                      </label>
+                      <input
+                        name="username"
+                        placeholder="user@example.com"
+                        value={form.username}
+                        onChange={handleChangeSMTP}
+                        required
+                      />
+                    </div>
+                    <div className="form-group flex-1">
+                      <label>
+                        Password <span style={{ color: "red" }}>*</span>
+                      </label>
+                      <input
+                        name="password"
+                        type="password"
+                        placeholder="••••••••"
+                        value={form.password}
+                        onChange={handleChangeSMTP}
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label>
+                      From email <span style={{ color: "red" }}>*</span>
+                    </label>
+                    <input
+                      name="fromEmail"
+                      type="email"
+                      placeholder="sender@example.com"
+                      value={form.fromEmail}
+                      onChange={handleChangeSMTP}
+                      required
+                    />
+                  </div>
+                  <div className="d-flex justify-end" style={{ marginTop: 16 }}>
+                    <span className="flex items-center">
+                      <input
+                        type="checkbox"
+                        name="usessl"
+                        checked={form.usessl}
+                        onChange={handleChangeSMTP}
+                        id="use-ssl"
+                      />
+                      <label
+                        className="ml-5 !mb-[0] font-size-12 nowrap mr-10 font-[600]"
+                        htmlFor="use-ssl"
+                      >
+                        Use SSL
+                      </label>
+                    </span>
+                    <button
+                      className="save-button button min-w-[150px]"
+                      type="submit"
+                    >
+                      {editingId ? "Update" : "Add"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Schedule Tab */}
+      {tab === "Schedule" && (
+        <>
+          <div className="data-campaigns-container">
+            <div className="section-wrapper">
+              <h2 className="section-title">Email Schedules</h2>
+              <div style={{ marginBottom: 4, color: "#555" }}>
+                Create and manage email delivery schedules for your campaigns.
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  marginBottom: 16,
+                  gap: 16,
+                }}
+              >
+                <input
+                  type="text"
+                  className="search-input"
+                  style={{ width: 340 }}
+                  placeholder="Search schedules..."
+                  value={scheduleSearch}
+                  onChange={(e) => setScheduleSearch(e.target.value)}
+                />
+                {!isDemoAccount && (
+                  <button
+                    className="save-button button auto-width small d-flex justify-between align-center"
+                    style={{ marginLeft: "auto" }}
+                    onClick={() => setShowScheduleModal(true)}
+                  >
+                    + Create schedule
+                  </button>
+                )}
+              </div>
+
+              <table className="contacts-table" style={{ background: "#fff" }}>
+                <thead>
+                  <tr>
+                    <th>Sequence name</th>
+                    <th>List/Segment</th>
+                    <th>From</th>
+                    <th>Scheduled date</th>
+                    <th>Scheduled time</th>
+                    <th>Timezone</th>
+                    <th>BCC</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {scheduleList.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} style={{ textAlign: "center" }}>
+                        No schedules found.
+                      </td>
+                    </tr>
+                  ) : (
+                    scheduleList
+                      .filter(
+                        (item) =>
+                          item.title
+                            ?.toLowerCase()
+                            .includes(scheduleSearch.toLowerCase()) ||
+                          item.zohoviewName
+                            ?.toLowerCase()
+                            .includes(scheduleSearch.toLowerCase())
+                      )
+                      .map((item, index) => {
+                        const dataFile = scheduleDataFiles.find(
+                          (file) => file.id === item.dataFileId
+                        );
+                        const smtpUser = smtpUsers.find(
+                          (user) => user.id === item.smtpID
+                        );
+                        const scheduledDate = item.scheduledDate || "-";
+
+                        const scheduledTime = item.scheduledTime || "-";
+
+                        return (
+                          <tr key={item.id || index}>
+                            <td>{item.title}</td>
+                            <td>
+                              {(() => {
+                                if (item.segmentId) {
+                                  const segment = segments.find(
+                                    (s) => s.id === item.segmentId
+                                  );
+                                  return segment
+                                    ? `${segment.name} (Segment)`
+                                    : item.zohoviewName || "-";
+                                } else if (item.dataFileId) {
+                                  const dataFile = scheduleDataFiles.find(
+                                    (f) => f.id === item.dataFileId
+                                  );
+                                  return dataFile
+                                    ? `${dataFile.name} (List)`
+                                    : item.zohoviewName || "-";
+                                }
+                                return item.zohoviewName || "-";
+                              })()}
+                            </td>
+                            <td>{smtpUser?.username || "-"}</td>
+                            <td>{scheduledDate}</td>
+                            <td>{scheduledTime}</td>
+                            <td>{item.timeZone}</td>
+                            <td>{item.bccEmail || "-"}</td>
+                            <td style={{ position: "relative" }}>
+                              <button
+                                className="segment-actions-btn"
+                                style={{
+                                  border: "none",
+                                  background: "none",
+                                  fontSize: 24,
+                                  cursor: "pointer",
+                                  padding: "2px 10px",
+                                }}
+                                onClick={() =>
+                                  setScheduleActionsAnchor(
+                                    item.id?.toString() ===
+                                      scheduleActionsAnchor
+                                      ? null
+                                      : item.id?.toString() ?? null // Convert undefined to null
+                                  )
+                                }
+                              >
+                                ⋮
+                              </button>
+                              {scheduleActionsAnchor ===
+                                item.id?.toString() && (
+                                <div
+                                  className="segment-actions-menu py-[10px]"
+                                  style={{
+                                    position: "absolute",
+                                    right: 0,
+                                    top: 32,
+                                    background: "#fff",
+                                    border: "1px solid #eee",
+                                    borderRadius: 6,
+                                    boxShadow: "0 2px 16px rgba(0,0,0,0.12)",
+                                    zIndex: 101,
+                                    minWidth: 160,
+                                  }}
+                                >
+                                  {!isDemoAccount && (
+                                    <button
+                                      onClick={() => {
+                                        handleEditSchedule(item);
+                                        setScheduleActionsAnchor(null);
+                                        setShowScheduleModal(true);
+                                      }}
+                                      style={menuBtnStyle}
+                                      className="flex gap-2 items-center"
+                                    >
+                                      <span>
+                                        <svg
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          width="28px"
+                                          height="28px"
+                                          viewBox="0 0 24 24"
+                                          fill="none"
+                                        >
+                                          <path
+                                            d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
+                                            stroke="#000000"
+                                            stroke-width="2"
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                          ></path>
+                                        </svg>
+                                      </span>
+                                      <span className="font-[600]">Edit</span>
+                                    </button>
+                                  )}
+                                  {!isDemoAccount && (
+                                    <button
+                                      onClick={() => {
+                                        handleDeleteSchedule(item.id);
+                                        setScheduleActionsAnchor(null);
+                                      }}
+                                      style={{ ...menuBtnStyle }}
+                                      className="flex gap-2 items-center"
+                                    >
+                                      <span className="ml-[3px]">
+                                        <svg
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          viewBox="0 0 50 50"
+                                          width="22px"
+                                          height="22px"
+                                        >
+                                          <path d="M 21 2 C 19.354545 2 18 3.3545455 18 5 L 18 7 L 8 7 A 1.0001 1.0001 0 1 0 8 9 L 9 9 L 9 45 C 9 46.654 10.346 48 12 48 L 38 48 C 39.654 48 41 46.654 41 45 L 41 9 L 42 9 A 1.0001 1.0001 0 1 0 42 7 L 32 7 L 32 5 C 32 3.3545455 30.645455 2 29 2 L 21 2 z M 21 4 L 29 4 C 29.554545 4 30 4.4454545 30 5 L 30 7 L 20 7 L 20 5 C 20 4.4454545 20.445455 4 21 4 z M 19 14 C 19.552 14 20 14.448 20 15 L 20 40 C 20 40.553 19.552 41 19 41 C 18.448 41 18 40.553 18 40 L 18 15 C 18 14.448 18.448 14 19 14 z M 25 14 C 25.552 14 26 14.448 26 15 L 26 40 C 26 40.553 25.552 41 25 41 C 24.448 41 24 40.553 24 40 L 24 15 C 24 14.448 24.448 14 25 14 z M 31 14 C 31.553 14 32 14.448 32 15 L 32 40 C 32 40.553 31.553 41 31 41 C 30.447 41 30 40.553 30 40 L 30 15 C 30 14.448 30.447 14 31 14 z"></path>
+                                        </svg>
+                                      </span>
+                                      <span className="font-[600]">Delete</span>
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                  )}
+                </tbody>
+              </table>
+
+              {/* Pagination controls */}
+              <div
+                className="d-flex align-center justify-end"
+                style={{ marginTop: 16 }}
+              >
+                <button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    padding: "5px 10px",
+                    backgroundColor: "#f0f0f0",
+                    border: "1px solid #ccc",
+                    borderRadius: "4px",
+                    cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                    marginRight: 8,
+                  }}
+                >
+                  <img
+                    src={singleprvIcon}
+                    alt="Previous"
+                    style={{ width: 20, height: 20, marginRight: 5 }}
+                  />
+                  <span>Previous</span>
+                </button>
+
+                {Array.from({ length: totalPages }, (_, idx) => idx + 1).map(
+                  (page) => (
+                    <button
+                      key={page}
+                      style={{
+                        padding: "5px 10px",
+                        backgroundColor:
+                          currentPage === page ? "#3f9f42" : "#f0f0f0",
+                        color: currentPage === page ? "#fff" : "#333",
+                        border: "1px solid #ccc",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        marginRight: 8,
+                      }}
+                      onClick={() => handlePageChange(page)}
+                    >
+                      {page}
+                    </button>
+                  )
+                )}
+
+                <button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    padding: "5px 10px",
+                    backgroundColor: "#f0f0f0",
+                    border: "1px solid #ccc",
+                    borderRadius: "4px",
+                    cursor:
+                      currentPage === totalPages ? "not-allowed" : "pointer",
+                  }}
+                >
+                  <span>Next</span>
+                  <img
+                    src={singlenextIcon}
+                    alt="Next"
+                    style={{ width: 20, height: 20, marginLeft: 5 }}
+                  />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Schedule Modal */}
+          {showScheduleModal && (
+            <div
+              style={{
+                position: "fixed",
+                zIndex: 99999,
+                inset: 0,
+                background: "rgba(0,0,0,0.6)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+              onClick={() => {
+                // Close modal when clicking backdrop
+                setShowScheduleModal(false);
+                setEditingId(null);
+                setFormData({
+                  title: "",
+                  timeZone: "",
+                  scheduledDate: "",
+                  scheduledTime: "",
+                  EmailDeliver: "",
+                  bccEmail: "",
+                  smtpID: "",
+                });
+                setSelectedZohoviewId1("");
+                setSelectedUser("");
+              }}
+            >
+              <div
+                style={{
+                  background: "#fff",
+                  padding: "32px",
+                  borderRadius: "8px",
+                  width: "90%",
+                  maxWidth: "720px",
+                  boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+                }}
+                onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
+              >
+                <h2 style={{ marginTop: 0, marginBottom: 24 }}>
+                  {editingId ? "Edit Schedule" : "Create Schedule"}
+                </h2>
+
+                <form onSubmit={handleSubmitSchedule}>
+                  <div
                     style={{
-                      padding: "6px 12px",
-                      fontSize: "14px",
-                      background: "#dc3545",
-                      color: "#fff",
-                      border: "none",
-                      borderRadius: "4px",
-                      cursor: bccLoading ? "not-allowed" : "pointer",
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: "20px",
+                      marginBottom: "24px",
                     }}
                   >
-                    Delete
-                  </button>
-                  )}
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
-  </div>
+                    <div className="form-group">
+                      <label>
+                        Sequence Name <span style={{ color: "red" }}>*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="title"
+                        value={formData.title || ""}
+                        onChange={handleChange}
+                        placeholder="Enter sequence name"
+                        required
+                        style={{ width: "100%" }}
+                      />
+                    </div>
 
-  {/* Add/Edit Mailbox Modal */}
- {/* Replace your Modal component with this custom modal */}
-{(openModals["modal-add-mailbox"] || editingId !== null) && (
-  <div
-    style={{
-      position: "fixed",
-      zIndex: 99999,
-      inset: 0,
-      background: "rgba(0,0,0,0.6)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-    }}
-    onClick={() => {
-      // Close modal when clicking backdrop
-      handleModalClose("modal-add-mailbox");
-      setEditingId(null);
-      setForm({
-        server: "",
-        port: "",
-        username: "",
-        password: "",
-        fromEmail: "",
-        usessl: false,
-      });
-    }}
-  >
-    <div
-      style={{
-        background: "#fff",
-        padding: "24px",
-        borderRadius: "8px",
-        width: "500px",
-        maxHeight: "90vh",
-        overflow: "auto",
-        boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
-      }}
-      onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
-    >
-      <form onSubmit={handleSubmitSMTP}>
-        <h2 className="!text-left">{editingId ? "Edit mailbox" : "Add mailbox"}</h2>
-        <div className="flex gap-4">
-          <div className="form-group flex-1">
-            <label>Host <span style={{ color: "red" }}>*</span></label>
-            <input
-              name="server"
-              placeholder="smtp.example.com"
-              value={form.server}
-              onChange={handleChangeSMTP}
-              required
-            />
-          </div>
-          <div className="form-group flex-1">
-            <label>Port <span style={{ color: "red" }}>*</span></label>
-            <input
-              name="port"
-              type="number"
-              placeholder="587"
-              value={form.port}
-              onChange={handleChangeSMTP}
-              required
-            />
-          </div>
-        </div>
-        <div className="flex gap-4">
-          <div className="form-group flex-1">
-            <label>Username <span style={{ color: "red" }}>*</span></label>
-            <input
-              name="username"
-              placeholder="user@example.com"
-              value={form.username}
-              onChange={handleChangeSMTP}
-              required
-            />
-          </div>
-          <div className="form-group flex-1">
-            <label>Password <span style={{ color: "red" }}>*</span></label>
-            <input
-              name="password"
-              type="password"
-              placeholder="••••••••"
-              value={form.password}
-              onChange={handleChangeSMTP}
-              required
-            />
-          </div>
-        </div>
-        <div className="form-group">
-          <label>From email <span style={{ color: "red" }}>*</span></label>
-          <input
-            name="fromEmail"
-            type="email"
-            placeholder="sender@example.com"
-            value={form.fromEmail}
-            onChange={handleChangeSMTP}
-            required
-          />
-        </div>
-        <div className="d-flex justify-end" style={{ marginTop: 16 }}>
-          <span className="flex items-center">
-            <input
-              type="checkbox"
-              name="usessl"
-              checked={form.usessl}
-              onChange={handleChangeSMTP}
-              id="use-ssl"
-            />
-            <label
-              className="ml-5 !mb-[0] font-size-12 nowrap mr-10 font-[600]"
-              htmlFor="use-ssl"
-            >
-              Use SSL
-            </label>
-          </span>
-          <button
-            className="save-button button min-w-[150px]"
-            type="submit"
-          >
-            {editingId ? "Update" : "Add"}
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-)}
-  </>
-
-)}
-    
-{/* Schedule Tab */}
-{tab === "Schedule" && (
-  <>
-
-  <div className="data-campaigns-container">
-    <div className="section-wrapper">
-      <h2 className="section-title">Email Schedules</h2>
-      <div style={{ marginBottom: 4, color: "#555" }}>
-        Create and manage email delivery schedules for your campaigns.
-      </div>
-
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        marginBottom: 16,
-        gap: 16,
-      }}>
-        <input
-          type="text"
-          className="search-input"
-          style={{ width: 340 }}
-          placeholder="Search schedules..."
-          value={scheduleSearch}
-          onChange={(e) => setScheduleSearch(e.target.value)}
-        />
-        {!isDemoAccount && (
-        <button
-          className="save-button button auto-width small d-flex justify-between align-center"
-          style={{ marginLeft: "auto" }}
-          onClick={() => setShowScheduleModal(true)}
-        >
-          + Create schedule
-        </button>
-        )}
-      </div>
-
-      <table className="contacts-table" style={{ background: "#fff" }}>
-        <thead>
-          <tr>
-            <th>Sequence name</th>
-            <th>List/Segment</th>
-            <th>From</th>
-            <th>Scheduled date</th>
-            <th>Scheduled time</th>
-            <th>Timezone</th>
-            <th>BCC</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {scheduleList.length === 0 ? (
-            <tr>
-              <td colSpan={8} style={{ textAlign: "center" }}>
-                No schedules found.
-              </td>
-            </tr>
-          ) : (
-            scheduleList
-              .filter(item =>
-                item.title?.toLowerCase().includes(scheduleSearch.toLowerCase()) ||
-                item.zohoviewName?.toLowerCase().includes(scheduleSearch.toLowerCase())
-              )
-              .map((item, index) => {
-                const dataFile = scheduleDataFiles.find(
-                  (file) => file.id === item.dataFileId
-                );
-                const smtpUser = smtpUsers.find(
-                  (user) => user.id === item.smtpID
-                );
-                const scheduledDate = item.scheduledDate || "-";  
-
-                const scheduledTime = item.scheduledTime || "-";
-
-                return (
-                  <tr key={item.id || index}>
-                    <td>{item.title}</td>
-                    <td>
-                      {(() => {
-                        if (item.segmentId) {
-                          const segment = segments.find(s => s.id === item.segmentId);
-                          return segment ? `${segment.name} (Segment)` : item.zohoviewName || "-";
-                        } else if (item.dataFileId) {
-                          const dataFile = scheduleDataFiles.find(f => f.id === item.dataFileId);
-                          return dataFile ? `${dataFile.name} (List)` : item.zohoviewName || "-";
+                    <div className="form-group">
+                      <label>
+                        List/Segment <span style={{ color: "red" }}>*</span>
+                      </label>
+                      <select
+                        name="model"
+                        onChange={handleZohoModelChange1}
+                        value={selectedZohoviewId1 || ""}
+                        disabled={
+                          scheduleDataLoading ||
+                          segmentsLoading ||
+                          (scheduleDataFiles.length === 0 &&
+                            segments.length === 0)
                         }
-                        return item.zohoviewName || "-";
-                      })()}
-                    </td>
-                    <td>{smtpUser?.username || "-"}</td>
-                    <td>{scheduledDate}</td>
-                    <td>{scheduledTime}</td>
-                    <td>{item.timeZone}</td>
-                    <td>{item.bccEmail || "-"}</td>
-                    <td style={{ position: "relative" }}>
-                      <button
-                        className="segment-actions-btn"
-                        style={{
-                          border: "none",
-                          background: "none",
-                          fontSize: 24,
-                          cursor: "pointer",
-                          padding: "2px 10px",
-                        }}
-                        onClick={() =>
-                        setScheduleActionsAnchor(
-                          item.id?.toString() === scheduleActionsAnchor
-                            ? null
-                            : item.id?.toString() ?? null  // Convert undefined to null
-                        )
-                      }
+                        required
+                        style={{ width: "100%" }}
                       >
-                        ⋮
-                      </button>
-                      {scheduleActionsAnchor === item.id?.toString() && (
-                        
-                        <div
-                          className="segment-actions-menu py-[10px]"
-                          style={{
-                            position: "absolute",
-                            right: 0,
-                            top: 32,
-                            background: "#fff",
-                            border: "1px solid #eee",
-                            borderRadius: 6,
-                            boxShadow: "0 2px 16px rgba(0,0,0,0.12)",
-                            zIndex: 101,
-                            minWidth: 160,
-                          }}
-                        >
-                                {!isDemoAccount && (
+                        <option value="">Select a list or segment</option>
+                        {scheduleDataFiles.length > 0 && (
+                          <optgroup label="Lists">
+                            {scheduleDataFiles.map((file) => (
+                              <option
+                                key={`list-${file.id}`}
+                                value={`list-${file.id}`}
+                              >
+                                {file.name}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                        {segments.length > 0 && (
+                          <optgroup label="Segments">
+                            {segments.map((segment) => (
+                              <option
+                                key={`segment-${segment.id}`}
+                                value={`segment-${segment.id}`}
+                              >
+                                {segment.name}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                      </select>
+                    </div>
 
-                            <button
-                            onClick={() => {
-                              handleEditSchedule(item);
-                              setScheduleActionsAnchor(null);
-                              setShowScheduleModal(true);
-                            }}
-                            style={menuBtnStyle}
-                            className="flex gap-2 items-center"
-                          >
-                            <span>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="28px" height="28px" viewBox="0 0 24 24" fill="none"><path d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
-                                  </span>
-                                  <span className="font-[600]">Edit</span>
-                          </button>
-                                )}
-                                {!isDemoAccount && (
-                          <button
-                            onClick={() => {
-                              handleDeleteSchedule(item.id);
-                              setScheduleActionsAnchor(null);
-                            }}
-                            style={{ ...menuBtnStyle }}
-                            className="flex gap-2 items-center"
-                          >
-                            <span className="ml-[3px]">
-                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50" width="22px" height="22px"><path d="M 21 2 C 19.354545 2 18 3.3545455 18 5 L 18 7 L 8 7 A 1.0001 1.0001 0 1 0 8 9 L 9 9 L 9 45 C 9 46.654 10.346 48 12 48 L 38 48 C 39.654 48 41 46.654 41 45 L 41 9 L 42 9 A 1.0001 1.0001 0 1 0 42 7 L 32 7 L 32 5 C 32 3.3545455 30.645455 2 29 2 L 21 2 z M 21 4 L 29 4 C 29.554545 4 30 4.4454545 30 5 L 30 7 L 20 7 L 20 5 C 20 4.4454545 20.445455 4 21 4 z M 19 14 C 19.552 14 20 14.448 20 15 L 20 40 C 20 40.553 19.552 41 19 41 C 18.448 41 18 40.553 18 40 L 18 15 C 18 14.448 18.448 14 19 14 z M 25 14 C 25.552 14 26 14.448 26 15 L 26 40 C 26 40.553 25.552 41 25 41 C 24.448 41 24 40.553 24 40 L 24 15 C 24 14.448 24.448 14 25 14 z M 31 14 C 31.553 14 32 14.448 32 15 L 32 40 C 32 40.553 31.553 41 31 41 C 30.447 41 30 40.553 30 40 L 30 15 C 30 14.448 30.447 14 31 14 z"></path></svg>
-                            </span>
-                            <span className="font-[600]">Delete</span>
-                          </button>
-                                )}
-                        </div>
+                    <div className="form-group">
+                      <label>
+                        Timezone <span style={{ color: "red" }}>*</span>
+                      </label>
+                      <select
+                        name="timeZone"
+                        value={formData.timeZone || ""}
+                        onChange={handleChange}
+                        required
+                        style={{ width: "100%" }}
+                      >
+                        <option value="">Select timezone</option>
+                        {timezoneOptions.map((tz) => (
+                          <option key={tz.value} value={tz.value}>
+                            {tz.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label>
+                        From <span style={{ color: "red" }}>*</span>
+                      </label>
+                      <select
+                        value={selectedUser}
+                        onChange={handleChangeSmtpUsers}
+                        required
+                        style={{ width: "100%" }}
+                      >
+                        <option value="">Select email</option>
+                        {smtpUsers.map((user) => (
+                          <option key={user.id} value={user.id}>
+                            {user.username}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="form-group">
+                      <label>BCC Email</label>
+                      <input
+                        type="email"
+                        name="bccEmail"
+                        value={formData.bccEmail || ""}
+                        onChange={handleChange}
+                        placeholder="Optional BCC email"
+                        style={{ width: "100%" }}
+                      />
+                      {bccError && (
+                        <small style={{ color: "red" }}>{bccError}</small>
                       )}
-                    </td>
-                  </tr>
-                );
-              })
+                    </div>
+
+                    <div className="form-group">
+                      <label>
+                        Scheduled Date <span style={{ color: "red" }}>*</span>
+                      </label>
+                      <input
+                        type="date"
+                        name="scheduledDate"
+                        value={formData.scheduledDate || ""}
+                        onChange={handleChange}
+                        required
+                        style={{ width: "100%" }}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>
+                        Scheduled Time <span style={{ color: "red" }}>*</span>
+                      </label>
+                      <input
+                        type="time"
+                        name="scheduledTime"
+                        value={formData.scheduledTime || ""}
+                        onChange={handleChange}
+                        required
+                        style={{ width: "100%" }}
+                      />
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 12,
+                      justifyContent: "flex-end",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowScheduleModal(false);
+                        setEditingId(null);
+                        setFormData({
+                          title: "",
+                          timeZone: "",
+                          scheduledDate: "",
+                          scheduledTime: "",
+                          EmailDeliver: "",
+                          bccEmail: "",
+                          smtpID: "",
+                        });
+                        setSelectedZohoviewId1("");
+                        setSelectedUser("");
+                      }}
+                      className="button secondary"
+                      style={{
+                        padding: "8px 16px",
+                        border: "1px solid #ddd",
+                        background: "#fff",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="button primary"
+                      disabled={!isFormValid}
+                      style={{
+                        padding: "8px 16px",
+                        background: isFormValid ? "#007bff" : "#ccc",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: isFormValid ? "pointer" : "not-allowed",
+                      }}
+                    >
+                      {editingId ? "Update Schedule" : "Create Schedule"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
           )}
-        </tbody>
-      </table>
+        </>
+      )}
 
-      {/* Pagination controls */}
-      <div className="d-flex align-center justify-end" style={{ marginTop: 16 }}>
-        <button
-          onClick={() => handlePageChange(currentPage - 1)}
-          disabled={currentPage === 1}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            padding: "5px 10px",
-            backgroundColor: "#f0f0f0",
-            border: "1px solid #ccc",
-            borderRadius: "4px",
-            cursor: currentPage === 1 ? "not-allowed" : "pointer",
-            marginRight: 8,
-          }}
-        >
-          <img src={singleprvIcon} alt="Previous" style={{ width: 20, height: 20, marginRight: 5 }} />
-          <span>Previous</span>
-        </button>
-
-        {Array.from({ length: totalPages }, (_, idx) => idx + 1).map((page) => (
-          <button
-            key={page}
-            style={{
-              padding: "5px 10px",
-              backgroundColor: currentPage === page ? "#3f9f42" : "#f0f0f0",
-              color: currentPage === page ? "#fff" : "#333",
-              border: "1px solid #ccc",
-              borderRadius: "4px",
-              cursor: "pointer",
-              marginRight: 8,
-            }}
-            onClick={() => handlePageChange(page)}
-          >
-            {page}
-          </button>
-        ))}
-
-        <button
-          onClick={() => handlePageChange(currentPage + 1)}
-          disabled={currentPage === totalPages}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            padding: "5px 10px",
-            backgroundColor: "#f0f0f0",
-            border: "1px solid #ccc",
-            borderRadius: "4px",
-            cursor: currentPage === totalPages ? "not-allowed" : "pointer",
-          }}
-        >
-          <span>Next</span>
-          <img src={singlenextIcon} alt="Next" style={{ width: 20, height: 20, marginLeft: 5 }} />
-        </button>
-      </div>
-    </div>
-  </div>
-
-  {/* Schedule Modal */}
-  {showScheduleModal && (
-  <div
-    style={{
-      position: "fixed",
-      zIndex: 99999,
-      inset: 0,
-      background: "rgba(0,0,0,0.6)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-    }}
-    onClick={() => {
-      // Close modal when clicking backdrop
-      setShowScheduleModal(false);
-      setEditingId(null);
-      setFormData({
-        title: "",
-        timeZone: "",
-        scheduledDate: "",
-        scheduledTime: "",
-        EmailDeliver: "",
-        bccEmail: "",
-        smtpID: "",
-      });
-      setSelectedZohoviewId1("");
-      setSelectedUser("");
-    }}
-  >
-    <div
-      style={{
-        background: "#fff",
-        padding: "32px",
-        borderRadius: "8px",
-        width: "90%",
-        maxWidth: "720px",
-        boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
-      }}
-      onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
-    >
-      <h2 style={{ marginTop: 0, marginBottom: 24 }}>
-        {editingId ? "Edit Schedule" : "Create Schedule"}
-      </h2>
-      
-      <form onSubmit={handleSubmitSchedule}>
-        <div style={{ 
-          display: "grid", 
-          gridTemplateColumns: "1fr 1fr", 
-          gap: "20px",
-          marginBottom: "24px"
-        }}>
-          <div className="form-group">
-            <label>
-              Sequence Name <span style={{ color: "red" }}>*</span>
-            </label>
-            <input
-              type="text"
-              name="title"
-              value={formData.title || ""}
-              onChange={handleChange}
-              placeholder="Enter sequence name"
-              required
-              style={{ width: "100%" }}
-            />
-          </div>
-
-          <div className="form-group">
-  <label>
-    List/Segment <span style={{ color: "red" }}>*</span>
-  </label>
-  <select
-    name="model"
-    onChange={handleZohoModelChange1}
-    value={selectedZohoviewId1 || ""}
-    disabled={scheduleDataLoading || segmentsLoading || (scheduleDataFiles.length === 0 && segments.length === 0)}
-    required
-    style={{ width: "100%" }}
-  >
-    <option value="">Select a list or segment</option>
-{scheduleDataFiles.length > 0 && (
-  <optgroup label="Lists">
-    {scheduleDataFiles.map((file) => (
-      <option key={`list-${file.id}`} value={`list-${file.id}`}>
-        {file.name}
-      </option>
-    ))}
-  </optgroup>
-)}
-{segments.length > 0 && (
-  <optgroup label="Segments">
-    {segments.map((segment) => (
-      <option key={`segment-${segment.id}`} value={`segment-${segment.id}`}>
-        {segment.name}
-      </option>
-    ))}
-  </optgroup>
-)}
-</select>
-</div>
-
-          <div className="form-group">
-            <label>
-              Timezone <span style={{ color: "red" }}>*</span>
-            </label>
-            <select
-              name="timeZone"
-              value={formData.timeZone || ""}
-              onChange={handleChange}
-              required
-              style={{ width: "100%" }}
-            >
-              <option value="">Select timezone</option>
-              {timezoneOptions.map((tz) => (
-                <option key={tz.value} value={tz.value}>
-                  {tz.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label>
-              From <span style={{ color: "red" }}>*</span>
-            </label>
-            <select
-              value={selectedUser}
-              onChange={handleChangeSmtpUsers}
-              required
-              style={{ width: "100%" }}
-            >
-              <option value="">Select email</option>
-              {smtpUsers.map((user) => (
-                <option key={user.id} value={user.id}>
-                  {user.username}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label>BCC Email</label>
-            <input
-              type="email"
-              name="bccEmail"
-              value={formData.bccEmail || ""}
-              onChange={handleChange}
-              placeholder="Optional BCC email"
-              style={{ width: "100%" }}
-            />
-            {bccError && (
-              <small style={{ color: "red" }}>{bccError}</small>
-            )}
-          </div>
-
-          <div className="form-group">
-            <label>
-              Scheduled Date <span style={{ color: "red" }}>*</span>
-            </label>
-            <input
-              type="date"
-              name="scheduledDate"
-              value={formData.scheduledDate || ""}
-              onChange={handleChange}
-              required
-              style={{ width: "100%" }}
-            />
-          </div>
-
-          <div className="form-group">
-            <label>
-              Scheduled Time <span style={{ color: "red" }}>*</span>
-            </label>
-            <input
-              type="time"
-              name="scheduledTime"
-              value={formData.scheduledTime || ""}
-              onChange={handleChange}
-              required
-              style={{ width: "100%" }}
-            />
-          </div>
-        </div>
-
-        <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
-          <button
-            type="button"
-            onClick={() => {
-              setShowScheduleModal(false);
-              setEditingId(null);
-              setFormData({
-                title: "",
-                timeZone: "",
-                scheduledDate: "",
-                scheduledTime: "",
-                EmailDeliver: "",
-                bccEmail: "",
-                smtpID: "",
-              });
-              setSelectedZohoviewId1("");
-              setSelectedUser("");
-            }}
-            className="button secondary"
-            style={{
-              padding: "8px 16px",
-              border: "1px solid #ddd",
-              background: "#fff",
-              borderRadius: "4px",
-              cursor: "pointer",
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            className="button primary"
-            disabled={!isFormValid}
-            style={{
-              padding: "8px 16px",
-              background: isFormValid ? "#007bff" : "#ccc",
-              color: "#fff",
-              border: "none",
-              borderRadius: "4px",
-              cursor: isFormValid ? "pointer" : "not-allowed",
-            }}
-          >
-            {editingId ? "Update Schedule" : "Create Schedule"}
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-)}
-            
-  </>
-
-)}
-              
+      <AppModal
+        isOpen={appModal.isOpen}
+        onClose={appModal.hideModal}
+        {...appModal.config}
+      />
     </div>
   );
 };

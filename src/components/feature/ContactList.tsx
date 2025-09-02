@@ -1,12 +1,9 @@
 import React, { useState, useEffect } from "react";
 import API_BASE_URL from "../../config";
 import "./ContactList.css";
-import DynamicContactsTable from "./DynamicContactsTable"; 
-import AppModal from '../common/AppModal';
-import { useAppModal } from '../../hooks/useAppModal';
-
-
-
+import DynamicContactsTable from "./DynamicContactsTable";
+import AppModal from "../common/AppModal";
+import { useAppModal } from "../../hooks/useAppModal";
 
 const menuBtnStyle = {
   width: "100%",
@@ -60,11 +57,11 @@ interface Contact {
   created_at?: string;
   updated_at?: string | null;
   email_sent_at?: string | null;
-  companyTelephone?: string;  
-  companyEmployeeCount?: string;  
-  companyIndustry?: string;  
-  companyLinkedInURL?: string;  
-  companyEventLink?: string;  
+  companyTelephone?: string;
+  companyEmployeeCount?: string;
+  companyIndustry?: string;
+  companyLinkedInURL?: string;
+  companyEventLink?: string;
 }
 
 const getContactValue = (contact: Contact, key: string): any => {
@@ -198,24 +195,24 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     setCurrentPage(1);
     setSelectedContacts(new Set());
   };
-// Replace the existing formatDate function with this:
-const formatDate = (dateString?: string | null) => {
-  if (!dateString) return "-";
-  
-  const date = new Date(dateString);
-  
-  // Check if date is valid
-  if (isNaN(date.getTime())) return "-";
-  
-  // Format as "DD MMM YYYY" (e.g., "21 May 2025")
-  const options: Intl.DateTimeFormatOptions = {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric'
+  // Replace the existing formatDate function with this:
+  const formatDate = (dateString?: string | null) => {
+    if (!dateString) return "-";
+
+    const date = new Date(dateString);
+
+    // Check if date is valid
+    if (isNaN(date.getTime())) return "-";
+
+    // Format as "DD MMM YYYY" (e.g., "21 May 2025")
+    const options: Intl.DateTimeFormatOptions = {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    };
+
+    return date.toLocaleDateString("en-GB", options);
   };
-  
-  return date.toLocaleDateString('en-GB', options);
-};
   // Filter contacts based on search query
   const filteredContacts = contacts.filter((contact) => {
     const searchLower = searchQuery.toLowerCase();
@@ -235,31 +232,33 @@ const formatDate = (dateString?: string | null) => {
   );
 
   // Handle contact selection
-const handleSelectContact = (contactId: string) => {
-  setSelectedContacts(prev => {
-    const newSelection = new Set(prev);
-    if (newSelection.has(contactId)) {
-      newSelection.delete(contactId);
-    } else {
-      newSelection.add(contactId);
-    }
-    return newSelection;
-  });
-};
+  const handleSelectContact = (contactId: string) => {
+    setSelectedContacts((prev) => {
+      const newSelection = new Set(prev);
+      if (newSelection.has(contactId)) {
+        newSelection.delete(contactId);
+      } else {
+        newSelection.add(contactId);
+      }
+      return newSelection;
+    });
+  };
 
   // Handle select all
-const handleSelectAll = () => {
-  const currentPageContacts = paginatedContacts.map(c => c.id.toString());
-  
-  setSelectedContacts(prev => {
-    if (prev.size === currentPageContacts.length && currentPageContacts.length > 0) {
-      return new Set();
-    } else {
-      return new Set(currentPageContacts);
-    }
-  });
-};
+  const handleSelectAll = () => {
+    const currentPageContacts = paginatedContacts.map((c) => c.id.toString());
 
+    setSelectedContacts((prev) => {
+      if (
+        prev.size === currentPageContacts.length &&
+        currentPageContacts.length > 0
+      ) {
+        return new Set();
+      } else {
+        return new Set(currentPageContacts);
+      }
+    });
+  };
 
   // Toggle column visibility
   const toggleColumnVisibility = (columnKey: string) => {
@@ -269,8 +268,6 @@ const handleSelectAll = () => {
       )
     );
   };
-
- 
 
   // Calculate pagination
   const totalPages = Math.ceil(filteredContacts.length / pageSize);
@@ -362,7 +359,6 @@ const handleSelectAll = () => {
       }
     } catch (error) {
       appModal.showError("Failed to save segment");
-
     } finally {
       setSavingSegment(false);
     }
@@ -539,32 +535,37 @@ const handleSelectAll = () => {
   };
 
   // Add handlers for detail view
-const handleDetailSelectContact = (contactId: string) => {
-  setDetailSelectedContacts(prev => {
-    const newSelection = new Set(prev);
-    if (newSelection.has(contactId)) {
-      newSelection.delete(contactId);
-    } else {
-      newSelection.add(contactId);
-    }
-    return newSelection;
-  });
-};
+  const handleDetailSelectContact = (contactId: string) => {
+    setDetailSelectedContacts((prev) => {
+      const newSelection = new Set(prev);
+      if (newSelection.has(contactId)) {
+        newSelection.delete(contactId);
+      } else {
+        newSelection.add(contactId);
+      }
+      return newSelection;
+    });
+  };
 
-const handleDetailSelectAll = () => {
-  const currentPageContacts = detailContacts.slice(
-    (detailCurrentPage - 1) * detailPageSize,
-    detailCurrentPage * detailPageSize
-  ).map(c => c.id.toString());
-  
-  setDetailSelectedContacts(prev => {
-    if (prev.size === currentPageContacts.length && currentPageContacts.length > 0) {
-      return new Set();
-    } else {
-      return new Set(currentPageContacts);
-    }
-  });
-};
+  const handleDetailSelectAll = () => {
+    const currentPageContacts = detailContacts
+      .slice(
+        (detailCurrentPage - 1) * detailPageSize,
+        detailCurrentPage * detailPageSize
+      )
+      .map((c) => c.id.toString());
+
+    setDetailSelectedContacts((prev) => {
+      if (
+        prev.size === currentPageContacts.length &&
+        currentPageContacts.length > 0
+      ) {
+        return new Set();
+      } else {
+        return new Set(currentPageContacts);
+      }
+    });
+  };
   // Effect to fetch contacts when viewing detail
   useEffect(() => {
     if (viewMode === "detail" && selectedDataFileForView) {
@@ -662,7 +663,7 @@ const handleDetailSelectAll = () => {
       appModal.showSuccess("List renamed successfully!");
     } catch (error) {
       console.error("Failed to rename list:", error);
-     appModal.showError("Failed to rename list. Please try again.");
+      appModal.showError("Failed to rename list. Please try again.");
     } finally {
       setIsRenamingList(false);
     }
@@ -800,171 +801,182 @@ const handleDetailSelectAll = () => {
     }
   };
 
+  // Helper function to convert data to CSV
+  // Helper function to convert data to CSV
+  const downloadCSV = (data: any[], filename: string) => {
+    if (!data || data.length === 0) {
+      appModal.showWarning("No data to export");
+      return;
+    }
 
-// Helper function to convert data to CSV
-// Helper function to convert data to CSV
-const downloadCSV = (data: any[], filename: string) => {
-  if (!data || data.length === 0) {
-    appModal.showWarning('No data to export');
-    return;
-  }
+    // Define all possible columns
+    const allColumns = [
+      { key: "full_name", header: "Full Name" },
+      { key: "email", header: "Email" },
+      { key: "website", header: "Website" },
+      { key: "company_name", header: "Company Name" },
+      { key: "job_title", header: "Job Title" },
+      { key: "linkedin_url", header: "LinkedIn URL" },
+      { key: "country_or_address", header: "Country Or Address" },
+      { key: "companyTelephone", header: "Company Telephone" },
+      { key: "companyEmployeeCount", header: "Company Employee Count" },
+      { key: "companyIndustry", header: "Company Industry" },
+      { key: "companyLinkedInURL", header: "Company LinkedIn URL" },
+      { key: "companyEventLink", header: "Company Event Link" },
+      { key: "created_at", header: "Created Date" },
+      { key: "updated_at", header: "Updated Date" },
+      { key: "email_sent_at", header: "Email Sent Date" },
+    ];
 
-  // Define all possible columns
-  const allColumns = [
-    { key: 'full_name', header: 'Full Name' },
-    { key: 'email', header: 'Email' },
-    { key: 'website', header: 'Website' },
-    { key: 'company_name', header: 'Company Name' },
-    { key: 'job_title', header: 'Job Title' },
-    { key: 'linkedin_url', header: 'LinkedIn URL' },
-    { key: 'country_or_address', header: 'Country Or Address' },
-    { key: 'companyTelephone', header: 'Company Telephone' },
-    { key: 'companyEmployeeCount', header: 'Company Employee Count' },
-    { key: 'companyIndustry', header: 'Company Industry' },
-    { key: 'companyLinkedInURL', header: 'Company LinkedIn URL' },
-    { key: 'companyEventLink', header: 'Company Event Link' },
-    { key: 'created_at', header: 'Created Date' },
-    { key: 'updated_at', header: 'Updated Date' },
-    { key: 'email_sent_at', header: 'Email Sent Date' }
-  ];
-
-  // Check which columns have data
-  const columnsWithData = allColumns.filter(column => {
-    return data.some(contact => {
-      const value = contact[column.key];
-      // Check if value exists and is not empty
-      return value !== null && 
-             value !== undefined && 
-             value !== '' && 
-             value !== 'NA' && // Exclude 'NA' values
-             value !== '-';    // Exclude '-' values
-    });
-  });
-
-  // If no columns have data, alert and return
-  if (columnsWithData.length === 0) {
-    alert('No data to export');
-    return;
-  }
-
-  // Create header row with only columns that have data
-  const headers = columnsWithData.map(col => col.header);
-  
-  // Map the data to CSV rows
-  const csvRows = [
-    headers.join(','), // Header row
-    ...data.map(contact => {
-      const row = columnsWithData.map(column => {
-        let value = contact[column.key] || '';
-        
-        // Format dates if it's a date column
-        if ((column.key === 'created_at' || column.key === 'updated_at' || column.key === 'email_sent_at') && value) {
-          value = formatDate(value);
-        }
-        
-        // Convert to string
-        const stringValue = String(value);
-        
-        // Escape values that contain commas, quotes, or newlines
-        if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n') || stringValue.includes('\r')) {
-          return `"${stringValue.replace(/"/g, '""')}"`;
-        }
-        
-        return stringValue;
+    // Check which columns have data
+    const columnsWithData = allColumns.filter((column) => {
+      return data.some((contact) => {
+        const value = contact[column.key];
+        // Check if value exists and is not empty
+        return (
+          value !== null &&
+          value !== undefined &&
+          value !== "" &&
+          value !== "NA" && // Exclude 'NA' values
+          value !== "-"
+        ); // Exclude '-' values
       });
-      
-      return row.join(',');
-    })
-  ];
+    });
 
-  // Create CSV content with BOM for Excel compatibility
-  const BOM = '\uFEFF';
-  const csvContent = BOM + csvRows.join('\n');
-  
-  // Create blob and download
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('a');
-  const url = URL.createObjectURL(blob);
-  
-  link.setAttribute('href', url);
-  link.setAttribute('download', `${filename}.csv`);
-  link.style.visibility = 'hidden';
-  
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  
-  // Clean up the URL object
-  URL.revokeObjectURL(url);
-};
-// Add these functions after your existing handler functions
-
-// Download list data
-const handleDownloadList = async (file: DataFileItem) => {
-  try {
-    setIsLoading(true);
-    
-    // Fetch all contacts for this list
-    const response = await fetch(
-      `${API_BASE_URL}/api/Crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${file.id}`
-    );
-    
-    if (!response.ok) throw new Error("Failed to fetch contacts");
-    
-    const data: ContactsResponse = await response.json();
-    const contacts = data.contacts || [];
-    
-    if (contacts.length === 0) {
-      appModal.showWarning("No contacts to download");
+    // If no columns have data, alert and return
+    if (columnsWithData.length === 0) {
+      alert("No data to export");
       return;
     }
-    
-    // Download as CSV
-    const filename = `${file.name.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().split('T')[0]}`;
-    downloadCSV(contacts, filename);
-    
-  } catch (error) {
-    console.error("Error downloading list:", error);
-    appModal.showError("Failed to download list data");
-  } finally {
-    setIsLoading(false);
-    setListActionsAnchor(null);
-  }
-};
 
-// Download segment data
-const handleDownloadSegment = async (segment: any) => {
-  try {
-    setIsLoadingSegments(true);
-    
-    // Fetch all contacts for this segment
-    const response = await fetch(
-      `${API_BASE_URL}/api/Crm/segment/${segment.id}/contacts`
-    );
-    
-    if (!response.ok) throw new Error("Failed to fetch segment contacts");
-    
-    const contacts = await response.json();
-    
-    if (!contacts || contacts.length === 0) {
-      appModal.showWarning("No contacts to download");
-      return;
+    // Create header row with only columns that have data
+    const headers = columnsWithData.map((col) => col.header);
+
+    // Map the data to CSV rows
+    const csvRows = [
+      headers.join(","), // Header row
+      ...data.map((contact) => {
+        const row = columnsWithData.map((column) => {
+          let value = contact[column.key] || "";
+
+          // Format dates if it's a date column
+          if (
+            (column.key === "created_at" ||
+              column.key === "updated_at" ||
+              column.key === "email_sent_at") &&
+            value
+          ) {
+            value = formatDate(value);
+          }
+
+          // Convert to string
+          const stringValue = String(value);
+
+          // Escape values that contain commas, quotes, or newlines
+          if (
+            stringValue.includes(",") ||
+            stringValue.includes('"') ||
+            stringValue.includes("\n") ||
+            stringValue.includes("\r")
+          ) {
+            return `"${stringValue.replace(/"/g, '""')}"`;
+          }
+
+          return stringValue;
+        });
+
+        return row.join(",");
+      }),
+    ];
+
+    // Create CSV content with BOM for Excel compatibility
+    const BOM = "\uFEFF";
+    const csvContent = BOM + csvRows.join("\n");
+
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+
+    link.setAttribute("href", url);
+    link.setAttribute("download", `${filename}.csv`);
+    link.style.visibility = "hidden";
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // Clean up the URL object
+    URL.revokeObjectURL(url);
+  };
+  // Add these functions after your existing handler functions
+
+  // Download list data
+  const handleDownloadList = async (file: DataFileItem) => {
+    try {
+      setIsLoading(true);
+
+      // Fetch all contacts for this list
+      const response = await fetch(
+        `${API_BASE_URL}/api/Crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${file.id}`
+      );
+
+      if (!response.ok) throw new Error("Failed to fetch contacts");
+
+      const data: ContactsResponse = await response.json();
+      const contacts = data.contacts || [];
+
+      if (contacts.length === 0) {
+        appModal.showWarning("No contacts to download");
+        return;
+      }
+
+      // Download as CSV
+      const filename = `${file.name.replace(/[^a-z0-9]/gi, "_")}_${
+        new Date().toISOString().split("T")[0]
+      }`;
+      downloadCSV(contacts, filename);
+    } catch (error) {
+      console.error("Error downloading list:", error);
+      appModal.showError("Failed to download list data");
+    } finally {
+      setIsLoading(false);
+      setListActionsAnchor(null);
     }
-    
-    // Download as CSV
-    const filename = `${segment.name.replace(/[^a-z0-9]/gi, '_')}_${new Date().toISOString().split('T')[0]}`;
-    downloadCSV(contacts, filename);
-    
-  } catch (error) {
-    console.error("Error downloading segment:", error);
-    appModal.showError("Failed to download segment data");
-  } finally {
-    setIsLoadingSegments(false);
-    setSegmentActionsAnchor(null);
-  }
-};
+  };
 
-  
+  // Download segment data
+  const handleDownloadSegment = async (segment: any) => {
+    try {
+      setIsLoadingSegments(true);
+
+      // Fetch all contacts for this segment
+      const response = await fetch(
+        `${API_BASE_URL}/api/Crm/segment/${segment.id}/contacts`
+      );
+
+      if (!response.ok) throw new Error("Failed to fetch segment contacts");
+
+      const contacts = await response.json();
+
+      if (!contacts || contacts.length === 0) {
+        appModal.showWarning("No contacts to download");
+        return;
+      }
+
+      // Download as CSV
+      const filename = `${segment.name.replace(/[^a-z0-9]/gi, "_")}_${
+        new Date().toISOString().split("T")[0]
+      }`;
+      downloadCSV(contacts, filename);
+    } catch (error) {
+      console.error("Error downloading segment:", error);
+      appModal.showError("Failed to download segment data");
+    } finally {
+      setIsLoadingSegments(false);
+      setSegmentActionsAnchor(null);
+    }
+  };
 
   return (
     <div className="data-campaigns-container">
@@ -975,7 +987,9 @@ const handleDownloadSegment = async (segment: any) => {
             <button
               type="button"
               onClick={() => handleTabChange("List")}
-              className={`button !pt-0 ${activeSubTab === "List" ? "active" : ""}`}
+              className={`button !pt-0 ${
+                activeSubTab === "List" ? "active" : ""
+              }`}
             >
               Lists
             </button>
@@ -984,7 +998,9 @@ const handleDownloadSegment = async (segment: any) => {
             <button
               type="button"
               onClick={() => handleTabChange("Segment")}
-              className={`button !pt-0 ${activeSubTab === "Segment" ? "active" : ""}`}
+              className={`button !pt-0 ${
+                activeSubTab === "Segment" ? "active" : ""
+              }`}
             >
               Segments
             </button>
@@ -1073,7 +1089,7 @@ const handleDownloadSegment = async (segment: any) => {
                         <td>{file.contacts?.length || 0}</td>
                         <td>
                           {file.created_at
-                            ? formatDate(file.created_at)  // Use formatDate instead of toLocaleString
+                            ? formatDate(file.created_at) // Use formatDate instead of toLocaleString
                             : "-"}
                         </td>
                         <td>{file.description || "-"}</td>
@@ -1126,7 +1142,21 @@ const handleDownloadSegment = async (segment: any) => {
                                   className="flex gap-2 items-center"
                                 >
                                   <span>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="28px" height="28px" viewBox="0 0 24 24" fill="none"><path d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      width="28px"
+                                      height="28px"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                    >
+                                      <path
+                                        d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
+                                        stroke="#000000"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                      ></path>
+                                    </svg>
                                   </span>
                                   <span className="font-[600]">Rename</span>
                                 </button>
@@ -1144,67 +1174,107 @@ const handleDownloadSegment = async (segment: any) => {
                                 className="flex gap-2 items-center"
                               >
                                 <span>
-                                  <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" viewBox="0 0 24 20" fill="none">
-                                    <circle cx="12" cy="12" r="4" fill="#33363F"/>
-                                    <path d="M21 12C21 12 20 4 12 4C4 4 3 12 3 12" stroke="#33363F" stroke-width="2"/>
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="24px"
+                                    height="24px"
+                                    viewBox="0 0 24 20"
+                                    fill="none"
+                                  >
+                                    <circle
+                                      cx="12"
+                                      cy="12"
+                                      r="4"
+                                      fill="#33363F"
+                                    />
+                                    <path
+                                      d="M21 12C21 12 20 4 12 4C4 4 3 12 3 12"
+                                      stroke="#33363F"
+                                      stroke-width="2"
+                                    />
                                   </svg>
                                 </span>
                                 <span className="font-[600]">View</span>
                               </button>
-                                <button
+                              <button
                                 onClick={() => handleDownloadList(file)}
                                 style={menuBtnStyle}
                                 className="flex gap-2 items-center"
                               >
                                 <span className="ml-[2px]">
-                                  <svg xmlns="http://www.w3.org/2000/svg" width="22px" height="22px" viewBox="0 0 24 24">
-
-                                    <title/>
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="22px"
+                                    height="22px"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <title />
 
                                     <g id="Complete">
+                                      <g id="download">
+                                        <g>
+                                          <path
+                                            d="M3,12.3v7a2,2,0,0,0,2,2H19a2,2,0,0,0,2-2v-7"
+                                            fill="none"
+                                            stroke="#000000"
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            stroke-width="2"
+                                          />
 
-                                    <g id="download">
+                                          <g>
+                                            <polyline
+                                              data-name="Right"
+                                              fill="none"
+                                              id="Right-2"
+                                              points="7.9 12.3 12 16.3 16.1 12.3"
+                                              stroke="#000000"
+                                              stroke-linecap="round"
+                                              stroke-linejoin="round"
+                                              stroke-width="2"
+                                            />
 
-                                    <g>
-
-                                    <path d="M3,12.3v7a2,2,0,0,0,2,2H19a2,2,0,0,0,2-2v-7" fill="none" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
-
-                                    <g>
-
-                                    <polyline data-name="Right" fill="none" id="Right-2" points="7.9 12.3 12 16.3 16.1 12.3" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
-
-                                    <line fill="none" stroke="#000000" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" x1="12" x2="12" y1="2.7" y2="14.2"/>
-
+                                            <line
+                                              fill="none"
+                                              stroke="#000000"
+                                              stroke-linecap="round"
+                                              stroke-linejoin="round"
+                                              stroke-width="2"
+                                              x1="12"
+                                              x2="12"
+                                              y1="2.7"
+                                              y2="14.2"
+                                            />
+                                          </g>
+                                        </g>
+                                      </g>
                                     </g>
-
-                                    </g>
-
-                                    </g>
-
-                                    </g>
-
                                   </svg>
                                 </span>
                                 <span className="font-[600]">Download</span>
-                                
-  
                               </button>
-                          {!isDemoAccount && (
-
-                              <button
-                                onClick={() => {
-                                  setEditingList(file);
-                                  setShowConfirmListDelete(true);
-                                  setListActionsAnchor(null);
-                                }}
-                                style={{ ...menuBtnStyle }}
-                                className="flex gap-2 items-center"
-                              >
-                                <span className="ml-[3px]">
-                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50" width="22px" height="22px"><path d="M 21 2 C 19.354545 2 18 3.3545455 18 5 L 18 7 L 8 7 A 1.0001 1.0001 0 1 0 8 9 L 9 9 L 9 45 C 9 46.654 10.346 48 12 48 L 38 48 C 39.654 48 41 46.654 41 45 L 41 9 L 42 9 A 1.0001 1.0001 0 1 0 42 7 L 32 7 L 32 5 C 32 3.3545455 30.645455 2 29 2 L 21 2 z M 21 4 L 29 4 C 29.554545 4 30 4.4454545 30 5 L 30 7 L 20 7 L 20 5 C 20 4.4454545 20.445455 4 21 4 z M 19 14 C 19.552 14 20 14.448 20 15 L 20 40 C 20 40.553 19.552 41 19 41 C 18.448 41 18 40.553 18 40 L 18 15 C 18 14.448 18.448 14 19 14 z M 25 14 C 25.552 14 26 14.448 26 15 L 26 40 C 26 40.553 25.552 41 25 41 C 24.448 41 24 40.553 24 40 L 24 15 C 24 14.448 24.448 14 25 14 z M 31 14 C 31.553 14 32 14.448 32 15 L 32 40 C 32 40.553 31.553 41 31 41 C 30.447 41 30 40.553 30 40 L 30 15 C 30 14.448 30.447 14 31 14 z"></path></svg>
-                                </span>
-                                <span className="font-[600]">Delete</span>
-                              </button>
+                              {!isDemoAccount && (
+                                <button
+                                  onClick={() => {
+                                    setEditingList(file);
+                                    setShowConfirmListDelete(true);
+                                    setListActionsAnchor(null);
+                                  }}
+                                  style={{ ...menuBtnStyle }}
+                                  className="flex gap-2 items-center"
+                                >
+                                  <span className="ml-[3px]">
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      viewBox="0 0 50 50"
+                                      width="22px"
+                                      height="22px"
+                                    >
+                                      <path d="M 21 2 C 19.354545 2 18 3.3545455 18 5 L 18 7 L 8 7 A 1.0001 1.0001 0 1 0 8 9 L 9 9 L 9 45 C 9 46.654 10.346 48 12 48 L 38 48 C 39.654 48 41 46.654 41 45 L 41 9 L 42 9 A 1.0001 1.0001 0 1 0 42 7 L 32 7 L 32 5 C 32 3.3545455 30.645455 2 29 2 L 21 2 z M 21 4 L 29 4 C 29.554545 4 30 4.4454545 30 5 L 30 7 L 20 7 L 20 5 C 20 4.4454545 20.445455 4 21 4 z M 19 14 C 19.552 14 20 14.448 20 15 L 20 40 C 20 40.553 19.552 41 19 41 C 18.448 41 18 40.553 18 40 L 18 15 C 18 14.448 18.448 14 19 14 z M 25 14 C 25.552 14 26 14.448 26 15 L 26 40 C 26 40.553 25.552 41 25 41 C 24.448 41 24 40.553 24 40 L 24 15 C 24 14.448 24.448 14 25 14 z M 31 14 C 31.553 14 32 14.448 32 15 L 32 40 C 32 40.553 31.553 41 31 41 C 30.447 41 30 40.553 30 40 L 30 15 C 30 14.448 30.447 14 31 14 z"></path>
+                                    </svg>
+                                  </span>
+                                  <span className="font-[600]">Delete</span>
+                                </button>
                               )}
                             </div>
                           )}
@@ -1217,116 +1287,143 @@ const handleDownloadSegment = async (segment: any) => {
             ) : (
               // Detail view using ContactsTable
               <DynamicContactsTable
-  data={detailContacts}
-  isLoading={isLoadingDetail}
-  search={detailSearchQuery}
-  setSearch={setDetailSearchQuery}
-  showCheckboxes={true}
-  paginated={true}
-  currentPage={detailCurrentPage}
-  pageSize={detailPageSize}
-  onPageChange={setDetailCurrentPage}
-  selectedItems={detailSelectedContacts}
-  onSelectItem={handleDetailSelectContact}
-  totalItems={detailTotalContacts}
-  
-  // Dynamic configuration
-  autoGenerateColumns={true}
-  excludeFields={['email_body', 'email_subject', 'dataFileId', 'data_file']} // Hide large/unwanted fields
-  customFormatters={{
-    // Date formatting
-    created_at: (value: any) => formatDate(value),
-    updated_at: (value: any) => formatDate(value),
-    email_sent_at: (value: any) => formatDate(value),
-    
-    // URL formatting
-    website: (value: any) => {
-      if (!value || value === '-') return '-';
-      const url = value.startsWith('http') ? value : `https://${value}`;
-      return (
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ color: "#3f9f42", textDecoration: "underline" }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          Website
-        </a>
-      );
-    },
-    linkedin_url: (value: any) => {
-      if (!value || value === '-' || value.toLowerCase() === 'linkedin.com') return '-';
-      const url = value.startsWith('http') ? value : `https://${value}`;
-      return (
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ color: "#3f9f42", textDecoration: "underline" }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          LinkedIn Profile
-        </a>
-      );
-    },
-    
-    // Email formatting
-    email: (value: any) => {
-      if (!value || value === '-') return '-';
-      return (
-        <a
-          href={`mailto:${value}`}
-          style={{ color: "#3f9f42", textDecoration: "underline" }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {value}
-        </a>
-      );
-    },
-  }}
-  
-  searchFields={['full_name', 'email', 'company_name', 'job_title', 'country_or_address']}
-  primaryKey="id"
-  viewMode="detail"
-  detailTitle={`${selectedDataFileForView?.name} (#${selectedDataFileForView?.id})`}
-  detailDescription={
-    selectedDataFileForView?.description ||
-    "No description available"
-  }
-  onBack={() => {
-    setViewMode("list");
-    setSelectedDataFileForView(null);
-  }}
-  onAddItem={onAddContactClick}
-  customHeader={
-    detailSelectedContacts.size > 0 && (
-      <div
-        style={{
-          marginBottom: 16,
-          padding: "12px 16px",
-          background: "#f0f7ff",
-          borderRadius: 6,
-          display: "flex",
-          alignItems: "center",
-          gap: 16,
-        }}
-      >
-        <span style={{ fontWeight: 500 }}>
-          {detailSelectedContacts.size} contact
-          {detailSelectedContacts.size > 1 ? "s" : ""} selected
-        </span>
-        <button
-          className="button primary"
-          onClick={() => setShowSaveSegmentModal(true)}
-          style={{ marginLeft: "auto" }}
-        >
-          Create segment
-        </button>
-      </div>
-    )
-  }
-/>
+                data={detailContacts}
+                isLoading={isLoadingDetail}
+                search={detailSearchQuery}
+                setSearch={setDetailSearchQuery}
+                showCheckboxes={true}
+                paginated={true}
+                currentPage={detailCurrentPage}
+                pageSize={detailPageSize}
+                onPageChange={setDetailCurrentPage}
+                selectedItems={detailSelectedContacts}
+                onSelectItem={handleDetailSelectContact}
+                totalItems={detailTotalContacts}
+                // Dynamic configuration
+                autoGenerateColumns={true}
+                excludeFields={[
+                  "email_body",
+                  "email_subject",
+                  "dataFileId",
+                  "data_file",
+                ]} // Hide large/unwanted fields
+                customFormatters={{
+                  // Date formatting
+                  created_at: (value: any) => formatDate(value),
+                  updated_at: (value: any) => formatDate(value),
+                  email_sent_at: (value: any) => formatDate(value),
+
+                  // URL formatting
+                  website: (value: any) => {
+                    if (!value || value === "-") return "-";
+                    const url = value.startsWith("http")
+                      ? value
+                      : `https://${value}`;
+                    return (
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          color: "#3f9f42",
+                          textDecoration: "underline",
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Website
+                      </a>
+                    );
+                  },
+                  linkedin_url: (value: any) => {
+                    if (
+                      !value ||
+                      value === "-" ||
+                      value.toLowerCase() === "linkedin.com"
+                    )
+                      return "-";
+                    const url = value.startsWith("http")
+                      ? value
+                      : `https://${value}`;
+                    return (
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          color: "#3f9f42",
+                          textDecoration: "underline",
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        LinkedIn Profile
+                      </a>
+                    );
+                  },
+
+                  // Email formatting
+                  email: (value: any) => {
+                    if (!value || value === "-") return "-";
+                    return (
+                      <a
+                        href={`mailto:${value}`}
+                        style={{
+                          color: "#3f9f42",
+                          textDecoration: "underline",
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {value}
+                      </a>
+                    );
+                  },
+                }}
+                searchFields={[
+                  "full_name",
+                  "email",
+                  "company_name",
+                  "job_title",
+                  "country_or_address",
+                ]}
+                primaryKey="id"
+                viewMode="detail"
+                detailTitle={`${selectedDataFileForView?.name} (#${selectedDataFileForView?.id})`}
+                detailDescription={
+                  selectedDataFileForView?.description ||
+                  "No description available"
+                }
+                onBack={() => {
+                  setViewMode("list");
+                  setSelectedDataFileForView(null);
+                }}
+                onAddItem={onAddContactClick}
+                customHeader={
+                  detailSelectedContacts.size > 0 && (
+                    <div
+                      style={{
+                        marginBottom: 16,
+                        padding: "12px 16px",
+                        background: "#f0f7ff",
+                        borderRadius: 6,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 16,
+                      }}
+                    >
+                      <span style={{ fontWeight: 500 }}>
+                        {detailSelectedContacts.size} contact
+                        {detailSelectedContacts.size > 1 ? "s" : ""} selected
+                      </span>
+                      <button
+                        className="button primary"
+                        onClick={() => setShowSaveSegmentModal(true)}
+                        style={{ marginLeft: "auto" }}
+                      >
+                        Create segment
+                      </button>
+                    </div>
+                  )
+                }
+              />
             )}
 
             {editingList && !showConfirmListDelete && (
@@ -1350,7 +1447,10 @@ const handleDownloadSegment = async (segment: any) => {
                     boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
                   }}
                 >
-                  <h3 className="sub-title" style={{ marginTop: 0, marginBottom: 16 }}>
+                  <h3
+                    className="sub-title"
+                    style={{ marginTop: 0, marginBottom: 16 }}
+                  >
                     Rename list
                   </h3>
 
@@ -1565,7 +1665,6 @@ const handleDownloadSegment = async (segment: any) => {
                     value={segmentSearchQuery}
                     onChange={(e) => setSegmentSearchQuery(e.target.value)}
                   />
-                 
                 </div>
 
                 <table
@@ -1611,7 +1710,7 @@ const handleDownloadSegment = async (segment: any) => {
                               <span
                                 className="list-link"
                                 style={{
-                                  color: '#3f9f42',
+                                  color: "#3f9f42",
                                   cursor: "pointer",
                                   textDecoration: "underline",
                                 }}
@@ -1633,7 +1732,7 @@ const handleDownloadSegment = async (segment: any) => {
                             </td>
                             <td>
                               {segment.createdAt
-                                ? formatDate(segment.createdAt)  // Use formatDate instead of toLocaleDateString
+                                ? formatDate(segment.createdAt) // Use formatDate instead of toLocaleDateString
                                 : "-"}
                             </td>
                             <td>{segment.description || "-"}</td>
@@ -1673,28 +1772,39 @@ const handleDownloadSegment = async (segment: any) => {
                                     zIndex: 101,
                                     minWidth: 160,
                                   }}
-                                
                                 >
-                                        {!isDemoAccount && (
-
-                                  <button
-                                    onClick={() => {
-                                      setEditingSegment(segment);
-                                      setRenamingSegmentName(segment.name);
-                                      setRenamingSegmentDescription(
-                                        segment.description || ""
-                                      );
-                                      setSegmentActionsAnchor(null);
-                                    }}
-                                    style={menuBtnStyle}
-                                    className="flex gap-2 items-center"
-                                  >
-                                    
-                                    <span>
-                                      <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" viewBox="0 0 24 24" fill="none"><path d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
-                                    </span>
-                                    <span className="font-[600]">Rename</span>
-                                  </button>
+                                  {!isDemoAccount && (
+                                    <button
+                                      onClick={() => {
+                                        setEditingSegment(segment);
+                                        setRenamingSegmentName(segment.name);
+                                        setRenamingSegmentDescription(
+                                          segment.description || ""
+                                        );
+                                        setSegmentActionsAnchor(null);
+                                      }}
+                                      style={menuBtnStyle}
+                                      className="flex gap-2 items-center"
+                                    >
+                                      <span>
+                                        <svg
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          width="24px"
+                                          height="24px"
+                                          viewBox="0 0 24 24"
+                                          fill="none"
+                                        >
+                                          <path
+                                            d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
+                                            stroke="#000000"
+                                            stroke-width="2"
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                          ></path>
+                                        </svg>
+                                      </span>
+                                      <span className="font-[600]">Rename</span>
+                                    </button>
                                   )}
                                   <button
                                     onClick={() => {
@@ -1709,29 +1819,51 @@ const handleDownloadSegment = async (segment: any) => {
                                     className="flex gap-2 items-center"
                                   >
                                     <span>
-                                      <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" viewBox="0 0 24 20" fill="none">
-                                        <circle cx="12" cy="12" r="4" fill="#33363F"/>
-                                        <path d="M21 12C21 12 20 4 12 4C4 4 3 12 3 12" stroke="#33363F" stroke-width="2"/>
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        width="24px"
+                                        height="24px"
+                                        viewBox="0 0 24 20"
+                                        fill="none"
+                                      >
+                                        <circle
+                                          cx="12"
+                                          cy="12"
+                                          r="4"
+                                          fill="#33363F"
+                                        />
+                                        <path
+                                          d="M21 12C21 12 20 4 12 4C4 4 3 12 3 12"
+                                          stroke="#33363F"
+                                          stroke-width="2"
+                                        />
                                       </svg>
                                     </span>
                                     <span className="font-[600]">View</span>
                                   </button>
-                                      {!isDemoAccount && (
-                                  <button
-                                    onClick={() => {
-                                      setEditingSegment(segment);
-                                      setShowConfirmSegmentDelete(true);
-                                      setSegmentActionsAnchor(null);
-                                    }}
-                                    style={{ ...menuBtnStyle }}
-                                    className="flex gap-2 items-center"
-                                  >
-                                    <span className="ml-[2px]">
-                                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50" width="22px" height="22px"><path d="M 21 2 C 19.354545 2 18 3.3545455 18 5 L 18 7 L 8 7 A 1.0001 1.0001 0 1 0 8 9 L 9 9 L 9 45 C 9 46.654 10.346 48 12 48 L 38 48 C 39.654 48 41 46.654 41 45 L 41 9 L 42 9 A 1.0001 1.0001 0 1 0 42 7 L 32 7 L 32 5 C 32 3.3545455 30.645455 2 29 2 L 21 2 z M 21 4 L 29 4 C 29.554545 4 30 4.4454545 30 5 L 30 7 L 20 7 L 20 5 C 20 4.4454545 20.445455 4 21 4 z M 19 14 C 19.552 14 20 14.448 20 15 L 20 40 C 20 40.553 19.552 41 19 41 C 18.448 41 18 40.553 18 40 L 18 15 C 18 14.448 18.448 14 19 14 z M 25 14 C 25.552 14 26 14.448 26 15 L 26 40 C 26 40.553 25.552 41 25 41 C 24.448 41 24 40.553 24 40 L 24 15 C 24 14.448 24.448 14 25 14 z M 31 14 C 31.553 14 32 14.448 32 15 L 32 40 C 32 40.553 31.553 41 31 41 C 30.447 41 30 40.553 30 40 L 30 15 C 30 14.448 30.447 14 31 14 z"></path></svg>
-                                    </span>
-                                    <span className="font-[600]">Delete</span>
-                                  </button>
-                                      )}
+                                  {!isDemoAccount && (
+                                    <button
+                                      onClick={() => {
+                                        setEditingSegment(segment);
+                                        setShowConfirmSegmentDelete(true);
+                                        setSegmentActionsAnchor(null);
+                                      }}
+                                      style={{ ...menuBtnStyle }}
+                                      className="flex gap-2 items-center"
+                                    >
+                                      <span className="ml-[2px]">
+                                        <svg
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          viewBox="0 0 50 50"
+                                          width="22px"
+                                          height="22px"
+                                        >
+                                          <path d="M 21 2 C 19.354545 2 18 3.3545455 18 5 L 18 7 L 8 7 A 1.0001 1.0001 0 1 0 8 9 L 9 9 L 9 45 C 9 46.654 10.346 48 12 48 L 38 48 C 39.654 48 41 46.654 41 45 L 41 9 L 42 9 A 1.0001 1.0001 0 1 0 42 7 L 32 7 L 32 5 C 32 3.3545455 30.645455 2 29 2 L 21 2 z M 21 4 L 29 4 C 29.554545 4 30 4.4454545 30 5 L 30 7 L 20 7 L 20 5 C 20 4.4454545 20.445455 4 21 4 z M 19 14 C 19.552 14 20 14.448 20 15 L 20 40 C 20 40.553 19.552 41 19 41 C 18.448 41 18 40.553 18 40 L 18 15 C 18 14.448 18.448 14 19 14 z M 25 14 C 25.552 14 26 14.448 26 15 L 26 40 C 26 40.553 25.552 41 25 41 C 24.448 41 24 40.553 24 40 L 24 15 C 24 14.448 24.448 14 25 14 z M 31 14 C 31.553 14 32 14.448 32 15 L 32 40 C 32 40.553 31.553 41 31 41 C 30.447 41 30 40.553 30 40 L 30 15 C 30 14.448 30.447 14 31 14 z"></path>
+                                        </svg>
+                                      </span>
+                                      <span className="font-[600]">Delete</span>
+                                    </button>
+                                  )}
                                 </div>
                               )}
                             </td>
@@ -1744,84 +1876,111 @@ const handleDownloadSegment = async (segment: any) => {
             ) : (
               // Detail view for segments
               <DynamicContactsTable
-  data={detailContacts}
-  isLoading={isLoadingDetail}
-  search={detailSearchQuery}
-  setSearch={setDetailSearchQuery}
-  showCheckboxes={true}
-  paginated={true}
-  currentPage={detailCurrentPage}
-  pageSize={detailPageSize}
-  onPageChange={setDetailCurrentPage}
-  selectedItems={detailSelectedContacts}
-  onSelectItem={handleDetailSelectContact}
-  totalItems={detailTotalContacts}
-  
-  // Dynamic configuration
-  autoGenerateColumns={true}
-  excludeFields={['email_body', 'email_subject', 'dataFileId', 'data_file']}
-  customFormatters={{
-    created_at: (value: any) => formatDate(value),
-    updated_at: (value: any) => formatDate(value),
-    email_sent_at: (value: any) => formatDate(value),
-    website: (value: any) => {
-      if (!value || value === '-') return '-';
-      const url = value.startsWith('http') ? value : `https://${value}`;
-      return (
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ color: "#3f9f42", textDecoration: "underline" }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          Website
-        </a>
-      );
-    },
-    linkedin_url: (value: any) => {
-      if (!value || value === '-' || value.toLowerCase() === 'linkedin.com') return '-';
-      const url = value.startsWith('http') ? value : `https://${value}`;
-      return (
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ color: "#3f9f42", textDecoration: "underline" }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          LinkedIn Profile
-        </a>
-      );
-    },
-    email: (value: any) => {
-      if (!value || value === '-') return '-';
-      return (
-        <a
-          href={`mailto:${value}`}
-          style={{ color: "#3f9f42", textDecoration: "underline" }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {value}
-        </a>
-      );
-    },
-  }}
-  
-  searchFields={['full_name', 'email', 'company_name', 'job_title', 'country_or_address']}
-  primaryKey="id"
-  viewMode="detail"
-  detailTitle={selectedSegmentForView?.name}
-  detailDescription={
-    selectedSegmentForView?.description ||
-    "No description available"
-  }
-  onBack={() => {
-    setSegmentViewMode("list");
-    setSelectedSegmentForView(null);
-  }}
-  onAddItem={onAddContactClick}
-/>
+                data={detailContacts}
+                isLoading={isLoadingDetail}
+                search={detailSearchQuery}
+                setSearch={setDetailSearchQuery}
+                showCheckboxes={true}
+                paginated={true}
+                currentPage={detailCurrentPage}
+                pageSize={detailPageSize}
+                onPageChange={setDetailCurrentPage}
+                selectedItems={detailSelectedContacts}
+                onSelectItem={handleDetailSelectContact}
+                totalItems={detailTotalContacts}
+                // Dynamic configuration
+                autoGenerateColumns={true}
+                excludeFields={[
+                  "email_body",
+                  "email_subject",
+                  "dataFileId",
+                  "data_file",
+                ]}
+                customFormatters={{
+                  created_at: (value: any) => formatDate(value),
+                  updated_at: (value: any) => formatDate(value),
+                  email_sent_at: (value: any) => formatDate(value),
+                  website: (value: any) => {
+                    if (!value || value === "-") return "-";
+                    const url = value.startsWith("http")
+                      ? value
+                      : `https://${value}`;
+                    return (
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          color: "#3f9f42",
+                          textDecoration: "underline",
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Website
+                      </a>
+                    );
+                  },
+                  linkedin_url: (value: any) => {
+                    if (
+                      !value ||
+                      value === "-" ||
+                      value.toLowerCase() === "linkedin.com"
+                    )
+                      return "-";
+                    const url = value.startsWith("http")
+                      ? value
+                      : `https://${value}`;
+                    return (
+                      <a
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          color: "#3f9f42",
+                          textDecoration: "underline",
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        LinkedIn Profile
+                      </a>
+                    );
+                  },
+                  email: (value: any) => {
+                    if (!value || value === "-") return "-";
+                    return (
+                      <a
+                        href={`mailto:${value}`}
+                        style={{
+                          color: "#3f9f42",
+                          textDecoration: "underline",
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {value}
+                      </a>
+                    );
+                  },
+                }}
+                searchFields={[
+                  "full_name",
+                  "email",
+                  "company_name",
+                  "job_title",
+                  "country_or_address",
+                ]}
+                primaryKey="id"
+                viewMode="detail"
+                detailTitle={selectedSegmentForView?.name}
+                detailDescription={
+                  selectedSegmentForView?.description ||
+                  "No description available"
+                }
+                onBack={() => {
+                  setSegmentViewMode("list");
+                  setSelectedSegmentForView(null);
+                }}
+                onAddItem={onAddContactClick}
+              />
             )}
           </div>
         </div>
