@@ -116,7 +116,7 @@ const { selectedModelName, setSelectedModelName } = useModel();
 
   // Added state for selected model
   const [selectedModel, setSelectedModel] = useState<string>("");
-  const { refreshTrigger, clientSettings } = useAppData();
+const { refreshTrigger, clientSettings, setClientSettings, triggerRefresh } = useAppData();
 
   useEffect(() => {
     const fetchModels = async () => {
@@ -171,50 +171,94 @@ const { selectedModelName, setSelectedModelName } = useModel();
  // REPLACE the useEffect I provided earlier with this corrected version:
 useEffect(() => {
   if (!selectedClient) return;
-  if (selectedClient === lastLoadedClientId) return;
 
   (async () => {
     try {
       setIsLoading(true);
 
-      // Use preloaded/context data if available, or fetch from server
-      const settings =
-        clientSettings ||
-        preloadedSettings ||
-        (await fetchClientSettings(Number(selectedClient)));
+      // Use clientSettings from context first, then preloaded, then fetch
+      let settings = clientSettings || preloadedSettings;
+      
+      // Only fetch if we don't have settings from context/props and it's a different client
+      if (!settings && selectedClient !== lastLoadedClientId) {
+        settings = await fetchClientSettings(Number(selectedClient));
+      }
 
+      // Only proceed if we have valid settings
       if (settings && Object.keys(settings).length > 0) {
+        console.log("Applying settings to form:", settings); // Debug log
+
+        // Set Model
         if (settings.modelName) {
           setSelectedModel(settings.modelName);
           setSelectedModelName(settings.modelName);
           localStorage.setItem("selectedModel", settings.modelName);
         }
 
+        // Update Search Term Form
         const newSearchTermData = {
           searchCount: settings.searchCount?.toString() || "",
           searchTerm: settings.searchTerm || "",
           instructions: settings.instructions || "",
         };
-        setLocalSearchTermForm((prev) => ({
-          ...prev,
-          ...newSearchTermData,
-        }));
-        Object.entries(newSearchTermData).forEach(([key, value]) => {
-          searchTermFormHandler({ target: { name: key, value } } as any);
-        });
+        
+        // Update local state
+        setLocalSearchTermForm(newSearchTermData);
+        
+        // Update parent form state for each field
+        if (searchTermFormHandler) {
+          searchTermFormHandler({ 
+            target: { 
+              name: "searchCount", 
+              value: newSearchTermData.searchCount 
+            } 
+          } as React.ChangeEvent<HTMLInputElement>);
+          
+          searchTermFormHandler({ 
+            target: { 
+              name: "searchTerm", 
+              value: newSearchTermData.searchTerm 
+            } 
+          } as React.ChangeEvent<HTMLInputElement>);
+          
+          searchTermFormHandler({ 
+            target: { 
+              name: "instructions", 
+              value: newSearchTermData.instructions 
+            } 
+          } as React.ChangeEvent<HTMLInputElement>);
+        }
 
+        // Update Settings Form
         const newSettingsData = {
           systemInstructions: settings.systemInstructions || "",
           subjectInstructions: settings.subjectInstructions || "",
         };
-        setLocalSettingsForm((prev) => ({
+        
+        // Update local state
+        setLocalSettingsForm(prev => ({
           ...prev,
-          ...newSettingsData,
+          ...newSettingsData
         }));
-        Object.entries(newSettingsData).forEach(([key, value]) => {
-          settingsFormHandler({ target: { name: key, value } } as any);
-        });
+        
+        // Update parent form state for each field
+        if (settingsFormHandler) {
+          settingsFormHandler({ 
+            target: { 
+              name: "systemInstructions", 
+              value: newSettingsData.systemInstructions 
+            } 
+          } as React.ChangeEvent<HTMLInputElement>);
+          
+          settingsFormHandler({ 
+            target: { 
+              name: "subjectInstructions", 
+              value: newSettingsData.subjectInstructions 
+            } 
+          } as React.ChangeEvent<HTMLInputElement>);
+        }
 
+        // Fetch additional data
         await Promise.all([fetchZohoClient(), fetchDemoAccountStatus()]);
       }
 
@@ -225,7 +269,7 @@ useEffect(() => {
       setIsLoading(false);
     }
   })();
-}, [selectedClient, lastLoadedClientId]);
+}, [selectedClient, clientSettings, refreshTrigger, lastLoadedClientId]);
 
   // Modify handleModelChange to update local state
 
@@ -275,59 +319,55 @@ const handleModelChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     searchTermFormHandler(e); // Call the original handler
   };
 
-  const handleUpdateSettings = async () => {
-    try {
-      const settingsData = {
-        model_name: selectedModel,
-        search_URL_count: parseInt(searchTermForm.searchCount) || 0,
-        search_term: searchTermForm.searchTerm || "",
-        instruction: searchTermForm.instructions || "",
-        system_instruction: settingsForm.systemInstructions || "",
-        subject_instructions: settingsForm.subjectInstructions || "", // <--- back to snake_case for API
-      };
+const handleUpdateSettings = async () => {
+  try {
+    // Prepare data in snake_case format as expected by API
+    const settingsData = {
+      model_name: selectedModel,
+      search_URL_count: parseInt(localSearchTermForm.searchCount || searchTermForm.searchCount) || 0,
+      search_term: localSearchTermForm.searchTerm || searchTermForm.searchTerm || "",
+      instruction: localSearchTermForm.instructions || searchTermForm.instructions || "",
+      system_instruction: localSettingsForm.systemInstructions || settingsForm.systemInstructions || "",
+      subject_instructions: localSettingsForm.subjectInstructions || settingsForm.subjectInstructions || "",
+    };
 
-      console.log("Sending update with:", settingsData);
+    console.log("Sending update with:", settingsData);
 
-      const response = await fetch(
-        `${API_BASE_URL}/api/auth/updateClientSettings/${selectedClient}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(settingsData),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to update settings: ${response.statusText}`);
+    const response = await fetch(
+      `${API_BASE_URL}/api/auth/updateClientSettings/${selectedClient}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(settingsData),
       }
-      await updateDemoAccountStatus();
+    );
 
-      alert("Settings updated successfully");
-
-      // Refresh settings
-      const updatedSettings = await fetchClientSettings(Number(selectedClient));
-      if (updatedSettings) {
-        setSelectedModel(updatedSettings.modelName || "");
-        searchTermFormHandler({
-          target: {
-            name: "searchCount",
-            value: updatedSettings.searchCount?.toString() || "",
-          },
-        });
-        searchTermFormHandler({
-          target: {
-            name: "searchTerm",
-            value: updatedSettings.searchTerm || "",
-          },
-        });
-      }
-    } catch (error) {
-      console.error("Error updating settings:", error);
-      alert();
+    if (!response.ok) {
+      throw new Error(`Failed to update settings: ${response.statusText}`);
     }
-  };
+    
+    await updateDemoAccountStatus();
+    alert("Settings updated successfully");
+
+    // Refresh settings to ensure UI is in sync
+    const updatedSettings = await fetchClientSettings(Number(selectedClient));
+    
+    // Update context with new settings
+    if (setClientSettings) {
+      setClientSettings(updatedSettings);
+    }
+    
+    // Trigger refresh
+    if (triggerRefresh) {
+      triggerRefresh();
+    }
+  } catch (error) {
+    console.error("Error updating settings:", error);
+    alert("Failed to update settings. Please try again.");
+  }
+};
 
   useEffect(() => {
     console.log("Form Values Updated:", {

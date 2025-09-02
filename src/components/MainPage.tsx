@@ -292,7 +292,7 @@ const MainPage: React.FC = () => {
   >(null);
 
   const dispatch = useDispatch<AppDispatch>(); // ✅ type the dispatch
-  const { selectedModelName } = useModel(); // Selected model name
+const { selectedModelName, setSelectedModelName } = useModel();
   const [selectedZohoviewId, setSelectedZohoviewId] = useState<string>("");
   const {
     username,
@@ -538,7 +538,7 @@ const MainPage: React.FC = () => {
     fetchPromptsList();
   }, [selectedClient, fetchPromptsList]);
 
- const handleClientChange = async (event: React.ChangeEvent<HTMLSelectElement>) => {
+const handleClientChange = async (event: React.ChangeEvent<HTMLSelectElement>) => {
   const newClientId = event.target.value;
   setSelectedClient(newClientId);
 
@@ -549,31 +549,81 @@ const MainPage: React.FC = () => {
   setSelectionMode("manual");
   setPromptList([]);
 
-  // Immediately load client settings using YOUR existing function
   if (newClientId) {
     setIsLoadingClientSettings(true);
     try {
       console.log("Loading settings for client:", newClientId);
-      const settings = await fetchClientSettings(Number(newClientId)); // This uses YOUR function
+      const settings = await fetchClientSettings(Number(newClientId));
       console.log("Settings loaded:", settings);
       
       // Store settings in context
       setClientSettings(settings);
+      
+      // IMPORTANT: Apply settings to form states immediately
+      if (settings && Object.keys(settings).length > 0) {
+        // Update searchTermForm state
+        setSearchTermForm({
+          searchCount: settings.searchCount?.toString() || "",
+          searchTerm: settings.searchTerm || "",
+          instructions: settings.instructions || "",
+          output: "" // or whatever default value you use
+        });
+        
+        // Update settingsForm state
+        setSettingsForm({
+          systemInstructions: settings.systemInstructions || "",
+          subjectInstructions: settings.subjectInstructions || "",
+          emailTemplate: settings.emailTemplate || ""
+        });
+        
+        // Update selected model
+        if (settings.modelName) {
+          setSelectedModelName(settings.modelName);
+          localStorage.setItem("selectedModel", settings.modelName);
+        }
+      }
       
       // Trigger refresh for all components
       triggerRefresh();
     } catch (error) {
       console.error("Error loading client settings:", error);
       setClientSettings(null);
+      
+      // Clear form states on error
+      setSearchTermForm({
+        searchCount: "",
+        searchTerm: "",
+        instructions: "",
+        output: ""
+      });
+      
+      setSettingsForm({
+        systemInstructions: "",
+        subjectInstructions: "",
+        emailTemplate: ""
+      });
     } finally {
       setIsLoadingClientSettings(false);
     }
   } else {
+    // Clear everything when no client is selected
     setClientSettings(null);
+    setSearchTermForm({
+      searchCount: "",
+      searchTerm: "",
+      instructions: "",
+      output: ""
+    });
+    
+    setSettingsForm({
+      systemInstructions: "",
+      subjectInstructions: "",
+      emailTemplate: ""
+    });
+    
     triggerRefresh();
   }
 };
-
 
   useEffect(() => {
     const isAdminString = sessionStorage.getItem("isAdmin");
@@ -1063,8 +1113,8 @@ const fetchAndDisplayEmailBodies = useCallback(
 
       const emailResponses = contactsData.map((entry: any) => ({
         id: entry.id,
-        datafileid: dataFileId || "null", // Add dataFileId to response
-        segmentId: segmentId || "null", // Add segmentId to response
+        dataFileId: entry.dataFileId || "null", // Add dataFileId to response
+        segmentId:segmentId || "null", // Add segmentId to response
         name: entry.full_name || "N/A",
         title: entry.job_title || "N/A",
         company: entry.company_name || "N/A",
@@ -1255,37 +1305,38 @@ const fetchAndDisplayEmailBodies = useCallback(
     return `${day}.${month}.${year} ${hours}:${minutes}:${seconds}`;
   }
 
-  const fetchClientSettings = async (clientID: number): Promise<any> => {
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/auth/clientSettings/${effectiveUserId}`
-      );
-      if (!response.ok) {
-        throw new Error("Failed to fetch client settings");
-      }
-      const settings = await response.json();
-
-      if (!settings || settings.length === 0) {
-        console.warn("No settings found for the given Client ID");
-        return {}; // Return an empty object if no settings are found
-      }
-
-      // Assuming the first object in the array is the relevant settings
-      const clientSettings = settings[0];
-
-      return {
-        modelName: clientSettings.model_name,
-        searchCount: clientSettings.search_URL_count,
-        searchTerm: clientSettings.search_term,
-        instructions: clientSettings.instruction,
-        systemInstructions: clientSettings.system_instruction,
-        subjectInstructions: clientSettings.subject_instruction,
-      };
-    } catch (error) {
-      console.error("Error fetching client settings:", error);
-      return {}; // Return an empty object in case of an error
+const fetchClientSettings = async (clientID: number): Promise<any> => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/auth/clientSettings/${clientID}`
+    );
+    if (!response.ok) {
+      throw new Error("Failed to fetch client settings");
     }
-  };
+    const settings = await response.json();
+
+    if (!settings || settings.length === 0) {
+      console.warn("No settings found for the given Client ID");
+      return {};
+    }
+
+    // The API returns an array, so get the first element
+    const clientSettings = settings[0];
+
+    // Map snake_case API properties to camelCase for React components
+    return {
+      modelName: clientSettings.model_name,
+      searchCount: clientSettings.search_URL_count,
+      searchTerm: clientSettings.search_term,
+      instructions: clientSettings.instruction,
+      systemInstructions: clientSettings.system_instruction,
+      subjectInstructions: clientSettings.subject_instruction,
+    };
+  } catch (error) {
+    console.error("Error fetching client settings:", error);
+    return {};
+  }
+};
 
   const analyzeScrapedData = (
     scrapedData: string
@@ -1453,7 +1504,7 @@ const replaceAllPlaceholders = (text: string, replacements: Record<string, strin
         setIsPaused(true);
         return;
       }
-
+debugger
       // Map new API fields to existing variables
       const company_name_friendly = entry.company_name || entry.company;
       const full_name = entry.full_name || entry.name;
@@ -1464,6 +1515,8 @@ const replaceAllPlaceholders = (text: string, replacements: Record<string, strin
       const company_name = entry.company_name || entry.company;
       const emailbody = entry.email_body || entry.pitch;
       const id = entry.id;
+      const dataFileId = entry.dataFileId; // New field from allResponses
+      const segmentId = entry.segmentId; // New field from allResponses
       
   
     // --- Get current date in readable format ---
@@ -1700,7 +1753,7 @@ const replaceAllPlaceholders = (text: string, replacements: Record<string, strin
           
           if (segmentId) {
             // ✅ For segment-based campaigns, get dataFileId from contact
-            updateDataFileId = entry.dataFileId || entry.data_file_id;
+            updateDataFileId = entry.dataFileId || entry.data_file_id || entry.datafileid;
             
             if (!updateDataFileId) {
               setOutputForm((prevOutputForm) => ({
@@ -1988,8 +2041,8 @@ const replaceAllPlaceholders = (text: string, replacements: Record<string, strin
             subject: entry.email_subject || "N/A",
             lastemailupdateddate: entry.updated_at || "N/A",
             emailsentdate: entry.email_sent_at || "N/A",
-            dataFileId: entry.dataFileId || entry.data_file_id || null,
-            segmentId: entry.segmentId || null,
+            dataFileId: entry.dataFileId, // Make sure this is preserved correctly
+            segmentId: segmentId ? parseInt(segmentId) : null, // Also preserve segmentId
           };
 
           setAllResponses((prevResponses) => {
