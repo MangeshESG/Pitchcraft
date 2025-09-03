@@ -171,6 +171,19 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   ]);
 
   const appModal = useAppModal();
+
+  // Add these states near your other useState declarations
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("Loading...");
+  const withLoader = async (message: string, operation: () => Promise<void>) => {
+      setLoadingMessage(message);
+      setIsLoading(true);
+      try {
+        await operation();
+      } finally {
+        setIsLoading(false);
+      }
+    };
   // =================== ALL useEffect hooks ===================
 
   // 1. Initialize component - Updated to use selectedCampaign
@@ -255,24 +268,26 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   }, [effectiveUserId, isVisible]);
 
   // 2. Load available campaigns - Updated API endpoint
-  useEffect(() => {
-    if (!effectiveUserId || !isVisible) return;
+    useEffect(() => {
+      if (!effectiveUserId || !isVisible) return;
 
-    const loadAvailableCampaigns = async () => {
-      try {
-        const response = await axios.get(
-          `${API_BASE_URL}/api/auth/campaigns/client/${effectiveUserId}`,
-          { headers: { ...(token && { Authorization: `Bearer ${token}` }) } }
-        );
-        setAvailableCampaigns(response.data);
-      } catch (error) {
-        console.error("Dashboard: Error loading campaigns:", error);
-        setAvailableCampaigns([]);
-      }
-    };
+      const loadAvailableCampaigns = async () => {
+        await withLoader("Loading campaigns...", async () => {
+          try {
+            const response = await axios.get(
+              `${API_BASE_URL}/api/auth/campaigns/client/${effectiveUserId}`,
+              { headers: { ...(token && { Authorization: `Bearer ${token}` }) } }
+            );
+            setAvailableCampaigns(response.data);
+          } catch (error) {
+            console.error("Dashboard: Error loading campaigns:", error);
+            setAvailableCampaigns([]);
+          }
+        });
+      };
 
-    loadAvailableCampaigns();
-  }, [effectiveUserId, token, isVisible]);
+      loadAvailableCampaigns();
+    }, [effectiveUserId, token, isVisible]);
 
   // 3. Fetch data when selectedCampaign changes
   useEffect(() => {
@@ -322,23 +337,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     getDashboardData,
   ]);
 
-  // 4. Debug logging
-  useEffect(() => {
-    console.log("📊 Dashboard state changed:");
-    console.log("- Selected campaign:", selectedCampaign);
-    console.log("- Dashboard tab:", dashboardTab);
-    console.log("- Event data length:", allEventData.length);
-    console.log("- Email logs length:", allEmailLogs.length);
-    console.log("- Data fetched for campaign:", dataFetchedForCampaign);
-    console.log("- isVisible:", isVisible);
-  }, [
-    selectedCampaign,
-    dashboardTab,
-    allEventData.length,
-    allEmailLogs.length,
-    dataFetchedForCampaign,
-    isVisible,
-  ]);
+
 
   // 5. Process data when date filters change
   useEffect(() => {
@@ -349,21 +348,21 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
 
   // 6. Load email logs for email-logs filter type - Updated for campaigns
   useEffect(() => {
-    if (!isVisible) return;
+  if (!isVisible) return;
 
-    if (
-      selectedCampaign &&
-      emailFilterType === "email-logs" &&
-      effectiveUserId
-    ) {
-      const loadEmailLogs = async () => {
+  if (
+    selectedCampaign &&
+    emailFilterType === "email-logs" &&
+    effectiveUserId
+  ) {
+    const loadEmailLogs = async () => {
+      await withLoader("Loading email logs...", async () => {
         try {
           const campaign = availableCampaigns.find(
             (c) => c.id.toString() === selectedCampaign
           );
 
           if (campaign?.dataSource === "DataFile" && campaign.zohoViewId) {
-            // Existing logic for datafile
             const dataFileId = Number(campaign.zohoViewId);
             const clientId = Number(effectiveUserId);
             const logs = await fetchEmailLogs(clientId, dataFileId);
@@ -393,9 +392,10 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
           console.error("Error loading email logs:", error);
           setEmailLogs([]);
         }
-      };
-      loadEmailLogs();
-    }
+      });
+    };
+    loadEmailLogs();
+  }
   }, [
     selectedCampaign,
     emailFilterType,
@@ -477,7 +477,8 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   };
 
   // Updated fetchLogsByCampaign function
-  const fetchLogsByCampaign = async (campaignId: string) => {
+const fetchLogsByCampaign = async (campaignId: string) => {
+  await withLoader("Loading campaign data...", async () => {
     try {
       setLoading(true);
 
@@ -485,7 +486,6 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
         (c) => c.id.toString() === campaignId
       );
       if (!campaign) {
-        appModal.showError("Campaign not found");
         return;
       }
 
@@ -494,7 +494,6 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
       let allEmailLogsData: any[] = [];
 
       if (campaign.dataSource === "DataFile" && campaign.zohoViewId) {
-        // Existing datafile logic
         const dataFileId = Number(campaign.zohoViewId);
 
         const trackingResponse = await axios.get(
@@ -508,7 +507,6 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
         allTrackingData = trackingResponse.data || [];
         allEmailLogsData = await fetchEmailLogs(clientId, dataFileId);
       } else if (campaign.dataSource === "Segment" && campaign.segmentId) {
-        // New segment logic
         try {
           const segmentResponse = await axios.get(
             `${API_BASE_URL}/track/tracking/segment`,
@@ -521,18 +519,8 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
             }
           );
 
-          // Assuming the segment API returns similar data structure
-          // You may need to adjust based on actual response structure
           allTrackingData = segmentResponse.data || [];
 
-          // For email logs, you might need a different API or extract from segment data
-          // This depends on your segment API structure
-          console.log(
-            "Segment tracking data received:",
-            allTrackingData.length
-          );
-
-          // Try to fetch email logs for segment
           try {
             const segmentEmailLogsResponse = await axios.get(
               `${API_BASE_URL}/track/log/segment`,
@@ -554,7 +542,6 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
         } catch (segmentError: any) {
           if (segmentError.response?.status === 404) {
             console.error("No data found for segment:", campaign.segmentId);
-            // Continue with empty data rather than throwing
           } else {
             throw segmentError;
           }
@@ -564,12 +551,10 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
         return;
       }
 
-      // Set state
       setAllEventData(allTrackingData);
       setAllEmailLogs(allEmailLogsData);
       setEmailLogs(allEmailLogsData);
 
-      // Cache the data
       saveDashboardData(campaignId, {
         allEventData: allTrackingData,
         allEmailLogs: allEmailLogsData,
@@ -579,7 +564,6 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
 
       setDataFetchedForCampaign(campaignId);
 
-      // Process data for current view
       processDataWithDateFilter(
         allTrackingData,
         allEmailLogsData,
@@ -603,7 +587,8 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  });
+};
 
   // Process data with date filtering
   const processDataWithDateFilter = (
@@ -775,21 +760,6 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     saveCurrentState();
   };
 
-  const handleRefresh = async () => {
-    if (!selectedCampaign) return;
-
-    setIsRefreshing(true);
-    setDataFetchedForCampaign(""); // Reset flag to allow refetch
-
-    try {
-      // Force fetch by bypassing cache
-      await fetchLogsByCampaign(selectedCampaign);
-    } catch (error) {
-      console.error("Error refreshing data:", error);
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
 
   // Helper Functions
   const formatMailTimestamp = (input: string): string => {
@@ -1206,17 +1176,18 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   };
 
   // Segment Creation - Updated for campaigns
-  const handleSaveEmailSegment = async () => {
-    if (!segmentName.trim()) {
-      appModal.showWarning("Please select a campaign first");
-      return;
-    }
+const handleSaveEmailSegment = async () => {
+  if (!segmentName.trim()) {
+    appModal.showWarning("Please select a campaign first");
+    return;
+  }
 
-    if (!selectedCampaign) {
-      appModal.showWarning("Please select a campaign first");
-      return;
-    }
+  if (!selectedCampaign) {
+    appModal.showWarning("Please select a campaign first");
+    return;
+  }
 
+  await withLoader("Creating segment...", async () => {
     setSavingSegment(true);
 
     try {
@@ -1260,7 +1231,6 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
 
       const uniqueContactIds = Array.from(new Set(contactIds));
 
-      // Get dataFileId from campaign
       const campaign = availableCampaigns.find(
         (c) => c.id.toString() === selectedCampaign
       );
@@ -1270,8 +1240,6 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
       if (campaign?.dataSource === "DataFile" && campaign.zohoViewId) {
         dataFileId = parseInt(campaign.zohoViewId);
       } else if (campaign?.dataSource === "Segment") {
-        // For segment-based campaigns, we need to get the original dataFileId
-        // You might need an API to get this information
         appModal.showError(
           "Creating segments from segment-based campaigns is not currently supported. Please select a data file-based campaign."
         );
@@ -1329,7 +1297,8 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     } finally {
       setSavingSegment(false);
     }
-  };
+  });
+};
 
   // Helper function for invalid contacts count
   const getInvalidContactsCount = (): number => {
@@ -1460,6 +1429,23 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
       .trim();
   };
 
+
+  const handleRefresh = async () => {
+  if (!selectedCampaign) return;
+
+  await withLoader("Refreshing data...", async () => {
+    setIsRefreshing(true);
+    setDataFetchedForCampaign("");
+    try {
+      await fetchLogsByCampaign(selectedCampaign);
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  });
+};
+
   return (
     <div
       className="dashboard-section"
@@ -1492,7 +1478,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
             onChange={handleCampaignChange}
             className={!selectedCampaign ? "error" : ""}
           >
-            <option value="">Select a campaign</option>
+            <option value="">Campaign</option>
             {availableCampaigns.map((campaign) => (
               <option key={campaign.id} value={campaign.id}>
                 {campaign.campaignName}
@@ -1523,30 +1509,31 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
             min={startDate || undefined}
           />
         </div>
-        <div className="form-group flex items-start">
-          <ReactTooltip
-            anchorSelect="#mail-dashboard-refresh-analytics"
-            place="top"
-          >
-            Refresh the dashboard analytics
-          </ReactTooltip>
-          <span
-            className="cursor-pointer -ml-[5px]"
-            id="mail-dashboard-refresh-analytics"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="41px"
-              height="41px"
-              viewBox="0 0 30 30"
-              fill="none"
+          <div className="form-group flex items-start">
+            <ReactTooltip
+              anchorSelect="#mail-dashboard-refresh-analytics"
+              place="top"
             >
-              <g fill="#3f9f42" style={{ transform: "translateY(5px)" }}>
-                <path d="M8 1.5A6.5 6.5 0 001.5 8 .75.75 0 010 8a8 8 0 0113.5-5.81v-.94a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zM15.25 7.25A.75.75 0 0116 8a8 8 0 01-13.5 5.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z"></path>
-              </g>
-            </svg>
-          </span>
-        </div>
+              Refresh the dashboard analytics
+            </ReactTooltip>
+            <span
+              className="cursor-pointer -ml-[5px]"
+              id="mail-dashboard-refresh-analytics"
+              onClick={handleRefresh}  // Add this onClick handler
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="41px"
+                height="41px"
+                viewBox="0 0 30 30"
+                fill="none"
+              >
+                <g fill="#3f9f42" style={{ transform: "translateY(5px)" }}>
+                  <path d="M8 1.5A6.5 6.5 0 001.5 8 .75.75 0 010 8a8 8 0 0113.5-5.81v-.94a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zM15.25 7.25A.75.75 0 0116 8a8 8 0 01-13.5 5.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z"></path>
+                </g>
+              </svg>
+            </span>
+          </div>
 
         {(startDate || endDate) && (
           <button
@@ -2120,7 +2107,14 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
         onClose={appModal.hideModal}
         {...appModal.config}
       />
-    </div>
+          <AppModal
+      isOpen={isLoading || loading || isRefreshing || savingSegment}
+      onClose={() => {}}
+      type="loader"
+      loaderMessage={loadingMessage}
+      closeOnOverlayClick={false}
+    />
+  </div>
   );
 };
 

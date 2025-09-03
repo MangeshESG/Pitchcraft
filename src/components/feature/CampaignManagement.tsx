@@ -841,7 +841,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                     onChange={handlePromptSelect}
                     className="form-control"
                   >
-                    <option value="">Select a template</option>
+                    <option value="">Template</option>
                     {promptList.map((prompt) => (
                       <option key={prompt.id} value={prompt.id}>
                         {prompt.name}
@@ -889,7 +889,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                     }
                     required
                   >
-                    <option value="">Select a list or segment</option>
+                    <option value="">List or Segment</option>
                     {dataFiles.length > 0 && (
                       <optgroup label="Lists">
                         {dataFiles.map((file) => (

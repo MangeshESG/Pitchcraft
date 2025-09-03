@@ -1064,6 +1064,8 @@ const MainPage: React.FC = () => {
     };
   };
 
+  const [isFetchingContacts, setIsFetchingContacts] = useState(false);
+
   const fetchAndDisplayEmailBodies = useCallback(
     async (
       zohoviewId: string, // Format: "clientId,dataFileId" OR "segment_segmentId"
@@ -1071,6 +1073,9 @@ const MainPage: React.FC = () => {
       direction: "next" | "previous" | null = null
     ) => {
       try {
+        
+        setIsFetchingContacts(true); // Start loader
+
         setEmailLoading(true);
 
         const effectiveUserId =
@@ -1128,10 +1133,9 @@ const MainPage: React.FC = () => {
           console.error("Invalid data format");
           return;
         }
-
         const emailResponses = contactsData.map((entry: any) => ({
           id: entry.id,
-          dataFileId: entry.dataFileId || "null", // Add dataFileId to response
+          dataFileId: dataFileId || entry.dataFileId|| "null", // Add dataFileId to response
           segmentId: segmentId || "null", // Add segmentId to response
           name: entry.full_name || "N/A",
           title: entry.job_title || "N/A",
@@ -1179,6 +1183,8 @@ const MainPage: React.FC = () => {
         console.error("Error fetching email bodies:", error);
       } finally {
         setEmailLoading(false);
+        setIsFetchingContacts(false); // Stop loader
+
       }
     },
     [selectedClient, userId]
@@ -1538,7 +1544,6 @@ const MainPage: React.FC = () => {
           setIsPaused(true);
           return;
         }
-        debugger;
         // Map new API fields to existing variables
         const company_name_friendly = entry.company_name || entry.company;
         const full_name = entry.full_name || entry.name;
@@ -1787,7 +1792,6 @@ const MainPage: React.FC = () => {
             emailSubject: subjectLine,
           }));
         }
-        debugger;
         // ✅ Replace the database update logic in REGENERATION BLOCK
         try {
           if (id && pitchData.response?.content) {
@@ -3748,7 +3752,7 @@ const MainPage: React.FC = () => {
                                   : ""
                               }
                             >
-                              <option value="">Select template</option>
+                              <option value="">Template</option>
                               {promptList.map((prompt: Prompt) => (
                                 <option key={prompt.id} value={prompt.name}>
                                   {prompt.name}
@@ -4536,6 +4540,17 @@ const MainPage: React.FC = () => {
         onClose={appModal.hideModal}
         {...appModal.config}
       />
+          <AppModal
+      isOpen={isFetchingContacts || isLoadingClientSettings}
+      onClose={() => {}}
+      type="loader"
+      loaderMessage={
+        isFetchingContacts 
+          ? "Loading contacts..." 
+          : "Loading client settings..."
+      }
+      closeOnOverlayClick={false}
+    />
     </div>
   );
 };

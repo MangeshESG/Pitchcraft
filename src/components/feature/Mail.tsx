@@ -395,356 +395,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   };
   //End SMTP
 
-  //Schedule Tab js code
-  // Update your timezoneOptions array with IANA timezone mappings
-  const timezoneOptions = [
-    // Americas
-    {
-      value: "Eastern Standard Time",
-      label: "America/New_York (EST/EDT)",
-      iana: "America/New_York",
-    },
-    {
-      value: "Central Standard Time",
-      label: "America/Chicago (CST/CDT)",
-      iana: "America/Chicago",
-    },
-    {
-      value: "Mountain Standard Time",
-      label: "America/Denver (MST/MDT)",
-      iana: "America/Denver",
-    },
-    {
-      value: "Pacific Standard Time",
-      label: "America/Los_Angeles (PST/PDT)",
-      iana: "America/Los_Angeles",
-    },
-    {
-      value: "Alaskan Standard Time",
-      label: "America/Anchorage (AKST/AKDT)",
-      iana: "America/Anchorage",
-    },
-    {
-      value: "Hawaiian Standard Time",
-      label: "Pacific/Honolulu (HST)",
-      iana: "Pacific/Honolulu",
-    },
-    {
-      value: "Canada Central Standard Time",
-      label: "America/Regina (CST)",
-      iana: "America/Regina",
-    },
-    {
-      value: "Mexico Standard Time",
-      label: "America/Mexico_City (CST)",
-      iana: "America/Mexico_City",
-    },
-    {
-      value: "Central America Standard Time",
-      label: "America/Guatemala (CST)",
-      iana: "America/Guatemala",
-    },
-    {
-      value: "US Eastern Standard Time",
-      label: "America/Indianapolis (EST)",
-      iana: "America/Indiana/Indianapolis",
-    },
-    {
-      value: "SA Pacific Standard Time",
-      label: "America/Bogota (COT)",
-      iana: "America/Bogota",
-    },
-    {
-      value: "Venezuela Standard Time",
-      label: "America/Caracas (VET)",
-      iana: "America/Caracas",
-    },
-    {
-      value: "Atlantic Standard Time",
-      label: "America/Halifax (AST/ADT)",
-      iana: "America/Halifax",
-    },
-    {
-      value: "Newfoundland Standard Time",
-      label: "America/St_Johns (NST/NDT)",
-      iana: "America/St_Johns",
-    },
-    {
-      value: "E. South America Standard Time",
-      label: "America/Sao_Paulo (BRT)",
-      iana: "America/Sao_Paulo",
-    },
-    {
-      value: "Argentina Standard Time",
-      label: "America/Buenos_Aires (ART)",
-      iana: "America/Argentina/Buenos_Aires",
-    },
-    {
-      value: "SA Western Standard Time",
-      label: "America/La_Paz (BOT)",
-      iana: "America/La_Paz",
-    },
-    {
-      value: "Pacific SA Standard Time",
-      label: "America/Santiago (CLT/CLST)",
-      iana: "America/Santiago",
-    },
 
-    // Europe
-    {
-      value: "GMT Standard Time",
-      label: "Europe/London (GMT/BST)",
-      iana: "Europe/London",
-    },
-    {
-      value: "Greenwich Standard Time",
-      label: "Atlantic/Reykjavik (GMT)",
-      iana: "Atlantic/Reykjavik",
-    },
-    {
-      value: "W. Europe Standard Time",
-      label: "Europe/Amsterdam (CET/CEST)",
-      iana: "Europe/Amsterdam",
-    },
-    {
-      value: "Central Europe Standard Time",
-      label: "Europe/Berlin (CET/CEST)",
-      iana: "Europe/Berlin",
-    },
-    {
-      value: "Romance Standard Time",
-      label: "Europe/Paris (CET/CEST)",
-      iana: "Europe/Paris",
-    },
-    {
-      value: "Central European Standard Time",
-      label: "Europe/Warsaw (CET/CEST)",
-      iana: "Europe/Warsaw",
-    },
-    {
-      value: "W. Central Africa Standard Time",
-      label: "Africa/Lagos (WAT)",
-      iana: "Africa/Lagos",
-    },
-    {
-      value: "E. Europe Standard Time",
-      label: "Europe/Bucharest (EET/EEST)",
-      iana: "Europe/Bucharest",
-    },
-    {
-      value: "GTB Standard Time",
-      label: "Europe/Athens (EET/EEST)",
-      iana: "Europe/Athens",
-    },
-    {
-      value: "FLE Standard Time",
-      label: "Europe/Helsinki (EET/EEST)",
-      iana: "Europe/Helsinki",
-    },
-    {
-      value: "Turkey Standard Time",
-      label: "Europe/Istanbul (TRT)",
-      iana: "Europe/Istanbul",
-    },
-    {
-      value: "Russian Standard Time",
-      label: "Europe/Moscow (MSK)",
-      iana: "Europe/Moscow",
-    },
-    {
-      value: "E. Africa Standard Time",
-      label: "Africa/Nairobi (EAT)",
-      iana: "Africa/Nairobi",
-    },
-    {
-      value: "South Africa Standard Time",
-      label: "Africa/Johannesburg (SAST)",
-      iana: "Africa/Johannesburg",
-    },
-
-    // Middle East
-    {
-      value: "Israel Standard Time",
-      label: "Asia/Jerusalem (IST/IDT)",
-      iana: "Asia/Jerusalem",
-    },
-    {
-      value: "Egypt Standard Time",
-      label: "Africa/Cairo (EET)",
-      iana: "Africa/Cairo",
-    },
-    {
-      value: "Arabic Standard Time",
-      label: "Asia/Baghdad (AST)",
-      iana: "Asia/Baghdad",
-    },
-    {
-      value: "Arab Standard Time",
-      label: "Asia/Riyadh (AST)",
-      iana: "Asia/Riyadh",
-    },
-    {
-      value: "Iran Standard Time",
-      label: "Asia/Tehran (IRST/IRDT)",
-      iana: "Asia/Tehran",
-    },
-    {
-      value: "Arabian Standard Time",
-      label: "Asia/Dubai (GST)",
-      iana: "Asia/Dubai",
-    },
-    {
-      value: "Jordan Standard Time",
-      label: "Asia/Amman (EET/EEST)",
-      iana: "Asia/Amman",
-    },
-
-    // Asia
-    {
-      value: "Pakistan Standard Time",
-      label: "Asia/Karachi (PKT)",
-      iana: "Asia/Karachi",
-    },
-    {
-      value: "India Standard Time",
-      label: "Asia/Kolkata (IST)",
-      iana: "Asia/Kolkata",
-    },
-    {
-      value: "Sri Lanka Standard Time",
-      label: "Asia/Colombo (IST)",
-      iana: "Asia/Colombo",
-    },
-    {
-      value: "Nepal Standard Time",
-      label: "Asia/Kathmandu (NPT)",
-      iana: "Asia/Kathmandu",
-    },
-    {
-      value: "Bangladesh Standard Time",
-      label: "Asia/Dhaka (BST)",
-      iana: "Asia/Dhaka",
-    },
-    {
-      value: "Myanmar Standard Time",
-      label: "Asia/Yangon (MMT)",
-      iana: "Asia/Yangon",
-    },
-    {
-      value: "SE Asia Standard Time",
-      label: "Asia/Bangkok (ICT)",
-      iana: "Asia/Bangkok",
-    },
-    {
-      value: "North Asia Standard Time",
-      label: "Asia/Krasnoyarsk (KRAT)",
-      iana: "Asia/Krasnoyarsk",
-    },
-    {
-      value: "China Standard Time",
-      label: "Asia/Shanghai (CST)",
-      iana: "Asia/Shanghai",
-    },
-    {
-      value: "Singapore Standard Time",
-      label: "Asia/Singapore (SGT)",
-      iana: "Asia/Singapore",
-    },
-    {
-      value: "W. Australia Standard Time",
-      label: "Australia/Perth (AWST)",
-      iana: "Australia/Perth",
-    },
-    {
-      value: "Taipei Standard Time",
-      label: "Asia/Taipei (CST)",
-      iana: "Asia/Taipei",
-    },
-    {
-      value: "Tokyo Standard Time",
-      label: "Asia/Tokyo (JST)",
-      iana: "Asia/Tokyo",
-    },
-    {
-      value: "Korea Standard Time",
-      label: "Asia/Seoul (KST)",
-      iana: "Asia/Seoul",
-    },
-    {
-      value: "Yakutsk Standard Time",
-      label: "Asia/Yakutsk (YAKT)",
-      iana: "Asia/Yakutsk",
-    },
-    {
-      value: "Cen. Australia Standard Time",
-      label: "Australia/Adelaide (ACST/ACDT)",
-      iana: "Australia/Adelaide",
-    },
-    {
-      value: "AUS Central Standard Time",
-      label: "Australia/Darwin (ACST)",
-      iana: "Australia/Darwin",
-    },
-    {
-      value: "E. Australia Standard Time",
-      label: "Australia/Brisbane (AEST)",
-      iana: "Australia/Brisbane",
-    },
-    {
-      value: "AUS Eastern Standard Time",
-      label: "Australia/Sydney (AEST/AEDT)",
-      iana: "Australia/Sydney",
-    },
-    {
-      value: "Tasmania Standard Time",
-      label: "Australia/Hobart (AEST/AEDT)",
-      iana: "Australia/Hobart",
-    },
-    {
-      value: "Vladivostok Standard Time",
-      label: "Asia/Vladivostok (VLAT)",
-      iana: "Asia/Vladivostok",
-    },
-
-    // Pacific
-    {
-      value: "West Pacific Standard Time",
-      label: "Pacific/Port_Moresby (PGT)",
-      iana: "Pacific/Port_Moresby",
-    },
-    {
-      value: "Central Pacific Standard Time",
-      label: "Pacific/Guadalcanal (SBT)",
-      iana: "Pacific/Guadalcanal",
-    },
-    {
-      value: "Fiji Standard Time",
-      label: "Pacific/Fiji (FJT/FJST)",
-      iana: "Pacific/Fiji",
-    },
-    {
-      value: "New Zealand Standard Time",
-      label: "Pacific/Auckland (NZST/NZDT)",
-      iana: "Pacific/Auckland",
-    },
-    {
-      value: "Tonga Standard Time",
-      label: "Pacific/Tongatapu (TOT)",
-      iana: "Pacific/Tongatapu",
-    },
-    {
-      value: "Samoa Standard Time",
-      label: "Pacific/Apia (SST)",
-      iana: "Pacific/Apia",
-    },
-
-    // UTC Options
-    { value: "UTC-11", label: "UTC-11:00", iana: "Etc/GMT+11" },
-    { value: "UTC-02", label: "UTC-02:00", iana: "Etc/GMT+2" },
-    { value: "UTC", label: "UTC+00:00", iana: "UTC" },
-    { value: "UTC+12", label: "UTC+12:00", iana: "Etc/GMT-12" },
-    { value: "UTC+13", label: "UTC+13:00", iana: "Etc/GMT-13" },
-  ];
 
   //Fetch Zoho View
   const [selectedZohoviewId1, setSelectedZohoviewId1] = useState<string>("");
@@ -1507,6 +1158,224 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     };
   }, [mailboxActionsAnchor, scheduleActionsAnchor]);
 
+
+
+
+
+    //Schedule Tab js code
+  // Update your timezoneOptions array with IANA timezone mappings
+  const timezoneOptions = [
+    // Americas
+     { value: "Dateline Standard Time", label: "(UTC-12:00) International Date Line West", iana: "Etc/GMT+12" },
+  { value: "UTC-11", label: "(UTC-11:00) Coordinated Universal Time-11", iana: "Etc/GMT+11" },
+  { value: "Aleutian Standard Time", label: "(UTC-10:00) Aleutian Islands", iana: "America/Adak" },
+  { value: "Hawaiian Standard Time", label: "(UTC-10:00) Hawaii", iana: "Pacific/Honolulu" },
+  
+  // UTC-09:30 to UTC-09:00
+  { value: "Marquesas Standard Time", label: "(UTC-09:30) Marquesas Islands", iana: "Pacific/Marquesas" },
+  { value: "Alaskan Standard Time", label: "(UTC-09:00) Alaska", iana: "America/Anchorage" },
+  { value: "UTC-09", label: "(UTC-09:00) Coordinated Universal Time-09", iana: "Etc/GMT+9" },
+  
+  // UTC-08:00
+  { value: "Pacific Standard Time (Mexico)", label: "(UTC-08:00) Baja California", iana: "America/Tijuana" },
+  { value: "UTC-08", label: "(UTC-08:00) Coordinated Universal Time-08", iana: "Etc/GMT+8" },
+  { value: "Pacific Standard Time", label: "(UTC-08:00) Pacific Time (US & Canada)", iana: "America/Los_Angeles" },
+  
+  // UTC-07:00
+  { value: "US Mountain Standard Time", label: "(UTC-07:00) Arizona", iana: "America/Phoenix" },
+  { value: "Mountain Standard Time (Mexico)", label: "(UTC-07:00) La Paz, Mazatlan", iana: "America/Mazatlan" },
+  { value: "Mountain Standard Time", label: "(UTC-07:00) Mountain Time (US & Canada)", iana: "America/Denver" },
+  { value: "Yukon Standard Time", label: "(UTC-07:00) Yukon", iana: "America/Whitehorse" },
+  
+  // UTC-06:00
+  { value: "Central America Standard Time", label: "(UTC-06:00) Central America", iana: "America/Guatemala" },
+  { value: "Central Standard Time", label: "(UTC-06:00) Central Time (US & Canada)", iana: "America/Chicago" },
+  { value: "Easter Island Standard Time", label: "(UTC-06:00) Easter Island", iana: "Pacific/Easter" },
+  { value: "Central Standard Time (Mexico)", label: "(UTC-06:00) Guadalajara, Mexico City, Monterrey", iana: "America/Mexico_City" },
+  { value: "Canada Central Standard Time", label: "(UTC-06:00) Saskatchewan", iana: "America/Regina" },
+  
+  // UTC-05:00
+  { value: "SA Pacific Standard Time", label: "(UTC-05:00) Bogota, Lima, Quito, Rio Branco", iana: "America/Bogota" },
+  { value: "Eastern Standard Time (Mexico)", label: "(UTC-05:00) Chetumal", iana: "America/Cancun" },
+  { value: "Eastern Standard Time", label: "(UTC-05:00) Eastern Time (US & Canada)", iana: "America/New_York" },
+  { value: "Haiti Standard Time", label: "(UTC-05:00) Haiti", iana: "America/Port-au-Prince" },
+  { value: "Cuba Standard Time", label: "(UTC-05:00) Havana", iana: "America/Havana" },
+  { value: "US Eastern Standard Time", label: "(UTC-05:00) Indiana (East)", iana: "America/Indianapolis" },
+  { value: "Turks And Caicos Standard Time", label: "(UTC-05:00) Turks and Caicos", iana: "America/Grand_Turk" },
+  
+  // UTC-04:00
+  { value: "Paraguay Standard Time", label: "(UTC-04:00) Asuncion", iana: "America/Asuncion" },
+  { value: "Atlantic Standard Time", label: "(UTC-04:00) Atlantic Time (Canada)", iana: "America/Halifax" },
+  { value: "Venezuela Standard Time", label: "(UTC-04:00) Caracas", iana: "America/Caracas" },
+  { value: "Central Brazilian Standard Time", label: "(UTC-04:00) Cuiaba", iana: "America/Cuiaba" },
+  { value: "SA Western Standard Time", label: "(UTC-04:00) Georgetown, La Paz, Manaus, San Juan", iana: "America/La_Paz" },
+  { value: "Pacific SA Standard Time", label: "(UTC-04:00) Santiago", iana: "America/Santiago" },
+  
+  // UTC-03:30
+  { value: "Newfoundland Standard Time", label: "(UTC-03:30) Newfoundland", iana: "America/St_Johns" },
+  
+  // UTC-03:00
+  { value: "Tocantins Standard Time", label: "(UTC-03:00) Araguaina", iana: "America/Araguaina" },
+  { value: "E. South America Standard Time", label: "(UTC-03:00) Brasilia", iana: "America/Sao_Paulo" },
+  { value: "SA Eastern Standard Time", label: "(UTC-03:00) Cayenne, Fortaleza", iana: "America/Cayenne" },
+  { value: "Argentina Standard Time", label: "(UTC-03:00) City of Buenos Aires", iana: "America/Buenos_Aires" },
+  { value: "Montevideo Standard Time", label: "(UTC-03:00) Montevideo", iana: "America/Montevideo" },
+  { value: "Magallanes Standard Time", label: "(UTC-03:00) Punta Arenas", iana: "America/Punta_Arenas" },
+  { value: "Saint Pierre Standard Time", label: "(UTC-03:00) Saint Pierre and Miquelon", iana: "America/Miquelon" },
+  { value: "Bahia Standard Time", label: "(UTC-03:00) Salvador", iana: "America/Bahia" },
+  
+  // UTC-02:00
+  { value: "UTC-02", label: "(UTC-02:00) Coordinated Universal Time-02", iana: "Etc/GMT+2" },
+  { value: "Greenland Standard Time", label: "(UTC-02:00) Greenland", iana: "America/Godthab" },
+  { value: "Mid-Atlantic Standard Time", label: "(UTC-02:00) Mid-Atlantic - Old", iana: "Etc/GMT+2" },
+  
+  // UTC-01:00
+  { value: "Azores Standard Time", label: "(UTC-01:00) Azores", iana: "Atlantic/Azores" },
+  { value: "Cape Verde Standard Time", label: "(UTC-01:00) Cabo Verde Is.", iana: "Atlantic/Cape_Verde" },
+  
+  // UTC+00:00
+  { value: "UTC", label: "(UTC) Coordinated Universal Time", iana: "Etc/UTC" },
+  { value: "GMT Standard Time", label: "(UTC+00:00) Dublin, Edinburgh, Lisbon, London", iana: "Europe/London" },
+  { value: "Greenwich Standard Time", label: "(UTC+00:00) Monrovia, Reykjavik", iana: "Atlantic/Reykjavik" },
+  { value: "Sao Tome Standard Time", label: "(UTC+00:00) Sao Tome", iana: "Africa/Sao_Tome" },
+  
+  // UTC+01:00
+  { value: "Morocco Standard Time", label: "(UTC+01:00) Casablanca", iana: "Africa/Casablanca" },
+  { value: "W. Europe Standard Time", label: "(UTC+01:00) Amsterdam, Berlin, Bern, Rome, Stockholm, Vienna", iana: "Europe/Berlin" },
+  { value: "Central Europe Standard Time", label: "(UTC+01:00) Belgrade, Bratislava, Budapest, Ljubljana, Prague", iana: "Europe/Budapest" },
+  { value: "Romance Standard Time", label: "(UTC+01:00) Brussels, Copenhagen, Madrid, Paris", iana: "Europe/Paris" },
+  { value: "Central European Standard Time", label: "(UTC+01:00) Sarajevo, Skopje, Warsaw, Zagreb", iana: "Europe/Warsaw" },
+  { value: "W. Central Africa Standard Time", label: "(UTC+01:00) West Central Africa", iana: "Africa/Lagos" },
+  
+  // UTC+02:00
+  { value: "GTB Standard Time", label: "(UTC+02:00) Athens, Bucharest", iana: "Europe/Bucharest" },
+  { value: "Middle East Standard Time", label: "(UTC+02:00) Beirut", iana: "Asia/Beirut" },
+  { value: "Egypt Standard Time", label: "(UTC+02:00) Cairo", iana: "Africa/Cairo" },
+  { value: "E. Europe Standard Time", label: "(UTC+02:00) Chisinau", iana: "Europe/Chisinau" },
+  { value: "West Bank Standard Time", label: "(UTC+02:00) Gaza, Hebron", iana: "Asia/Gaza" },
+  { value: "South Africa Standard Time", label: "(UTC+02:00) Harare, Pretoria", iana: "Africa/Johannesburg" },
+  { value: "FLE Standard Time", label: "(UTC+02:00) Helsinki, Kyiv, Riga, Sofia, Tallinn, Vilnius", iana: "Europe/Kiev" },
+  { value: "Israel Standard Time", label: "(UTC+02:00) Jerusalem", iana: "Asia/Jerusalem" },
+  { value: "South Sudan Standard Time", label: "(UTC+02:00) Juba", iana: "Africa/Juba" },
+  { value: "Kaliningrad Standard Time", label: "(UTC+02:00) Kaliningrad", iana: "Europe/Kaliningrad" },
+  { value: "Sudan Standard Time", label: "(UTC+02:00) Khartoum", iana: "Africa/Khartoum" },
+  { value: "Libya Standard Time", label: "(UTC+02:00) Tripoli", iana: "Africa/Tripoli" },
+  { value: "Namibia Standard Time", label: "(UTC+02:00) Windhoek", iana: "Africa/Windhoek" },
+  
+  // UTC+03:00
+  { value: "Jordan Standard Time", label: "(UTC+03:00) Amman", iana: "Asia/Amman" },
+  { value: "Arabic Standard Time", label: "(UTC+03:00) Baghdad", iana: "Asia/Baghdad" },
+  { value: "Syria Standard Time", label: "(UTC+03:00) Damascus", iana: "Asia/Damascus" },
+  { value: "Turkey Standard Time", label: "(UTC+03:00) Istanbul", iana: "Europe/Istanbul" },
+  { value: "Arab Standard Time", label: "(UTC+03:00) Kuwait, Riyadh", iana: "Asia/Riyadh" },
+  { value: "Belarus Standard Time", label: "(UTC+03:00) Minsk", iana: "Europe/Minsk" },
+  { value: "Russian Standard Time", label: "(UTC+03:00) Moscow, St. Petersburg", iana: "Europe/Moscow" },
+  { value: "E. Africa Standard Time", label: "(UTC+03:00) Nairobi", iana: "Africa/Nairobi" },
+  { value: "Volgograd Standard Time", label: "(UTC+03:00) Volgograd", iana: "Europe/Volgograd" },
+  
+  // UTC+03:30
+  { value: "Iran Standard Time", label: "(UTC+03:30) Tehran", iana: "Asia/Tehran" },
+  
+  // UTC+04:00
+  { value: "Arabian Standard Time", label: "(UTC+04:00) Abu Dhabi, Muscat", iana: "Asia/Dubai" },
+  { value: "Astrakhan Standard Time", label: "(UTC+04:00) Astrakhan, Ulyanovsk", iana: "Europe/Astrakhan" },
+  { value: "Azerbaijan Standard Time", label: "(UTC+04:00) Baku", iana: "Asia/Baku" },
+  { value: "Russia Time Zone 3", label: "(UTC+04:00) Izhevsk, Samara", iana: "Europe/Samara" },
+  { value: "Mauritius Standard Time", label: "(UTC+04:00) Port Louis", iana: "Indian/Mauritius" },
+  { value: "Saratov Standard Time", label: "(UTC+04:00) Saratov", iana: "Europe/Saratov" },
+  { value: "Georgian Standard Time", label: "(UTC+04:00) Tbilisi", iana: "Asia/Tbilisi" },
+  { value: "Caucasus Standard Time", label: "(UTC+04:00) Yerevan", iana: "Asia/Yerevan" },
+  
+  // UTC+04:30
+  { value: "Afghanistan Standard Time", label: "(UTC+04:30) Kabul", iana: "Asia/Kabul" },
+  
+  // UTC+05:00
+  { value: "West Asia Standard Time", label: "(UTC+05:00) Ashgabat, Tashkent", iana: "Asia/Tashkent" },
+  { value: "Ekaterinburg Standard Time", label: "(UTC+05:00) Ekaterinburg", iana: "Asia/Yekaterinburg" },
+  { value: "Pakistan Standard Time", label: "(UTC+05:00) Islamabad, Karachi", iana: "Asia/Karachi" },
+  { value: "Qyzylorda Standard Time", label: "(UTC+05:00) Qyzylorda", iana: "Asia/Qyzylorda" },
+  
+  // UTC+05:30
+  { value: "India Standard Time", label: "(UTC+05:30) Chennai, Kolkata, Mumbai, New Delhi", iana: "Asia/Kolkata" },
+  { value: "Sri Lanka Standard Time", label: "(UTC+05:30) Sri Jayawardenepura", iana: "Asia/Colombo" },
+  
+  // UTC+05:45
+  { value: "Nepal Standard Time", label: "(UTC+05:45) Kathmandu", iana: "Asia/Kathmandu" },
+  
+  // UTC+06:00
+  { value: "Central Asia Standard Time", label: "(UTC+06:00) Astana", iana: "Asia/Almaty" },
+  { value: "Bangladesh Standard Time", label: "(UTC+06:00) Dhaka", iana: "Asia/Dhaka" },
+  { value: "Omsk Standard Time", label: "(UTC+06:00) Omsk", iana: "Asia/Omsk" },
+  
+  // UTC+06:30
+  { value: "Myanmar Standard Time", label: "(UTC+06:30) Yangon (Rangoon)", iana: "Asia/Yangon" },
+  
+  // UTC+07:00
+  { value: "SE Asia Standard Time", label: "(UTC+07:00) Bangkok, Hanoi, Jakarta", iana: "Asia/Bangkok" },
+  { value: "Altai Standard Time", label: "(UTC+07:00) Barnaul, Gorno-Altaysk", iana: "Asia/Barnaul" },
+  { value: "W. Mongolia Standard Time", label: "(UTC+07:00) Hovd", iana: "Asia/Hovd" },
+  { value: "North Asia Standard Time", label: "(UTC+07:00) Krasnoyarsk", iana: "Asia/Krasnoyarsk" },
+  { value: "N. Central Asia Standard Time", label: "(UTC+07:00) Novosibirsk", iana: "Asia/Novosibirsk" },
+  { value: "Tomsk Standard Time", label: "(UTC+07:00) Tomsk", iana: "Asia/Tomsk" },
+  
+  // UTC+08:00
+  { value: "China Standard Time", label: "(UTC+08:00) Beijing, Chongqing, Hong Kong, Urumqi", iana: "Asia/Shanghai" },
+  { value: "North Asia East Standard Time", label: "(UTC+08:00) Irkutsk", iana: "Asia/Irkutsk" },
+  { value: "Singapore Standard Time", label: "(UTC+08:00) Kuala Lumpur, Singapore", iana: "Asia/Singapore" },
+  { value: "W. Australia Standard Time", label: "(UTC+08:00) Perth", iana: "Australia/Perth" },
+  { value: "Taipei Standard Time", label: "(UTC+08:00) Taipei", iana: "Asia/Taipei" },
+  { value: "Ulaanbaatar Standard Time", label: "(UTC+08:00) Ulaanbaatar", iana: "Asia/Ulaanbaatar" },
+  
+  // UTC+08:45
+  { value: "Aus Central W. Standard Time", label: "(UTC+08:45) Eucla", iana: "Australia/Eucla" },
+  
+  // UTC+09:00
+  { value: "Transbaikal Standard Time", label: "(UTC+09:00) Chita", iana: "Asia/Chita" },
+  { value: "Tokyo Standard Time", label: "(UTC+09:00) Osaka, Sapporo, Tokyo", iana: "Asia/Tokyo" },
+  { value: "North Korea Standard Time", label: "(UTC+09:00) Pyongyang", iana: "Asia/Pyongyang" },
+  { value: "Korea Standard Time", label: "(UTC+09:00) Seoul", iana: "Asia/Seoul" },
+  { value: "Yakutsk Standard Time", label: "(UTC+09:00) Yakutsk", iana: "Asia/Yakutsk" },
+  
+  // UTC+09:30
+  { value: "Cen. Australia Standard Time", label: "(UTC+09:30) Adelaide", iana: "Australia/Adelaide" },
+  { value: "AUS Central Standard Time", label: "(UTC+09:30) Darwin", iana: "Australia/Darwin" },
+  
+  // UTC+10:00
+  { value: "E. Australia Standard Time", label: "(UTC+10:00) Brisbane", iana: "Australia/Brisbane" },
+  { value: "AUS Eastern Standard Time", label: "(UTC+10:00) Canberra, Melbourne, Sydney", iana: "Australia/Sydney" },
+  { value: "West Pacific Standard Time", label: "(UTC+10:00) Guam, Port Moresby", iana: "Pacific/Port_Moresby" },
+  { value: "Tasmania Standard Time", label: "(UTC+10:00) Hobart", iana: "Australia/Hobart" },
+  { value: "Vladivostok Standard Time", label: "(UTC+10:00) Vladivostok", iana: "Asia/Vladivostok" },
+  
+  // UTC+10:30
+  { value: "Lord Howe Standard Time", label: "(UTC+10:30) Lord Howe Island", iana: "Australia/Lord_Howe" },
+  
+  // UTC+11:00
+  { value: "Bougainville Standard Time", label: "(UTC+11:00) Bougainville Island", iana: "Pacific/Bougainville" },
+  { value: "Russia Time Zone 10", label: "(UTC+11:00) Chokurdakh", iana: "Asia/Srednekolymsk" },
+  { value: "Magadan Standard Time", label: "(UTC+11:00) Magadan", iana: "Asia/Magadan" },
+  { value: "Norfolk Standard Time", label: "(UTC+11:00) Norfolk Island", iana: "Pacific/Norfolk" },
+  { value: "Sakhalin Standard Time", label: "(UTC+11:00) Sakhalin", iana: "Asia/Sakhalin" },
+  { value: "Central Pacific Standard Time", label: "(UTC+11:00) Solomon Is., New Caledonia", iana: "Pacific/Guadalcanal" },
+  
+  // UTC+12:00
+  { value: "Russia Time Zone 11", label: "(UTC+12:00) Anadyr, Petropavlovsk-Kamchatsky", iana: "Asia/Kamchatka" },
+  { value: "New Zealand Standard Time", label: "(UTC+12:00) Auckland, Wellington", iana: "Pacific/Auckland" },
+  { value: "UTC+12", label: "(UTC+12:00) Coordinated Universal Time+12", iana: "Etc/GMT-12" },
+  { value: "Fiji Standard Time", label: "(UTC+12:00) Fiji", iana: "Pacific/Fiji" },
+  
+  // UTC+12:45
+  { value: "Chatham Islands Standard Time", label: "(UTC+12:45) Chatham Islands", iana: "Pacific/Chatham" },
+  
+  // UTC+13:00
+  { value: "UTC+13", label: "(UTC+13:00) Coordinated Universal Time+13", iana: "Etc/GMT-13" },
+  { value: "Tonga Standard Time", label: "(UTC+13:00) Nuku'alofa", iana: "Pacific/Tongatapu" },
+  { value: "Samoa Standard Time", label: "(UTC+13:00) Samoa", iana: "Pacific/Apia" },
+  
+  // UTC+14:00
+  { value: "Line Islands Standard Time", label: "(UTC+14:00) Kiritimati Island", iana: "Pacific/Kiritimati" }
+  ];
+  
   return (
     <div className="login-box gap-down">
       {tab === "Dashboard" && (
@@ -2280,7 +2149,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                         required
                         style={{ width: "100%" }}
                       >
-                        <option value="">Select a list or segment</option>
+                        <option value="">List or Segment</option>
                         {scheduleDataFiles.length > 0 && (
                           <optgroup label="Lists">
                             {scheduleDataFiles.map((file) => (
@@ -2319,7 +2188,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                         required
                         style={{ width: "100%" }}
                       >
-                        <option value="">Select timezone</option>
+                        <option value="">Timezone</option>
                         {timezoneOptions.map((tz) => (
                           <option key={tz.value} value={tz.value}>
                             {tz.label}
@@ -2338,7 +2207,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                         required
                         style={{ width: "100%" }}
                       >
-                        <option value="">Select email</option>
+                        <option value="">Email</option>
                         {smtpUsers.map((user) => (
                           <option key={user.id} value={user.id}>
                             {user.username}

@@ -7,7 +7,6 @@ import nextIcon from "../../assets/images/Next.png";
 import singleprvIcon from "../../assets/images/SinglePrv.png";
 import singlenextIcon from "../../assets/images/SingleNext.png";
 import { useAppData } from "../../contexts/AppDataContext";
-
 import * as XLSX from "xlsx";
 import FileSaver from "file-saver";
 import { toast } from "react-toastify";
@@ -15,6 +14,8 @@ import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css"; // Import styles
 import API_BASE_URL from "../../config";
 import axios from "axios";
+import AppModal from "../common/AppModal";
+import { useAppModal } from "../../hooks/useAppModal";
 
 // In Output.tsx
 interface ZohoClient {
@@ -234,6 +235,9 @@ const Output: React.FC<OutputInterface> = ({
 
 
 }) => {
+
+  const appModal = useAppModal();
+
   const [isCopyText, setIsCopyText] = useState(false);
   const { refreshTrigger } = useAppData(); // Make sure this includes refreshTrigger
 
@@ -821,7 +825,6 @@ const handleSendEmail = async (
   try {
     const currentContact = targetContact || combinedResponses[currentIndex];
 
-    // Ensure we have the required contact information
     if (!currentContact || !currentContact.id) {
       setEmailError("No valid contact selected");
       setSendingEmail(false);
@@ -830,17 +833,15 @@ const handleSendEmail = async (
 
     console.log("Sending email to:", currentContact?.name);
 
-    // Prepare the request body according to the new API structure
     const requestBody = {
       clientId: effectiveUserId,
       contactid: currentContact.id,
       dataFileId: currentContact.datafileid === "null" || !currentContact.datafileid ? null : parseInt(currentContact.datafileid) || null,      
       segmentId: currentContact.segmentId === "null" || !currentContact.segmentId ? null : parseInt(currentContact.segmentId) || null,
-
       toEmail: currentContact.email,
       subject: subjectToUse,
-      body: currentContact.pitch || "", // Using the pitch as the email body
-      bccEmail: emailFormData.BccEmail || "", // Send empty string if no BCC
+      body: currentContact.pitch || "",
+      bccEmail: emailFormData.BccEmail || "",
       smtpId: selectedSmtpUser,
       fullName: currentContact.name,
       countryOrAddress: currentContact.location || "",
@@ -850,7 +851,6 @@ const handleSendEmail = async (
       jobTitle: currentContact.title || "",
     };
 
-    // Rest of the function remains the same...
     const response = await axios.post(
       `${API_BASE_URL}/api/email/send-singleEmail`,
       requestBody,
@@ -867,7 +867,6 @@ const handleSendEmail = async (
 
     // Update the contact's email sent status
     try {
-      // Update local state
       const updatedItem = {
         ...combinedResponses[currentIndex],
         emailsentdate: new Date().toISOString(),
@@ -894,9 +893,7 @@ const handleSendEmail = async (
         setexistingResponse(updatedExisting);
       }
 
-           // If the API returns nextContactId, you might want to handle navigation
       if (response.data.nextContactId) {
-        // Optional: Auto-navigate to next contact or store for later use
         console.log("Next contact ID:", response.data.nextContactId);
       }
     } catch (updateError) {
@@ -1269,7 +1266,7 @@ const handleSaveSettings = async () => {
                   onChange={handleCampaignChange}
                   value={selectedCampaign}
                 >
-                  <option value="">Select a campaign</option>
+                  <option value="">Campaign</option>
                   {campaigns?.map((campaign) => (
                     <option key={campaign.id} value={campaign.id.toString()}>
                       {campaign.campaignName}
@@ -1277,7 +1274,7 @@ const handleSaveSettings = async () => {
                   ))}
                 </select>
                 {!selectedCampaign && (
-                  <small className="error-text">Please select a campaign</small>
+                  <small className="error-text">Select a campaign</small>
                 )}
               </div>
               {selectedCampaign &&
@@ -2077,7 +2074,7 @@ const handleSaveSettings = async () => {
                           background: "#f8fff8",
                         }}
                       >
-                        <option value="">Select BCC email</option>
+                        <option value="">BCC email</option>
                         {bccOptions.map((option) => (
                           <option
                             key={option.id}
@@ -2139,7 +2136,7 @@ const handleSaveSettings = async () => {
                           minHeight: "30px",
                         }}
                       >
-                        <option value="">Select sender</option>
+                        <option value="">Sender</option>
                         {smtpUsers.map((user) => (
                           <option key={user.id} value={user.id}>
                             {user.username}
@@ -2781,14 +2778,13 @@ const handleSaveSettings = async () => {
       minWidth: 0,
     }}
   >
-    <div style={{ display: "flex", justifyContent: "space-between" }}>
-      <h2 style={{ margin: 0, padding: "12px 0" }}>Edit Email Body – Full View</h2>
+   <div style={{ display: "flex", justifyContent: "flex-end" }}>
       <button
         type="button"
         style={{
           border: "none",
           background: "transparent",
-          fontSize: "1.7rem",
+          fontSize: "2rem",
           cursor: "pointer",
         }}
         onClick={() => {
@@ -3457,6 +3453,20 @@ const handleSaveSettings = async () => {
 )}
         </>
       )}
+      <AppModal
+      isOpen={appModal.isOpen}
+      onClose={appModal.hideModal}
+      {...appModal.config}
+    />
+    
+    {/* Email Sending Loader Modal */}
+    <AppModal
+      isOpen={sendingEmail}
+      onClose={() => {}}
+      type="loader"
+      loaderMessage="Sending email..."
+      closeOnOverlayClick={false}
+    />
     </div>
   );
 };

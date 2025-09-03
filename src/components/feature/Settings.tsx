@@ -5,6 +5,7 @@ import { useModel } from "../../ModelContext";
 import { useAppData } from "../../contexts/AppDataContext";
 import AppModal from "../common/AppModal";
 import { useAppModal } from "../../hooks/useAppModal";
+import { set } from "react-datepicker/dist/date_utils";
 
 interface SettingsProps {
   selectedClient: string;
@@ -116,6 +117,8 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
   const [models, setModels] = useState<Model[]>([]);
 
   const appModal = useAppModal();
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("Loading...");
 
   // Added state for selected model
   const [selectedModel, setSelectedModel] = useState<string>("");
@@ -178,7 +181,6 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
 
     (async () => {
       try {
-        setIsLoading(true);
 
         // Use clientSettings from context first, then preloaded, then fetch
         let settings = clientSettings || preloadedSettings;
@@ -263,14 +265,13 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
           }
 
           // Fetch additional data
-          await Promise.all([fetchZohoClient(), fetchDemoAccountStatus()]);
+          await Promise.all([ fetchDemoAccountStatus()]);
         }
 
         setLastLoadedClientId(selectedClient);
       } catch (error) {
         console.error("Error loading client settings:", error);
       } finally {
-        setIsLoading(false);
       }
     })();
   }, [selectedClient, clientSettings, refreshTrigger, lastLoadedClientId]);
@@ -324,6 +325,9 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
 
   const handleUpdateSettings = async () => {
     try {
+
+      setLoadingMessage("Updating settings...");
+      setIsLoading(true); // Start loader
       // Prepare data in snake_case format as expected by API
       const settingsData = {
         model_name: selectedModel,
@@ -381,6 +385,9 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
       console.error("Error updating settings:", error);
       appModal.showError("Failed to update settings. Please try again.");
     }
+    finally {
+      setIsLoading(false); // Stop loader
+    }
   };
 
   useEffect(() => {
@@ -397,167 +404,13 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
     TotalContact: "", // Add this field
   });
 
-  // Updated handler name
-  const onZohoViewInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setZohoViewForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  // Update handlers
-  const handleAddZohoView = async () => {
-    if (
-      !zohoViewForm.zohoviewId ||
-      !zohoViewForm.zohoviewName ||
-      !selectedClient
-    ) {
-      appModal.showError(
-        "Please fill all fields and ensure a client is selected"
-      );
-      return;
-    }
-
-    await addZohoView(
-      zohoViewForm.zohoviewId,
-      zohoViewForm.zohoviewName,
-      selectedClient
-    );
-
-    // Clear the form after successful addition
-    setZohoViewForm({
-      zohoviewId: "",
-      zohoviewName: "",
-      TotalContact: "",
-    });
-  };
-
-  const handleDeleteZohoView = async () => {
-    if (!zohoViewForm.zohoviewId || !selectedClient) {
-      appModal.showError(
-        "Please enter Zoho View ID and ensure a client is selected"
-      );
-      return;
-    }
-
-    await deleteZohoView(zohoViewForm.zohoviewId, selectedClient);
-
-    // Clear the form after successful deletion
-    setZohoViewForm({
-      zohoviewId: "",
-      zohoviewName: "",
-      TotalContact: "",
-    });
-  };
-
-  // Add these near the top of your component
-  const addZohoView = async (
-    zohoviewId: string,
-    zohoviewName: string,
-    clientId: string
-  ) => {
-    setIsLoading(true);
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/addzohoview`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          zohoviewId,
-          zohoviewName,
-          TotalContact: zohoViewForm.TotalContact, // Changed to TotalContact
-          clientId: parseInt(clientId),
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to add Zoho view");
-      }
-
-      const data = await response.json();
-      appModal.showSuccess("Zoho view added successfully");
-      await fetchZohoClient();
-
-      return data;
-    } catch (error) {
-      console.error("Error adding Zoho view:", error);
-      appModal.showError("Failed to add Zoho view");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const deleteZohoView = async (zohoviewId: string, clientId: string) => {
-    setIsLoading(true); // Use existing loading state
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/auth/deletezohoview/${zohoviewId}/${clientId}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to delete Zoho view");
-      }
-
-      appModal.showSuccess("Zoho view deleted successfully");
-      await fetchZohoClient();
-    } catch (error) {
-      console.error("Error deleting Zoho view:", error);
-      appModal.showError("Failed to delete Zoho view");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const [isLoading, setIsLoading] = useState(false);
-
   useEffect(() => {
     setIsDemoAccount(false);
 
     if (selectedClient) {
-      fetchZohoClient();
       fetchDemoAccountStatus(); // Add this line
     }
   }, [selectedClient]);
-
-  const [zohoClient, setZohoClient] = useState<ZohoClient[]>([]);
-  const [selectedZohoViewForDeletion, setSelectedZohoViewForDeletion] =
-    useState("");
-
-  const fetchZohoClient = async () => {
-    if (!selectedClient) {
-      console.log("No client selected, skipping fetch");
-      return;
-    }
-
-    setIsLoading(true); // Use existing loading state
-    console.log("Fetching Zoho client data for client:", selectedClient);
-    try {
-      const url = `${API_BASE_URL}/api/auth/zohoclientid/${selectedClient}`;
-      console.log("Fetching from URL:", url);
-
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data: ZohoClient[] = await response.json();
-      console.log("Fetched Zoho client data:", data);
-      setZohoClient(data);
-    } catch (error) {
-      console.error("Error fetching zoho client id:", error);
-    } finally {
-      setIsLoading(false); // Use existing loading state
-    }
-  };
 
   const [isDemoAccount, setIsDemoAccount] = useState(false);
   const fetchDemoAccountStatus = async () => {
@@ -568,7 +421,6 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
     );
 
     try {
-      setIsLoading(true);
       const response = await fetch(
         `${API_BASE_URL}/api/auth/getDemoAccountStatus/${selectedClient}`
       );
@@ -628,7 +480,6 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
         error
       );
     } finally {
-      setIsLoading(false);
     }
   };
 
@@ -670,77 +521,7 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
     console.log(innerText, "innerText");
     setTab(innerText);
   };
-  //--------------------------------------------------------------
-  type BccEmail = { id: number; bccEmailAddress: string; clinteId: number };
-  const [bccEmails, setBccEmails] = useState<BccEmail[]>([]);
-  const [newBccEmail, setNewBccEmail] = useState<string>("");
-  const [bccLoading, setBccLoading] = useState(false);
-  const [bccError, setBccError] = useState<string>("");
 
-  useEffect(() => {
-    if (!selectedClient) return;
-
-    const fetchBcc = async () => {
-      setBccLoading(true);
-      try {
-        const res = await fetch(
-          `${API_BASE_URL}/api/email/get-by-clinte?clinteId=${selectedClient}`
-        );
-        if (!res.ok) throw new Error("Failed to fetch BCC emails");
-        const data = await res.json();
-        setBccEmails(data);
-        setBccError("");
-      } catch (error: any) {
-        setBccError("Could not fetch BCC emails");
-      } finally {
-        setBccLoading(false);
-      }
-    };
-
-    fetchBcc();
-  }, [selectedClient]);
-
-  const handleAddBcc = async () => {
-    if (!newBccEmail) return;
-    setBccLoading(true);
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/email/${selectedClient}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ BccEmailAddress: newBccEmail }),
-      });
-      if (!res.ok) throw new Error("Add failed");
-      setNewBccEmail("");
-      setBccError("");
-      // Refresh list
-      const updated = await fetch(
-        `${API_BASE_URL}/api/email/get-by-clinte?clinteId=${selectedClient}`
-      );
-      setBccEmails(await updated.json());
-    } catch (error: any) {
-      setBccError("Error adding BCC email");
-    } finally {
-      setBccLoading(false);
-    }
-  };
-
-  const handleDeleteBcc = async (id: number) => {
-    setBccLoading(true);
-    try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/email/delete?id=${id}&clinteId=${selectedClient}`,
-        { method: "POST" }
-      );
-      if (!res.ok) throw new Error("Delete failed");
-      setBccError("");
-      setBccEmails(bccEmails.filter((e) => e.id !== id));
-    } catch (error: any) {
-      setBccError("Error deleting");
-    } finally {
-      setBccLoading(false);
-    }
-  };
-  //---------------------------------------------------------------
   return (
     <div className="input-section edit-section">
       {tab === "Processes" && (
@@ -803,7 +584,7 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
             <div className="row">
               <div className="col col-12 right">
                 <div className="form-group">
-                  <label>Select model</label>
+                  <label>Model</label>
 
                   <select
                     name="model"
@@ -811,7 +592,7 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
                     value={selectedModel || selectedModelName}
                     onChange={handleModelChange}
                   >
-                    <option value="">Select model</option>
+                    <option value="">Model</option>
                     {models.map((model) => (
                       <option key={model.id} value={model.modelName}>
                         {model.modelName} - Input: $
@@ -888,7 +669,7 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
                     }}
                     className="form-control"
                   >
-                    <option value="">Select URL count</option>
+                    <option value="">URL count</option>
                     {[...Array(10)].map((_, index) => (
                       <option key={index + 1} value={index + 1}>
                         {index + 1}
@@ -1092,6 +873,12 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
           </div>
         </>
       )}
+
+    <AppModal
+      isOpen={appModal.isOpen}
+      onClose={appModal.hideModal}
+      {...appModal.config}
+    />
 
       <AppModal
         isOpen={appModal.isOpen}

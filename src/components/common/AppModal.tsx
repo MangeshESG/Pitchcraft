@@ -6,7 +6,7 @@ interface AppModalProps {
   onClose: () => void;
   title?: string;
   message?: string;
-  type?: 'success' | 'error' | 'warning' | 'info' | 'confirm';
+  type?: 'success' | 'error' | 'warning' | 'info' | 'confirm' | 'loader';
   confirmText?: string;
   cancelText?: string;
   onConfirm?: () => void;
@@ -14,6 +14,7 @@ interface AppModalProps {
   customContent?: React.ReactNode;
   size?: 'small' | 'medium' | 'large';
   closeOnOverlayClick?: boolean;
+  loaderMessage?: string;
 }
 
 const AppModal: React.FC<AppModalProps> = ({
@@ -29,6 +30,7 @@ const AppModal: React.FC<AppModalProps> = ({
   customContent,
   size = 'small',
   closeOnOverlayClick = true,
+  loaderMessage = 'Loading...',
 }) => {
   const [isVisible, setIsVisible] = useState(false);
 
@@ -56,7 +58,7 @@ const AppModal: React.FC<AppModalProps> = ({
   };
 
   const handleOverlayClick = (e: React.MouseEvent) => {
-    if (closeOnOverlayClick && e.target === e.currentTarget) {
+    if (closeOnOverlayClick && type !== 'loader' && e.target === e.currentTarget) {
       onClose();
     }
   };
@@ -74,7 +76,7 @@ const AppModal: React.FC<AppModalProps> = ({
       case 'error':
         return (
           <svg className="app-modal-icon error" viewBox="0 0 24 24">
-            <path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"/>
+            <path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 19 17.59 13.41 12 19 6.41z"/>
           </svg>
         );
       case 'warning':
@@ -91,6 +93,21 @@ const AppModal: React.FC<AppModalProps> = ({
         );
     }
   };
+
+  // Render loader type
+  if (type === 'loader') {
+    return (
+      <div 
+        className={`app-modal-overlay ${isOpen ? 'open' : ''}`}
+        onClick={handleOverlayClick}
+      >
+        <div className="app-modal-loader-container">
+          <div className="app-modal-spinner"></div>
+          <p className="app-modal-loader-message">{loaderMessage}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div 
