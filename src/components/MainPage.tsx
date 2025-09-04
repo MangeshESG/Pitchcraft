@@ -33,6 +33,8 @@ import { AppDispatch } from "../Redux/store"; // ✅ import AppDispatch
 import DataCampaigns from "./feature/ContactList"; // Adjust the path based on your file structure
 import CampaignManagement from "./feature/CampaignManagement";
 import { useAppData } from "../contexts/AppDataContext";
+import CampaignPrompt from "./feature/CampaignPrompt";
+
 
 interface Prompt {
   id: number;
@@ -3667,6 +3669,27 @@ const MainPage: React.FC = () => {
                         </button>
                       </li>
                     )}
+                    {userRole === "ADMIN" && (
+  <li className={tab === "CampaignPrompt" ? "active" : ""}>
+    <button
+      onClick={() => {
+        setTab("CampaignPrompt");
+        setShowMailSubmenu(false);
+        setShowContactsSubmenu(false);
+      }}
+      className="side-menu-button"
+      title="Manage Campaign Prompts"
+    >
+      <span className="menu-icon">
+        <FontAwesomeIcon
+          icon={faGear} // or another icon if you like
+          className=" text-[#333333] text-lg"
+        />
+      </span>
+      <span className="menu-text">Campaign Prompt</span>
+    </button>
+  </li>
+)}
                   </ul>
                 </div>
               </div>
@@ -4523,6 +4546,8 @@ const MainPage: React.FC = () => {
                 onTabChange={setMailSubTab}
               />
             )}
+            {tab === "CampaignPrompt" && userRole === "ADMIN" && <CampaignPrompt />}
+
 
             {/* Stop Confirmation Popup */}
             {showPopup && (
