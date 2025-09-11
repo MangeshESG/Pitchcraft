@@ -833,24 +833,26 @@ const handleSendEmail = async (
 
     console.log("Sending email to:", currentContact?.name);
 
-    const requestBody = {
-      clientId: effectiveUserId,
-      contactid: currentContact.id,
-      dataFileId: currentContact.datafileid === "null" || !currentContact.datafileid ? null : parseInt(currentContact.datafileid) || null,      
-      segmentId: currentContact.segmentId === "null" || !currentContact.segmentId ? null : parseInt(currentContact.segmentId) || null,
-      toEmail: currentContact.email,
-      subject: subjectToUse,
-      body: currentContact.pitch || "",
-      bccEmail: emailFormData.BccEmail || "",
-      smtpId: selectedSmtpUser,
-      fullName: currentContact.name,
-      countryOrAddress: currentContact.location || "",
-      companyName: currentContact.company || "",
-      website: currentContact.website || "",
-      linkedinUrl: currentContact.linkedin || "",
-      jobTitle: currentContact.title || "",
-    };
-
+const requestBody = {
+  clientId: effectiveUserId,
+  contactid: currentContact.id,
+  // Only send dataFileId if segmentId is not present
+  dataFileId: (currentContact.segmentId && currentContact.segmentId !== "null") 
+    ? null 
+    : (currentContact.dataFileId === "null" || !currentContact.dataFileId ? null : parseInt(currentContact.dataFileId) || null),
+  segmentId: currentContact.segmentId === "null" || !currentContact.segmentId ? null : parseInt(currentContact.segmentId) || null,
+  toEmail: currentContact.email,
+  subject: subjectToUse,
+  body: currentContact.pitch || "",
+  bccEmail: emailFormData.BccEmail || "",
+  smtpId: selectedSmtpUser,
+  fullName: currentContact.name,
+  countryOrAddress: currentContact.location || "",
+  companyName: currentContact.company || "",
+  website: currentContact.website || "",
+  linkedinUrl: currentContact.linkedin || "",
+  jobTitle: currentContact.title || "",
+};
     const response = await axios.post(
       `${API_BASE_URL}/api/email/send-singleEmail`,
       requestBody,
@@ -1253,407 +1255,205 @@ const handleSaveSettings = async () => {
   return (
     <div className="login-box gap-down">
       {/* Add the selection dropdowns and subject line section */}
-      <div className="d-flex justify-between align-center mb-0">
-        <div className="input-section edit-section w-[100%]">
-          {/* Dropdowns Row */}
-          <div className="flex gap-4">
-            <div>
-              <div className="form-group">
-                <label>
-                  Campaign <span className="required">*</span>
-                </label>
-                <select
-                  onChange={handleCampaignChange}
-                  value={selectedCampaign}
-                >
-                  <option value="">Campaign</option>
-                  {campaigns?.map((campaign) => (
-                    <option key={campaign.id} value={campaign.id.toString()}>
-                      {campaign.campaignName}
-                    </option>
-                  ))}
-                </select>
-                {!selectedCampaign && (
-                  <small className="error-text">Select a campaign</small>
-                )}
-              </div>
-              {selectedCampaign &&
-                campaigns?.find((c) => c.id.toString() === selectedCampaign)
-                  ?.description && (
-                  <div className="campaign-description-container">
-                    <small className="campaign-description">
-                      {
-                        campaigns.find(
-                          (c) => c.id.toString() === selectedCampaign
-                        )?.description
-                      }
-                    </small>
-                  </div>
-                )}
-            </div>
-            <div className="flex items-start mt-[26px]">
-              <div className="flex mr-4">
-                
-                {isResetEnabled ? ( // Changed from !isProcessing to isResetEnabled
-                
-                  <button
-                    className="primary-button bg-[#3f9f42]"
-                    onClick={() => handleStart?.(currentIndex)}
-                    disabled={
-                      (!selectedPrompt?.name || !selectedZohoviewId) &&
-                      !selectedCampaign
-                    }
-                    title={`Click to generate hyper-personalized emails starting from contact ${currentIndex + 1}`}
-                  >
-                    Generate
-                  </button>
-                ) : (
-                  <button
-                    className="primary-button bg-[#3f9f42]"
-                    onClick={handleStop}
-                    disabled={isStopRequested} // Disable if stop is already requested
-                    title="Click to stop the generation of emails"
-                  >
-                    Stop
-                  </button>
-                )}
-              </div>
-              <div className="flex mr-4">
-                {!isDemoAccount && (
-
-                <button
-                  className="secondary-button nowrap"
-                  onClick={handleClearAll}
-                  disabled={!isResetEnabled} // Changed from isProcessing to !isResetEnabled
-                  title="Clear all data and reset the application state"
-                >
-                  Reset all
-                </button>
-                )}
-              </div>
-              <div className="!mb-[0px] mt-2 flex align-center">
-                {!isDemoAccount && (
-
-                <label className="checkbox-label !mb-[0px] mr-[5px] flex align-center">
-                  <input
-                    type="checkbox"
-                    checked={settingsForm?.overwriteDatabase}
-                    name="overwriteDatabase"
-                    id="overwriteDatabase"
-                    onChange={settingsFormHandler}
-                    className="!mr-0"
-                  />
-                  <span className="text-[14px]">Overwrite</span>
-                </label>
-              )}
-              {!isDemoAccount && (
-
-                <span>
-                  <ReactTooltip anchorSelect="#overwrite-checkbox" place="top">
-                    Reset all company level intel
-                  </ReactTooltip>
-                  <svg id="overwrite-checkbox" width="14px" height="14px" viewBox="0 0 24 24" fill="#555555" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 17.75C12.4142 17.75 12.75 17.4142 12.75 17V11C12.75 10.5858 12.4142 10.25 12 10.25C11.5858 10.25 11.25 10.5858 11.25 11V17C11.25 17.4142 11.5858 17.75 12 17.75Z" fill="#1C274C"/>
-                    <path d="M12 7C12.5523 7 13 7.44772 13 8C13 8.55228 12.5523 9 12 9C11.4477 9 11 8.55228 11 8C11 7.44772 11.4477 7 12 7Z" fill="#1C274C"/>
-                    <path fill-rule="evenodd" clip-rule="evenodd" d="M1.25 12C1.25 6.06294 6.06294 1.25 12 1.25C17.9371 1.25 22.75 6.06294 22.75 12C22.75 17.9371 17.9371 22.75 12 22.75C6.06294 22.75 1.25 17.9371 1.25 12ZM12 2.75C6.89137 2.75 2.75 6.89137 2.75 12C2.75 17.1086 6.89137 21.25 12 21.25C17.1086 21.25 21.25 17.1086 21.25 12C21.25 6.89137 17.1086 2.75 12 2.75Z" fill="#1C274C"/>
-                  </svg>
-                </span>
-                )}
-                
-              </div>
-              
-            </div>
-
-            
-
-            {/* Navigation */}
-            <div className="d-flex align-start mt-[26px] gap-1">
-                <button
-                  onClick={handleFirstPage}
-                  disabled={isProcessing} 
-
-                  title="Click to go to the first generated email"
-                  className="secondary-button h-[35px] w-[38px] !px-[5px] !py-[10px] flex justify-center items-center"
-                >
-                  <img
-                    src={previousIcon}
-                    alt="Previous"
-                    style={{
-                      width: "20px",
-                      height: "20px",
-                      objectFit: "contain",
-                    }}
-                  />
-                </button>
-                <button
-                  onClick={handlePrevPage}
-                  disabled={isProcessing || currentIndex === 0}
-                  className="secondary-button flex justify-center items-center !px-[10px] h-[35px]"
-                  title="Click to go to the previous generated email"
-                >
-                  <img
-                    src={singleprvIcon}
-                    alt="Previous"
-                    style={{
-                      width: "20px",
-                      height: "20px",
-                      objectFit: "contain",
-                      marginRight: "2px",
-                      marginLeft:"-7px"
-                    }}
-                  />
-                  <span>Prev</span>
-                </button>
-
-                <button
-                  onClick={handleNextPage}
-                  disabled={isProcessing || currentIndex === combinedResponses.length - 1}
-                  className="secondary-button !h-[35px] !py-[10px] !px-[10px] flex justify-center items-center"
-                  title="Click to go to the next generated email"
-                >
-                  <span>Next</span>
-                  <img
-                    src={singlenextIcon}
-                    alt="Next"
-                    style={{
-                      width: "20px",
-                      height: "20px",
-                      objectFit: "contain",
-                      marginLeft: "2px",
-                      marginRight:"-7px"
-                    }}
-                  />
-                </button>
-
-                <button
-                  onClick={handleLastPage}
-                  disabled={isProcessing || currentIndex === combinedResponses.length - 1} // Simplified condition
-
-                  className="secondary-button h-[35px] w-[38px] !px-[5px] !py-[10px] flex justify-center items-center !px-[10px]"
-                  title="Click to go to the last generated email"
-                >
-                  <img
-                    src={nextIcon}
-                    alt="Next"
-                    style={{
-                      width: "20px",
-                      height: "20px",
-                      objectFit: "contain",
-                      marginLeft: "2px",
-                    }}
-                  />
-                </button>
-
-                {emailLoading && (
-                  <div className="loader-overlay">
-                    <div className="loader"></div>
-                  </div>
-                )}
-            </div>
-
-            {/* Contact Index with input box */}
-            <div className="mtext-center d-flex align-center mr-20 mt-10-991 font-size-medium">
-                {combinedResponses.length > 0 && (
-                  <>
-                    <span className="mt-[6px]">
-                      {/* <strong>Contact:</strong> {currentIndex + 1} of{" "} */}
-                      <strong>Contact:</strong> 
-                      {/* Input box to enter index */}
-                      <input
-                          type="number"
-                          value={inputValue}
-                          onChange={handleIndexChange}
-                          onBlur={() => {
-                            // When input loses focus, ensure it shows a valid value
-                            if (
-                              inputValue.trim() === "" ||
-                              isNaN(parseInt(inputValue, 10)) ||
-                              parseInt(inputValue, 10) < 1
-                            ) {
-                              setInputValue((currentIndex + 1).toString());
-                            }
-                          }}
-                          min="1" // HTML5 validation to prevent negative numbers
-                          max={combinedResponses.length} // Prevent going beyond available contacts
-                          className="form-control text-center !mx-2"
-                          style={{ width: "70px", padding: "8px" }}
-                        />
-                       of{" "}
-                      {
-                        // Get total contacts from the selected view or all views
-                        selectedZohoviewId
-                          ? (() => {
-                              const selectedView = zohoClient.find(
-                                (client) =>
-                                  client.zohoviewId === selectedZohoviewId
-                              );
-                              return selectedView
-                                ? selectedView.totalContact
-                                : combinedResponses.length;
-                            })()
-                          : zohoClient.reduce(
-                              (sum, client) => sum + client.totalContact,
-                              0
-                            )
-                      }{" "}
-                      {/* <span className="opacity-60">
-                        ({combinedResponses.length} loaded)
-                      </span> */}
-                    </span>
-                    <span style={{ whiteSpace: "pre" }}> </span>
-                    <span style={{ whiteSpace: "pre" }}> </span>
-
+            {/* Add the selection dropdowns and subject line section */}
+            <div className="d-flex justify-between align-center mb-0">
+              <div className="input-section edit-section w-[100%]">
+                {/* Dropdowns Row */}
+                <div className="flex items-start justify-between gap-4 w-full">
+                  {/* Left side - Campaign dropdown */}
+                  <div className="flex items-start gap-4 flex-1">
+                    <div>
+                      <div className="form-group">
+                        <label>
+                          Campaign <span className="required">*</span>
+                        </label>
+                        <select
+                          onChange={handleCampaignChange}
+                          value={selectedCampaign}
+                        >
+                          <option value="">Campaign</option>
+                          {campaigns?.map((campaign) => (
+                            <option key={campaign.id} value={campaign.id.toString()}>
+                              {campaign.campaignName}
+                            </option>
+                          ))}
+                        </select>
+                        {!selectedCampaign && (
+                          <small className="error-text">Select a campaign</small>
+                        )}
+                      </div>
+                      {selectedCampaign &&
+                        campaigns?.find((c) => c.id.toString() === selectedCampaign)
+                          ?.description && (
+                          <div className="campaign-description-container">
+                            <small className="campaign-description">
+                              {
+                                campaigns.find(
+                                  (c) => c.id.toString() === selectedCampaign
+                                )?.description
+                              }
+                            </small>
+                          </div>
+                        )}
+                    </div>
                     
-                  </>
-                )}
-              </div>
-            
-          </div>
+                    {/* Middle section - Buttons and checkbox */}
+                    <div className="flex items-center gap-4 mt-[26px]">
+                      <div className="flex">
+                        {isResetEnabled ? (
+                          <button
+                            className="primary-button bg-[#3f9f42]"
+                            onClick={() => handleStart?.(currentIndex)}
+                            disabled={
+                              (!selectedPrompt?.name || !selectedZohoviewId) &&
+                              !selectedCampaign
+                            }
+                            title={`Click to generate hyper-personalized emails starting from contact ${currentIndex + 1}`}
+                          >
+                            Generate
+                          </button>
+                        ) : (
+                          <button
+                            className="primary-button bg-[#3f9f42]"
+                            onClick={handleStop}
+                            disabled={isStopRequested}
+                            title="Click to stop the generation of emails"
+                          >
+                            Stop
+                          </button>
+                        )}
+                      </div>
+                      
+                      {!isDemoAccount && (
+                        <button
+                          className="secondary-button nowrap"
+                          onClick={handleClearAll}
+                          disabled={!isResetEnabled}
+                          title="Clear all data and reset the application state"
+                        >
+                          Reset all
+                        </button>
+                      )}
+                      
+                      {!isDemoAccount && (
+                        <div className="flex items-center">
+                          <label className="checkbox-label !mb-[0px] mr-[5px] flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={settingsForm?.overwriteDatabase}
+                              name="overwriteDatabase"
+                              id="overwriteDatabase"
+                              onChange={settingsFormHandler}
+                              className="!mr-0"
+                            />
+                            <span className="text-[14px]">Overwrite</span>
+                          </label>
+                          <span>
+                            <ReactTooltip anchorSelect="#overwrite-checkbox" place="top">
+                              Reset all company level intel
+                            </ReactTooltip>
+                            <svg id="overwrite-checkbox" width="14px" height="14px" viewBox="0 0 24 24" fill="#555555" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M12 17.75C12.4142 17.75 12.75 17.4142 12.75 17V11C12.75 10.5858 12.4142 10.25 12 10.25C11.5858 10.25 11.25 10.5858 11.25 11V17C11.25 17.4142 11.5858 17.75 12 17.75Z" fill="#1C274C"/>
+                              <path d="M12 7C12.5523 7 13 7.44772 13 8C13 8.55228 12.5523 9 12 9C11.4477 9 11 8.55228 11 8C11 7.44772 11.4477 7 12 7Z" fill="#1C274C"/>
+                              <path fill-rule="evenodd" clip-rule="evenodd" d="M1.25 12C1.25 6.06294 6.06294 1.25 12 1.25C17.9371 1.25 22.75 6.06294 22.75 12C22.75 17.9371 17.9371 22.75 12 22.75C6.06294 22.75 1.25 17.9371 1.25 12ZM12 2.75C6.89137 2.75 2.75 6.89137 2.75 12C2.75 17.1086 6.89137 21.25 12 21.25C17.1086 21.25 21.25 17.1086 21.25 12C21.25 6.89137 17.1086 2.75 12 2.75Z" fill="#1C274C"/>
+                            </svg>
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
-        </div>
-      </div>
-
-      
-
-      {/* New Tab */}
-      {tab === "New" && (
-        <>
-          <div className="tabs secondary d-flex align-center flex-col-991 justify-between">
-            <ul className="d-flex">
-              
-                <li>
-                  <button
-                    onClick={tabHandler2}
-                    className={`button ${tab2 === "Output" ? "active" : ""}`}
-                  >
-                    Output
-                  </button>
-                </li>
-             
-              {userRole === "ADMIN" && (
-                <li>
-                  <button
-                    onClick={tabHandler2}
-                    className={`button ${tab2 === "Stages" ? "active" : ""}`}
-                  >
-                    Stages
-                  </button>
-                </li>
-              )}
-              <li>
-                <button
-                className={`tab-button ${tab2 === "Settings" ? "active" : ""}`}
-                onClick={() => setTab2("Settings")}
-              >
-                Settings
-              </button>
-              </li>              
-            </ul>
-            
-            <div className="d-flex flex-col-1200 mb-10-991 mt-10-991">
-              <div className="d-flex flex-col-768 mt-10-1200">
-                {/* Add the Excel export link */}
-                <ReactTooltip anchorSelect="#download-data-tooltip" place="top">
-                  Download all loaded emails to a spreadsheet
-                </ReactTooltip>
-                <a
-                  href="#"
-                  id="download-data-tooltip"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    if (!isExporting && combinedResponses.length > 0) {
-                      exportToExcel();
-                    }
-                  }}
-                  className="export-link ml-10 mr-10 my-5-640 green"
-                  style={{
-                    color: "#3f9f42",
-                    textDecoration: "none",
-                    cursor:
-                      combinedResponses.length === 0 || isExporting
-                        ? "not-allowed"
-                        : "pointer",
-                    opacity:
-                      combinedResponses.length === 0 || isExporting ? 0.6 : 1,
-                    display: "flex",
-                    alignItems: "center",
-                  }}
-                >
-                  {isExporting ? (
-                    <span>Exporting...</span>
-                  ) : (
-                    <>
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="20px"
-                        height="20px"
-                        viewBox="0 0 32 32"
-                      >
-                        <title>file_type_excel2</title>
-                        <path
-                          d="M28.781,4.405H18.651V2.018L2,4.588V27.115l16.651,2.868V26.445H28.781A1.162,1.162,0,0,0,30,25.349V5.5A1.162,1.162,0,0,0,28.781,4.405Zm.16,21.126H18.617L18.6,23.642h2.487v-2.2H18.581l-.012-1.3h2.518v-2.2H18.55l-.012-1.3h2.549v-2.2H18.53v-1.3h2.557v-2.2H18.53v-1.3h2.557v-2.2H18.53v-2H28.941Z"
-                          style={{ fill: "#20744a", fillRule: "evenodd" }}
-                        />
-                        <rect
-                          x="22.487"
-                          y="7.439"
-                          width="4.323"
-                          height="2.2"
-                          style={{ fill: "#20744a" }}
-                        />
-                        <rect
-                          x="22.487"
-                          y="10.94"
-                          width="4.323"
-                          height="2.2"
-                          style={{ fill: "#20744a" }}
-                        />
-                        <rect
-                          x="22.487"
-                          y="14.441"
-                          width="4.323"
-                          height="2.2"
-                          style={{ fill: "#20744a" }}
-                        />
-                        <rect
-                          x="22.487"
-                          y="17.942"
-                          width="4.323"
-                          height="2.2"
-                          style={{ fill: "#20744a" }}
-                        />
-                        <rect
-                          x="22.487"
-                          y="21.443"
-                          width="4.323"
-                          height="2.2"
-                          style={{ fill: "#20744a" }}
-                        />
-                        <polygon
-                          points="6.347 10.673 8.493 10.55 9.842 14.259 11.436 10.397 13.582 10.274 10.976 15.54 13.582 20.819 11.313 20.666 9.781 16.642 8.248 20.513 6.163 20.329 8.585 15.666 6.347 10.673"
-                          style={{ fill: "#ffffff", fillRule: "evenodd" }}
-                        />
-                      </svg>
-                      <span className="ml-5 green">Download</span>
-                    </>
-                  )}
-                </a>
+                  {/* Right side - Download button */}
+                  <div className="flex items-center mt-[26px]">
+                    <ReactTooltip anchorSelect="#download-data-tooltip" place="top">
+                      Download all loaded emails to a spreadsheet
+                    </ReactTooltip>
+                    <a
+                      href="#"
+                      id="download-data-tooltip"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (!isExporting && combinedResponses.length > 0) {
+                          exportToExcel();
+                        }
+                      }}
+                      className="export-link green flex items-center"
+                      style={{
+                        color: "#3f9f42",
+                        textDecoration: "none",
+                        cursor:
+                          combinedResponses.length === 0 || isExporting
+                            ? "not-allowed"
+                            : "pointer",
+                        opacity:
+                          combinedResponses.length === 0 || isExporting ? 0.6 : 1,
+                        display: "flex",
+                        alignItems: "center",
+                      }}
+                    >
+                      {isExporting ? (
+                        <span>Exporting...</span>
+                      ) : (
+                        <>
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="20px"
+                            height="20px"
+                            viewBox="0 0 32 32"
+                          >
+                            <title>file_type_excel2</title>
+                            <path
+                              d="M28.781,4.405H18.651V2.018L2,4.588V27.115l16.651,2.868V26.445H28.781A1.162,1.162,0,0,0,30,25.349V5.5A1.162,1.162,0,0,0,28.781,4.405Zm.16,21.126H18.617L18.6,23.642h2.487v-2.2H18.581l-.012-1.3h2.518v-2.2H18.55l-.012-1.3h2.549v-2.2H18.53v-1.3h2.557v-2.2H18.53v-1.3h2.557v-2.2H18.53v-2H28.941Z"
+                              style={{ fill: "#20744a", fillRule: "evenodd" }}
+                            />
+                            <rect
+                              x="22.487"
+                              y="7.439"
+                              width="4.323"
+                              height="2.2"
+                              style={{ fill: "#20744a" }}
+                            />
+                            <rect
+                              x="22.487"
+                              y="10.94"
+                              width="4.323"
+                              height="2.2"
+                              style={{ fill: "#20744a" }}
+                            />
+                            <rect
+                              x="22.487"
+                              y="14.441"
+                              width="4.323"
+                              height="2.2"
+                              style={{ fill: "#20744a" }}
+                            />
+                            <rect
+                              x="22.487"
+                              y="17.942"
+                              width="4.323"
+                              height="2.2"
+                              style={{ fill: "#20744a" }}
+                            />
+                            <rect
+                              x="22.487"
+                              y="21.443"
+                              width="4.323"
+                              height="2.2"
+                              style={{ fill: "#20744a" }}
+                            />
+                            <polygon
+                              points="6.347 10.673 8.493 10.55 9.842 14.259 11.436 10.397 13.582 10.274 10.976 15.54 13.582 20.819 11.313 20.666 9.781 16.642 8.248 20.513 6.163 20.329 8.585 15.666 6.347 10.673"
+                              style={{ fill: "#ffffff", fillRule: "evenodd" }}
+                            />
+                          </svg>
+                          <span className="ml-5 green">Download</span>
+                        </>
+                      )}
+                    </a>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-          {tab2 === "Output" && (
-            <>
-              <div className="form-group mb-0">
-                {/* <div className="d-flex mb-10 align-items-center">
-                  {userRole === "ADMIN" && (
-                    <button
-                      className="button clear-button small d-flex align-center"
-                      onClick={clearContent}
-                    >
-                      <span>Clear output</span>
-                    </button>
-                  )}
-                </div> */}
 
                 {/* THIS MESSAGE MOVED HERE, ABOVE OUTPUT */}
                 {isStopRequested && !isResetEnabled && (
@@ -1725,6 +1525,166 @@ const handleSaveSettings = async () => {
                     </svg>
                   </button>
                 </span>
+                  {/* Wrapper for navigation + contact index */}
+                <div className="d-flex align-items-center gap mt-[26px] gap-3">
+
+                  {/* Navigation buttons */}
+                  <div className="d-flex align-items-center gap-1">
+                    <button
+                      onClick={handleFirstPage}
+                      disabled={isProcessing}
+                      title="Click to go to the first generated email"
+                      className="secondary-button h-[35px] w-[38px] !px-[5px] !py-[10px] flex justify-center items-center"
+                    >
+                      <img
+                        src={previousIcon}
+                        alt="Previous"
+                        style={{ width: "20px", height: "20px", objectFit: "contain" }}
+                      />
+                    </button>
+
+                    <button
+                      onClick={handlePrevPage}
+                      disabled={isProcessing || currentIndex === 0}
+                      className="secondary-button flex justify-center items-center !px-[10px] h-[35px]"
+                      title="Click to go to the previous generated email"
+                    >
+                      <img
+                        src={singleprvIcon}
+                        alt="Previous"
+                        style={{
+                          width: "20px",
+                          height: "20px",
+                          objectFit: "contain",
+                          marginRight: "2px",
+                          marginLeft: "-7px",
+                        }}
+                      />
+                      <span>Prev</span>
+                    </button>
+
+                    <button
+                      onClick={handleNextPage}
+                      disabled={isProcessing || currentIndex === combinedResponses.length - 1}
+                      className="secondary-button !h-[35px] !py-[10px] !px-[10px] flex justify-center items-center"
+                      title="Click to go to the next generated email"
+                    >
+                      <span>Next</span>
+                      <img
+                        src={singlenextIcon}
+                        alt="Next"
+                        style={{
+                          width: "20px",
+                          height: "20px",
+                          objectFit: "contain",
+                          marginLeft: "2px",
+                          marginRight: "-7px",
+                        }}
+                      />
+                    </button>
+
+                    <button
+                      onClick={handleLastPage}
+                      disabled={isProcessing || currentIndex === combinedResponses.length - 1}
+                      className="secondary-button h-[35px] w-[38px] !px-[5px] !py-[10px] flex justify-center items-center !px-[10px]"
+                      title="Click to go to the last generated email"
+                    >
+                      <img
+                        src={nextIcon}
+                        alt="Next"
+                        style={{ width: "20px", height: "20px", objectFit: "contain", marginLeft: "2px" }}
+                      />
+                    </button>
+                  </div>
+
+                  {/* Contact index */}
+                  <div className="d-flex align-items-center font-size-medium">
+                    <strong>Contact:</strong>
+                    <input
+                      type="number"
+                      value={inputValue}
+                      onChange={handleIndexChange}
+                      onBlur={() => {
+                        if (
+                          inputValue.trim() === "" ||
+                          isNaN(parseInt(inputValue, 10)) ||
+                          parseInt(inputValue, 10) < 1
+                        ) {
+                          setInputValue((currentIndex + 1).toString());
+                        }
+                      }}
+                      min="1"
+                      max={combinedResponses.length}
+                      className="form-control text-center !mx-2"
+                      style={{ width: "70px", padding: "8px" }}
+                    />
+                    of{" "}
+                    {selectedZohoviewId
+                      ? (() => {
+                          const selectedView = zohoClient.find(
+                            (client) => client.zohoviewId === selectedZohoviewId
+                          );
+                          return selectedView
+                            ? selectedView.totalContact
+                            : combinedResponses.length;
+                        })()
+                      : zohoClient.reduce((sum, client) => sum + client.totalContact, 0)}
+                  </div>
+                </div>
+
+
+      {/* New Tab */}
+      {tab === "New" && (
+        <>
+          <div className="tabs secondary d-flex align-center flex-col-991 justify-between">
+            <ul className="d-flex">
+              
+                <li>
+                  <button
+                    onClick={tabHandler2}
+                    className={`button ${tab2 === "Output" ? "active" : ""}`}
+                  >
+                    Output
+                  </button>
+                </li>
+             
+              {userRole === "ADMIN" && (
+                <li>
+                  <button
+                    onClick={tabHandler2}
+                    className={`button ${tab2 === "Stages" ? "active" : ""}`}
+                  >
+                    Stages
+                  </button>
+                </li>
+              )}
+              <li>
+                <button
+                className={`tab-button ${tab2 === "Settings" ? "active" : ""}`}
+                onClick={() => setTab2("Settings")}
+              >
+                Settings
+              </button>
+              </li>              
+            </ul>
+            
+
+          </div>
+          {tab2 === "Output" && (
+            <>
+              <div className="form-group mb-0">
+                {/* <div className="d-flex mb-10 align-items-center">
+                  {userRole === "ADMIN" && (
+                    <button
+                      className="button clear-button small d-flex align-center"
+                      onClick={clearContent}
+                    >
+                      <span>Clear output</span>
+                    </button>
+                  )}
+                </div> */}
+
+
               </div>
               <div className="form-group mb-0 mt-2">
                 <div className="d-flex justify-between w-full">

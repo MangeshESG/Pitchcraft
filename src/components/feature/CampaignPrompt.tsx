@@ -219,12 +219,17 @@ const CampaignPrompt: React.FC = () => {
           {messages.map((msg, i) => (
             <div key={i} className={`mb-3 ${msg.sender === "user" ? "text-right" : "text-left"}`}>
               <div className="inline-block max-w-[80%]">
-                <span className={`px-3 py-2 inline-block rounded-md ${
-                  msg.sender === "user" ? "bg-indigo-100 text-indigo-800" : "bg-gray-200 text-gray-800"
-                }`}>
-                  <b>{msg.sender}:</b>{" "}
-                  {expandedMessageIndex === i ? msg.text : truncateText(msg.text, 200)}
-                </span>
+                <div
+  className={`px-3 py-2 inline-block rounded-md ${
+    msg.sender === "user" ? "bg-indigo-100 text-indigo-800" : "bg-gray-200 text-gray-800"
+  }`}
+>
+  <b>{msg.sender}:</b>{" "}
+  {msg.text.includes("<") && msg.text.includes(">")
+    ? <div dangerouslySetInnerHTML={{ __html: msg.text }} />
+    : <pre className="whitespace-pre-wrap">{msg.text}</pre>
+  }
+</div>
 
                 {/* ✅ Show sources below assistant message */}
                 {msg.sources && msg.sources.length > 0 && (

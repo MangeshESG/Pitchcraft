@@ -347,7 +347,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   }, [startDate, endDate, allEventData, allEmailLogs, isVisible]);
 
   // 6. Load email logs for email-logs filter type - Updated for campaigns
-  useEffect(() => {
+useEffect(() => {
   if (!isVisible) return;
 
   if (
@@ -367,15 +367,17 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
             const clientId = Number(effectiveUserId);
             const logs = await fetchEmailLogs(clientId, dataFileId);
             setEmailLogs(logs);
+            
           } else if (campaign?.dataSource === "Segment" && campaign.segmentId) {
             console.log("Loading email logs for segment:", campaign.segmentId);
             try {
+              // Use the new segment email logs API
               const response = await axios.get(
-                `${API_BASE_URL}/api/Crm/segment-email-logs`,
+                `${API_BASE_URL}/api/Crm/getlogs-by-segment`,
                 {
                   params: {
-                    segmentId: campaign.segmentId,
                     clientId: Number(effectiveUserId),
+                    segmentId: campaign.segmentId,
                   },
                   headers: {
                     ...(token && { Authorization: `Bearer ${token}` }),
@@ -396,13 +398,13 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     };
     loadEmailLogs();
   }
-  }, [
-    selectedCampaign,
-    emailFilterType,
-    effectiveUserId,
-    isVisible,
-    availableCampaigns,
-  ]);
+}, [
+  selectedCampaign,
+  emailFilterType,
+  effectiveUserId,
+  isVisible,
+  availableCampaigns,
+]);
 
   // 7. Clear cache when user changes
   useEffect(() => {
@@ -506,28 +508,31 @@ const fetchLogsByCampaign = async (campaignId: string) => {
 
         allTrackingData = trackingResponse.data || [];
         allEmailLogsData = await fetchEmailLogs(clientId, dataFileId);
+        
       } else if (campaign.dataSource === "Segment" && campaign.segmentId) {
         try {
-          const segmentResponse = await axios.get(
-            `${API_BASE_URL}/track/tracking/segment`,
+          // Use the new segment tracking logs API
+          const segmentTrackingResponse = await axios.get(
+            `${API_BASE_URL}/api/Crm/gettrackinglogs-by-segment`,
             {
               params: {
-                segmentId: campaign.segmentId,
                 clientId: clientId,
+                segmentId: campaign.segmentId,
               },
               headers: { ...(token && { Authorization: `Bearer ${token}` }) },
             }
           );
 
-          allTrackingData = segmentResponse.data || [];
+          allTrackingData = segmentTrackingResponse.data || [];
 
+          // Use the new segment email logs API
           try {
             const segmentEmailLogsResponse = await axios.get(
-              `${API_BASE_URL}/track/log/segment`,
+              `${API_BASE_URL}/api/Crm/getlogs-by-segment`,
               {
                 params: {
-                  segmentId: campaign.segmentId,
                   clientId: clientId,
+                  segmentId: campaign.segmentId,
                 },
                 headers: { ...(token && { Authorization: `Bearer ${token}` }) },
               }
@@ -589,7 +594,6 @@ const fetchLogsByCampaign = async (campaignId: string) => {
     }
   });
 };
-
   // Process data with date filtering
   const processDataWithDateFilter = (
     trackingData: EventItem[],

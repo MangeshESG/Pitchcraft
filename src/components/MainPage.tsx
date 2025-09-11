@@ -3563,7 +3563,7 @@ const MainPage: React.FC = () => {
                             className=" text-[#333333] text-lg"
                           />
                         </span>
-                        <span className="menu-text">Output</span>
+                        <span className="menu-text">Kraft emails</span>
                       </button>
                     </li>
                     <li
@@ -3670,26 +3670,26 @@ const MainPage: React.FC = () => {
                       </li>
                     )}
                     {userRole === "ADMIN" && (
-  <li className={tab === "CampaignPrompt" ? "active" : ""}>
-    <button
-      onClick={() => {
-        setTab("CampaignPrompt");
-        setShowMailSubmenu(false);
-        setShowContactsSubmenu(false);
-      }}
-      className="side-menu-button"
-      title="Manage Campaign Prompts"
-    >
-      <span className="menu-icon">
-        <FontAwesomeIcon
-          icon={faGear} // or another icon if you like
-          className=" text-[#333333] text-lg"
-        />
-      </span>
-      <span className="menu-text">Campaign Prompt</span>
-    </button>
-  </li>
-)}
+                    <li className={tab === "CampaignPrompt" ? "active" : ""}>
+                      <button
+                        onClick={() => {
+                          setTab("CampaignPrompt");
+                          setShowMailSubmenu(false);
+                          setShowContactsSubmenu(false);
+                        }}
+                        className="side-menu-button"
+                        title="Manage Campaign Prompts"
+                      >
+                        <span className="menu-icon">
+                          <FontAwesomeIcon
+                            icon={faGear} // or another icon if you like
+                            className=" text-[#333333] text-lg"
+                          />
+                        </span>
+                        <span className="menu-text">Campaign Prompt</span>
+                      </button>
+                    </li>
+                  )}
                   </ul>
                 </div>
               </div>
