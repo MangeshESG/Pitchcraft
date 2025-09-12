@@ -342,6 +342,13 @@ const MainPage: React.FC = () => {
     created_at: string;
     contacts: any[];
   }
+
+  const [currentFilteredContacts, setCurrentFilteredContacts] = useState<any[]>([]);
+
+  const updateFilteredContacts = (filteredContacts: any[]) => {
+  setCurrentFilteredContacts(filteredContacts);};
+
+
   const handleClearContent = useCallback((clearContent: () => void) => {
     setClearContentFunction(() => clearContent);
   }, []);
@@ -1983,58 +1990,71 @@ const MainPage: React.FC = () => {
       }));
 
       // Declare contacts variable before the if/else block
-      let contacts: any[] = [];
+// Declare contacts variable
+let contacts: any[] = [];
 
-      // Use cached data if available and flag is set
-      if (options?.useCachedData && cachedContacts.length > 0) {
-        contacts = cachedContacts;
-      } else {
-        // ✅ Fetch contacts based on campaign type
-        if (segmentId) {
-          // Fetch from segment API
-          console.log(
-            "Fetching contacts from segment API, segmentId:",
-            segmentId
-          );
-          const response = await fetch(
-            `${API_BASE_URL}/api/Crm/segment/${segmentId}/contacts`
-          );
+// Check if we have contacts to process from the Output component
+const contactsToProcessStr = sessionStorage.getItem('contactsToProcess');
+if (contactsToProcessStr) {
+  // Use the contacts passed from Output (already filtered if filters were active)
+  contacts = JSON.parse(contactsToProcessStr);
+  sessionStorage.removeItem('contactsToProcess');
+  console.log("Using contacts from Output component:", contacts.length);
+  console.log("First contact:", contacts[0]?.full_name || contacts[0]?.name);
+  currentIndex = 0; // Start from beginning since we already sliced from currentIndex
+} else {
+  // Fallback: fetch contacts if not provided (for backward compatibility)
+  // Use cached data if available and flag is set
+  if (options?.useCachedData && cachedContacts.length > 0) {
+    contacts = cachedContacts;
+  } else {
+    // ✅ Fetch contacts based on campaign type
+    if (segmentId) {
+      // Fetch from segment API
+      console.log("Fetching contacts from segment API, segmentId:", segmentId);
+      const response = await fetch(
+        `${API_BASE_URL}/api/Crm/segment/${segmentId}/contacts`
+      );
 
-          if (!response.ok) {
-            throw new Error("Failed to fetch segment contacts");
-          }
-
-          const data = await response.json();
-          contacts = data || []; // Segment API returns contacts directly
-          console.log("Fetched segment contacts:", contacts.length);
-        } else if (parsedDataFileId) {
-          // Fetch from datafile API (existing logic)
-          console.log(
-            "Fetching contacts from datafile API, dataFileId:",
-            parsedDataFileId
-          );
-          const response = await fetch(
-            `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${parsedDataFileId}`
-          );
-
-          if (!response.ok) {
-            throw new Error("Failed to fetch datafile contacts");
-          }
-
-          const data = await response.json();
-          contacts = data.contacts || [];
-          console.log("Fetched datafile contacts:", contacts.length);
-        } else {
-          throw new Error(
-            "No valid data source found (neither segment nor datafile)"
-          );
-        }
+      if (!response.ok) {
+        throw new Error("Failed to fetch segment contacts");
       }
 
-      if (!Array.isArray(contacts)) {
-        console.error("Invalid data format");
-        moreRecords = false;
+      const data = await response.json();
+      contacts = data || []; // Segment API returns contacts directly
+      console.log("Fetched segment contacts:", contacts.length);
+    } else if (parsedDataFileId) {
+      // Fetch from datafile API (existing logic)
+      console.log("Fetching contacts from datafile API, dataFileId:", parsedDataFileId);
+      const response = await fetch(
+        `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${parsedDataFileId}`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch datafile contacts");
       }
+
+      const data = await response.json();
+      contacts = data.contacts || [];
+      console.log("Fetched datafile contacts:", contacts.length);
+    } else {
+      throw new Error(
+        "No valid data source found (neither segment nor datafile)"
+      );
+    }
+  }
+}
+
+if (!Array.isArray(contacts) || contacts.length === 0) {
+  console.error("No contacts to process");
+  setIsProcessing(false);
+  setIsPitchUpdateCompleted(true);
+  setIsPaused(true);
+  return;
+}
+
+
+
 
       // Process all contacts
       for (let i = currentIndex; i < contacts.length; i++) {
@@ -3091,11 +3111,8 @@ const MainPage: React.FC = () => {
     }
   };
 
-  const handleStart = async (startIndex?: number) => {
+const handleStart = async (startIndex?: number) => {
     if (!selectedPrompt) return;
-
-    // Use the passed startIndex or current index, don't clear all data
-    const indexToStart = startIndex !== undefined ? startIndex : currentIndex;
 
     setAllRecordsProcessed(false);
     setIsStarted(true);
@@ -3104,10 +3121,10 @@ const MainPage: React.FC = () => {
     stopRef.current = false;
 
     goToTab("Output", {
-      startFromIndex: indexToStart,
-      useCachedData: true,
+      startFromIndex: 0,
+      useCachedData: false, // We're not using cached data anymore
     });
-  };
+};
 
   const handleStop = async () => {
     if (isProcessing) {
@@ -4488,6 +4505,8 @@ const MainPage: React.FC = () => {
                 fetchToneSettings={fetchToneSettings}
                 saveToneSettings={saveToneSettings}
                 handleSubjectTextChange={handleSubjectTextChange}
+                onFilteredContactsChange={updateFilteredContacts}
+
               />
             )}
 

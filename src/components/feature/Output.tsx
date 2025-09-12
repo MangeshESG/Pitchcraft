@@ -154,6 +154,7 @@ interface OutputInterface {
   saveToneSettings?: () => Promise<boolean>;
   selectedSegmentId?: number | null; // Add this
   handleSubjectTextChange?: (value: string) => void; // Add this
+  onFilteredContactsChange?: (contacts: any[]) => void;
 
 
 
@@ -231,7 +232,8 @@ const Output: React.FC<OutputInterface> = ({
   fetchToneSettings,
   saveToneSettings,
   selectedSegmentId,
-  handleSubjectTextChange,  
+  handleSubjectTextChange,
+  onFilteredContactsChange,  
 
 
 }) => {
@@ -354,28 +356,39 @@ const Output: React.FC<OutputInterface> = ({
 
   const [combinedResponses, setCombinedResponses] = useState<any[]>([]);
 
-  useEffect(() => {
-    // Keep currentIndex as is when new responses are added
-    if (
-      currentIndex >= combinedResponses.length &&
-      combinedResponses.length > 0
-    ) {
-      setCurrentIndex(Math.max(0, combinedResponses.length - 1));
-    }
-  }, [allResponses, currentIndex, setCurrentIndex, combinedResponses.length]);
-
-  useEffect(() => {
-    // Prioritize allResponses, then add unique existingResponses
-    let newCombinedResponses = [...allResponses]; // Start with fresh responses
-
-    existingResponse.forEach((existing) => {
-      if (!newCombinedResponses.find((nr) => nr.id === existing.id)) {
-        newCombinedResponses.push(existing);
+useEffect(() => {
+  // Only check when combinedResponses changes, not when currentIndex changes
+  if (combinedResponses.length > 0) {
+    setCurrentIndex(prevIndex => {
+      if (prevIndex >= combinedResponses.length) {
+        return combinedResponses.length - 1;
       }
+      return prevIndex;
     });
+  }
+}, [combinedResponses.length, setCurrentIndex]);
 
-    setCombinedResponses(newCombinedResponses);
-  }, [allResponses, existingResponse]);
+// Update the useEffect that sets combinedResponses to also store the original
+// In the second useEffect that notifies parent of initial data
+// Replace this:
+useEffect(() => {
+  let newCombinedResponses = [...allResponses];
+
+  existingResponse.forEach((existing) => {
+    if (!newCombinedResponses.find((nr) => nr.id === existing.id)) {
+      newCombinedResponses.push(existing);
+    }
+  });
+
+  setCombinedResponses(newCombinedResponses);
+  setOriginalCombinedResponses(newCombinedResponses);
+  
+  // Remove the setTimeout
+  if (onFilteredContactsChange) {
+    onFilteredContactsChange(newCombinedResponses);
+  }
+  
+}, [allResponses, existingResponse]);
 
   const [jumpToNewLast, setJumpToNewLast] = useState(false);
   const prevCountRef = useRef(combinedResponses.length);
@@ -1283,10 +1296,12 @@ useEffect(() => {
 }, [allResponses, existingResponse]);
 
 // Add this useEffect to apply filters whenever they change
+// Add this useEffect to apply filters whenever they change
 useEffect(() => {
   if (!dateFilter.kraftedDateEnabled && !dateFilter.sentDateEnabled) {
-    // No filters active, restore original data
     setCombinedResponses(originalCombinedResponses);
+    onFilteredContactsChange?.(originalCombinedResponses);
+    console.log("No filters active, total contacts:", originalCombinedResponses.length);
     return;
   }
 
@@ -1339,15 +1354,35 @@ useEffect(() => {
 
     return passedFilter;
   });
-
-  setCombinedResponses(filtered);
+ setCombinedResponses(filtered);
+  onFilteredContactsChange?.(filtered);
   
-  // Reset current index if it's out of bounds
+  console.log("Filtered contacts:", filtered.length, "Current index:", currentIndex);
+  if (filtered[currentIndex]) {
+    console.log("Current filtered contact:", filtered[currentIndex].name, "ID:", filtered[currentIndex].id);
+  }
+  
   if (currentIndex >= filtered.length && filtered.length > 0) {
     setCurrentIndex(0);
   }
-}, [dateFilter, originalCombinedResponses, currentIndex, setCurrentIndex]);
+}, [dateFilter, originalCombinedResponses]); // ADD onFilteredContactsChange to dependencies
 
+
+// Add this new useEffect after your filter useEffect:
+useEffect(() => {
+  // This runs only when combinedResponses length changes
+  if (combinedResponses.length === 0) return;
+  
+  // Get current stored index
+  const storedIndex = sessionStorage.getItem("currentIndex");
+  if (storedIndex) {
+    const index = parseInt(storedIndex, 10);
+    if (index >= combinedResponses.length) {
+      setCurrentIndex(0);
+      sessionStorage.setItem("currentIndex", "0");
+    }
+  }
+}, [combinedResponses.length, setCurrentIndex]);
   return (
     <div className="login-box gap-down">
       {/* Add the selection dropdowns and subject line section */}
@@ -1397,17 +1432,52 @@ useEffect(() => {
                     <div className="flex items-center gap-4 mt-[26px]">
                       <div className="flex">
                         {isResetEnabled ? (
-                          <button
-                            className="primary-button bg-[#3f9f42]"
-                            onClick={() => handleStart?.(currentIndex)}
-                            disabled={
-                              (!selectedPrompt?.name || !selectedZohoviewId) &&
-                              !selectedCampaign
+// In Output.tsx, update the button click handler:
+                        <button
+                          className="primary-button bg-[#3f9f42]"
+                          onClick={() => {
+                            // Get all contacts starting from current index (already filtered if filters are active)
+                            const contactsToProcess = combinedResponses.slice(currentIndex);
+                            
+                            // Map the fields to match what goToTab expects
+                            const mappedContacts = contactsToProcess.map(contact => ({
+                              ...contact,
+                              // Map Output fields to goToTab expected fields
+                              full_name: contact.name || contact.full_name,
+                              job_title: contact.title || contact.job_title,
+                              company_name: contact.company || contact.company_name,
+                              country_or_address: contact.location || contact.country_or_address,
+                              linkedin_url: contact.linkedin || contact.linkedin_url,
+                              email_body: contact.pitch || contact.email_body,
+                              email_subject: contact.subject || contact.email_subject,
+                              updated_at: contact.lastemailupdateddate || contact.updated_at,
+                              email_sent_at: contact.emailsentdate || contact.email_sent_at,
+                              // Keep original fields too for backward compatibility
+                              name: contact.name,
+                              title: contact.title,
+                              company: contact.company,
+                              location: contact.location,
+                              linkedin: contact.linkedin,
+                              pitch: contact.pitch,
+                              subject: contact.subject,
+                            }));
+                            
+                            if (mappedContacts.length > 0) {
+                              // Store the mapped contact data
+                              sessionStorage.setItem('contactsToProcess', JSON.stringify(mappedContacts));
+                              console.log("Processing contacts:", mappedContacts.length, "starting from:", mappedContacts[0]?.name);
                             }
-                            title={`Click to generate hyper-personalized emails starting from contact ${currentIndex + 1}`}
-                          >
-                            Generate
-                          </button>
+                            
+                            handleStart?.(currentIndex);
+                          }}
+                          disabled={
+                            (!selectedPrompt?.name || !selectedZohoviewId) &&
+                            !selectedCampaign
+                          }
+                          title={`Click to generate hyper-personalized emails starting from contact ${currentIndex + 1}`}
+                        >
+                          Generate
+                        </button>
                         ) : (
                           <button
                             className="primary-button bg-[#3f9f42]"
