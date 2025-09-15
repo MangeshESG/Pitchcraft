@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import "./LoginPage.css";
 import { useDispatch } from "react-redux";
 import {
   saveUserId,
@@ -12,380 +11,613 @@ import {
   saveLoginDeviceInfo,
 } from "../slices/authSLice";
 import API_BASE_URL from "../config";
+import "./LoginPage.css";
 
-const LoginPage: React.FC = () => {
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [loader, setLoader] = useState(false);
+type ViewMode = "login" | "register" | "forgot" | "otp";
+
+interface ViewProps {
+  setView: React.Dispatch<React.SetStateAction<ViewMode>>;
+}
+
+// Cookie helper functions
+const setCookie = (name: string, value: string, days: number) => {
+  const expires = new Date();
+  expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+  document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/`;
+};
+
+const getCookie = (name: string): string | null => {
+  const nameEQ = name + "=";
+  const ca = document.cookie.split(';');
+  for (let i = 0; i < ca.length; i++) {
+    let c = ca[i];
+    while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+    if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+  }
+  return null;
+};
+
+/* ---------------- LOGIN FORM ---------------- */
+const LoginForm: React.FC<ViewProps> = ({ setView }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [trustThisDevice, setTrustThisDevice] = useState(false);
+  const [error, setError] = useState("");
 
-  // Function to get browser information
-  const getBrowserInfo = () => {
-    const userAgent = navigator.userAgent;
-    let browserName = "Unknown";
-    let browserVersion = "Unknown";
-    if (userAgent.indexOf("Chrome") > -1) {
-      browserName = "Chrome";
-      const chromeVersion = userAgent.match(/Chrome\/(\d+)/);
-      if (chromeVersion) browserVersion = chromeVersion[1];
-    }
-    // Detect Firefox
-    else if (userAgent.indexOf("Firefox") > -1) {
-      browserName = "Firefox";
-      const firefoxVersion = userAgent.match(/Firefox\/(\d+)/);
-      if (firefoxVersion) browserVersion = firefoxVersion[1];
-    }
-    // Detect Safari
-    else if (userAgent.indexOf("Safari") > -1) {
-      browserName = "Safari";
-      const safariVersion = userAgent.match(/Version\/(\d+)/);
-      if (safariVersion) browserVersion = safariVersion[1];
-    }
-    // Detect Edge
-    else if (userAgent.indexOf("Edg") > -1) {
-      browserName = "Edge";
-      const edgeVersion = userAgent.match(/Edg\/(\d+)/);
-      if (edgeVersion) browserVersion = edgeVersion[1];
-    }
-    // Detect IE
-    else if (
-      userAgent.indexOf("MSIE") > -1 ||
-      userAgent.indexOf("Trident/") > -1
-    ) {
-      browserName = "Internet Explorer";
-      const ieVersion = userAgent.match(/(?:MSIE |rv:)(\d+)/);
-      if (ieVersion) browserVersion = ieVersion[1];
-    }
-
-    return { browserName, browserVersion };
-  };
-
-  // Helper functions
-  const formatDate = (date: Date) => {
-    // Example: 2024-06-13
-    return date.toISOString().split("T")[0];
-  };
-
-  const formatTime = (date: Date) => {
-    // Example: 14:23:45 GMT
-    return date.toISOString().split("T")[1].split(".")[0] + " GMT";
-  };
-
-  const sendLoginNotificationEmail = async (
-    clientName: string,
-    companyName: string
-  ) => {
+  // Helper function to decode JWT token
+  const getUserIdFromToken = (token: string) => {
     try {
-      const now = new Date();
-      const { browserName, browserVersion } = getBrowserInfo();
-
-      // Get IP address (this will be done server-side for accuracy)
-      let ipAddress = "Unavailable";
-      try {
-        const ipResponse = await fetch("https://api.ipify.org?format=json");
-        if (ipResponse.ok) {
-          const ipData = await ipResponse.json();
-          ipAddress = ipData.ip;
-        }
-      } catch (error) {
-        console.error("Error fetching IP address:", error);
-      }
-
-      // Prepare IP link
-      const ipLink =
-        ipAddress !== "Unavailable"
-          ? `<a href="https://whatismyipaddress.com/ip/${ipAddress}" target="_blank">${ipAddress}</a>`
-          : ipAddress;
-
-      const emailData = {
-        To: "info@groupji.co, rushikeshg@groupji.co", //
-        Subject: `Login Activity - ${clientName}`,
-        Body: `
-        <html>
-        <head>
-            <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    line-height: 1.6;
-                    color: #333;
-                }
-                .container {
-                    max-width: 600px;
-                    margin: 0 auto;
-                }
-                .header {
-                    font-size: 18px;
-                    margin-bottom: 20px;
-                }
-                ul {
-                    list-style-type: none;
-                    padding-left: 10px;
-                }
-                li {
-                    margin-bottom: 8px;
-                }
-                .section {
-                    margin-top: 20px;
-                    margin-bottom: 20px;
-                }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <p class="header">Hello,</p>
-                
-                  <p>Below are the login activity details on pitch generator (<a href="https://pitch.dataji.co/">https://pitch.dataji.co/</a>) site:</p>
-
-                <ul>
-                    <li> Client name: ${clientName}</li>
-                    <li> Company name: ${companyName}</li>
-                </ul>
-                
-                <div class="section">
-                    <ul>
-                        <li> Login date: ${formatDate(now)}</li>
-                        <li> Login time: ${formatTime(now)}</li>
-                    </ul>
-                </div>
-                
-                <p>The client was logged on the following machine:</p>
-                <ul>
-                    <li> IP address: ${ipLink}</li>
-                </ul>
-                
-                <p>The browser used to login was:</p>
-                <ul>
-                    <li> Browser: ${browserName}</li>
-                    <li> Browser version: ${browserVersion}</li>
-                </ul>
-            </div>
-        </body>
-        </html>
-      `,
-      };
-
-      const response = await fetch(`${API_BASE_URL}/api/auth/sendemail`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(emailData),
-      });
-
-      if (!response.ok) {
-        console.error("Failed to send login notification email");
-      } else {
-        console.log("Login notification email sent successfully");
-      }
+      const payloadBase64 = token.split(".")[1];
+      const payloadJson = atob(payloadBase64);
+      const payload = JSON.parse(payloadJson);
+      return payload.UserId;
     } catch (error) {
-      console.error("Error sending login notification email:", error);
+      console.error("Error decoding token:", error);
+      return null;
     }
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const getUserRoleFromToken = (token: string) => {
+    try {
+      const payloadBase64 = token.split(".")[1];
+      const payloadJson = atob(payloadBase64);
+      const payload = JSON.parse(payloadJson);
+      return payload.UserRole;
+    } catch (error) {
+      console.error("Error decoding token:", error);
+      return null;
+    }
+  };
+
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
-    setLoader(true);
-    debugger;
+    
     try {
-      // Special handling for the demo password
-      const isDemoLogin = password.toLowerCase() === "pitchcraft123";
-
-      // For demo login, we'll send a special username and the "real" password
-      const loginUsername = isDemoLogin ? "Acme" : username;
-      const loginPassword = isDemoLogin ? "Ace2025%" : password;
-      // Call the existing login endpoint
-      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      const trustedDeviceNumber = getCookie("trustedDeviceNumber");
+      
+      const response = await fetch(`${API_BASE_URL}/api/login/login`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({
-          username: loginUsername,
-          password: loginPassword,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          username, 
+          password, 
+          trustednumber: trustedDeviceNumber ? parseInt(trustedDeviceNumber) : null 
         }),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        const token = data.token;
-        const clientID = data.clientID;
-        const IsAdmin = data.isadmin;
-        const IsDemoAccount = data.isDemoAccount || isDemoLogin; // Set demo flag if using demo password
-        const FirstName = isDemoLogin ? "John" : data.firstName;
-        const LastName = isDemoLogin ? "Doe" : data.lastName;
-        const companyName = data.companyName || "Acme Corporation";
-
-        // In demo mode, we use the original entered username for tracking
-        const clientName = isDemoLogin
-          ? username // Use what the user actually entered
-          : [FirstName, LastName].filter(Boolean).join(" ") || username;
-
-        sessionStorage.setItem("clientId", clientID);
-        sessionStorage.setItem("isAdmin", IsAdmin);
-        sessionStorage.setItem("isDemoAccount", String(IsDemoAccount));
-
-        if (token) {
-          dispatch(setToken(token));
-          // In demo mode, we still save the original username for tracking
-          // This helps identify who used the demo login
-          dispatch(saveUserName(isDemoLogin ? username : loginUsername));
-
-          // For display purposes, we might want John Doe:
-          if (FirstName) {
-            dispatch(saveFirstName(FirstName));
-          }
-          if (LastName) {
-            dispatch(saveLastName(LastName));
-          }
-
-          const getUserIdFromToken = (token: string) => {
-            try {
-              const payloadBase64 = token.split(".")[1];
-              const payloadJson = atob(payloadBase64);
-              const payload = JSON.parse(payloadJson);
-              return payload.UserId;
-            } catch (error) {
-              console.error("Error decoding token:", error);
-              return null;
-            }
-          };
-
-          const getUserRoleFromToken = (token: string) => {
-            try {
-              const payloadBase64 = token.split(".")[1];
-              const payloadJson = atob(payloadBase64);
-              const payload = JSON.parse(payloadJson);
-              return payload.UserRole;
-            } catch (error) {
-              console.error("Error decoding token:", error);
-              return null;
-            }
-          };
-
-          const userId = getUserIdFromToken(token);
-          const userRole = getUserRoleFromToken(token);
-
-          if (userId) {
-            dispatch(saveUserId(userId));
-            dispatch(saveUserRole(userRole || "ADMIN"));
-
-            const { browserName, browserVersion } = getBrowserInfo();
-
-            let ipAddress = "Unavailable";
-            try {
-              const ipResponse = await fetch(
-                "https://api.ipify.org?format=json"
-              );
-              if (ipResponse.ok) {
-                const ipData = await ipResponse.json();
-                ipAddress = ipData.ip;
-              }
-            } catch (error) {
-              // Optionally log error
-            }
-
-            dispatch(
-              saveLoginDeviceInfo({
-                ipAddress,
-                browserName,
-                browserVersion,
-              })
-            );
-
-            // Special handling for email if this was a demo login
-            if (isDemoLogin) {
-              // Add "DEMO LOGIN" to the subject to make it clear
-              await sendLoginNotificationEmail(
-                `DEMO Client: ${username}`, // Make it clear this was demo login with the entered username
-                companyName
-              );
-            } else {
-              await sendLoginNotificationEmail(clientName, companyName);
-            }
-
-            navigate("/main");
-          } else {
-            console.error("User ID not found in token.");
-            setError(
-              "Login successful, but user ID could not be retrieved. Please try again."
-            );
-          }
-        } else {
-          setError("Username or Password is incorrect.");
-        }
-      } else {
-        setError("Username or Password is incorrect.");
+      let data: any;
+      try {
+        data = await response.json();
+      } catch {
+        data = {};
       }
-    } catch (error) {
-      setError("Username or Password is incorrect.");
-    } finally {
-      setLoader(false);
+
+      // Direct login with trusted device
+      if (response.ok && data.token) {
+        // Store token using Redux
+        dispatch(setToken(data.token));
+        
+        // Extract user info from token
+        const userId = getUserIdFromToken(data.token);
+        const userRole = getUserRoleFromToken(data.token);
+        
+        // Store user info in Redux
+        dispatch(saveUserName(username));
+        if (userId) dispatch(saveUserId(userId));
+        if (userRole) dispatch(saveUserRole(userRole));
+        
+        // Store in sessionStorage for backward compatibility
+        sessionStorage.setItem("clientId", data.clientID || "");
+        sessionStorage.setItem("isAdmin", data.isadmin || "false");
+        sessionStorage.setItem("isDemoAccount", data.isDemoAccount || "false");
+        
+        // Store first and last name if available
+        if (data.firstName) dispatch(saveFirstName(data.firstName));
+        if (data.lastName) dispatch(saveLastName(data.lastName));
+        
+        navigate("/main");
+        return;
+      } 
+      // OTP required
+      else if (response.ok && (data.success || data.message?.toLowerCase().includes("otp"))) {
+        localStorage.setItem("loginUser", username);
+        localStorage.setItem("trustThisDevice", trustThisDevice ? "true" : "false");
+        setView("otp");
+      } 
+      else {
+        setError(data.message || "Invalid login credentials.");
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("Server error. Please try again later.");
     }
   };
 
-  useEffect(() => {
-    return () => {
-      setLoader(false);
-    };
-  }, []);
+  return (
+    <div>
+      <h2>Login to Pitchcraft</h2>
+      <form onSubmit={handleLogin}>
+        <label>User name</label>
+        <input
+          type="text"
+          placeholder="Username"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          required
+        />
+        <label>Password</label>
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+
+        <div style={{ margin: "10px 0" }}>
+          <label>
+            <input
+              type="checkbox"
+              checked={trustThisDevice}
+              onChange={(e) => setTrustThisDevice(e.target.checked)}
+            />{" "}
+            Trust this device (Don't ask for OTP for 30 days)
+          </label>
+        </div>
+
+        <button type="submit" className="login-button">Log in</button>
+      </form>
+      {error && <div className="error-message">{error}</div>}
+      <div className="register-link">
+        <a onClick={() => setView("forgot")}>Forgot password?</a> |{" "}
+        <a onClick={() => setView("register")}>Create account</a>
+      </div>
+    </div>
+  );
+};
+
+/* ---------------- REGISTER FORM ---------------- */
+const RegisterForm: React.FC<ViewProps> = ({ setView }) => {
+  const [form, setForm] = useState({
+    firstName: "",
+    lastName: "",
+    username: "",
+    email: "",
+    password: "",
+    companyName: "",
+    jobTitle: ""
+  });
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setMessage("");
+    setError("");
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/login/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+
+      let data;
+      try {
+        const text = await response.text();
+        data = text ? { message: text } : { message: "Success" };
+      } catch {
+        data = { message: "Registration successful" };
+      }
+
+      if (response.ok) {
+        // Store registration details for auto-login after OTP
+        localStorage.setItem("registerEmail", form.email);
+        localStorage.setItem("registerUsername", form.username);
+        localStorage.setItem("registerPassword", form.password); // Store temporarily for auto-login
+        setMessage("OTP sent to your email!");
+        setTimeout(() => setView("otp"), 2000);
+      } else {
+        setError(data?.message || "Registration failed.");
+      }
+    } catch (err) {
+      console.error("Registration error:", err);
+      setError("Server error: " + (err as Error).message);
+    }
+  };
 
   return (
-    <div className="login-container page d-flex flex-col">
-      <h1 className="text-[24px] text-white mb-4">Login to PitchKraft</h1>
-      <div className="login-box mb-10">
-        <form onSubmit={handleLogin}>
-          {" "}
-          {/* Use onSubmit directly */}
-          <div className="form-group">
-            <label>User name</label>
-            <input
-              type="text"
-              placeholder="Email address"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-            />
-          </div>
-          <div className="form-group">
-            <label>Password</label>
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-          <div className="form-group mb-0">
-            <button
-              type="submit"
-              className="button save-button d-flex justify-center"
-            >
-              {loader && (
-                <svg
-                  className={`${loader && "spin"}`}
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="#ffffff"
-                  height="20px"
-                  width="20px"
-                  version="1.1"
-                  id="Capa_1"
-                  viewBox="0 0 491.236 491.236"
-                >
-                  <g>
-                    <g>
-                      <path d="M55.89,262.818c-3-26-0.5-51.1,6.3-74.3c22.6-77.1,93.5-133.8,177.6-134.8v-50.4c0-2.8,3.5-4.3,5.8-2.6l103.7,76.2    c1.7,1.3,1.7,3.9,0,5.1l-103.6,76.2c-2.4,1.7-5.8,0.2-5.8-2.6v-50.3c-55.3,0.9-102.5,35-122.8,83.2c-7.7,18.2-11.6,38.3-10.5,59.4    c1.5,29,12.4,55.7,29.6,77.3c9.2,11.5,7,28.3-4.9,37c-11.3,8.3-27.1,6-35.8-5C74.19,330.618,59.99,298.218,55.89,262.818z     M355.29,166.018c17.3,21.5,28.2,48.3,29.6,77.3c1.1,21.2-2.9,41.3-10.5,59.4c-20.3,48.2-67.5,82.4-122.8,83.2v-50.3    c0-2.8-3.5-4.3-5.8-2.6l-103.7,76.2c-1.7,1.3-1.7,3.9,0,5.1l103.6,76.2c2.4,1.7,5.8,0.2,5.8-2.6v-50.4    c84.1-0.9,155.1-57.6,177.6-134.8c6.8-23.2,9.2-48.3,6.3-74.3c-4-35.4-18.2-67.8-39.5-94.4c-8.8-11-24.5-13.3-35.8-5    C348.29,137.718,346.09,154.518,355.29,166.018z" />
-                    </g>
-                  </g>
-                </svg>
-              )}
-              <span className="ml-5">Log in</span>
-            </button>
-          </div>
-        </form>
+    <div>
+      <h2>Create Account</h2>
+      <form onSubmit={handleRegister}>
+        <input 
+          placeholder="First Name" 
+          required 
+          value={form.firstName}
+          onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+        />
+        <input 
+          placeholder="Last Name" 
+          required 
+          value={form.lastName}
+          onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+        />
+        <input 
+          placeholder="Username" 
+          required 
+          value={form.username}
+          onChange={(e) => setForm({ ...form, username: e.target.value })}
+        />
+        <input 
+          type="email" 
+          placeholder="Email" 
+          required 
+          value={form.email}
+          onChange={(e) => setForm({ ...form, email: e.target.value })}
+        />
+        <input 
+          type="password" 
+          placeholder="Password" 
+          required 
+          value={form.password}
+          onChange={(e) => setForm({ ...form, password: e.target.value })}
+        />
+        <input 
+          placeholder="Company Name" 
+          value={form.companyName}
+          onChange={(e) => setForm({ ...form, companyName: e.target.value })}
+        />
+        <input 
+          placeholder="Job Title" 
+          value={form.jobTitle}
+          onChange={(e) => setForm({ ...form, jobTitle: e.target.value })}
+        />
+        <button type="submit" className="register-button">Register</button>
+      </form>
+      {message && <div className="success-message">{message}</div>}
+      {error && <div className="error-message">{error}</div>}
+      <div className="register-link">
+        <a onClick={() => setView("login")}>Back to Login</a>
       </div>
-      {error && <div className="alert alert-danger error-message">{error}</div>}
+    </div>
+  );
+};
+
+/* ---------------- FORGOT PASSWORD FORM ---------------- */
+const ForgotPasswordForm: React.FC<ViewProps> = ({ setView }) => {
+  const [email, setEmail] = useState("");
+  const [msg, setMsg] = useState("");
+  const [error, setError] = useState("");
+
+  const handleSendOtp = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setMsg("");
+    setError("");
+    
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/login/restpass_send-otp?email=${email}`,
+        { method: "POST" }
+      );
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        localStorage.setItem("resetEmail", email);
+        setMsg("OTP sent! Check your inbox.");
+        setTimeout(() => setView("otp"), 2000);
+      } else {
+        setError(data.message || "Error sending OTP.");
+      }
+    } catch {
+      setError("Server error.");
+    }
+  };
+
+   return (
+    <div>
+      <h2>Reset Password</h2>
+      <form onSubmit={handleSendOtp}>
+        <input 
+          type="email" 
+          value={email} 
+          placeholder="Enter your email" 
+          required 
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <button type="submit" className="login-button">Send OTP</button>
+      </form>
+      {msg && <div className="success-message">{msg}</div>}
+      {error && <div className="error-message">{error}</div>}
+      <div className="register-link">
+        <a onClick={() => setView("login")}>Back to Login</a>
+      </div>
+    </div>
+  );
+};
+
+/* ---------------- OTP VERIFICATION ---------------- */
+const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const [otp, setOtp] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [msg, setMsg] = useState("");
+  const [error, setError] = useState("");
+
+  const registerEmail = localStorage.getItem("registerEmail");
+  const registerUsername = localStorage.getItem("registerUsername");
+  const registerPassword = localStorage.getItem("registerPassword");
+  const resetEmail = localStorage.getItem("resetEmail");
+  const loginUser = localStorage.getItem("loginUser");
+  const trustThisDevice = localStorage.getItem("trustThisDevice") === "true";
+
+  // Helper functions
+   // Helper functions
+  const getUserIdFromToken = (token: string) => {
+    try {
+      const payloadBase64 = token.split(".")[1];
+      const payloadJson = atob(payloadBase64);
+      const payload = JSON.parse(payloadJson);
+      return payload.UserId;
+    } catch (error) {
+      console.error("Error decoding token:", error);
+      return null;
+    }
+  };
+
+  const getUserRoleFromToken = (token: string) => {
+    try {
+      const payloadBase64 = token.split(".")[1];
+      const payloadJson = atob(payloadBase64);
+      const payload = JSON.parse(payloadJson);
+      return payload.UserRole;
+    } catch (error) {
+      console.error("Error decoding token:", error);
+      return null;
+    }
+  };
+
+  // Auto-login function after registration
+  const autoLoginAfterRegistration = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/login/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          username: registerUsername, 
+          password: registerPassword,
+          trustednumber: null 
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (response.ok && data.token) {
+        // Store token using Redux
+        dispatch(setToken(data.token));
+        
+        // Extract user info from token
+        const userId = getUserIdFromToken(data.token);
+        const userRole = getUserRoleFromToken(data.token);
+        
+        // Store user info in Redux
+        dispatch(saveUserName(registerUsername || ""));
+        if (userId) dispatch(saveUserId(userId));
+        if (userRole) dispatch(saveUserRole(userRole));
+        
+        // Store in sessionStorage
+        sessionStorage.setItem("clientId", data.clientID || "");
+        sessionStorage.setItem("isAdmin", data.isadmin || "false");
+        sessionStorage.setItem("isDemoAccount", data.isDemoAccount || "false");
+        
+        // Store first and last name if available
+        if (data.firstName) dispatch(saveFirstName(data.firstName));
+        if (data.lastName) dispatch(saveLastName(data.lastName));
+        
+        // Clean up temporary storage
+        localStorage.removeItem("registerEmail");
+        localStorage.removeItem("registerUsername");
+        localStorage.removeItem("registerPassword");
+        
+        navigate("/main");
+      } else if (response.ok && data.success) {
+        // If OTP is required even after registration
+        if (registerUsername) {
+          localStorage.setItem("loginUser", registerUsername);
+        }
+        localStorage.removeItem("registerEmail");
+        localStorage.removeItem("registerPassword");
+        setMsg("Please enter OTP to complete login.");
+      } else {
+        // If auto-login fails, redirect to login page
+        setMsg("Registration successful! Please log in.");
+        setTimeout(() => setView("login"), 2000);
+      }
+    } catch (err) {
+      console.error("Auto-login error:", err);
+      setMsg("Registration successful! Please log in.");
+      setTimeout(() => setView("login"), 2000);
+    }
+  };
+
+  const handleVerify = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setMsg("");
+    setError("");
+    
+    try {
+      // Registration OTP verification
+      if (registerEmail) {
+        const response = await fetch(`${API_BASE_URL}/api/login/registration-verify-otp`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: registerEmail, otp }),
+        });
+        
+        const contentType = response.headers.get("content-type");
+        let data: any = {};
+        
+        if (contentType && contentType.includes("application/json")) {
+          data = await response.json();
+        } else {
+          data = { message: await response.text() || "Success" };
+        }
+        
+        if (response.ok) {
+          setMsg("Registration successful! Logging you in...");
+          setTimeout(() => autoLoginAfterRegistration(), 500);
+        } else {
+          setError(data.message || "Invalid or expired OTP.");
+        }
+      } 
+      // Password reset OTP verification
+      else if (resetEmail) {
+        const res = await fetch(
+          `${API_BASE_URL}/api/login/verify-otp-and-reset-password?Email=${resetEmail}&Otp=${otp}&NewPassword=${newPassword}`,
+          { method: "POST" }
+        );
+        
+        const contentType = res.headers.get("content-type");
+        let data: any = {};
+        
+        if (contentType && contentType.includes("application/json")) {
+          data = await res.json();
+        }
+        
+        if (res.ok) {
+          setMsg("Password reset successful! Please log in with your new password.");
+          localStorage.removeItem("resetEmail");
+          setTimeout(() => setView("login"), 2000);
+        } else {
+          setError(data.message || "OTP invalid or expired.");
+        }
+      } 
+      // Login OTP verification (with trust device)
+      else if (loginUser) {
+        const res = await fetch(
+          `${API_BASE_URL}/api/login/verify_trust_otp?username=${loginUser}&otp=${otp}&trustthisdivice=${trustThisDevice}`,
+          { method: "POST" }
+        );
+        
+        const contentType = res.headers.get("content-type");
+        let data: any = {};
+        
+        if (contentType && contentType.includes("application/json")) {
+          data = await res.json();
+        }
+        
+        if (res.ok && data.token) {
+          // Store token using Redux
+          dispatch(setToken(data.token));
+          
+          // Extract user info from token
+          const userId = getUserIdFromToken(data.token);
+          const userRole = getUserRoleFromToken(data.token);
+          
+          // Store user info in Redux
+          dispatch(saveUserName(loginUser));
+          if (userId) dispatch(saveUserId(userId));
+          if (userRole) dispatch(saveUserRole(userRole));
+          
+          // Store in sessionStorage
+          sessionStorage.setItem("clientId", data.clientID || "");
+          sessionStorage.setItem("isAdmin", data.isadmin || "false");
+          sessionStorage.setItem("isDemoAccount", data.isDemoAccount || "false");
+          
+          // Store first and last name if available
+          if (data.firstName) dispatch(saveFirstName(data.firstName));
+          if (data.lastName) dispatch(saveLastName(data.lastName));
+          
+          // If user chose to trust device and backend returned trust number, store in cookie
+          if (trustThisDevice && data.trustenumber) {
+            setCookie("trustedDeviceNumber", data.trustenumber.toString(), 30);
+          }
+          
+          // Clean up localStorage
+          localStorage.removeItem("loginUser");
+          localStorage.removeItem("trustThisDevice");
+          
+          // Navigate to main page
+          navigate("/main");
+        } else {
+          setError(data.message || "Invalid OTP");
+        }
+      }
+    } catch (err) {
+      console.error("OTP verification error:", err);
+      setError("An error occurred while verifying OTP. Please try again.");
+    }
+  };
+
+  return (
+    <div>
+      <h2>Enter OTP</h2>
+      <p style={{ fontSize: "14px", color: "#666", marginBottom: "20px" }}>
+        {registerEmail && "Please enter the OTP sent to your email to complete registration."}
+        {resetEmail && "Please enter the OTP and your new password."}
+        {loginUser && "Please enter the OTP sent to your email to complete login."}
+      </p>
+      
+      <form onSubmit={handleVerify}>
+        <input
+          type="text"
+          value={otp}
+          placeholder="Enter OTP"
+          required
+          onChange={(e) => setOtp(e.target.value)}
+          maxLength={6}
+        />
+        
+        {resetEmail && (
+          <input
+            type="password"
+            value={newPassword}
+            placeholder="New Password"
+            required
+            onChange={(e) => setNewPassword(e.target.value)}
+          />
+        )}
+        
+        <button type="submit" className="login-button">Verify OTP</button>
+      </form>
+      
+      {msg && <div className="success-message">{msg}</div>}
+      {error && <div className="error-message">{error}</div>}
+      
+      <div className="register-link">
+        <a onClick={() => {
+          // Clear any stored data when going back
+          localStorage.removeItem("registerEmail");
+          localStorage.removeItem("registerUsername");
+          localStorage.removeItem("registerPassword");
+          localStorage.removeItem("resetEmail");
+          localStorage.removeItem("loginUser");
+          localStorage.removeItem("trustThisDevice");
+          setView("login");
+        }}>
+          Back to Login
+        </a>
+      </div>
+    </div>
+  );
+};
+
+/* ---------------- MAIN LOGIN PAGE COMPONENT ---------------- */
+const LoginPage: React.FC = () => {
+  const [view, setView] = useState<ViewMode>("login");
+
+  return (
+    <div className="page login-container">
+      <div className="login-box">
+        {view === "login" && <LoginForm setView={setView} />}
+        {view === "register" && <RegisterForm setView={setView} />}
+        {view === "forgot" && <ForgotPasswordForm setView={setView} />}
+        {view === "otp" && <OtpVerification setView={setView} />}
+      </div>
     </div>
   );
 };

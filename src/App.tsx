@@ -1,6 +1,8 @@
 import React, { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import LoginPage from "./components/LoginPage";
+import RegistrationPage from "./components/RegistrationPage";
+import ForgotPassword from "./components/ForgotPassword";
 import MainPage from "./components/MainPage";
 import AmendPrompt from "./components/AmendPrompt";
 import { Provider } from "react-redux";
@@ -40,7 +42,8 @@ const App: React.FC = () => {
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<LoginPage />} />
-
+              <Route path="/register" element={<RegistrationPage />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route element={<ProtectedRoute />}>
                 <Route path="/main" element={<MainPage />} />
                 <Route
