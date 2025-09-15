@@ -12,6 +12,7 @@ import { faEnvelope, faFileAlt } from "@fortawesome/free-regular-svg-icons";
 import "./MainPage.css";
 import Modal from "./common/Modal";
 import AppModal from "../components/common/AppModal";
+import pitchLogo from '../assets/images/pitch_logo.png';
 
 import { useAppModal } from "../hooks/useAppModal";
 import { useSelector } from "react-redux";
@@ -3433,7 +3434,7 @@ const handleStart = async (startIndex?: number) => {
           <div className="p-2 text-xl font-bold border-b">
             <div className="flex justify-between items-start">
               <img
-                src={"https://www.pitchkraft.ai/images/pitch_logo.png"}
+                src={pitchLogo}
                 alt="Pitchcraft Logo"
                 style={{ height: "100px" }}
               />
