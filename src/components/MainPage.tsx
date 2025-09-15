@@ -4,6 +4,8 @@ import {
   faAngleRight,
   faBars,
   faBullhorn,
+  faDashboard,
+  faEdit,
   faEnvelopeOpen,
   faGear,
   faList,
@@ -35,6 +37,7 @@ import DataCampaigns from "./feature/ContactList"; // Adjust the path based on y
 import CampaignManagement from "./feature/CampaignManagement";
 import { useAppData } from "../contexts/AppDataContext";
 import CampaignPrompt from "./feature/CampaignPrompt";
+import { Dashboard } from "./feature/Dashboard";
 
 
 interface Prompt {
@@ -316,7 +319,7 @@ const MainPage: React.FC = () => {
   } = useSelector((state: RootState) => state.auth);
 
   //submenu
-  const [tab, setTab] = useState<string>("Template");
+  const [tab, setTab] = useState<string>("Dashboard");
   const [mailSubTab, setMailSubTab] = useState<string>("Dashboard");
   const [showMailSubmenu, setShowMailSubmenu] = useState<boolean>(false);
   const [showContactsSubmenu, setShowContactsSubmenu] = useState(false);
@@ -3455,6 +3458,28 @@ const handleStart = async (startIndex?: number) => {
               <div className="side-menu">
                 <div className="side-menu-inner">
                   <ul className="side-menu-list">
+                    <li className={tab === "Dashboard" ? "active" : ""}>
+                      <button
+                        onClick={() => {
+                          setTab("Dashboard");
+                          setShowMailSubmenu(false);
+                          setShowContactsSubmenu(false);
+                        }}
+                        className="side-menu-button"
+                        title="Click to view the original non-personalized email template"
+                      >
+                        <span className="menu-icon">
+                          {/* <FontAwesomeIcon
+                            icon={faDashboard}
+                            className=" text-[#333333] text-lg"
+                          /> */}
+                          <svg xmlns="http://www.w3.org/2000/svg" width="20px" height="20px" viewBox="0 0 24 24" fill={tab === "Dashboard" ? '#3f9f42' : '#111111'}>
+                            <path stroke={tab === "Dashboard" ? '#3f9f42' : '#111111'} stroke-width="2" d="M4 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5ZM14 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V5ZM4 16a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3ZM14 13a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-6Z"/>
+                          </svg>
+                        </span>
+                        <span className="menu-text">Dashboard</span>
+                      </button>
+                    </li>
                     <li className={tab === "Template" ? "active" : ""}>
                       <button
                         onClick={() => {
@@ -3700,7 +3725,7 @@ const handleStart = async (startIndex?: number) => {
                       >
                         <span className="menu-icon">
                           <FontAwesomeIcon
-                            icon={faGear} // or another icon if you like
+                            icon={faEdit} // or another icon if you like
                             className=" text-[#333333] text-lg"
                           />
                         </span>
@@ -3765,9 +3790,19 @@ const handleStart = async (startIndex?: number) => {
         </header>
 
         {/* Inner Main Content */}
-        <main className="flex-1 p-4  overflow-y-auto h-[calc(100%-87px)]">
-          <div className="bg-white rounded-md shadow-md p-6">
+        <main className="flex-1 overflow-y-auto h-[calc(100%-87px)]">
+          <div className={`
+               rounded-md p-6
+              ${tab !== "Dashboard" && 'bg-white p-4 shadow-md'}
+            `}>
             {/* Main Content Area */}
+
+             <div className="tab-content">
+              {tab === "Dashboard" && (
+                <Dashboard/>
+              )
+              }
+              </div>
 
             {/* Tab Content */}
             <div className="tab-content">
