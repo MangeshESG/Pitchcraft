@@ -138,7 +138,7 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
 
   return (
     <div>
-      <h2>Login to Pitchcraft</h2>
+      <h2>Login to PitchKraft</h2>
       <form onSubmit={handleLogin}>
         <label>User name</label>
         <input

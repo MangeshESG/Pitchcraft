@@ -620,7 +620,7 @@ pre span {
 }
 
 .login-box {
-  width: 100%;
+  width: 30%;
 }
 .user-form {
   width: 100%;
@@ -685,7 +685,7 @@ pre span {
 }
 
 .login-box h2 {
-  color: #222222;
+  color: #ffffff;
   text-align: center;
   margin: 0 0 20px;
   font-size: 20px;

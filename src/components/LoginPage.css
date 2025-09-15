@@ -16,6 +16,8 @@
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
   width: 400px;
   animation: fadeIn 0.4s ease-in-out;
+  position: relative;
+  margin-top: 190px;
 }
 
 /* Fade-in animation for smooth UX */
@@ -26,11 +28,17 @@
 
 /* 🌟 Headings */
 .login-box h2 {
-  margin-bottom: 1.5rem;
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #ffffff; /* white text */
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0;
   text-align: center;
-  font-size: 20px;
-  font-weight: bold;
-  color: #4c2d72;
+  background: transparent;
+  z-index: 10; /* makes sure it stays on top */
 }
 
 /* 🌟 Form */
@@ -55,15 +63,15 @@
   font-size: 14px;
 }
 .login-box input:focus {
-  outline: none;
-  border-color: #4c2d72;
-  box-shadow: 0 0 5px rgba(76, 45, 114, 0.3);
+  /* outline: none; */
+  border-color: #333;
+  box-shadow: #333;
 }
 
 /* 🌟 Buttons */
 .login-button,
 .register-button {
-  background: linear-gradient(to right, #d74e89, #4c2d72);
+  background: #3f9f42;;
   color: white;
   font-weight: 600;
   padding: 0.75rem;
@@ -87,7 +95,7 @@
   color: #333;
 }
 .register-link a {
-  color: #d74e89;
+  color: #333;
   font-weight: 600;
   text-decoration: none;
   cursor: pointer;
