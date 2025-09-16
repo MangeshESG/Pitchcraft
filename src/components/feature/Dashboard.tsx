@@ -5,6 +5,8 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import CreateATemplete from '../../assets/images/icons/create-a-template.png';
 import ImportContact from '../../assets/images/icons/import-contact.png';
 import CreateACampaign from '../../assets/images/icons/create-a-campaign.png';
+import GenerateEmail from '../../assets/images/icons/generate-email.png';
+import ScheduleCampaign from '../../assets/images/icons/schedule-campaign.png';
 export const Dashboard: React.FC = () => {
   const [mode, setMode] = useState<"new" | "existing">("new");
 
@@ -177,11 +179,8 @@ export const Dashboard: React.FC = () => {
                     </button>
                   </div>
                   <div className="min-w-[180px] d-flex justify-center items-center">
-                    <div className="w-[100px] h-[100px] flex items-center justify-center bg-[#cfecd6] rounded-full">
-                      <FontAwesomeIcon
-                        icon={faContactCard}
-                        className=" text-[#3f9f42] text-[50px]"
-                      />
+                    <div className="flex items-center justify-center rounded-full">
+                      <img src={GenerateEmail} alt="" className="h-[100px]"></img>
                     </div>
 
                   </div>
@@ -212,11 +211,8 @@ export const Dashboard: React.FC = () => {
                     </button>
                   </div>
                   <div className="min-w-[180px] d-flex justify-center items-center">
-                    <div className="w-[100px] h-[100px] flex items-center justify-center bg-[#cfecd6] rounded-full">
-                      <FontAwesomeIcon
-                        icon={faContactCard}
-                        className=" text-[#3f9f42] text-[50px]"
-                      />
+                    <div className="flex items-center justify-center rounded-full">
+                      <img src={ScheduleCampaign} alt="" className="h-[100px]"></img>
                     </div>
 
                   </div>
