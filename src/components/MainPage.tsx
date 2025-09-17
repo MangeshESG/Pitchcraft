@@ -9,6 +9,8 @@ import {
   faEnvelopeOpen,
   faGear,
   faList,
+  faRobot, // Add this for Campaign Builder
+
 } from "@fortawesome/free-solid-svg-icons";
 import { faEnvelope, faFileAlt } from "@fortawesome/free-regular-svg-icons";
 import "./MainPage.css";
@@ -38,8 +40,7 @@ import CampaignManagement from "./feature/CampaignManagement";
 import { useAppData } from "../contexts/AppDataContext";
 import CampaignPrompt from "./feature/CampaignPrompt";
 import { Dashboard } from "./feature/Dashboard";
-
-
+import EmailCampaignBuilder from"./feature/EmailCampaignBuilder";
 interface Prompt {
   id: number;
   name: string;
@@ -3733,6 +3734,27 @@ const handleStart = async (startIndex?: number) => {
                       </button>
                     </li>
                   )}
+                  {userRole === "ADMIN" && (
+                    <li className={tab === "CampaignBuilder" ? "active" : ""}>
+                      <button
+                        onClick={() => {
+                          setTab("CampaignBuilder");
+                          setShowMailSubmenu(false);
+                          setShowContactsSubmenu(false);
+                        }}
+                        className="side-menu-button"
+                        title="Create and manage email campaigns with AI"
+                      >
+                        <span className="menu-icon">
+                          <FontAwesomeIcon
+                            icon={faRobot}
+                            className="text-[#333333] text-lg"
+                          />
+                        </span>
+                        <span className="menu-text">Campaign Builder</span>
+                      </button>
+                    </li>
+                  )}
                   </ul>
                 </div>
               </div>
@@ -4602,6 +4624,7 @@ const handleStart = async (startIndex?: number) => {
               />
             )}
             {tab === "CampaignPrompt" && userRole === "ADMIN" && <CampaignPrompt />}
+            {tab === "CampaignBuilder" && userRole === "ADMIN" && <EmailCampaignBuilder />}
 
 
             {/* Stop Confirmation Popup */}

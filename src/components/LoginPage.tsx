@@ -332,6 +332,16 @@ const LoginPage: React.FC = () => {
     };
   }, []);
 
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("demo") === "true") {
+    setUsername("Acme");
+    setPassword("pitchcraft123");
+  }
+}, []);
+
+
+
   return (
     <div className="login-container page d-flex flex-col">
       <h1 className="text-[24px] text-white mb-4">Login to PitchKraft</h1>
