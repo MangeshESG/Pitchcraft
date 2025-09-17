@@ -1,0 +1,108 @@
+/* Container for all pricing cards */
+.pricing-table {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  flex-wrap: nowrap; /* Keeps cards side by side */
+  gap: 30px;
+  padding: 40px 20px;
+  background-color: #f4f4f4;
+  overflow-x: auto; /* Horizontal scroll for small screens */
+}
+
+/* Individual card styles */
+.card {
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  width: 300px;
+  text-align: center;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.card:hover {
+  transform: scale(1.05);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
+}
+
+/* ✅ Green header section */
+.card-header {
+  background-color: #00b300;
+  color: white;
+  padding: 24px 16px;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+}
+
+.icon {
+  font-size: 40px;
+  margin-bottom: 10px;
+}
+
+.card-header h3 {
+  font-size: 16px;
+  margin: 0;
+  font-weight: 600;
+}
+
+.card-header .price {
+  font-size: 28px;
+  font-weight: bold;
+  color: white;
+  margin-top: 5px;
+}
+
+.card-header .period {
+  font-size: 18px;
+  color: white;
+  margin-top: -5px;
+  font-weight: 500;
+}
+
+/* Feature list */
+.card ul {
+  text-align: left;
+  padding: 0 20px;
+  list-style: none;
+  margin: 20px 0;
+  font-size: 14px;
+}
+
+.card li {
+  margin-bottom: 10px;
+  color: #333;
+}
+
+/* Try it now button */
+.try-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background-color: transparent;
+  border: 2px solid #00b300;
+  color: #00b300;
+  padding: 10px 22px;
+  border-radius: 40px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  margin: 20px auto 30px;
+  transition: all 0.3s ease;
+}
+
+.try-button:hover {
+  background-color: #00b300;
+  color: white;
+}
+
+.try-button:hover .download-icon {
+  color: white;
+}
+
+.download-icon {
+  font-size: 16px;
+}

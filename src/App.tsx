@@ -10,6 +10,7 @@ import { PersistGate } from "redux-persist/integration/react";
 import store, { persistor } from "./Redux/store";
 import ProtectedRoute from "./ProtectedRoute";
 import { AppDataProvider } from './contexts/AppDataContext';
+import Planes from "./components/planes";
 
 const UserComp = lazy(() => import("./components/User") as any);
 
@@ -46,6 +47,7 @@ const App: React.FC = () => {
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route element={<ProtectedRoute />}>
                 <Route path="/main" element={<MainPage />} />
+                <Route path="/planes" element={<Planes/>} />
                 <Route
                   path="/user"
                   element={

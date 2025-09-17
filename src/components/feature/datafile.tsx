@@ -5,7 +5,8 @@ import Modal from "../common/Modal";
 import "./datafile.css";
 import API_BASE_URL from "../../config";
 import { useAppData } from "../../contexts/AppDataContext";
-
+import { useSelector } from "react-redux";
+import { RootState } from "../../Redux/store";
 interface DataFileProps {
   selectedClient: string;
   onDataProcessed: (data: any[]) => void;
@@ -202,8 +203,19 @@ const DataFile: React.FC<DataFileProps> = ({
     setColumnMappings(mappings);
   };
 
-  const userId = sessionStorage.getItem("clientId");
-  const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
+const reduxUserId = useSelector((state: RootState) => state.auth.userId);
+const effectiveUserId = selectedClient !== "" ? selectedClient : reduxUserId;
+console.log("API Payload Client ID:", effectiveUserId);
+
+useEffect(() => {
+  console.log("User ID from Redux:", reduxUserId);
+  console.log("Effective User ID:", effectiveUserId);
+}, [reduxUserId, effectiveUserId]);
+
+  // const userId = sessionStorage.getItem("clientId");
+  //  console.log("Client ID stored in session:", userId);
+  // const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
+  //   console.log("Client ID stored in session:", effectiveUserId);
 
   // Handle drag events
   const handleDrag = (e: React.DragEvent) => {
@@ -392,9 +404,11 @@ const DataFile: React.FC<DataFileProps> = ({
     setShowDataFileModal(false);
     setCurrentStep(4);
     setUploadProgress(0);
+   // const clientId = sessionStorage.getItem("clientId"); 
 
     try {
       const apiPayload = {
+       // clientId: clientId,
         clientId: Number(effectiveUserId),
         name: dataFileInfo.name,
         dataFileName: uploadedFile?.name || "",

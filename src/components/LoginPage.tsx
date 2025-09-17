@@ -98,10 +98,11 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
       // Direct login with trusted device
       if (response.ok && data.token) {
         // Store token using Redux
-        dispatch(setToken(data.token));
+        dispatch(setToken(data.token));       
         
         // Extract user info from token
         const userId = getUserIdFromToken(data.token);
+        console.log("Client ID stored in session:", userId);
         const userRole = getUserRoleFromToken(data.token);
         
         // Store user info in Redux
