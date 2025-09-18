@@ -239,7 +239,7 @@ const MainPage: React.FC = () => {
   const setClientSettings = appData.setClientSettings;
   const clientSettings = appData.clientSettings;
   const refreshTrigger = appData.refreshTrigger;
-
+ const clientId = useSelector((state: RootState) => state.client.clientId);
   const [formData, setFormData] = useState({
     Server: "",
     Port: "",
@@ -720,7 +720,7 @@ const MainPage: React.FC = () => {
       return;
 
     // Determine which ID to use for the update
-    const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
+  //  const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
 
     if (!effectiveUserId || Number(effectiveUserId) <= 0) {
       console.error("Invalid userId or clientID:", effectiveUserId);

@@ -3,6 +3,7 @@ import authReducer from "../slices/authSLice";
 import storage from "redux-persist/lib/storage"; // Defaults to localStorage
 import { persistReducer, persistStore } from "redux-persist";
 import clientSettingsReducer from "../slices/clientSettingsSlice";
+import clientReducer from "../slices/clientSlice"; // adjust path
 
 const persistConfig = {
   key: "auth",
@@ -14,6 +15,7 @@ const persistedAuthReducer = persistReducer(persistConfig, authReducer);
 const store = configureStore({
   reducer: {
         clientSettings: clientSettingsReducer,
+         client: clientReducer,
 
     auth: persistedAuthReducer, // Use persisted reducer
   },

@@ -4,6 +4,8 @@ import "./ContactList.css";
 import DynamicContactsTable from "./DynamicContactsTable";
 import AppModal from "../common/AppModal";
 import { useAppModal } from "../../hooks/useAppModal";
+import { useSelector } from "react-redux";
+import { RootState } from "../../Redux/store";
 
 const menuBtnStyle = {
   width: "100%",
@@ -91,8 +93,16 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
 }) => {
   const [activeSubTab, setActiveSubTab] = useState(initialTab);
 
-  const userId = sessionStorage.getItem("clientId");
-  const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
+  const reduxUserId = useSelector((state: RootState) => state.auth.userId);
+  const effectiveUserId = selectedClient !== "" ? selectedClient : reduxUserId;
+  console.log("API Payload Client ID:", effectiveUserId);
+  
+  useEffect(() => {
+    console.log("User ID from Redux:", reduxUserId);
+    console.log("Effective User ID:", effectiveUserId);
+  }, [reduxUserId, effectiveUserId]);
+  // const userId = sessionStorage.getItem("clientId");
+  // const effectiveUserId = selectedClient !== "" ? selectedClient : userId;m
   // Data file states
   const [dataFiles, setDataFiles] = useState<DataFileItem[]>([]);
   const [selectedDataFile, setSelectedDataFile] = useState<string>("");

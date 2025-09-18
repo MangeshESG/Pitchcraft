@@ -109,9 +109,19 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
     segmentId: "", // For segment selection
     description: "",
   });
-  const userId = useSelector((state: RootState) => state.auth.userId);
 
-  const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
+  const reduxUserId = useSelector((state: RootState) => state.auth.userId);
+  const effectiveUserId = selectedClient !== "" ? selectedClient : reduxUserId;
+  console.log("API Payload Client ID:", effectiveUserId);
+  
+  useEffect(() => {
+    console.log("User ID from Redux:", reduxUserId);
+    console.log("Effective User ID:", effectiveUserId);
+  }, [reduxUserId, effectiveUserId]);
+
+  // const userId = useSelector((state: RootState) => state.auth.userId);
+
+  // const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
   const [segments, setSegments] = useState<Segment[]>([]);
 
   const { refreshTrigger, saveFormState, getFormState, triggerRefresh } =
