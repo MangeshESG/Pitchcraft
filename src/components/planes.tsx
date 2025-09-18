@@ -63,9 +63,11 @@ const Planes: React.FC = () => {
             {plans.map((plan, index) => (
                 <div className="card" key={index}>
                     <div className="card-header">
-                        <div className="icon">{plan.icon}</div>
-                        <h3>{plan.title}</h3>
-                        <div className="price">
+                        <div className="title-row">
+                            <span className="icon">{plan.icon}</span>
+                            <h3>{plan.title}</h3>
+                        </div>
+                        <div className="price-row">
                             <span className="amount">{plan.price}</span>
                             <span className="period">{plan.period}</span>
                         </div>

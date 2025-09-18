@@ -9,12 +9,12 @@
 }
 
 /* 🌟 Box Wrapper */
-.login-box {
+.login-boxx {
   background: white;
   padding: 2rem;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-  width: 400px;
+  width: 30%;
   animation: fadeIn 0.4s ease-in-out;
   position: relative;
   margin-top: 190px;
@@ -27,7 +27,7 @@
 }
 
 /* 🌟 Headings */
-.login-box h2 {
+.login-boxx h2 {
   position: absolute;
   top: -40px;
   left: 50%;
@@ -42,27 +42,27 @@
 }
 
 /* 🌟 Form */
-.login-box form {
+.login-boxx form {
   display: flex;
   flex-direction: column;
 }
 
 /* Labels */
-.login-box label {
+.login-boxx label {
   margin-bottom: 0.5rem;
   font-weight: 600;
   color: #333;
 }
 
 /* Inputs */
-.login-box input {
+.login-boxx input {
   padding: 0.75rem;
   border: 1px solid #ddd;
   border-radius: 4px;
   margin-bottom: 1rem;
   font-size: 14px;
 }
-.login-box input:focus {
+.login-boxx input:focus {
   /* outline: none; */
   border-color: #333;
   box-shadow: #333;

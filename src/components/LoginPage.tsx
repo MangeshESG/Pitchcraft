@@ -613,7 +613,7 @@ const LoginPage: React.FC = () => {
 
   return (
     <div className="page login-container">
-      <div className="login-box">
+      <div className="login-boxx">
         {view === "login" && <LoginForm setView={setView} />}
         {view === "register" && <RegisterForm setView={setView} />}
         {view === "forgot" && <ForgotPasswordForm setView={setView} />}
