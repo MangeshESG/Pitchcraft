@@ -112,7 +112,7 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
         
         // Store in sessionStorage for backward compatibility
         sessionStorage.setItem("clientId", data.clientID || "");
-        sessionStorage.setItem("isAdmin", data.isadmin || "false");
+        sessionStorage.setItem("isAdmin", data.isAdmin || "false");
         sessionStorage.setItem("isDemoAccount", data.isDemoAccount || "false");
         
         // Store first and last name if available
@@ -409,10 +409,10 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
         dispatch(saveUserName(registerUsername || ""));
         if (userId) dispatch(saveUserId(userId));
         if (userRole) dispatch(saveUserRole(userRole));
-        
+        debugger;
         // Store in sessionStorage
         sessionStorage.setItem("clientId", data.clientID || "");
-        sessionStorage.setItem("isAdmin", data.isadmin || "false");
+        sessionStorage.setItem("isAdmin", data.isAdmin || "false");
         sessionStorage.setItem("isDemoAccount", data.isDemoAccount || "false");
         
         // Store first and last name if available
@@ -526,7 +526,7 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
           
           // Store in sessionStorage
           sessionStorage.setItem("clientId", data.clientID || "");
-          sessionStorage.setItem("isAdmin", data.isadmin || "false");
+          sessionStorage.setItem("isAdmin", data.isAdmin || "false");
           sessionStorage.setItem("isDemoAccount", data.isDemoAccount || "false");
           
           // Store first and last name if available
