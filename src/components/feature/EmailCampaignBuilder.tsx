@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Copy, Check, Loader2, RefreshCw, Globe, Eye, FileText, MessageSquare, CheckCircle } from 'lucide-react';
 import axios from 'axios';
+import API_BASE_URL from "../../config";
+
 
 // --- Type Definitions ---
 interface Message {
@@ -234,7 +236,7 @@ const ResultTab: React.FC<ResultTabProps> = ({ isComplete, finalPrompt, copied, 
 const MasterPromptCampaignBuilder: React.FC = () => {
   // --- State Management ---
   const [activeTab, setActiveTab] = useState<TabType>('template');
-  const [masterPrompt, setMasterPrompt] = useState(`Subject: How {vendor_company} Can Help {company_name} Achieve {campaign_objective}\n\nHi {full_name},\n\nI noticed that {company_name} is known for its work in the {industry} space. As a {job_title}, you're likely focused on driving growth and efficiency.\n\nWe at {vendor_company} specialize in {vendor_company_main_theme}, and we've helped similar companies achieve remarkable results.\n\nOne of our clients, {client_example_company}, recently said:\n"{testimonial}"\n\nWould you be interested in a brief 15-minute call to explore how we can help {company_name} achieve similar results?\n\nBest regards,\n{signature_block}`);
+  const [masterPrompt, setMasterPrompt] = useState(`Add placeholder text here with {placeholders} for dynamic content.`);
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentAnswer, setCurrentAnswer] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -246,7 +248,6 @@ const MasterPromptCampaignBuilder: React.FC = () => {
   
   // --- Session and API Configuration ---
   const [userId] = useState(`user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://localhost:7216';
 
   // --- Helper Functions ---
   const extractPlaceholders = (text: string): string[] => {
