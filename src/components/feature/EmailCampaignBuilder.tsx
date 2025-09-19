@@ -42,7 +42,9 @@ interface TemplateTabProps {
   startConversation: () => void;
   currentPlaceholders: string[];
 }
-
+interface EmailCampaignBuilderProps {
+  selectedClient: string | null; // Can be a string (the ID) or null if none is selected
+}
 interface ConversationTabProps {
   conversationStarted: boolean;
   messages: Message[];
@@ -67,6 +69,8 @@ interface ResultTabProps {
 // ====================================================================
 // STEP 2: MOVE THE TAB COMPONENTS OUTSIDE THE MAIN COMPONENT
 // ====================================================================
+
+
 
 const TemplateTab: React.FC<TemplateTabProps> = ({ masterPrompt, setMasterPrompt, startConversation, currentPlaceholders }) => (
   <div className="p-6">
@@ -233,7 +237,10 @@ const ResultTab: React.FC<ResultTabProps> = ({ isComplete, finalPrompt, copied, 
 // STEP 3: THE MAIN COMPONENT NOW MANAGES STATE AND PASSES PROPS
 // ====================================================================
 
-const MasterPromptCampaignBuilder: React.FC = () => {
+
+
+// THIS IS THE CORRECTED LINE:
+const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ selectedClient }) => {
   // --- State Management ---
   const [activeTab, setActiveTab] = useState<TabType>('template');
   const [masterPrompt, setMasterPrompt] = useState(`Add placeholder text here with {placeholders} for dynamic content.`);
@@ -247,7 +254,9 @@ const MasterPromptCampaignBuilder: React.FC = () => {
   const chatEndRef = useRef<HTMLDivElement>(null);
   
   // --- Session and API Configuration ---
-  const [userId] = useState(`user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+  const baseUserId = sessionStorage.getItem("clientId");
+  // Your logic is correct! This will now work because 'selectedClient' is being received.
+  const effectiveUserId = selectedClient || baseUserId;
 
   // --- Helper Functions ---
   const extractPlaceholders = (text: string): string[] => {
@@ -261,14 +270,27 @@ const MasterPromptCampaignBuilder: React.FC = () => {
     }
     return placeholders;
   };
-
+  
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // This useEffect will now work correctly, resetting the chat when the client changes.
+  useEffect(() => {
+    // Only reset if a conversation has already been started.
+    if (conversationStarted) {
+      resetAll();
+    }
+  }, [selectedClient]);
+
   // --- Core Logic: API Communication ---
   const startConversation = async () => {
+    if (!effectiveUserId) {
+        alert("Cannot start conversation: No client ID is available.");
+        return;
+    }
     if (masterPrompt.trim() === '') return;
+
     setMessages([]);
     setFinalPrompt('');
     setIsComplete(false);
@@ -277,7 +299,7 @@ const MasterPromptCampaignBuilder: React.FC = () => {
     setIsTyping(true);
     try {
       const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/chat`, {
-        userId: userId,
+        userId: effectiveUserId,
         message: masterPrompt,
         systemPrompt: MASTER_SYSTEM_PROMPT,
         model: "gpt-5"
@@ -296,47 +318,42 @@ const MasterPromptCampaignBuilder: React.FC = () => {
     }
   };
 
-// in MasterPromptCampaignBuilder.tsx
-
-const handleSendMessage = async () => {
-  if (currentAnswer.trim() === '' || isTyping) return;
-  
-  const userMessage: Message = { type: 'user', content: currentAnswer, timestamp: new Date() };
-  setMessages(prev => [...prev, userMessage]);
-  setCurrentAnswer('');
-  setIsTyping(true);
-  
-  try {
-    //
-    // THIS IS THE CORRECTED API CALL
-    //
-    const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/chat`, {
-      userId: userId,
-      message: userMessage.content,
-      systemPrompt: "", // Send an empty string, backend validation requires the field to be present
-      model: "gpt-5"    // The model is also required
-    });
+  const handleSendMessage = async () => {
+    if (currentAnswer.trim() === '' || isTyping || !effectiveUserId) return;
     
-    const data = response.data.response;
+    const userMessage: Message = { type: 'user', content: currentAnswer, timestamp: new Date() };
+    setMessages(prev => [...prev, userMessage]);
+    setCurrentAnswer('');
+    setIsTyping(true);
     
-    if (data && data.isComplete) {
-      setFinalPrompt(data.finalPrompt);
-      setIsComplete(true);
-      const completionMessage: Message = { type: 'bot', content: data.assistantText || "🎉 Great! I've filled in all the placeholders. Check the 'Final Result' tab.", timestamp: new Date() };
-      setMessages(prev => [...prev, completionMessage]);
-      setTimeout(() => setActiveTab('result'), 2000);
-    } else if (data && data.assistantText) {
-      const botMessage: Message = { type: 'bot', content: data.assistantText, timestamp: new Date() };
-      setMessages(prev => [...prev, botMessage]);
+    try {
+      const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/chat`, {
+        userId: effectiveUserId,
+        message: userMessage.content,
+        systemPrompt: "",
+        model: "gpt-5"
+      });
+      
+      const data = response.data.response;
+      
+      if (data && data.isComplete) {
+        setFinalPrompt(data.finalPrompt);
+        setIsComplete(true);
+        const completionMessage: Message = { type: 'bot', content: data.assistantText || "🎉 Great! I've filled in all the placeholders. Check the 'Final Result' tab.", timestamp: new Date() };
+        setMessages(prev => [...prev, completionMessage]);
+        setTimeout(() => setActiveTab('result'), 2000);
+      } else if (data && data.assistantText) {
+        const botMessage: Message = { type: 'bot', content: data.assistantText, timestamp: new Date() };
+        setMessages(prev => [...prev, botMessage]);
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      const errorMessage: Message = { type: 'bot', content: 'Sorry, there was an error processing your answer. Please try again.', timestamp: new Date() };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsTyping(false);
     }
-  } catch (error) {
-    console.error('Error sending message:', error);
-    const errorMessage: Message = { type: 'bot', content: 'Sorry, there was an error processing your answer. Please try again.', timestamp: new Date() };
-    setMessages(prev => [...prev, errorMessage]);
-  } finally {
-    setIsTyping(false);
-  }
-};
+  };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -352,7 +369,9 @@ const handleSendMessage = async () => {
   };
 
   const resetAll = () => {
-    axios.delete(`${API_BASE_URL}/api/CampaignPrompt/history/${userId}`).catch(err => console.error("Failed to clear history:", err));
+    if (effectiveUserId) {
+        axios.delete(`${API_BASE_URL}/api/CampaignPrompt/history/${effectiveUserId}`).catch(err => console.error("Failed to clear history:", err));
+    }
     setMessages([]);
     setFinalPrompt('');
     setIsComplete(false);
@@ -478,5 +497,4 @@ const handleSendMessage = async () => {
     </div>
   );
 };
-
 export default MasterPromptCampaignBuilder;

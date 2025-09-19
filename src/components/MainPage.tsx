@@ -4583,7 +4583,9 @@ const MainPage: React.FC = () => {
               />
             )}
             {tab === "CampaignPrompt" && userRole === "ADMIN" && <CampaignPrompt />}
-            {tab === "CampaignBuilder" && userRole === "ADMIN" && <EmailCampaignBuilder />}
+            {tab === "CampaignBuilder" && userRole === "ADMIN" && (
+              <EmailCampaignBuilder selectedClient={selectedClient} />
+            )}
 
 
             {/* Stop Confirmation Popup */}
