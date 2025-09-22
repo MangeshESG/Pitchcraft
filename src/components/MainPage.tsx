@@ -377,6 +377,7 @@ const MainPage: React.FC = () => {
 
   useEffect(() => {
     const fetchCampaigns = async () => {
+      console.log(selectedClient, clientID)
       if (!selectedClient && !clientID) {
         setCampaigns([]);
         return;
@@ -397,6 +398,7 @@ const MainPage: React.FC = () => {
         }
 
         const data = await response.json();
+        console.log("data",data);
         setCampaigns(data);
       } catch (error) {
         console.error("Error fetching campaigns:", error);

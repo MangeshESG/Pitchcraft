@@ -319,7 +319,7 @@ pre span {
 .modal {
   position: fixed;
   width: 90%;
-  height: 90%;
+  /* height: 90%; */
   top: 50%;
   left: 50%;
   transform: scale(0) translate(-50%, -50%);
@@ -337,8 +337,13 @@ pre span {
   height: auto;
 }
 
-.modal .modal-content {
+/* .modal .modal-content {
   height: 100%;
+} */
+ .modal .modal-content {
+  height: auto;             /* grow with content */
+  max-height: 90vh;         /* don't exceed screen height */
+  overflow-y: auto;         /* scroll only if content exceeds */
 }
 
 .modal .textarea-full-height {
@@ -614,11 +619,25 @@ pre span {
 .edit-prompt-form-height {
   height: calc(100% - 255px);
 }
-
-.quill.adjust-quill-height .ql-container {
+/* original */
+/* .quill.adjust-quill-height .ql-container {
   height: calc(100% - 65px);
+} */
+/* .quill.adjust-quill-height .ql-container {
+  max-height: 300px;    
+  overflow-y: auto;     
+  height: auto !important; 
+} */
+.adjust-quill-height {
+  width: 100%;
+  /* overflow-y: auto; */
 }
 
+.adjust-quill-height .ql-container {
+  min-height: 150px;   /* keep some base height */
+  height: auto !important; /* allow expansion */
+  overflow-y: visible !important; /* no inner scroll */
+}
 .login-box {
   width: 100%;
 }
