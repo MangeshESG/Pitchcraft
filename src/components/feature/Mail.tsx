@@ -13,6 +13,8 @@ import MailDashboard from "./MailDashboard";
 import type { EventItem, EmailLog } from "../../contexts/AppDataContext";
 import AppModal from "../common/AppModal";
 import { useAppModal } from "../../hooks/useAppModal";
+import { useSelector } from "react-redux";
+import { RootState } from "../../Redux/store";
 
 type MailTabType = "Dashboard" | "Configuration" | "Schedule";
 
@@ -255,8 +257,16 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       onClearContent(clearContent);
     }
   }, [onClearContent]);
-  const userId = sessionStorage.getItem("clientId");
-  const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
+  //const userId = sessionStorage.getItem("clientId");
+  //const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
+  const reduxUserId = useSelector((state: RootState) => state.auth.userId);
+  const effectiveUserId = selectedClient !== "" ? selectedClient : reduxUserId;
+  console.log("API Payload Client ID:", effectiveUserId);
+  
+  useEffect(() => {
+    console.log("User ID from Redux:", reduxUserId);
+    console.log("Effective User ID:", effectiveUserId);
+  }, [reduxUserId, effectiveUserId]);
 
   const token = sessionStorage.getItem("token");
   // SMTP View
