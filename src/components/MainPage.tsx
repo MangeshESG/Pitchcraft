@@ -3038,6 +3038,7 @@ const MainPage: React.FC = () => {
 
   // State for data files
   const [dataFiles, setDataFiles] = useState<DataFile[]>([]);
+
   // Fetch data files when client changes
   useEffect(() => {
     const fetchDataFiles = async () => {
@@ -3221,7 +3222,6 @@ const MainPage: React.FC = () => {
   // Get the demo account status directly from session storage
   const isDemoAccount = sessionStorage.getItem("isDemoAccount") === "true";
 
-  // Set default delay for demo users
   // Set default delay for demo users
   useEffect(() => {
     if (isDemoAccount) {
