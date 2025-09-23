@@ -3262,7 +3262,21 @@ const handleStart = async (startIndex?: number) => {
       }));
     }
   }, [isDemoAccount]);
+  //for output 
 
+// fetch campaigns in parent
+useEffect(() => {
+  const fetchCampaigns = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/auth/campaigns/client/${effectiveUserId}`);
+      const data = await response.json();
+      setCampaigns(data);
+    } catch (err) {
+      console.error("Error fetching campaigns", err);
+    }
+  };
+  fetchCampaigns();
+}, []);
   const handleCampaignChange = async (
     event: React.ChangeEvent<HTMLSelectElement>
   ) => {

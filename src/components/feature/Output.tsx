@@ -211,11 +211,11 @@ const Output: React.FC<OutputInterface> = ({
   delayTime,
   setDelay,
   selectedPrompt,
-  //selectedCampaign,
+  selectedCampaign,
   isProcessing,
   handleClearAll,
-  //campaigns,
-  //handleCampaignChange,
+  campaigns,
+  handleCampaignChange,
   selectionMode,
   promptList,
   handleSelectChange,
@@ -241,13 +241,8 @@ const Output: React.FC<OutputInterface> = ({
 }) => {
 
   const appModal = useAppModal();
- const [campaigns, setCampaign] = useState<any[]>([]);
-  const [selectedCampaign, setSelectedCampaign] = useState(""); // fix typo
   const [loading, setLoading] = useState(true);
 
-  const handleCampaignChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedCampaign(e.target.value);
-  };
 
   const [isCopyText, setIsCopyText] = useState(false);
   const { refreshTrigger } = useAppData(); // Make sure this includes refreshTrigger
@@ -1025,25 +1020,25 @@ const Output: React.FC<OutputInterface> = ({
     }
   }, [effectiveUserId, token]);
 
-  useEffect(() => {
-    const fetchCampaign = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/campaigns/client/${effectiveUserId}`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch campaign data');
-        }
-        const data = await response.json();
-        console.log("data:", data);
-        setCampaign(data);
-      } catch (error: unknown) {
-        console.error("Failed at data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  // useEffect(() => {
+  //   const fetchCampaign = async () => {
+  //     try {
+  //       const response = await fetch(`${API_BASE_URL}/api/auth/campaigns/client/${effectiveUserId}`);
+  //       if (!response.ok) {
+  //         throw new Error('Failed to fetch campaign data');
+  //       }
+  //       const data = await response.json();
+  //       console.log("data:", data);
+  //       setCampaign(data);
+  //     } catch (error: unknown) {
+  //       console.error("Failed at data:", error);
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   };
 
-    fetchCampaign();
-  }, [effectiveUserId]);
+  //   fetchCampaign();
+  // }, [effectiveUserId]);
   // On BCC change, after setEmailFormData...
 
   useEffect(() => {
