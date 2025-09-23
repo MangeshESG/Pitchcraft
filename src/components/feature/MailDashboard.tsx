@@ -176,14 +176,14 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("Loading...");
   const withLoader = async (message: string, operation: () => Promise<void>) => {
-      setLoadingMessage(message);
-      setIsLoading(true);
-      try {
-        await operation();
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    setLoadingMessage(message);
+    setIsLoading(true);
+    try {
+      await operation();
+    } finally {
+      setIsLoading(false);
+    }
+  };
   // =================== ALL useEffect hooks ===================
 
   // 1. Initialize component - Updated to use selectedCampaign
@@ -268,26 +268,26 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   }, [effectiveUserId, isVisible]);
 
   // 2. Load available campaigns - Updated API endpoint
-    useEffect(() => {
-      if (!effectiveUserId || !isVisible) return;
+  useEffect(() => {
+    if (!effectiveUserId || !isVisible) return;
 
-      const loadAvailableCampaigns = async () => {
-        await withLoader("Loading campaigns...", async () => {
-          try {
-            const response = await axios.get(
-              `${API_BASE_URL}/api/auth/campaigns/client/${effectiveUserId}`,
-              { headers: { ...(token && { Authorization: `Bearer ${token}` }) } }
-            );
-            setAvailableCampaigns(response.data);
-          } catch (error) {
-            console.error("Dashboard: Error loading campaigns:", error);
-            setAvailableCampaigns([]);
-          }
-        });
-      };
+    const loadAvailableCampaigns = async () => {
+      await withLoader("Loading campaigns...", async () => {
+        try {
+          const response = await axios.get(
+            `${API_BASE_URL}/api/auth/campaigns/client/${effectiveUserId}`,
+            { headers: { ...(token && { Authorization: `Bearer ${token}` }) } }
+          );
+          setAvailableCampaigns(response.data);
+        } catch (error) {
+          console.error("Dashboard: Error loading campaigns:", error);
+          setAvailableCampaigns([]);
+        }
+      });
+    };
 
-      loadAvailableCampaigns();
-    }, [effectiveUserId, token, isVisible]);
+    loadAvailableCampaigns();
+  }, [effectiveUserId, token, isVisible]);
 
   // 3. Fetch data when selectedCampaign changes
   useEffect(() => {
@@ -347,64 +347,64 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   }, [startDate, endDate, allEventData, allEmailLogs, isVisible]);
 
   // 6. Load email logs for email-logs filter type - Updated for campaigns
-useEffect(() => {
-  if (!isVisible) return;
+  useEffect(() => {
+    if (!isVisible) return;
 
-  if (
-    selectedCampaign &&
-    emailFilterType === "email-logs" &&
-    effectiveUserId
-  ) {
-    const loadEmailLogs = async () => {
-      await withLoader("Loading email logs...", async () => {
-        try {
-          const campaign = availableCampaigns.find(
-            (c) => c.id.toString() === selectedCampaign
-          );
+    if (
+      selectedCampaign &&
+      emailFilterType === "email-logs" &&
+      effectiveUserId
+    ) {
+      const loadEmailLogs = async () => {
+        await withLoader("Loading email logs...", async () => {
+          try {
+            const campaign = availableCampaigns.find(
+              (c) => c.id.toString() === selectedCampaign
+            );
 
-          if (campaign?.dataSource === "DataFile" && campaign.zohoViewId) {
-            const dataFileId = Number(campaign.zohoViewId);
-            const clientId = Number(effectiveUserId);
-            const logs = await fetchEmailLogs(clientId, dataFileId);
-            setEmailLogs(logs);
-            
-          } else if (campaign?.dataSource === "Segment" && campaign.segmentId) {
-            console.log("Loading email logs for segment:", campaign.segmentId);
-            try {
-              // Use the new segment email logs API
-              const response = await axios.get(
-                `${API_BASE_URL}/api/Crm/getlogs-by-segment`,
-                {
-                  params: {
-                    clientId: Number(effectiveUserId),
-                    segmentId: campaign.segmentId,
-                  },
-                  headers: {
-                    ...(token && { Authorization: `Bearer ${token}` }),
-                  },
-                }
-              );
-              setEmailLogs(response.data || []);
-            } catch (error) {
-              console.error("Error loading segment email logs:", error);
-              setEmailLogs([]);
+            if (campaign?.dataSource === "DataFile" && campaign.zohoViewId) {
+              const dataFileId = Number(campaign.zohoViewId);
+              const clientId = Number(effectiveUserId);
+              const logs = await fetchEmailLogs(clientId, dataFileId);
+              setEmailLogs(logs);
+
+            } else if (campaign?.dataSource === "Segment" && campaign.segmentId) {
+              console.log("Loading email logs for segment:", campaign.segmentId);
+              try {
+                // Use the new segment email logs API
+                const response = await axios.get(
+                  `${API_BASE_URL}/api/Crm/getlogs-by-segment`,
+                  {
+                    params: {
+                      clientId: Number(effectiveUserId),
+                      segmentId: campaign.segmentId,
+                    },
+                    headers: {
+                      ...(token && { Authorization: `Bearer ${token}` }),
+                    },
+                  }
+                );
+                setEmailLogs(response.data || []);
+              } catch (error) {
+                console.error("Error loading segment email logs:", error);
+                setEmailLogs([]);
+              }
             }
+          } catch (error) {
+            console.error("Error loading email logs:", error);
+            setEmailLogs([]);
           }
-        } catch (error) {
-          console.error("Error loading email logs:", error);
-          setEmailLogs([]);
-        }
-      });
-    };
-    loadEmailLogs();
-  }
-}, [
-  selectedCampaign,
-  emailFilterType,
-  effectiveUserId,
-  isVisible,
-  availableCampaigns,
-]);
+        });
+      };
+      loadEmailLogs();
+    }
+  }, [
+    selectedCampaign,
+    emailFilterType,
+    effectiveUserId,
+    isVisible,
+    availableCampaigns,
+  ]);
 
   // 7. Clear cache when user changes
   useEffect(() => {
@@ -479,56 +479,41 @@ useEffect(() => {
   };
 
   // Updated fetchLogsByCampaign function
-const fetchLogsByCampaign = async (campaignId: string) => {
-  await withLoader("Loading campaign data...", async () => {
-    try {
-      setLoading(true);
+  const fetchLogsByCampaign = async (campaignId: string) => {
+    await withLoader("Loading campaign data...", async () => {
+      try {
+        setLoading(true);
 
-      const campaign = availableCampaigns.find(
-        (c) => c.id.toString() === campaignId
-      );
-      if (!campaign) {
-        return;
-      }
-
-      const clientId = Number(effectiveUserId);
-      let allTrackingData: EventItem[] = [];
-      let allEmailLogsData: any[] = [];
-
-      if (campaign.dataSource === "DataFile" && campaign.zohoViewId) {
-        const dataFileId = Number(campaign.zohoViewId);
-
-        const trackingResponse = await axios.get(
-          `${API_BASE_URL}/api/Crm/gettrackinglogs`,
-          {
-            params: { clientId, dataFileId },
-            headers: { ...(token && { Authorization: `Bearer ${token}` }) },
-          }
+        const campaign = availableCampaigns.find(
+          (c) => c.id.toString() === campaignId
         );
+        if (!campaign) {
+          return;
+        }
 
-        allTrackingData = trackingResponse.data || [];
-        allEmailLogsData = await fetchEmailLogs(clientId, dataFileId);
-        
-      } else if (campaign.dataSource === "Segment" && campaign.segmentId) {
-        try {
-          // Use the new segment tracking logs API
-          const segmentTrackingResponse = await axios.get(
-            `${API_BASE_URL}/api/Crm/gettrackinglogs-by-segment`,
+        const clientId = Number(effectiveUserId);
+        let allTrackingData: EventItem[] = [];
+        let allEmailLogsData: any[] = [];
+
+        if (campaign.dataSource === "DataFile" && campaign.zohoViewId) {
+          const dataFileId = Number(campaign.zohoViewId);
+
+          const trackingResponse = await axios.get(
+            `${API_BASE_URL}/api/Crm/gettrackinglogs`,
             {
-              params: {
-                clientId: clientId,
-                segmentId: campaign.segmentId,
-              },
+              params: { clientId, dataFileId },
               headers: { ...(token && { Authorization: `Bearer ${token}` }) },
             }
           );
 
-          allTrackingData = segmentTrackingResponse.data || [];
+          allTrackingData = trackingResponse.data || [];
+          allEmailLogsData = await fetchEmailLogs(clientId, dataFileId);
 
-          // Use the new segment email logs API
+        } else if (campaign.dataSource === "Segment" && campaign.segmentId) {
           try {
-            const segmentEmailLogsResponse = await axios.get(
-              `${API_BASE_URL}/api/Crm/getlogs-by-segment`,
+            // Use the new segment tracking logs API
+            const segmentTrackingResponse = await axios.get(
+              `${API_BASE_URL}/api/Crm/gettrackinglogs-by-segment`,
               {
                 params: {
                   clientId: clientId,
@@ -537,63 +522,78 @@ const fetchLogsByCampaign = async (campaignId: string) => {
                 headers: { ...(token && { Authorization: `Bearer ${token}` }) },
               }
             );
-            allEmailLogsData = segmentEmailLogsResponse.data || [];
-          } catch (emailLogError) {
-            console.log(
-              "No email logs found for segment, continuing with empty array"
-            );
-            allEmailLogsData = [];
+
+            allTrackingData = segmentTrackingResponse.data || [];
+
+            // Use the new segment email logs API
+            try {
+              const segmentEmailLogsResponse = await axios.get(
+                `${API_BASE_URL}/api/Crm/getlogs-by-segment`,
+                {
+                  params: {
+                    clientId: clientId,
+                    segmentId: campaign.segmentId,
+                  },
+                  headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+                }
+              );
+              allEmailLogsData = segmentEmailLogsResponse.data || [];
+            } catch (emailLogError) {
+              console.log(
+                "No email logs found for segment, continuing with empty array"
+              );
+              allEmailLogsData = [];
+            }
+          } catch (segmentError: any) {
+            if (segmentError.response?.status === 404) {
+              console.error("No data found for segment:", campaign.segmentId);
+            } else {
+              throw segmentError;
+            }
           }
-        } catch (segmentError: any) {
-          if (segmentError.response?.status === 404) {
-            console.error("No data found for segment:", campaign.segmentId);
-          } else {
-            throw segmentError;
-          }
+        } else {
+          console.error("Campaign has neither valid dataFileId nor segmentId");
+          return;
         }
-      } else {
-        console.error("Campaign has neither valid dataFileId nor segmentId");
-        return;
+
+        setAllEventData(allTrackingData);
+        setAllEmailLogs(allEmailLogsData);
+        setEmailLogs(allEmailLogsData);
+
+        saveDashboardData(campaignId, {
+          allEventData: allTrackingData,
+          allEmailLogs: allEmailLogsData,
+          emailLogs: allEmailLogsData,
+          effectiveUserId: effectiveUserId!,
+        });
+
+        setDataFetchedForCampaign(campaignId);
+
+        processDataWithDateFilter(
+          allTrackingData,
+          allEmailLogsData,
+          startDate,
+          endDate
+        );
+
+        console.log(
+          `✅ Data cached for campaign ${campaignId} - ${allTrackingData.length} events, ${allEmailLogsData.length} email logs`
+        );
+      } catch (error) {
+        console.error("Dashboard: Error fetching logs:", error);
+        setAllEventData([]);
+        setAllEmailLogs([]);
+        setEmailLogs([]);
+        setFilteredEventData([]);
+        setRequestCount(0);
+        setDailyStats([]);
+        setTotalStats({ sent: 0, opens: 0, clicks: 0 });
+        setDataFetchedForCampaign(campaignId);
+      } finally {
+        setLoading(false);
       }
-
-      setAllEventData(allTrackingData);
-      setAllEmailLogs(allEmailLogsData);
-      setEmailLogs(allEmailLogsData);
-
-      saveDashboardData(campaignId, {
-        allEventData: allTrackingData,
-        allEmailLogs: allEmailLogsData,
-        emailLogs: allEmailLogsData,
-        effectiveUserId: effectiveUserId!,
-      });
-
-      setDataFetchedForCampaign(campaignId);
-
-      processDataWithDateFilter(
-        allTrackingData,
-        allEmailLogsData,
-        startDate,
-        endDate
-      );
-
-      console.log(
-        `✅ Data cached for campaign ${campaignId} - ${allTrackingData.length} events, ${allEmailLogsData.length} email logs`
-      );
-    } catch (error) {
-      console.error("Dashboard: Error fetching logs:", error);
-      setAllEventData([]);
-      setAllEmailLogs([]);
-      setEmailLogs([]);
-      setFilteredEventData([]);
-      setRequestCount(0);
-      setDailyStats([]);
-      setTotalStats({ sent: 0, opens: 0, clicks: 0 });
-      setDataFetchedForCampaign(campaignId);
-    } finally {
-      setLoading(false);
-    }
-  });
-};
+    });
+  };
   // Process data with date filtering
   const processDataWithDateFilter = (
     trackingData: EventItem[],
@@ -1180,129 +1180,129 @@ const fetchLogsByCampaign = async (campaignId: string) => {
   };
 
   // Segment Creation - Updated for campaigns
-const handleSaveEmailSegment = async () => {
-  if (!segmentName.trim()) {
-    appModal.showWarning("Please select a campaign first");
-    return;
-  }
+  const handleSaveEmailSegment = async () => {
+    if (!segmentName.trim()) {
+      appModal.showWarning("Please select a campaign first");
+      return;
+    }
 
-  if (!selectedCampaign) {
-    appModal.showWarning("Please select a campaign first");
-    return;
-  }
+    if (!selectedCampaign) {
+      appModal.showWarning("Please select a campaign first");
+      return;
+    }
 
-  await withLoader("Creating segment...", async () => {
-    setSavingSegment(true);
+    await withLoader("Creating segment...", async () => {
+      setSavingSegment(true);
 
-    try {
-      let contactIds: number[] = [];
-
-      if (emailFilterType === "email-logs") {
-        const selectedLogs = getFilteredEmailLogs().filter((log) =>
-          selectedEmailLogs.has(log.id.toString())
-        );
-
-        contactIds = selectedLogs
-          .map((log) => log.contactId)
-          .filter((id): id is number => id !== null && id !== undefined);
-
-        if (contactIds.length === 0) {
-          appModal.showWarning(
-            "No valid contacts selected. Please select contacts with valid contact IDs."
-          );
-          setSavingSegment(false);
-          return;
-        }
-      } else {
-        const selectedContacts = getFilteredEmailContacts().filter((contact) =>
-          detailSelectedContacts.has(contact.id.toString())
-        );
-
-        contactIds = selectedContacts
-          .map((contact) => contact.contactId)
-          .filter(
-            (id): id is number => id !== null && id !== undefined && id > 0
-          );
-
-        if (contactIds.length === 0) {
-          appModal.showError(
-            "No valid contacts selected. Please select contacts with valid contact IDs."
-          );
-          setSavingSegment(false);
-          return;
-        }
-      }
-
-      const uniqueContactIds = Array.from(new Set(contactIds));
-
-      const campaign = availableCampaigns.find(
-        (c) => c.id.toString() === selectedCampaign
-      );
-
-      let dataFileId: number | undefined;
-
-      if (campaign?.dataSource === "DataFile" && campaign.zohoViewId) {
-        dataFileId = parseInt(campaign.zohoViewId);
-      } else if (campaign?.dataSource === "Segment") {
-        appModal.showError(
-          "Creating segments from segment-based campaigns is not currently supported. Please select a data file-based campaign."
-        );
-        setSavingSegment(false);
-        return;
-      }
-
-      if (!dataFileId) {
-        appModal.showError("Cannot determine data file for this campaign");
-        setSavingSegment(false);
-        return;
-      }
-
-      const segmentData = {
-        name: segmentName,
-        description: segmentDescription || "",
-        dataFileId: dataFileId,
-        contactIds: uniqueContactIds,
-      };
-
-      const response = await fetch(
-        `${API_BASE_URL}/api/Crm/Creat-Segments?ClientId=${effectiveUserId}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-          body: JSON.stringify(segmentData),
-        }
-      );
-
-      if (response.ok) {
-        appModal.showSuccess(
-          `Segment "${segmentName}" created successfully with ${uniqueContactIds.length} contacts!`,
-          "Segment Created"
-        );
-
-        setShowSaveSegmentModal(false);
-        setSegmentName("");
-        setSegmentDescription("");
+      try {
+        let contactIds: number[] = [];
 
         if (emailFilterType === "email-logs") {
-          setSelectedEmailLogs(new Set());
+          const selectedLogs = getFilteredEmailLogs().filter((log) =>
+            selectedEmailLogs.has(log.id.toString())
+          );
+
+          contactIds = selectedLogs
+            .map((log) => log.contactId)
+            .filter((id): id is number => id !== null && id !== undefined);
+
+          if (contactIds.length === 0) {
+            appModal.showWarning(
+              "No valid contacts selected. Please select contacts with valid contact IDs."
+            );
+            setSavingSegment(false);
+            return;
+          }
         } else {
-          setDetailSelectedContacts(new Set());
+          const selectedContacts = getFilteredEmailContacts().filter((contact) =>
+            detailSelectedContacts.has(contact.id.toString())
+          );
+
+          contactIds = selectedContacts
+            .map((contact) => contact.contactId)
+            .filter(
+              (id): id is number => id !== null && id !== undefined && id > 0
+            );
+
+          if (contactIds.length === 0) {
+            appModal.showError(
+              "No valid contacts selected. Please select contacts with valid contact IDs."
+            );
+            setSavingSegment(false);
+            return;
+          }
         }
-      } else {
-        const errorData = await response.text();
-        appModal.showError(`Failed to create segment: ${errorData}`);
+
+        const uniqueContactIds = Array.from(new Set(contactIds));
+
+        const campaign = availableCampaigns.find(
+          (c) => c.id.toString() === selectedCampaign
+        );
+
+        let dataFileId: number | undefined;
+
+        if (campaign?.dataSource === "DataFile" && campaign.zohoViewId) {
+          dataFileId = parseInt(campaign.zohoViewId);
+        } else if (campaign?.dataSource === "Segment") {
+          appModal.showError(
+            "Creating segments from segment-based campaigns is not currently supported. Please select a data file-based campaign."
+          );
+          setSavingSegment(false);
+          return;
+        }
+
+        if (!dataFileId) {
+          appModal.showError("Cannot determine data file for this campaign");
+          setSavingSegment(false);
+          return;
+        }
+
+        const segmentData = {
+          name: segmentName,
+          description: segmentDescription || "",
+          dataFileId: dataFileId,
+          contactIds: uniqueContactIds,
+        };
+
+        const response = await fetch(
+          `${API_BASE_URL}/api/Crm/Creat-Segments?ClientId=${effectiveUserId}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+            body: JSON.stringify(segmentData),
+          }
+        );
+
+        if (response.ok) {
+          appModal.showSuccess(
+            `Segment "${segmentName}" created successfully with ${uniqueContactIds.length} contacts!`,
+            "Segment Created"
+          );
+
+          setShowSaveSegmentModal(false);
+          setSegmentName("");
+          setSegmentDescription("");
+
+          if (emailFilterType === "email-logs") {
+            setSelectedEmailLogs(new Set());
+          } else {
+            setDetailSelectedContacts(new Set());
+          }
+        } else {
+          const errorData = await response.text();
+          appModal.showError(`Failed to create segment: ${errorData}`);
+        }
+      } catch (error) {
+        console.error("Error creating segment:", error);
+        appModal.showError("Error creating segment. Please try again.");
+      } finally {
+        setSavingSegment(false);
       }
-    } catch (error) {
-      console.error("Error creating segment:", error);
-      appModal.showError("Error creating segment. Please try again.");
-    } finally {
-      setSavingSegment(false);
-    }
-  });
-};
+    });
+  };
 
   // Helper function for invalid contacts count
   const getInvalidContactsCount = (): number => {
@@ -1435,20 +1435,20 @@ const handleSaveEmailSegment = async () => {
 
 
   const handleRefresh = async () => {
-  if (!selectedCampaign) return;
+    if (!selectedCampaign) return;
 
-  await withLoader("Refreshing data...", async () => {
-    setIsRefreshing(true);
-    setDataFetchedForCampaign("");
-    try {
-      await fetchLogsByCampaign(selectedCampaign);
-    } catch (error) {
-      console.error("Error refreshing data:", error);
-    } finally {
-      setIsRefreshing(false);
-    }
-  });
-};
+    await withLoader("Refreshing data...", async () => {
+      setIsRefreshing(true);
+      setDataFetchedForCampaign("");
+      try {
+        await fetchLogsByCampaign(selectedCampaign);
+      } catch (error) {
+        console.error("Error refreshing data:", error);
+      } finally {
+        setIsRefreshing(false);
+      }
+    });
+  };
 
   return (
     <div
@@ -1513,43 +1513,45 @@ const handleSaveEmailSegment = async () => {
             min={startDate || undefined}
           />
         </div>
-          <div className="form-group flex items-start">
-            <ReactTooltip
-              anchorSelect="#mail-dashboard-refresh-analytics"
-              place="top"
+        <div className="form-group flex items-start">
+          <ReactTooltip
+            anchorSelect="#mail-dashboard-refresh-analytics"
+            place="top"
+          >
+            Refresh the dashboard analytics
+          </ReactTooltip>
+          <span
+            className="cursor-pointer -ml-[5px]"
+            id="mail-dashboard-refresh-analytics"
+            onClick={handleRefresh}  // Add this onClick handler
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="41px"
+              height="41px"
+              viewBox="0 0 30 30"
+              fill="none"
             >
-              Refresh the dashboard analytics
-            </ReactTooltip>
-            <span
-              className="cursor-pointer -ml-[5px]"
-              id="mail-dashboard-refresh-analytics"
-              onClick={handleRefresh}  // Add this onClick handler
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="41px"
-                height="41px"
-                viewBox="0 0 30 30"
-                fill="none"
-              >
-                <g fill="#3f9f42" style={{ transform: "translateY(5px)" }}>
-                  <path d="M8 1.5A6.5 6.5 0 001.5 8 .75.75 0 010 8a8 8 0 0113.5-5.81v-.94a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zM15.25 7.25A.75.75 0 0116 8a8 8 0 01-13.5 5.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z"></path>
-                </g>
-              </svg>
-            </span>
-          </div>
+              <g fill="#3f9f42" style={{ transform: "translateY(5px)" }}>
+                <path d="M8 1.5A6.5 6.5 0 001.5 8 .75.75 0 010 8a8 8 0 0113.5-5.81v-.94a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zM15.25 7.25A.75.75 0 0116 8a8 8 0 01-13.5 5.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z"></path>
+              </g>
+            </svg>
+          </span>
+        </div>
 
         {(startDate || endDate) && (
-          <button
-            className="btn-clear"
-            onClick={() => {
-              setStartDate("");
-              setEndDate("");
-              saveCurrentState();
-            }}
-          >
-            Clear dates
-          </button>
+          <div className="form-group flex items-start">
+            <button
+              className="save-button button auto-width small d-flex justify-between align-center -ml-[20px]"
+              onClick={() => {
+                setStartDate("");
+                setEndDate("");
+                saveCurrentState();
+              }}
+            >
+              Clear dates
+            </button>
+          </div>
         )}
       </div>
 
@@ -1648,25 +1650,22 @@ const handleSaveEmailSegment = async () => {
           <div className="event-buttons" style={{ marginBottom: 16 }}>
             <button
               onClick={() => handleEmailFilterTypeChange("opens")}
-              className={`btn-open ${
-                emailFilterType === "opens" ? "active" : ""
-              }`}
+              className={`btn-open ${emailFilterType === "opens" ? "active" : ""
+                }`}
             >
               Opens
             </button>
             <button
               onClick={() => handleEmailFilterTypeChange("clicks")}
-              className={`btn-click ${
-                emailFilterType === "clicks" ? "active" : ""
-              }`}
+              className={`btn-click ${emailFilterType === "clicks" ? "active" : ""
+                }`}
             >
               Clicks
             </button>
             <button
               onClick={() => handleEmailFilterTypeChange("opens-no-clicks")}
-              className={`btn-filter ${
-                emailFilterType === "opens-no-clicks" ? "active" : ""
-              }`}
+              className={`btn-filter ${emailFilterType === "opens-no-clicks" ? "active" : ""
+                }`}
               style={{
                 background:
                   emailFilterType === "opens-no-clicks" ? "#ff9800" : undefined,
@@ -1676,17 +1675,15 @@ const handleSaveEmailSegment = async () => {
             </button>
             <button
               onClick={() => handleEmailFilterTypeChange("all")}
-              className={`btn-filter ${
-                emailFilterType === "all" ? "active" : ""
-              }`}
+              className={`btn-filter ${emailFilterType === "all" ? "active" : ""
+                }`}
             >
               All
             </button>
             <button
               onClick={() => handleEmailFilterTypeChange("email-logs")}
-              className={`btn-filter ${
-                emailFilterType === "email-logs" ? "active" : ""
-              }`}
+              className={`btn-filter ${emailFilterType === "email-logs" ? "active" : ""
+                }`}
               style={{
                 background:
                   emailFilterType === "email-logs" ? "#28a745" : undefined,
@@ -1744,16 +1741,16 @@ const handleSaveEmailSegment = async () => {
               emailFilterType === "email-logs"
                 ? handleSelectEmailLog
                 : (id: string) => {
-                    setDetailSelectedContacts((prev) => {
-                      const newSelection = new Set(prev);
-                      if (newSelection.has(id)) {
-                        newSelection.delete(id);
-                      } else {
-                        newSelection.add(id);
-                      }
-                      return newSelection;
-                    });
-                  }
+                  setDetailSelectedContacts((prev) => {
+                    const newSelection = new Set(prev);
+                    if (newSelection.has(id)) {
+                      newSelection.delete(id);
+                    } else {
+                      newSelection.add(id);
+                    }
+                    return newSelection;
+                  });
+                }
             }
             totalItems={
               emailFilterType === "email-logs"
@@ -1929,14 +1926,14 @@ const handleSaveEmailSegment = async () => {
             searchFields={
               emailFilterType === "email-logs"
                 ? [
-                    "name",
-                    "toEmail",
-                    "company",
-                    "jobTitle",
-                    "subject",
-                    "process_name",
-                    "address",
-                  ]
+                  "name",
+                  "toEmail",
+                  "company",
+                  "jobTitle",
+                  "subject",
+                  "process_name",
+                  "address",
+                ]
                 : ["full_name", "email", "company", "jobTitle", "location"]
             }
             primaryKey="id"
@@ -2111,14 +2108,14 @@ const handleSaveEmailSegment = async () => {
         onClose={appModal.hideModal}
         {...appModal.config}
       />
-          <AppModal
-      isOpen={isLoading || loading || isRefreshing || savingSegment}
-      onClose={() => {}}
-      type="loader"
-      loaderMessage={loadingMessage}
-      closeOnOverlayClick={false}
-    />
-  </div>
+      <AppModal
+        isOpen={isLoading || loading || isRefreshing || savingSegment}
+        onClose={() => { }}
+        type="loader"
+        loaderMessage={loadingMessage}
+        closeOnOverlayClick={false}
+      />
+    </div>
   );
 };
 
