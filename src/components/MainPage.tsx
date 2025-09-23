@@ -39,7 +39,6 @@ import { AppDispatch } from "../Redux/store"; // ✅ import AppDispatch
 import DataCampaigns from "./feature/ContactList"; // Adjust the path based on your file structure
 import CampaignManagement from "./feature/CampaignManagement";
 import { useAppData } from "../contexts/AppDataContext";
-import CampaignPrompt from "./feature/CampaignPrompt";
 import { Dashboard } from "./feature/Dashboard";
 import EmailCampaignBuilder from "./feature/EmailCampaignBuilder";
 interface Prompt {
@@ -3683,25 +3682,7 @@ const MainPage: React.FC = () => {
                         </button>
                       </li>
                     )}
-                    {userRole === "ADMIN" && (
-                      <li className={tab === "CampaignPrompt" ? "active" : ""}>
-                        <button
-                          onClick={() => {
-                            setTab("CampaignPrompt");
-                            setShowMailSubmenu(false);
-                            setShowContactsSubmenu(false);
-                          }}
-                          className="side-menu-button"
-                          title="Manage Campaign Prompts"
-                        >
-                          <span className="menu-icon">
-                            <img src={PromptIcon} alt="" className="ml-[3px] w-[23px]"></img>
 
-                          </span>
-                          <span className="menu-text">Campaign Prompt</span>
-                        </button>
-                      </li>
-                    )}
                     {userRole === "ADMIN" && (
                       <li className={tab === "CampaignBuilder" ? "active" : ""}>
                         <button
@@ -4587,7 +4568,6 @@ const MainPage: React.FC = () => {
                 onTabChange={setMailSubTab}
               />
             )}
-            {tab === "CampaignPrompt" && userRole === "ADMIN" && <CampaignPrompt />}
             {tab === "CampaignBuilder" && userRole === "ADMIN" && (
               <EmailCampaignBuilder selectedClient={selectedClient} />
             )}
