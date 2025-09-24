@@ -367,28 +367,28 @@ const Output: React.FC<OutputInterface> = ({
       });
     }
   }, [combinedResponses.length, setCurrentIndex]);
+const [freezeFilter, setFreezeFilter] = useState(false);
 
   // Update the useEffect that sets combinedResponses to also store the original
   // In the second useEffect that notifies parent of initial data
-  // Replace this:
-  useEffect(() => {
-    let newCombinedResponses = [...allResponses];
+useEffect(() => {
+  let newCombinedResponses = [...allResponses];
 
-    existingResponse.forEach((existing) => {
-      if (!newCombinedResponses.find((nr) => nr.id === existing.id)) {
-        newCombinedResponses.push(existing);
-      }
-    });
-
-    setCombinedResponses(newCombinedResponses);
-    setOriginalCombinedResponses(newCombinedResponses);
-
-    // Remove the setTimeout
-    if (onFilteredContactsChange) {
-      onFilteredContactsChange(newCombinedResponses);
+  existingResponse.forEach((existing) => {
+    if (!newCombinedResponses.find((nr) => nr.id === existing.id)) {
+      newCombinedResponses.push(existing);
     }
+  });
 
-  }, [allResponses, existingResponse]);
+  // Always keep original reference up-to-date
+  setOriginalCombinedResponses(newCombinedResponses);
+
+  // ✅ Only update live combinedResponses if not frozen
+  if (!freezeFilter) {
+    setCombinedResponses(newCombinedResponses);
+    onFilteredContactsChange?.(newCombinedResponses);
+  }
+}, [allResponses, existingResponse, freezeFilter]);
 
   const [jumpToNewLast, setJumpToNewLast] = useState(false);
   const prevCountRef = useRef(combinedResponses.length);
@@ -1281,110 +1281,111 @@ const Output: React.FC<OutputInterface> = ({
   const [originalCombinedResponses, setOriginalCombinedResponses] = useState<any[]>([]);
 
   // Update the useEffect that sets combinedResponses to also store the original
-  useEffect(() => {
-    // Prioritize allResponses, then add unique existingResponses
-    let newCombinedResponses = [...allResponses]; // Start with fresh responses
+// Start with fresh responses
 
-    existingResponse.forEach((existing) => {
-      if (!newCombinedResponses.find((nr) => nr.id === existing.id)) {
-        newCombinedResponses.push(existing);
-      }
-    });
 
-    setCombinedResponses(newCombinedResponses);
-    setOriginalCombinedResponses(newCombinedResponses); // Store original data
-  }, [allResponses, existingResponse]);
+
 
   // Add this useEffect to apply filters whenever they change
-  // Add this useEffect to apply filters whenever they change
-  useEffect(() => {
-    if (!dateFilter.kraftedDateEnabled && !dateFilter.sentDateEnabled) {
-      setCombinedResponses(originalCombinedResponses);
-      onFilteredContactsChange?.(originalCombinedResponses);
-      console.log("No filters active, total contacts:", originalCombinedResponses.length);
-      return;
-    }
+useEffect(() => {
+  if (!dateFilter.kraftedDateEnabled && !dateFilter.sentDateEnabled) {
+    setCombinedResponses(originalCombinedResponses);
+    onFilteredContactsChange?.(originalCombinedResponses);
+    return;
+  }
 
-    const filtered = originalCombinedResponses.filter(item => {
-      let passedFilter = false;
-
-      // Check Krafted Date
-      if (dateFilter.kraftedDateEnabled) {
-        const itemDraftDate = item.lastemailupdateddate;
-
-        // If we want to include null values and no date range is set
-        if (dateFilter.includeNullKrafted && (!itemDraftDate || itemDraftDate === 'N/A')) {
-          passedFilter = true;
-        }
-        // If date range is set, check if the date falls within range
-        else if (dateFilter.startDate || dateFilter.endDate) {
-          if (itemDraftDate && itemDraftDate !== 'N/A') {
-            const draftDate = new Date(itemDraftDate);
-            const startDate = dateFilter.startDate ? new Date(dateFilter.startDate) : null;
-            const endDate = dateFilter.endDate ? new Date(dateFilter.endDate) : null;
-
-            const passedDateRange = (!startDate || draftDate >= startDate) &&
-              (!endDate || draftDate <= endDate);
-            if (passedDateRange) passedFilter = true;
+  const filtered = originalCombinedResponses.filter(item => {
+    let passedFilter = false;
+    // ---------------------------
+    // Krafted Date filter
+    // ---------------------------
+    if (dateFilter.kraftedDateEnabled) {
+      const itemDraftDate = item.lastemailupdateddate;
+      if (dateFilter.includeNullKrafted) {
+        if (!itemDraftDate || itemDraftDate === "N/A") passedFilter = true;
+      } else if (dateFilter.startDate || dateFilter.endDate) {
+        if (itemDraftDate && itemDraftDate !== "N/A") {
+          const draftDate = new Date(itemDraftDate);
+          const start = dateFilter.startDate ? new Date(dateFilter.startDate) : null;
+          const end = dateFilter.endDate ? new Date(dateFilter.endDate) : null;
+          if ((!start || draftDate >= start) && (!end || draftDate <= end)) {
+            passedFilter = true;
           }
         }
       }
-
-      // Check Sent Date
-      if (dateFilter.sentDateEnabled) {
-        const itemSentDate = item.emailsentdate;
-
-        // If we want to include null values and no date range is set
-        if (dateFilter.includeNullSent && (!itemSentDate || itemSentDate === 'N/A')) {
-          passedFilter = true;
-        }
-        // If date range is set, check if the date falls within range
-        else if (dateFilter.startDate || dateFilter.endDate) {
-          if (itemSentDate && itemSentDate !== 'N/A') {
-            const sentDate = new Date(itemSentDate);
-            const startDate = dateFilter.startDate ? new Date(dateFilter.startDate) : null;
-            const endDate = dateFilter.endDate ? new Date(dateFilter.endDate) : null;
-
-            const passedDateRange = (!startDate || sentDate >= startDate) &&
-              (!endDate || sentDate <= endDate);
-            if (passedDateRange) passedFilter = true;
+    }
+    // ---------------------------
+    // Sent Date filter
+    // ---------------------------
+    if (dateFilter.sentDateEnabled) {
+      const itemSentDate = item.emailsentdate;
+      if (dateFilter.includeNullSent) {
+        if (!itemSentDate || itemSentDate === "N/A") passedFilter = true;
+      } else if (dateFilter.startDate || dateFilter.endDate) {
+        if (itemSentDate && itemSentDate !== "N/A") {
+          const sentDate = new Date(itemSentDate);
+          const start = dateFilter.startDate ? new Date(dateFilter.startDate) : null;
+          const end = dateFilter.endDate ? new Date(dateFilter.endDate) : null;
+          if ((!start || sentDate >= start) && (!end || sentDate <= end)) {
+            passedFilter = true;
           }
         }
       }
-
-      return passedFilter;
-    });
-    setCombinedResponses(filtered);
-    onFilteredContactsChange?.(filtered);
-
-    console.log("Filtered contacts:", filtered.length, "Current index:", currentIndex);
-    if (filtered[currentIndex]) {
-      console.log("Current filtered contact:", filtered[currentIndex].name, "ID:", filtered[currentIndex].id);
     }
+    return passedFilter;
+  });
 
-    if (currentIndex >= filtered.length && filtered.length > 0) {
-      setCurrentIndex(0);
+  setCombinedResponses(filtered);
+  onFilteredContactsChange?.(filtered);
+
+  if (filtered.length > 0) {
+    const currentContact = combinedResponses[currentIndex];
+    const newIndex = currentContact
+      ? filtered.findIndex(c => c.id === currentContact.id)
+      : -1;
+
+    if (newIndex !== -1) {
+      setCurrentIndex(newIndex); // stay on same contact
+    } else if (currentIndex < filtered.length) {
+      setCurrentIndex(currentIndex); // keep current index if valid
+    } else {
+      setCurrentIndex(filtered.length - 1); // fallback to last item, not index 0
     }
-  }, [dateFilter, originalCombinedResponses]); // ADD onFilteredContactsChange to dependencies
+  }
+}, [dateFilter]);  // 👈 only depend on dateFilter 
 
 
   // Add this new useEffect after your filter useEffect:
-  useEffect(() => {
-    // This runs only when combinedResponses length changes
-    if (combinedResponses.length === 0) return;
+useEffect(() => {
+  if (combinedResponses.length === 0) return;
 
-    // Get current stored index
-    const storedIndex = sessionStorage.getItem("currentIndex");
-    if (storedIndex) {
-      const index = parseInt(storedIndex, 10);
-      if (index >= combinedResponses.length) {
-        setCurrentIndex(0);
-        sessionStorage.setItem("currentIndex", "0");
-      }
+  const storedIndex = sessionStorage.getItem("currentIndex");
+  if (storedIndex) {
+    const index = parseInt(storedIndex, 10);
+    if (index >= combinedResponses.length) {
+      // ✅ fallback to last contact instead of snapping to 0
+      const lastIndex = combinedResponses.length - 1;
+      setCurrentIndex(lastIndex);
+      sessionStorage.setItem("currentIndex", String(lastIndex));
+    } else {
+      // Keep stored index
+      setCurrentIndex(index);
     }
-  }, [combinedResponses.length, setCurrentIndex]);
-  const [sendEmailControls, setSendEmailControls] = useState(false);
+  }
+}, [dateFilter]); // run when user explicitly changes filters
 
+const startFilteredGeneration = () => {
+  const contactsToProcess = combinedResponses.slice(currentIndex);
+  sessionStorage.setItem("contactsToProcess", JSON.stringify(contactsToProcess));
+  setCurrentIndex(0);
+
+  // ✅ freeze filtered subset
+  setFreezeFilter(true);
+
+  handleStart?.(0);
+};
+
+  const [sendEmailControls, setSendEmailControls] = useState(false);
 
   return (
     <div className="login-box gap-down">
@@ -1436,51 +1437,48 @@ const Output: React.FC<OutputInterface> = ({
                 <div className="flex">
                   {isResetEnabled ? (
                     // In Output.tsx, update the button click handler:
-                    <button
-                      className="primary-button bg-[#3f9f42]"
-                      onClick={() => {
-                        // Get all contacts starting from current index (already filtered if filters are active)
-                        const contactsToProcess = combinedResponses.slice(currentIndex);
+<button
+  className="primary-button bg-[#3f9f42]"
+  onClick={() => {
+    // ✅ Take only filtered subset from currentIndex onward
+    const contactsToProcess = combinedResponses.slice(currentIndex);
 
-                        // Map the fields to match what goToTab expects
-                        const mappedContacts = contactsToProcess.map(contact => ({
-                          ...contact,
-                          // Map Output fields to goToTab expected fields
-                          full_name: contact.name || contact.full_name,
-                          job_title: contact.title || contact.job_title,
-                          company_name: contact.company || contact.company_name,
-                          country_or_address: contact.location || contact.country_or_address,
-                          linkedin_url: contact.linkedin || contact.linkedin_url,
-                          email_body: contact.pitch || contact.email_body,
-                          email_subject: contact.subject || contact.email_subject,
-                          updated_at: contact.lastemailupdateddate || contact.updated_at,
-                          email_sent_at: contact.emailsentdate || contact.email_sent_at,
-                          // Keep original fields too for backward compatibility
-                          name: contact.name,
-                          title: contact.title,
-                          company: contact.company,
-                          location: contact.location,
-                          linkedin: contact.linkedin,
-                          pitch: contact.pitch,
-                          subject: contact.subject,
-                        }));
+    // Map to goToTab format
+    const mappedContacts = contactsToProcess.map(contact => ({
+      ...contact,
+      full_name: contact.name || contact.full_name,
+      job_title: contact.title || contact.job_title,
+      company_name: contact.company || contact.company_name,
+      country_or_address: contact.location || contact.country_or_address,
+      linkedin_url: contact.linkedin || contact.linkedin_url,
+      email_body: contact.pitch || contact.email_body,
+      email_subject: contact.subject || contact.email_subject,
+      updated_at: contact.lastemailupdateddate || contact.updated_at,
+      email_sent_at: contact.emailsentdate || contact.email_sent_at,
+      // Keep original fields too
+      name: contact.name,
+      title: contact.title,
+      company: contact.company,
+      location: contact.location,
+      linkedin: contact.linkedin,
+      pitch: contact.pitch,
+      subject: contact.subject,
+    }));
 
-                        if (mappedContacts.length > 0) {
-                          // Store the mapped contact data
-                          sessionStorage.setItem('contactsToProcess', JSON.stringify(mappedContacts));
-                          console.log("Processing contacts:", mappedContacts.length, "starting from:", mappedContacts[0]?.name);
-                        }
+    if (mappedContacts.length > 0) {
+      // ✅ Always reset generation list to filtered subset only
+      sessionStorage.setItem('contactsToProcess', JSON.stringify(mappedContacts));
+      console.log("Processing ONLY filtered contacts:", mappedContacts.length, "starting from:", mappedContacts[0]?.name);
+    }
 
-                        handleStart?.(currentIndex);
-                      }}
-                      disabled={
-                        (!selectedPrompt?.name || !selectedZohoviewId) &&
-                        !selectedCampaign
-                      }
-                      title={`Click to generate hyper-personalized emails starting from contact ${currentIndex + 1}`}
-                    >
-                      Generate
-                    </button>
+    // ✅ Always use filtered subset starting from index 0
+    setCurrentIndex(0);
+    handleStart?.(0);
+  }}
+  disabled={(!selectedPrompt?.name || !selectedZohoviewId) && !selectedCampaign}
+>
+  Generate
+</button>
                   ) : (
                     <button
                       className="primary-button bg-[#3f9f42]"
@@ -1852,50 +1850,50 @@ const Output: React.FC<OutputInterface> = ({
             {/* Filter Buttons */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
               <button
-                type="button"
-                onClick={() => {
-                  const hasNoDateRange = !dateFilter.startDate && !dateFilter.endDate;
-                  setDateFilter(prev => ({
-                    ...prev,
-                    kraftedDateEnabled: !prev.kraftedDateEnabled,
-                    includeNullKrafted: hasNoDateRange ? !prev.kraftedDateEnabled : false
-                  }));
-                }}
-                style={{
-                  padding: '5px 10px',
-                  border: '1px solid #4caf50',
-                  borderRadius: '4px',
-                  backgroundColor: dateFilter.kraftedDateEnabled ? '#4caf50' : 'white',
-                  color: dateFilter.kraftedDateEnabled ? 'white' : '#4caf50',
-                  cursor: 'pointer',
-                  fontSize: '13px'
-                }}
-              >
-                Krafted Date
-              </button>
+  type="button"
+  onClick={() => {
+    const hasNoDateRange = !dateFilter.startDate && !dateFilter.endDate;
+    setDateFilter(prev => ({
+      ...prev,
+      kraftedDateEnabled: !prev.kraftedDateEnabled,
+      includeNullKrafted: hasNoDateRange && !prev.kraftedDateEnabled ? true : false
+    }));
+  }}
+  style={{
+    padding: '5px 10px',
+    border: '1px solid #4caf50',
+    borderRadius: '4px',
+    backgroundColor: dateFilter.kraftedDateEnabled ? '#4caf50' : 'white',
+    color: dateFilter.kraftedDateEnabled ? 'white' : '#4caf50',
+    cursor: 'pointer',
+    fontSize: '13px'
+  }}
+>
+  Krafted Date
+</button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  const hasNoDateRange = !dateFilter.startDate && !dateFilter.endDate;
-                  setDateFilter(prev => ({
-                    ...prev,
-                    sentDateEnabled: !prev.sentDateEnabled,
-                    includeNullSent: hasNoDateRange ? !prev.sentDateEnabled : false
-                  }));
-                }}
-                style={{
-                  padding: '5px 10px',
-                  border: '1px solid #4caf50',
-                  borderRadius: '4px',
-                  backgroundColor: dateFilter.sentDateEnabled ? '#4caf50' : 'white',
-                  color: dateFilter.sentDateEnabled ? 'white' : '#4caf50',
-                  cursor: 'pointer',
-                  fontSize: '13px'
-                }}
-              >
-                Email Sent Date
-              </button>
+<button
+  type="button"
+  onClick={() => {
+    const hasNoDateRange = !dateFilter.startDate && !dateFilter.endDate;
+    setDateFilter(prev => ({
+      ...prev,
+      sentDateEnabled: !prev.sentDateEnabled,
+      includeNullSent: hasNoDateRange && !prev.sentDateEnabled ? true : false
+    }));
+  }}
+  style={{
+    padding: '5px 10px',
+    border: '1px solid #4caf50',
+    borderRadius: '4px',
+    backgroundColor: dateFilter.sentDateEnabled ? '#4caf50' : 'white',
+    color: dateFilter.sentDateEnabled ? 'white' : '#4caf50',
+    cursor: 'pointer',
+    fontSize: '13px'
+  }}
+>
+  Email Sent Date
+</button>
             </div>
 
             {/* Clear Filters Button */}

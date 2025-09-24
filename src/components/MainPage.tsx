@@ -2113,67 +2113,51 @@ const MainPage: React.FC = () => {
               segmentId: segmentId ? parseInt(segmentId) : null, // Also preserve segmentId
             };
 
-            setAllResponses((prevResponses) => {
-              const updated = [...prevResponses];
-              if (responseIndex < updated.length) {
-                updated[responseIndex] = existingResponse;
-              } else {
-                updated.push(existingResponse);
-              }
-              setCurrentIndex(responseIndex);
-              return updated;
-            });
+         setAllResponses((prev) =>
+  prev.some((r) => r.id === entry.id)
+    ? prev.map((r) => (r.id === entry.id ? existingResponse : r))
+    : [...prev, existingResponse]
+);
 
-            // Update these to use responseIndex logic
-            setallprompt((prevPrompts) => {
-              const updated = [...prevPrompts];
-              if (responseIndex < updated.length) {
-                updated[responseIndex] = "";
-              } else {
-                updated.push("");
-              }
-              return updated;
-            });
+setallprompt((prev) =>
+  prev.some((_, idx) => allResponses[idx]?.id === entry.id)
+    ? prev.map((item, idx) =>
+        allResponses[idx]?.id === entry.id ? "" : item
+      )
+    : [...prev, ""]
+);
 
-            setallsearchResults((prevSearchResults) => {
-              const updated = [...prevSearchResults];
-              if (responseIndex < updated.length) {
-                updated[responseIndex] = [];
-              } else {
-                updated.push([]);
-              }
-              return updated;
-            });
+setallsearchResults((prev) =>
+  prev.some((_, idx) => allResponses[idx]?.id === entry.id)
+    ? prev.map((item, idx) =>
+        allResponses[idx]?.id === entry.id ? [] : item
+      )
+    : [...prev, []]
+);
 
-            seteveryscrapedData((prevScrapedData) => {
-              const updated = [...prevScrapedData];
-              if (responseIndex < updated.length) {
-                updated[responseIndex] = "";
-              } else {
-                updated.push("");
-              }
-              return updated;
-            });
+seteveryscrapedData((prev) =>
+  prev.some((_, idx) => allResponses[idx]?.id === entry.id)
+    ? prev.map((item, idx) =>
+        allResponses[idx]?.id === entry.id ? "" : item
+      )
+    : [...prev, ""]
+);
 
-            setallsummery((prevSummery) => {
-              const updated = [...prevSummery];
-              if (responseIndex < updated.length) {
-                updated[responseIndex] = "";
-              } else {
-                updated.push("");
-              }
-              return updated;
-            });
+setallsummery((prev) =>
+  prev.some((_, idx) => allResponses[idx]?.id === entry.id)
+    ? prev.map((item, idx) =>
+        allResponses[idx]?.id === entry.id ? "" : item
+      )
+    : [...prev, ""]
+);
 
-            setallSearchTermBodies((prevSearchTermBodies) => {
-              const updated = [...prevSearchTermBodies];
-              if (responseIndex < updated.length) {
-                updated[responseIndex] = "";
-              } else {
-                updated.push("");
-              }
-              return updated;
-            });
+setallSearchTermBodies((prev) =>
+  prev.some((_, idx) => allResponses[idx]?.id === entry.id)
+    ? prev.map((item, idx) =>
+        allResponses[idx]?.id === entry.id ? "" : item
+      )
+    : [...prev, ""]
+);
 
             continue;
           } else {
@@ -2581,68 +2565,55 @@ const MainPage: React.FC = () => {
             ? currentIndex + (i - currentIndex)
             : allResponses.length;
 
-          setAllResponses((prevResponses) => {
-            const updated = [...prevResponses];
-            if (responseIndex < updated.length) {
-              // Replace existing entry
-              updated[responseIndex] = newResponse;
-            } else {
-              // Add new entry
-              updated.push(newResponse);
-            }
-            return updated;
-          });
+         setAllResponses((prevResponses) =>
+  prevResponses.some((r) => r.id === entry.id)
+    ? prevResponses.map((r) => (r.id === entry.id ? newResponse : r))
+    : [...prevResponses, newResponse]
+);
 
-          // Similarly update other arrays at the correct index
-          setallprompt((prevPrompts) => {
-            const updated = [...prevPrompts];
-            if (responseIndex < updated.length) {
-              updated[responseIndex] = promptToSend;
-            } else {
-              updated.push(promptToSend);
-            }
-            return updated;
-          });
+setallprompt((prev) =>
+  allResponses.some((r) => r.id === entry.id)
+    ? prev.map((item, idx) =>
+        allResponses[idx]?.id === entry.id ? promptToSend : item
+      )
+    : [...prev, promptToSend]
+);
 
-          setallsearchResults((prevSearchResults) => {
-            const updated = [...prevSearchResults];
-            if (responseIndex < updated.length) {
-              updated[responseIndex] = scrapeData.searchResults || [];
-            } else {
-              updated.push(scrapeData.searchResults || []);
-            }
-            return updated;
-          });
+setallsearchResults((prev) =>
+  allResponses.some((r) => r.id === entry.id)
+    ? prev.map((item, idx) =>
+        allResponses[idx]?.id === entry.id ? searchResults : item
+      )
+    : [...prev, searchResults]
+);
 
-          seteveryscrapedData((prevScrapedData) => {
-            const updated = [...prevScrapedData];
-            if (responseIndex < updated.length) {
-              updated[responseIndex] = scrapeData.allScrapedData || "";
-            } else {
-              updated.push(scrapeData.allScrapedData || "");
-            }
-            return updated;
-          });
+seteveryscrapedData((prev) =>
+  allResponses.some((r) => r.id === entry.id)
+    ? prev.map((item, idx) =>
+        allResponses[idx]?.id === entry.id
+          ? scrapeData.allScrapedData || ""
+          : item
+      )
+    : [...prev, scrapeData.allScrapedData || ""]
+);
 
-          setallsummery((prevSummery) => {
-            const updated = [...prevSummery];
-            if (responseIndex < updated.length) {
-              updated[responseIndex] = scrapeData.pitchResponse?.content || "";
-            } else {
-              updated.push(scrapeData.pitchResponse?.content || "");
-            }
-            return updated;
-          });
+setallsummery((prev) =>
+  allResponses.some((r) => r.id === entry.id)
+    ? prev.map((item, idx) =>
+        allResponses[idx]?.id === entry.id
+          ? scrapeData.pitchResponse?.content || ""
+          : item
+      )
+    : [...prev, scrapeData.pitchResponse?.content || ""]
+);
 
-          setallSearchTermBodies((prevSearchTermBodies) => {
-            const updated = [...prevSearchTermBodies];
-            if (responseIndex < updated.length) {
-              updated[responseIndex] = searchTermBody;
-            } else {
-              updated.push(searchTermBody);
-            }
-            return updated;
-          });
+setallSearchTermBodies((prev) =>
+  allResponses.some((r) => r.id === entry.id)
+    ? prev.map((item, idx) =>
+        allResponses[idx]?.id === entry.id ? searchTermBody : item
+      )
+    : [...prev, searchTermBody]
+);
           setCurrentIndex(responseIndex);
           setRecentlyAddedOrUpdatedId(newResponse.id);
 
