@@ -38,6 +38,7 @@ import CampaignManagement from "./feature/CampaignManagement";
 import { useAppData } from "../contexts/AppDataContext";
 import CampaignPrompt from "./feature/CampaignPrompt";
 import { Dashboard } from "./feature/Dashboard";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
 
 interface Prompt {
@@ -229,8 +230,8 @@ const MainPage: React.FC = () => {
     title: "",
     message: "",
     type: "info" as "success" | "error" | "warning" | "info" | "confirm",
-    onConfirm: () => {},
-    onCancel: () => {},
+    onConfirm: () => { },
+    onCancel: () => { },
   });
 
   // Context and hooks
@@ -239,7 +240,7 @@ const MainPage: React.FC = () => {
   const setClientSettings = appData.setClientSettings;
   const clientSettings = appData.clientSettings;
   const refreshTrigger = appData.refreshTrigger;
- const clientId = useSelector((state: RootState) => state.client.clientId);
+  const clientId = useSelector((state: RootState) => state.client.clientId);
   const [formData, setFormData] = useState({
     Server: "",
     Port: "",
@@ -273,7 +274,7 @@ const MainPage: React.FC = () => {
   const [existingResponse, setexistingResponse] = useState<any[]>([]);
   const [clearExistingResponse, setClearExistingResponse] = useState<
     () => void
-  >(() => {});
+  >(() => { });
   const [selectedClient, setSelectedClient] = useState<string>("");
   const [clientNames, setClientNames] = useState<Client[]>([]);
 
@@ -319,9 +320,33 @@ const MainPage: React.FC = () => {
   } = useSelector((state: RootState) => state.auth);
 
   //submenu
+  const location = useLocation();
+  const navigate = useNavigate();
+  const queryParams = new URLSearchParams(location.search);
+  
+
+  const initialTab = queryParams.get("tab") || "Dashboard";
+  const initialContactsSubTab = queryParams.get("subtab") || "List";
+  const [showMailSubmenu, setShowMailSubmenu] = useState(initialTab === "Mail");
+
   const [tab, setTab] = useState<string>("Dashboard");
   const [mailSubTab, setMailSubTab] = useState<string>("Dashboard");
-  const [showMailSubmenu, setShowMailSubmenu] = useState<boolean>(false);
+  const initialMailSubTab = queryParams.get("subTab") || "Dashboard"; 
+
+  useEffect(() => {
+  setTab(initialTab);
+  setContactsSubTab(initialContactsSubTab);
+
+  // 👇 handle Mail subTab
+  const subTabParam = queryParams.get("subTab"); // notice the capital S
+  if (initialTab === "Mail" && subTabParam) {
+    setMailSubTab(subTabParam);
+    setShowMailSubmenu(true); // open submenu when navigating directly
+  }
+}, [initialTab, initialContactsSubTab, queryParams]);
+
+  
+ // const [showMailSubmenu, setShowMailSubmenu] = useState<boolean>(false);
   const [showContactsSubmenu, setShowContactsSubmenu] = useState(false);
   const [contactsSubTab, setContactsSubTab] = useState("List");
 
@@ -350,7 +375,7 @@ const MainPage: React.FC = () => {
   const [currentFilteredContacts, setCurrentFilteredContacts] = useState<any[]>([]);
 
   const updateFilteredContacts = (filteredContacts: any[]) => {
-  setCurrentFilteredContacts(filteredContacts);};
+    setCurrentFilteredContacts(filteredContacts);};
 
 
   const handleClearContent = useCallback((clearContent: () => void) => {
@@ -398,8 +423,8 @@ const MainPage: React.FC = () => {
         }
 
         const data = await response.json();
-        console.log("data",data);
-        setCampaigns(data);
+        console.log("data", data);
+       setCampaigns(data.campaigns || []);
       } catch (error) {
         console.error("Error fetching campaigns:", error);
         setCampaigns([]);
@@ -722,7 +747,7 @@ const MainPage: React.FC = () => {
       return;
 
     // Determine which ID to use for the update
-  //  const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
+    //  const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
 
     if (!effectiveUserId || Number(effectiveUserId) <= 0) {
       console.error("Invalid userId or clientID:", effectiveUserId);
@@ -1088,7 +1113,7 @@ const MainPage: React.FC = () => {
       direction: "next" | "previous" | null = null
     ) => {
       try {
-        
+
         setIsFetchingContacts(true); // Start loader
 
         setEmailLoading(true);
@@ -1150,7 +1175,7 @@ const MainPage: React.FC = () => {
         }
         const emailResponses = contactsData.map((entry: any) => ({
           id: entry.id,
-          dataFileId: dataFileId || entry.dataFileId|| "null", // Add dataFileId to response
+          dataFileId: dataFileId || entry.dataFileId || "null", // Add dataFileId to response
           segmentId: segmentId || "null", // Add segmentId to response
           name: entry.full_name || "N/A",
           title: entry.job_title || "N/A",
@@ -1244,19 +1269,17 @@ const MainPage: React.FC = () => {
                 div { margin: 0 0 10px 0 !important; }
                 .section { margin-bottom: 20px !important; padding-bottom: 10px !important; border-bottom: 1px solid #eee; }
                 .pitch { background-color: #f9f9f9; padding: 15px; border-left: 4px solid #4CAF50; margin: 10px 0; }
-                .report-type { color: ${
-                  isPauseReport ? "orange" : "green"
-                }; font-weight: bold; }
+                .report-type { color: ${isPauseReport ? "orange" : "green"
+        }; font-weight: bold; }
             </style>
         </head>
         <body>
             <div class="section">
                 <h2><span class="report-type">${reportType}</span></h2>
-                ${
-                  isPauseReport
-                    ? "<p><strong>Status:</strong> Process was paused by the user</p>"
-                    : ""
-                }
+                ${isPauseReport
+          ? "<p><strong>Status:</strong> Process was paused by the user</p>"
+          : ""
+        }
             </div>
             <div class="section">
                 <h2>User Info:</h2>
@@ -1270,9 +1293,8 @@ const MainPage: React.FC = () => {
                 <h2>Device Info:</h2>
                 <p><strong>IP Address:</strong> ${ipLink}</p>
                 <p><strong>Browser:</strong> ${browserName || "N/A"}</p>
-                <p><strong>Browser Version:</strong> ${
-                  browserVersion || "N/A"
-                }</p>
+                <p><strong>Browser Version:</strong> ${browserVersion || "N/A"
+        }</p>
             </div>
             <div class="section">
                 <h2>Timings:</h2>
@@ -1287,8 +1309,8 @@ const MainPage: React.FC = () => {
                 <p><strong>Total scrap data failed requests:</strong> ${scrapfailedReq}</p>
                 <p><strong>Total tokens used:</strong> ${totaltokensused}</p>
                 <p><strong>Total cost of the transaction:</strong> $${cost.toFixed(
-                  2
-                )}</p>
+          2
+        )}</p>
             </div>
             <div class="section">
                 <h2>Prompt Template Used:</h2>
@@ -1426,12 +1448,11 @@ const MainPage: React.FC = () => {
           `Looking for: "${placeholder}", replacing with: "${cleanValue}"`
         );
         console.log(
-          `Found ${
-            (
-              text.match(
-                new RegExp(placeholder.replace(/[{}]/g, "\\$&"), "g")
-              ) || []
-            ).length
+          `Found ${(
+            text.match(
+              new RegExp(placeholder.replace(/[{}]/g, "\\$&"), "g")
+            ) || []
+          ).length
           } occurrences`
         );
 
@@ -1606,8 +1627,7 @@ const MainPage: React.FC = () => {
             generatedContent:
               `<span style="color: orange">[${formatDateTime(
                 new Date()
-              )}] Crafting phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${
-                entry.email
+              )}] Crafting phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${entry.email
               }</span><br/>` + prev.generatedContent,
           }));
           const scrapeResponse = await fetch(
@@ -1639,8 +1659,7 @@ const MainPage: React.FC = () => {
             generatedContent:
               `<span style="color: #b38f00">[${formatDateTime(
                 new Date()
-              )}] Loading phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${
-                entry.email
+              )}] Loading phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${entry.email
               }</span><br/>` + prev.generatedContent,
           }));
         }
@@ -1713,12 +1732,9 @@ const MainPage: React.FC = () => {
           generatedContent:
             `<span style="color: green">[${formatDateTime(
               new Date()
-            )}] Pitch successfully crafted(att:${searchCount} org:${
-              dataAnalysis.original
-            } ass:${
-              dataAnalysis.assisted
-            }), for contact ${full_name} with company name ${company_name} and domain ${
-              entry.email
+            )}] Pitch successfully crafted(att:${searchCount} org:${dataAnalysis.original
+            } ass:${dataAnalysis.assisted
+            }), for contact ${full_name} with company name ${company_name} and domain ${entry.email
             }</span><br/>` + prev.generatedContent,
           linkLabel: pitchData.response.content,
         }));
@@ -1746,8 +1762,7 @@ const MainPage: React.FC = () => {
             generatedContent:
               `<span style="color: blue">[${formatDateTime(
                 new Date()
-              )}] Crafting phase #3 concinnus, for contact ${full_name} with company name ${company_name} and domain ${
-                entry.email
+              )}] Crafting phase #3 concinnus, for contact ${full_name} with company name ${company_name} and domain ${entry.email
               }</span><br/>` + prev.generatedContent,
           }));
 
@@ -1769,8 +1784,7 @@ const MainPage: React.FC = () => {
               generatedContent:
                 `<span style="color: green">[${formatDateTime(
                   new Date()
-                )}] Subject successfully crafted, for contact ${full_name} with company name ${company_name} and domain ${
-                  entry.email
+                )}] Subject successfully crafted, for contact ${full_name} with company name ${company_name} and domain ${entry.email
                 }</span><br/>` + prev.generatedContent,
               emailSubject: subjectLine,
             }));
@@ -1801,8 +1815,7 @@ const MainPage: React.FC = () => {
             generatedContent:
               `<span style="color: green">[${formatDateTime(
                 new Date()
-              )}] Subject using user placeholder for contact ${full_name} with company name ${company_name} and domain ${
-                entry.email
+              )}] Subject using user placeholder for contact ${full_name} with company name ${company_name} and domain ${entry.email
               }</span><br/>` + prev.generatedContent,
             emailSubject: subjectLine,
           }));
@@ -1860,8 +1873,7 @@ const MainPage: React.FC = () => {
                   generatedContent:
                     `<span style="color: orange">[${formatDateTime(
                       new Date()
-                    )}] Updating contact in database incomplete for ${full_name}. Error: ${
-                      updateContactError.Message || "Unknown error"
+                    )}] Updating contact in database incomplete for ${full_name}. Error: ${updateContactError.Message || "Unknown error"
                     }</span><br/>` + prevOutputForm.generatedContent,
                 }));
               } else {
@@ -1996,68 +2008,68 @@ const MainPage: React.FC = () => {
       }));
 
       // Declare contacts variable before the if/else block
-// Declare contacts variable
-let contacts: any[] = [];
+      // Declare contacts variable
+      let contacts: any[] = [];
 
-// Check if we have contacts to process from the Output component
-const contactsToProcessStr = sessionStorage.getItem('contactsToProcess');
-if (contactsToProcessStr) {
-  // Use the contacts passed from Output (already filtered if filters were active)
-  contacts = JSON.parse(contactsToProcessStr);
-  sessionStorage.removeItem('contactsToProcess');
-  console.log("Using contacts from Output component:", contacts.length);
-  console.log("First contact:", contacts[0]?.full_name || contacts[0]?.name);
-  currentIndex = 0; // Start from beginning since we already sliced from currentIndex
-} else {
-  // Fallback: fetch contacts if not provided (for backward compatibility)
-  // Use cached data if available and flag is set
-  if (options?.useCachedData && cachedContacts.length > 0) {
-    contacts = cachedContacts;
-  } else {
-    // ✅ Fetch contacts based on campaign type
-    if (segmentId) {
-      // Fetch from segment API
-      console.log("Fetching contacts from segment API, segmentId:", segmentId);
-      const response = await fetch(
-        `${API_BASE_URL}/api/Crm/segment/${segmentId}/contacts`
-      );
+      // Check if we have contacts to process from the Output component
+      const contactsToProcessStr = sessionStorage.getItem('contactsToProcess');
+      if (contactsToProcessStr) {
+        // Use the contacts passed from Output (already filtered if filters were active)
+        contacts = JSON.parse(contactsToProcessStr);
+        sessionStorage.removeItem('contactsToProcess');
+        console.log("Using contacts from Output component:", contacts.length);
+        console.log("First contact:", contacts[0]?.full_name || contacts[0]?.name);
+        currentIndex = 0; // Start from beginning since we already sliced from currentIndex
+      } else {
+        // Fallback: fetch contacts if not provided (for backward compatibility)
+        // Use cached data if available and flag is set
+        if (options?.useCachedData && cachedContacts.length > 0) {
+          contacts = cachedContacts;
+        } else {
+          // ✅ Fetch contacts based on campaign type
+          if (segmentId) {
+            // Fetch from segment API
+            console.log("Fetching contacts from segment API, segmentId:", segmentId);
+            const response = await fetch(
+              `${API_BASE_URL}/api/Crm/segment/${segmentId}/contacts`
+            );
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch segment contacts");
+            if (!response.ok) {
+              throw new Error("Failed to fetch segment contacts");
+            }
+
+            const data = await response.json();
+            contacts = data || []; // Segment API returns contacts directly
+            console.log("Fetched segment contacts:", contacts.length);
+          } else if (parsedDataFileId) {
+            // Fetch from datafile API (existing logic)
+            console.log("Fetching contacts from datafile API, dataFileId:", parsedDataFileId);
+            const response = await fetch(
+              `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${parsedDataFileId}`
+            );
+
+            if (!response.ok) {
+              throw new Error("Failed to fetch datafile contacts");
+            }
+
+            const data = await response.json();
+            contacts = data.contacts || [];
+            console.log("Fetched datafile contacts:", contacts.length);
+          } else {
+            throw new Error(
+              "No valid data source found (neither segment nor datafile)"
+            );
+          }
+        }
       }
 
-      const data = await response.json();
-      contacts = data || []; // Segment API returns contacts directly
-      console.log("Fetched segment contacts:", contacts.length);
-    } else if (parsedDataFileId) {
-      // Fetch from datafile API (existing logic)
-      console.log("Fetching contacts from datafile API, dataFileId:", parsedDataFileId);
-      const response = await fetch(
-        `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${parsedDataFileId}`
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch datafile contacts");
+      if (!Array.isArray(contacts) || contacts.length === 0) {
+        console.error("No contacts to process");
+        setIsProcessing(false);
+        setIsPitchUpdateCompleted(true);
+        setIsPaused(true);
+        return;
       }
-
-      const data = await response.json();
-      contacts = data.contacts || [];
-      console.log("Fetched datafile contacts:", contacts.length);
-    } else {
-      throw new Error(
-        "No valid data source found (neither segment nor datafile)"
-      );
-    }
-  }
-}
-
-if (!Array.isArray(contacts) || contacts.length === 0) {
-  console.error("No contacts to process");
-  setIsProcessing(false);
-  setIsPitchUpdateCompleted(true);
-  setIsPaused(true);
-  return;
-}
 
 
 
@@ -2098,8 +2110,7 @@ if (!Array.isArray(contacts) || contacts.length === 0) {
               generatedContent:
                 `<span style="color: orange">[${formatDateTime(
                   new Date()
-                )}] Pitch crafted for contact ${full_name} with company name ${company_name} and domain ${
-                  entry.email
+                )}] Pitch crafted for contact ${full_name} with company name ${company_name} and domain ${entry.email
                 } </span><br/>` + prevOutputForm.generatedContent,
               linkLabel: entry.email_body,
             }));
@@ -2246,8 +2257,7 @@ if (!Array.isArray(contacts) || contacts.length === 0) {
               generatedContent:
                 `<span style="color: orange">[${formatDateTime(
                   new Date()
-                )}] Crafting phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${
-                  entry.email
+                )}] Crafting phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${entry.email
                 }</span><br/>` + prevOutputForm.generatedContent,
             }));
 
@@ -2273,8 +2283,7 @@ if (!Array.isArray(contacts) || contacts.length === 0) {
                 generatedContent:
                   `<span style="color: red">[${formatDateTime(
                     new Date()
-                  )}] Centum nulla analysis incomplete for contact ${full_name} with company name ${company_name} and domain ${
-                    entry.email
+                  )}] Centum nulla analysis incomplete for contact ${full_name} with company name ${company_name} and domain ${entry.email
                   }</span><br/>` + prevOutputForm.generatedContent,
                 usage:
                   `Cost: $${cost.toFixed(6)}    ` +
@@ -2300,8 +2309,7 @@ if (!Array.isArray(contacts) || contacts.length === 0) {
               generatedContent:
                 `<span style="color: #b38f00">[${formatDateTime(
                   new Date()
-                )}] Loading phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${
-                  entry.email
+                )}] Loading phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${entry.email
                 }</span><br/>` + prevOutputForm.generatedContent,
             }));
           }
@@ -2322,8 +2330,7 @@ if (!Array.isArray(contacts) || contacts.length === 0) {
               generatedContent:
                 `<span style="color: red">[${formatDateTime(
                   new Date()
-                )}] Centum nulla analysis incomplete for contact ${full_name} with company name ${company_name} and domain ${
-                  entry.email
+                )}] Centum nulla analysis incomplete for contact ${full_name} with company name ${company_name} and domain ${entry.email
                 }</span><br/>` + prevOutputForm.generatedContent,
               usage:
                 `Cost: $${cost.toFixed(6)}    ` +
@@ -2378,12 +2385,9 @@ if (!Array.isArray(contacts) || contacts.length === 0) {
             generatedContent:
               `<span style="color: blue">[${formatDateTime(
                 new Date()
-              )}] Crafting phase #2 integritas (att:${searchCount} org:${
-                dataAnalysis.original
-              } ass:${
-                dataAnalysis.assisted
-              }), for contact ${full_name} with company name ${company_name} and domain ${
-                entry.email
+              )}] Crafting phase #2 integritas (att:${searchCount} org:${dataAnalysis.original
+              } ass:${dataAnalysis.assisted
+              }), for contact ${full_name} with company name ${company_name} and domain ${entry.email
               }</span><br/>` + prevOutputForm.generatedContent,
           }));
 
@@ -2415,8 +2419,7 @@ if (!Array.isArray(contacts) || contacts.length === 0) {
               generatedContent:
                 `<span style="color: red">[${formatDateTime(
                   new Date()
-                )}] Phase #2 integritas incomplete for contact ${full_name} with company name ${company_name} and domain ${
-                  entry.email
+                )}] Phase #2 integritas incomplete for contact ${full_name} with company name ${company_name} and domain ${entry.email
                 }</span><br/>` + prevOutputForm.generatedContent,
               usage:
                 `Cost: $${cost.toFixed(6)}    ` +
@@ -2445,8 +2448,7 @@ if (!Array.isArray(contacts) || contacts.length === 0) {
             generatedContent:
               `<span style="color: green">[${formatDateTime(
                 new Date()
-              )}] Pitch successfully crafted for contact ${full_name} with company name ${company_name} and domain ${
-                entry.email
+              )}] Pitch successfully crafted for contact ${full_name} with company name ${company_name} and domain ${entry.email
               }</span><br/>` + prevOutputForm.generatedContent,
             usage:
               `Cost: $${cost.toFixed(6)}    ` +
@@ -2498,8 +2500,7 @@ if (!Array.isArray(contacts) || contacts.length === 0) {
               generatedContent:
                 `<span style="color: blue">[${formatDateTime(
                   new Date()
-                )}] Crafting phase #3 concinnus, for contact ${full_name} with company name ${company_name} and domain ${
-                  entry.email
+                )}] Crafting phase #3 concinnus, for contact ${full_name} with company name ${company_name} and domain ${entry.email
                 }</span><br/>` + prev.generatedContent,
             }));
 
@@ -2521,8 +2522,7 @@ if (!Array.isArray(contacts) || contacts.length === 0) {
                 generatedContent:
                   `<span style="color: green">[${formatDateTime(
                     new Date()
-                  )}] Subject successfully crafted, for contact ${full_name} with company name ${company_name} and domain ${
-                    entry.email
+                  )}] Subject successfully crafted, for contact ${full_name} with company name ${company_name} and domain ${entry.email
                   }</span><br/>` + prev.generatedContent,
                 emailSubject: subjectLine,
               }));
@@ -2532,8 +2532,7 @@ if (!Array.isArray(contacts) || contacts.length === 0) {
                 generatedContent:
                   `<span style="color: orange">[${formatDateTime(
                     new Date()
-                  )}] Subject generation failed for contact ${full_name} with company name ${company_name} and domain ${
-                    entry.email
+                  )}] Subject generation failed for contact ${full_name} with company name ${company_name} and domain ${entry.email
                   }</span><br/>` + prev.generatedContent,
               }));
             }
@@ -2554,8 +2553,7 @@ if (!Array.isArray(contacts) || contacts.length === 0) {
               generatedContent:
                 `<span style="color: green">[${formatDateTime(
                   new Date()
-                )}] Subject using user placeholder for contact ${full_name} with company name ${company_name} and domain ${
-                  entry.email
+                )}] Subject using user placeholder for contact ${full_name} with company name ${company_name} and domain ${entry.email
                 }</span><br/>` + prev.generatedContent,
               emailSubject: subjectLine,
             }));
@@ -2726,8 +2724,7 @@ if (!Array.isArray(contacts) || contacts.length === 0) {
                     generatedContent:
                       `<span style="color: orange">[${formatDateTime(
                         new Date()
-                      )}] Updating contact in database incomplete for ${full_name}. Error: ${
-                        updateContactError.Message || "Unknown error"
+                      )}] Updating contact in database incomplete for ${full_name}. Error: ${updateContactError.Message || "Unknown error"
                       }</span><br/>` + prevOutputForm.generatedContent,
                   }));
                 } else {
@@ -2761,10 +2758,8 @@ if (!Array.isArray(contacts) || contacts.length === 0) {
             generatedContent:
               `<span style="color: red">[${formatDateTime(
                 new Date()
-              )}] Phase #2 integritas incomplete for contact ${
-                entry.full_name
-              } with company name ${entry.company_name} and domain ${
-                entry.email
+              )}] Phase #2 integritas incomplete for contact ${entry.full_name
+              } with company name ${entry.company_name} and domain ${entry.email
               }</span><br/>` + prevOutputForm.generatedContent,
             usage:
               `Cost: $${cost.toFixed(6)}    ` +
@@ -3117,7 +3112,7 @@ if (!Array.isArray(contacts) || contacts.length === 0) {
     }
   };
 
-const handleStart = async (startIndex?: number) => {
+  const handleStart = async (startIndex?: number) => {
     if (!selectedPrompt) return;
 
     setAllRecordsProcessed(false);
@@ -3130,7 +3125,7 @@ const handleStart = async (startIndex?: number) => {
       startFromIndex: 0,
       useCachedData: false, // We're not using cached data anymore
     });
-};
+  };
 
   const handleStop = async () => {
     if (isProcessing) {
@@ -3264,19 +3259,20 @@ const handleStart = async (startIndex?: number) => {
   }, [isDemoAccount]);
   //for output 
 
-// fetch campaigns in parent
-useEffect(() => {
-  const fetchCampaigns = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/campaigns/client/${effectiveUserId}`);
-      const data = await response.json();
-      setCampaigns(data);
-    } catch (err) {
-      console.error("Error fetching campaigns", err);
-    }
-  };
-  fetchCampaigns();
-}, []);
+  // fetch campaigns in parent
+  useEffect(() => {
+    const fetchCampaigns = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/campaigns/client/${effectiveUserId}`);
+        const data = await response.json();
+       // setCampaigns(data);
+       setCampaigns(data.campaigns || []);
+      } catch (err) {
+        console.error("Error fetching campaigns", err);
+      }
+    };
+    fetchCampaigns();
+  }, []);
   const handleCampaignChange = async (
     event: React.ChangeEvent<HTMLSelectElement>
   ) => {
@@ -3480,6 +3476,7 @@ useEffect(() => {
                           setTab("Dashboard");
                           setShowMailSubmenu(false);
                           setShowContactsSubmenu(false);
+                          navigate("/main"); 
                         }}
                         className="side-menu-button"
                         title="Click to view the original non-personalized email template"
@@ -3490,7 +3487,7 @@ useEffect(() => {
                             className=" text-[#333333] text-lg"
                           /> */}
                           <svg xmlns="http://www.w3.org/2000/svg" width="20px" height="20px" viewBox="0 0 24 24" fill={tab === "Dashboard" ? '#3f9f42' : '#111111'}>
-                            <path stroke={tab === "Dashboard" ? '#3f9f42' : '#111111'} stroke-width="2" d="M4 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5ZM14 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V5ZM4 16a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3ZM14 13a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-6Z"/>
+                            <path stroke={tab === "Dashboard" ? '#3f9f42' : '#111111'} stroke-width="2" d="M4 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5ZM14 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V5ZM4 16a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3ZM14 13a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-6Z" />
                           </svg>
                         </span>
                         <span className="menu-text">Dashboard</span>
@@ -3516,11 +3513,10 @@ useEffect(() => {
                       </button>
                     </li>
                     <li
-                      className={`${tab === "DataCampaigns" ? "active" : ""} ${
-                        showContactsSubmenu
+                      className={`${tab === "DataCampaigns" ? "active" : ""} ${showContactsSubmenu
                           ? "has-submenu submenu-open"
                           : "has-submenu"
-                      }`}
+                        }`}
                     >
                       <button
                         onClick={() => {
@@ -3593,6 +3589,7 @@ useEffect(() => {
                           setTab("Campaigns");
                           setShowMailSubmenu(false);
                           setShowContactsSubmenu(false);
+                          navigate("/main?tab=Campaigns");
                         }}
                         className="side-menu-button"
                         title="Manage campaigns"
@@ -3612,6 +3609,7 @@ useEffect(() => {
                           setTab("Output");
                           setShowMailSubmenu(false);
                           setShowContactsSubmenu(false);
+                          navigate("/main?tab=Output");
                         }}
                         className="side-menu-button"
                         title="Click to view the hyper-personalized emails being generated"
@@ -3626,11 +3624,10 @@ useEffect(() => {
                       </button>
                     </li>
                     <li
-                      className={`${tab === "Mail" ? "active" : ""} ${
-                        showMailSubmenu
+                      className={`${tab === "Mail" ? "active" : ""} ${showMailSubmenu
                           ? "has-submenu submenu-open"
                           : "has-submenu"
-                      }`}
+                        }`}
                     >
                       <button
                         onClick={() => {
@@ -3729,26 +3726,26 @@ useEffect(() => {
                       </li>
                     )}
                     {userRole === "ADMIN" && (
-                    <li className={tab === "CampaignPrompt" ? "active" : ""}>
-                      <button
-                        onClick={() => {
-                          setTab("CampaignPrompt");
-                          setShowMailSubmenu(false);
-                          setShowContactsSubmenu(false);
-                        }}
-                        className="side-menu-button"
-                        title="Manage Campaign Prompts"
-                      >
-                        <span className="menu-icon">
-                          <FontAwesomeIcon
-                            icon={faEdit} // or another icon if you like
-                            className=" text-[#333333] text-lg"
-                          />
-                        </span>
-                        <span className="menu-text">Campaign Prompt</span>
-                      </button>
-                    </li>
-                  )}
+                      <li className={tab === "CampaignPrompt" ? "active" : ""}>
+                        <button
+                          onClick={() => {
+                            setTab("CampaignPrompt");
+                            setShowMailSubmenu(false);
+                            setShowContactsSubmenu(false);
+                          }}
+                          className="side-menu-button"
+                          title="Manage Campaign Prompts"
+                        >
+                          <span className="menu-icon">
+                            <FontAwesomeIcon
+                              icon={faEdit} // or another icon if you like
+                              className=" text-[#333333] text-lg"
+                            />
+                          </span>
+                          <span className="menu-text">Campaign Prompt</span>
+                        </button>
+                      </li>
+                    )}
                   </ul>
                 </div>
               </div>
@@ -3813,12 +3810,12 @@ useEffect(() => {
             `}>
             {/* Main Content Area */}
 
-             <div className="tab-content">
+            <div className="tab-content">
               {tab === "Dashboard" && (
-                <Dashboard/>
+                <Dashboard />
               )
               }
-              </div>
+            </div>
 
             {/* Tab Content */}
             <div className="tab-content">
@@ -3890,9 +3887,8 @@ useEffect(() => {
                                   <button
                                     type="button"
                                     onClick={tabHandler2}
-                                    className={`button ${
-                                      tab2 === "Template" ? "active" : ""
-                                    }`}
+                                    className={`button ${tab2 === "Template" ? "active" : ""
+                                      }`}
                                   >
                                     Template
                                   </button>
@@ -3901,9 +3897,8 @@ useEffect(() => {
                                   <button
                                     type="button"
                                     onClick={tabHandler2}
-                                    className={`button ${
-                                      tab2 === "Instructions" ? "active" : ""
-                                    }`}
+                                    className={`button ${tab2 === "Instructions" ? "active" : ""
+                                      }`}
                                   >
                                     Instructions
                                   </button>
@@ -3919,11 +3914,10 @@ useEffect(() => {
                                 </ReactTooltip>
                                 <button
                                   id="output-edit-prompt-tooltip"
-                                  className={`save-button button justify-center square-40 d-flex align-center button-full-width-480 mb-10-480 ${
-                                    selectedPrompt?.name !== "Select a prompt"
+                                  className={`save-button button justify-center square-40 d-flex align-center button-full-width-480 mb-10-480 ${selectedPrompt?.name !== "Select a prompt"
                                       ? ""
                                       : "disabled"
-                                  }`}
+                                    }`}
                                   disabled={
                                     !selectedPrompt?.name ||
                                     selectedPrompt?.name === "Select a prompt"
@@ -3992,11 +3986,10 @@ useEffect(() => {
                               <label>Template</label>
                               <span className="pos-relative">
                                 <pre
-                                  className={`no-content height-400 ql-editor ${
-                                    !selectedPrompt?.template
+                                  className={`no-content height-400 ql-editor ${!selectedPrompt?.template
                                       ? "text-light"
                                       : ""
-                                  }`}
+                                    }`}
                                   dangerouslySetInnerHTML={{
                                     __html:
                                       selectedPrompt?.template ??
@@ -4018,8 +4011,8 @@ useEffect(() => {
                                     value={
                                       selectedPrompt
                                         ? formatTextForDisplay(
-                                            selectedPrompt.text
-                                          )
+                                          selectedPrompt.text
+                                        )
                                         : ""
                                     }
                                     defaultValue={selectedPrompt?.text}
@@ -4081,9 +4074,8 @@ useEffect(() => {
                               <label>Instructions</label>
                               <span className="pos-relative">
                                 <pre
-                                  className={`no-content height-400 ql-editor ${
-                                    !selectedPrompt?.text ? "text-light" : ""
-                                  }`}
+                                  className={`no-content height-400 ql-editor ${!selectedPrompt?.text ? "text-light" : ""
+                                    }`}
                                   dangerouslySetInnerHTML={{
                                     __html:
                                       selectedPrompt?.text ??
@@ -4105,8 +4097,8 @@ useEffect(() => {
                                     value={
                                       selectedPrompt
                                         ? formatTextForDisplay(
-                                            selectedPrompt.text
-                                          )
+                                          selectedPrompt.text
+                                        )
                                         : ""
                                     }
                                     defaultValue={selectedPrompt?.text}
@@ -4197,9 +4189,8 @@ useEffect(() => {
                                         <button
                                           type="button"
                                           onClick={tabHandler4}
-                                          className={`button ${
-                                            tab4 === "Template" ? "active" : ""
-                                          }`}
+                                          className={`button ${tab4 === "Template" ? "active" : ""
+                                            }`}
                                         >
                                           Template
                                         </button>
@@ -4208,11 +4199,10 @@ useEffect(() => {
                                         <button
                                           type="button"
                                           onClick={tabHandler4}
-                                          className={`button ${
-                                            tab4 === "Instructions"
+                                          className={`button ${tab4 === "Instructions"
                                               ? "active"
                                               : ""
-                                          }`}
+                                            }`}
                                         >
                                           Instructions
                                         </button>
@@ -4231,8 +4221,8 @@ useEffect(() => {
                                         value={
                                           addPrompt?.promptTemplate
                                             ? formatTextForDisplay(
-                                                addPrompt?.promptTemplate
-                                              )
+                                              addPrompt?.promptTemplate
+                                            )
                                             : ""
                                         }
                                         defaultValue={addPrompt?.promptTemplate}
@@ -4258,8 +4248,8 @@ useEffect(() => {
                                           value={
                                             addPrompt?.promptInput
                                               ? formatTextForDisplay(
-                                                  addPrompt?.promptInput
-                                                )
+                                                addPrompt?.promptInput
+                                              )
                                               : ""
                                           }
                                           defaultValue={addPrompt?.promptInput}
@@ -4321,9 +4311,8 @@ useEffect(() => {
                                         <button
                                           type="button"
                                           onClick={tabHandler3}
-                                          className={`button ${
-                                            tab3 === "Template" ? "active" : ""
-                                          }`}
+                                          className={`button ${tab3 === "Template" ? "active" : ""
+                                            }`}
                                         >
                                           Template
                                         </button>
@@ -4332,11 +4321,10 @@ useEffect(() => {
                                         <button
                                           type="button"
                                           onClick={tabHandler3}
-                                          className={`button ${
-                                            tab3 === "Instructions"
+                                          className={`button ${tab3 === "Instructions"
                                               ? "active"
                                               : ""
-                                          }`}
+                                            }`}
                                         >
                                           Instructions
                                         </button>
@@ -4355,8 +4343,8 @@ useEffect(() => {
                                         value={
                                           editPrompt?.promptTemplate
                                             ? formatTextForDisplay(
-                                                editPrompt?.promptTemplate
-                                              )
+                                              editPrompt?.promptTemplate
+                                            )
                                             : ""
                                         }
                                         defaultValue={
@@ -4384,8 +4372,8 @@ useEffect(() => {
                                           value={
                                             editPrompt?.promptInput
                                               ? formatTextForDisplay(
-                                                  editPrompt?.promptInput
-                                                )
+                                                editPrompt?.promptInput
+                                              )
                                               : ""
                                           }
                                           defaultValue={editPrompt?.promptInput}
@@ -4636,17 +4624,17 @@ useEffect(() => {
         onClose={appModal.hideModal}
         {...appModal.config}
       />
-          <AppModal
-      isOpen={isFetchingContacts || isLoadingClientSettings}
-      onClose={() => {}}
-      type="loader"
-      loaderMessage={
-        isFetchingContacts 
-          ? "Loading contacts..." 
-          : "Loading client settings..."
-      }
-      closeOnOverlayClick={false}
-    />
+      <AppModal
+        isOpen={isFetchingContacts || isLoadingClientSettings}
+        onClose={() => { }}
+        type="loader"
+        loaderMessage={
+          isFetchingContacts
+            ? "Loading contacts..."
+            : "Loading client settings..."
+        }
+        closeOnOverlayClick={false}
+      />
     </div>
   );
 };
