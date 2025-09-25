@@ -17,7 +17,7 @@ import "./MainPage.css";
 import Modal from "./common/Modal";
 import AppModal from "../components/common/AppModal";
 import pitchLogo from '../assets/images/pitch_logo.png';
-import PromptIcon from '../assets/images/icons/prompt-icon.png';
+import Template from "./feature/Template"; // Add this import
 
 import { useAppModal } from "../hooks/useAppModal";
 import { useSelector } from "react-redux";
@@ -3424,24 +3424,26 @@ setallSearchTermBodies((prev) =>
                       </button>
                     </li>
                     <li className={tab === "Template" ? "active" : ""}>
-                      <button
-                        onClick={() => {
-                          setTab("Template");
-                          setShowMailSubmenu(false);
-                          setShowContactsSubmenu(false);
-                        }}
-                        className="side-menu-button"
-                        title="Click to view the original non-personalized email template"
-                      >
-                        <span className="menu-icon">
-                          <FontAwesomeIcon
-                            icon={faFileAlt}
-                            className=" text-[#333333] text-lg"
-                          />
-                        </span>
-                        <span className="menu-text">Templates</span>
-                      </button>
-                    </li>
+  <button
+    onClick={() => {
+      setTab("Template");
+      setShowMailSubmenu(false);
+      setShowContactsSubmenu(false);
+    }}
+    className="side-menu-button"
+    title="Click to view the original non-personalized email template"
+  >
+    <span className="menu-icon">
+      <FontAwesomeIcon
+        icon={faFileAlt}
+        className=" text-[#333333] text-lg"
+      />
+    </span>
+    <span className="menu-text">Templates</span>
+  </button>
+</li>
+
+
                     <li
                       className={`${tab === "DataCampaigns" ? "active" : ""} ${showContactsSubmenu
                         ? "has-submenu submenu-open"
@@ -3680,6 +3682,28 @@ setallSearchTermBodies((prev) =>
                         </button>
                       </li>
                     )}
+
+                    {userRole === "ADMIN" && (
+  <li className={tab === "TestTemplate" ? "active" : ""}>
+    <button
+      onClick={() => {
+        setTab("TestTemplate");
+        setShowMailSubmenu(false);
+        setShowContactsSubmenu(false);
+      }}
+      className="side-menu-button"
+      title="Manage test templates"
+    >
+      <span className="menu-icon">
+        <FontAwesomeIcon
+          icon={faFileAlt}
+          className=" text-[#333333] text-lg"
+        />
+      </span>
+      <span className="menu-text">Test Templates</span>
+    </button>
+  </li>
+)}
                   </ul>
                 </div>
               </div>
@@ -4542,6 +4566,18 @@ setallSearchTermBodies((prev) =>
             {tab === "CampaignBuilder" && userRole === "ADMIN" && (
               <EmailCampaignBuilder selectedClient={selectedClient} />
             )}
+
+          {tab === "TestTemplate" && userRole === "ADMIN" && (
+            <Template
+              selectedClient={selectedClient}
+              userRole={userRole}
+              isDemoAccount={isDemoAccount}
+              onTemplateSelect={(template) => {
+                setSelectedPrompt(template);
+                // You can add any additional logic here when a template is selected
+              }}
+            />
+          )}
 
 
             {/* Stop Confirmation Popup */}

@@ -1,0 +1,554 @@
+/* Template.css */
+.template-container {
+  padding: 0;
+}
+
+.section-wrapper {
+  background: #fff;
+  border-radius: 8px;
+  padding: 24px;
+}
+
+.section-title {
+  font-size: 22px;
+  margin-bottom: 20px;
+  font-weight: 600;
+  color: #333;
+}
+
+.controls-wrapper {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 16px;
+}
+
+.search-input {
+  width: 340px;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.contacts-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+}
+
+.contacts-table th {
+  background: #f8f9fa;
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 14px;
+  color: #666;
+  border-bottom: 1px solid #eee;
+}
+
+.contacts-table td {
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+  font-size: 14px;
+}
+
+.template-link {
+  color: #3f9f42;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.template-link:hover {
+  color: #2d7a30;
+}
+
+.template-actions-btn {
+  border: none;
+  background: none;
+  font-size: 24px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 10px;
+}
+
+.template-actions-menu {
+  position: absolute;
+  right: 0;
+  top: 32px;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.12);
+  z-index: 101;
+  min-width: 160px;
+  padding: 10px 0;
+}
+
+/* Modal Styles */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+}
+
+.modal-content {
+  background: #fff;
+  padding: 24px;
+  border-radius: 8px;
+  min-width: 600px;
+  max-width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.modal-content.modal-large {
+  min-width: 800px;
+}
+
+.modal-content.modal-small {
+  min-width: 400px;
+}
+
+.modal-content h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.modal-content h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.form-group input,
+.form-group textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.form-group textarea {
+  resize: vertical;
+}
+
+.required {
+  color: red;
+}
+
+.template-editor {
+  height: 350px;
+}
+
+.template-editor .ql-container {
+  height: 300px;
+}
+
+.template-preview {
+  background: #f8f9fa;
+  padding: 16px;
+  border-radius: 4px;
+  min-height: 200px;
+  max-height: 400px;
+  overflow-y: auto;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.modal-footer {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #eee;
+}
+
+.button {
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.button.save-button {
+  background: #3f9f42;
+  color: white;
+}
+
+.button.save-button:hover:not(:disabled) {
+  background: #2d7a30;
+}
+
+.button.save-button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.button.secondary {
+  background: #fff;
+  border: 1px solid #ddd;
+  color: #333;
+}
+
+.button.secondary:hover {
+  background: #f8f9fa;
+}
+
+.button.danger {
+  background: #dc3545;
+  color: white;
+}
+
+.button.danger:hover:not(:disabled) {
+  background: #c82333;
+}
+
+.button.auto-width {
+  width: auto;
+}
+
+.button.small {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+
+/* Tabs */
+.tabs.secondary {
+  margin-bottom: 20px;
+}
+
+.tabs ul {
+  display: flex;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-bottom: 1px solid #ddd;
+}
+
+.tabs li {
+  margin-right: 20px;
+}
+
+.tabs .button {
+  background: none;
+  border: none;
+  padding: 10px 0;
+  color: #666;
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+}
+
+.tabs .button.active {
+  color: #3f9f42;
+  border-bottom-color: #3f9f42;
+}
+
+.tabs .button:hover {
+  color: #3f9f42;
+}
+
+/* Utility Classes */
+.d-flex {
+  display: flex;
+}
+
+.align-center {
+  align-items: center;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.gap-2 {
+  gap: 8px;
+}
+
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.items-center {
+  align-items: center;
+}
+
+/* Text Sizes */
+.text-20 {
+  font-size: 20px;
+}
+
+/* Text Colors */
+.text-primary {
+  color: #3f9f42;
+}
+
+.text-dark {
+  color: #333333;
+}
+
+/* Font Weights */
+.font-semibold {
+  font-weight: 600;
+}
+
+/* Margins */
+.mr-1 {
+  margin-right: 4px;
+}
+
+.ml-10 {
+  margin-left: 10px;
+}
+
+.mb-0 {
+  margin-bottom: 0;
+}
+
+.mt-0 {
+  margin-top: 0;
+}
+
+/* Loading State */
+.loading-spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  border-top-color: #3f9f42;
+  animation: spin 0.8s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive Styles */
+@media (max-width: 768px) {
+  .modal-content {
+    min-width: auto;
+    width: 95%;
+    margin: 20px;
+  }
+
+  .controls-wrapper {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-input {
+    width: 100%;
+    margin-bottom: 10px;
+  }
+
+  .button.auto-width {
+    width: 100%;
+  }
+
+  .template-editor {
+    height: 250px;
+  }
+
+  .template-editor .ql-container {
+    height: 200px;
+  }
+}
+
+@media (max-width: 480px) {
+  .contacts-table {
+    font-size: 12px;
+  }
+
+  .contacts-table th,
+  .contacts-table td {
+    padding: 8px;
+  }
+
+  .modal-footer {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .modal-footer .button {
+    width: 100%;
+  }
+}
+
+/* Hover Effects */
+.contacts-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+.template-actions-btn:hover {
+  background-color: #f0f0f0;
+  border-radius: 4px;
+}
+
+.button:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Focus States */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: #3f9f42;
+  box-shadow: 0 0 0 2px rgba(63, 159, 66, 0.2);
+}
+
+.button:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(63, 159, 66, 0.3);
+}
+
+/* Quill Editor Overrides */
+.ql-toolbar.ql-snow {
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+}
+
+.ql-container.ql-snow {
+  border-bottom-left-radius: 4px;
+  border-bottom-right-radius: 4px;
+}
+
+.ql-editor {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.ql-editor.ql-blank::before {
+  font-style: normal;
+  color: #999;
+}
+
+/* Animation Classes */
+.fade-in {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #666;
+}
+
+.empty-state h3 {
+  font-size: 18px;
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.empty-state p {
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+/* Error State */
+.error-message {
+  background-color: #fee;
+  border: 1px solid #fcc;
+  border-radius: 4px;
+  padding: 12px 16px;
+  color: #c33;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+/* Success State */
+.success-message {
+  background-color: #efe;
+  border: 1px solid #cfc;
+  border-radius: 4px;
+  padding: 12px 16px;
+  color: #3c763d;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+/* Disabled State */
+.disabled,
+[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed !important;
+}
+
+/* Print Styles */
+@media print {
+  .controls-wrapper,
+  .template-actions-btn,
+  .template-actions-menu,
+  .modal-backdrop {
+    display: none !important;
+  }
+
+  .contacts-table {
+    border: 1px solid #ddd;
+  }
+
+  .contacts-table th,
+  .contacts-table td {
+    border: 1px solid #ddd;
+  }
+}
