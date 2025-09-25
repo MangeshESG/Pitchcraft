@@ -327,7 +327,7 @@
   }
 
   .contacts-table-wrapper {
-    overflow-x: scroll;
+    overflow-x: auto;
   }
 
   .pagination-wrapper {
@@ -363,15 +363,19 @@
 
 .modal-overlay {
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.45);
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 9999;
 }
 
-.modal input[type="text"], .modal textarea {
+.modal input[type="text"],
+.modal textarea {
   border: 1px solid #ddd;
   border-radius: 4px;
   padding: 8px 12px;
@@ -382,12 +386,14 @@
   margin-bottom: 12px;
   box-sizing: border-box;
 }
+
 .modal-actions {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
   margin-top: 10px;
 }
+
 .button.primary {
   background-color: #186bf3;
   color: #fff;
@@ -396,6 +402,7 @@
   padding: 8px 16px;
   cursor: pointer;
 }
+
 .button.secondary {
   background-color: #eaeaea;
   color: #222;
