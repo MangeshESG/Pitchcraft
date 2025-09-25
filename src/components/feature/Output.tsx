@@ -154,7 +154,6 @@ interface OutputInterface {
   saveToneSettings?: () => Promise<boolean>;
   selectedSegmentId?: number | null; // Add this
   handleSubjectTextChange?: (value: string) => void; // Add this
-  onFilteredContactsChange?: (contacts: any[]) => void;
 
 
 
@@ -233,7 +232,6 @@ const Output: React.FC<OutputInterface> = ({
   saveToneSettings,
   selectedSegmentId,
   handleSubjectTextChange,
-  onFilteredContactsChange,
 
 
 }) => {
@@ -356,39 +354,32 @@ const Output: React.FC<OutputInterface> = ({
 
   const [combinedResponses, setCombinedResponses] = useState<any[]>([]);
 
-  useEffect(() => {
-    // Only check when combinedResponses changes, not when currentIndex changes
-    if (combinedResponses.length > 0) {
-      setCurrentIndex(prevIndex => {
-        if (prevIndex >= combinedResponses.length) {
-          return combinedResponses.length - 1;
-        }
-        return prevIndex;
-      });
-    }
-  }, [combinedResponses.length, setCurrentIndex]);
-const [freezeFilter, setFreezeFilter] = useState(false);
-
   // Update the useEffect that sets combinedResponses to also store the original
   // In the second useEffect that notifies parent of initial data
-useEffect(() => {
-  let newCombinedResponses = [...allResponses];
-
-  existingResponse.forEach((existing) => {
-    if (!newCombinedResponses.find((nr) => nr.id === existing.id)) {
-      newCombinedResponses.push(existing);
+ useEffect(() => {
+    // Keep currentIndex as is when new responses are added
+    if (
+      currentIndex >= combinedResponses.length &&
+      combinedResponses.length > 0
+    ) {
+      setCurrentIndex(Math.max(0, combinedResponses.length - 1));
     }
-  });
+  }, [allResponses, currentIndex, setCurrentIndex, combinedResponses.length]);
 
-  // Always keep original reference up-to-date
-  setOriginalCombinedResponses(newCombinedResponses);
 
-  // ✅ Only update live combinedResponses if not frozen
-  if (!freezeFilter) {
+
+  useEffect(() => {
+    // Prioritize allResponses, then add unique existingResponses
+    let newCombinedResponses = [...allResponses]; // Start with fresh responses
+    existingResponse.forEach((existing) => {
+
+      if (!newCombinedResponses.find((nr) => nr.id === existing.id)) {
+        newCombinedResponses.push(existing);
+      }
+    });
     setCombinedResponses(newCombinedResponses);
-    onFilteredContactsChange?.(newCombinedResponses);
-  }
-}, [allResponses, existingResponse, freezeFilter]);
+
+  }, [allResponses, existingResponse]);
 
   const [jumpToNewLast, setJumpToNewLast] = useState(false);
   const prevCountRef = useRef(combinedResponses.length);
@@ -819,127 +810,248 @@ useEffect(() => {
   }, [effectiveUserId, token]);
 
   const handleSendEmail = async (
-    subjectFromButton: string,
-    targetContact: typeof combinedResponses[number] | null = null
-  ) => {
-    setEmailMessage("");
-    setEmailError("");
 
-    const subjectToUse = subjectFromButton || emailFormData.Subject;
-    if (!subjectToUse || !selectedSmtpUser) {
-      setEmailError(
-        "Please fill in all required fields: Subject and From Email."
-      );
+  subjectFromButton: string,
+
+  targetContact: typeof combinedResponses[number] | null = null
+
+) => {
+
+  setEmailMessage("");
+
+  setEmailError("");
+
+
+
+  const subjectToUse = subjectFromButton || emailFormData.Subject;
+
+  if (!subjectToUse || !selectedSmtpUser) {
+
+    setEmailError(
+
+      "Please fill in all required fields: Subject and From Email."
+
+    );
+
+    return;
+
+  }
+
+
+
+  setSendingEmail(true);
+
+
+
+  try {
+
+    const currentContact = targetContact || combinedResponses[currentIndex];
+
+
+
+    if (!currentContact || !currentContact.id) {
+
+      setEmailError("No valid contact selected");
+
+      setSendingEmail(false);
+
       return;
+
     }
 
-    setSendingEmail(true);
+
+
+    console.log("Sending email to:", currentContact?.name);
+
+
+
+const requestBody = {
+
+  clientId: effectiveUserId,
+
+  contactid: currentContact.id,
+
+  // Only send dataFileId if segmentId is not present
+
+  dataFileId: (currentContact.segmentId && currentContact.segmentId !== "null") 
+
+    ? null 
+
+    : (currentContact.dataFileId === "null" || !currentContact.dataFileId ? null : parseInt(currentContact.dataFileId) || null),
+
+  segmentId: currentContact.segmentId === "null" || !currentContact.segmentId ? null : parseInt(currentContact.segmentId) || null,
+
+  toEmail: currentContact.email,
+
+  subject: subjectToUse,
+
+  body: currentContact.pitch || "",
+
+  bccEmail: emailFormData.BccEmail || "",
+
+  smtpId: selectedSmtpUser,
+
+  fullName: currentContact.name,
+
+  countryOrAddress: currentContact.location || "",
+
+  companyName: currentContact.company || "",
+
+  website: currentContact.website || "",
+
+  linkedinUrl: currentContact.linkedin || "",
+
+  jobTitle: currentContact.title || "",
+
+};
+
+    const response = await axios.post(
+
+      `${API_BASE_URL}/api/email/send-singleEmail`,
+
+      requestBody,
+
+      {
+
+        headers: {
+
+          "Content-Type": "application/json",
+
+          ...(token && { Authorization: `Bearer ${token}` }),
+
+        },
+
+      }
+
+    );
+
+
+
+    setEmailMessage(response.data.message || "Email sent successfully!");
+
+    toast.success("Email sent successfully!");
+
+
+
+    // Update the contact's email sent status
 
     try {
-      const currentContact = targetContact || combinedResponses[currentIndex];
 
-      if (!currentContact || !currentContact.id) {
-        setEmailError("No valid contact selected");
-        setSendingEmail(false);
-        return;
-      }
+      const updatedItem = {
 
-      console.log("Sending email to:", currentContact?.name);
+        ...combinedResponses[currentIndex],
 
-      const requestBody = {
-        clientId: effectiveUserId,
-        contactid: currentContact.id,
-        // Only send dataFileId if segmentId is not present
-        dataFileId: (currentContact.segmentId && currentContact.segmentId !== "null")
-          ? null
-          : (currentContact.dataFileId === "null" || !currentContact.dataFileId ? null : parseInt(currentContact.dataFileId) || null),
-        segmentId: currentContact.segmentId === "null" || !currentContact.segmentId ? null : parseInt(currentContact.segmentId) || null,
-        toEmail: currentContact.email,
-        subject: subjectToUse,
-        body: currentContact.pitch || "",
-        bccEmail: emailFormData.BccEmail || "",
-        smtpId: selectedSmtpUser,
-        fullName: currentContact.name,
-        countryOrAddress: currentContact.location || "",
-        companyName: currentContact.company || "",
-        website: currentContact.website || "",
-        linkedinUrl: currentContact.linkedin || "",
-        jobTitle: currentContact.title || "",
+        emailsentdate: new Date().toISOString(),
+
+        PG_Added_Correctly: true,
+
       };
-      const response = await axios.post(
-        `${API_BASE_URL}/api/email/send-singleEmail`,
-        requestBody,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        }
+
+      setCombinedResponses((prev) =>
+
+        prev.map((item, i) => (i === currentIndex ? updatedItem : item))
+
       );
 
-      setEmailMessage(response.data.message || "Email sent successfully!");
-      toast.success("Email sent successfully!");
 
-      // Update the contact's email sent status
-      try {
-        const updatedItem = {
-          ...combinedResponses[currentIndex],
-          emailsentdate: new Date().toISOString(),
-          PG_Added_Correctly: true,
-        };
-        setCombinedResponses((prev) =>
-          prev.map((item, i) => (i === currentIndex ? updatedItem : item))
-        );
 
-        const allResponsesIndex = allResponses.findIndex(
-          (item) => item.id === updatedItem.id
-        );
-        if (allResponsesIndex !== -1) {
-          const updatedAll = [...allResponses];
-          updatedAll[allResponsesIndex] = updatedItem;
-          setAllResponses(updatedAll);
-        }
-        const existingResponseIndex = existingResponse.findIndex(
-          (item) => item.id === updatedItem.id
-        );
-        if (existingResponseIndex !== -1) {
-          const updatedExisting = [...existingResponse];
-          updatedExisting[existingResponseIndex] = updatedItem;
-          setexistingResponse(updatedExisting);
-        }
+      const allResponsesIndex = allResponses.findIndex(
 
-        if (response.data.nextContactId) {
-          console.log("Next contact ID:", response.data.nextContactId);
-        }
-      } catch (updateError) {
-        console.error("Failed to update contact record:", updateError);
-        if (axios.isAxiosError(updateError)) {
-          console.error("Update error details:", updateError.response?.data);
-        }
-        toast.warning("Email sent but failed to update record status");
+        (item) => item.id === updatedItem.id
+
+      );
+
+      if (allResponsesIndex !== -1) {
+
+        const updatedAll = [...allResponses];
+
+        updatedAll[allResponsesIndex] = updatedItem;
+
+        setAllResponses(updatedAll);
+
       }
 
-      setTimeout(() => {
-        setShowEmailModal(false);
-        setEmailMessage("");
-      }, 2000);
-    } catch (err) {
-      if (axios.isAxiosError(err)) {
-        setEmailError(
-          err.response?.data?.message ||
-          err.response?.data ||
-          "Failed to send email."
-        );
-      } else if (err instanceof Error) {
-        setEmailError(err.message);
-      } else {
-        setEmailError("An unknown error occurred.");
+      const existingResponseIndex = existingResponse.findIndex(
+
+        (item) => item.id === updatedItem.id
+
+      );
+
+      if (existingResponseIndex !== -1) {
+
+        const updatedExisting = [...existingResponse];
+
+        updatedExisting[existingResponseIndex] = updatedItem;
+
+        setexistingResponse(updatedExisting);
+
       }
-      toast.error("Failed to send email");
-    } finally {
-      setSendingEmail(false);
+
+
+
+      if (response.data.nextContactId) {
+
+        console.log("Next contact ID:", response.data.nextContactId);
+
+      }
+
+    } catch (updateError) {
+
+      console.error("Failed to update contact record:", updateError);
+
+      if (axios.isAxiosError(updateError)) {
+
+        console.error("Update error details:", updateError.response?.data);
+
+      }
+
+      toast.warning("Email sent but failed to update record status");
+
     }
-  };
+
+
+
+    setTimeout(() => {
+
+      setShowEmailModal(false);
+
+      setEmailMessage("");
+
+    }, 2000);
+
+  } catch (err) {
+
+    if (axios.isAxiosError(err)) {
+
+      setEmailError(
+
+        err.response?.data?.message ||
+
+          err.response?.data ||
+
+          "Failed to send email."
+
+      );
+
+    } else if (err instanceof Error) {
+
+      setEmailError(err.message);
+
+    } else {
+
+      setEmailError("An unknown error occurred.");
+
+    }
+
+    toast.error("Failed to send email");
+
+  } finally {
+
+    setSendingEmail(false);
+
+  }
+
+};
   //-----------------------------------------
   const aggressiveCleanHTML = (html: string): string => {
     // Parse and rebuild the HTML with controlled spacing
@@ -1118,272 +1230,304 @@ useEffect(() => {
   }, [campaigns, refreshTrigger]); // Add refreshTrigger dependency
 
 
-  const [isBulkSending, setIsBulkSending] = useState(false);
-  const [bulkSendIndex, setBulkSendIndex] = useState(currentIndex);
-  const stopBulkRef = useRef(false);
+const [isBulkSending, setIsBulkSending] = useState(false);
 
-  const sendEmailsInBulk = async (startIndex = 0) => {
-    // Check if we have SMTP user selected BEFORE starting
-    if (!selectedSmtpUser) {
-      return; // Exit early
-    }
+const [bulkSendIndex, setBulkSendIndex] = useState(currentIndex);
 
-    setIsBulkSending(true);
-    stopBulkRef.current = false;
+const stopBulkRef = useRef(false);
 
-    let index = startIndex;
-    let sentCount = 0;
-    let skippedCount = 0;
 
-    while (index < combinedResponses.length && !stopBulkRef.current) {
-      // Update current index to show the contact being processed
-      setCurrentIndex(index);
 
-      const contact = combinedResponses[index];
+const sendEmailsInBulk = async (startIndex = 0) => {
 
-      try {
-        // Prepare subject and request body
-        const subjectToUse = contact.subject || "No subject";
-        console.log('Subject:', subjectToUse);
+  // Check if we have SMTP user selected BEFORE starting
 
-        if (!contact.id) {
-          index++;
-          skippedCount++;
-          setBulkSendIndex(index);
-          await new Promise(res => setTimeout(res, 500)); // Small delay before next
-          continue;
-        }
+  if (!selectedSmtpUser) {
 
-        const requestBody = {
-          clientId: effectiveUserId,
-          contactid: contact.id,
-          dataFileId: contact.datafileid === "null" || !contact.datafileid ? null : parseInt(contact.datafileid) || null,
-          segmentId: contact.segmentId === "null" || !contact.segmentId ? null : parseInt(contact.segmentId) || null,
-          toEmail: contact.email,
-          subject: subjectToUse,
-          body: contact.pitch || "",
-          bccEmail: emailFormData.BccEmail || "",
-          smtpId: selectedSmtpUser,
-          fullName: contact.name,
-          countryOrAddress: contact.location || "",
-          companyName: contact.company || "",
-          website: contact.website || "",
-          linkedinUrl: contact.linkedin || "",
-          jobTitle: contact.title || "",
-        };
+    return; // Exit early
 
-        const response = await axios.post(
-          `${API_BASE_URL}/api/email/send-singleEmail`,
-          requestBody,
-          {
-            headers: {
-              "Content-Type": "application/json",
-              ...(token && { Authorization: `Bearer ${token}` }),
-            },
-          }
-        );
+  }
 
-        sentCount++;
 
-        // UPDATE local state for this contact
-        const updatedItem = {
-          ...contact,
-          emailsentdate: new Date().toISOString(),
-          PG_Added_Correctly: true,
-        };
 
-        // Update combinedResponses
-        setCombinedResponses(prev =>
-          prev.map((item, i) => (i === index ? updatedItem : item))
-        );
+  setIsBulkSending(true);
 
-        // Update allResponses if needed
-        const allResponsesIndex = allResponses.findIndex(
-          (item) => item.id === contact.id
-        );
-        if (allResponsesIndex !== -1) {
-          setAllResponses(prev => {
-            const updated = [...prev];
-            updated[allResponsesIndex] = updatedItem;
-            return updated;
-          });
-        }
+  stopBulkRef.current = false;
 
-        // Update existingResponse if needed
-        const existingResponseIndex = existingResponse.findIndex(
-          (item) => item.id === contact.id
-        );
-        if (existingResponseIndex !== -1) {
-          setexistingResponse(prev => {
-            const updated = [...prev];
-            updated[existingResponseIndex] = updatedItem;
-            return updated;
-          });
-        }
 
-      } catch (err) {
-        console.error(`Error sending email to ${contact.email}:`, err);
-        if (axios.isAxiosError(err)) {
-          console.error('API Error:', err.response?.data);
-        }
-        skippedCount++;
-      }
 
-      index++;
-      setBulkSendIndex(index);
+  let index = startIndex;
 
-      // Show progress
-      const progress = `Progress: ${index}/${combinedResponses.length} (Sent: ${sentCount}, Skipped: ${skippedCount})`;
-      console.log(progress); // Add console log to track progress
+  let sentCount = 0;
 
-      // Wait before processing next email
-      await new Promise(res => setTimeout(res, 1200)); // Throttle emails
-    }
+  let skippedCount = 0;
 
-    setIsBulkSending(false);
-    stopBulkRef.current = false;
 
-    console.log(`Bulk send completed. Sent: ${sentCount}, Skipped: ${skippedCount}`);
-  };
 
-  const stopBulkSending = () => {
-    stopBulkRef.current = true;
-    setIsBulkSending(false);
-  };
-  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  while (index < combinedResponses.length && !stopBulkRef.current) {
 
-  const handleSaveSettings = async () => {
-    setIsSavingSettings(true);
+    // Update current index to show the contact being processed
+
+    setCurrentIndex(index);
+
+    
+
+    const contact = combinedResponses[index];
+
+
+
     try {
-      if (saveToneSettings) {
-        await saveToneSettings();
+
+      // Prepare subject and request body
+
+      const subjectToUse = contact.subject || "No subject";
+
+      console.log('Subject:', subjectToUse);
+
+
+
+      if (!contact.id) {
+
+        index++;
+
+        skippedCount++;
+
+        setBulkSendIndex(index);
+
+        await new Promise(res => setTimeout(res, 500)); // Small delay before next
+
+        continue;
+
       }
-    } catch (error) {
-      console.error('Error saving settings:', error);
-    } finally {
-      setIsSavingSettings(false);
-    }
-  };
-
-
-  // Add these state variables at the top of your Output component
-  // Add these state variables at the top of your Output component
-  const [dateFilter, setDateFilter] = useState({
-    startDate: '',
-    endDate: '',
-    kraftedDateEnabled: false,
-    sentDateEnabled: false,
-    includeNullKrafted: false,
-    includeNullSent: false
-  });
-
-  // Store the original unfiltered data
-  const [originalCombinedResponses, setOriginalCombinedResponses] = useState<any[]>([]);
-
-  // Update the useEffect that sets combinedResponses to also store the original
-// Start with fresh responses
 
 
 
+      const requestBody = {
 
-  // Add this useEffect to apply filters whenever they change
-useEffect(() => {
-  if (!dateFilter.kraftedDateEnabled && !dateFilter.sentDateEnabled) {
-    setCombinedResponses(originalCombinedResponses);
-    onFilteredContactsChange?.(originalCombinedResponses);
-    return;
-  }
+        clientId: effectiveUserId,
 
-  const filtered = originalCombinedResponses.filter(item => {
-    let passedFilter = false;
-    // ---------------------------
-    // Krafted Date filter
-    // ---------------------------
-    if (dateFilter.kraftedDateEnabled) {
-      const itemDraftDate = item.lastemailupdateddate;
-      if (dateFilter.includeNullKrafted) {
-        if (!itemDraftDate || itemDraftDate === "N/A") passedFilter = true;
-      } else if (dateFilter.startDate || dateFilter.endDate) {
-        if (itemDraftDate && itemDraftDate !== "N/A") {
-          const draftDate = new Date(itemDraftDate);
-          const start = dateFilter.startDate ? new Date(dateFilter.startDate) : null;
-          const end = dateFilter.endDate ? new Date(dateFilter.endDate) : null;
-          if ((!start || draftDate >= start) && (!end || draftDate <= end)) {
-            passedFilter = true;
-          }
+        contactid: contact.id,
+
+        dataFileId: contact.datafileid === "null" || !contact.datafileid ? null : parseInt(contact.datafileid) || null,      
+
+        segmentId: contact.segmentId === "null" || !contact.segmentId ? null : parseInt(contact.segmentId) || null,
+
+        toEmail: contact.email,
+
+        subject: subjectToUse,
+
+        body: contact.pitch || "",
+
+        bccEmail: emailFormData.BccEmail || "",
+
+        smtpId: selectedSmtpUser,
+
+        fullName: contact.name,
+
+        countryOrAddress: contact.location || "",
+
+        companyName: contact.company || "",
+
+        website: contact.website || "",
+
+        linkedinUrl: contact.linkedin || "",
+
+        jobTitle: contact.title || "",
+
+      };
+
+
+
+      const response = await axios.post(
+
+        `${API_BASE_URL}/api/email/send-singleEmail`,
+
+        requestBody,
+
+        {
+
+          headers: {
+
+            "Content-Type": "application/json",
+
+            ...(token && { Authorization: `Bearer ${token}` }),
+
+          },
+
         }
+
+      );
+
+
+
+      sentCount++;
+
+
+
+      // UPDATE local state for this contact
+
+      const updatedItem = {
+
+        ...contact,
+
+        emailsentdate: new Date().toISOString(),
+
+        PG_Added_Correctly: true,
+
+      };
+
+      
+
+      // Update combinedResponses
+
+      setCombinedResponses(prev =>
+
+        prev.map((item, i) => (i === index ? updatedItem : item))
+
+      );
+
+
+
+      // Update allResponses if needed
+
+      const allResponsesIndex = allResponses.findIndex(
+
+        (item) => item.id === contact.id
+
+      );
+
+      if (allResponsesIndex !== -1) {
+
+        setAllResponses(prev => {
+
+          const updated = [...prev];
+
+          updated[allResponsesIndex] = updatedItem;
+
+          return updated;
+
+        });
+
       }
-    }
-    // ---------------------------
-    // Sent Date filter
-    // ---------------------------
-    if (dateFilter.sentDateEnabled) {
-      const itemSentDate = item.emailsentdate;
-      if (dateFilter.includeNullSent) {
-        if (!itemSentDate || itemSentDate === "N/A") passedFilter = true;
-      } else if (dateFilter.startDate || dateFilter.endDate) {
-        if (itemSentDate && itemSentDate !== "N/A") {
-          const sentDate = new Date(itemSentDate);
-          const start = dateFilter.startDate ? new Date(dateFilter.startDate) : null;
-          const end = dateFilter.endDate ? new Date(dateFilter.endDate) : null;
-          if ((!start || sentDate >= start) && (!end || sentDate <= end)) {
-            passedFilter = true;
-          }
-        }
+
+
+
+      // Update existingResponse if needed
+
+      const existingResponseIndex = existingResponse.findIndex(
+
+        (item) => item.id === contact.id
+
+      );
+
+      if (existingResponseIndex !== -1) {
+
+        setexistingResponse(prev => {
+
+          const updated = [...prev];
+
+          updated[existingResponseIndex] = updatedItem;
+
+          return updated;
+
+        });
+
       }
+
+
+
+    } catch (err) {
+
+      console.error(`Error sending email to ${contact.email}:`, err);
+
+      if (axios.isAxiosError(err)) {
+
+        console.error('API Error:', err.response?.data);
+
+      }
+
+      skippedCount++;
+
     }
-    return passedFilter;
-  });
 
-  setCombinedResponses(filtered);
-  onFilteredContactsChange?.(filtered);
 
-  if (filtered.length > 0) {
-    const currentContact = combinedResponses[currentIndex];
-    const newIndex = currentContact
-      ? filtered.findIndex(c => c.id === currentContact.id)
-      : -1;
 
-    if (newIndex !== -1) {
-      setCurrentIndex(newIndex); // stay on same contact
-    } else if (currentIndex < filtered.length) {
-      setCurrentIndex(currentIndex); // keep current index if valid
-    } else {
-      setCurrentIndex(filtered.length - 1); // fallback to last item, not index 0
-    }
+    index++;
+
+    setBulkSendIndex(index);
+
+    
+
+    // Show progress
+
+    const progress = `Progress: ${index}/${combinedResponses.length} (Sent: ${sentCount}, Skipped: ${skippedCount})`;
+
+    console.log(progress); // Add console log to track progress
+
+    
+
+    // Wait before processing next email
+
+    await new Promise(res => setTimeout(res, 1200)); // Throttle emails
+
   }
-}, [dateFilter]);  // 👈 only depend on dateFilter 
 
 
-  // Add this new useEffect after your filter useEffect:
-useEffect(() => {
-  if (combinedResponses.length === 0) return;
 
-  const storedIndex = sessionStorage.getItem("currentIndex");
-  if (storedIndex) {
-    const index = parseInt(storedIndex, 10);
-    if (index >= combinedResponses.length) {
-      // ✅ fallback to last contact instead of snapping to 0
-      const lastIndex = combinedResponses.length - 1;
-      setCurrentIndex(lastIndex);
-      sessionStorage.setItem("currentIndex", String(lastIndex));
-    } else {
-      // Keep stored index
-      setCurrentIndex(index);
-    }
-  }
-}, [dateFilter]); // run when user explicitly changes filters
+  setIsBulkSending(false);
 
-const startFilteredGeneration = () => {
-  const contactsToProcess = combinedResponses.slice(currentIndex);
-  sessionStorage.setItem("contactsToProcess", JSON.stringify(contactsToProcess));
-  setCurrentIndex(0);
+  stopBulkRef.current = false;
 
-  // ✅ freeze filtered subset
-  setFreezeFilter(true);
+  
 
-  handleStart?.(0);
+  console.log(`Bulk send completed. Sent: ${sentCount}, Skipped: ${skippedCount}`);
+
 };
+
+
+
+const stopBulkSending = () => {
+
+  stopBulkRef.current = true;
+
+  setIsBulkSending(false);
+
+};
+
+const [isSavingSettings, setIsSavingSettings] = useState(false);
+
+
+
+const handleSaveSettings = async () => {
+
+  setIsSavingSettings(true);
+
+  try {
+
+    if (saveToneSettings) {
+
+      await saveToneSettings();
+
+    }
+
+  } catch (error) {
+
+    console.error('Error saving settings:', error);
+
+  } finally {
+
+    setIsSavingSettings(false);
+
+  }
+
+};
+
+
+
+
+
+
+
 
   const [sendEmailControls, setSendEmailControls] = useState(false);
 
@@ -1437,48 +1581,28 @@ const startFilteredGeneration = () => {
                 <div className="flex">
                   {isResetEnabled ? (
                     // In Output.tsx, update the button click handler:
-<button
-  className="primary-button bg-[#3f9f42]"
-  onClick={() => {
-    // ✅ Take only filtered subset from currentIndex onward
-    const contactsToProcess = combinedResponses.slice(currentIndex);
 
-    // Map to goToTab format
-    const mappedContacts = contactsToProcess.map(contact => ({
-      ...contact,
-      full_name: contact.name || contact.full_name,
-      job_title: contact.title || contact.job_title,
-      company_name: contact.company || contact.company_name,
-      country_or_address: contact.location || contact.country_or_address,
-      linkedin_url: contact.linkedin || contact.linkedin_url,
-      email_body: contact.pitch || contact.email_body,
-      email_subject: contact.subject || contact.email_subject,
-      updated_at: contact.lastemailupdateddate || contact.updated_at,
-      email_sent_at: contact.emailsentdate || contact.email_sent_at,
-      // Keep original fields too
-      name: contact.name,
-      title: contact.title,
-      company: contact.company,
-      location: contact.location,
-      linkedin: contact.linkedin,
-      pitch: contact.pitch,
-      subject: contact.subject,
-    }));
+                          <button
 
-    if (mappedContacts.length > 0) {
-      // ✅ Always reset generation list to filtered subset only
-      sessionStorage.setItem('contactsToProcess', JSON.stringify(mappedContacts));
-      console.log("Processing ONLY filtered contacts:", mappedContacts.length, "starting from:", mappedContacts[0]?.name);
-    }
+                            className="primary-button bg-[#3f9f42]"
 
-    // ✅ Always use filtered subset starting from index 0
-    setCurrentIndex(0);
-    handleStart?.(0);
-  }}
-  disabled={(!selectedPrompt?.name || !selectedZohoviewId) && !selectedCampaign}
->
-  Generate
-</button>
+                            onClick={() => handleStart?.(currentIndex)}
+
+                            disabled={
+
+                              (!selectedPrompt?.name || !selectedZohoviewId) &&
+
+                              !selectedCampaign
+
+                            }
+
+                            title={`Click to generate hyper-personalized emails starting from contact ${currentIndex + 1}`}
+
+                          >
+
+                            Generate
+
+                          </button>
                   ) : (
                     <button
                       className="primary-button bg-[#3f9f42]"
@@ -1798,144 +1922,7 @@ const startFilteredGeneration = () => {
               : zohoClient.reduce((sum, client) => sum + client.totalContact, 0)}</span>
         </div>
         {/* Add this inside your green box area */}
-        <div style={{
-          padding: '5px 0px 5px 10px',
-          backgroundColor: '#e8f5e9',
-          border: '1px solid #4caf50',
-          borderRadius: '5px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            {/* Date Range Selection */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span style={{ fontSize: '13px', fontWeight: '600' }}>Date Range:</span>
-              <input
-                type="date"
-                value={dateFilter.startDate}
-                onChange={(e) => {
-                  setDateFilter(prev => ({
-                    ...prev,
-                    startDate: e.target.value,
-                    includeNullKrafted: false,
-                    includeNullSent: false
-                  }));
-                }}
-                style={{
-                  padding: '4px',
-                  border: '1px solid #ccc',
-                  borderRadius: '4px',
-                  fontSize: '13px'
-                }}
-              />
-              <span style={{ fontSize: '13px' }}>to</span>
-              <input
-                type="date"
-                value={dateFilter.endDate}
-                onChange={(e) => {
-                  setDateFilter(prev => ({
-                    ...prev,
-                    endDate: e.target.value,
-                    includeNullKrafted: false,
-                    includeNullSent: false
-                  }));
-                }}
-                style={{
-                  padding: '4px',
-                  border: '1px solid #ccc',
-                  borderRadius: '4px',
-                  fontSize: '13px'
-                }}
-              />
-            </div>
-
-            {/* Filter Buttons */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <button
-  type="button"
-  onClick={() => {
-    const hasNoDateRange = !dateFilter.startDate && !dateFilter.endDate;
-    setDateFilter(prev => ({
-      ...prev,
-      kraftedDateEnabled: !prev.kraftedDateEnabled,
-      includeNullKrafted: hasNoDateRange && !prev.kraftedDateEnabled ? true : false
-    }));
-  }}
-  style={{
-    padding: '5px 10px',
-    border: '1px solid #4caf50',
-    borderRadius: '4px',
-    backgroundColor: dateFilter.kraftedDateEnabled ? '#4caf50' : 'white',
-    color: dateFilter.kraftedDateEnabled ? 'white' : '#4caf50',
-    cursor: 'pointer',
-    fontSize: '13px'
-  }}
->
-  Krafted Date
-</button>
-
-<button
-  type="button"
-  onClick={() => {
-    const hasNoDateRange = !dateFilter.startDate && !dateFilter.endDate;
-    setDateFilter(prev => ({
-      ...prev,
-      sentDateEnabled: !prev.sentDateEnabled,
-      includeNullSent: hasNoDateRange && !prev.sentDateEnabled ? true : false
-    }));
-  }}
-  style={{
-    padding: '5px 10px',
-    border: '1px solid #4caf50',
-    borderRadius: '4px',
-    backgroundColor: dateFilter.sentDateEnabled ? '#4caf50' : 'white',
-    color: dateFilter.sentDateEnabled ? 'white' : '#4caf50',
-    cursor: 'pointer',
-    fontSize: '13px'
-  }}
->
-  Email Sent Date
-</button>
-            </div>
-
-            {/* Clear Filters Button */}
-            {(dateFilter.kraftedDateEnabled || dateFilter.sentDateEnabled) && (
-              <button
-                type="button"
-                onClick={() => {
-                  setDateFilter({
-                    startDate: '',
-                    endDate: '',
-                    kraftedDateEnabled: false,
-                    sentDateEnabled: false,
-                    includeNullKrafted: false,
-                    includeNullSent: false
-                  });
-                }}
-                style={{
-                  padding: '5px 10px',
-                  border: '1px solid #f44336',
-                  borderRadius: '4px',
-                  backgroundColor: 'white',
-                  color: '#f44336',
-                  cursor: 'pointer',
-                  fontSize: '13px'
-                }}
-              >
-                Clear Filters
-              </button>
-            )}
-
-            {/* Show filter status */}
-            <div style={{ fontSize: '12px', color: '#666', marginLeft: 'auto' }}>
-              {(dateFilter.kraftedDateEnabled || dateFilter.sentDateEnabled) && (
-                <span>
-                  Showing {combinedResponses.length} of {originalCombinedResponses.length} records
-                  {dateFilter.includeNullKrafted && ' (showing non-krafted)'}
-                  {dateFilter.includeNullSent && ' (showing non-sent)'}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
+        
       </div>
 
 

@@ -41,6 +41,7 @@ import CampaignManagement from "./feature/CampaignManagement";
 import { useAppData } from "../contexts/AppDataContext";
 import { Dashboard } from "./feature/Dashboard";
 import EmailCampaignBuilder from "./feature/EmailCampaignBuilder";
+
 interface Prompt {
   id: number;
   name: string;
@@ -347,13 +348,6 @@ const MainPage: React.FC = () => {
     created_at: string;
     contacts: any[];
   }
-
-  const [currentFilteredContacts, setCurrentFilteredContacts] = useState<any[]>([]);
-
-  const updateFilteredContacts = (filteredContacts: any[]) => {
-    setCurrentFilteredContacts(filteredContacts);
-  };
-
 
   const handleClearContent = useCallback((clearContent: () => void) => {
     setClearContentFunction(() => clearContent);
@@ -2113,51 +2107,130 @@ const MainPage: React.FC = () => {
               segmentId: segmentId ? parseInt(segmentId) : null, // Also preserve segmentId
             };
 
-         setAllResponses((prev) =>
-  prev.some((r) => r.id === entry.id)
-    ? prev.map((r) => (r.id === entry.id ? existingResponse : r))
-    : [...prev, existingResponse]
-);
+       
 
-setallprompt((prev) =>
-  prev.some((_, idx) => allResponses[idx]?.id === entry.id)
-    ? prev.map((item, idx) =>
-        allResponses[idx]?.id === entry.id ? "" : item
-      )
-    : [...prev, ""]
-);
+            setAllResponses((prevResponses) => {
 
-setallsearchResults((prev) =>
-  prev.some((_, idx) => allResponses[idx]?.id === entry.id)
-    ? prev.map((item, idx) =>
-        allResponses[idx]?.id === entry.id ? [] : item
-      )
-    : [...prev, []]
-);
+              const updated = [...prevResponses];
 
-seteveryscrapedData((prev) =>
-  prev.some((_, idx) => allResponses[idx]?.id === entry.id)
-    ? prev.map((item, idx) =>
-        allResponses[idx]?.id === entry.id ? "" : item
-      )
-    : [...prev, ""]
-);
+              if (responseIndex < updated.length) {
 
-setallsummery((prev) =>
-  prev.some((_, idx) => allResponses[idx]?.id === entry.id)
-    ? prev.map((item, idx) =>
-        allResponses[idx]?.id === entry.id ? "" : item
-      )
-    : [...prev, ""]
-);
+                updated[responseIndex] = existingResponse;
 
-setallSearchTermBodies((prev) =>
-  prev.some((_, idx) => allResponses[idx]?.id === entry.id)
-    ? prev.map((item, idx) =>
-        allResponses[idx]?.id === entry.id ? "" : item
-      )
-    : [...prev, ""]
-);
+              } else {
+
+                updated.push(existingResponse);
+
+              }
+
+              setCurrentIndex(responseIndex);
+
+              return updated;
+
+            });
+
+
+
+            // Update these to use responseIndex logic
+
+            setallprompt((prevPrompts) => {
+
+              const updated = [...prevPrompts];
+
+              if (responseIndex < updated.length) {
+
+                updated[responseIndex] = "";
+
+              } else {
+
+                updated.push("");
+
+              }
+
+              return updated;
+
+            });
+
+
+
+            setallsearchResults((prevSearchResults) => {
+
+              const updated = [...prevSearchResults];
+
+              if (responseIndex < updated.length) {
+
+                updated[responseIndex] = [];
+
+              } else {
+
+                updated.push([]);
+
+              }
+
+              return updated;
+
+            });
+
+
+
+            seteveryscrapedData((prevScrapedData) => {
+
+              const updated = [...prevScrapedData];
+
+              if (responseIndex < updated.length) {
+
+                updated[responseIndex] = "";
+
+              } else {
+
+                updated.push("");
+
+              }
+
+              return updated;
+
+            });
+
+
+
+            setallsummery((prevSummery) => {
+
+              const updated = [...prevSummery];
+
+              if (responseIndex < updated.length) {
+
+                updated[responseIndex] = "";
+
+              } else {
+
+                updated.push("");
+
+              }
+
+              return updated;
+
+            });
+
+
+
+            setallSearchTermBodies((prevSearchTermBodies) => {
+
+              const updated = [...prevSearchTermBodies];
+
+              if (responseIndex < updated.length) {
+
+                updated[responseIndex] = "";
+
+              } else {
+
+                updated.push("");
+
+              }
+
+              return updated;
+
+            });
+
 
             continue;
           } else {
@@ -2565,55 +2638,129 @@ setallSearchTermBodies((prev) =>
             ? currentIndex + (i - currentIndex)
             : allResponses.length;
 
-         setAllResponses((prevResponses) =>
-  prevResponses.some((r) => r.id === entry.id)
-    ? prevResponses.map((r) => (r.id === entry.id ? newResponse : r))
-    : [...prevResponses, newResponse]
-);
+  setAllResponses((prevResponses) => {
 
-setallprompt((prev) =>
-  allResponses.some((r) => r.id === entry.id)
-    ? prev.map((item, idx) =>
-        allResponses[idx]?.id === entry.id ? promptToSend : item
-      )
-    : [...prev, promptToSend]
-);
+            const updated = [...prevResponses];
 
-setallsearchResults((prev) =>
-  allResponses.some((r) => r.id === entry.id)
-    ? prev.map((item, idx) =>
-        allResponses[idx]?.id === entry.id ? searchResults : item
-      )
-    : [...prev, searchResults]
-);
+            if (responseIndex < updated.length) {
 
-seteveryscrapedData((prev) =>
-  allResponses.some((r) => r.id === entry.id)
-    ? prev.map((item, idx) =>
-        allResponses[idx]?.id === entry.id
-          ? scrapeData.allScrapedData || ""
-          : item
-      )
-    : [...prev, scrapeData.allScrapedData || ""]
-);
+              // Replace existing entry
 
-setallsummery((prev) =>
-  allResponses.some((r) => r.id === entry.id)
-    ? prev.map((item, idx) =>
-        allResponses[idx]?.id === entry.id
-          ? scrapeData.pitchResponse?.content || ""
-          : item
-      )
-    : [...prev, scrapeData.pitchResponse?.content || ""]
-);
+              updated[responseIndex] = newResponse;
 
-setallSearchTermBodies((prev) =>
-  allResponses.some((r) => r.id === entry.id)
-    ? prev.map((item, idx) =>
-        allResponses[idx]?.id === entry.id ? searchTermBody : item
-      )
-    : [...prev, searchTermBody]
-);
+            } else {
+
+              // Add new entry
+
+              updated.push(newResponse);
+
+            }
+
+            return updated;
+
+          });
+
+
+
+          // Similarly update other arrays at the correct index
+
+          setallprompt((prevPrompts) => {
+
+            const updated = [...prevPrompts];
+
+            if (responseIndex < updated.length) {
+
+              updated[responseIndex] = promptToSend;
+
+            } else {
+
+              updated.push(promptToSend);
+
+            }
+
+            return updated;
+
+          });
+
+
+
+          setallsearchResults((prevSearchResults) => {
+
+            const updated = [...prevSearchResults];
+
+            if (responseIndex < updated.length) {
+
+              updated[responseIndex] = scrapeData.searchResults || [];
+
+            } else {
+
+              updated.push(scrapeData.searchResults || []);
+
+            }
+
+            return updated;
+
+          });
+
+
+
+          seteveryscrapedData((prevScrapedData) => {
+
+            const updated = [...prevScrapedData];
+
+            if (responseIndex < updated.length) {
+
+              updated[responseIndex] = scrapeData.allScrapedData || "";
+
+            } else {
+
+              updated.push(scrapeData.allScrapedData || "");
+
+            }
+
+            return updated;
+
+          });
+
+
+
+          setallsummery((prevSummery) => {
+
+            const updated = [...prevSummery];
+
+            if (responseIndex < updated.length) {
+
+              updated[responseIndex] = scrapeData.pitchResponse?.content || "";
+
+            } else {
+
+              updated.push(scrapeData.pitchResponse?.content || "");
+
+            }
+
+            return updated;
+
+          });
+
+
+
+          setallSearchTermBodies((prevSearchTermBodies) => {
+
+            const updated = [...prevSearchTermBodies];
+
+            if (responseIndex < updated.length) {
+
+              updated[responseIndex] = searchTermBody;
+
+            } else {
+
+              updated.push(searchTermBody);
+
+            }
+
+            return updated;
+
+          });
           setCurrentIndex(responseIndex);
           setRecentlyAddedOrUpdatedId(newResponse.id);
 
@@ -3062,6 +3209,9 @@ setallSearchTermBodies((prev) =>
   const handleStart = async (startIndex?: number) => {
     if (!selectedPrompt) return;
 
+    // Use the passed startIndex or current index, don't clear all data
+    const indexToStart = startIndex !== undefined ? startIndex : currentIndex;
+
     setAllRecordsProcessed(false);
     setIsStarted(true);
     setIsPaused(false);
@@ -3069,8 +3219,8 @@ setallSearchTermBodies((prev) =>
     stopRef.current = false;
 
     goToTab("Output", {
-      startFromIndex: 0,
-      useCachedData: false, // We're not using cached data anymore
+      startFromIndex: indexToStart,
+      useCachedData: true,
     });
   };
 
@@ -4503,7 +4653,6 @@ setallSearchTermBodies((prev) =>
                 fetchToneSettings={fetchToneSettings}
                 saveToneSettings={saveToneSettings}
                 handleSubjectTextChange={handleSubjectTextChange}
-                onFilteredContactsChange={updateFilteredContacts}
 
               />
             )}
