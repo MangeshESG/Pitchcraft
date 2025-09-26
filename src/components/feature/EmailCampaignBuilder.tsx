@@ -4,6 +4,7 @@ import axios from 'axios';
 import API_BASE_URL from "../../config";
 import './EmailCampaignBuilder.css';
 
+
 // --- Type Definitions ---
 interface Message {
   type: 'user' | 'bot';
@@ -58,6 +59,19 @@ interface ResultTabProps {
 // ====================================================================
 // CHILD COMPONENTS
 // ====================================================================
+export function useSessionState<T>(key: string, defaultValue: T): [T, React.Dispatch<React.SetStateAction<T>>] {
+  const [state, setState] = useState<T>(() => {
+    const saved = sessionStorage.getItem(key);
+    return saved ? JSON.parse(saved) : defaultValue;
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem(key, JSON.stringify(state));
+  }, [key, state]);
+
+  return [state, setState];
+}
+
 
 const TemplateTab: React.FC<TemplateTabProps> = ({
   masterPrompt, setMasterPrompt,
@@ -83,8 +97,8 @@ const TemplateTab: React.FC<TemplateTabProps> = ({
         </div>
         <div>
           <div className="template-section">
-            <h2>2. Master Template</h2>
-            <p>Enter your template with {'{'}placeholders{'}'} for the AI to fill.</p>
+            <h2>2.Placeholders List</h2>
+            <p>Enter your  {'{'}placeholders{'}'} for the AI to fill.</p>
           </div>
           <textarea
             value={masterPrompt}
@@ -97,9 +111,8 @@ const TemplateTab: React.FC<TemplateTabProps> = ({
       
       <div className="additional-text-section">
         <div className="template-section">
-          <h2>3. Additional Text with Placeholders (Optional)</h2>
-          <p>Enter any additional text with placeholders. Values collected from the AI conversation will automatically replace matching placeholders here.</p>
-          <p className="warning-text">⚠️ This text is NOT sent to the AI. Placeholders here will be filled with values from the master template conversation.</p>
+          <h2>3.Master campaign template (unpopulated) </h2>
+          <p className="warning-text">⚠️ This text is NOT sent to the AI. Placeholders here will be filled with values from the conversation.</p>
         </div>
         <textarea
           value={previewText}
@@ -226,21 +239,44 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   );
 };
 
-const ResultTab: React.FC<ResultTabProps> = ({ isComplete, finalPrompt, finalPreviewText, previewText, copied, copyToClipboard, resetAll }) => {
-  const [copiedItem, setCopiedItem] = useState<string>('');
+const ResultTab: React.FC<ResultTabProps> = ({ 
+  isComplete, 
+  finalPrompt, 
+  finalPreviewText, 
+  previewText, 
+  copied, 
+  copyToClipboard, 
+  resetAll 
+}) => {
+  const [copiedItem, setCopiedItem] = useState<string>("");
 
   const handleCopy = (text: string, item: string) => {
     copyToClipboard(text);
     setCopiedItem(item);
-    setTimeout(() => setCopiedItem(''), 2000);
+    setTimeout(() => setCopiedItem(""), 2000);
   };
 
+  // ✅ New unified render function
   const renderContent = (content: string) => {
-    const isHtml = /<[a-z][\s\S]*>/i.test(content);
+    if (!content) return null;
+
+    const isHtml = /<[a-z][\s\S]*>/i.test(content.trim());
+
     if (isHtml) {
-      return <div className="rendered-html-content" dangerouslySetInnerHTML={{ __html: content }} />;
+      // ✅ If HTML present, render as HTML
+      return (
+        <div
+          className="result-content"
+          dangerouslySetInnerHTML={{ __html: content }}
+        />
+      );
     } else {
-      return <pre className="result-text">{content}</pre>;
+      // ✅ If plain text, preserve line breaks and spacing
+      return (
+        <pre className="result-content" style={{ whiteSpace: "pre-wrap", wordWrap: "break-word" }}>
+          {content}
+        </pre>
+      );
     }
   };
 
@@ -250,7 +286,9 @@ const ResultTab: React.FC<ResultTabProps> = ({ isComplete, finalPrompt, finalPre
         <div className="empty-result">
           <div className="empty-result-content">
             <CheckCircle size={48} className="empty-result-icon" />
-            <p className="empty-result-text">Complete the conversation to see your final template.</p>
+            <p className="empty-result-text">
+              Complete the conversation to see your final template.
+            </p>
           </div>
         </div>
       ) : (
@@ -259,29 +297,60 @@ const ResultTab: React.FC<ResultTabProps> = ({ isComplete, finalPrompt, finalPre
             <h2>
               <Check className="success-icon" /> Your Completed Campaign Template
             </h2>
-            <p>All placeholders have been replaced based on your conversation.</p>
+            <p>
+              All placeholders have been replaced based on your conversation.
+            </p>
           </div>
-          
+
+          {/* ✅ Main Master Campaign Result */}
+          {finalPrompt && (
+            <div className="result-section">
+              <h3>Master Campaign Result:</h3>
+              {renderContent(finalPrompt)}
+              <button
+                onClick={() => handleCopy(finalPrompt, "master")}
+                className="copy-button"
+              >
+                {copiedItem === "master" ? (
+                  <>
+                    <Check size={16} /> Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy size={16} /> Copy Master Campaign
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+
+          {/* ✅ Additional Preview Text Result */}
           {previewText && finalPreviewText ? (
             <div className="result-section">
               <h3>Additional Text Result:</h3>
-              <div className="result-content">
-                {renderContent(finalPreviewText)}
-              </div>
-              <button 
-                onClick={() => handleCopy(finalPreviewText, 'preview')} 
+              {renderContent(finalPreviewText)}
+              <button
+                onClick={() => handleCopy(finalPreviewText, "preview")}
                 className="copy-button"
               >
-                {copiedItem === 'preview' ? <><Check size={16} />Copied!</> : <><Copy size={16} />Copy Additional Text</>}
+                {copiedItem === "preview" ? (
+                  <>
+                    <Check size={16} /> Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy size={16} /> Copy Additional Text
+                  </>
+                )}
               </button>
             </div>
           ) : (
-            <div style={{ textAlign: 'center', color: '#6b7280' }}>
+            <div style={{ textAlign: "center", color: "#6b7280" }}>
               <p>No additional text template was provided.</p>
             </div>
           )}
-          
-          <div style={{ marginTop: '1.5rem' }}>
+
+          <div style={{ marginTop: "1.5rem" }}>
             <button onClick={resetAll} className="reset-button">
               <RefreshCw size={20} /> Start Over
             </button>
@@ -298,19 +367,20 @@ const ResultTab: React.FC<ResultTabProps> = ({ isComplete, finalPrompt, finalPre
 const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ selectedClient }) => {
   // --- State Management ---
   const [activeTab, setActiveTab] = useState<TabType>('template');
-  const [masterPrompt, setMasterPrompt] = useState('');
-  const [systemPrompt, setSystemPrompt] = useState('');
-  const [previewText, setPreviewText] = useState('');
-  const [messages, setMessages] = useState<Message[]>([]);
   const [currentAnswer, setCurrentAnswer] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [finalPrompt, setFinalPrompt] = useState('');
-  const [finalPreviewText, setFinalPreviewText] = useState('');
-  const [placeholderValues, setPlaceholderValues] = useState<Record<string, string>>({});
-  const [isComplete, setIsComplete] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [conversationStarted, setConversationStarted] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+const [messages, setMessages] = useSessionState<Message[]>("campaign_messages", []);
+const [finalPrompt, setFinalPrompt] = useSessionState<string>("campaign_final_prompt", "");
+const [finalPreviewText, setFinalPreviewText] = useSessionState<string>("campaign_final_preview", "");
+const [placeholderValues, setPlaceholderValues] = useSessionState<Record<string, string>>("campaign_placeholder_values", {});
+const [isComplete, setIsComplete] = useSessionState<boolean>("campaign_is_complete", false);
+const [conversationStarted, setConversationStarted] = useSessionState<boolean>("campaign_started", false);
+const [systemPrompt, setSystemPrompt] = useSessionState<string>("campaign_system_prompt", "");
+const [masterPrompt, setMasterPrompt] = useSessionState<string>("campaign_master_prompt", "");
+const [previewText, setPreviewText] = useSessionState<string>("campaign_preview_text", "");
   
   // --- Session and API Configuration ---
     const baseUserId = sessionStorage.getItem("clientId");
@@ -389,149 +459,145 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
     }
   };
 
-  const handleSendMessage = async () => {
-    if (currentAnswer.trim() === '' || isTyping || !effectiveUserId) return;
-    
-    const userMessage: Message = { type: 'user', content: currentAnswer, timestamp: new Date() };
-    setMessages(prev => [...prev, userMessage]);
-    setCurrentAnswer('');
-    setIsTyping(true);
-    
-    try {
-      const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/chat`, {
-        userId: effectiveUserId,
-        message: userMessage.content,
-        systemPrompt: "",
-        model: "gpt-5"
-      });
-      
-      const data = response.data.response;
-      
-      if (data && data.assistantText) {
-        // First, check if this is the raw JSON response we're looking for
-        let jsonMatch = data.assistantText.match(/\{[\s\S]*?"status"\s*:\s*"complete"[\s\S]*?\}/);
-        
-        // If not found, it might be wrapped in HTML, so strip HTML first
-        if (!jsonMatch) {
-          const textWithoutHtml = data.assistantText.replace(/<[^>]*>/g, '');
-          jsonMatch = textWithoutHtml.match(/\{[\s\S]*?"status"\s*:\s*"complete"[\s\S]*?\}/);
-        }
-        
-        if (jsonMatch) {
-          try {
-            // Clean up the JSON string (remove HTML entities)
-            let jsonString = jsonMatch[0];
-            jsonString = jsonString.replace(/&quot;/g, '"');
-            jsonString = jsonString.replace(/&lt;/g, '<');
-            jsonString = jsonString.replace(/&gt;/g, '>');
-            jsonString = jsonString.replace(/&amp;/g, '&');
-            jsonString = jsonString.replace(/&#39;/g, "'");
-            
-            const completionData = JSON.parse(jsonString);
-            
-            if (completionData.status === "complete" && completionData.final_prompt) {
-              console.log('Completion data found:', completionData);
-              
-              setFinalPrompt(completionData.final_prompt);
-              
-              // Extract placeholder values from the final_prompt
-              const tempValues: Record<string, string> = {};
-              
-              // Look for patterns like "Company: ServiceJi" or "Website: serviceji.co"
-              const patterns = [
-                /Company:\s*([^\n]+)/i,
-                /Website:\s*([^\n]+)/i,
-                /Main Theme:\s*([^\n]+)/i,
-                /About the Company:\s*([^]*?)(?=\n\n|\n[A-Z]|$)/i
-              ];
-              
-              const placeholderMappings: Record<string, string> = {
-                'Company': 'vendor_company',
-                'Website': 'vendor_company_website_URL',
-                'Main Theme': 'vendor_company_main_theme',
-                'About the Company': 'about_the_company'
-              };
-              
-              patterns.forEach((pattern, index) => {
-                const match = completionData.final_prompt.match(pattern);
-                if (match && match[1]) {
-                  const key = Object.keys(placeholderMappings)[index];
-                  const placeholder = placeholderMappings[key];
-                  tempValues[placeholder] = match[1].trim();
-                }
-              });
-              
-              // Also try to extract from conversation history
-              const allMessages = [...messages, userMessage];
-              
-              // Extract vendor_company from conversation
-              for (let i = 0; i < allMessages.length; i++) {
-                if (allMessages[i].type === 'user' && i > 0) {
-                  const prevBot = allMessages[i-1];
-                  if (prevBot.type === 'bot' && prevBot.content.toLowerCase().includes('company') && prevBot.content.toLowerCase().includes('name')) {
-                    if (!tempValues['vendor_company']) {
-                      tempValues['vendor_company'] = allMessages[i].content.trim();
-                    }
-                  }
-                }
-              }
-              
-              console.log('Extracted values:', tempValues);
-              
-              // Store the extracted values
-              setPlaceholderValues(tempValues);
-              
-              // Apply these values to the preview text if it exists
-              if (previewText && previewText.trim() !== '') {
-                let filledText = previewText;
-                
-                // Replace all placeholders in the preview text with their values
-                Object.entries(tempValues).forEach(([placeholder, value]) => {
-                  const regex = new RegExp(`\\{${placeholder}\\}`, 'g');
-                  filledText = filledText.replace(regex, value);
-                });
-                
-                setFinalPreviewText(filledText);
-                console.log('Filled preview text:', filledText);
-              }
-              
-              setIsComplete(true);
-              
-              // Show completion message
-              const completionMessage: Message = { 
-                type: 'bot', 
-                content: "🎉 Great! I've filled in all the placeholders. Check the 'Final Result' tab.", 
-                timestamp: new Date() 
-              };
-              setMessages(prev => [...prev, completionMessage]);
-              
-              // Switch to result tab after delay
-              setTimeout(() => setActiveTab('result'), 2000);
-              return;
+const handleSendMessage = async () => {
+  if (currentAnswer.trim() === '' || isTyping || !effectiveUserId) return;
+
+  const userMessage: Message = { 
+    type: 'user', 
+    content: currentAnswer, 
+    timestamp: new Date() 
+  };
+
+  setMessages(prev => [...prev, userMessage]);
+  setCurrentAnswer('');
+  setIsTyping(true);
+
+  try {
+    const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/chat`, {
+      userId: effectiveUserId,
+      message: userMessage.content,
+      systemPrompt: "",
+      model: "gpt-5"
+    });
+
+    const data = response.data.response;
+
+    if (data && data.assistantText) {
+      let textToCheck = data.assistantText;
+
+      // Strip HTML
+      const textWithoutHtml = textToCheck.replace(/<[^>]*>/g, '');
+
+      // 🔹 Extract PLACEHOLDER VALUES section
+      const placeholderValuesMatch = (textWithoutHtml || textToCheck)
+        .match(/==PLACEHOLDER_VALUES_START==([\s\S]*?)==PLACEHOLDER_VALUES_END==/);
+
+      // 🔹 Extract JSON with "status":"complete"
+      const jsonMatch = (textWithoutHtml || textToCheck)
+        .match(/\{[^{}]*"status"\s*:\s*"complete"[^{}]*\}/);
+
+      if (placeholderValuesMatch && jsonMatch) {
+        try {
+          // -------------------------
+          // Parse placeholder values
+          // -------------------------
+          const tempValues: Record<string, string> = {};
+          const placeholderSection = placeholderValuesMatch[1];
+          const lines = placeholderSection.split('\n');
+
+          lines.forEach((line: string) => {
+            const lineMatch = line.match(/\{([^}]+)\}\s*=\s*(.+)/);
+            if (lineMatch) {
+              const placeholder = lineMatch[1].trim();
+              const value = lineMatch[2].trim();
+              tempValues[placeholder] = value;
+              console.log(`Found placeholder: ${placeholder} = ${value}`);
             }
-          } catch (e) {
-            console.error('Failed to parse completion JSON:', e);
-            console.error('JSON string:', jsonMatch[0]);
+          });
+
+          // -------------------------
+          // Clean + Parse JSON safely
+          // -------------------------
+          let jsonString = jsonMatch[0];
+
+          // Fix common encodings
+          jsonString = jsonString.replace(/&quot;/g, '"')
+                                 .replace(/&lt;/g, '<')
+                                 .replace(/&gt;/g, '>')
+                                 .replace(/&amp;/g, '&')
+                                 .replace(/&#39;/g, "'")
+                                 .replace(/&nbsp;/g, " ");
+
+          // Remove raw newlines and carriage returns
+          jsonString = jsonString.replace(/\n/g, ' ').replace(/\r/g, '');
+
+          // Safely parse
+          let completionData: any;
+          try {
+            completionData = JSON.parse(jsonString);
+          } catch (err) {
+            console.error("🔥 Failed to parse GPT JSON:", jsonString, err);
           }
+
+          // -------------------------
+          // Handle completion
+          // -------------------------
+          if (completionData?.status === "complete") {
+            console.log('✅ Completion Found with values:', tempValues);
+
+            // Store in state
+            setPlaceholderValues(tempValues);
+
+            // Fill Final Master Campaign Email
+            let filledMaster = replacePlaceholdersInText(masterPrompt, tempValues);
+            setFinalPrompt(filledMaster);
+
+            // Fill Additional Text (Preview)
+            let filledPreview = replacePlaceholdersInText(previewText, tempValues);
+            setFinalPreviewText(filledPreview);
+
+            setIsComplete(true);
+
+            // Show Bot Message
+            const completionMessage: Message = { 
+              type: 'bot', 
+              content: "🎉 Great! I've filled in all the placeholders. Check the 'Final Result' tab.", 
+              timestamp: new Date() 
+            };
+            setMessages(prev => [...prev, completionMessage]);
+
+            // Auto switch to results
+            setTimeout(() => setActiveTab('result'), 2000);
+            return;
+          }
+        } catch (e) {
+          console.error('⚠️ Error handling GPT completion block:', e);
         }
-        
-        // If not complete, show the message normally
-        const botMessage: Message = { type: 'bot', content: data.assistantText, timestamp: new Date() };
-        setMessages(prev => [...prev, botMessage]);
       }
-      
-    } catch (error) {
-      console.error('Error sending message:', error);
-      const errorMessage: Message = { 
+
+      // -------------------------
+      // If not complete, show message normally
+      // -------------------------
+      const botMessage: Message = { 
         type: 'bot', 
-        content: 'Sorry, there was an error processing your answer. Please try again.', 
+        content: data.assistantText, 
         timestamp: new Date() 
       };
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setIsTyping(false);
+      setMessages(prev => [...prev, botMessage]);
     }
-  };
+
+  } catch (error) {
+    console.error('❌ Error sending message:', error);
+    const errorMessage: Message = { 
+      type: 'bot', 
+      content: 'Sorry, there was an error processing your answer. Please try again.', 
+      timestamp: new Date() 
+    };
+    setMessages(prev => [...prev, errorMessage]);
+  } finally {
+    setIsTyping(false);
+  }
+};
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -546,19 +612,33 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const resetAll = () => {
-    if (effectiveUserId) {
-        axios.delete(`${API_BASE_URL}/api/CampaignPrompt/history/${effectiveUserId}`).catch(err => console.error("Failed to clear history:", err));
-    }
-    setMessages([]);
-    setFinalPrompt('');
-    setFinalPreviewText('');
-    setPlaceholderValues({});
-    setIsComplete(false);
-    setConversationStarted(false);
-    setActiveTab('template');
-  };
+const resetAll = () => {
+  if (effectiveUserId) {
+    axios.delete(`${API_BASE_URL}/api/CampaignPrompt/history/${effectiveUserId}`)
+      .catch(err => console.error("Failed to clear history:", err));
+  }
 
+  sessionStorage.removeItem("campaign_messages");
+  sessionStorage.removeItem("campaign_final_prompt");
+  sessionStorage.removeItem("campaign_final_preview");
+  sessionStorage.removeItem("campaign_placeholder_values");
+  sessionStorage.removeItem("campaign_is_complete");
+  sessionStorage.removeItem("campaign_started");
+  sessionStorage.removeItem("campaign_system_prompt");
+  sessionStorage.removeItem("campaign_master_prompt");
+  sessionStorage.removeItem("campaign_preview_text");
+
+  setMessages([]);
+  setFinalPrompt('');
+  setFinalPreviewText('');
+  setPlaceholderValues({});
+  setIsComplete(false);
+  setConversationStarted(false);
+  setSystemPrompt("");
+  setMasterPrompt("");
+  setPreviewText("");
+  setActiveTab('template');
+};
   const currentPlaceholders = extractPlaceholders(masterPrompt);
 
   return (

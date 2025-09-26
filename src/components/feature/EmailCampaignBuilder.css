@@ -268,7 +268,6 @@
 
 .email-campaign-builder .template-textarea:focus {
   outline: none;
-  ring: 2px solid #2563eb;
   border-color: #2563eb;
 }
 
@@ -833,4 +832,125 @@
   .email-campaign-builder .message-bubble {
     font-size: 0.875rem;
   }
+}
+
+/* ==============================
+   Final Result Styles
+   ============================== */
+
+.email-campaign-builder .result-tab {
+  padding: 2rem;
+  background-color: #f9fafb;
+  min-height: 60vh;
+}
+
+.email-campaign-builder .result-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.email-campaign-builder .result-header h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #2563eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.email-campaign-builder .result-header p {
+  color: #6b7280;
+  font-size: 0.95rem;
+  margin-top: 0.5rem;
+}
+
+/* Each result section (Master or Additional text) */
+.email-campaign-builder .result-section {
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+}
+
+.email-campaign-builder .result-section h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color:#1e293b;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 0.5rem;
+}
+
+/* Rendered HTML Result */
+/* Preserve line breaks & spacing inside result content */
+.email-campaign-builder .result-content {
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 1rem;
+  background-color: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  margin-bottom: 1rem;
+  
+  white-space: pre-wrap;   /* ⭐ preserves \n line breaks */
+  word-wrap: break-word;   /* handles long words/URLs */
+  line-height: 1.6;        /* better readability */
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 0.95rem;
+  color: #334155;
+}
+
+.email-campaign-builder .result-content pre,
+.email-campaign-builder .result-content p,
+.email-campaign-builder .result-content div {
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin-bottom: 0.75rem;
+  color: #334155;
+}
+
+/* Copy Button */
+.email-campaign-builder .copy-button {
+  background-color: #2563eb;
+  color: white;
+  font-weight: 600;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.email-campaign-builder .copy-button:hover {
+  background-color: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.email-campaign-builder .copy-button:active {
+  transform: scale(0.97);
+}
+
+/* Reset Button */
+.email-campaign-builder .reset-button {
+  background-color: #f3f4f6;
+  color: #374151;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid #d1d5db;
+  cursor: pointer;
+}
+
+.email-campaign-builder .reset-button:hover {
+  background-color: #e5e7eb;
 }
