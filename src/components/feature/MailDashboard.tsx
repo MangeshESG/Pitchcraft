@@ -159,7 +159,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     { key: "name", label: "Full Name", visible: true },
     { key: "toEmail", label: "Email Address", visible: true },
     { key: "company", label: "Company", visible: true },
-    { key: "jobTitle", label: "Job Title", visible: true },
+    { key: "jobTitle", label: "Job title", visible: true },
     { key: "address", label: "Location", visible: true },
     { key: "subject", label: "Subject", visible: true },
     { key: "isSuccess", label: "Status", visible: true },

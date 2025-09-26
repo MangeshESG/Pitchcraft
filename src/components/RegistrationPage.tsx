@@ -149,7 +149,7 @@ React.useEffect(() => {
               {/* Column 1 */}
               <div style={{ flex: "1 1 45%" }}>
                 <div className="form-group">
-  <label htmlFor="firstName">First Name</label>
+  <label htmlFor="firstName">First name</label>
   <input
     id="firstName"
     type="text"
@@ -194,7 +194,7 @@ React.useEffect(() => {
       {/* Column 2 */}
       <div style={{ flex: "1 1 45%" }}>
         <div className="form-group">
-          <label htmlFor="lastName">Last Name</label>
+          <label htmlFor="lastName">Last name</label>
           <input
             id="lastName"
             type="text"
@@ -222,7 +222,7 @@ React.useEffect(() => {
         </div>
 
         <div className="form-group">
-          <label htmlFor="companyName">Company Name</label>
+          <label htmlFor="companyName">Company name</label>
           <input
             id="companyName"
             type="text"
@@ -236,7 +236,7 @@ React.useEffect(() => {
         </div>
 
         <div className="form-group">
-          <label htmlFor="jobTitle">Job Title</label>
+          <label htmlFor="jobTitle">Job title</label>
           <input
             id="jobTitle"
             type="text"

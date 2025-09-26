@@ -791,7 +791,7 @@ useEffect(() => {
                     <tr>
                       <th>Name</th>
                       <th>Email</th>
-                      <th>Job Title</th>
+                      <th>Job title</th>
                       <th>Company</th>
                       <th>Location</th>
                       <th>LinkedIn</th>

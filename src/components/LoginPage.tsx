@@ -300,7 +300,7 @@ const RegisterForm: React.FC<ViewProps> = ({ setView }) => {
           onChange={(e) => setForm({ ...form, password: e.target.value })}
         />
         <input 
-          placeholder="Company Name" 
+          placeholder="Company name" 
           value={form.companyName}
           onChange={(e) => setForm({ ...form, companyName: e.target.value })}
         />

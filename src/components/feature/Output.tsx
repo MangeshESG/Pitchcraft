@@ -1838,7 +1838,7 @@ const Output: React.FC<OutputInterface> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             {/* Date Range Selection */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span style={{ fontSize: '13px', fontWeight: '600' }}>Date Range:</span>
+              <span style={{ fontSize: '13px', fontWeight: '600' }}>Date range:</span>
               <input
                 type="date"
                 value={dateFilter.startDate}
@@ -1900,7 +1900,7 @@ const Output: React.FC<OutputInterface> = ({
                   fontSize: '13px'
                 }}
               >
-                Krafted Date
+                Krafted date
               </button>
 
               <button
@@ -1951,7 +1951,7 @@ const Output: React.FC<OutputInterface> = ({
                   fontSize: '13px'
                 }}
               >
-                Clear Filters
+                Clear filters
               </button>
             )}
 
@@ -2557,7 +2557,7 @@ const Output: React.FC<OutputInterface> = ({
                           marginTop: "30px",
                         }}
                       >
-                        {isBulkSending ? "Stop" : "Send All"}
+                        {isBulkSending ? "Stop" : "Send all"}
                       </button>
                     </div>
 

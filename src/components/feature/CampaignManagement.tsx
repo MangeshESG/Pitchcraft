@@ -619,11 +619,11 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
         <table className="contacts-table" style={{ background: "#fff" }}>
           <thead>
             <tr>
-              <th>Campaign Name</th>
+              <th>Campaign name</th>
               <th>Template</th>
-              <th>Data Source</th>
+              <th>Data source</th>
               <th>Description</th>
-              <th>Created Date</th>
+              <th>Created date</th>
               <th style={{ minWidth: 48 }}>Actions</th>
             </tr>
           </thead>
@@ -829,7 +829,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
               <div style={{ gridColumn: "1 / -1" }}>
                 <div className="form-group !mb-0">
                   <label>
-                    Campaign Name <span style={{ color: "red" }}>*</span>
+                    Campaign name <span style={{ color: "red" }}>*</span>
                   </label>
                   <input
                     type="text"

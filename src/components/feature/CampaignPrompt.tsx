@@ -181,7 +181,7 @@ const CampaignPrompt: React.FC = () => {
       {/* Master Prompt */}
       <div className="bg-white shadow-md rounded-md p-4 mb-6">
         <div className="flex justify-between items-center mb-2">
-          <label className="block font-semibold text-gray-700">Master Prompt:</label>
+          <label className="block font-semibold text-gray-700">Master prompt:</label>
           <button onClick={() => setIsMasterPromptExpanded(!isMasterPromptExpanded)} className="text-sm text-indigo-600 hover:text-indigo-800">
             {isMasterPromptExpanded ? "📥 Collapse" : "📤 Expand"}
           </button>
