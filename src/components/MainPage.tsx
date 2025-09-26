@@ -39,6 +39,7 @@ import { useAppData } from "../contexts/AppDataContext";
 import CampaignPrompt from "./feature/CampaignPrompt";
 import { Dashboard } from "./feature/Dashboard";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import {saveUserCredit} from "../slices/authSLice";
 
 
 interface Prompt {
@@ -323,32 +324,39 @@ const MainPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
-  
 
   const initialTab = queryParams.get("tab") || "Dashboard";
   const initialContactsSubTab = queryParams.get("subtab") || "List";
+  const initialMailSubTab = queryParams.get("mailSubTab") || "Dashboard";
+
+  // states initialized correctly
+  const [tab, setTab] = useState<string>(initialTab);
+  const [mailSubTab, setMailSubTab] = useState<string>(initialMailSubTab);
+  const [contactsSubTab, setContactsSubTab] = useState<string>(initialContactsSubTab);
+
   const [showMailSubmenu, setShowMailSubmenu] = useState(initialTab === "Mail");
+  const [showContactsSubmenu, setShowContactsSubmenu] = useState(false);
 
-  const [tab, setTab] = useState<string>("Dashboard");
-  const [mailSubTab, setMailSubTab] = useState<string>("Dashboard");
-  const initialMailSubTab = queryParams.get("subTab") || "Dashboard"; 
-
+  // update states when query changes
   useEffect(() => {
-  setTab(initialTab);
-  setContactsSubTab(initialContactsSubTab);
+    setTab(initialTab);
+    setContactsSubTab(initialContactsSubTab);
+    setMailSubTab(initialMailSubTab);
+  }, [initialTab, initialContactsSubTab, initialMailSubTab]);
+
 
   // 👇 handle Mail subTab
-  const subTabParam = queryParams.get("subTab"); // notice the capital S
-  if (initialTab === "Mail" && subTabParam) {
-    setMailSubTab(subTabParam);
-    setShowMailSubmenu(true); // open submenu when navigating directly
-  }
-}, [initialTab, initialContactsSubTab, queryParams]);
+  //   const subTabParam = queryParams.get("subTab"); // notice the capital S
+  //   if (initialTab === "Mail" && subTabParam) {
+  //     setMailSubTab(subTabParam);
+  //     setShowMailSubmenu(true); // open submenu when navigating directly
+  //   }
+  // }, [initialTab, initialContactsSubTab, queryParams]);
 
-  
- // const [showMailSubmenu, setShowMailSubmenu] = useState<boolean>(false);
-  const [showContactsSubmenu, setShowContactsSubmenu] = useState(false);
-  const [contactsSubTab, setContactsSubTab] = useState("List");
+
+  //const [showMailSubmenu, setShowMailSubmenu] = useState<boolean>(false);
+  // const [showContactsSubmenu, setShowContactsSubmenu] = useState(false);
+  // const [contactsSubTab, setContactsSubTab] = useState("List");
 
   const [showDataFileUpload, setShowDataFileUpload] = useState(false);
 
@@ -375,7 +383,8 @@ const MainPage: React.FC = () => {
   const [currentFilteredContacts, setCurrentFilteredContacts] = useState<any[]>([]);
 
   const updateFilteredContacts = (filteredContacts: any[]) => {
-    setCurrentFilteredContacts(filteredContacts);};
+    setCurrentFilteredContacts(filteredContacts);
+  };
 
 
   const handleClearContent = useCallback((clearContent: () => void) => {
@@ -424,7 +433,8 @@ const MainPage: React.FC = () => {
 
         const data = await response.json();
         console.log("data", data);
-       setCampaigns(data.campaigns || []);
+         setCampaigns(data);
+      //  setCampaigns(data.campaigns || []);
       } catch (error) {
         console.error("Error fetching campaigns:", error);
         setCampaigns([]);
@@ -1864,7 +1874,7 @@ const MainPage: React.FC = () => {
                     emailBody: pitchData.response.content,
                   }),
                 }
-              );
+              );///
 
               if (!updateContactResponse.ok) {
                 const updateContactError = await updateContactResponse.json();
@@ -1885,6 +1895,19 @@ const MainPage: React.FC = () => {
                     )}] Updated pitch in database for ${full_name}.</span><br/>` +
                     prevOutputForm.generatedContent,
                 }));
+                try {
+                  debugger
+                  const userCreditResponse = await fetch(
+                    `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`
+                  );
+                  if (!userCreditResponse.ok) throw new Error("Failed to fetch user credit");
+
+                  const userCreditData = await userCreditResponse.json();
+                  console.log("User credit data:", userCreditData);
+                  dispatch(saveUserCredit(userCreditData));
+                } catch (creditError) {
+                  console.error("User credit API error:", creditError);
+                }
               }
             }
           }
@@ -2736,6 +2759,19 @@ const MainPage: React.FC = () => {
                       )}] Updated pitch in database for ${full_name}.</span><br/>` +
                       prevOutputForm.generatedContent,
                   }));
+                  try {
+                    debugger
+                  const userCreditResponse = await fetch(
+                    `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`
+                  );
+                  if (!userCreditResponse.ok) throw new Error("Failed to fetch user credit");
+
+                  const userCreditData = await userCreditResponse.json();
+                  console.log("User credit data:", userCreditData);
+                  dispatch(saveUserCredit(userCreditData));
+                } catch (creditError) {
+                  console.error("User credit API error:", creditError);
+                }
                 }
               }
             }
@@ -3265,8 +3301,8 @@ const MainPage: React.FC = () => {
       try {
         const response = await fetch(`${API_BASE_URL}/api/auth/campaigns/client/${effectiveUserId}`);
         const data = await response.json();
-       // setCampaigns(data);
-       setCampaigns(data.campaigns || []);
+         setCampaigns(data);
+       // setCampaigns(data.campaigns || []);
       } catch (err) {
         console.error("Error fetching campaigns", err);
       }
@@ -3476,7 +3512,7 @@ const MainPage: React.FC = () => {
                           setTab("Dashboard");
                           setShowMailSubmenu(false);
                           setShowContactsSubmenu(false);
-                          navigate("/main"); 
+                          navigate("/main");
                         }}
                         className="side-menu-button"
                         title="Click to view the original non-personalized email template"
@@ -3514,8 +3550,8 @@ const MainPage: React.FC = () => {
                     </li>
                     <li
                       className={`${tab === "DataCampaigns" ? "active" : ""} ${showContactsSubmenu
-                          ? "has-submenu submenu-open"
-                          : "has-submenu"
+                        ? "has-submenu submenu-open"
+                        : "has-submenu"
                         }`}
                     >
                       <button
@@ -3625,8 +3661,8 @@ const MainPage: React.FC = () => {
                     </li>
                     <li
                       className={`${tab === "Mail" ? "active" : ""} ${showMailSubmenu
-                          ? "has-submenu submenu-open"
-                          : "has-submenu"
+                        ? "has-submenu submenu-open"
+                        : "has-submenu"
                         }`}
                     >
                       <button
@@ -3915,8 +3951,8 @@ const MainPage: React.FC = () => {
                                 <button
                                   id="output-edit-prompt-tooltip"
                                   className={`save-button button justify-center square-40 d-flex align-center button-full-width-480 mb-10-480 ${selectedPrompt?.name !== "Select a prompt"
-                                      ? ""
-                                      : "disabled"
+                                    ? ""
+                                    : "disabled"
                                     }`}
                                   disabled={
                                     !selectedPrompt?.name ||
@@ -3987,8 +4023,8 @@ const MainPage: React.FC = () => {
                               <span className="pos-relative">
                                 <pre
                                   className={`no-content height-400 ql-editor ${!selectedPrompt?.template
-                                      ? "text-light"
-                                      : ""
+                                    ? "text-light"
+                                    : ""
                                     }`}
                                   dangerouslySetInnerHTML={{
                                     __html:
@@ -4200,8 +4236,8 @@ const MainPage: React.FC = () => {
                                           type="button"
                                           onClick={tabHandler4}
                                           className={`button ${tab4 === "Instructions"
-                                              ? "active"
-                                              : ""
+                                            ? "active"
+                                            : ""
                                             }`}
                                         >
                                           Instructions
@@ -4322,8 +4358,8 @@ const MainPage: React.FC = () => {
                                           type="button"
                                           onClick={tabHandler3}
                                           className={`button ${tab3 === "Instructions"
-                                              ? "active"
-                                              : ""
+                                            ? "active"
+                                            : ""
                                             }`}
                                         >
                                           Instructions

@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import {
   saveUserId,
   saveUserName,
@@ -9,9 +9,11 @@ import {
   saveLastName,
   setToken,
   saveLoginDeviceInfo,
+  saveUserCredit
 } from "../slices/authSLice";
 import API_BASE_URL from "../config";
 import "./LoginPage.css";
+import { RootState } from "../Redux/store";
 
 type ViewMode = "login" | "register" | "forgot" | "otp";
 
@@ -39,6 +41,7 @@ const getCookie = (name: string): string | null => {
 
 /* ---------------- LOGIN FORM ---------------- */
 const LoginForm: React.FC<ViewProps> = ({ setView }) => {
+  const reduxUserId = useSelector((state: RootState) => state.auth.userId);
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const [username, setUsername] = useState("");
@@ -46,6 +49,10 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
   const [trustThisDevice, setTrustThisDevice] = useState(false);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+  console.log("User ID from Redux:", reduxUserId);
+ // console.log("Effective User ID:", effectiveUserId);
+}, [reduxUserId]);
   // Helper function to decode JWT token
   const getUserIdFromToken = (token: string) => {
     try {
@@ -119,6 +126,32 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
         if (data.firstName) dispatch(saveFirstName(data.firstName));
         if (data.lastName) dispatch(saveLastName(data.lastName));
         
+        // ✅ CALL user_credit API here
+      try {
+        const creditRes = await fetch(
+          `https://localhost:7216/api/Crm/user_credit?clientId=${reduxUserId}`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${data.token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        
+        if (creditRes.ok) {
+          const creditData = await creditRes.json();
+          dispatch(saveUserCredit(creditData));
+          console.log("User Credit:", creditData);
+
+          // you can dispatch it to Redux if needed:
+          // dispatch(saveUserCredit(creditData));
+        } else {
+          console.error("Failed to fetch user credit");
+        }
+      } catch (err) {
+        console.error("Credit API error:", err);
+      }
         navigate("/main");
         return;
       } 
@@ -624,3 +657,4 @@ const LoginPage: React.FC = () => {
 };
 
 export default LoginPage;
+

@@ -10,7 +10,8 @@ interface AuthState {
   lastName: string | null;
   ipAddress?: string | null;              // NEW
   browserName?: string | null;            // NEW
-  browserVersion?: string | null;         // NEW
+  browserVersion?: string | null; 
+  credits?: number | null;         // NEW
 }
 
 const initialState: AuthState = {
@@ -22,7 +23,8 @@ const initialState: AuthState = {
   lastName: null,
   ipAddress: null,       // NEW
   browserName: null,     // NEW
-  browserVersion: null,  // NEW
+  browserVersion: null, 
+  credits: null, // NEW
 };
 
 const authSlice = createSlice({
@@ -38,6 +40,7 @@ const authSlice = createSlice({
       state.userId = null;
       state.firstName = null;
       state.lastName = null;
+      state.credits = null; 
     },
     saveUserName: (state, action: PayloadAction<string>) => {
       state.username = action.payload;
@@ -71,10 +74,13 @@ const authSlice = createSlice({
       state.browserName = action.payload.browserName;
       state.browserVersion = action.payload.browserVersion;
     },
+    saveUserCredit: (state, action: PayloadAction<number>) => {
+      state.credits = action.payload; // 👈 store credit balance
+    },
   },
 });
 
 export const { setToken, clearToken, saveUserName, saveUserRole, saveUserId,saveFirstName,saveLoginDeviceInfo ,
-  saveLastName, clearUsername } =
+  saveLastName, clearUsername,saveUserCredit, } =
   authSlice.actions;
 export default authSlice.reducer;
