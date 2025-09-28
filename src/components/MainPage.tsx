@@ -2107,7 +2107,7 @@ const MainPage: React.FC = () => {
               segmentId: segmentId ? parseInt(segmentId) : null, // Also preserve segmentId
             };
 
-       
+
 
             setAllResponses((prevResponses) => {
 
@@ -2638,7 +2638,7 @@ const MainPage: React.FC = () => {
             ? currentIndex + (i - currentIndex)
             : allResponses.length;
 
-  setAllResponses((prevResponses) => {
+          setAllResponses((prevResponses) => {
 
             const updated = [...prevResponses];
 
@@ -3567,31 +3567,31 @@ const MainPage: React.FC = () => {
                             className=" text-[#333333] text-lg"
                           /> */}
                           <svg xmlns="http://www.w3.org/2000/svg" width="20px" height="20px" viewBox="0 0 24 24" fill={tab === "Dashboard" ? '#3f9f42' : '#111111'}>
-                            <path stroke={tab === "Dashboard" ? '#3f9f42' : '#111111'} stroke-width="2" d="M4 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5ZM14 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V5ZM4 16a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3ZM14 13a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-6Z" />
+                            <path stroke={tab === "Dashboard" ? '#3f9f42' : '#111111'} strokeWidth="2" d="M4 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5ZM14 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V5ZM4 16a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3ZM14 13a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-6Z" />
                           </svg>
                         </span>
                         <span className="menu-text">Dashboard</span>
                       </button>
                     </li>
                     <li className={tab === "Template" ? "active" : ""}>
-  <button
-    onClick={() => {
-      setTab("Template");
-      setShowMailSubmenu(false);
-      setShowContactsSubmenu(false);
-    }}
-    className="side-menu-button"
-    title="Click to view the original non-personalized email template"
-  >
-    <span className="menu-icon">
-      <FontAwesomeIcon
-        icon={faFileAlt}
-        className=" text-[#333333] text-lg"
-      />
-    </span>
-    <span className="menu-text">Templates</span>
-  </button>
-</li>
+                      <button
+                        onClick={() => {
+                          setTab("Template");
+                          setShowMailSubmenu(false);
+                          setShowContactsSubmenu(false);
+                        }}
+                        className="side-menu-button"
+                        title="Click to view the original non-personalized email template"
+                      >
+                        <span className="menu-icon">
+                          <FontAwesomeIcon
+                            icon={faFileAlt}
+                            className=" text-[#333333] text-lg"
+                          />
+                        </span>
+                        <span className="menu-text">Templates</span>
+                      </button>
+                    </li>
 
 
                     <li
@@ -3834,26 +3834,26 @@ const MainPage: React.FC = () => {
                     )}
 
                     {userRole === "ADMIN" && (
-  <li className={tab === "TestTemplate" ? "active" : ""}>
-    <button
-      onClick={() => {
-        setTab("TestTemplate");
-        setShowMailSubmenu(false);
-        setShowContactsSubmenu(false);
-      }}
-      className="side-menu-button"
-      title="Manage test templates"
-    >
-      <span className="menu-icon">
-        <FontAwesomeIcon
-          icon={faFileAlt}
-          className=" text-[#333333] text-lg"
-        />
-      </span>
-      <span className="menu-text">Test Templates</span>
-    </button>
-  </li>
-)}
+                      <li className={tab === "TestTemplate" ? "active" : ""}>
+                        <button
+                          onClick={() => {
+                            setTab("TestTemplate");
+                            setShowMailSubmenu(false);
+                            setShowContactsSubmenu(false);
+                          }}
+                          className="side-menu-button"
+                          title="Manage test templates"
+                        >
+                          <span className="menu-icon">
+                            <FontAwesomeIcon
+                              icon={faFileAlt}
+                              className=" text-[#333333] text-lg"
+                            />
+                          </span>
+                          <span className="menu-text">Test Templates</span>
+                        </button>
+                      </li>
+                    )}
                   </ul>
                 </div>
               </div>
@@ -4716,17 +4716,17 @@ const MainPage: React.FC = () => {
               <EmailCampaignBuilder selectedClient={selectedClient} />
             )}
 
-          {tab === "TestTemplate" && userRole === "ADMIN" && (
-            <Template
-              selectedClient={selectedClient}
-              userRole={userRole}
-              isDemoAccount={isDemoAccount}
-              onTemplateSelect={(template) => {
-                setSelectedPrompt(template);
-                // You can add any additional logic here when a template is selected
-              }}
-            />
-          )}
+            {tab === "TestTemplate" && userRole === "ADMIN" && (
+              <Template
+                selectedClient={selectedClient}
+                userRole={userRole}
+                isDemoAccount={isDemoAccount}
+                onTemplateSelect={(template) => {
+                  setSelectedPrompt(template);
+                  // You can add any additional logic here when a template is selected
+                }}
+              />
+            )}
 
 
             {/* Stop Confirmation Popup */}

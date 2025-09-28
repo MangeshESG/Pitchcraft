@@ -356,7 +356,7 @@ const Output: React.FC<OutputInterface> = ({
 
   // Update the useEffect that sets combinedResponses to also store the original
   // In the second useEffect that notifies parent of initial data
- useEffect(() => {
+  useEffect(() => {
     // Keep currentIndex as is when new responses are added
     if (
       currentIndex >= combinedResponses.length &&
@@ -811,49 +811,27 @@ const Output: React.FC<OutputInterface> = ({
 
   const handleSendEmail = async (
 
-  subjectFromButton: string,
+    subjectFromButton: string,
 
-  targetContact: typeof combinedResponses[number] | null = null
+    targetContact: typeof combinedResponses[number] | null = null
 
-) => {
+  ) => {
 
-  setEmailMessage("");
+    setEmailMessage("");
 
-  setEmailError("");
-
-
-
-  const subjectToUse = subjectFromButton || emailFormData.Subject;
-
-  if (!subjectToUse || !selectedSmtpUser) {
-
-    setEmailError(
-
-      "Please fill in all required fields: Subject and From Email."
-
-    );
-
-    return;
-
-  }
+    setEmailError("");
 
 
 
-  setSendingEmail(true);
+    const subjectToUse = subjectFromButton || emailFormData.Subject;
 
+    if (!subjectToUse || !selectedSmtpUser) {
 
+      setEmailError(
 
-  try {
+        "Please fill in all required fields: Subject and From Email."
 
-    const currentContact = targetContact || combinedResponses[currentIndex];
-
-
-
-    if (!currentContact || !currentContact.id) {
-
-      setEmailError("No valid contact selected");
-
-      setSendingEmail(false);
+      );
 
       return;
 
@@ -861,197 +839,219 @@ const Output: React.FC<OutputInterface> = ({
 
 
 
-    console.log("Sending email to:", currentContact?.name);
+    setSendingEmail(true);
 
 
-
-const requestBody = {
-
-  clientId: effectiveUserId,
-
-  contactid: currentContact.id,
-
-  // Only send dataFileId if segmentId is not present
-
-  dataFileId: (currentContact.segmentId && currentContact.segmentId !== "null") 
-
-    ? null 
-
-    : (currentContact.dataFileId === "null" || !currentContact.dataFileId ? null : parseInt(currentContact.dataFileId) || null),
-
-  segmentId: currentContact.segmentId === "null" || !currentContact.segmentId ? null : parseInt(currentContact.segmentId) || null,
-
-  toEmail: currentContact.email,
-
-  subject: subjectToUse,
-
-  body: currentContact.pitch || "",
-
-  bccEmail: emailFormData.BccEmail || "",
-
-  smtpId: selectedSmtpUser,
-
-  fullName: currentContact.name,
-
-  countryOrAddress: currentContact.location || "",
-
-  companyName: currentContact.company || "",
-
-  website: currentContact.website || "",
-
-  linkedinUrl: currentContact.linkedin || "",
-
-  jobTitle: currentContact.title || "",
-
-};
-
-    const response = await axios.post(
-
-      `${API_BASE_URL}/api/email/send-singleEmail`,
-
-      requestBody,
-
-      {
-
-        headers: {
-
-          "Content-Type": "application/json",
-
-          ...(token && { Authorization: `Bearer ${token}` }),
-
-        },
-
-      }
-
-    );
-
-
-
-    setEmailMessage(response.data.message || "Email sent successfully!");
-
-    toast.success("Email sent successfully!");
-
-
-
-    // Update the contact's email sent status
 
     try {
 
-      const updatedItem = {
+      const currentContact = targetContact || combinedResponses[currentIndex];
 
-        ...combinedResponses[currentIndex],
 
-        emailsentdate: new Date().toISOString(),
 
-        PG_Added_Correctly: true,
+      if (!currentContact || !currentContact.id) {
+
+        setEmailError("No valid contact selected");
+
+        setSendingEmail(false);
+
+        return;
+
+      }
+
+
+
+      console.log("Sending email to:", currentContact?.name);
+
+
+
+      const requestBody = {
+
+        clientId: effectiveUserId,
+
+        contactid: currentContact.id,
+
+        // Only send dataFileId if segmentId is not present
+
+        dataFileId: (currentContact.segmentId && currentContact.segmentId !== "null")
+
+          ? null
+
+          : (currentContact.dataFileId === "null" || !currentContact.dataFileId ? null : parseInt(currentContact.dataFileId) || null),
+
+        segmentId: currentContact.segmentId === "null" || !currentContact.segmentId ? null : parseInt(currentContact.segmentId) || null,
+
+        toEmail: currentContact.email,
+
+        subject: subjectToUse,
+
+        body: currentContact.pitch || "",
+
+        bccEmail: emailFormData.BccEmail || "",
+
+        smtpId: selectedSmtpUser,
+
+        fullName: currentContact.name,
+
+        countryOrAddress: currentContact.location || "",
+
+        companyName: currentContact.company || "",
+
+        website: currentContact.website || "",
+
+        linkedinUrl: currentContact.linkedin || "",
+
+        jobTitle: currentContact.title || "",
 
       };
 
-      setCombinedResponses((prev) =>
+      const response = await axios.post(
 
-        prev.map((item, i) => (i === currentIndex ? updatedItem : item))
+        `${API_BASE_URL}/api/email/send-singleEmail`,
 
-      );
+        requestBody,
 
+        {
 
+          headers: {
 
-      const allResponsesIndex = allResponses.findIndex(
+            "Content-Type": "application/json",
 
-        (item) => item.id === updatedItem.id
+            ...(token && { Authorization: `Bearer ${token}` }),
 
-      );
+          },
 
-      if (allResponsesIndex !== -1) {
-
-        const updatedAll = [...allResponses];
-
-        updatedAll[allResponsesIndex] = updatedItem;
-
-        setAllResponses(updatedAll);
-
-      }
-
-      const existingResponseIndex = existingResponse.findIndex(
-
-        (item) => item.id === updatedItem.id
+        }
 
       );
 
-      if (existingResponseIndex !== -1) {
 
-        const updatedExisting = [...existingResponse];
 
-        updatedExisting[existingResponseIndex] = updatedItem;
+      setEmailMessage(response.data.message || "Email sent successfully!");
 
-        setexistingResponse(updatedExisting);
+      toast.success("Email sent successfully!");
+
+
+
+      // Update the contact's email sent status
+
+      try {
+
+        const updatedItem = {
+
+          ...combinedResponses[currentIndex],
+
+          emailsentdate: new Date().toISOString(),
+
+          PG_Added_Correctly: true,
+
+        };
+
+        setCombinedResponses((prev) =>
+
+          prev.map((item, i) => (i === currentIndex ? updatedItem : item))
+
+        );
+
+
+
+        const allResponsesIndex = allResponses.findIndex(
+
+          (item) => item.id === updatedItem.id
+
+        );
+
+        if (allResponsesIndex !== -1) {
+
+          const updatedAll = [...allResponses];
+
+          updatedAll[allResponsesIndex] = updatedItem;
+
+          setAllResponses(updatedAll);
+
+        }
+
+        const existingResponseIndex = existingResponse.findIndex(
+
+          (item) => item.id === updatedItem.id
+
+        );
+
+        if (existingResponseIndex !== -1) {
+
+          const updatedExisting = [...existingResponse];
+
+          updatedExisting[existingResponseIndex] = updatedItem;
+
+          setexistingResponse(updatedExisting);
+
+        }
+
+
+
+        if (response.data.nextContactId) {
+
+          console.log("Next contact ID:", response.data.nextContactId);
+
+        }
+
+      } catch (updateError) {
+
+        console.error("Failed to update contact record:", updateError);
+
+        if (axios.isAxiosError(updateError)) {
+
+          console.error("Update error details:", updateError.response?.data);
+
+        }
+
+        toast.warning("Email sent but failed to update record status");
 
       }
 
 
 
-      if (response.data.nextContactId) {
+      setTimeout(() => {
 
-        console.log("Next contact ID:", response.data.nextContactId);
+        setShowEmailModal(false);
 
-      }
+        setEmailMessage("");
 
-    } catch (updateError) {
+      }, 2000);
 
-      console.error("Failed to update contact record:", updateError);
+    } catch (err) {
 
-      if (axios.isAxiosError(updateError)) {
+      if (axios.isAxiosError(err)) {
 
-        console.error("Update error details:", updateError.response?.data);
+        setEmailError(
 
-      }
-
-      toast.warning("Email sent but failed to update record status");
-
-    }
-
-
-
-    setTimeout(() => {
-
-      setShowEmailModal(false);
-
-      setEmailMessage("");
-
-    }, 2000);
-
-  } catch (err) {
-
-    if (axios.isAxiosError(err)) {
-
-      setEmailError(
-
-        err.response?.data?.message ||
+          err.response?.data?.message ||
 
           err.response?.data ||
 
           "Failed to send email."
 
-      );
+        );
 
-    } else if (err instanceof Error) {
+      } else if (err instanceof Error) {
 
-      setEmailError(err.message);
+        setEmailError(err.message);
 
-    } else {
+      } else {
 
-      setEmailError("An unknown error occurred.");
+        setEmailError("An unknown error occurred.");
+
+      }
+
+      toast.error("Failed to send email");
+
+    } finally {
+
+      setSendingEmail(false);
 
     }
 
-    toast.error("Failed to send email");
-
-  } finally {
-
-    setSendingEmail(false);
-
-  }
-
-};
+  };
   //-----------------------------------------
   const aggressiveCleanHTML = (html: string): string => {
     // Parse and rebuild the HTML with controlled spacing
@@ -1230,297 +1230,297 @@ const requestBody = {
   }, [campaigns, refreshTrigger]); // Add refreshTrigger dependency
 
 
-const [isBulkSending, setIsBulkSending] = useState(false);
+  const [isBulkSending, setIsBulkSending] = useState(false);
 
-const [bulkSendIndex, setBulkSendIndex] = useState(currentIndex);
+  const [bulkSendIndex, setBulkSendIndex] = useState(currentIndex);
 
-const stopBulkRef = useRef(false);
+  const stopBulkRef = useRef(false);
 
 
 
-const sendEmailsInBulk = async (startIndex = 0) => {
+  const sendEmailsInBulk = async (startIndex = 0) => {
 
-  // Check if we have SMTP user selected BEFORE starting
+    // Check if we have SMTP user selected BEFORE starting
 
-  if (!selectedSmtpUser) {
+    if (!selectedSmtpUser) {
 
-    return; // Exit early
+      return; // Exit early
 
-  }
+    }
 
 
 
-  setIsBulkSending(true);
+    setIsBulkSending(true);
 
-  stopBulkRef.current = false;
+    stopBulkRef.current = false;
 
 
 
-  let index = startIndex;
+    let index = startIndex;
 
-  let sentCount = 0;
+    let sentCount = 0;
 
-  let skippedCount = 0;
+    let skippedCount = 0;
 
 
 
-  while (index < combinedResponses.length && !stopBulkRef.current) {
+    while (index < combinedResponses.length && !stopBulkRef.current) {
 
-    // Update current index to show the contact being processed
+      // Update current index to show the contact being processed
 
-    setCurrentIndex(index);
+      setCurrentIndex(index);
 
-    
 
-    const contact = combinedResponses[index];
 
+      const contact = combinedResponses[index];
 
 
-    try {
 
-      // Prepare subject and request body
+      try {
 
-      const subjectToUse = contact.subject || "No subject";
+        // Prepare subject and request body
 
-      console.log('Subject:', subjectToUse);
+        const subjectToUse = contact.subject || "No subject";
 
+        console.log('Subject:', subjectToUse);
 
 
-      if (!contact.id) {
 
-        index++;
+        if (!contact.id) {
 
-        skippedCount++;
+          index++;
 
-        setBulkSendIndex(index);
+          skippedCount++;
 
-        await new Promise(res => setTimeout(res, 500)); // Small delay before next
+          setBulkSendIndex(index);
 
-        continue;
+          await new Promise(res => setTimeout(res, 500)); // Small delay before next
 
-      }
-
-
-
-      const requestBody = {
-
-        clientId: effectiveUserId,
-
-        contactid: contact.id,
-
-        dataFileId: contact.datafileid === "null" || !contact.datafileid ? null : parseInt(contact.datafileid) || null,      
-
-        segmentId: contact.segmentId === "null" || !contact.segmentId ? null : parseInt(contact.segmentId) || null,
-
-        toEmail: contact.email,
-
-        subject: subjectToUse,
-
-        body: contact.pitch || "",
-
-        bccEmail: emailFormData.BccEmail || "",
-
-        smtpId: selectedSmtpUser,
-
-        fullName: contact.name,
-
-        countryOrAddress: contact.location || "",
-
-        companyName: contact.company || "",
-
-        website: contact.website || "",
-
-        linkedinUrl: contact.linkedin || "",
-
-        jobTitle: contact.title || "",
-
-      };
-
-
-
-      const response = await axios.post(
-
-        `${API_BASE_URL}/api/email/send-singleEmail`,
-
-        requestBody,
-
-        {
-
-          headers: {
-
-            "Content-Type": "application/json",
-
-            ...(token && { Authorization: `Bearer ${token}` }),
-
-          },
+          continue;
 
         }
 
-      );
+
+
+        const requestBody = {
+
+          clientId: effectiveUserId,
+
+          contactid: contact.id,
+
+          dataFileId: contact.datafileid === "null" || !contact.datafileid ? null : parseInt(contact.datafileid) || null,
+
+          segmentId: contact.segmentId === "null" || !contact.segmentId ? null : parseInt(contact.segmentId) || null,
+
+          toEmail: contact.email,
+
+          subject: subjectToUse,
+
+          body: contact.pitch || "",
+
+          bccEmail: emailFormData.BccEmail || "",
+
+          smtpId: selectedSmtpUser,
+
+          fullName: contact.name,
+
+          countryOrAddress: contact.location || "",
+
+          companyName: contact.company || "",
+
+          website: contact.website || "",
+
+          linkedinUrl: contact.linkedin || "",
+
+          jobTitle: contact.title || "",
+
+        };
 
 
 
-      sentCount++;
+        const response = await axios.post(
+
+          `${API_BASE_URL}/api/email/send-singleEmail`,
+
+          requestBody,
+
+          {
+
+            headers: {
+
+              "Content-Type": "application/json",
+
+              ...(token && { Authorization: `Bearer ${token}` }),
+
+            },
+
+          }
+
+        );
 
 
 
-      // UPDATE local state for this contact
-
-      const updatedItem = {
-
-        ...contact,
-
-        emailsentdate: new Date().toISOString(),
-
-        PG_Added_Correctly: true,
-
-      };
-
-      
-
-      // Update combinedResponses
-
-      setCombinedResponses(prev =>
-
-        prev.map((item, i) => (i === index ? updatedItem : item))
-
-      );
+        sentCount++;
 
 
 
-      // Update allResponses if needed
+        // UPDATE local state for this contact
 
-      const allResponsesIndex = allResponses.findIndex(
+        const updatedItem = {
 
-        (item) => item.id === contact.id
+          ...contact,
 
-      );
+          emailsentdate: new Date().toISOString(),
 
-      if (allResponsesIndex !== -1) {
+          PG_Added_Correctly: true,
 
-        setAllResponses(prev => {
+        };
 
-          const updated = [...prev];
 
-          updated[allResponsesIndex] = updatedItem;
 
-          return updated;
+        // Update combinedResponses
 
-        });
+        setCombinedResponses(prev =>
+
+          prev.map((item, i) => (i === index ? updatedItem : item))
+
+        );
+
+
+
+        // Update allResponses if needed
+
+        const allResponsesIndex = allResponses.findIndex(
+
+          (item) => item.id === contact.id
+
+        );
+
+        if (allResponsesIndex !== -1) {
+
+          setAllResponses(prev => {
+
+            const updated = [...prev];
+
+            updated[allResponsesIndex] = updatedItem;
+
+            return updated;
+
+          });
+
+        }
+
+
+
+        // Update existingResponse if needed
+
+        const existingResponseIndex = existingResponse.findIndex(
+
+          (item) => item.id === contact.id
+
+        );
+
+        if (existingResponseIndex !== -1) {
+
+          setexistingResponse(prev => {
+
+            const updated = [...prev];
+
+            updated[existingResponseIndex] = updatedItem;
+
+            return updated;
+
+          });
+
+        }
+
+
+
+      } catch (err) {
+
+        console.error(`Error sending email to ${contact.email}:`, err);
+
+        if (axios.isAxiosError(err)) {
+
+          console.error('API Error:', err.response?.data);
+
+        }
+
+        skippedCount++;
 
       }
 
 
 
-      // Update existingResponse if needed
+      index++;
 
-      const existingResponseIndex = existingResponse.findIndex(
-
-        (item) => item.id === contact.id
-
-      );
-
-      if (existingResponseIndex !== -1) {
-
-        setexistingResponse(prev => {
-
-          const updated = [...prev];
-
-          updated[existingResponseIndex] = updatedItem;
-
-          return updated;
-
-        });
-
-      }
+      setBulkSendIndex(index);
 
 
 
-    } catch (err) {
+      // Show progress
 
-      console.error(`Error sending email to ${contact.email}:`, err);
+      const progress = `Progress: ${index}/${combinedResponses.length} (Sent: ${sentCount}, Skipped: ${skippedCount})`;
 
-      if (axios.isAxiosError(err)) {
+      console.log(progress); // Add console log to track progress
 
-        console.error('API Error:', err.response?.data);
 
-      }
 
-      skippedCount++;
+      // Wait before processing next email
+
+      await new Promise(res => setTimeout(res, 1200)); // Throttle emails
 
     }
 
 
 
-    index++;
+    setIsBulkSending(false);
 
-    setBulkSendIndex(index);
-
-    
-
-    // Show progress
-
-    const progress = `Progress: ${index}/${combinedResponses.length} (Sent: ${sentCount}, Skipped: ${skippedCount})`;
-
-    console.log(progress); // Add console log to track progress
-
-    
-
-    // Wait before processing next email
-
-    await new Promise(res => setTimeout(res, 1200)); // Throttle emails
-
-  }
+    stopBulkRef.current = false;
 
 
 
-  setIsBulkSending(false);
+    console.log(`Bulk send completed. Sent: ${sentCount}, Skipped: ${skippedCount}`);
 
-  stopBulkRef.current = false;
-
-  
-
-  console.log(`Bulk send completed. Sent: ${sentCount}, Skipped: ${skippedCount}`);
-
-};
+  };
 
 
 
-const stopBulkSending = () => {
+  const stopBulkSending = () => {
 
-  stopBulkRef.current = true;
+    stopBulkRef.current = true;
 
-  setIsBulkSending(false);
+    setIsBulkSending(false);
 
-};
+  };
 
-const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
 
 
 
-const handleSaveSettings = async () => {
+  const handleSaveSettings = async () => {
 
-  setIsSavingSettings(true);
+    setIsSavingSettings(true);
 
-  try {
+    try {
 
-    if (saveToneSettings) {
+      if (saveToneSettings) {
 
-      await saveToneSettings();
+        await saveToneSettings();
+
+      }
+
+    } catch (error) {
+
+      console.error('Error saving settings:', error);
+
+    } finally {
+
+      setIsSavingSettings(false);
 
     }
 
-  } catch (error) {
-
-    console.error('Error saving settings:', error);
-
-  } finally {
-
-    setIsSavingSettings(false);
-
-  }
-
-};
+  };
 
 
 
@@ -1582,27 +1582,27 @@ const handleSaveSettings = async () => {
                   {isResetEnabled ? (
                     // In Output.tsx, update the button click handler:
 
-                          <button
+                    <button
 
-                            className="primary-button bg-[#3f9f42]"
+                      className="primary-button bg-[#3f9f42]"
 
-                            onClick={() => handleStart?.(currentIndex)}
+                      onClick={() => handleStart?.(currentIndex)}
 
-                            disabled={
+                      disabled={
 
-                              (!selectedPrompt?.name || !selectedZohoviewId) &&
+                        (!selectedPrompt?.name || !selectedZohoviewId) &&
 
-                              !selectedCampaign
+                        !selectedCampaign
 
-                            }
+                      }
 
-                            title={`Click to generate hyper-personalized emails starting from contact ${currentIndex + 1}`}
+                      title={`Click to generate hyper-personalized emails starting from contact ${currentIndex + 1}`}
 
-                          >
+                    >
 
-                            Generate
+                      Generate
 
-                          </button>
+                    </button>
                   ) : (
                     <button
                       className="primary-button bg-[#3f9f42]"
@@ -1922,7 +1922,7 @@ const handleSaveSettings = async () => {
               : zohoClient.reduce((sum, client) => sum + client.totalContact, 0)}</span>
         </div>
         {/* Add this inside your green box area */}
-        
+
       </div>
 
 
@@ -2196,12 +2196,16 @@ const handleSaveSettings = async () => {
                     {/* Toggle Send Email controls */}
                     {/* BCC field - 20% width */}
                     <div className="relative ml-[auto] flex">
-                      {sendEmailControls && (<div className="right-angle flex w-[100%] justify-end absolute right-[140px] top-[4px] p-[10px] w-auto bg-white rounded shadow-[0_0_15px_rgba(0,0,0,0.2)] z-[100]">
-                        <div style={{ flex: "0 0 15%", paddingRight: "15px" }}>
+                      {sendEmailControls && (<div className="right-angle flex w-[100%] items-start justify-end absolute right-[140px] top-[13px] p-[15px] w-auto bg-white rounded-md shadow-[0_0_15px_rgba(0,0,0,0.2)] z-[100] border border-[#3f9f42] border-r-[5px] border-r-[#3f9f42]
+">
+                        <div style={{ flex: "0 0 15%", paddingRight: "15px" }}
+                          className="flex items-center"
+                        >
                           <label
                             style={{
                               display: "block",
-                              marginBottom: "8px",
+                              marginRight: "10px",
+                              marginBottom: "0",
                               fontWeight: "600",
                               fontSize: "14px",
                             }}
@@ -2242,7 +2246,6 @@ const handleSaveSettings = async () => {
                               borderRadius: "4px",
                               fontSize: "inherit",
                               minHeight: "30px",
-                              marginBottom: bccSelectMode === "other" ? "8px" : 0,
                               background: "#f8fff8",
                             }}
                           >
@@ -2276,19 +2279,24 @@ const handleSaveSettings = async () => {
                                 borderRadius: "4px",
                                 fontSize: "inherit",
                                 minHeight: "30px",
-                                marginTop: "8px",
+                                marginTop: "0",
                                 background: "#f8fff8",
+                                marginLeft: '15px',
+                                minWidth: '200px'
                               }}
                             />
                           )}
                         </div>
 
                         {/* From Email field - 20% width */}
-                        <div style={{ flex: "0 0 15%", paddingRight: "15px" }}>
+                        <div style={{ flex: "0 0 15%", paddingRight: "15px" }}
+                          className="flex items-center"
+                        >
                           <label
                             style={{
                               display: "block",
-                              marginBottom: "8px",
+                              marginRight: "10px",
+                              marginBottom: "0",
                               fontWeight: "600",
                               fontSize: "14px",
                             }}
@@ -2369,11 +2377,11 @@ const handleSaveSettings = async () => {
                                 combinedResponses[currentIndex] && !sendingEmail
                                   ? 1
                                   : 0.6,
-                              height: "38px",
+                              height: "40px",
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
-                              marginTop: "30px",
+                              marginRight: 0
                             }}
                           >
                             {!sendingEmail && emailMessage === "" && "Send"}
@@ -2423,11 +2431,11 @@ const handleSaveSettings = async () => {
                                 sessionStorage.getItem("isDemoAccount") !== "true"
                                   ? 1
                                   : 0.6,
-                              height: "38px",
+                              height: "40px",
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
-                              marginTop: "30px",
+                              marginRight: 0
                             }}
                           >
                             {isBulkSending ? "Stop" : "Send All"}
