@@ -1,9 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Copy, Check, Loader2, RefreshCw, Globe, Eye, FileText, MessageSquare, CheckCircle, XCircle } from 'lucide-react';
+import { Send, Copy, Check, Loader2, RefreshCw, Globe, Eye, FileText, MessageSquare, CheckCircle, XCircle, ChevronDown } from 'lucide-react';
 import axios from 'axios';
 import API_BASE_URL from "../../config";
 import './EmailCampaignBuilder.css';
-
 
 // --- Type Definitions ---
 interface Message {
@@ -13,6 +12,13 @@ interface Message {
 }
 
 type TabType = 'template' | 'conversation' | 'result';
+
+// Add model type
+type GPTModel = {
+  id: string;
+  name: string;
+  description?: string;
+};
 
 // ====================================================================
 // PROPS INTERFACES
@@ -27,6 +33,9 @@ interface TemplateTabProps {
   startConversation: () => void;
   currentPlaceholders: string[];
   extractPlaceholders: (text: string) => string[];
+  selectedModel: string;
+  setSelectedModel: (value: string) => void;
+  availableModels: GPTModel[];
 }
 
 interface EmailCampaignBuilderProps {
@@ -72,16 +81,36 @@ export function useSessionState<T>(key: string, defaultValue: T): [T, React.Disp
   return [state, setState];
 }
 
-
 const TemplateTab: React.FC<TemplateTabProps> = ({
   masterPrompt, setMasterPrompt,
   systemPrompt, setSystemPrompt,
   previewText, setPreviewText,
   startConversation, currentPlaceholders,
-  extractPlaceholders
+  extractPlaceholders, selectedModel,
+  setSelectedModel, availableModels
 }) => {
   return (
     <div className="template-tab">
+      {/* Model Selection Section */}
+      <div className="model-selection-section">
+        <h2>Select GPT-5 Model</h2>
+        <p>Choose the AI model for your campaign generation.</p>
+        <div className="model-dropdown-wrapper">
+          <select
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value)}
+            className="model-dropdown"
+          >
+            {availableModels.map((model: GPTModel) => (
+              <option key={model.id} value={model.id}>
+                {model.name} {model.description ? `- ${model.description}` : ''}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="dropdown-icon" size={20} />
+        </div>
+      </div>
+
       <div className="template-grid">
         <div>
           <div className="template-section">
@@ -155,6 +184,7 @@ const TemplateTab: React.FC<TemplateTabProps> = ({
   );
 };
 
+// Keep ConversationTab and ResultTab the same...
 const ConversationTab: React.FC<ConversationTabProps> = ({
   conversationStarted, messages, isTyping, isComplete, currentAnswer, setCurrentAnswer, handleSendMessage, handleKeyPress, chatEndRef, resetAll
 }) => {
@@ -272,7 +302,7 @@ const ResultTab: React.FC<ResultTabProps> = ({
       );
     } else {
       // ✅ If plain text, preserve line breaks and spacing
-      return (
+          return (
         <pre className="result-content" style={{ whiteSpace: "pre-wrap", wordWrap: "break-word" }}>
           {content}
         </pre>
@@ -372,18 +402,29 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
   const [copied, setCopied] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-const [messages, setMessages] = useSessionState<Message[]>("campaign_messages", []);
-const [finalPrompt, setFinalPrompt] = useSessionState<string>("campaign_final_prompt", "");
-const [finalPreviewText, setFinalPreviewText] = useSessionState<string>("campaign_final_preview", "");
-const [placeholderValues, setPlaceholderValues] = useSessionState<Record<string, string>>("campaign_placeholder_values", {});
-const [isComplete, setIsComplete] = useSessionState<boolean>("campaign_is_complete", false);
-const [conversationStarted, setConversationStarted] = useSessionState<boolean>("campaign_started", false);
-const [systemPrompt, setSystemPrompt] = useSessionState<string>("campaign_system_prompt", "");
-const [masterPrompt, setMasterPrompt] = useSessionState<string>("campaign_master_prompt", "");
-const [previewText, setPreviewText] = useSessionState<string>("campaign_preview_text", "");
+  // Available GPT-5 models
+// Available GPT-5 models (official API IDs)
+const availableModels: GPTModel[] = [
+  { id: 'gpt-5', name: 'GPT-5', description: 'Standard flagship model' },
+  { id: 'gpt-5-mini', name: 'GPT-5 Mini', description: 'Lightweight, efficient, cost-effective' },
+  { id: 'gpt-5-nano', name: 'GPT-5 Nano', description: 'Ultra-fast, minimal resource usage' },
+  { id: 'gpt-5-codex', name: 'GPT-5 Codex', description: 'Specialized for coding and developer tasks' }
+];
+
+
+  const [messages, setMessages] = useSessionState<Message[]>("campaign_messages", []);
+  const [finalPrompt, setFinalPrompt] = useSessionState<string>("campaign_final_prompt", "");
+  const [finalPreviewText, setFinalPreviewText] = useSessionState<string>("campaign_final_preview", "");
+  const [placeholderValues, setPlaceholderValues] = useSessionState<Record<string, string>>("campaign_placeholder_values", {});
+  const [isComplete, setIsComplete] = useSessionState<boolean>("campaign_is_complete", false);
+  const [conversationStarted, setConversationStarted] = useSessionState<boolean>("campaign_started", false);
+  const [systemPrompt, setSystemPrompt] = useSessionState<string>("campaign_system_prompt", "");
+  const [masterPrompt, setMasterPrompt] = useSessionState<string>("campaign_master_prompt", "");
+  const [previewText, setPreviewText] = useSessionState<string>("campaign_preview_text", "");
+  const [selectedModel, setSelectedModel] = useSessionState<string>("campaign_selected_model", "gpt-5");
   
   // --- Session and API Configuration ---
-    const baseUserId = sessionStorage.getItem("clientId");
+  const baseUserId = sessionStorage.getItem("clientId");
   const effectiveUserId = selectedClient || baseUserId;
 
   // --- Helper Functions ---
@@ -443,7 +484,7 @@ const [previewText, setPreviewText] = useSessionState<string>("campaign_preview_
         userId: effectiveUserId,
         message: masterPrompt,
         systemPrompt: systemPrompt,
-        model: "gpt-5"
+        model: selectedModel // Use selected model instead of hardcoded "gpt-5"
       });
       const data = response.data.response;
       if (data && data.assistantText) {
@@ -459,145 +500,145 @@ const [previewText, setPreviewText] = useSessionState<string>("campaign_preview_
     }
   };
 
-const handleSendMessage = async () => {
-  if (currentAnswer.trim() === '' || isTyping || !effectiveUserId) return;
+  const handleSendMessage = async () => {
+    if (currentAnswer.trim() === '' || isTyping || !effectiveUserId) return;
 
-  const userMessage: Message = { 
-    type: 'user', 
-    content: currentAnswer, 
-    timestamp: new Date() 
-  };
-
-  setMessages(prev => [...prev, userMessage]);
-  setCurrentAnswer('');
-  setIsTyping(true);
-
-  try {
-    const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/chat`, {
-      userId: effectiveUserId,
-      message: userMessage.content,
-      systemPrompt: "",
-      model: "gpt-5"
-    });
-
-    const data = response.data.response;
-
-    if (data && data.assistantText) {
-      let textToCheck = data.assistantText;
-
-      // Strip HTML
-      const textWithoutHtml = textToCheck.replace(/<[^>]*>/g, '');
-
-      // 🔹 Extract PLACEHOLDER VALUES section
-      const placeholderValuesMatch = (textWithoutHtml || textToCheck)
-        .match(/==PLACEHOLDER_VALUES_START==([\s\S]*?)==PLACEHOLDER_VALUES_END==/);
-
-      // 🔹 Extract JSON with "status":"complete"
-      const jsonMatch = (textWithoutHtml || textToCheck)
-        .match(/\{[^{}]*"status"\s*:\s*"complete"[^{}]*\}/);
-
-      if (placeholderValuesMatch && jsonMatch) {
-        try {
-          // -------------------------
-          // Parse placeholder values
-          // -------------------------
-          const tempValues: Record<string, string> = {};
-          const placeholderSection = placeholderValuesMatch[1];
-          const lines = placeholderSection.split('\n');
-
-          lines.forEach((line: string) => {
-            const lineMatch = line.match(/\{([^}]+)\}\s*=\s*(.+)/);
-            if (lineMatch) {
-              const placeholder = lineMatch[1].trim();
-              const value = lineMatch[2].trim();
-              tempValues[placeholder] = value;
-              console.log(`Found placeholder: ${placeholder} = ${value}`);
-            }
-          });
-
-          // -------------------------
-          // Clean + Parse JSON safely
-          // -------------------------
-          let jsonString = jsonMatch[0];
-
-          // Fix common encodings
-          jsonString = jsonString.replace(/&quot;/g, '"')
-                                 .replace(/&lt;/g, '<')
-                                 .replace(/&gt;/g, '>')
-                                 .replace(/&amp;/g, '&')
-                                 .replace(/&#39;/g, "'")
-                                 .replace(/&nbsp;/g, " ");
-
-          // Remove raw newlines and carriage returns
-          jsonString = jsonString.replace(/\n/g, ' ').replace(/\r/g, '');
-
-          // Safely parse
-          let completionData: any;
-          try {
-            completionData = JSON.parse(jsonString);
-          } catch (err) {
-            console.error("🔥 Failed to parse GPT JSON:", jsonString, err);
-          }
-
-          // -------------------------
-          // Handle completion
-          // -------------------------
-          if (completionData?.status === "complete") {
-            console.log('✅ Completion Found with values:', tempValues);
-
-            // Store in state
-            setPlaceholderValues(tempValues);
-
-            // Fill Final Master Campaign Email
-            let filledMaster = replacePlaceholdersInText(masterPrompt, tempValues);
-            setFinalPrompt(filledMaster);
-
-            // Fill Additional Text (Preview)
-            let filledPreview = replacePlaceholdersInText(previewText, tempValues);
-            setFinalPreviewText(filledPreview);
-
-            setIsComplete(true);
-
-            // Show Bot Message
-            const completionMessage: Message = { 
-              type: 'bot', 
-              content: "🎉 Great! I've filled in all the placeholders. Check the 'Final Result' tab.", 
-              timestamp: new Date() 
-            };
-            setMessages(prev => [...prev, completionMessage]);
-
-            // Auto switch to results
-            setTimeout(() => setActiveTab('result'), 2000);
-            return;
-          }
-        } catch (e) {
-          console.error('⚠️ Error handling GPT completion block:', e);
-        }
-      }
-
-      // -------------------------
-      // If not complete, show message normally
-      // -------------------------
-      const botMessage: Message = { 
-        type: 'bot', 
-        content: data.assistantText, 
-        timestamp: new Date() 
-      };
-      setMessages(prev => [...prev, botMessage]);
-    }
-
-  } catch (error) {
-    console.error('❌ Error sending message:', error);
-    const errorMessage: Message = { 
-      type: 'bot', 
-      content: 'Sorry, there was an error processing your answer. Please try again.', 
+    const userMessage: Message = { 
+      type: 'user', 
+      content: currentAnswer, 
       timestamp: new Date() 
     };
-    setMessages(prev => [...prev, errorMessage]);
-  } finally {
-    setIsTyping(false);
-  }
-};
+
+    setMessages(prev => [...prev, userMessage]);
+    setCurrentAnswer('');
+    setIsTyping(true);
+
+    try {
+      const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/chat`, {
+        userId: effectiveUserId,
+        message: userMessage.content,
+        systemPrompt: "",
+        model: selectedModel // Use selected model
+      });
+
+      const data = response.data.response;
+
+      if (data && data.assistantText) {
+        let textToCheck = data.assistantText;
+
+        // Strip HTML
+        const textWithoutHtml = textToCheck.replace(/<[^>]*>/g, '');
+
+        // 🔹 Extract PLACEHOLDER VALUES section
+        const placeholderValuesMatch = (textWithoutHtml || textToCheck)
+          .match(/==PLACEHOLDER_VALUES_START==([\s\S]*?)==PLACEHOLDER_VALUES_END==/);
+
+        // 🔹 Extract JSON with "status":"complete"
+        const jsonMatch = (textWithoutHtml || textToCheck)
+          .match(/\{[^{}]*"status"\s*:\s*"complete"[^{}]*\}/);
+
+        if (placeholderValuesMatch && jsonMatch) {
+          try {
+            // -------------------------
+            // Parse placeholder values
+            // -------------------------
+            const tempValues: Record<string, string> = {};
+            const placeholderSection = placeholderValuesMatch[1];
+            const lines = placeholderSection.split('\n');
+
+            lines.forEach((line: string) => {
+              const lineMatch = line.match(/\{([^}]+)\}\s*=\s*(.+)/);
+              if (lineMatch) {
+                const placeholder = lineMatch[1].trim();
+                const value = lineMatch[2].trim();
+                tempValues[placeholder] = value;
+                console.log(`Found placeholder: ${placeholder} = ${value}`);
+              }
+            });
+
+            // -------------------------
+            // Clean + Parse JSON safely
+            // -------------------------
+            let jsonString = jsonMatch[0];
+
+            // Fix common encodings
+            jsonString = jsonString.replace(/&quot;/g, '"')
+                                   .replace(/&lt;/g, '<')
+                                   .replace(/&gt;/g, '>')
+                                   .replace(/&amp;/g, '&')
+                                   .replace(/&#39;/g, "'")
+                                   .replace(/&nbsp;/g, " ");
+
+            // Remove raw newlines and carriage returns
+            jsonString = jsonString.replace(/\n/g, ' ').replace(/\r/g, '');
+
+            // Safely parse
+            let completionData: any;
+            try {
+              completionData = JSON.parse(jsonString);
+            } catch (err) {
+              console.error("🔥 Failed to parse GPT JSON:", jsonString, err);
+            }
+
+            // -------------------------
+            // Handle completion
+            // -------------------------
+            if (completionData?.status === "complete") {
+              console.log('✅ Completion Found with values:', tempValues);
+
+              // Store in state
+              setPlaceholderValues(tempValues);
+
+              // Fill Final Master Campaign Email
+              let filledMaster = replacePlaceholdersInText(masterPrompt, tempValues);
+              setFinalPrompt(filledMaster);
+
+              // Fill Additional Text (Preview)
+              let filledPreview = replacePlaceholdersInText(previewText, tempValues);
+              setFinalPreviewText(filledPreview);
+
+              setIsComplete(true);
+
+              // Show Bot Message
+                           const completionMessage: Message = { 
+                type: 'bot', 
+                content: "🎉 Great! I've filled in all the placeholders. Check the 'Final Result' tab.", 
+                timestamp: new Date() 
+              };
+              setMessages(prev => [...prev, completionMessage]);
+
+              // Auto switch to results
+              setTimeout(() => setActiveTab('result'), 2000);
+              return;
+            }
+          } catch (e) {
+            console.error('⚠️ Error handling GPT completion block:', e);
+          }
+        }
+
+        // -------------------------
+        // If not complete, show message normally
+        // -------------------------
+        const botMessage: Message = { 
+          type: 'bot', 
+          content: data.assistantText, 
+          timestamp: new Date() 
+        };
+        setMessages(prev => [...prev, botMessage]);
+      }
+
+    } catch (error) {
+      console.error('❌ Error sending message:', error);
+      const errorMessage: Message = { 
+        type: 'bot', 
+        content: 'Sorry, there was an error processing your answer. Please try again.', 
+        timestamp: new Date() 
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsTyping(false);
+    }
+  };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -612,39 +653,41 @@ const handleSendMessage = async () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-const resetAll = () => {
-  if (effectiveUserId) {
-    axios.delete(`${API_BASE_URL}/api/CampaignPrompt/history/${effectiveUserId}`)
-      .catch(err => console.error("Failed to clear history:", err));
-  }
+  const resetAll = () => {
+    if (effectiveUserId) {
+      axios.delete(`${API_BASE_URL}/api/CampaignPrompt/history/${effectiveUserId}`)
+        .catch(err => console.error("Failed to clear history:", err));
+    }
 
-  sessionStorage.removeItem("campaign_messages");
-  sessionStorage.removeItem("campaign_final_prompt");
-  sessionStorage.removeItem("campaign_final_preview");
-  sessionStorage.removeItem("campaign_placeholder_values");
-  sessionStorage.removeItem("campaign_is_complete");
-  sessionStorage.removeItem("campaign_started");
-  sessionStorage.removeItem("campaign_system_prompt");
-  sessionStorage.removeItem("campaign_master_prompt");
-  sessionStorage.removeItem("campaign_preview_text");
+    sessionStorage.removeItem("campaign_messages");
+    sessionStorage.removeItem("campaign_final_prompt");
+    sessionStorage.removeItem("campaign_final_preview");
+    sessionStorage.removeItem("campaign_placeholder_values");
+    sessionStorage.removeItem("campaign_is_complete");
+    sessionStorage.removeItem("campaign_started");
+    sessionStorage.removeItem("campaign_system_prompt");
+    sessionStorage.removeItem("campaign_master_prompt");
+    sessionStorage.removeItem("campaign_preview_text");
+    sessionStorage.removeItem("campaign_selected_model");
 
-  setMessages([]);
-  setFinalPrompt('');
-  setFinalPreviewText('');
-  setPlaceholderValues({});
-  setIsComplete(false);
-  setConversationStarted(false);
-  setSystemPrompt("");
-  setMasterPrompt("");
-  setPreviewText("");
-  setActiveTab('template');
-};
+    setMessages([]);
+    setFinalPrompt('');
+    setFinalPreviewText('');
+    setPlaceholderValues({});
+    setIsComplete(false);
+    setConversationStarted(false);
+    setSystemPrompt("");
+    setMasterPrompt("");
+    setPreviewText("");
+    setSelectedModel("gpt-5");
+    setActiveTab('template');
+  };
+
   const currentPlaceholders = extractPlaceholders(masterPrompt);
 
   return (
-  <div className="email-campaign-builder">
-    <div className="campaign-builder-container">
-
+    <div className="email-campaign-builder">
+      <div className="campaign-builder-container">
         <div className="campaign-builder-main">
           {/* Header */}
           <div className="campaign-header">
@@ -704,6 +747,9 @@ const resetAll = () => {
                 startConversation={startConversation}
                 currentPlaceholders={currentPlaceholders}
                 extractPlaceholders={extractPlaceholders}
+                selectedModel={selectedModel}
+                setSelectedModel={setSelectedModel}
+                availableModels={availableModels}
               />
             )}
             {activeTab === 'conversation' && (
@@ -735,7 +781,7 @@ const resetAll = () => {
         </div>
 
         {/* Tips Section */}
-                <details className="tips-section">
+        <details className="tips-section">
           <summary className="tips-header">
             <Eye size={20} className="icon" />
             How to Use
@@ -744,8 +790,8 @@ const resetAll = () => {
             <div className="tip-item">
               <div className="tip-number">1</div>
               <div className="tip-content">
-                <h4>Enter Templates</h4>
-                <p>Define AI instructions, master template, and optional additional text with {'{'}placeholders{'}'}.</p>
+                <h4>Select Model & Enter Templates</h4>
+                <p>Choose your GPT-5 model, define AI instructions, master template, and optional additional text with {'{'}placeholders{'}'}.</p>
               </div>
             </div>
             <div className="tip-item">

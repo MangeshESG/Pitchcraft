@@ -954,3 +954,71 @@
 .email-campaign-builder .reset-button:hover {
   background-color: #e5e7eb;
 }
+
+/* Model Selection Styles */
+.model-selection-section {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.model-selection-section h2 {
+  font-size: 1.25rem;
+  margin-bottom: 0.5rem;
+  color: #212529;
+}
+
+.model-selection-section p {
+  font-size: 0.875rem;
+  color: #6c757d;
+  margin-bottom: 1rem;
+}
+
+.model-dropdown-wrapper {
+  position: relative;
+  max-width: 400px;
+}
+
+.model-dropdown {
+  width: 100%;
+  padding: 0.75rem 2.5rem 0.75rem 1rem;
+  font-size: 1rem;
+  border: 2px solid #dee2e6;
+  border-radius: 6px;
+  background-color: white;
+  cursor: pointer;
+  appearance: none;
+  transition: all 0.2s ease;
+}
+
+.model-dropdown:hover {
+  border-color: #4361ee;
+}
+
+.model-dropdown:focus {
+  outline: none;
+  border-color: #4361ee;
+  box-shadow: 0 0 0 0.2rem rgba(67, 97, 238, 0.25);
+}
+
+.dropdown-icon {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: #6c757d;
+}
+
+/* Mobile responsiveness for model selection */
+@media (max-width: 768px) {
+  .model-selection-section {
+    padding: 1rem;
+  }
+
+  .model-dropdown-wrapper {
+    max-width: 100%;
+  }
+}
