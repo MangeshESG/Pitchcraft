@@ -544,11 +544,11 @@ pre span {
   width: 0;
   height: 0;
   border-top: 10px solid transparent;
-  border-left: 15px solid #ffffff;
+  border-left: 13px solid #3f9f42;
   border-bottom: 10px solid transparent;
   content: "";
   position: absolute;
-  right: -15px;
+  right: -18px;
   top: 50%;
   transform: translateY(-50%);
 }
