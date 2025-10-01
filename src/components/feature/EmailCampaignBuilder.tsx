@@ -1,8 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Copy, Check, Loader2, RefreshCw, Globe, Eye, FileText, MessageSquare, CheckCircle, XCircle, ChevronDown } from 'lucide-react';
+import { Send, Copy, Check, Loader2, RefreshCw, Globe, Eye, FileText, MessageSquare, CheckCircle, XCircle, ChevronDown, Volume2, VolumeX } from 'lucide-react';
 import axios from 'axios';
 import API_BASE_URL from "../../config";
 import './EmailCampaignBuilder.css';
+import notificationSound from '../../assets/sound/notification.mp3'; // Import your MP3
+
+
 
 // --- Type Definitions ---
 interface Message {
@@ -80,6 +83,8 @@ export function useSessionState<T>(key: string, defaultValue: T): [T, React.Disp
 
   return [state, setState];
 }
+
+// Instead of import, use:
 
 const TemplateTab: React.FC<TemplateTabProps> = ({
   masterPrompt, setMasterPrompt,
@@ -401,16 +406,102 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
   const [isTyping, setIsTyping] = useState(false);
   const [copied, setCopied] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const [soundEnabled, setSoundEnabled] = useSessionState<boolean>("campaign_sound_enabled", true);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Available GPT-5 models
-// Available GPT-5 models (official API IDs)
+
+   useEffect(() => {
+    // Create audio element with your MP3
+    audioRef.current = new Audio(notificationSound);
+    audioRef.current.volume = 1.0;
+    
+    // Preload the audio
+    audioRef.current.load();
+    
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
+  // Function to play MP3 notification
+  const playNotificationSound = () => {
+    if (!soundEnabled) return;
+    
+    if (audioRef.current) {
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(error => {
+        console.log('Audio play failed:', error);
+      });
+    }
+    
+    // Also show browser notification for when minimized
+    showBrowserNotification("New message from AI Campaign Builder");
+  };
+
+  // Browser notification function (works when minimized)
+  const showBrowserNotification = (message: string) => {
+    // Check if browser supports notifications
+    if (!("Notification" in window)) {
+      return;
+    }
+    
+    // Request permission if not granted
+    if (Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+    
+    // Show notification if permitted
+    if (Notification.permission === "granted") {
+      const notification = new Notification("AI Campaign Builder", {
+        body: message,
+        icon: '/favicon.ico', // Use your app icon
+        tag: 'campaign-notification',
+        requireInteraction: false
+      });
+      
+      // Auto close after 4 seconds
+      setTimeout(() => notification.close(), 4000);
+      
+      // Handle click - focus the window
+      notification.onclick = () => {
+        window.focus();
+        notification.close();
+      };
+    }
+  };
+
+  // Request notification permission on first interaction
+  useEffect(() => {
+    const requestPermission = () => {
+      if ("Notification" in window && Notification.permission === "default") {
+        Notification.requestPermission();
+      }
+    };
+    
+    // Request on first user interaction
+    document.addEventListener('click', requestPermission, { once: true });
+    
+    return () => {
+      document.removeEventListener('click', requestPermission);
+    };
+  }, []);
+
+
+
 const availableModels: GPTModel[] = [
+
+  // GPT-4.1 Models
+  { id: 'gpt-4.1', name: 'GPT-4.1 ', description: 'Latest GPT-4.1  model' },
+  { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini', description: 'Efficient GPT-4.1 model' },
+  
+  // GPT-5 Models (when available)
   { id: 'gpt-5', name: 'GPT-5', description: 'Standard flagship model' },
   { id: 'gpt-5-mini', name: 'GPT-5 Mini', description: 'Lightweight, efficient, cost-effective' },
   { id: 'gpt-5-nano', name: 'GPT-5 Nano', description: 'Ultra-fast, minimal resource usage' },
-  { id: 'gpt-5-codex', name: 'GPT-5 Codex', description: 'Specialized for coding and developer tasks' }
 ];
-
 
   const [messages, setMessages] = useSessionState<Message[]>("campaign_messages", []);
   const [finalPrompt, setFinalPrompt] = useSessionState<string>("campaign_final_prompt", "");
@@ -427,6 +518,8 @@ const availableModels: GPTModel[] = [
   const baseUserId = sessionStorage.getItem("clientId");
   const effectiveUserId = selectedClient || baseUserId;
 
+
+
   // --- Helper Functions ---
   const extractPlaceholders = (text: string): string[] => {
     const regex = /\{([^}]+)\}/g;
@@ -440,14 +533,17 @@ const availableModels: GPTModel[] = [
     return placeholders;
   };
 
-  const replacePlaceholdersInText = (text: string, values: Record<string, string>): string => {
-    let result = text;
-    Object.entries(values).forEach(([key, value]) => {
+const replacePlaceholdersInText = (text: string, values: Record<string, string>, allowedPlaceholders: string[]): string => {
+  let result = text;
+  Object.entries(values).forEach(([key, value]) => {
+    // Only replace if this placeholder is in the allowed list
+    if (allowedPlaceholders.includes(key)) {
       const regex = new RegExp(`\\{${key}\\}`, 'g');
       result = result.replace(regex, value);
-    });
-    return result;
-  };
+    }
+  });
+  return result;
+};
   
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -484,17 +580,19 @@ const availableModels: GPTModel[] = [
         userId: effectiveUserId,
         message: masterPrompt,
         systemPrompt: systemPrompt,
-        model: selectedModel // Use selected model instead of hardcoded "gpt-5"
+        model: selectedModel
       });
       const data = response.data.response;
       if (data && data.assistantText) {
         const botMessage: Message = { type: 'bot', content: data.assistantText, timestamp: new Date() };
         setMessages([botMessage]);
+        playNotificationSound(); // Play sound for bot message
       }
     } catch (error) {
       console.error('Error starting conversation:', error);
       const errorMessage: Message = { type: 'bot', content: 'Sorry, I couldn\'t start the conversation. Please check the API connection and try again.', timestamp: new Date() };
       setMessages([errorMessage]);
+      playNotificationSound(); // Play sound even for error messages
     } finally {
       setIsTyping(false);
     }
@@ -518,113 +616,65 @@ const availableModels: GPTModel[] = [
         userId: effectiveUserId,
         message: userMessage.content,
         systemPrompt: "",
-        model: selectedModel // Use selected model
+        model: selectedModel
       });
 
       const data = response.data.response;
 
-      if (data && data.assistantText) {
-        let textToCheck = data.assistantText;
-
-        // Strip HTML
-        const textWithoutHtml = textToCheck.replace(/<[^>]*>/g, '');
-
-        // 🔹 Extract PLACEHOLDER VALUES section
-        const placeholderValuesMatch = (textWithoutHtml || textToCheck)
+      if (data && data.isComplete) {
+        console.log('✅ Campaign completed!');
+        
+        const assistantText = data.assistantText || '';
+        const placeholderValuesMatch = assistantText
           .match(/==PLACEHOLDER_VALUES_START==([\s\S]*?)==PLACEHOLDER_VALUES_END==/);
 
-        // 🔹 Extract JSON with "status":"complete"
-        const jsonMatch = (textWithoutHtml || textToCheck)
-          .match(/\{[^{}]*"status"\s*:\s*"complete"[^{}]*\}/);
+        if (placeholderValuesMatch) {
+          const tempValues: Record<string, string> = {};
+          const placeholderSection = placeholderValuesMatch[1];
+          const lines = placeholderSection.split('\n');
 
-        if (placeholderValuesMatch && jsonMatch) {
-          try {
-            // -------------------------
-            // Parse placeholder values
-            // -------------------------
-            const tempValues: Record<string, string> = {};
-            const placeholderSection = placeholderValuesMatch[1];
-            const lines = placeholderSection.split('\n');
-
-            lines.forEach((line: string) => {
-              const lineMatch = line.match(/\{([^}]+)\}\s*=\s*(.+)/);
-              if (lineMatch) {
-                const placeholder = lineMatch[1].trim();
-                const value = lineMatch[2].trim();
-                tempValues[placeholder] = value;
-                console.log(`Found placeholder: ${placeholder} = ${value}`);
-              }
-            });
-
-            // -------------------------
-            // Clean + Parse JSON safely
-            // -------------------------
-            let jsonString = jsonMatch[0];
-
-            // Fix common encodings
-            jsonString = jsonString.replace(/&quot;/g, '"')
-                                   .replace(/&lt;/g, '<')
-                                   .replace(/&gt;/g, '>')
-                                   .replace(/&amp;/g, '&')
-                                   .replace(/&#39;/g, "'")
-                                   .replace(/&nbsp;/g, " ");
-
-            // Remove raw newlines and carriage returns
-            jsonString = jsonString.replace(/\n/g, ' ').replace(/\r/g, '');
-
-            // Safely parse
-            let completionData: any;
-            try {
-              completionData = JSON.parse(jsonString);
-            } catch (err) {
-              console.error("🔥 Failed to parse GPT JSON:", jsonString, err);
+          lines.forEach((line: string) => {
+            const lineMatch = line.match(/\{([^}]+)\}\s*=\s*(.+)/);
+            if (lineMatch) {
+              const placeholder = lineMatch[1].trim();
+              const value = lineMatch[2].trim();
+              tempValues[placeholder] = value;
             }
+          });
 
-            // -------------------------
-            // Handle completion
-            // -------------------------
-            if (completionData?.status === "complete") {
-              console.log('✅ Completion Found with values:', tempValues);
+          const allowedPlaceholders = extractPlaceholders(masterPrompt);
+          setPlaceholderValues(tempValues);
 
-              // Store in state
-              setPlaceholderValues(tempValues);
+          const filledMaster = replacePlaceholdersInText(masterPrompt, tempValues, allowedPlaceholders);
+          setFinalPrompt(filledMaster);
 
-              // Fill Final Master Campaign Email
-              let filledMaster = replacePlaceholdersInText(masterPrompt, tempValues);
-              setFinalPrompt(filledMaster);
+          const previewPlaceholders = extractPlaceholders(previewText);
+          const filledPreview = replacePlaceholdersInText(previewText, tempValues, previewPlaceholders);
+          setFinalPreviewText(filledPreview);
 
-              // Fill Additional Text (Preview)
-              let filledPreview = replacePlaceholdersInText(previewText, tempValues);
-              setFinalPreviewText(filledPreview);
+          setIsComplete(true);
 
-              setIsComplete(true);
+          const completionMessage: Message = { 
+            type: 'bot', 
+            content: "🎉 Great! I've filled in all the placeholders. Check the 'Final Result' tab.", 
+            timestamp: new Date() 
+          };
+          setMessages(prev => [...prev, completionMessage]);
+          playNotificationSound(); // Play sound for completion
 
-              // Show Bot Message
-                           const completionMessage: Message = { 
-                type: 'bot', 
-                content: "🎉 Great! I've filled in all the placeholders. Check the 'Final Result' tab.", 
-                timestamp: new Date() 
-              };
-              setMessages(prev => [...prev, completionMessage]);
-
-              // Auto switch to results
-              setTimeout(() => setActiveTab('result'), 2000);
-              return;
-            }
-          } catch (e) {
-            console.error('⚠️ Error handling GPT completion block:', e);
-          }
+          setTimeout(() => setActiveTab('result'), 1500);
+          return;
         }
+      }
 
-        // -------------------------
-        // If not complete, show message normally
-        // -------------------------
+      if (data && data.assistantText) {
         const botMessage: Message = { 
           type: 'bot', 
           content: data.assistantText, 
           timestamp: new Date() 
         };
         setMessages(prev => [...prev, botMessage]);
+        playNotificationSound(); // Play sound for bot message
       }
 
     } catch (error) {
@@ -635,10 +685,12 @@ const availableModels: GPTModel[] = [
         timestamp: new Date() 
       };
       setMessages(prev => [...prev, errorMessage]);
+      playNotificationSound(); // Play sound for error message
     } finally {
       setIsTyping(false);
     }
   };
+
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -685,17 +737,27 @@ const availableModels: GPTModel[] = [
 
   const currentPlaceholders = extractPlaceholders(masterPrompt);
 
-  return (
+return (
     <div className="email-campaign-builder">
       <div className="campaign-builder-container">
         <div className="campaign-builder-main">
-          {/* Header */}
+          {/* Header with Sound Toggle */}
           <div className="campaign-header">
-            <h1>
-              <Globe className="campaign-header-icon" />
-              AI Campaign Prompt Builder
-            </h1>
-            <p>Create personalized email campaigns through a dynamic conversation.</p>
+            <div className="campaign-header-content">
+              <h1>
+                <Globe className="campaign-header-icon" />
+                AI Campaign Prompt Builder
+              </h1>
+              <p>Create personalized email campaigns through a dynamic conversation.</p>
+            </div>
+            {/* Sound Toggle Button */}
+            <button
+              onClick={() => setSoundEnabled(!soundEnabled)}
+              className="sound-toggle-button"
+              title={soundEnabled ? "Mute notifications" : "Enable notifications"}
+            >
+              {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
+            </button>
           </div>
           
           {/* Tab Navigation */}
