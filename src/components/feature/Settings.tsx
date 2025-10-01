@@ -856,7 +856,7 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
                   style={{ margin: 0 }}
                   className="nowrap"
                 >
-                  Demo Account {isDemoAccount ? "(Yes)" : "(No)"}{" "}
+                  Demo account {isDemoAccount ? "(Yes)" : "(No)"}{" "}
                   {/* Add visual confirmation */}
                 </label>
               </div>
@@ -866,7 +866,7 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
                   onClick={handleUpdateSettings}
                   className="save-button button full"
                 >
-                  Update Settings {/* Or "Save Settings" */}
+                  Update settings {/* Or "Save Settings" */}
                 </button>
               </div>
             </div>

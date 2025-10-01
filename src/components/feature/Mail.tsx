@@ -1606,7 +1606,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
               <table className="contacts-table" style={{ background: "#fff" }}>
                 <thead>
                   <tr>
-                    <th>BCC Email Address</th>
+                    <th>BCC email address</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -2129,7 +2129,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                   >
                     <div className="form-group">
                       <label>
-                        Sequence Name <span style={{ color: "red" }}>*</span>
+                        Sequence name <span style={{ color: "red" }}>*</span>
                       </label>
                       <input
                         type="text"
@@ -2227,7 +2227,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                     </div>
 
                     <div className="form-group">
-                      <label>BCC Email</label>
+                      <label>BCC email</label>
                       <input
                         type="email"
                         name="bccEmail"
@@ -2243,7 +2243,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
 
                     <div className="form-group">
                       <label>
-                        Scheduled Date <span style={{ color: "red" }}>*</span>
+                        Scheduled date <span style={{ color: "red" }}>*</span>
                       </label>
                       <input
                         type="date"
@@ -2257,7 +2257,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
 
                     <div className="form-group">
                       <label>
-                        Scheduled Time <span style={{ color: "red" }}>*</span>
+                        Scheduled time <span style={{ color: "red" }}>*</span>
                       </label>
                       <input
                         type="time"
@@ -2318,7 +2318,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                         cursor: isFormValid ? "pointer" : "not-allowed",
                       }}
                     >
-                      {editingId ? "Update Schedule" : "Create Schedule"}
+                      {editingId ? "Update schedule" : "Create schedule"}
                     </button>
                   </div>
                 </form>
