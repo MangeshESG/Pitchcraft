@@ -756,10 +756,12 @@ const Output: React.FC<OutputInterface> = ({
     }
   }, [isEditing, editableContent, currentIndex]);
 
+  const [openDeviceDropdown, setOpenDeviceDropdown] = useState(false);
   const [outputEmailWidth, setOutputEmailWidth] = useState<string>("");
 
   const toggleOutputEmailWidth = (deviceName: string) => {
     setOutputEmailWidth(deviceName);
+    setOpenDeviceDropdown(false);
   };
 
   //-----------------------------------------
@@ -2714,72 +2716,243 @@ const Output: React.FC<OutputInterface> = ({
                       ></div>
                       <div className="output-email-floated-icons d-flex bg-[#ffffff] rounded-md">
                         <div className="d-flex align-items-center justify-between flex-col-991">
-                          <div className="d-flex">
-                            <div className="d-flex output-responsive-button-group justify-center-991 col-12-991 flex-col-640">
-                              <button
-                                className={`button pad-10 d-flex align-center align-self-center output-email-width-button-mobile justify-center
-                              ${outputEmailWidth === "Mobile" && "bg-active"}
-                              `}
-                                onClick={() => toggleOutputEmailWidth("Mobile")}
-                              >
-                                <svg
-                                  fill="#000000"
-                                  data-name="Layer 1"
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  viewBox="0 0 120 120"
-                                  style={{ width: "20px" }}
-                                >
-                                  <path d="M85.81 120H34.19a8.39 8.39 0 0 1-8.38-8.39V8.39A8.39 8.39 0 0 1 34.19 0h51.62a8.39 8.39 0 0 1 8.38 8.39v103.22a8.39 8.39 0 0 1-8.38 8.39zM34.19 3.87a4.52 4.52 0 0 0-4.51 4.52v103.22a4.52 4.52 0 0 0 4.51 4.52h51.62a4.52 4.52 0 0 0 4.51-4.52V8.39a4.52 4.52 0 0 0-4.51-4.52z" />
-                                  <path d="M73.7 10.32H46.3L39.28 3.3 42.01.57l5.89 5.88h24.2L77.99.57l2.73 2.73-7.02 7.02zM47.1 103.23h25.81v3.87H47.1z" />
-                                </svg>
-                                {/* <span className="ml-3 font-size-medium">Mobile View</span> */}
-                              </button>
-                              <button
-                                className={`button pad-10 ml-5 d-flex align-center align-self-center output-email-width-button-tab justify-center
-                              ${outputEmailWidth === "Tab" && "bg-active"}
-                              `}
-                                onClick={() => toggleOutputEmailWidth("Tab")}
-                              >
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  xmlnsXlink="http://www.w3.org/1999/xlink"
-                                  fill="#000000"
-                                  version="1.1"
-                                  id="Capa_1"
-                                  width="20px"
-                                  height="20px"
-                                  viewBox="0 0 54.355 54.355"
-                                  xmlSpace="preserve"
-                                >
-                                  <g>
-                                    <g>
-                                      <path d="M8.511,54.355h37.333c1.379,0,2.5-1.121,2.5-2.5V2.5c0-1.378-1.121-2.5-2.5-2.5H8.511c-1.379,0-2.5,1.122-2.5,2.5v49.354    C6.011,53.234,7.133,54.355,8.511,54.355z M9.011,3h36.333v48.354H9.011V3z" />
-                                      <path d="M40.928,6.678h-27.5c-0.827,0-1.5,0.673-1.5,1.5v34.25c0,0.827,0.673,1.5,1.5,1.5h27.5c0.827,0,1.5-0.673,1.5-1.5V8.178    C42.428,7.351,41.755,6.678,40.928,6.678z M41.428,42.428c0,0.275-0.224,0.5-0.5,0.5h-27.5c-0.276,0-0.5-0.225-0.5-0.5V8.178    c0-0.276,0.224-0.5,0.5-0.5h27.5c0.276,0,0.5,0.224,0.5,0.5V42.428z" />
-                                      <path d="M27.178,45.013c-1.378,0-2.499,1.121-2.499,2.499s1.121,2.499,2.499,2.499c1.377,0,2.498-1.121,2.498-2.499    S28.556,45.013,27.178,45.013z M27.178,49.01c-0.827,0-1.499-0.672-1.499-1.499s0.672-1.499,1.499-1.499    c0.826,0,1.498,0.672,1.498,1.499S28.005,49.01,27.178,49.01z" />
-                                    </g>
-                                  </g>
-                                </svg>
-                                {/* <span className="ml-3 font-size-medium">Tab View</span> */}
-                              </button>
-                              <button
-                                className={`button pad-10 ml-5 d-flex align-center align-self-center output-email-width-button-desktop justify-center
-                              ${outputEmailWidth === "" && "bg-active"}
-                              `}
-                                onClick={() => toggleOutputEmailWidth("")}
-                              >
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  fill="#000000"
-                                  width="20"
-                                  height="20"
-                                  viewBox="0 -3 32 32"
-                                  preserveAspectRatio="xMidYMid"
-                                >
-                                  <path d="M30.000,21.000 L17.000,21.000 L17.000,24.000 L22.047,24.000 C22.600,24.000 23.047,24.448 23.047,25.000 C23.047,25.552 22.600,26.000 22.047,26.000 L10.047,26.000 C9.494,26.000 9.047,25.552 9.047,25.000 C9.047,24.448 9.494,24.000 10.047,24.000 L15.000,24.000 L15.000,21.000 L2.000,21.000 C0.898,21.000 0.000,20.103 0.000,19.000 L0.000,2.000 C0.000,0.897 0.898,0.000 2.000,0.000 L30.000,0.000 C31.103,0.000 32.000,0.897 32.000,2.000 L32.000,19.000 C32.000,20.103 31.103,21.000 30.000,21.000 ZM2.000,2.000 L2.000,19.000 L29.997,19.000 L30.000,2.000 L2.000,2.000 Z" />
-                                </svg>
-                                {/* <span className="ml-5 font-size-medium">Desktop</span> */}
-                              </button>
-                            </div>
+                          <div className="d-flex relative">
+                            <button
+                              onClick={() => setOpenDeviceDropdown(!openDeviceDropdown)}
+                              className="w-[55px] justify-center px-3 py-2 bg-gray-200 rounded-md flex items-center device-icon"
+                            >
+                              {outputEmailWidth === "Mobile" && (
+                                <>
+                                  <ReactTooltip
+                                    anchorSelect="#mobile-device-view"
+                                    place="left"
+                                  >
+                                    Mobile view
+                                  </ReactTooltip>
+                                  <span id="mobile-device-view">
+                                    {/* Mobile icon */}
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="25px" height="" viewBox="0 0 24 24" fill="none">
+                                      <path d="M11 18H13M9.2 21H14.8C15.9201 21 16.4802 21 16.908 20.782C17.2843 20.5903 17.5903 20.2843 17.782 19.908C18 19.4802 18 18.9201 18 17.8V6.2C18 5.0799 18 4.51984 17.782 4.09202C17.5903 3.71569 17.2843 3.40973 16.908 3.21799C16.4802 3 15.9201 3 14.8 3H9.2C8.0799 3 7.51984 3 7.09202 3.21799C6.71569 3.40973 6.40973 3.71569 6.21799 4.09202C6 4.51984 6 5.07989 6 6.2V17.8C6 18.9201 6 19.4802 6.21799 19.908C6.40973 20.2843 6.71569 20.5903 7.09202 20.782C7.51984 21 8.07989 21 9.2 21Z" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                    </svg>
+                                  </span>
+                                </>
+                              )}
+                              {outputEmailWidth === "Tab" && (
+                                <>
+                                  <ReactTooltip
+                                    anchorSelect="#tab-device-view"
+                                    place="left"
+                                  >
+                                    Tab view
+                                  </ReactTooltip>
+                                  <span id="tab-device-view">
+                                    {/* Tab icon */}
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      width="25px"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                    >
+                                      <rect
+                                        x="4"
+                                        y="3"
+                                        width="16"
+                                        height="18"
+                                        rx="1"
+                                        stroke="#200E32"
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                      />
+                                      <circle cx="12" cy="18" r="1" fill="#200E32" />
+                                    </svg>
+                                  </span>
+                                </>
+                              )}
+                              {outputEmailWidth === "" && (
+                                <>
+                                  <ReactTooltip
+                                    anchorSelect="#desktop-device-view"
+                                    place="left"
+                                  >
+                                    Desktop view
+                                  </ReactTooltip>
+                                  <span id="desktop-device-view">
+                                    {/* Desktop icon */}
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      xmlnsXlink="http://www.w3.org/1999/xlink"
+                                      width="25px"
+                                      viewBox="0 0 24 24"
+                                      version="1.1"
+                                    >
+                                      <title>Desktop</title>
+                                      <g stroke="none" strokeWidth="1" fill="none" fillRule="evenodd">
+                                        <g>
+                                          <rect x="0" y="0" width="24" height="24" fillRule="nonzero" />
+                                          <rect
+                                            x="3"
+                                            y="4"
+                                            width="18"
+                                            height="13"
+                                            rx="2"
+                                            stroke="#0C0310"
+                                            strokeWidth="2"
+                                            strokeLinecap="round"
+                                          />
+                                          <line
+                                            x1="7.5"
+                                            y1="21"
+                                            x2="16.5"
+                                            y2="21"
+                                            stroke="#0C0310"
+                                            strokeWidth="2"
+                                            strokeLinecap="round"
+                                          />
+                                          <line
+                                            x1="12"
+                                            y1="17"
+                                            x2="12"
+                                            y2="21"
+                                            stroke="#0C0310"
+                                            strokeWidth="2"
+                                            strokeLinecap="round"
+                                          />
+                                        </g>
+                                      </g>
+                                    </svg>
+                                  </span>
+                                </>
+                              )}
+                            </button>
+                            {openDeviceDropdown && (
+                              <div className="w-[55px] absolute right-0 mt-[35px] bg-[#eeeeee] pt-[5px] rounded-b-md rounded-t-none d-flex flex-col output-responsive-button-group justify-center-991 col-12-991">
+                                {outputEmailWidth !== "Mobile" && (
+                                  <>
+                                    <ReactTooltip
+                                      anchorSelect="#mobile-device-view"
+                                      place="left"
+                                    >
+                                      Mobile view
+                                    </ReactTooltip>
+                                    <button
+                                      id="mobile-device-view"
+                                      className={`w-[55px] button pad-10 d-flex align-center align-self-center output-email-width-button-mobile justify-center
+                                    ${outputEmailWidth === "Mobile" && "bg-active"}
+                                    `}
+                                      onClick={() => toggleOutputEmailWidth("Mobile")}
+                                    >
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="25px" height="" viewBox="0 0 24 24" fill="none">
+                                        <path d="M11 18H13M9.2 21H14.8C15.9201 21 16.4802 21 16.908 20.782C17.2843 20.5903 17.5903 20.2843 17.782 19.908C18 19.4802 18 18.9201 18 17.8V6.2C18 5.0799 18 4.51984 17.782 4.09202C17.5903 3.71569 17.2843 3.40973 16.908 3.21799C16.4802 3 15.9201 3 14.8 3H9.2C8.0799 3 7.51984 3 7.09202 3.21799C6.71569 3.40973 6.40973 3.71569 6.21799 4.09202C6 4.51984 6 5.07989 6 6.2V17.8C6 18.9201 6 19.4802 6.21799 19.908C6.40973 20.2843 6.71569 20.5903 7.09202 20.782C7.51984 21 8.07989 21 9.2 21Z" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                      </svg>
+                                      {/* <span className="ml-3 font-size-medium">Mobile View</span> */}
+                                    </button>
+                                  </>
+
+
+                                )}
+
+                                {outputEmailWidth !== "Tab" && (
+                                  <>
+                                    <ReactTooltip
+                                      anchorSelect="#tab-device-view"
+                                      place="left"
+                                    >
+                                      Tab view
+                                    </ReactTooltip>
+                                    <button
+                                      id="tab-device-view"
+                                      className={`w-[55px] button pad-10 d-flex align-center align-self-center output-email-width-button-tab justify-center
+                                  ${outputEmailWidth === "Tab" && "bg-active"}
+                                  `}
+                                      onClick={() => toggleOutputEmailWidth("Tab")}
+                                    >
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        width="25px"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                      >
+                                        <rect
+                                          x="4"
+                                          y="3"
+                                          width="16"
+                                          height="18"
+                                          rx="1"
+                                          stroke="#200E32"
+                                          strokeWidth="2"
+                                          strokeLinecap="round"
+                                        />
+                                        <circle cx="12" cy="18" r="1" fill="#200E32" />
+                                      </svg>
+                                      {/* <span className="ml-3 font-size-medium">Tab View</span> */}
+                                    </button>
+                                  </>
+                                )}
+
+                                {outputEmailWidth !== "" && (
+                                  <>
+                                    <ReactTooltip
+                                      anchorSelect="#desktop-device-view"
+                                      place="left"
+                                    >
+                                      Desktop view
+                                    </ReactTooltip>
+                                    <button
+                                      id="desktop-device-view"
+                                      className={`w-[55px] button pad-10 d-flex align-center align-self-center output-email-width-button-desktop justify-center
+                                    ${outputEmailWidth === "" && "bg-active"}
+                                    `}
+                                      onClick={() => toggleOutputEmailWidth("")}
+                                    >
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        xmlnsXlink="http://www.w3.org/1999/xlink"
+                                        width="25px"
+                                        viewBox="0 0 24 24"
+                                        version="1.1"
+                                      >
+                                        <title>Desktop</title>
+                                        <g stroke="none" strokeWidth="1" fill="none" fillRule="evenodd">
+                                          <g>
+                                            <rect x="0" y="0" width="24" height="24" fillRule="nonzero" />
+                                            <rect
+                                              x="3"
+                                              y="4"
+                                              width="18"
+                                              height="13"
+                                              rx="2"
+                                              stroke="#0C0310"
+                                              strokeWidth="2"
+                                              strokeLinecap="round"
+                                            />
+                                            <line
+                                              x1="7.5"
+                                              y1="21"
+                                              x2="16.5"
+                                              y2="21"
+                                              stroke="#0C0310"
+                                              strokeWidth="2"
+                                              strokeLinecap="round"
+                                            />
+                                            <line
+                                              x1="12"
+                                              y1="17"
+                                              x2="12"
+                                              y2="21"
+                                              stroke="#0C0310"
+                                              strokeWidth="2"
+                                              strokeLinecap="round"
+                                            />
+                                          </g>
+                                        </g>
+                                      </svg>
+                                      {/* <span className="ml-5 font-size-medium">Desktop</span> */}
+                                    </button>
+                                  </>
+
+                                )}
+                              </div>
+                            )}
 
                             {/* Your existing Generated/Existing indicator */}
                             {/* {combinedResponses[currentIndex]?.generated ? (
