@@ -1308,8 +1308,7 @@ const Output: React.FC<OutputInterface> = ({
 
           contactid: contact.id,
 
-          dataFileId: contact.datafileid === "null" || !contact.datafileid ? null : parseInt(contact.datafileid) || null,
-
+          dataFileId: (contact.segmentId && contact.segmentId !== "null")? null: (contact.dataFileId === "null" || !contact.dataFileId ? null : parseInt(contact.dataFileId) || null),
           segmentId: contact.segmentId === "null" || !contact.segmentId ? null : parseInt(contact.segmentId) || null,
 
           toEmail: contact.email,

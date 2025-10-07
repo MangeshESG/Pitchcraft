@@ -3,9 +3,7 @@ import { Send, Copy, Check, Loader2, RefreshCw, Globe, Eye, FileText, MessageSqu
 import axios from 'axios';
 import API_BASE_URL from "../../config";
 import './EmailCampaignBuilder.css';
-import notificationSound from '../../assets/sound/notification.mp3'; // Import your MP3
-
-
+import notificationSound from '../../assets/sound/notification.mp3';
 
 // --- Type Definitions ---
 interface Message {
@@ -16,7 +14,6 @@ interface Message {
 
 type TabType = 'template' | 'conversation' | 'result';
 
-// Add model type
 type GPTModel = {
   id: string;
   name: string;
@@ -58,6 +55,7 @@ interface ConversationTabProps {
   resetAll: () => void;
 }
 
+// Updated ResultTabProps with additional props
 interface ResultTabProps {
   isComplete: boolean;
   finalPrompt: string;
@@ -66,6 +64,12 @@ interface ResultTabProps {
   copied: boolean;
   copyToClipboard: (text: string) => void;
   resetAll: () => void;
+  systemPrompt: string;
+  masterPrompt: string;
+  placeholderValues: Record<string, string>;
+  selectedModel: string;
+  effectiveUserId: string | null;
+  messages: Message[];
 }
 
 // ====================================================================
@@ -83,8 +87,6 @@ export function useSessionState<T>(key: string, defaultValue: T): [T, React.Disp
 
   return [state, setState];
 }
-
-// Instead of import, use:
 
 const TemplateTab: React.FC<TemplateTabProps> = ({
   masterPrompt, setMasterPrompt,
@@ -131,8 +133,8 @@ const TemplateTab: React.FC<TemplateTabProps> = ({
         </div>
         <div>
           <div className="template-section">
-            <h2>2.Placeholders List</h2>
-            <p>Enter your  {'{'}placeholders{'}'} for the AI to fill.</p>
+            <h2>2. Placeholders List</h2>
+            <p>Enter your {'{'}placeholders{'}'} for the AI to fill.</p>
           </div>
           <textarea
             value={masterPrompt}
@@ -145,7 +147,7 @@ const TemplateTab: React.FC<TemplateTabProps> = ({
       
       <div className="additional-text-section">
         <div className="template-section">
-          <h2>3.Master campaign template (unpopulated) </h2>
+          <h2>3. Master campaign template (unpopulated)</h2>
           <p className="warning-text">⚠️ This text is NOT sent to the AI. Placeholders here will be filled with values from the conversation.</p>
         </div>
         <textarea
@@ -157,20 +159,20 @@ const TemplateTab: React.FC<TemplateTabProps> = ({
       </div>
       
       <div className="placeholders-section">
-        <h3>Detected Placeholders in Master Template:</h3>
+        <h3>Detected Placeholders in Placeholders List:</h3>
         <div className="placeholders-container">
           {currentPlaceholders.length > 0 ? currentPlaceholders.map((p) => (
             <span key={p} className="placeholder-tag">{`{${p}}`}</span>
-          )) : <span className="no-placeholders">No placeholders found in master template.</span>}
+          )) : <span className="no-placeholders">No placeholders found in placeholders list.</span>}
         </div>
         
         {previewText && (
           <div style={{ marginTop: '12px' }}>
-            <h3>Placeholders in Additional Text:</h3>
+            <h3>Placeholders in Master Campaign Template:</h3>
             <div className="placeholders-container">
               {extractPlaceholders(previewText).length > 0 ? extractPlaceholders(previewText).map((p) => (
                 <span key={p} className="placeholder-tag green">{`{${p}}`}</span>
-              )) : <span className="no-placeholders">No placeholders found in additional text.</span>}
+              )) : <span className="no-placeholders">No placeholders found in master campaign template.</span>}
             </div>
           </div>
         )}
@@ -189,7 +191,6 @@ const TemplateTab: React.FC<TemplateTabProps> = ({
   );
 };
 
-// Keep ConversationTab and ResultTab the same...
 const ConversationTab: React.FC<ConversationTabProps> = ({
   conversationStarted, messages, isTyping, isComplete, currentAnswer, setCurrentAnswer, handleSendMessage, handleKeyPress, chatEndRef, resetAll
 }) => {
@@ -274,6 +275,7 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   );
 };
 
+// Updated ResultTab with save functionality
 const ResultTab: React.FC<ResultTabProps> = ({ 
   isComplete, 
   finalPrompt, 
@@ -281,9 +283,18 @@ const ResultTab: React.FC<ResultTabProps> = ({
   previewText, 
   copied, 
   copyToClipboard, 
-  resetAll 
+  resetAll,
+  systemPrompt,
+  masterPrompt,
+  placeholderValues,
+  selectedModel,
+  effectiveUserId,
+  messages
 }) => {
   const [copiedItem, setCopiedItem] = useState<string>("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [templateName, setTemplateName] = useState("");
 
   const handleCopy = (text: string, item: string) => {
     copyToClipboard(text);
@@ -291,14 +302,52 @@ const ResultTab: React.FC<ResultTabProps> = ({
     setTimeout(() => setCopiedItem(""), 2000);
   };
 
-  // ✅ New unified render function
-  const renderContent = (content: string) => {
-    if (!content) return null;
+  const saveCampaignTemplate = async () => {
+    if (!effectiveUserId || !templateName.trim()) {
+      alert("Please enter a template name");
+      return;
+    }
 
+    setIsSaving(true);
+    setSaveStatus('idle');
+
+    try {
+      const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template/save`, {
+        clientId: effectiveUserId,
+        templateName: templateName,
+        systemPrompt: systemPrompt,
+        masterPrompt: masterPrompt,
+        previewText: previewText,
+        finalPrompt: finalPrompt,
+        finalPreviewText: finalPreviewText,
+        placeholderValues: placeholderValues,
+        selectedModel: selectedModel,
+        conversationMessages: messages.map(msg => ({
+          type: msg.type,
+          content: msg.content,
+          timestamp: msg.timestamp
+        }))
+      });
+
+      if (response.data.success) {
+        setSaveStatus('success');
+        setTemplateName('');
+        setTimeout(() => setSaveStatus('idle'), 3000);
+      }
+    } catch (error) {
+      console.error('Error saving template:', error);
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+   const renderContent = (content: string) => {
+    if (!content) return null;
     const isHtml = /<[a-z][\s\S]*>/i.test(content.trim());
 
     if (isHtml) {
-      // ✅ If HTML present, render as HTML
       return (
         <div
           className="result-content"
@@ -306,8 +355,7 @@ const ResultTab: React.FC<ResultTabProps> = ({
         />
       );
     } else {
-      // ✅ If plain text, preserve line breaks and spacing
-          return (
+      return (
         <pre className="result-content" style={{ whiteSpace: "pre-wrap", wordWrap: "break-word" }}>
           {content}
         </pre>
@@ -337,7 +385,33 @@ const ResultTab: React.FC<ResultTabProps> = ({
             </p>
           </div>
 
-          {/* ✅ Main Master Campaign Result */}
+          {/* Campaign Template (Previously Additional Text Result) */}
+          {previewText && finalPreviewText ? (
+            <div className="result-section campaign-template">
+              <h3>Campaign Template:</h3>
+              {renderContent(finalPreviewText)}
+              <button
+                onClick={() => handleCopy(finalPreviewText, "preview")}
+                className="copy-button"
+              >
+                {copiedItem === "preview" ? (
+                  <>
+                    <Check size={16} /> Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy size={16} /> Copy Campaign Template
+                  </>
+                )}
+              </button>
+            </div>
+          ) : (
+            <div style={{ textAlign: "center", color: "#6b7280" }}>
+              <p>No campaign template was provided.</p>
+            </div>
+          )}
+
+          {/* Master Campaign Result */}
           {finalPrompt && (
             <div className="result-section">
               <h3>Master Campaign Result:</h3>
@@ -359,31 +433,49 @@ const ResultTab: React.FC<ResultTabProps> = ({
             </div>
           )}
 
-          {/* ✅ Additional Preview Text Result */}
-          {previewText && finalPreviewText ? (
-            <div className="result-section">
-              <h3>Additional Text Result:</h3>
-              {renderContent(finalPreviewText)}
-              <button
-                onClick={() => handleCopy(finalPreviewText, "preview")}
-                className="copy-button"
+          {/* Save Template Section */}
+          <div className="save-template-section">
+            <h3>Save Campaign Template</h3>
+            <div className="save-template-form">
+              <input
+                type="text"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                placeholder="Enter template name..."
+                className="template-name-input"
+                disabled={isSaving}
+              />
+              <button 
+                onClick={saveCampaignTemplate} 
+                disabled={isSaving || !templateName.trim()}
+                className="save-template-button"
               >
-                {copiedItem === "preview" ? (
+                {isSaving ? (
                   <>
-                    <Check size={16} /> Copied!
+                    <Loader2 size={16} className="spinning" /> Saving...
+                  </>
+                ) : saveStatus === 'success' ? (
+                  <>
+                    <CheckCircle size={16} /> Saved!
+                  </>
+                ) : saveStatus === 'error' ? (
+                  <>
+                    <XCircle size={16} /> Failed
                   </>
                 ) : (
                   <>
-                    <Copy size={16} /> Copy Additional Text
+                    <FileText size={16} /> Save Template
                   </>
                 )}
               </button>
             </div>
-          ) : (
-            <div style={{ textAlign: "center", color: "#6b7280" }}>
-              <p>No additional text template was provided.</p>
-            </div>
-          )}
+            {saveStatus === 'success' && (
+              <p className="success-message">Template saved successfully!</p>
+            )}
+            {saveStatus === 'error' && (
+              <p className="error-message">Failed to save template. Please try again.</p>
+            )}
+          </div>
 
           <div style={{ marginTop: "1.5rem" }}>
             <button onClick={resetAll} className="reset-button">
@@ -409,13 +501,9 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
   const [soundEnabled, setSoundEnabled] = useSessionState<boolean>("campaign_sound_enabled", true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-
-   useEffect(() => {
-    // Create audio element with your MP3
+  useEffect(() => {
     audioRef.current = new Audio(notificationSound);
     audioRef.current.volume = 1.0;
-    
-    // Preload the audio
     audioRef.current.load();
     
     return () => {
@@ -426,7 +514,6 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
     };
   }, []);
 
-  // Function to play MP3 notification
   const playNotificationSound = () => {
     if (!soundEnabled) return;
     
@@ -437,35 +524,28 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
       });
     }
     
-    // Also show browser notification for when minimized
     showBrowserNotification("New message from AI Campaign Builder");
   };
 
-  // Browser notification function (works when minimized)
   const showBrowserNotification = (message: string) => {
-    // Check if browser supports notifications
     if (!("Notification" in window)) {
       return;
     }
     
-    // Request permission if not granted
     if (Notification.permission === "default") {
       Notification.requestPermission();
     }
     
-    // Show notification if permitted
     if (Notification.permission === "granted") {
       const notification = new Notification("AI Campaign Builder", {
         body: message,
-        icon: '/favicon.ico', // Use your app icon
+        icon: '/favicon.ico',
         tag: 'campaign-notification',
         requireInteraction: false
       });
       
-      // Auto close after 4 seconds
       setTimeout(() => notification.close(), 4000);
       
-      // Handle click - focus the window
       notification.onclick = () => {
         window.focus();
         notification.close();
@@ -473,7 +553,6 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
     }
   };
 
-  // Request notification permission on first interaction
   useEffect(() => {
     const requestPermission = () => {
       if ("Notification" in window && Notification.permission === "default") {
@@ -481,7 +560,6 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
       }
     };
     
-    // Request on first user interaction
     document.addEventListener('click', requestPermission, { once: true });
     
     return () => {
@@ -489,19 +567,13 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
     };
   }, []);
 
-
-
-const availableModels: GPTModel[] = [
-
-  // GPT-4.1 Models
-  { id: 'gpt-4.1', name: 'GPT-4.1 ', description: 'Latest GPT-4.1  model' },
-  { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini', description: 'Efficient GPT-4.1 model' },
-  
-  // GPT-5 Models (when available)
-  { id: 'gpt-5', name: 'GPT-5', description: 'Standard flagship model' },
-  { id: 'gpt-5-mini', name: 'GPT-5 Mini', description: 'Lightweight, efficient, cost-effective' },
-  { id: 'gpt-5-nano', name: 'GPT-5 Nano', description: 'Ultra-fast, minimal resource usage' },
-];
+  const availableModels: GPTModel[] = [
+    { id: 'gpt-4.1', name: 'GPT-4.1', description: 'Latest GPT-4.1 model' },
+    { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini', description: 'Efficient GPT-4.1 model' },
+    { id: 'gpt-5', name: 'GPT-5', description: 'Standard flagship model' },
+    { id: 'gpt-5-mini', name: 'GPT-5 Mini', description: 'Lightweight, efficient, cost-effective' },
+    { id: 'gpt-5-nano', name: 'GPT-5 Nano', description: 'Ultra-fast, minimal resource usage' },
+  ];
 
   const [messages, setMessages] = useSessionState<Message[]>("campaign_messages", []);
   const [finalPrompt, setFinalPrompt] = useSessionState<string>("campaign_final_prompt", "");
@@ -514,13 +586,9 @@ const availableModels: GPTModel[] = [
   const [previewText, setPreviewText] = useSessionState<string>("campaign_preview_text", "");
   const [selectedModel, setSelectedModel] = useSessionState<string>("campaign_selected_model", "gpt-5");
   
-  // --- Session and API Configuration ---
   const baseUserId = sessionStorage.getItem("clientId");
   const effectiveUserId = selectedClient || baseUserId;
 
-
-
-  // --- Helper Functions ---
   const extractPlaceholders = (text: string): string[] => {
     const regex = /\{([^}]+)\}/g;
     const placeholders: string[] = [];
@@ -533,17 +601,16 @@ const availableModels: GPTModel[] = [
     return placeholders;
   };
 
-const replacePlaceholdersInText = (text: string, values: Record<string, string>, allowedPlaceholders: string[]): string => {
-  let result = text;
-  Object.entries(values).forEach(([key, value]) => {
-    // Only replace if this placeholder is in the allowed list
-    if (allowedPlaceholders.includes(key)) {
-      const regex = new RegExp(`\\{${key}\\}`, 'g');
-      result = result.replace(regex, value);
-    }
-  });
-  return result;
-};
+  const replacePlaceholdersInText = (text: string, values: Record<string, string>, allowedPlaceholders: string[]): string => {
+    let result = text;
+    Object.entries(values).forEach(([key, value]) => {
+      if (allowedPlaceholders.includes(key)) {
+        const regex = new RegExp(`\\{${key}\\}`, 'g');
+        result = result.replace(regex, value);
+      }
+    });
+    return result;
+  };
   
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -555,7 +622,6 @@ const replacePlaceholdersInText = (text: string, values: Record<string, string>,
     }
   }, [selectedClient]);
 
-  // --- Core Logic: API Communication ---
   const startConversation = async () => {
     if (!effectiveUserId) {
         alert("Cannot start conversation: No client ID is available.");
@@ -586,13 +652,13 @@ const replacePlaceholdersInText = (text: string, values: Record<string, string>,
       if (data && data.assistantText) {
         const botMessage: Message = { type: 'bot', content: data.assistantText, timestamp: new Date() };
         setMessages([botMessage]);
-        playNotificationSound(); // Play sound for bot message
+        playNotificationSound();
       }
     } catch (error) {
       console.error('Error starting conversation:', error);
       const errorMessage: Message = { type: 'bot', content: 'Sorry, I couldn\'t start the conversation. Please check the API connection and try again.', timestamp: new Date() };
       setMessages([errorMessage]);
-      playNotificationSound(); // Play sound even for error messages
+      playNotificationSound();
     } finally {
       setIsTyping(false);
     }
@@ -642,7 +708,7 @@ const replacePlaceholdersInText = (text: string, values: Record<string, string>,
             }
           });
 
-          const allowedPlaceholders = extractPlaceholders(masterPrompt);
+                   const allowedPlaceholders = extractPlaceholders(masterPrompt);
           setPlaceholderValues(tempValues);
 
           const filledMaster = replacePlaceholdersInText(masterPrompt, tempValues, allowedPlaceholders);
@@ -660,7 +726,7 @@ const replacePlaceholdersInText = (text: string, values: Record<string, string>,
             timestamp: new Date() 
           };
           setMessages(prev => [...prev, completionMessage]);
-          playNotificationSound(); // Play sound for completion
+          playNotificationSound();
 
           setTimeout(() => setActiveTab('result'), 1500);
           return;
@@ -674,7 +740,7 @@ const replacePlaceholdersInText = (text: string, values: Record<string, string>,
           timestamp: new Date() 
         };
         setMessages(prev => [...prev, botMessage]);
-        playNotificationSound(); // Play sound for bot message
+        playNotificationSound();
       }
 
     } catch (error) {
@@ -685,12 +751,11 @@ const replacePlaceholdersInText = (text: string, values: Record<string, string>,
         timestamp: new Date() 
       };
       setMessages(prev => [...prev, errorMessage]);
-      playNotificationSound(); // Play sound for error message
+      playNotificationSound();
     } finally {
       setIsTyping(false);
     }
   };
-
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -707,7 +772,8 @@ const replacePlaceholdersInText = (text: string, values: Record<string, string>,
 
   const resetAll = () => {
     if (effectiveUserId) {
-      axios.delete(`${API_BASE_URL}/api/CampaignPrompt/history/${effectiveUserId}`)
+      // Changed from DELETE to POST
+      axios.post(`${API_BASE_URL}/api/CampaignPrompt/history/${effectiveUserId}/clear`)
         .catch(err => console.error("Failed to clear history:", err));
     }
 
@@ -737,7 +803,7 @@ const replacePlaceholdersInText = (text: string, values: Record<string, string>,
 
   const currentPlaceholders = extractPlaceholders(masterPrompt);
 
-return (
+  return (
     <div className="email-campaign-builder">
       <div className="campaign-builder-container">
         <div className="campaign-builder-main">
@@ -837,6 +903,12 @@ return (
                 copied={copied}
                 copyToClipboard={copyToClipboard}
                 resetAll={resetAll}
+                systemPrompt={systemPrompt}
+                masterPrompt={masterPrompt}
+                placeholderValues={placeholderValues}
+                selectedModel={selectedModel}
+                effectiveUserId={effectiveUserId}
+                messages={messages}
               />
             )}
           </div>

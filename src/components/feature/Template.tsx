@@ -28,6 +28,22 @@ interface Prompt {
   description?: string;
 }
 
+interface CampaignTemplate {
+  id: number;
+  clientId: string;
+  templateName: string;
+  systemPrompt: string;
+  masterPrompt: string;
+  previewText: string;
+  finalPrompt: string;
+  finalPreviewText: string;
+  placeholderValues?: any;
+  selectedModel: string;
+  createdAt: string;
+  updatedAt?: string;
+  hasConversation?: boolean;
+}
+
 interface TemplateProps {
   selectedClient: string;
   userRole?: string;
@@ -55,16 +71,21 @@ const Template: React.FC<TemplateProps> = ({
 }) => {
   // States
   const [templates, setTemplates] = useState<Prompt[]>([]);
+  const [campaignTemplates, setCampaignTemplates] = useState<CampaignTemplate[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<Prompt | null>(null);
+  const [selectedCampaignTemplate, setSelectedCampaignTemplate] = useState<CampaignTemplate | null>(null);
   const [templateActionsAnchor, setTemplateActionsAnchor] = useState<string | null>(null);
+  const [activeTemplateType, setActiveTemplateType] = useState<"regular" | "campaign">("regular");
   
   // Modal states
   const [showAddTemplateModal, setShowAddTemplateModal] = useState(false);
   const [showEditTemplateModal, setShowEditTemplateModal] = useState(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [showViewCampaignModal, setShowViewCampaignModal] = useState(false);
+  const [showEditCampaignModal, setShowEditCampaignModal] = useState(false);
   
   // Form states
   const [addTemplateForm, setAddTemplateForm] = useState({
@@ -79,6 +100,14 @@ const Template: React.FC<TemplateProps> = ({
     description: "",
     template: "",
     instructions: "",
+  });
+  
+  const [editCampaignForm, setEditCampaignForm] = useState({
+    templateName: "",
+    systemPrompt: "",
+    masterPrompt: "",
+    previewText: "",
+    selectedModel: "gpt-5",
   });
   
   // Tab states for modals
@@ -114,7 +143,7 @@ const Template: React.FC<TemplateProps> = ({
     return date.toLocaleDateString("en-GB", options);
   };
 
-  // Fetch templates
+  // Fetch regular templates
   const fetchTemplates = useCallback(async () => {
     if (!effectiveUserId) return;
 
@@ -132,6 +161,28 @@ const Template: React.FC<TemplateProps> = ({
     } catch (error) {
       console.error("Error fetching templates:", error);
       setTemplates([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [effectiveUserId]);
+
+  // Fetch campaign templates
+  const fetchCampaignTemplates = useCallback(async () => {
+    if (!effectiveUserId) return;
+
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/templates/${effectiveUserId}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setCampaignTemplates(data.templates || []);
+    } catch (error) {
+      console.error("Error fetching campaign templates:", error);
+      setCampaignTemplates([]);
     } finally {
       setIsLoading(false);
     }
@@ -216,47 +267,108 @@ const Template: React.FC<TemplateProps> = ({
     }
   };
 
-  // Delete template
-// In Template.tsx, update the handleDeleteTemplate function:
-
-const handleDeleteTemplate = async () => {
-  if (!selectedTemplate) return;
-
-  setIsLoading(true);
-  try {
-    const response = await fetch(
-      `${API_BASE_URL}/api/auth/deleteprompt/${selectedTemplate.id}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: Number(effectiveUserId) }),
-      }
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      
-      // Check if it's a foreign key constraint error
-      if (response.status === 500 && errorText.includes("FK_Campaigns_Prompts")) {
-        appModal.showError(
-          "Cannot delete this template because it's being used by one or more campaigns. Please remove or update those campaigns first."
-        );
-      } else {
-        throw new Error("Failed to delete template");
-      }
+  // Update campaign template
+  const handleUpdateCampaignTemplate = async () => {
+    if (!selectedCampaignTemplate || !editCampaignForm.templateName) {
+      appModal.showError("Please fill all required fields");
       return;
     }
 
-    appModal.showSuccess("Template deleted successfully!");
-    setShowDeleteConfirmModal(false);
-    setSelectedTemplate(null);
-    await fetchTemplates();
-  } catch (error) {
-    appModal.showError("Failed to delete template. Please try again.");
-  } finally {
-    setIsLoading(false);
-  }
-};
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selectedCampaignTemplate.id,
+          templateName: editCampaignForm.templateName,
+          systemPrompt: editCampaignForm.systemPrompt,
+          masterPrompt: editCampaignForm.masterPrompt,
+          previewText: editCampaignForm.previewText,
+          selectedModel: editCampaignForm.selectedModel,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update campaign template");
+      }
+
+      appModal.showSuccess("Campaign template updated successfully!");
+      setShowEditCampaignModal(false);
+      await fetchCampaignTemplates();
+    } catch (error) {
+      appModal.showError("Failed to update campaign template");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Delete template
+  const handleDeleteTemplate = async () => {
+    if (!selectedTemplate) return;
+
+    setIsLoading(true);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/auth/deleteprompt/${selectedTemplate.id}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: Number(effectiveUserId) }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        
+        if (response.status === 500 && errorText.includes("FK_Campaigns_Prompts")) {
+          appModal.showError(
+            "Cannot delete this template because it's being used by one or more campaigns. Please remove or update those campaigns first."
+          );
+        } else {
+          throw new Error("Failed to delete template");
+        }
+        return;
+      }
+
+      appModal.showSuccess("Template deleted successfully!");
+      setShowDeleteConfirmModal(false);
+      setSelectedTemplate(null);
+      await fetchTemplates();
+    } catch (error) {
+      appModal.showError("Failed to delete template. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Delete campaign template
+  const handleDeleteCampaignTemplate = async () => {
+    if (!selectedCampaignTemplate) return;
+
+    setIsLoading(true);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/CampaignPrompt/template/${selectedCampaignTemplate.id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to delete campaign template");
+      }
+
+      appModal.showSuccess("Campaign template deleted successfully!");
+      setShowDeleteConfirmModal(false);
+      setSelectedCampaignTemplate(null);
+      await fetchCampaignTemplates();
+    } catch (error) {
+      appModal.showError("Failed to delete campaign template");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Filter templates
   const filteredTemplates = templates.filter((template) => {
@@ -268,17 +380,53 @@ const handleDeleteTemplate = async () => {
     );
   });
 
+  const filteredCampaignTemplates = campaignTemplates.filter((template) => {
+    const searchLower = searchQuery.toLowerCase();
+    return (
+      template.templateName.toLowerCase().includes(searchLower) ||
+      template.id.toString().includes(searchLower)
+    );
+  });
+
   // Effects
   useEffect(() => {
     if (effectiveUserId) {
-      fetchTemplates();
+      if (activeTemplateType === "regular") {
+        fetchTemplates();
+      } else {
+        fetchCampaignTemplates();
+      }
     }
-  }, [effectiveUserId, fetchTemplates]);
+  }, [effectiveUserId, activeTemplateType, fetchTemplates, fetchCampaignTemplates]);
 
   return (
     <div className="template-container">
       <div className="section-wrapper">
         <h2 className="section-title">Templates</h2>
+
+        {/* Template Type Tabs */}
+        <div className="tabs secondary mb-4">
+          <ul className="d-flex">
+            <li>
+              <button
+                type="button"
+                onClick={() => setActiveTemplateType("regular")}
+                className={`button ${activeTemplateType === "regular" ? "active" : ""}`}
+              >
+                Regular Templates
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                onClick={() => setActiveTemplateType("campaign")}
+                className={`button ${activeTemplateType === "campaign" ? "active" : ""}`}
+              >
+                Campaign Templates
+              </button>
+            </li>
+          </ul>
+        </div>
 
         {/* Search and Create button */}
         <div className="controls-wrapper">
@@ -291,11 +439,17 @@ const handleDeleteTemplate = async () => {
           />
           <button
             className="button save-button auto-width small"
-            onClick={() => setShowCampaignBuilder(true)}
-            disabled={userRole !== "ADMIN"}
-            >
-            <span className="text-[20px] mr-1">+</span> Create a template
-            </button>
+            onClick={() => {
+              if (activeTemplateType === "regular") {
+                setShowAddTemplateModal(true);
+              } else {
+                setShowCampaignBuilder(true);
+              }
+            }}
+                        disabled={userRole !== "ADMIN"}
+          >
+            <span className="text-[20px] mr-1">+</span> Create {activeTemplateType === "campaign" ? "campaign" : "a"} template
+          </button>
         </div>
 
         {/* Templates Table */}
@@ -304,9 +458,9 @@ const handleDeleteTemplate = async () => {
             <tr>
               <th>Templates</th>
               <th>ID</th>
-              <th>Folder</th>
+              <th>{activeTemplateType === "campaign" ? "Model" : "Folder"}</th>
               <th>Creation date</th>
-              <th>Description</th>
+              <th>{activeTemplateType === "campaign" ? "Has Conversation" : "Description"}</th>
               <th style={{ minWidth: 48 }}>Actions</th>
             </tr>
           </thead>
@@ -317,102 +471,201 @@ const handleDeleteTemplate = async () => {
                   Loading...
                 </td>
               </tr>
-            ) : filteredTemplates.length === 0 ? (
-              <tr>
-                <td colSpan={6} style={{ textAlign: "center" }}>
-                  No templates found.
-                </td>
-              </tr>
-            ) : (
-              filteredTemplates.map((template) => (
-                <tr key={template.id}>
-                  <td>
-                    <span
-                      className="template-link"
-                      onClick={() => {
-                        setSelectedTemplate(template);
-                        setShowViewModal(true);
-                        setViewModalTab("Template");
-                      }}
-                    >
-                      {template.name}
-                    </span>
-                  </td>
-                  <td>#{template.id}</td>
-                  <td>Your First Folder</td>
-                  <td>{formatDate(template.createdAt)}</td>
-                  <td>{template.description || "-"}</td>
-                  <td style={{ position: "relative" }}>
-                    <button
-                      className="template-actions-btn"
-                      onClick={() =>
-                        setTemplateActionsAnchor(
-                          template.id.toString() === templateActionsAnchor
-                            ? null
-                            : template.id.toString()
-                        )
-                      }
-                    >
-                      ⋮
-                    </button>
-                    
-                    {templateActionsAnchor === template.id.toString() && (
-                      <div className="template-actions-menu">
-                        <button
-                          onClick={() => {
-                            setSelectedTemplate(template);
-                            setShowViewModal(true);
-                            setViewModalTab("Template");
-                            setTemplateActionsAnchor(null);
-                          }}
-                          style={menuBtnStyle}
-                          className="flex gap-2 items-center"
-                        >
-                          <span>👁</span>
-                          <span>View</span>
-                        </button>
-                        
-                        {!isDemoAccount && userRole === "ADMIN" && (
-                          <>
-                            <button
-                              onClick={() => {
-                                setSelectedTemplate(template);
-                                setEditTemplateForm({
-                                  name: template.name,
-                                  description: template.description || "",
-                                  template: template.template || "",
-                                  instructions: template.text || "",
-                                });
-                                setShowEditTemplateModal(true);
-                                setEditModalTab("Template");
-                                setTemplateActionsAnchor(null);
-                              }}
-                              style={menuBtnStyle}
-                              className="flex gap-2 items-center"
-                            >
-                              <span>✏️</span>
-                              <span>Edit</span>
-                            </button>
-                            
-                            <button
-                              onClick={() => {
-                                setSelectedTemplate(template);
-                                setShowDeleteConfirmModal(true);
-                                setTemplateActionsAnchor(null);
-                              }}
-                              style={menuBtnStyle}
-                              className="flex gap-2 items-center"
-                            >
-                              <span>🗑️</span>
-                              <span>Delete</span>
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    )}
+            ) : activeTemplateType === "regular" ? (
+              filteredTemplates.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: "center" }}>
+                    No templates found.
                   </td>
                 </tr>
-              ))
+              ) : (
+                filteredTemplates.map((template) => (
+                  <tr key={template.id}>
+                    <td>
+                      <span
+                        className="template-link"
+                        onClick={() => {
+                          setSelectedTemplate(template);
+                          setShowViewModal(true);
+                          setViewModalTab("Template");
+                        }}
+                      >
+                        {template.name}
+                      </span>
+                    </td>
+                    <td>#{template.id}</td>
+                    <td>Your First Folder</td>
+                    <td>{formatDate(template.createdAt)}</td>
+                    <td>{template.description || "-"}</td>
+                    <td style={{ position: "relative" }}>
+                      <button
+                        className="template-actions-btn"
+                        onClick={() =>
+                          setTemplateActionsAnchor(
+                            `regular-${template.id}` === templateActionsAnchor
+                              ? null
+                              : `regular-${template.id}`
+                          )
+                        }
+                      >
+                        ⋮
+                      </button>
+                      
+                      {templateActionsAnchor === `regular-${template.id}` && (
+                        <div className="template-actions-menu">
+                          <button
+                            onClick={() => {
+                              setSelectedTemplate(template);
+                              setShowViewModal(true);
+                              setViewModalTab("Template");
+                              setTemplateActionsAnchor(null);
+                            }}
+                            style={menuBtnStyle}
+                            className="flex gap-2 items-center"
+                          >
+                            <span>👁</span>
+                            <span>View</span>
+                          </button>
+                          
+                          {!isDemoAccount && userRole === "ADMIN" && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setSelectedTemplate(template);
+                                  setEditTemplateForm({
+                                    name: template.name,
+                                    description: template.description || "",
+                                    template: template.template || "",
+                                    instructions: template.text || "",
+                                  });
+                                  setShowEditTemplateModal(true);
+                                  setEditModalTab("Template");
+                                  setTemplateActionsAnchor(null);
+                                }}
+                                style={menuBtnStyle}
+                                className="flex gap-2 items-center"
+                              >
+                                <span>✏️</span>
+                                <span>Edit</span>
+                              </button>
+                              
+                              <button
+                                onClick={() => {
+                                  setSelectedTemplate(template);
+                                  setShowDeleteConfirmModal(true);
+                                  setTemplateActionsAnchor(null);
+                                }}
+                                style={menuBtnStyle}
+                                className="flex gap-2 items-center"
+                              >
+                                <span>🗑️</span>
+                                <span>Delete</span>
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )
+            ) : (
+              // Campaign Templates
+              filteredCampaignTemplates.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: "center" }}>
+                    No campaign templates found.
+                  </td>
+                </tr>
+              ) : (
+                filteredCampaignTemplates.map((template) => (
+                  <tr key={template.id}>
+                    <td>
+                      <span
+                        className="template-link"
+                        onClick={() => {
+                          setSelectedCampaignTemplate(template);
+                          setShowViewCampaignModal(true);
+                        }}
+                      >
+                        {template.templateName}
+                      </span>
+                    </td>
+                    <td>#{template.id}</td>
+                    <td>{template.selectedModel}</td>
+                    <td>{formatDate(template.createdAt)}</td>
+                    <td>{template.hasConversation ? "Yes" : "No"}</td>
+                    <td style={{ position: "relative" }}>
+                      <button
+                        className="template-actions-btn"
+                        onClick={() =>
+                          setTemplateActionsAnchor(
+                            `campaign-${template.id}` === templateActionsAnchor
+                              ? null
+                              : `campaign-${template.id}`
+                          )
+                        }
+                      >
+                        ⋮
+                      </button>
+                      
+                      {templateActionsAnchor === `campaign-${template.id}` && (
+                        <div className="template-actions-menu">
+                          <button
+                            onClick={() => {
+                              setSelectedCampaignTemplate(template);
+                              setShowViewCampaignModal(true);
+                              setTemplateActionsAnchor(null);
+                            }}
+                            style={menuBtnStyle}
+                            className="flex gap-2 items-center"
+                          >
+                            <span>👁</span>
+                            <span>View</span>
+                          </button>
+                          
+                          {!isDemoAccount && userRole === "ADMIN" && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setSelectedCampaignTemplate(template);
+                                  setEditCampaignForm({
+                                    templateName: template.templateName,
+                                    systemPrompt: template.systemPrompt,
+                                    masterPrompt: template.masterPrompt,
+                                    previewText: template.previewText,
+                                    selectedModel: template.selectedModel,
+                                  });
+                                  setShowEditCampaignModal(true);
+                                  setTemplateActionsAnchor(null);
+                                }}
+                                style={menuBtnStyle}
+                                className="flex gap-2 items-center"
+                              >
+                                <span>✏️</span>
+                                <span>Edit</span>
+                              </button>
+                              
+                              <button
+                                onClick={() => {
+                                  setSelectedCampaignTemplate(template);
+                                  setShowDeleteConfirmModal(true);
+                                  setTemplateActionsAnchor(null);
+                                }}
+                                style={menuBtnStyle}
+                                className="flex gap-2 items-center"
+                              >
+                                <span>🗑️</span>
+                                <span>Delete</span>
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )
             )}
           </tbody>
         </table>
@@ -428,7 +681,7 @@ const handleDeleteTemplate = async () => {
               <label>Template name <span className="required">*</span></label>
               <input
                 type="text"
-                               value={addTemplateForm.name}
+                value={addTemplateForm.name}
                 onChange={(e) => 
                   setAddTemplateForm({ ...addTemplateForm, name: e.target.value })
                 }
@@ -659,6 +912,99 @@ const handleDeleteTemplate = async () => {
         </div>
       )}
 
+      {/* Edit Campaign Template Modal */}
+      {showEditCampaignModal && selectedCampaignTemplate && (
+        <div className="modal-backdrop">
+          <div className="modal-content modal-large">
+            <h2>Edit Campaign Template</h2>
+            
+            <div className="form-group">
+              <label>Template Name <span className="required">*</span></label>
+              <input
+                type="text"
+                value={editCampaignForm.templateName}
+                onChange={(e) => 
+                  setEditCampaignForm({ ...editCampaignForm, templateName: e.target.value })
+                }
+                placeholder="Enter template name"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Model</label>
+              <select
+                value={editCampaignForm.selectedModel}
+                onChange={(e) => 
+                  setEditCampaignForm({ ...editCampaignForm, selectedModel: e.target.value })
+                }
+                className="form-select"
+              >
+                <option value="gpt-4.1">GPT-4.1</option>
+                <option value="gpt-4.1-mini">GPT-4.1 Mini</option>
+                <option value="gpt-5">GPT-5</option>
+                <option value="gpt-5-mini">GPT-5 Mini</option>
+                <option value="gpt-5-nano">GPT-5 Nano</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label>System Prompt</label>
+              <textarea
+                value={editCampaignForm.systemPrompt}
+                onChange={(e) => 
+                  setEditCampaignForm({ ...editCampaignForm, systemPrompt: e.target.value })
+                }
+                placeholder="Enter system prompt"
+                rows={5}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Master Prompt</label>
+              <textarea
+                value={editCampaignForm.masterPrompt}
+                onChange={(e) => 
+                  setEditCampaignForm({ ...editCampaignForm, masterPrompt: e.target.value })
+                }
+                placeholder="Enter master prompt"
+                rows={5}
+              />
+                        </div>
+
+            <div className="form-group">
+              <label>Preview Text</label>
+              <textarea
+                value={editCampaignForm.previewText}
+                onChange={(e) => 
+                  setEditCampaignForm({ ...editCampaignForm, previewText: e.target.value })
+                }
+                placeholder="Enter preview text"
+                rows={5}
+              />
+            </div>
+
+            <div className="modal-footer">
+              <button
+                className="button secondary"
+                onClick={() => {
+                  setShowEditCampaignModal(false);
+                  setSelectedCampaignTemplate(null);
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                className="button save-button"
+                onClick={handleUpdateCampaignTemplate}
+                disabled={!editCampaignForm.templateName || isLoading}
+              >
+                {isLoading ? "Updating..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* View Template Modal */}
       {showViewModal && selectedTemplate && (
         <div className="modal-backdrop">
@@ -747,12 +1093,100 @@ const handleDeleteTemplate = async () => {
         </div>
       )}
 
+      {/* View Campaign Template Modal */}
+      {showViewCampaignModal && selectedCampaignTemplate && (
+        <div className="modal-backdrop">
+          <div className="modal-content modal-large">
+            <h2>View Campaign Template: {selectedCampaignTemplate.templateName}</h2>
+            
+            <div className="form-group">
+              <label>Model</label>
+              <p>{selectedCampaignTemplate.selectedModel}</p>
+            </div>
+
+            <div className="form-group">
+              <label>System Prompt</label>
+              <div className="template-preview">
+                <pre style={{ whiteSpace: "pre-wrap", wordWrap: "break-word" }}>
+                  {selectedCampaignTemplate.systemPrompt || "No system prompt"}
+                </pre>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>Master Prompt</label>
+              <div className="template-preview">
+                <pre style={{ whiteSpace: "pre-wrap", wordWrap: "break-word" }}>
+                  {selectedCampaignTemplate.masterPrompt || "No master prompt"}
+                </pre>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>Preview Text</label>
+              <div className="template-preview">
+                <pre style={{ whiteSpace: "pre-wrap", wordWrap: "break-word" }}>
+                  {selectedCampaignTemplate.previewText || "No preview text"}
+                </pre>
+              </div>
+            </div>
+
+            {selectedCampaignTemplate.finalPreviewText && (
+              <div className="form-group">
+                <label>Campaign Template (Final Result)</label>
+                <div 
+                  className="template-preview"
+                  dangerouslySetInnerHTML={{ 
+                    __html: selectedCampaignTemplate.finalPreviewText 
+                  }}
+                />
+              </div>
+            )}
+
+            <div className="modal-footer">
+              <button
+                className="button secondary"
+                onClick={() => {
+                  setShowViewCampaignModal(false);
+                  setSelectedCampaignTemplate(null);
+                }}
+              >
+                Close
+              </button>
+              {userRole === "ADMIN" && !isDemoAccount && (
+                <button
+                  className="button save-button"
+                  onClick={() => {
+                    setEditCampaignForm({
+                      templateName: selectedCampaignTemplate.templateName,
+                      systemPrompt: selectedCampaignTemplate.systemPrompt,
+                      masterPrompt: selectedCampaignTemplate.masterPrompt,
+                      previewText: selectedCampaignTemplate.previewText,
+                      selectedModel: selectedCampaignTemplate.selectedModel,
+                    });
+                    setShowViewCampaignModal(false);
+                    setShowEditCampaignModal(true);
+                  }}
+                >
+                  Edit Template
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirmation Modal */}
-      {showDeleteConfirmModal && selectedTemplate && (
+      {showDeleteConfirmModal && (selectedTemplate || selectedCampaignTemplate) && (
         <div className="modal-backdrop">
           <div className="modal-content modal-small">
             <h3>Delete Template</h3>
-            <p>Are you sure you want to delete <strong>{selectedTemplate.name}</strong>?</p>
+            <p>
+              Are you sure you want to delete{" "}
+              <strong>
+                {selectedTemplate ? selectedTemplate.name : selectedCampaignTemplate?.templateName}
+              </strong>?
+            </p>
             
             <div className="modal-footer">
               <button
@@ -760,13 +1194,14 @@ const handleDeleteTemplate = async () => {
                 onClick={() => {
                   setShowDeleteConfirmModal(false);
                   setSelectedTemplate(null);
+                  setSelectedCampaignTemplate(null);
                 }}
               >
                 Cancel
               </button>
               <button
                 className="button danger"
-                onClick={handleDeleteTemplate}
+                onClick={selectedTemplate ? handleDeleteTemplate : handleDeleteCampaignTemplate}
                 disabled={isLoading}
               >
                 {isLoading ? "Deleting..." : "Delete"}
@@ -776,40 +1211,45 @@ const handleDeleteTemplate = async () => {
         </div>
       )}
 
-     {showCampaignBuilder && (
-  <div style={{
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 999999,
-    background: 'white'
-  }}>
-    <EmailCampaignBuilder 
-      selectedClient={selectedClient}
-    />
-    <button
-      onClick={() => setShowCampaignBuilder(false)}
-      style={{
-        position: 'fixed',
-        top: '20px',
-        right: '20px',
-        zIndex: 1000000,
-        background: '#dc3545',
-        color: 'white',
-        border: 'none',
-        borderRadius: '8px',
-        padding: '10px 20px',
-        cursor: 'pointer',
-        fontSize: '16px',
-        fontWeight: 'bold'
-      }}
-    >
-      Close
-    </button>
-  </div>
-)}
+      {/* Campaign Builder Modal */}
+      {showCampaignBuilder && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 999999,
+          background: 'white'
+        }}>
+          <EmailCampaignBuilder 
+            selectedClient={selectedClient}
+          />
+          <button
+            onClick={() => {
+              setShowCampaignBuilder(false);
+              // Refresh campaign templates when closing
+              fetchCampaignTemplates();
+            }}
+            style={{
+              position: 'fixed',
+              top: '20px',
+              right: '20px',
+              zIndex: 1000000,
+              background: '#dc3545',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '10px 20px',
+              cursor: 'pointer',
+              fontSize: '16px',
+              fontWeight: 'bold'
+            }}
+          >
+            Close
+          </button>
+        </div>
+      )}
     </div>
   );
 };
