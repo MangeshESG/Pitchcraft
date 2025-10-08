@@ -978,13 +978,14 @@ const updateTemplateInDatabase = async (updatedPlaceholderValues: Record<string,
     const previewPlaceholders = extractPlaceholders(previewText);
     const updatedFilledPreview = replacePlaceholdersInText(previewText, updatedPlaceholderValues, previewPlaceholders);
 
-    const response = await axios.put(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
+    // Changed from PUT to POST
+    const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
       id: editTemplateId,
       templateName: originalTemplateData.templateName,
       aiInstructions: systemPrompt,
       placeholderListInfo: masterPrompt,
       masterBlueprintUnpopulated: previewText,
-      placeholderListWithValue: updatedFilledMaster, // Add this
+      placeholderListWithValue: updatedFilledMaster,
       campaignBlueprint: updatedFilledPreview,
       selectedModel: selectedModel,
       placeholderValues: updatedPlaceholderValues,
