@@ -1302,8 +1302,6 @@ const Output: React.FC<OutputInterface> = ({
 
         }
 
-
-
         const requestBody = {
 
           clientId: effectiveUserId,

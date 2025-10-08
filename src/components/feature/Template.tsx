@@ -28,16 +28,17 @@ interface Prompt {
   description?: string;
 }
 
+// Updated CampaignTemplate interface with new column names
 interface CampaignTemplate {
   id: number;
   clientId: string;
   templateName: string;
-  systemPrompt: string;
-  masterPrompt: string;
-  previewText: string;
-  finalPrompt: string;
-  finalPreviewText: string;
-  placeholderValues?: any;
+  aiInstructions: string; // Changed from systemPrompt
+  placeholderListInfo: string; // Changed from masterPrompt
+  masterBlueprintUnpopulated: string; // Changed from previewText
+  placeholderListWithValue: string; // Changed from finalPrompt
+  campaignBlueprint: string; // Changed from finalPreviewText
+  placeholderValues?: Record<string, string>;
   selectedModel: string;
   createdAt: string;
   updatedAt?: string;
@@ -87,6 +88,11 @@ const Template: React.FC<TemplateProps> = ({
   const [showViewCampaignModal, setShowViewCampaignModal] = useState(false);
   const [showEditCampaignModal, setShowEditCampaignModal] = useState(false);
   
+  const [viewCampaignTab, setViewCampaignTab] = useState<"example" | "template">("example");
+  const [exampleEmail, setExampleEmail] = useState("");
+  const [editableCampaignTemplate, setEditableCampaignTemplate] = useState("");
+  const [currentPlaceholderValues, setCurrentPlaceholderValues] = useState<Record<string, string>>({});
+    
   // Form states
   const [addTemplateForm, setAddTemplateForm] = useState({
     name: "",
@@ -102,11 +108,12 @@ const Template: React.FC<TemplateProps> = ({
     instructions: "",
   });
   
+  // Updated editCampaignForm with new property names
   const [editCampaignForm, setEditCampaignForm] = useState({
     templateName: "",
-    systemPrompt: "",
-    masterPrompt: "",
-    previewText: "",
+    aiInstructions: "", // Changed from systemPrompt
+    placeholderListInfo: "", // Changed from masterPrompt
+    masterBlueprintUnpopulated: "", // Changed from previewText
     selectedModel: "gpt-5",
   });
   
@@ -267,7 +274,7 @@ const Template: React.FC<TemplateProps> = ({
     }
   };
 
-  // Update campaign template
+  // Updated handleUpdateCampaignTemplate with new property names
   const handleUpdateCampaignTemplate = async () => {
     if (!selectedCampaignTemplate || !editCampaignForm.templateName) {
       appModal.showError("Please fill all required fields");
@@ -282,9 +289,9 @@ const Template: React.FC<TemplateProps> = ({
         body: JSON.stringify({
           id: selectedCampaignTemplate.id,
           templateName: editCampaignForm.templateName,
-          systemPrompt: editCampaignForm.systemPrompt,
-          masterPrompt: editCampaignForm.masterPrompt,
-          previewText: editCampaignForm.previewText,
+          aiInstructions: editCampaignForm.aiInstructions, // Updated
+          placeholderListInfo: editCampaignForm.placeholderListInfo, // Updated
+          masterBlueprintUnpopulated: editCampaignForm.masterBlueprintUnpopulated, // Updated
           selectedModel: editCampaignForm.selectedModel,
         }),
       });
@@ -349,9 +356,10 @@ const Template: React.FC<TemplateProps> = ({
     setIsLoading(true);
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/CampaignPrompt/template/${selectedCampaignTemplate.id}`,
+        `${API_BASE_URL}/api/CampaignPrompt/template/${selectedCampaignTemplate.id}/delete`,
         {
-          method: "DELETE",
+          method: "POST",
+          headers: { "Content-Type": "application/json" }
         }
       );
 
@@ -398,6 +406,92 @@ const Template: React.FC<TemplateProps> = ({
       }
     }
   }, [effectiveUserId, activeTemplateType, fetchTemplates, fetchCampaignTemplates]);
+
+  // Updated generateExampleEmail function
+   // Updated generateExampleEmail function
+  const generateExampleEmail = (template: CampaignTemplate) => {
+    if (!template.placeholderValues) return "";
+    
+    // Look for {example_output} in placeholder values
+    const placeholders = template.placeholderValues as Record<string, string>;
+    if (placeholders.example_output) {
+      return placeholders.example_output;
+    }
+    
+    // If no example_output, generate from campaign blueprint
+    return template.campaignBlueprint || "";
+  };
+
+  // Update the fetch function to get full template data
+  const fetchCampaignTemplateDetails = async (templateId: number) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/template/${templateId}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Error fetching template details:", error);
+      return null;
+    }
+  };
+
+  // Update the view handler
+  const handleViewCampaignTemplate = async (template: CampaignTemplate) => {
+    setIsLoading(true);
+    try {
+      const fullTemplate = await fetchCampaignTemplateDetails(template.id);
+      if (fullTemplate) {
+        setSelectedCampaignTemplate(fullTemplate);
+        setExampleEmail(generateExampleEmail(fullTemplate));
+        setEditableCampaignTemplate(fullTemplate.campaignBlueprint || "");
+        setCurrentPlaceholderValues(fullTemplate.placeholderValues || {});
+        setViewCampaignTab("example");
+        setShowViewCampaignModal(true);
+      }
+    } catch (error) {
+      appModal.showError("Failed to load template details");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Updated handleSaveCampaignTemplateChanges with new property names
+  const handleSaveCampaignTemplateChanges = async () => {
+    if (!selectedCampaignTemplate) return;
+
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selectedCampaignTemplate.id,
+          templateName: selectedCampaignTemplate.templateName,
+          aiInstructions: selectedCampaignTemplate.aiInstructions,
+          placeholderListInfo: selectedCampaignTemplate.placeholderListInfo,
+          masterBlueprintUnpopulated: selectedCampaignTemplate.masterBlueprintUnpopulated,
+          campaignBlueprint: editableCampaignTemplate,
+          selectedModel: selectedCampaignTemplate.selectedModel,
+          placeholderValues: currentPlaceholderValues,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update campaign template");
+      }
+
+      appModal.showSuccess("Campaign template updated successfully!");
+      await fetchCampaignTemplates();
+    } catch (error) {
+      appModal.showError("Failed to update campaign template");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="template-container">
@@ -446,7 +540,7 @@ const Template: React.FC<TemplateProps> = ({
                 setShowCampaignBuilder(true);
               }
             }}
-                        disabled={userRole !== "ADMIN"}
+            disabled={userRole !== "ADMIN"}
           >
             <span className="text-[20px] mr-1">+</span> Create {activeTemplateType === "campaign" ? "campaign" : "a"} template
           </button>
@@ -583,10 +677,7 @@ const Template: React.FC<TemplateProps> = ({
                     <td>
                       <span
                         className="template-link"
-                        onClick={() => {
-                          setSelectedCampaignTemplate(template);
-                          setShowViewCampaignModal(true);
-                        }}
+                        onClick={() => handleViewCampaignTemplate(template)}
                       >
                         {template.templateName}
                       </span>
@@ -613,8 +704,7 @@ const Template: React.FC<TemplateProps> = ({
                         <div className="template-actions-menu">
                           <button
                             onClick={() => {
-                              setSelectedCampaignTemplate(template);
-                              setShowViewCampaignModal(true);
+                              handleViewCampaignTemplate(template);
                               setTemplateActionsAnchor(null);
                             }}
                             style={menuBtnStyle}
@@ -631,9 +721,9 @@ const Template: React.FC<TemplateProps> = ({
                                   setSelectedCampaignTemplate(template);
                                   setEditCampaignForm({
                                     templateName: template.templateName,
-                                    systemPrompt: template.systemPrompt,
-                                    masterPrompt: template.masterPrompt,
-                                    previewText: template.previewText,
+                                    aiInstructions: template.aiInstructions,
+                                    placeholderListInfo: template.placeholderListInfo,
+                                    masterBlueprintUnpopulated: template.masterBlueprintUnpopulated,
                                     selectedModel: template.selectedModel,
                                   });
                                   setShowEditCampaignModal(true);
@@ -744,7 +834,7 @@ const Template: React.FC<TemplateProps> = ({
               </div>
             )}
 
-            {addModalTab === "Instructions" && userRole === "ADMIN" && (
+                       {addModalTab === "Instructions" && userRole === "ADMIN" && (
               <div className="form-group">
                 <label>Instructions <span className="required">*</span></label>
                 <ReactQuill
@@ -912,7 +1002,7 @@ const Template: React.FC<TemplateProps> = ({
         </div>
       )}
 
-      {/* Edit Campaign Template Modal */}
+      {/* Edit Campaign Template Modal - Updated with new property names */}
       {showEditCampaignModal && selectedCampaignTemplate && (
         <div className="modal-backdrop">
           <div className="modal-content modal-large">
@@ -948,37 +1038,37 @@ const Template: React.FC<TemplateProps> = ({
             </div>
 
             <div className="form-group">
-              <label>System Prompt</label>
+              <label>AI Instructions</label>
               <textarea
-                value={editCampaignForm.systemPrompt}
+                value={editCampaignForm.aiInstructions}
                 onChange={(e) => 
-                  setEditCampaignForm({ ...editCampaignForm, systemPrompt: e.target.value })
+                  setEditCampaignForm({ ...editCampaignForm, aiInstructions: e.target.value })
                 }
-                placeholder="Enter system prompt"
+                placeholder="Enter AI instructions"
                 rows={5}
               />
             </div>
 
             <div className="form-group">
-              <label>Master Prompt</label>
+              <label>Placeholder List Info</label>
               <textarea
-                value={editCampaignForm.masterPrompt}
+                value={editCampaignForm.placeholderListInfo}
                 onChange={(e) => 
-                  setEditCampaignForm({ ...editCampaignForm, masterPrompt: e.target.value })
+                  setEditCampaignForm({ ...editCampaignForm, placeholderListInfo: e.target.value })
                 }
-                placeholder="Enter master prompt"
+                placeholder="Enter placeholder list info"
                 rows={5}
               />
-                        </div>
+            </div>
 
             <div className="form-group">
-              <label>Preview Text</label>
+              <label>Master Blueprint (Unpopulated)</label>
               <textarea
-                value={editCampaignForm.previewText}
+                value={editCampaignForm.masterBlueprintUnpopulated}
                 onChange={(e) => 
-                  setEditCampaignForm({ ...editCampaignForm, previewText: e.target.value })
+                  setEditCampaignForm({ ...editCampaignForm, masterBlueprintUnpopulated: e.target.value })
                 }
-                placeholder="Enter preview text"
+                placeholder="Enter master blueprint"
                 rows={5}
               />
             </div>
@@ -1093,53 +1183,120 @@ const Template: React.FC<TemplateProps> = ({
         </div>
       )}
 
-      {/* View Campaign Template Modal */}
+      {/* Enhanced View Campaign Template Modal - Updated with new property names */}
       {showViewCampaignModal && selectedCampaignTemplate && (
         <div className="modal-backdrop">
           <div className="modal-content modal-large">
             <h2>View Campaign Template: {selectedCampaignTemplate.templateName}</h2>
             
-            <div className="form-group">
-              <label>Model</label>
-              <p>{selectedCampaignTemplate.selectedModel}</p>
+            {/* Tab Navigation */}
+            <div className="tabs secondary">
+              <ul className="d-flex">
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => setViewCampaignTab("example")}
+                    className={`button ${viewCampaignTab === "example" ? "active" : ""}`}
+                  >
+                    Example Email
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => setViewCampaignTab("template")}
+                    className={`button ${viewCampaignTab === "template" ? "active" : ""}`}
+                  >
+                    Campaign Template
+                  </button>
+                </li>
+              </ul>
             </div>
 
-            <div className="form-group">
-              <label>System Prompt</label>
-              <div className="template-preview">
-                <pre style={{ whiteSpace: "pre-wrap", wordWrap: "break-word" }}>
-                  {selectedCampaignTemplate.systemPrompt || "No system prompt"}
-                </pre>
+            {/* Example Email Tab */}
+            {viewCampaignTab === "example" && (
+              <div className="form-group">
+                <label>Example Email Output</label>
+                {userRole === "ADMIN" && !isDemoAccount ? (
+                  <ReactQuill
+                    theme="snow"
+                    value={exampleEmail}
+                    onChange={(value) => {
+                      setExampleEmail(value);
+                      // Update the placeholder values
+                      setCurrentPlaceholderValues({
+                        ...currentPlaceholderValues,
+                        example_output: value
+                      });
+                    }}
+                    modules={modules}
+                    className="template-editor"
+                    style={{ minHeight: "300px" }}
+                  />
+                ) : (
+                  <div 
+                    className="template-preview example-email-preview"
+                    dangerouslySetInnerHTML={{ __html: exampleEmail }}
+                    style={{ 
+                      minHeight: "300px",
+                      backgroundColor: "#f9f9f9",
+                      padding: "1rem",
+                      borderRadius: "4px"
+                    }}
+                  />
+                )}
+                
+                {/* Display Placeholder Values */}
+                {currentPlaceholderValues && Object.keys(currentPlaceholderValues).length > 0 && (
+                  <div className="placeholder-values-section" style={{ marginTop: "1rem" }}>
+                    <h4>Placeholder Values:</h4>
+                    <div className="placeholder-values-grid">
+                      {Object.entries(currentPlaceholderValues).map(([key, value]) => (
+                        key !== 'example_output' && (
+                          <div key={key} className="placeholder-value-item">
+                            <strong>{`{${key}}`}:</strong>
+                            <span>{value}</span>
+                          </div>
+                        )
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
+            )}
 
-            <div className="form-group">
-              <label>Master Prompt</label>
-              <div className="template-preview">
-                <pre style={{ whiteSpace: "pre-wrap", wordWrap: "break-word" }}>
-                  {selectedCampaignTemplate.masterPrompt || "No master prompt"}
-                </pre>
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label>Preview Text</label>
-              <div className="template-preview">
-                <pre style={{ whiteSpace: "pre-wrap", wordWrap: "break-word" }}>
-                  {selectedCampaignTemplate.previewText || "No preview text"}
-                </pre>
-              </div>
-            </div>
-
-            {selectedCampaignTemplate.finalPreviewText && (
+            {/* Campaign Template Tab */}
+            {viewCampaignTab === "template" && (
               <div className="form-group">
                 <label>Campaign Template (Final Result)</label>
-                <div 
-                  className="template-preview"
-                  dangerouslySetInnerHTML={{ 
-                    __html: selectedCampaignTemplate.finalPreviewText 
-                  }}
-                />
+                {userRole === "ADMIN" && !isDemoAccount ? (
+                  <>
+                    <textarea
+                      value={editableCampaignTemplate}
+                      onChange={(e) => setEditableCampaignTemplate(e.target.value)}
+                      className="campaign-template-textarea"
+                      rows={15}
+                      style={{ 
+                        width: "100%",
+                        fontFamily: "monospace",
+                        fontSize: "0.9rem"
+                      }}
+                    />
+                    <div className="template-metadata" style={{ marginTop: "1rem" }}>
+                      <p><strong>Model:</strong> {selectedCampaignTemplate.selectedModel}</p>
+                      <p><strong>Created:</strong> {formatDate(selectedCampaignTemplate.createdAt)}</p>
+                      {selectedCampaignTemplate.updatedAt && (
+                        <p><strong>Last Updated:</strong> {formatDate(selectedCampaignTemplate.updatedAt)}</p>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="template-preview">
+                    <pre style={{ whiteSpace: "pre-wrap", wordWrap: "break-word" }}>
+                      {selectedCampaignTemplate.campaignBlueprint || "No template content"}
+                    </pre>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1149,27 +1306,39 @@ const Template: React.FC<TemplateProps> = ({
                 onClick={() => {
                   setShowViewCampaignModal(false);
                   setSelectedCampaignTemplate(null);
+                  setExampleEmail("");
+                  setEditableCampaignTemplate("");
+                  setCurrentPlaceholderValues({});
                 }}
               >
                 Close
               </button>
               {userRole === "ADMIN" && !isDemoAccount && (
-                <button
-                  className="button save-button"
-                  onClick={() => {
-                    setEditCampaignForm({
-                      templateName: selectedCampaignTemplate.templateName,
-                      systemPrompt: selectedCampaignTemplate.systemPrompt,
-                      masterPrompt: selectedCampaignTemplate.masterPrompt,
-                      previewText: selectedCampaignTemplate.previewText,
-                      selectedModel: selectedCampaignTemplate.selectedModel,
-                    });
-                    setShowViewCampaignModal(false);
-                    setShowEditCampaignModal(true);
-                  }}
-                >
-                  Edit Template
-                </button>
+                <>
+                  <button
+                    className="button save-button"
+                    onClick={handleSaveCampaignTemplateChanges}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Saving..." : "Save Changes"}
+                  </button>
+                  <button
+                    className="button primary"
+                    onClick={() => {
+                      setEditCampaignForm({
+                        templateName: selectedCampaignTemplate.templateName,
+                        aiInstructions: selectedCampaignTemplate.aiInstructions,
+                        placeholderListInfo: selectedCampaignTemplate.placeholderListInfo,
+                        masterBlueprintUnpopulated: selectedCampaignTemplate.masterBlueprintUnpopulated,
+                        selectedModel: selectedCampaignTemplate.selectedModel,
+                      });
+                      setShowViewCampaignModal(false);
+                      setShowEditCampaignModal(true);
+                    }}
+                  >
+                    Advanced Edit
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -1177,6 +1346,7 @@ const Template: React.FC<TemplateProps> = ({
       )}
 
       {/* Delete Confirmation Modal */}
+            {/* Delete Confirmation Modal */}
       {showDeleteConfirmModal && (selectedTemplate || selectedCampaignTemplate) && (
         <div className="modal-backdrop">
           <div className="modal-content modal-small">

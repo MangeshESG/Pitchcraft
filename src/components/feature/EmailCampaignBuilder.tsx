@@ -302,46 +302,46 @@ const ResultTab: React.FC<ResultTabProps> = ({
     setTimeout(() => setCopiedItem(""), 2000);
   };
 
-  const saveCampaignTemplate = async () => {
-    if (!effectiveUserId || !templateName.trim()) {
-      alert("Please enter a template name");
-      return;
-    }
+const saveCampaignTemplate = async () => {
+  if (!effectiveUserId || !templateName.trim()) {
+    alert("Please enter a template name");
+    return;
+  }
 
-    setIsSaving(true);
-    setSaveStatus('idle');
+  setIsSaving(true);
+  setSaveStatus('idle');
 
-    try {
-      const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template/save`, {
-        clientId: effectiveUserId,
-        templateName: templateName,
-        systemPrompt: systemPrompt,
-        masterPrompt: masterPrompt,
-        previewText: previewText,
-        finalPrompt: finalPrompt,
-        finalPreviewText: finalPreviewText,
-        placeholderValues: placeholderValues,
-        selectedModel: selectedModel,
-        conversationMessages: messages.map(msg => ({
-          type: msg.type,
-          content: msg.content,
-          timestamp: msg.timestamp
-        }))
-      });
+  try {
+    const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template/save`, {
+      clientId: effectiveUserId,
+      templateName: templateName,
+      aiInstructions: systemPrompt,  // Changed from systemPrompt
+      placeholderListInfo: masterPrompt,  // Changed from masterPrompt
+      masterBlueprintUnpopulated: previewText,  // Changed from previewText
+      placeholderListWithValue: finalPrompt,  // Changed from finalPrompt
+      campaignBlueprint: finalPreviewText,  // Changed from finalPreviewText
+      placeholderValues: placeholderValues,
+      selectedModel: selectedModel,
+      conversationMessages: messages.map(msg => ({
+        type: msg.type,
+        content: msg.content,
+        timestamp: msg.timestamp
+      }))
+    });
 
-      if (response.data.success) {
-        setSaveStatus('success');
-        setTemplateName('');
-        setTimeout(() => setSaveStatus('idle'), 3000);
-      }
-    } catch (error) {
-      console.error('Error saving template:', error);
-      setSaveStatus('error');
+    if (response.data.success) {
+      setSaveStatus('success');
+      setTemplateName('');
       setTimeout(() => setSaveStatus('idle'), 3000);
-    } finally {
-      setIsSaving(false);
     }
-  };
+  } catch (error) {
+    console.error('Error saving template:', error);
+    setSaveStatus('error');
+    setTimeout(() => setSaveStatus('idle'), 3000);
+  } finally {
+    setIsSaving(false);
+  }
+};
 
    const renderContent = (content: string) => {
     if (!content) return null;
@@ -664,98 +664,100 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
     }
   };
 
-  const handleSendMessage = async () => {
-    if (currentAnswer.trim() === '' || isTyping || !effectiveUserId) return;
+const handleSendMessage = async () => {
+  if (currentAnswer.trim() === '' || isTyping || !effectiveUserId) return;
 
-    const userMessage: Message = { 
-      type: 'user', 
-      content: currentAnswer, 
-      timestamp: new Date() 
-    };
+  const userMessage: Message = { 
+    type: 'user', 
+    content: currentAnswer, 
+    timestamp: new Date() 
+  };
 
-    setMessages(prev => [...prev, userMessage]);
-    setCurrentAnswer('');
-    setIsTyping(true);
+  setMessages(prev => [...prev, userMessage]);
+  setCurrentAnswer('');
+  setIsTyping(true);
 
-    try {
-      const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/chat`, {
-        userId: effectiveUserId,
-        message: userMessage.content,
-        systemPrompt: "",
-        model: selectedModel
-      });
+  try {
+    const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/chat`, {
+      userId: effectiveUserId,
+      message: userMessage.content,
+      systemPrompt: "",
+      model: selectedModel
+    });
 
-      const data = response.data.response;
+    const data = response.data.response;
 
-      if (data && data.isComplete) {
-        console.log('✅ Campaign completed!');
+    if (data && data.isComplete) {
+      console.log('✅ Campaign completed!');
+      
+      const assistantText = data.assistantText || '';
+      const placeholderValuesMatch = assistantText
+        .match(/==PLACEHOLDER_VALUES_START==([\s\S]*?)==PLACEHOLDER_VALUES_END==/);
+
+      if (placeholderValuesMatch) {
+        const tempValues: Record<string, string> = {};
+        const placeholderSection = placeholderValuesMatch[1];
         
-        const assistantText = data.assistantText || '';
-        const placeholderValuesMatch = assistantText
-          .match(/==PLACEHOLDER_VALUES_START==([\s\S]*?)==PLACEHOLDER_VALUES_END==/);
-
-        if (placeholderValuesMatch) {
-          const tempValues: Record<string, string> = {};
-          const placeholderSection = placeholderValuesMatch[1];
-          const lines = placeholderSection.split('\n');
-
-          lines.forEach((line: string) => {
-            const lineMatch = line.match(/\{([^}]+)\}\s*=\s*(.+)/);
-            if (lineMatch) {
-              const placeholder = lineMatch[1].trim();
-              const value = lineMatch[2].trim();
-              tempValues[placeholder] = value;
-            }
-          });
-
-                   const allowedPlaceholders = extractPlaceholders(masterPrompt);
-          setPlaceholderValues(tempValues);
-
-          const filledMaster = replacePlaceholdersInText(masterPrompt, tempValues, allowedPlaceholders);
-          setFinalPrompt(filledMaster);
-
-          const previewPlaceholders = extractPlaceholders(previewText);
-          const filledPreview = replacePlaceholdersInText(previewText, tempValues, previewPlaceholders);
-          setFinalPreviewText(filledPreview);
-
-          setIsComplete(true);
-
-          const completionMessage: Message = { 
-            type: 'bot', 
-            content: "🎉 Great! I've filled in all the placeholders. Check the 'Final Result' tab.", 
-            timestamp: new Date() 
-          };
-          setMessages(prev => [...prev, completionMessage]);
-          playNotificationSound();
-
-          setTimeout(() => setActiveTab('result'), 1500);
-          return;
+        // Updated regex to handle multi-line values
+        const placeholderRegex = /\{([^}]+)\}\s*=\s*([\s\S]*?)(?=\n\{[^}]+\}\s*=|$)/g;
+        let match;
+        
+        while ((match = placeholderRegex.exec(placeholderSection)) !== null) {
+          const placeholder = match[1].trim();
+          const value = match[2].trim();
+          tempValues[placeholder] = value;
         }
-      }
 
-      if (data && data.assistantText) {
-        const botMessage: Message = { 
+        console.log('Extracted placeholder values:', tempValues);
+
+        const allowedPlaceholders = extractPlaceholders(masterPrompt);
+        setPlaceholderValues(tempValues);
+
+        const filledMaster = replacePlaceholdersInText(masterPrompt, tempValues, allowedPlaceholders);
+        setFinalPrompt(filledMaster);
+
+        const previewPlaceholders = extractPlaceholders(previewText);
+        const filledPreview = replacePlaceholdersInText(previewText, tempValues, previewPlaceholders);
+        setFinalPreviewText(filledPreview);
+
+        setIsComplete(true);
+
+        const completionMessage: Message = { 
           type: 'bot', 
-          content: data.assistantText, 
+          content: "🎉 Great! I've filled in all the placeholders. Check the 'Final Result' tab.", 
           timestamp: new Date() 
         };
-        setMessages(prev => [...prev, botMessage]);
+        setMessages(prev => [...prev, completionMessage]);
         playNotificationSound();
-      }
 
-    } catch (error) {
-      console.error('❌ Error sending message:', error);
-      const errorMessage: Message = { 
+        setTimeout(() => setActiveTab('result'), 1500);
+        return;
+      }
+    }
+
+    if (data && data.assistantText) {
+      const botMessage: Message = { 
         type: 'bot', 
-        content: 'Sorry, there was an error processing your answer. Please try again.', 
+        content: data.assistantText, 
         timestamp: new Date() 
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => [...prev, botMessage]);
       playNotificationSound();
-    } finally {
-      setIsTyping(false);
     }
-  };
+
+  } catch (error) {
+    console.error('❌ Error sending message:', error);
+    const errorMessage: Message = { 
+      type: 'bot', 
+      content: 'Sorry, there was an error processing your answer. Please try again.', 
+      timestamp: new Date() 
+    };
+    setMessages(prev => [...prev, errorMessage]);
+    playNotificationSound();
+  } finally {
+    setIsTyping(false);
+  }
+};
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
