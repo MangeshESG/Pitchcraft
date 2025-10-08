@@ -716,26 +716,21 @@ const Template: React.FC<TemplateProps> = ({
                           
                           {!isDemoAccount && userRole === "ADMIN" && (
                             <>
-                              <button
-                                onClick={() => {
-                                  setSelectedCampaignTemplate(template);
-                                  setEditCampaignForm({
-                                    templateName: template.templateName,
-                                    aiInstructions: template.aiInstructions,
-                                    placeholderListInfo: template.placeholderListInfo,
-                                    masterBlueprintUnpopulated: template.masterBlueprintUnpopulated,
-                                    selectedModel: template.selectedModel,
-                                  });
-                                  setShowEditCampaignModal(true);
-                                  setTemplateActionsAnchor(null);
-                                }}
-                                style={menuBtnStyle}
-                                className="flex gap-2 items-center"
-                              >
-                                <span>✏️</span>
-                                <span>Edit</span>
-                              </button>
-                              
+                            <button
+                              onClick={() => {
+                                // Store the template ID in sessionStorage
+                                sessionStorage.setItem('editTemplateId', template.id.toString());
+                                sessionStorage.setItem('editTemplateMode', 'true');
+                                setShowCampaignBuilder(true);
+                                setTemplateActionsAnchor(null);
+                              }}
+                              style={menuBtnStyle}
+                              className="flex gap-2 items-center"
+                            >
+                              <span>✏️</span>
+                              <span>Edit</span>
+                            </button>
+                                                          
                               <button
                                 onClick={() => {
                                   setSelectedCampaignTemplate(template);

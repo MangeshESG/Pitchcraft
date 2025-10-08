@@ -4,6 +4,7 @@ import axios from 'axios';
 import API_BASE_URL from "../../config";
 import './EmailCampaignBuilder.css';
 import notificationSound from '../../assets/sound/notification.mp3';
+import { AlertCircle } from 'lucide-react';
 
 // --- Type Definitions ---
 interface Message {
@@ -501,6 +502,143 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
   const [soundEnabled, setSoundEnabled] = useSessionState<boolean>("campaign_sound_enabled", true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editTemplateId, setEditTemplateId] = useState<number | null>(null);
+  const [originalTemplateData, setOriginalTemplateData] = useState<any>(null);
+  const [selectedPlaceholder, setSelectedPlaceholder] = useState<string>("");
+  const [showPlaceholderPicker, setShowPlaceholderPicker] = useState(false);
+  const [isLoadingTemplate, setIsLoadingTemplate] = useState(false);
+
+
+    useEffect(() => {
+    const templateId = sessionStorage.getItem('editTemplateId');
+    const editMode = sessionStorage.getItem('editTemplateMode');
+    
+    if (templateId && editMode === 'true') {
+      setEditTemplateId(parseInt(templateId));
+      setIsEditMode(true);
+      loadTemplateForEdit(parseInt(templateId));
+      
+      // Clear the session storage
+      sessionStorage.removeItem('editTemplateId');
+      sessionStorage.removeItem('editTemplateMode');
+    }
+  }, []);
+
+  const loadTemplateForEdit = async (templateId: number) => {
+    setIsLoadingTemplate(true);
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/CampaignPrompt/template/${templateId}`);
+      const template = response.data;
+      
+      setOriginalTemplateData(template);
+      
+      // Set all the form values with the new column names
+      setSystemPrompt(template.aiInstructions || "");
+      setMasterPrompt(template.placeholderListInfo || "");
+      setPreviewText(template.masterBlueprintUnpopulated || "");
+      setSelectedModel(template.selectedModel || "gpt-5");
+      
+      // Set placeholder values
+      if (template.placeholderValues) {
+        setPlaceholderValues(template.placeholderValues);
+      }
+      
+      // If there's conversation data, load it
+      if (template.conversation && template.conversation.messages) {
+        const loadedMessages = template.conversation.messages.map((msg: any) => ({
+          type: msg.type as 'user' | 'bot',
+          content: msg.content,
+          timestamp: new Date(msg.timestamp)
+        }));
+        setMessages(loadedMessages);
+        setConversationStarted(true);
+      }
+      
+      // Mark as complete if we have final results
+      if (template.placeholderListWithValue && template.campaignBlueprint) {
+        setFinalPrompt(template.placeholderListWithValue);
+        setFinalPreviewText(template.campaignBlueprint);
+        setIsComplete(true);
+      }
+      
+      // Show placeholder picker after loading
+      setShowPlaceholderPicker(true);
+    } catch (error) {
+      console.error('Error loading template:', error);
+      alert('Failed to load template for editing');
+    } finally {
+      setIsLoadingTemplate(false);
+    }
+  };
+
+  // Function to start edit conversation for specific placeholder
+  const startEditConversation = async (placeholder: string) => {
+    if (!effectiveUserId || !placeholder) return;
+    
+    setShowPlaceholderPicker(false);
+    setSelectedPlaceholder(placeholder);
+    setMessages([]);
+    setConversationStarted(true);
+    setIsComplete(false);
+    setActiveTab('conversation');
+    setIsTyping(true);
+    
+    const currentValue = placeholderValues[placeholder] || "not set";
+    
+    const editSystemPrompt = `You are an AI assistant helping to edit a specific placeholder value in a campaign template. 
+    The user wants to modify the value for {${placeholder}}.
+    Current value: "${currentValue}"
+    
+    Your task:
+    1. Ask the user what new value they want for {${placeholder}}
+    2. Confirm the new value with them
+    3. When confirmed, return the response in this EXACT format:
+    
+    ==PLACEHOLDER_UPDATE_START==
+    {${placeholder}} = [new value here]
+    ==PLACEHOLDER_UPDATE_END==
+    
+    {
+      "status": "complete",
+      "updated_placeholder": "${placeholder}",
+      "old_value": "${currentValue}",
+      "new_value": "[new value here]"
+    }`;
+    
+    try {
+      const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/chat`, {
+        userId: effectiveUserId,
+        message: `I want to change the value of {${placeholder}}. Current value is: "${currentValue}"`,
+        systemPrompt: editSystemPrompt,
+        model: selectedModel
+      });
+      
+      const data = response.data.response;
+      if (data && data.assistantText) {
+        const botMessage: Message = { 
+          type: 'bot', 
+          content: data.assistantText, 
+          timestamp: new Date() 
+        };
+        setMessages([botMessage]);
+        playNotificationSound();
+      }
+    } catch (error) {
+      console.error('Error starting edit conversation:', error);
+      const errorMessage: Message = { 
+        type: 'bot', 
+        content: 'Sorry, I couldn\'t start the edit conversation. Please try again.', 
+        timestamp: new Date() 
+      };
+      setMessages([errorMessage]);
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+
+
   useEffect(() => {
     audioRef.current = new Audio(notificationSound);
     audioRef.current.volume = 1.0;
@@ -687,7 +825,76 @@ const handleSendMessage = async () => {
 
     const data = response.data.response;
 
-    if (data && data.isComplete) {
+    // Check for edit mode completion FIRST, before checking isComplete
+    if (isEditMode && data && data.assistantText) {
+      const updateMatch = data.assistantText.match(/==PLACEHOLDER_UPDATE_START==([\s\S]*?)==PLACEHOLDER_UPDATE_END==/);
+      
+      if (updateMatch) {
+        const updateSection = updateMatch[1].trim();
+        const placeholderRegex = /\{([^}]+)\}\s*=\s*([\s\S]+)/; // Updated regex to capture multi-line values
+        const match = placeholderRegex.exec(updateSection);
+        
+        if (match) {
+          const placeholder = match[1].trim();
+          const newValue = match[2].trim();
+          
+          console.log(`Updating placeholder: ${placeholder} with value: ${newValue}`);
+          
+          // Update local state
+          const updatedValues = { ...placeholderValues, [placeholder]: newValue };
+          setPlaceholderValues(updatedValues);
+          
+          // Update the final results
+          const allowedPlaceholders = extractPlaceholders(masterPrompt);
+          const filledMaster = replacePlaceholdersInText(masterPrompt, updatedValues, allowedPlaceholders);
+          setFinalPrompt(filledMaster);
+          
+          const previewPlaceholders = extractPlaceholders(previewText);
+          const filledPreview = replacePlaceholdersInText(previewText, updatedValues, previewPlaceholders);
+          setFinalPreviewText(filledPreview);
+          
+          // Save to database
+          try {
+            await updateTemplateInDatabase(updatedValues);
+            
+            const completionMessage: Message = { 
+              type: 'bot', 
+              content: `✅ Successfully updated {${placeholder}}. The template has been saved.`, 
+              timestamp: new Date() 
+            };
+            setMessages(prev => [...prev, completionMessage]);
+            playNotificationSound();
+            
+            // Clear the chat history for this edit session
+            if (effectiveUserId) {
+              axios.post(`${API_BASE_URL}/api/CampaignPrompt/history/${effectiveUserId}/clear`)
+                .catch(err => console.error("Failed to clear history:", err));
+            }
+            
+            // Show placeholder picker again after a delay
+            setTimeout(() => {
+              setShowPlaceholderPicker(true);
+              setActiveTab('template');
+              setConversationStarted(false);
+              setMessages([]);
+            }, 2000);
+          } catch (saveError) {
+            console.error('Error saving template:', saveError);
+            const errorMessage: Message = { 
+              type: 'bot', 
+              content: '❌ Updated the value locally but failed to save to database. Please try saving again.', 
+              timestamp: new Date() 
+            };
+            setMessages(prev => [...prev, errorMessage]);
+          }
+          
+          return; // Exit early, don't process as normal message
+        }
+      }
+    }
+    
+    // Handle normal conversation flow (existing code for non-edit mode)
+    if (!isEditMode && data && data.isComplete) {
       console.log('✅ Campaign completed!');
       
       const assistantText = data.assistantText || '';
@@ -735,6 +942,7 @@ const handleSendMessage = async () => {
       }
     }
 
+    // Display the assistant's message for normal conversation flow
     if (data && data.assistantText) {
       const botMessage: Message = { 
         type: 'bot', 
@@ -758,6 +966,110 @@ const handleSendMessage = async () => {
     setIsTyping(false);
   }
 };
+  // Function to update template in database
+const updateTemplateInDatabase = async (updatedPlaceholderValues: Record<string, string>) => {
+  if (!editTemplateId || !originalTemplateData) return;
+
+  try {
+    // Regenerate the final values with updated placeholders
+    const allowedPlaceholders = extractPlaceholders(masterPrompt);
+    const updatedFilledMaster = replacePlaceholdersInText(masterPrompt, updatedPlaceholderValues, allowedPlaceholders);
+    
+    const previewPlaceholders = extractPlaceholders(previewText);
+    const updatedFilledPreview = replacePlaceholdersInText(previewText, updatedPlaceholderValues, previewPlaceholders);
+
+    const response = await axios.put(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
+      id: editTemplateId,
+      templateName: originalTemplateData.templateName,
+      aiInstructions: systemPrompt,
+      placeholderListInfo: masterPrompt,
+      masterBlueprintUnpopulated: previewText,
+      placeholderListWithValue: updatedFilledMaster, // Add this
+      campaignBlueprint: updatedFilledPreview,
+      selectedModel: selectedModel,
+      placeholderValues: updatedPlaceholderValues,
+    });
+
+    if (!response.data.success) {
+      throw new Error('Failed to update template');
+    }
+  } catch (error) {
+    console.error('Error updating template:', error);
+    throw error;
+  }
+};
+
+    // Placeholder Picker Component
+  const PlaceholderPicker: React.FC = () => {
+    const availablePlaceholders = extractPlaceholders(masterPrompt);
+
+    if (!showPlaceholderPicker || !isEditMode || availablePlaceholders.length === 0) {
+      return null;
+    }
+
+    return (
+      <div className="placeholder-picker-overlay">
+        <div className="placeholder-picker-modal">
+          <div className="placeholder-picker-header">
+            <h2>
+              <AlertCircle size={24} className="inline mr-2" />
+              Edit Placeholder Values
+            </h2>
+            <p className="text-gray-600 mt-2">
+              Select a placeholder to modify its value, or choose to edit all values.
+            </p>
+          </div>
+
+          <div className="placeholder-picker-content">
+            <div className="placeholder-list">
+              <h3 className="font-semibold mb-3">Available Placeholders:</h3>
+              {availablePlaceholders.map((placeholder) => (
+                <div
+                  key={placeholder}
+                  className="placeholder-item"
+                  onClick={() => startEditConversation(placeholder)}
+                >
+                  <div className="placeholder-info">
+                    <span className="placeholder-name">{`{${placeholder}}`}</span>
+                    <span className="placeholder-value">
+                      Current: {placeholderValues[placeholder] || "Not set"}
+                    </span>
+                  </div>
+                  <button className="edit-btn">
+                    Edit →
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="placeholder-actions">
+              <button
+                onClick={() => {
+                  setShowPlaceholderPicker(false);
+                  setIsEditMode(false);
+                  resetAll();
+                }}
+                className="button secondary"
+              >
+                Start Fresh Campaign
+              </button>
+              
+              <button
+                onClick={() => {
+                  setShowPlaceholderPicker(false);
+                  setActiveTab('result');
+                }}
+                className="button primary"
+              >
+                View Current Result
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -774,11 +1086,11 @@ const handleSendMessage = async () => {
 
   const resetAll = () => {
     if (effectiveUserId) {
-      // Changed from DELETE to POST
       axios.post(`${API_BASE_URL}/api/CampaignPrompt/history/${effectiveUserId}/clear`)
         .catch(err => console.error("Failed to clear history:", err));
     }
 
+    // Clear all session storage
     sessionStorage.removeItem("campaign_messages");
     sessionStorage.removeItem("campaign_final_prompt");
     sessionStorage.removeItem("campaign_final_preview");
@@ -790,6 +1102,14 @@ const handleSendMessage = async () => {
     sessionStorage.removeItem("campaign_preview_text");
     sessionStorage.removeItem("campaign_selected_model");
 
+    // Reset edit mode
+    setIsEditMode(false);
+    setEditTemplateId(null);
+    setOriginalTemplateData(null);
+    setSelectedPlaceholder("");
+    setShowPlaceholderPicker(false);
+
+    // Reset all other states
     setMessages([]);
     setFinalPrompt('');
     setFinalPreviewText('');
@@ -807,16 +1127,37 @@ const handleSendMessage = async () => {
 
   return (
     <div className="email-campaign-builder">
+      {/* Loading overlay */}
+      {isLoadingTemplate && (
+        <div className="loading-overlay">
+          <div className="loading-content">
+            <Loader2 size={48} className="spinning" />
+            <p>Loading template for editing...</p>
+          </div>
+        </div>
+      )}
+
+      {/* Placeholder Picker Modal */}
+      <PlaceholderPicker />
+
       <div className="campaign-builder-container">
         <div className="campaign-builder-main">
-          {/* Header with Sound Toggle */}
+          {/* Header with Edit Mode Indicator */}
           <div className="campaign-header">
             <div className="campaign-header-content">
               <h1>
                 <Globe className="campaign-header-icon" />
                 AI Campaign Prompt Builder
+                {isEditMode && (
+                  <span className="edit-mode-badge">Edit Mode</span>
+                )}
               </h1>
-              <p>Create personalized email campaigns through a dynamic conversation.</p>
+              <p>
+                {isEditMode 
+                  ? `Editing template: ${originalTemplateData?.templateName || 'Loading...'}`
+                  : 'Create personalized email campaigns through a dynamic conversation.'
+                }
+              </p>
             </div>
             {/* Sound Toggle Button */}
             <button
@@ -854,7 +1195,7 @@ const handleSendMessage = async () => {
               <button 
                 onClick={() => setActiveTab('result')} 
                 className={`tab-button ${activeTab === 'result' ? 'active' : ''}`} 
-                disabled={!isComplete}
+                disabled={!isComplete && !isEditMode}
               >
                 <CheckCircle className="tab-button-icon" />
                 <span className="tab-button-text-desktop">Final Result</span>
@@ -867,20 +1208,34 @@ const handleSendMessage = async () => {
           {/* Tab Content */}
           <div className="tab-content">
             {activeTab === 'template' && (
-              <TemplateTab 
-                masterPrompt={masterPrompt}
-                setMasterPrompt={setMasterPrompt}
-                systemPrompt={systemPrompt}
-                setSystemPrompt={setSystemPrompt}
-                previewText={previewText}
-                setPreviewText={setPreviewText}
-                startConversation={startConversation}
-                currentPlaceholders={currentPlaceholders}
-                extractPlaceholders={extractPlaceholders}
-                selectedModel={selectedModel}
-                setSelectedModel={setSelectedModel}
-                availableModels={availableModels}
-              />
+              <>
+                {isEditMode && (
+                  <div className="edit-mode-notice">
+                    <AlertCircle size={20} />
+                    <span>You're editing an existing template. Click on any placeholder to modify its value.</span>
+                    <button
+                      onClick={() => setShowPlaceholderPicker(true)}
+                      className="show-picker-btn"
+                    >
+                      Show Placeholders
+                    </button>
+                  </div>
+                )}
+                <TemplateTab 
+                  masterPrompt={masterPrompt}
+                  setMasterPrompt={setMasterPrompt}
+                  systemPrompt={systemPrompt}
+                  setSystemPrompt={setSystemPrompt}
+                  previewText={previewText}
+                  setPreviewText={setPreviewText}
+                  startConversation={startConversation}
+                  currentPlaceholders={currentPlaceholders}
+                  extractPlaceholders={extractPlaceholders}
+                  selectedModel={selectedModel}
+                  setSelectedModel={setSelectedModel}
+                  availableModels={availableModels}
+                />
+              </>
             )}
             {activeTab === 'conversation' && (
               <ConversationTab 
@@ -898,7 +1253,7 @@ const handleSendMessage = async () => {
             )}
             {activeTab === 'result' && (
               <ResultTab
-                isComplete={isComplete}
+                isComplete={isComplete || isEditMode}
                 finalPrompt={finalPrompt}
                 finalPreviewText={finalPreviewText}
                 previewText={previewText}
@@ -937,7 +1292,7 @@ const handleSendMessage = async () => {
                 <p>Answer the AI's questions to provide values for each placeholder.</p>
               </div>
             </div>
-            <div className="tip-item">
+                       <div className="tip-item">
               <div className="tip-number">3</div>
               <div className="tip-content">
                 <h4>Get Final Results</h4>
@@ -947,7 +1302,11 @@ const handleSendMessage = async () => {
           </div>
           <div className="tip-highlight">
             <p>
-              <span className="highlight">💡 Tip:</span> The additional text field is perfect for email signatures, disclaimers, or any content that shares the same placeholder values as your main template.
+              <span className="highlight">💡 Tip:</span> 
+              {isEditMode 
+                ? "In edit mode, you can modify individual placeholder values without recreating the entire template."
+                : "The additional text field is perfect for email signatures, disclaimers, or any content that shares the same placeholder values as your main template."
+              }
             </p>
           </div>
         </details>
