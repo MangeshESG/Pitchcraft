@@ -488,7 +488,107 @@ const saveCampaignTemplate = async () => {
     </div>
   );
 };
+// Add these interface and component definitions here
+interface EditInstructionsModalProps {
+  showEditInstructions: boolean;
+  isEditMode: boolean;
+  editInstructionsInput: string;
+  setEditInstructionsInput: (value: string) => void;
+  setShowEditInstructions: (value: boolean) => void;
+  setIsEditMode: (value: boolean) => void;
+  setCustomEditInstructions: (value: string) => void;
+  setShowPlaceholderPicker: (value: boolean) => void;
+}
 
+const EditInstructionsModal: React.FC<EditInstructionsModalProps> = ({
+  showEditInstructions,
+  isEditMode,
+  editInstructionsInput,
+  setEditInstructionsInput,
+  setShowEditInstructions,
+  setIsEditMode,
+  setCustomEditInstructions,
+  setShowPlaceholderPicker
+}) => {
+  if (!showEditInstructions || !isEditMode) {
+    return null;
+  }
+
+  return (
+    <div className="placeholder-picker-overlay">
+      <div className="placeholder-picker-modal" style={{ maxWidth: '800px' }}>
+        <div className="placeholder-picker-header">
+          <h2>
+            <AlertCircle size={24} className="inline mr-2" />
+            Edit Instructions for AI
+          </h2>
+          <p className="text-gray-600 mt-2">
+            Customize how the AI should behave when editing placeholder values.
+          </p>
+        </div>
+
+        <div className="placeholder-picker-content">
+          <div className="form-group">
+            <label style={{ fontWeight: 'bold', marginBottom: '10px', display: 'block' }}>
+              AI Instructions for Editing Placeholders:
+            </label>
+            <textarea
+              value={editInstructionsInput}
+              onChange={(e) => setEditInstructionsInput(e.target.value)}
+              className="edit-instructions-textarea"
+              rows={20}
+              placeholder="Enter custom instructions for the AI..."
+              autoFocus
+              style={{
+                width: '100%',
+                padding: '12px',
+                border: '1px solid #e5e7eb',
+                borderRadius: '8px',
+                fontFamily: 'monospace',
+                fontSize: '14px',
+                resize: 'vertical',
+                minHeight: '500px',
+                height: '500px'
+              }}
+            />
+            <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '8px' }}>
+              Note: Use {'{placeholder}'} and {'{currentValue}'} as variables in your instructions.
+            </p>
+          </div>
+
+          <div className="placeholder-actions" style={{ marginTop: '20px' }}>
+            <button
+              onClick={() => {
+                setShowEditInstructions(false);
+                setIsEditMode(false);
+                setEditInstructionsInput("");
+                window.location.reload();
+              }}
+              className="button secondary"
+            >
+              Cancel
+            </button>
+            
+            <button
+              onClick={() => {
+                if (!editInstructionsInput.trim()) {
+                  alert("Please enter AI instructions before continuing.");
+                  return;
+                }
+                setCustomEditInstructions(editInstructionsInput);
+                setShowEditInstructions(false);
+                setShowPlaceholderPicker(true);
+              }}
+              className="button primary"
+            >
+              Continue to Placeholders →
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 // ====================================================================
 // MAIN COMPONENT
 // ====================================================================
@@ -509,21 +609,45 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
   const [showPlaceholderPicker, setShowPlaceholderPicker] = useState(false);
   const [isLoadingTemplate, setIsLoadingTemplate] = useState(false);
 
+  const [showEditInstructions, setShowEditInstructions] = useState(false);
+  const [customEditInstructions, setCustomEditInstructions] = useState("");
+  const [editInstructionsInput, setEditInstructionsInput] = useState("");
 
-    useEffect(() => {
+
+  useEffect(() => {
     const templateId = sessionStorage.getItem('editTemplateId');
     const editMode = sessionStorage.getItem('editTemplateMode');
     
     if (templateId && editMode === 'true') {
+      // Clear all existing campaign data first
+      clearAllSessionData();
+      
       setEditTemplateId(parseInt(templateId));
       setIsEditMode(true);
+      setShowEditInstructions(true); // Show instructions input first
       loadTemplateForEdit(parseInt(templateId));
       
-      // Clear the session storage
+      // Clear the session storage flags
       sessionStorage.removeItem('editTemplateId');
       sessionStorage.removeItem('editTemplateMode');
     }
   }, []);
+
+
+const clearAllSessionData = () => {
+  sessionStorage.removeItem("campaign_messages");
+  sessionStorage.removeItem("campaign_final_prompt");
+  sessionStorage.removeItem("campaign_final_preview");
+  sessionStorage.removeItem("campaign_placeholder_values");
+  sessionStorage.removeItem("campaign_is_complete");
+  sessionStorage.removeItem("campaign_started");
+  sessionStorage.removeItem("campaign_system_prompt");
+  sessionStorage.removeItem("campaign_master_prompt");
+  sessionStorage.removeItem("campaign_preview_text");
+  sessionStorage.removeItem("campaign_selected_model");
+};
+
+
 
   const loadTemplateForEdit = async (templateId: number) => {
     setIsLoadingTemplate(true);
@@ -532,6 +656,11 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
       const template = response.data;
       
       setOriginalTemplateData(template);
+      
+      // Reset states before setting new values
+      setMessages([]);
+      setConversationStarted(false);
+      setIsComplete(false);
       
       // Set all the form values with the new column names
       setSystemPrompt(template.aiInstructions || "");
@@ -542,17 +671,8 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
       // Set placeholder values
       if (template.placeholderValues) {
         setPlaceholderValues(template.placeholderValues);
-      }
-      
-      // If there's conversation data, load it
-      if (template.conversation && template.conversation.messages) {
-        const loadedMessages = template.conversation.messages.map((msg: any) => ({
-          type: msg.type as 'user' | 'bot',
-          content: msg.content,
-          timestamp: new Date(msg.timestamp)
-        }));
-        setMessages(loadedMessages);
-        setConversationStarted(true);
+      } else {
+        setPlaceholderValues({});
       }
       
       // Mark as complete if we have final results
@@ -562,18 +682,22 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
         setIsComplete(true);
       }
       
-      // Show placeholder picker after loading
-      setShowPlaceholderPicker(true);
+      // Don't show placeholder picker yet - wait for instructions
+      setActiveTab('template'); // Ensure we're on template tab
     } catch (error) {
       console.error('Error loading template:', error);
       alert('Failed to load template for editing');
+      setIsEditMode(false);
     } finally {
       setIsLoadingTemplate(false);
     }
   };
 
+
+
+
   // Function to start edit conversation for specific placeholder
-  const startEditConversation = async (placeholder: string) => {
+ const startEditConversation = async (placeholder: string) => {
     if (!effectiveUserId || !placeholder) return;
     
     setShowPlaceholderPicker(false);
@@ -586,7 +710,12 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
     
     const currentValue = placeholderValues[placeholder] || "not set";
     
-    const editSystemPrompt = `You are an AI assistant helping to edit a specific placeholder value in a campaign template. 
+    // Use custom instructions if available, otherwise use default
+    const editSystemPrompt = customEditInstructions 
+      ? customEditInstructions
+          .replace(/{placeholder}/g, placeholder)
+          .replace(/{currentValue}/g, currentValue)
+      : `You are an AI assistant helping to edit a specific placeholder value in a campaign template. 
     The user wants to modify the value for {${placeholder}}.
     Current value: "${currentValue}"
     
@@ -636,6 +765,7 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
       setIsTyping(false);
     }
   };
+
 
 
 
@@ -755,7 +885,7 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
   }, [messages]);
 
   useEffect(() => {
-    if (conversationStarted) {
+    if (conversationStarted && !isEditMode) {
       resetAll();
     }
   }, [selectedClient]);
@@ -831,7 +961,9 @@ const handleSendMessage = async () => {
       
       if (updateMatch) {
         const updateSection = updateMatch[1].trim();
-        const placeholderRegex = /\{([^}]+)\}\s*=\s*([\s\S]+)/; // Updated regex to capture multi-line values
+        
+        // Updated regex to handle both formats: with and without curly braces
+        const placeholderRegex = /(?:\{)?([^{}=]+?)(?:\})?\s*=\s*([\s\S]+)/;
         const match = placeholderRegex.exec(updateSection);
         
         if (match) {
@@ -859,7 +991,7 @@ const handleSendMessage = async () => {
             
             const completionMessage: Message = { 
               type: 'bot', 
-              content: `✅ Successfully updated {${placeholder}}. The template has been saved.`, 
+              content: `✅ Successfully updated {${placeholder}} to "${newValue}". The template has been saved.`, 
               timestamp: new Date() 
             };
             setMessages(prev => [...prev, completionMessage]);
@@ -1001,75 +1133,84 @@ const updateTemplateInDatabase = async (updatedPlaceholderValues: Record<string,
 };
 
     // Placeholder Picker Component
-  const PlaceholderPicker: React.FC = () => {
-    const availablePlaceholders = extractPlaceholders(masterPrompt);
+const PlaceholderPicker: React.FC = () => {
+  const availablePlaceholders = extractPlaceholders(masterPrompt);
 
-    if (!showPlaceholderPicker || !isEditMode || availablePlaceholders.length === 0) {
-      return null;
-    }
+  if (!showPlaceholderPicker || !isEditMode || availablePlaceholders.length === 0) {
+    return null;
+  }
 
-    return (
-      <div className="placeholder-picker-overlay">
-        <div className="placeholder-picker-modal">
-          <div className="placeholder-picker-header">
-            <h2>
-              <AlertCircle size={24} className="inline mr-2" />
-              Edit Placeholder Values
-            </h2>
-            <p className="text-gray-600 mt-2">
-              Select a placeholder to modify its value, or choose to edit all values.
-            </p>
+  return (
+    <div className="placeholder-picker-overlay">
+      <div className="placeholder-picker-modal">
+        <div className="placeholder-picker-header">
+          <h2>
+            <AlertCircle size={24} className="inline mr-2" />
+            Edit Placeholder Values
+          </h2>
+          <button 
+            onClick={() => setShowPlaceholderPicker(false)}
+            className="close-button"
+            style={{ position: 'absolute', right: '20px', top: '20px' }}
+          >
+            <XCircle size={24} />
+          </button>
+          <p className="text-gray-600 mt-2">
+            Select a placeholder to modify its value, or choose to edit all values.
+          </p>
+        </div>
+
+        <div className="placeholder-picker-content">
+          <div className="placeholder-list">
+            <h3 className="font-semibold mb-3">Available Placeholders:</h3>
+            {availablePlaceholders.map((placeholder) => (
+              <div
+                key={placeholder}
+                className="placeholder-item"
+                onClick={() => startEditConversation(placeholder)}
+              >
+                <div className="placeholder-info">
+                  <span className="placeholder-name">{`{${placeholder}}`}</span>
+                  <span className="placeholder-value">
+                    Current: {placeholderValues[placeholder] || "Not set"}
+                  </span>
+                </div>
+                <button className="edit-btn">
+                  Edit →
+                </button>
+              </div>
+            ))}
           </div>
 
-          <div className="placeholder-picker-content">
-            <div className="placeholder-list">
-              <h3 className="font-semibold mb-3">Available Placeholders:</h3>
-              {availablePlaceholders.map((placeholder) => (
-                <div
-                  key={placeholder}
-                  className="placeholder-item"
-                  onClick={() => startEditConversation(placeholder)}
-                >
-                  <div className="placeholder-info">
-                    <span className="placeholder-name">{`{${placeholder}}`}</span>
-                    <span className="placeholder-value">
-                      Current: {placeholderValues[placeholder] || "Not set"}
-                    </span>
-                  </div>
-                  <button className="edit-btn">
-                    Edit →
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            <div className="placeholder-actions">
-              <button
-                onClick={() => {
-                  setShowPlaceholderPicker(false);
-                  setIsEditMode(false);
-                  resetAll();
-                }}
-                className="button secondary"
-              >
-                Start Fresh Campaign
-              </button>
-              
-              <button
-                onClick={() => {
-                  setShowPlaceholderPicker(false);
-                  setActiveTab('result');
-                }}
-                className="button primary"
-              >
-                View Current Result
-              </button>
-            </div>
+          <div className="placeholder-actions">
+            <button
+              onClick={() => {
+                setShowPlaceholderPicker(false);
+                setIsEditMode(false);
+                clearAllSessionData();
+                window.location.reload(); // Force a clean reload
+              }}
+              className="button secondary"
+            >
+              Start Fresh Campaign
+            </button>
+            
+            <button
+              onClick={() => {
+                setShowPlaceholderPicker(false);
+                setActiveTab('result');
+              }}
+              className="button primary"
+              disabled={!isComplete}
+            >
+              View Current Result
+            </button>
           </div>
         </div>
       </div>
-    );
-  };
+    </div>
+  );
+};
 
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1085,47 +1226,42 @@ const updateTemplateInDatabase = async (updatedPlaceholderValues: Record<string,
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const resetAll = () => {
-    if (effectiveUserId) {
-      axios.post(`${API_BASE_URL}/api/CampaignPrompt/history/${effectiveUserId}/clear`)
-        .catch(err => console.error("Failed to clear history:", err));
-    }
+ const resetAll = () => {
+  // Don't reset if we're in edit mode
+  if (isEditMode) return;
+  
+  if (effectiveUserId) {
+    axios.post(`${API_BASE_URL}/api/CampaignPrompt/history/${effectiveUserId}/clear`)
+      .catch(err => console.error("Failed to clear history:", err));
+  }
 
-    // Clear all session storage
-    sessionStorage.removeItem("campaign_messages");
-    sessionStorage.removeItem("campaign_final_prompt");
-    sessionStorage.removeItem("campaign_final_preview");
-    sessionStorage.removeItem("campaign_placeholder_values");
-    sessionStorage.removeItem("campaign_is_complete");
-    sessionStorage.removeItem("campaign_started");
-    sessionStorage.removeItem("campaign_system_prompt");
-    sessionStorage.removeItem("campaign_master_prompt");
-    sessionStorage.removeItem("campaign_preview_text");
-    sessionStorage.removeItem("campaign_selected_model");
+  clearAllSessionData();
 
-    // Reset edit mode
-    setIsEditMode(false);
-    setEditTemplateId(null);
-    setOriginalTemplateData(null);
-    setSelectedPlaceholder("");
-    setShowPlaceholderPicker(false);
+  // Reset edit mode
+  setIsEditMode(false);
+  setEditTemplateId(null);
+  setOriginalTemplateData(null);
+  setSelectedPlaceholder("");
+  setShowPlaceholderPicker(false);
 
-    // Reset all other states
-    setMessages([]);
-    setFinalPrompt('');
-    setFinalPreviewText('');
-    setPlaceholderValues({});
-    setIsComplete(false);
-    setConversationStarted(false);
-    setSystemPrompt("");
-    setMasterPrompt("");
-    setPreviewText("");
-    setSelectedModel("gpt-5");
-    setActiveTab('template');
-  };
+  // Reset all other states
+  setMessages([]);
+  setFinalPrompt('');
+  setFinalPreviewText('');
+  setPlaceholderValues({});
+  setIsComplete(false);
+  setConversationStarted(false);
+  setSystemPrompt("");
+  setMasterPrompt("");
+  setPreviewText("");
+  setSelectedModel("gpt-5");
+  setActiveTab('template');
+};
+
 
   const currentPlaceholders = extractPlaceholders(masterPrompt);
 
+  // Update the return statement to include EditInstructionsModal
   return (
     <div className="email-campaign-builder">
       {/* Loading overlay */}
@@ -1138,19 +1274,31 @@ const updateTemplateInDatabase = async (updatedPlaceholderValues: Record<string,
         </div>
       )}
 
-      {/* Placeholder Picker Modal */}
+      {/* Edit Instructions Modal - Shows first */}
+      <EditInstructionsModal
+        showEditInstructions={showEditInstructions}
+        isEditMode={isEditMode}
+        editInstructionsInput={editInstructionsInput}
+        setEditInstructionsInput={setEditInstructionsInput}
+        setShowEditInstructions={setShowEditInstructions}
+        setIsEditMode={setIsEditMode}
+        setCustomEditInstructions={setCustomEditInstructions}
+        setShowPlaceholderPicker={setShowPlaceholderPicker}
+      />
+
+      {/* Placeholder Picker Modal - Shows after instructions */}
       <PlaceholderPicker />
 
       <div className="campaign-builder-container">
         <div className="campaign-builder-main">
           {/* Header with Edit Mode Indicator */}
-          <div className="campaign-header">
+                  <div className="campaign-header">
             <div className="campaign-header-content">
               <h1>
                 <Globe className="campaign-header-icon" />
-                AI Campaign Prompt Builder
+                Campaign blueprint builder
                 {isEditMode && (
-                  <span className="edit-mode-badge">Edit Mode</span>
+                  <span className="edit-mode-badge">Edit mode</span>
                 )}
               </h1>
               <p>
@@ -1214,6 +1362,15 @@ const updateTemplateInDatabase = async (updatedPlaceholderValues: Record<string,
                   <div className="edit-mode-notice">
                     <AlertCircle size={20} />
                     <span>You're editing an existing template. Click on any placeholder to modify its value.</span>
+                    <button
+                      onClick={() => {
+                        setShowEditInstructions(true);
+                      }}
+                      className="show-picker-btn"
+                      style={{ marginLeft: '10px' }}
+                    >
+                      Edit Instructions
+                    </button>
                     <button
                       onClick={() => setShowPlaceholderPicker(true)}
                       className="show-picker-btn"
@@ -1293,7 +1450,7 @@ const updateTemplateInDatabase = async (updatedPlaceholderValues: Record<string,
                 <p>Answer the AI's questions to provide values for each placeholder.</p>
               </div>
             </div>
-                       <div className="tip-item">
+            <div className="tip-item">
               <div className="tip-number">3</div>
               <div className="tip-content">
                 <h4>Get Final Results</h4>
@@ -1305,7 +1462,7 @@ const updateTemplateInDatabase = async (updatedPlaceholderValues: Record<string,
             <p>
               <span className="highlight">💡 Tip:</span> 
               {isEditMode 
-                ? "In edit mode, you can modify individual placeholder values without recreating the entire template."
+                ? "In edit mode, you can modify individual placeholder values without recreating the entire template. Customize the AI instructions to change how it asks for new values."
                 : "The additional text field is perfect for email signatures, disclaimers, or any content that shares the same placeholder values as your main template."
               }
             </p>
