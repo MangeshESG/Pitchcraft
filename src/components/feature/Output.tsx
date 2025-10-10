@@ -44,7 +44,6 @@ interface Campaign {
   description?: string;
 }
 
-
 interface OutputInterface {
   outputForm: {
     generatedContent: string;
@@ -53,7 +52,6 @@ interface OutputInterface {
     currentPrompt: string;
     searchResults: string[];
     allScrapedData: string;
-
   };
   isResetEnabled: boolean; // Add this prop
 
@@ -154,9 +152,6 @@ interface OutputInterface {
   saveToneSettings?: () => Promise<boolean>;
   selectedSegmentId?: number | null; // Add this
   handleSubjectTextChange?: (value: string) => void; // Add this
-
-
-
 }
 
 const Output: React.FC<OutputInterface> = ({
@@ -232,10 +227,7 @@ const Output: React.FC<OutputInterface> = ({
   saveToneSettings,
   selectedSegmentId,
   handleSubjectTextChange,
-
-
 }) => {
-
   const appModal = useAppModal();
 
   const [isCopyText, setIsCopyText] = useState(false);
@@ -366,19 +358,15 @@ const Output: React.FC<OutputInterface> = ({
     }
   }, [allResponses, currentIndex, setCurrentIndex, combinedResponses.length]);
 
-
-
   useEffect(() => {
     // Prioritize allResponses, then add unique existingResponses
     let newCombinedResponses = [...allResponses]; // Start with fresh responses
     existingResponse.forEach((existing) => {
-
       if (!newCombinedResponses.find((nr) => nr.id === existing.id)) {
         newCombinedResponses.push(existing);
       }
     });
     setCombinedResponses(newCombinedResponses);
-
   }, [allResponses, existingResponse]);
 
   const [jumpToNewLast, setJumpToNewLast] = useState(false);
@@ -619,23 +607,28 @@ const Output: React.FC<OutputInterface> = ({
     if (!clientId) throw new Error("Client ID is required to update");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/Crm/contacts/update-email`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          clientId,
-          contactId,
-          emailSubject: emailSubject ?? "",
-          emailBody: emailBody ?? "",
-          // dataFileId removed from request body
-        }),
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/api/Crm/contacts/update-email`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            clientId,
+            contactId,
+            emailSubject: emailSubject ?? "",
+            emailBody: emailBody ?? "",
+            // dataFileId removed from request body
+          }),
+        }
+      );
 
       if (!response.ok) {
         const errJson = await response.json();
-        throw new Error(errJson.message || "Failed to update contact via CRM API");
+        throw new Error(
+          errJson.message || "Failed to update contact via CRM API"
+        );
       }
 
       return await response.json();
@@ -644,7 +637,6 @@ const Output: React.FC<OutputInterface> = ({
       throw error;
     }
   };
-
 
   // You'll need this helper function
   const formatDateTime = (date: Date): string => {
@@ -812,247 +804,179 @@ const Output: React.FC<OutputInterface> = ({
   }, [effectiveUserId, token]);
 
   const handleSendEmail = async (
-
     subjectFromButton: string,
 
-    targetContact: typeof combinedResponses[number] | null = null
-
+    targetContact: (typeof combinedResponses)[number] | null = null
   ) => {
-
     setEmailMessage("");
 
     setEmailError("");
 
-
-
     const subjectToUse = subjectFromButton || emailFormData.Subject;
 
     if (!subjectToUse || !selectedSmtpUser) {
-
       setEmailError(
-
         "Please fill in all required fields: Subject and From Email."
-
       );
 
       return;
-
     }
-
-
 
     setSendingEmail(true);
 
-
-
     try {
-
       const currentContact = targetContact || combinedResponses[currentIndex];
 
-
-
       if (!currentContact || !currentContact.id) {
-
         setEmailError("No valid contact selected");
 
         setSendingEmail(false);
 
         return;
-
       }
-
-
 
       console.log("Sending email to:", currentContact?.name);
 
+// In handleSendEmail function, replace the requestBody with:
+          const requestBody = {
+            clientId: effectiveUserId,
+            contactid: currentContact.id,
+            
+            // Priority: segmentId first, then dataFileId, ensure at least one is always set
+            segmentId:
+              currentContact.segmentId && 
+              currentContact.segmentId !== "null" && 
+              currentContact.segmentId !== "" &&
+              !isNaN(parseInt(currentContact.segmentId))
+                ? parseInt(currentContact.segmentId)
+                : null,
+                
+            dataFileId:
+              // Only send dataFileId if segmentId is not present
+              (!currentContact.segmentId || 
+              currentContact.segmentId === "null" || 
+              currentContact.segmentId === "" ||
+              isNaN(parseInt(currentContact.segmentId))) &&
+              currentContact.dataFileId &&
+              currentContact.dataFileId !== "null" &&
+              currentContact.dataFileId !== "" &&
+              !isNaN(parseInt(currentContact.dataFileId))
+                ? parseInt(currentContact.dataFileId)
+                : null,
 
+            toEmail: currentContact.email,
+            subject: subjectToUse,
+            body: currentContact.pitch || "",
+            bccEmail: emailFormData.BccEmail || "",
+            smtpId: selectedSmtpUser,
+            fullName: currentContact.name,
+            countryOrAddress: currentContact.location || "",
+            companyName: currentContact.company || "",
+            website: currentContact.website || "",
+            linkedinUrl: currentContact.linkedin || "",
+            jobTitle: currentContact.title || "",
+          };
 
-      const requestBody = {
-
-        clientId: effectiveUserId,
-
-        contactid: currentContact.id,
-
-        // Only send dataFileId if segmentId is not present
-
-        dataFileId: (currentContact.segmentId && currentContact.segmentId !== "null")
-
-          ? null
-
-          : (currentContact.dataFileId === "null" || !currentContact.dataFileId ? null : parseInt(currentContact.dataFileId) || null),
-
-        segmentId: currentContact.segmentId === "null" || !currentContact.segmentId ? null : parseInt(currentContact.segmentId) || null,
-
-        toEmail: currentContact.email,
-
-        subject: subjectToUse,
-
-        body: currentContact.pitch || "",
-
-        bccEmail: emailFormData.BccEmail || "",
-
-        smtpId: selectedSmtpUser,
-
-        fullName: currentContact.name,
-
-        countryOrAddress: currentContact.location || "",
-
-        companyName: currentContact.company || "",
-
-        website: currentContact.website || "",
-
-        linkedinUrl: currentContact.linkedin || "",
-
-        jobTitle: currentContact.title || "",
-
-      };
+          // Add validation before sending
+          if (!requestBody.segmentId && !requestBody.dataFileId) {
+            setEmailError("Contact must have either a Segment ID or Data File ID");
+            setSendingEmail(false);
+            toast.error("Missing required ID: Contact must have either Segment ID or Data File ID");
+            return;
+          }
 
       const response = await axios.post(
-
         `${API_BASE_URL}/api/email/send-singleEmail`,
 
         requestBody,
 
         {
-
           headers: {
-
             "Content-Type": "application/json",
 
             ...(token && { Authorization: `Bearer ${token}` }),
-
           },
-
         }
-
       );
-
-
 
       setEmailMessage(response.data.message || "Email sent successfully!");
 
       toast.success("Email sent successfully!");
 
-
-
       // Update the contact's email sent status
 
       try {
-
         const updatedItem = {
-
           ...combinedResponses[currentIndex],
 
           emailsentdate: new Date().toISOString(),
 
           PG_Added_Correctly: true,
-
         };
 
         setCombinedResponses((prev) =>
-
           prev.map((item, i) => (i === currentIndex ? updatedItem : item))
-
         );
 
-
-
         const allResponsesIndex = allResponses.findIndex(
-
           (item) => item.id === updatedItem.id
-
         );
 
         if (allResponsesIndex !== -1) {
-
           const updatedAll = [...allResponses];
 
           updatedAll[allResponsesIndex] = updatedItem;
 
           setAllResponses(updatedAll);
-
         }
 
         const existingResponseIndex = existingResponse.findIndex(
-
           (item) => item.id === updatedItem.id
-
         );
 
         if (existingResponseIndex !== -1) {
-
           const updatedExisting = [...existingResponse];
 
           updatedExisting[existingResponseIndex] = updatedItem;
 
           setexistingResponse(updatedExisting);
-
         }
-
-
 
         if (response.data.nextContactId) {
-
           console.log("Next contact ID:", response.data.nextContactId);
-
         }
-
       } catch (updateError) {
-
         console.error("Failed to update contact record:", updateError);
 
         if (axios.isAxiosError(updateError)) {
-
           console.error("Update error details:", updateError.response?.data);
-
         }
 
         toast.warning("Email sent but failed to update record status");
-
       }
 
-
-
       setTimeout(() => {
-
         setShowEmailModal(false);
 
         setEmailMessage("");
-
       }, 2000);
-
     } catch (err) {
-
       if (axios.isAxiosError(err)) {
-
         setEmailError(
-
           err.response?.data?.message ||
-
-          err.response?.data ||
-
-          "Failed to send email."
-
+            err.response?.data ||
+            "Failed to send email."
         );
-
       } else if (err instanceof Error) {
-
         setEmailError(err.message);
-
       } else {
-
         setEmailError("An unknown error occurred.");
-
       }
 
       toast.error("Failed to send email");
-
     } finally {
-
       setSendingEmail(false);
-
     }
-
   };
   //-----------------------------------------
   const aggressiveCleanHTML = (html: string): string => {
@@ -1228,9 +1152,8 @@ const Output: React.FC<OutputInterface> = ({
 
   useEffect(() => {
     // This will trigger when campaigns are created/updated/deleted
-    console.log('Campaigns updated in Output component:', campaigns?.length);
+    console.log("Campaigns updated in Output component:", campaigns?.length);
   }, [campaigns, refreshTrigger]); // Add refreshTrigger dependency
-
 
   const [isBulkSending, setIsBulkSending] = useState(false);
 
@@ -1238,224 +1161,169 @@ const Output: React.FC<OutputInterface> = ({
 
   const stopBulkRef = useRef(false);
 
-
-
   const sendEmailsInBulk = async (startIndex = 0) => {
-
     // Check if we have SMTP user selected BEFORE starting
 
     if (!selectedSmtpUser) {
-
       return; // Exit early
-
     }
-
-
 
     setIsBulkSending(true);
 
     stopBulkRef.current = false;
 
-
-
     let index = startIndex;
-
     let sentCount = 0;
-
     let skippedCount = 0;
-
-
-
     while (index < combinedResponses.length && !stopBulkRef.current) {
-
       // Update current index to show the contact being processed
-
       setCurrentIndex(index);
 
-
-
       const contact = combinedResponses[index];
-
-
-
       try {
-
         // Prepare subject and request body
 
         const subjectToUse = contact.subject || "No subject";
 
-        console.log('Subject:', subjectToUse);
-
-
+        console.log("Subject:", subjectToUse);
 
         if (!contact.id) {
-
           index++;
 
           skippedCount++;
 
           setBulkSendIndex(index);
 
-          await new Promise(res => setTimeout(res, 500)); // Small delay before next
+          await new Promise((res) => setTimeout(res, 500)); // Small delay before next
 
           continue;
-
         }
 
-        const requestBody = {
+          // In sendEmailsInBulk function, replace the requestBody with:
+          const requestBody = {
+            clientId: effectiveUserId,
+            contactid: contact.id,
+            
+            // Priority: segmentId first, then dataFileId
+            segmentId:
+              contact.segmentId && 
+              contact.segmentId !== "null" && 
+              contact.segmentId !== "" &&
+              !isNaN(parseInt(contact.segmentId))
+                ? parseInt(contact.segmentId)
+                : null,
+                
+            dataFileId:
+              (!contact.segmentId || 
+              contact.segmentId === "null" || 
+              contact.segmentId === "" ||
+              isNaN(parseInt(contact.segmentId))) &&
+              contact.dataFileId &&
+              contact.dataFileId !== "null" &&
+              contact.dataFileId !== "" &&
+              !isNaN(parseInt(contact.dataFileId))
+                ? parseInt(contact.dataFileId)
+                : null,
 
-          clientId: effectiveUserId,
+            toEmail: contact.email,
+            subject: subjectToUse,
+            body: contact.pitch || "",
+            bccEmail: emailFormData.BccEmail || "",
+            smtpId: selectedSmtpUser,
+            fullName: contact.name,
+            countryOrAddress: contact.location || "",
+            companyName: contact.company || "",
+            website: contact.website || "",
+            linkedinUrl: contact.linkedin || "",
+            jobTitle: contact.title || "",
+          };
 
-          contactid: contact.id,
-
-          dataFileId: (contact.segmentId && contact.segmentId !== "null")? null: (contact.dataFileId === "null" || !contact.dataFileId ? null : parseInt(contact.dataFileId) || null),
-          segmentId: contact.segmentId === "null" || !contact.segmentId ? null : parseInt(contact.segmentId) || null,
-
-          toEmail: contact.email,
-
-          subject: subjectToUse,
-
-          body: contact.pitch || "",
-
-          bccEmail: emailFormData.BccEmail || "",
-
-          smtpId: selectedSmtpUser,
-
-          fullName: contact.name,
-
-          countryOrAddress: contact.location || "",
-
-          companyName: contact.company || "",
-
-          website: contact.website || "",
-
-          linkedinUrl: contact.linkedin || "",
-
-          jobTitle: contact.title || "",
-
-        };
-
-
+          // Add validation before sending
+          if (!requestBody.segmentId && !requestBody.dataFileId) {
+            console.error(`Skipping contact ${contact.id}: Missing both segmentId and dataFileId`);
+            skippedCount++;
+            index++;
+            setBulkSendIndex(index);
+            await new Promise((res) => setTimeout(res, 500));
+            continue;
+          }
 
         const response = await axios.post(
-
           `${API_BASE_URL}/api/email/send-singleEmail`,
 
           requestBody,
 
           {
-
             headers: {
-
               "Content-Type": "application/json",
 
               ...(token && { Authorization: `Bearer ${token}` }),
-
             },
-
           }
-
         );
 
-
-
         sentCount++;
-
-
 
         // UPDATE local state for this contact
 
         const updatedItem = {
-
           ...contact,
 
           emailsentdate: new Date().toISOString(),
 
           PG_Added_Correctly: true,
-
         };
-
-
 
         // Update combinedResponses
 
-        setCombinedResponses(prev =>
-
+        setCombinedResponses((prev) =>
           prev.map((item, i) => (i === index ? updatedItem : item))
-
         );
-
-
 
         // Update allResponses if needed
 
         const allResponsesIndex = allResponses.findIndex(
-
           (item) => item.id === contact.id
-
         );
 
         if (allResponsesIndex !== -1) {
-
-          setAllResponses(prev => {
-
+          setAllResponses((prev) => {
             const updated = [...prev];
 
             updated[allResponsesIndex] = updatedItem;
 
             return updated;
-
           });
-
         }
-
-
 
         // Update existingResponse if needed
 
         const existingResponseIndex = existingResponse.findIndex(
-
           (item) => item.id === contact.id
-
         );
 
         if (existingResponseIndex !== -1) {
-
-          setexistingResponse(prev => {
-
+          setexistingResponse((prev) => {
             const updated = [...prev];
 
             updated[existingResponseIndex] = updatedItem;
 
             return updated;
-
           });
-
         }
-
-
-
       } catch (err) {
-
         console.error(`Error sending email to ${contact.email}:`, err);
 
         if (axios.isAxiosError(err)) {
-
-          console.error('API Error:', err.response?.data);
-
+          console.error("API Error:", err.response?.data);
         }
 
         skippedCount++;
-
       }
-
-
 
       index++;
 
       setBulkSendIndex(index);
-
-
 
       // Show progress
 
@@ -1463,70 +1331,41 @@ const Output: React.FC<OutputInterface> = ({
 
       console.log(progress); // Add console log to track progress
 
-
-
       // Wait before processing next email
 
-      await new Promise(res => setTimeout(res, 1200)); // Throttle emails
-
+      await new Promise((res) => setTimeout(res, 1200)); // Throttle emails
     }
-
-
 
     setIsBulkSending(false);
 
     stopBulkRef.current = false;
 
-
-
-    console.log(`Bulk send completed. Sent: ${sentCount}, Skipped: ${skippedCount}`);
-
+    console.log(
+      `Bulk send completed. Sent: ${sentCount}, Skipped: ${skippedCount}`
+    );
   };
 
-
-
   const stopBulkSending = () => {
-
     stopBulkRef.current = true;
 
     setIsBulkSending(false);
-
   };
 
   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
-
-
   const handleSaveSettings = async () => {
-
     setIsSavingSettings(true);
 
     try {
-
       if (saveToneSettings) {
-
         await saveToneSettings();
-
       }
-
     } catch (error) {
-
-      console.error('Error saving settings:', error);
-
+      console.error("Error saving settings:", error);
     } finally {
-
       setIsSavingSettings(false);
-
     }
-
   };
-
-
-
-
-
-
-
 
   const [sendEmailControls, setSendEmailControls] = useState(false);
 
@@ -1582,25 +1421,17 @@ const Output: React.FC<OutputInterface> = ({
                     // In Output.tsx, update the button click handler:
 
                     <button
-
                       className="primary-button bg-[#3f9f42]"
-
                       onClick={() => handleStart?.(currentIndex)}
-
                       disabled={
-
                         (!selectedPrompt?.name || !selectedZohoviewId) &&
-
                         !selectedCampaign
-
                       }
-
-                      title={`Click to generate hyper-personalized emails starting from contact ${currentIndex + 1}`}
-
+                      title={`Click to generate hyper-personalized emails starting from contact ${
+                        currentIndex + 1
+                      }`}
                     >
-
                       Generate
-
                     </button>
                   ) : (
                     <button
@@ -1639,13 +1470,34 @@ const Output: React.FC<OutputInterface> = ({
                       <span className="text-[14px]">Overwrite</span>
                     </label>
                     <span>
-                      <ReactTooltip anchorSelect="#overwrite-checkbox" place="top">
+                      <ReactTooltip
+                        anchorSelect="#overwrite-checkbox"
+                        place="top"
+                      >
                         Reset all company level intel
                       </ReactTooltip>
-                      <svg id="overwrite-checkbox" width="14px" height="14px" viewBox="0 0 24 24" fill="#555555" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 17.75C12.4142 17.75 12.75 17.4142 12.75 17V11C12.75 10.5858 12.4142 10.25 12 10.25C11.5858 10.25 11.25 10.5858 11.25 11V17C11.25 17.4142 11.5858 17.75 12 17.75Z" fill="#1C274C" />
-                        <path d="M12 7C12.5523 7 13 7.44772 13 8C13 8.55228 12.5523 9 12 9C11.4477 9 11 8.55228 11 8C11 7.44772 11.4477 7 12 7Z" fill="#1C274C" />
-                        <path fill-rule="evenodd" clip-rule="evenodd" d="M1.25 12C1.25 6.06294 6.06294 1.25 12 1.25C17.9371 1.25 22.75 6.06294 22.75 12C22.75 17.9371 17.9371 22.75 12 22.75C6.06294 22.75 1.25 17.9371 1.25 12ZM12 2.75C6.89137 2.75 2.75 6.89137 2.75 12C2.75 17.1086 6.89137 21.25 12 21.25C17.1086 21.25 21.25 17.1086 21.25 12C21.25 6.89137 17.1086 2.75 12 2.75Z" fill="#1C274C" />
+                      <svg
+                        id="overwrite-checkbox"
+                        width="14px"
+                        height="14px"
+                        viewBox="0 0 24 24"
+                        fill="#555555"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M12 17.75C12.4142 17.75 12.75 17.4142 12.75 17V11C12.75 10.5858 12.4142 10.25 12 10.25C11.5858 10.25 11.25 10.5858 11.25 11V17C11.25 17.4142 11.5858 17.75 12 17.75Z"
+                          fill="#1C274C"
+                        />
+                        <path
+                          d="M12 7C12.5523 7 13 7.44772 13 8C13 8.55228 12.5523 9 12 9C11.4477 9 11 8.55228 11 8C11 7.44772 11.4477 7 12 7Z"
+                          fill="#1C274C"
+                        />
+                        <path
+                          fill-rule="evenodd"
+                          clip-rule="evenodd"
+                          d="M1.25 12C1.25 6.06294 6.06294 1.25 12 1.25C17.9371 1.25 22.75 6.06294 22.75 12C22.75 17.9371 17.9371 22.75 12 22.75C6.06294 22.75 1.25 17.9371 1.25 12ZM12 2.75C6.89137 2.75 2.75 6.89137 2.75 12C2.75 17.1086 6.89137 21.25 12 21.25C17.1086 21.25 21.25 17.1086 21.25 12C21.25 6.89137 17.1086 2.75 12 2.75Z"
+                          fill="#1C274C"
+                        />
                       </svg>
                     </span>
                   </div>
@@ -1817,7 +1669,6 @@ const Output: React.FC<OutputInterface> = ({
       </span>
       {/* Wrapper for navigation + contact index */}
       <div className="d-flex align-items-center gap mt-[26px] gap-3">
-
         {/* Navigation buttons */}
         <div className="d-flex align-items-center gap-1">
           <button
@@ -1855,7 +1706,9 @@ const Output: React.FC<OutputInterface> = ({
 
           <button
             onClick={handleNextPage}
-            disabled={isProcessing || currentIndex === combinedResponses.length - 1}
+            disabled={
+              isProcessing || currentIndex === combinedResponses.length - 1
+            }
             className="secondary-button !h-[35px] !py-[10px] !px-[10px] flex justify-center items-center"
             title="Click to go to the next generated email"
           >
@@ -1875,14 +1728,21 @@ const Output: React.FC<OutputInterface> = ({
 
           <button
             onClick={handleLastPage}
-            disabled={isProcessing || currentIndex === combinedResponses.length - 1}
+            disabled={
+              isProcessing || currentIndex === combinedResponses.length - 1
+            }
             className="secondary-button h-[35px] w-[38px] !px-[5px] !py-[10px] flex justify-center items-center !px-[10px]"
             title="Click to go to the last generated email"
           >
             <img
               src={nextIcon}
               alt="Next"
-              style={{ width: "20px", height: "20px", objectFit: "contain", marginLeft: "2px" }}
+              style={{
+                width: "20px",
+                height: "20px",
+                objectFit: "contain",
+                marginLeft: "2px",
+              }}
             />
           </button>
         </div>
@@ -1908,30 +1768,31 @@ const Output: React.FC<OutputInterface> = ({
             className="form-control text-center !mx-2"
             style={{ width: "70px", padding: "8px" }}
           />
-          <span className="flex items-center">of{" "}
+          <span className="flex items-center">
+            of{" "}
             {selectedZohoviewId
               ? (() => {
-                const selectedView = zohoClient.find(
-                  (client) => client.zohoviewId === selectedZohoviewId
-                );
-                return selectedView
-                  ? selectedView.totalContact
-                  : combinedResponses.length;
-              })()
-              : zohoClient.reduce((sum, client) => sum + client.totalContact, 0)}</span>
+                  const selectedView = zohoClient.find(
+                    (client) => client.zohoviewId === selectedZohoviewId
+                  );
+                  return selectedView
+                    ? selectedView.totalContact
+                    : combinedResponses.length;
+                })()
+              : zohoClient.reduce(
+                  (sum, client) => sum + client.totalContact,
+                  0
+                )}
+          </span>
         </div>
         {/* Add this inside your green box area */}
-
       </div>
-
-
 
       {/* New Tab */}
       {tab === "New" && (
         <>
           <div className="tabs secondary d-flex align-center flex-col-991 justify-between">
             <ul className="d-flex">
-
               <li>
                 <button
                   onClick={tabHandler2}
@@ -1953,15 +1814,15 @@ const Output: React.FC<OutputInterface> = ({
               )}
               <li>
                 <button
-                  className={`tab-button ${tab2 === "Settings" ? "active" : ""}`}
+                  className={`tab-button ${
+                    tab2 === "Settings" ? "active" : ""
+                  }`}
                   onClick={() => setTab2("Settings")}
                 >
                   Settings
                 </button>
               </li>
             </ul>
-
-
           </div>
           {tab2 === "Output" && (
             <>
@@ -1976,8 +1837,6 @@ const Output: React.FC<OutputInterface> = ({
                     </button>
                   )}
                 </div> */}
-
-
               </div>
               <div className="form-group mb-0 mt-2">
                 <div className="d-flex justify-between w-full">
@@ -1988,11 +1847,17 @@ const Output: React.FC<OutputInterface> = ({
                     {/* <strong style={{ whiteSpace: "pre" }}>Contact: </strong> */}
                     {/* <span style={{ whiteSpace: "pre" }}> </span> */}
                     {combinedResponses[currentIndex]?.name || "NA"}
-                    <span className="text-[25px] inline-block relative top-[4px] px-[10px]">&bull;</span>
+                    <span className="text-[25px] inline-block relative top-[4px] px-[10px]">
+                      &bull;
+                    </span>
                     {combinedResponses[currentIndex]?.title || "NA"}
-                    <span className="text-[25px] inline-block relative top-[4px] px-[10px]">&bull;</span>
+                    <span className="text-[25px] inline-block relative top-[4px] px-[10px]">
+                      &bull;
+                    </span>
                     {combinedResponses[currentIndex]?.company || "NA"}
-                    <span className="text-[25px] inline-block relative top-[4px] px-[10px]">&bull;</span>
+                    <span className="text-[25px] inline-block relative top-[4px] px-[10px]">
+                      &bull;
+                    </span>
                     {combinedResponses[currentIndex]?.location || "NA"}
                     <span style={{ whiteSpace: "pre" }}> </span>
                     {/* <span className="inline-block relative top-[6px] mr-[3px]">
@@ -2000,26 +1865,39 @@ const Output: React.FC<OutputInterface> = ({
                         <path d="M14 7H16C18.7614 7 21 9.23858 21 12C21 14.7614 18.7614 17 16 17H14M10 7H8C5.23858 7 3 9.23858 3 12C3 14.7614 5.23858 17 8 17H10M8 12H16" stroke="#3f9f42" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                       </svg>
                     </span> */}
-                    <ReactTooltip anchorSelect="#website-icon-tooltip" place="top">
+                    <ReactTooltip
+                      anchorSelect="#website-icon-tooltip"
+                      place="top"
+                    >
                       Open company website
                     </ReactTooltip>
                     <a
                       href={
                         combinedResponses[currentIndex]?.website &&
-                          !combinedResponses[currentIndex]?.website.startsWith(
-                            "http"
-                          )
+                        !combinedResponses[currentIndex]?.website.startsWith(
+                          "http"
+                        )
                           ? `https://${combinedResponses[currentIndex]?.website}`
                           : combinedResponses[currentIndex]?.website
                       }
                       target="_blank"
                       rel="noopener noreferrer"
                       id="website-icon-tooltip"
-
                     >
                       <span className="inline-block relative top-[8px] mr-[3px]">
-                        <svg width="26px" height="26px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path fill-rule="evenodd" clip-rule="evenodd" d="M9.83824 18.4467C10.0103 18.7692 10.1826 19.0598 10.3473 19.3173C8.59745 18.9238 7.07906 17.9187 6.02838 16.5383C6.72181 16.1478 7.60995 15.743 8.67766 15.4468C8.98112 16.637 9.40924 17.6423 9.83824 18.4467ZM11.1618 17.7408C10.7891 17.0421 10.4156 16.1695 10.1465 15.1356C10.7258 15.0496 11.3442 15 12.0001 15C12.6559 15 13.2743 15.0496 13.8535 15.1355C13.5844 16.1695 13.2109 17.0421 12.8382 17.7408C12.5394 18.3011 12.2417 18.7484 12 19.0757C11.7583 18.7484 11.4606 18.3011 11.1618 17.7408ZM9.75 12C9.75 12.5841 9.7893 13.1385 9.8586 13.6619C10.5269 13.5594 11.2414 13.5 12.0001 13.5C12.7587 13.5 13.4732 13.5593 14.1414 13.6619C14.2107 13.1384 14.25 12.5841 14.25 12C14.25 11.4159 14.2107 10.8616 14.1414 10.3381C13.4732 10.4406 12.7587 10.5 12.0001 10.5C11.2414 10.5 10.5269 10.4406 9.8586 10.3381C9.7893 10.8615 9.75 11.4159 9.75 12ZM8.38688 10.0288C8.29977 10.6478 8.25 11.3054 8.25 12C8.25 12.6946 8.29977 13.3522 8.38688 13.9712C7.11338 14.3131 6.05882 14.7952 5.24324 15.2591C4.76698 14.2736 4.5 13.168 4.5 12C4.5 10.832 4.76698 9.72644 5.24323 8.74088C6.05872 9.20472 7.1133 9.68686 8.38688 10.0288ZM10.1465 8.86445C10.7258 8.95042 11.3442 9 12.0001 9C12.6559 9 13.2743 8.95043 13.8535 8.86447C13.5844 7.83055 13.2109 6.95793 12.8382 6.2592C12.5394 5.69894 12.2417 5.25156 12 4.92432C11.7583 5.25156 11.4606 5.69894 11.1618 6.25918C10.7891 6.95791 10.4156 7.83053 10.1465 8.86445ZM15.6131 10.0289C15.7002 10.6479 15.75 11.3055 15.75 12C15.75 12.6946 15.7002 13.3521 15.6131 13.9711C16.8866 14.3131 17.9412 14.7952 18.7568 15.2591C19.233 14.2735 19.5 13.1679 19.5 12C19.5 10.8321 19.233 9.72647 18.7568 8.74093C17.9413 9.20477 16.8867 9.6869 15.6131 10.0289ZM17.9716 7.46178C17.2781 7.85231 16.39 8.25705 15.3224 8.55328C15.0189 7.36304 14.5908 6.35769 14.1618 5.55332C13.9897 5.23077 13.8174 4.94025 13.6527 4.6827C15.4026 5.07623 16.921 6.08136 17.9716 7.46178ZM8.67765 8.55325C7.61001 8.25701 6.7219 7.85227 6.02839 7.46173C7.07906 6.08134 8.59745 5.07623 10.3472 4.6827C10.1826 4.94025 10.0103 5.23076 9.83823 5.5533C9.40924 6.35767 8.98112 7.36301 8.67765 8.55325ZM15.3224 15.4467C15.0189 16.637 14.5908 17.6423 14.1618 18.4467C13.9897 18.7692 13.8174 19.0598 13.6527 19.3173C15.4026 18.9238 16.921 17.9186 17.9717 16.5382C17.2782 16.1477 16.3901 15.743 15.3224 15.4467ZM12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21Z" fill="#3f9f42" />
+                        <svg
+                          width="26px"
+                          height="26px"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            fill-rule="evenodd"
+                            clip-rule="evenodd"
+                            d="M9.83824 18.4467C10.0103 18.7692 10.1826 19.0598 10.3473 19.3173C8.59745 18.9238 7.07906 17.9187 6.02838 16.5383C6.72181 16.1478 7.60995 15.743 8.67766 15.4468C8.98112 16.637 9.40924 17.6423 9.83824 18.4467ZM11.1618 17.7408C10.7891 17.0421 10.4156 16.1695 10.1465 15.1356C10.7258 15.0496 11.3442 15 12.0001 15C12.6559 15 13.2743 15.0496 13.8535 15.1355C13.5844 16.1695 13.2109 17.0421 12.8382 17.7408C12.5394 18.3011 12.2417 18.7484 12 19.0757C11.7583 18.7484 11.4606 18.3011 11.1618 17.7408ZM9.75 12C9.75 12.5841 9.7893 13.1385 9.8586 13.6619C10.5269 13.5594 11.2414 13.5 12.0001 13.5C12.7587 13.5 13.4732 13.5593 14.1414 13.6619C14.2107 13.1384 14.25 12.5841 14.25 12C14.25 11.4159 14.2107 10.8616 14.1414 10.3381C13.4732 10.4406 12.7587 10.5 12.0001 10.5C11.2414 10.5 10.5269 10.4406 9.8586 10.3381C9.7893 10.8615 9.75 11.4159 9.75 12ZM8.38688 10.0288C8.29977 10.6478 8.25 11.3054 8.25 12C8.25 12.6946 8.29977 13.3522 8.38688 13.9712C7.11338 14.3131 6.05882 14.7952 5.24324 15.2591C4.76698 14.2736 4.5 13.168 4.5 12C4.5 10.832 4.76698 9.72644 5.24323 8.74088C6.05872 9.20472 7.1133 9.68686 8.38688 10.0288ZM10.1465 8.86445C10.7258 8.95042 11.3442 9 12.0001 9C12.6559 9 13.2743 8.95043 13.8535 8.86447C13.5844 7.83055 13.2109 6.95793 12.8382 6.2592C12.5394 5.69894 12.2417 5.25156 12 4.92432C11.7583 5.25156 11.4606 5.69894 11.1618 6.25918C10.7891 6.95791 10.4156 7.83053 10.1465 8.86445ZM15.6131 10.0289C15.7002 10.6479 15.75 11.3055 15.75 12C15.75 12.6946 15.7002 13.3521 15.6131 13.9711C16.8866 14.3131 17.9412 14.7952 18.7568 15.2591C19.233 14.2735 19.5 13.1679 19.5 12C19.5 10.8321 19.233 9.72647 18.7568 8.74093C17.9413 9.20477 16.8867 9.6869 15.6131 10.0289ZM17.9716 7.46178C17.2781 7.85231 16.39 8.25705 15.3224 8.55328C15.0189 7.36304 14.5908 6.35769 14.1618 5.55332C13.9897 5.23077 13.8174 4.94025 13.6527 4.6827C15.4026 5.07623 16.921 6.08136 17.9716 7.46178ZM8.67765 8.55325C7.61001 8.25701 6.7219 7.85227 6.02839 7.46173C7.07906 6.08134 8.59745 5.07623 10.3472 4.6827C10.1826 4.94025 10.0103 5.23076 9.83823 5.5533C9.40924 6.35767 8.98112 7.36301 8.67765 8.55325ZM15.3224 15.4467C15.0189 16.637 14.5908 17.6423 14.1618 18.4467C13.9897 18.7692 13.8174 19.0598 13.6527 19.3173C15.4026 18.9238 16.921 17.9186 17.9717 16.5382C17.2782 16.1477 16.3901 15.743 15.3224 15.4467ZM12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21Z"
+                            fill="#3f9f42"
+                          />
                         </svg>
                       </span>
                       {/* {combinedResponses[currentIndex]?.website || "NA"} */}
@@ -2073,12 +1951,13 @@ const Output: React.FC<OutputInterface> = ({
                       Open this email in your local email client
                     </ReactTooltip>
                     <a
-                      href={`mailto:${combinedResponses[currentIndex]?.email || ""
-                        }?subject=${encodeURIComponent(
-                          combinedResponses[currentIndex]?.subject || ""
-                        )}&body=${encodeURIComponent(
-                          combinedResponses[currentIndex]?.pitch || ""
-                        )}`}
+                      href={`mailto:${
+                        combinedResponses[currentIndex]?.email || ""
+                      }?subject=${encodeURIComponent(
+                        combinedResponses[currentIndex]?.subject || ""
+                      )}&body=${encodeURIComponent(
+                        combinedResponses[currentIndex]?.pitch || ""
+                      )}`}
                       title="Open this email in your local email client"
                       className="ml-[3px]"
                       style={{
@@ -2104,8 +1983,6 @@ const Output: React.FC<OutputInterface> = ({
                     </a>
                   </div>
 
-
-
                   {/* Email Sent Date - remaining width */}
                   <div
                     style={{
@@ -2127,9 +2004,9 @@ const Output: React.FC<OutputInterface> = ({
                     >
                       {combinedResponses[currentIndex]?.lastemailupdateddate
                         ? `Krafted: ${formatLocalDateTime(
-                          combinedResponses[currentIndex]
-                            ?.lastemailupdateddate
-                        )}`
+                            combinedResponses[currentIndex]
+                              ?.lastemailupdateddate
+                          )}`
                         : ""}
                     </span>
 
@@ -2144,12 +2021,11 @@ const Output: React.FC<OutputInterface> = ({
                     >
                       {combinedResponses[currentIndex]?.emailsentdate
                         ? `Emailed: ${formatLocalDateTime(
-                          combinedResponses[currentIndex]?.emailsentdate
-                        )}`
+                            combinedResponses[currentIndex]?.emailsentdate
+                          )}`
                         : ""}
                     </span>
                   </div>
-
                 </div>
                 <div className="form-group" style={{ marginBottom: "20px" }}>
                   <div
@@ -2195,81 +2071,58 @@ const Output: React.FC<OutputInterface> = ({
                     {/* Toggle Send Email controls */}
                     {/* BCC field - 20% width */}
                     <div className="relative ml-[auto] flex">
-                      {sendEmailControls && (<div className="right-angle flex w-[100%] items-start justify-end absolute right-[140px] top-[13px] p-[15px] w-auto bg-white rounded-md shadow-[0_0_15px_rgba(0,0,0,0.2)] z-[100] border border-[#3f9f42] border-r-[5px] border-r-[#3f9f42]
-">
-                        <div style={{ flex: "0 0 15%", paddingRight: "15px" }}
-                          className="flex items-center"
+                      {sendEmailControls && (
+                        <div
+                          className="right-angle flex w-[100%] items-start justify-end absolute right-[140px] top-[13px] p-[15px] w-auto bg-white rounded-md shadow-[0_0_15px_rgba(0,0,0,0.2)] z-[100] border border-[#3f9f42] border-r-[5px] border-r-[#3f9f42]
+"
                         >
-                          <label
-                            style={{
-                              display: "block",
-                              marginRight: "10px",
-                              marginBottom: "0",
-                              fontWeight: "600",
-                              fontSize: "14px",
-                            }}
+                          <div
+                            style={{ flex: "0 0 15%", paddingRight: "15px" }}
+                            className="flex items-center"
                           >
-                            BCC
-                          </label>
-                          <select
-                            className="form-control"
-                            value={
-                              bccSelectMode === "other"
-                                ? "Other"
-                                : emailFormData.BccEmail
-                            }
-                            onChange={(e) => {
-                              const selected = e.target.value;
-                              if (selected === "Other") {
-                                setBccSelectMode("other");
-                                setEmailFormData({
-                                  ...emailFormData,
-                                  BccEmail: "",
-                                });
-                                localStorage.setItem("lastBCCOtherMode", "true");
-                                // Do NOT clear lastBCC, keep it if exists
-                              } else {
-                                setBccSelectMode("dropdown");
-                                setEmailFormData({
-                                  ...emailFormData,
-                                  BccEmail: selected,
-                                });
-                                localStorage.setItem("lastBCCOtherMode", "false");
-                                localStorage.setItem("lastBCC", selected);
+                            <label
+                              style={{
+                                display: "block",
+                                marginRight: "10px",
+                                marginBottom: "0",
+                                fontWeight: "600",
+                                fontSize: "14px",
+                              }}
+                            >
+                              BCC
+                            </label>
+                            <select
+                              className="form-control"
+                              value={
+                                bccSelectMode === "other"
+                                  ? "Other"
+                                  : emailFormData.BccEmail
                               }
-                            }}
-                            style={{
-                              width: "100%",
-                              padding: "10px",
-                              border: "1px solid #ccc",
-                              borderRadius: "4px",
-                              fontSize: "inherit",
-                              minHeight: "30px",
-                              background: "#f8fff8",
-                            }}
-                          >
-                            <option value="">BCC email</option>
-                            {bccOptions.map((option) => (
-                              <option
-                                key={option.id}
-                                value={option.bccEmailAddress}
-                              >
-                                {option.bccEmailAddress}
-                              </option>
-                            ))}
-                            <option value="Other">Other</option>
-                          </select>
-                          {bccSelectMode === "other" && (
-                            <input
-                              type="email"
-                              placeholder="Type BCC email"
-                              value={emailFormData.BccEmail}
                               onChange={(e) => {
-                                setEmailFormData({
-                                  ...emailFormData,
-                                  BccEmail: e.target.value,
-                                });
-                                localStorage.setItem("lastBCC", e.target.value); // <== store as soon as typed
+                                const selected = e.target.value;
+                                if (selected === "Other") {
+                                  setBccSelectMode("other");
+                                  setEmailFormData({
+                                    ...emailFormData,
+                                    BccEmail: "",
+                                  });
+                                  localStorage.setItem(
+                                    "lastBCCOtherMode",
+                                    "true"
+                                  );
+                                  // Do NOT clear lastBCC, keep it if exists
+                                } else {
+                                  setBccSelectMode("dropdown");
+                                  setEmailFormData({
+                                    ...emailFormData,
+                                    BccEmail: selected,
+                                  });
+                                  localStorage.setItem(
+                                    "lastBCCOtherMode",
+                                    "false"
+                                  );
+                                  localStorage.setItem("lastBCC", selected);
+                                }
                               }}
                               style={{
                                 width: "100%",
@@ -2278,117 +2131,159 @@ const Output: React.FC<OutputInterface> = ({
                                 borderRadius: "4px",
                                 fontSize: "inherit",
                                 minHeight: "30px",
-                                marginTop: "0",
                                 background: "#f8fff8",
-                                marginLeft: '15px',
-                                minWidth: '200px'
                               }}
-                            />
-                          )}
-                        </div>
+                            >
+                              <option value="">BCC email</option>
+                              {bccOptions.map((option) => (
+                                <option
+                                  key={option.id}
+                                  value={option.bccEmailAddress}
+                                >
+                                  {option.bccEmailAddress}
+                                </option>
+                              ))}
+                              <option value="Other">Other</option>
+                            </select>
+                            {bccSelectMode === "other" && (
+                              <input
+                                type="email"
+                                placeholder="Type BCC email"
+                                value={emailFormData.BccEmail}
+                                onChange={(e) => {
+                                  setEmailFormData({
+                                    ...emailFormData,
+                                    BccEmail: e.target.value,
+                                  });
+                                  localStorage.setItem(
+                                    "lastBCC",
+                                    e.target.value
+                                  ); // <== store as soon as typed
+                                }}
+                                style={{
+                                  width: "100%",
+                                  padding: "10px",
+                                  border: "1px solid #ccc",
+                                  borderRadius: "4px",
+                                  fontSize: "inherit",
+                                  minHeight: "30px",
+                                  marginTop: "0",
+                                  background: "#f8fff8",
+                                  marginLeft: "15px",
+                                  minWidth: "200px",
+                                }}
+                              />
+                            )}
+                          </div>
 
-                        {/* From Email field - 20% width */}
-                        <div style={{ flex: "0 0 15%", paddingRight: "15px" }}
-                          className="flex items-center"
-                        >
-                          <label
-                            style={{
-                              display: "block",
-                              marginRight: "10px",
-                              marginBottom: "0",
-                              fontWeight: "600",
-                              fontSize: "14px",
-                            }}
+                          {/* From Email field - 20% width */}
+                          <div
+                            style={{ flex: "0 0 15%", paddingRight: "15px" }}
+                            className="flex items-center"
                           >
-                            From
-                          </label>
-                          <select
-                            className="form-control"
-                            value={selectedSmtpUser}
-                            onChange={(e) => setSelectedSmtpUser(e.target.value)}
-                            style={{
-                              width: "100%",
-                              padding: "10px",
-                              border: "1px solid #ccc",
-                              borderRadius: "4px",
-                              fontSize: "inherit",
-                              minHeight: "30px",
-                            }}
-                          >
-                            <option value="">Sender</option>
-                            {smtpUsers.map((user) => (
-                              <option key={user.id} value={user.id}>
-                                {user.username}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        {/* Send Button - 10% width to align in row */}
-                        <div
-                          style={{
-                            flex: "0 0 10%",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "flex-start",
-                            marginLeft: 'auto'
-                          }}
-                        >
-                          <ReactTooltip
-                            anchorSelect="#output-send-email-tooltip"
-                            place="top"
-                          >
-                            Send email
-                          </ReactTooltip>
-                          <button
-                            id="output-send-email-btn"
-                            type="button"
-                            className="button save-button x-small d-flex align-center align-self-center my-5-640 mr-[5px]"
-                            onClick={async () => {
-                              if (!combinedResponses[currentIndex]) {
-                                toast.error("No contact selected");
-                                return;
+                            <label
+                              style={{
+                                display: "block",
+                                marginRight: "10px",
+                                marginBottom: "0",
+                                fontWeight: "600",
+                                fontSize: "14px",
+                              }}
+                            >
+                              From
+                            </label>
+                            <select
+                              className="form-control"
+                              value={selectedSmtpUser}
+                              onChange={(e) =>
+                                setSelectedSmtpUser(e.target.value)
                               }
+                              style={{
+                                width: "100%",
+                                padding: "10px",
+                                border: "1px solid #ccc",
+                                borderRadius: "4px",
+                                fontSize: "inherit",
+                                minHeight: "30px",
+                              }}
+                            >
+                              <option value="">Sender</option>
+                              {smtpUsers.map((user) => (
+                                <option key={user.id} value={user.id}>
+                                  {user.username}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
 
-                              if (!selectedSmtpUser) {
-                                toast.error("Please select From email");
-                                return;
-                              }
-
-                              const subject =
-                                combinedResponses[currentIndex]?.subject ||
-                                "No subject";
-
-                              await handleSendEmail(subject); // 👈 Pass subject here
-                            }}
-                            disabled={
-                              !combinedResponses[currentIndex] ||
-                              sendingEmail ||
-                              sessionStorage.getItem("isDemoAccount") === "true"
-                            }
+                          {/* Send Button - 10% width to align in row */}
+                          <div
                             style={{
-                              cursor:
-                                combinedResponses[currentIndex] && !sendingEmail
-                                  ? "pointer"
-                                  : "not-allowed",
-                              padding: "5px 15px",
-                              opacity:
-                                combinedResponses[currentIndex] && !sendingEmail
-                                  ? 1
-                                  : 0.6,
-                              height: "40px",
+                              flex: "0 0 10%",
                               display: "flex",
                               alignItems: "center",
-                              justifyContent: "center",
-                              marginRight: 0
+                              justifyContent: "flex-start",
+                              marginLeft: "auto",
                             }}
                           >
-                            {!sendingEmail && emailMessage === "" && "Send"}
-                            {sendingEmail && "Sending..."}
-                            {!sendingEmail && emailMessage && "Sent"}
-                          </button>
+                            <ReactTooltip
+                              anchorSelect="#output-send-email-tooltip"
+                              place="top"
+                            >
+                              Send email
+                            </ReactTooltip>
+                            <button
+                              id="output-send-email-btn"
+                              type="button"
+                              className="button save-button x-small d-flex align-center align-self-center my-5-640 mr-[5px]"
+                              onClick={async () => {
+                                if (!combinedResponses[currentIndex]) {
+                                  toast.error("No contact selected");
+                                  return;
+                                }
 
-                          {/* <span className="relative top-[15px]">
+                                if (!selectedSmtpUser) {
+                                  toast.error("Please select From email");
+                                  return;
+                                }
+
+                                const subject =
+                                  combinedResponses[currentIndex]?.subject ||
+                                  "No subject";
+
+                                await handleSendEmail(subject); // 👈 Pass subject here
+                              }}
+                              disabled={
+                                !combinedResponses[currentIndex] ||
+                                sendingEmail ||
+                                sessionStorage.getItem("isDemoAccount") ===
+                                  "true"
+                              }
+                              style={{
+                                cursor:
+                                  combinedResponses[currentIndex] &&
+                                  !sendingEmail
+                                    ? "pointer"
+                                    : "not-allowed",
+                                padding: "5px 15px",
+                                opacity:
+                                  combinedResponses[currentIndex] &&
+                                  !sendingEmail
+                                    ? 1
+                                    : 0.6,
+                                height: "40px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                marginRight: 0,
+                              }}
+                            >
+                              {!sendingEmail && emailMessage === "" && "Send"}
+                              {sendingEmail && "Sending..."}
+                              {!sendingEmail && emailMessage && "Sent"}
+                            </button>
+
+                            {/* <span className="relative top-[15px]">
                               <svg id="send-email-info" width="14px" height="14px" viewBox="0 0 24 24" fill="#555555" xmlns="http://www.w3.org/2000/svg">
                               <path d="M12 17.75C12.4142 17.75 12.75 17.4142 12.75 17V11C12.75 10.5858 12.4142 10.25 12 10.25C11.5858 10.25 11.25 10.5858 11.25 11V17C11.25 17.4142 11.5858 17.75 12 17.75Z" fill="#1C274C"/>
                               <path d="M12 7C12.5523 7 13 7.44772 13 8C13 8.55228 12.5523 9 12 9C11.4477 9 11 8.55228 11 8C11 7.44772 11.4477 7 12 7Z" fill="#1C274C"/>
@@ -2398,55 +2293,66 @@ const Output: React.FC<OutputInterface> = ({
                           <ReactTooltip anchorSelect="#send-email-info" place="top">
                             Send this email
                           </ReactTooltip> */}
-                          <button
-                            type="button"
-                            className="nowrap ml-1 button save-button x-small d-flex align-center align-self-center my-5-640 mr-[5px]"
-                            onClick={() => {
-                              console.log('Button clicked, isBulkSending:', isBulkSending);
+                            <button
+                              type="button"
+                              className="nowrap ml-1 button save-button x-small d-flex align-center align-self-center my-5-640 mr-[5px]"
+                              onClick={() => {
+                                console.log(
+                                  "Button clicked, isBulkSending:",
+                                  isBulkSending
+                                );
 
-                              if (isBulkSending) {
-                                console.log('Stopping bulk send...');
-                                stopBulkSending();
-                              } else {
-                                // Check if SMTP is selected before starting
-                                if (!selectedSmtpUser) {
-                                  toast.error("Please select From email first");
-                                  return;
+                                if (isBulkSending) {
+                                  console.log("Stopping bulk send...");
+                                  stopBulkSending();
+                                } else {
+                                  // Check if SMTP is selected before starting
+                                  if (!selectedSmtpUser) {
+                                    toast.error(
+                                      "Please select From email first"
+                                    );
+                                    return;
+                                  }
+                                  console.log("Starting bulk send...");
+                                  sendEmailsInBulk(currentIndex);
                                 }
-                                console.log('Starting bulk send...');
-                                sendEmailsInBulk(currentIndex);
+                              }}
+                              disabled={
+                                sessionStorage.getItem("isDemoAccount") ===
+                                "true"
                               }
-                            }}
-                            disabled={
-                              sessionStorage.getItem("isDemoAccount") === "true"
-                            }
-                            style={{
-                              cursor:
-                                sessionStorage.getItem("isDemoAccount") !== "true"
-                                  ? "pointer"
-                                  : "not-allowed",
-                              padding: "5px 15px",
-                              opacity:
-                                sessionStorage.getItem("isDemoAccount") !== "true"
-                                  ? 1
-                                  : 0.6,
-                              height: "40px",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              marginRight: 0
-                            }}
-                          >
-                            {isBulkSending ? "Stop" : "Send All"}
-                          </button>
-
+                              style={{
+                                cursor:
+                                  sessionStorage.getItem("isDemoAccount") !==
+                                  "true"
+                                    ? "pointer"
+                                    : "not-allowed",
+                                padding: "5px 15px",
+                                opacity:
+                                  sessionStorage.getItem("isDemoAccount") !==
+                                  "true"
+                                    ? 1
+                                    : 0.6,
+                                height: "40px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                marginRight: 0,
+                              }}
+                            >
+                              {isBulkSending ? "Stop" : "Send All"}
+                            </button>
+                          </div>
                         </div>
-                      </div>)}
+                      )}
 
-                      <button className="green rounded-md mt-[32px] ml-[5px] py-[5px] px-[15px] border border-[#3f9f42]" onClick={() => setSendEmailControls(!sendEmailControls)}>Send emails</button>
+                      <button
+                        className="green rounded-md mt-[32px] ml-[5px] py-[5px] px-[15px] border border-[#3f9f42]"
+                        onClick={() => setSendEmailControls(!sendEmailControls)}
+                      >
+                        Send emails
+                      </button>
                     </div>
-
-
                   </div>
                 </div>
                 <span className="pos-relative d-flex justify-center">
@@ -2455,12 +2361,13 @@ const Output: React.FC<OutputInterface> = ({
                       className="editor-container"
                       style={{
                         width: "100%",
-                        maxWidth: `${outputEmailWidth === "Mobile"
-                          ? "480px"
-                          : outputEmailWidth === "Tab"
+                        maxWidth: `${
+                          outputEmailWidth === "Mobile"
+                            ? "480px"
+                            : outputEmailWidth === "Tab"
                             ? "768px"
                             : "100%"
-                          }`,
+                        }`,
                       }}
                     >
                       <div
@@ -2699,12 +2606,13 @@ const Output: React.FC<OutputInterface> = ({
                           boxSizing: "border-box",
                           wordWrap: "break-word",
                           width: "100%",
-                          maxWidth: `${outputEmailWidth === "Mobile"
-                            ? "480px"
-                            : outputEmailWidth === "Tab"
+                          maxWidth: `${
+                            outputEmailWidth === "Mobile"
+                              ? "480px"
+                              : outputEmailWidth === "Tab"
                               ? "768px"
                               : "100%"
-                            }`,
+                          }`,
                         }}
                         dangerouslySetInnerHTML={{
                           __html: aggressiveCleanHTML(
@@ -2716,7 +2624,9 @@ const Output: React.FC<OutputInterface> = ({
                         <div className="d-flex align-items-center justify-between flex-col-991">
                           <div className="d-flex relative">
                             <button
-                              onClick={() => setOpenDeviceDropdown(!openDeviceDropdown)}
+                              onClick={() =>
+                                setOpenDeviceDropdown(!openDeviceDropdown)
+                              }
                               className="w-[55px] justify-center px-3 py-2 bg-gray-200 rounded-md flex items-center device-icon"
                             >
                               {outputEmailWidth === "Mobile" && (
@@ -2729,8 +2639,20 @@ const Output: React.FC<OutputInterface> = ({
                                   </ReactTooltip>
                                   <span id="mobile-device-view">
                                     {/* Mobile icon */}
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="25px" height="" viewBox="0 0 24 24" fill="none">
-                                      <path d="M11 18H13M9.2 21H14.8C15.9201 21 16.4802 21 16.908 20.782C17.2843 20.5903 17.5903 20.2843 17.782 19.908C18 19.4802 18 18.9201 18 17.8V6.2C18 5.0799 18 4.51984 17.782 4.09202C17.5903 3.71569 17.2843 3.40973 16.908 3.21799C16.4802 3 15.9201 3 14.8 3H9.2C8.0799 3 7.51984 3 7.09202 3.21799C6.71569 3.40973 6.40973 3.71569 6.21799 4.09202C6 4.51984 6 5.07989 6 6.2V17.8C6 18.9201 6 19.4802 6.21799 19.908C6.40973 20.2843 6.71569 20.5903 7.09202 20.782C7.51984 21 8.07989 21 9.2 21Z" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      width="25px"
+                                      height=""
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                    >
+                                      <path
+                                        d="M11 18H13M9.2 21H14.8C15.9201 21 16.4802 21 16.908 20.782C17.2843 20.5903 17.5903 20.2843 17.782 19.908C18 19.4802 18 18.9201 18 17.8V6.2C18 5.0799 18 4.51984 17.782 4.09202C17.5903 3.71569 17.2843 3.40973 16.908 3.21799C16.4802 3 15.9201 3 14.8 3H9.2C8.0799 3 7.51984 3 7.09202 3.21799C6.71569 3.40973 6.40973 3.71569 6.21799 4.09202C6 4.51984 6 5.07989 6 6.2V17.8C6 18.9201 6 19.4802 6.21799 19.908C6.40973 20.2843 6.71569 20.5903 7.09202 20.782C7.51984 21 8.07989 21 9.2 21Z"
+                                        stroke="#000000"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                      ></path>
                                     </svg>
                                   </span>
                                 </>
@@ -2761,7 +2683,12 @@ const Output: React.FC<OutputInterface> = ({
                                         strokeWidth="2"
                                         strokeLinecap="round"
                                       />
-                                      <circle cx="12" cy="18" r="1" fill="#200E32" />
+                                      <circle
+                                        cx="12"
+                                        cy="18"
+                                        r="1"
+                                        fill="#200E32"
+                                      />
                                     </svg>
                                   </span>
                                 </>
@@ -2784,9 +2711,20 @@ const Output: React.FC<OutputInterface> = ({
                                       version="1.1"
                                     >
                                       <title>Desktop</title>
-                                      <g stroke="none" strokeWidth="1" fill="none" fillRule="evenodd">
+                                      <g
+                                        stroke="none"
+                                        strokeWidth="1"
+                                        fill="none"
+                                        fillRule="evenodd"
+                                      >
                                         <g>
-                                          <rect x="0" y="0" width="24" height="24" fillRule="nonzero" />
+                                          <rect
+                                            x="0"
+                                            y="0"
+                                            width="24"
+                                            height="24"
+                                            fillRule="nonzero"
+                                          />
                                           <rect
                                             x="3"
                                             y="4"
@@ -2835,18 +2773,33 @@ const Output: React.FC<OutputInterface> = ({
                                     <button
                                       id="mobile-device-view"
                                       className={`w-[55px] button pad-10 d-flex align-center align-self-center output-email-width-button-mobile justify-center
-                                    ${outputEmailWidth === "Mobile" && "bg-active"}
+                                    ${
+                                      outputEmailWidth === "Mobile" &&
+                                      "bg-active"
+                                    }
                                     `}
-                                      onClick={() => toggleOutputEmailWidth("Mobile")}
+                                      onClick={() =>
+                                        toggleOutputEmailWidth("Mobile")
+                                      }
                                     >
-                                      <svg xmlns="http://www.w3.org/2000/svg" width="25px" height="" viewBox="0 0 24 24" fill="none">
-                                        <path d="M11 18H13M9.2 21H14.8C15.9201 21 16.4802 21 16.908 20.782C17.2843 20.5903 17.5903 20.2843 17.782 19.908C18 19.4802 18 18.9201 18 17.8V6.2C18 5.0799 18 4.51984 17.782 4.09202C17.5903 3.71569 17.2843 3.40973 16.908 3.21799C16.4802 3 15.9201 3 14.8 3H9.2C8.0799 3 7.51984 3 7.09202 3.21799C6.71569 3.40973 6.40973 3.71569 6.21799 4.09202C6 4.51984 6 5.07989 6 6.2V17.8C6 18.9201 6 19.4802 6.21799 19.908C6.40973 20.2843 6.71569 20.5903 7.09202 20.782C7.51984 21 8.07989 21 9.2 21Z" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        width="25px"
+                                        height=""
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                      >
+                                        <path
+                                          d="M11 18H13M9.2 21H14.8C15.9201 21 16.4802 21 16.908 20.782C17.2843 20.5903 17.5903 20.2843 17.782 19.908C18 19.4802 18 18.9201 18 17.8V6.2C18 5.0799 18 4.51984 17.782 4.09202C17.5903 3.71569 17.2843 3.40973 16.908 3.21799C16.4802 3 15.9201 3 14.8 3H9.2C8.0799 3 7.51984 3 7.09202 3.21799C6.71569 3.40973 6.40973 3.71569 6.21799 4.09202C6 4.51984 6 5.07989 6 6.2V17.8C6 18.9201 6 19.4802 6.21799 19.908C6.40973 20.2843 6.71569 20.5903 7.09202 20.782C7.51984 21 8.07989 21 9.2 21Z"
+                                          stroke="#000000"
+                                          stroke-width="2"
+                                          stroke-linecap="round"
+                                          stroke-linejoin="round"
+                                        ></path>
                                       </svg>
                                       {/* <span className="ml-3 font-size-medium">Mobile View</span> */}
                                     </button>
                                   </>
-
-
                                 )}
 
                                 {outputEmailWidth !== "Tab" && (
@@ -2862,7 +2815,9 @@ const Output: React.FC<OutputInterface> = ({
                                       className={`w-[55px] button pad-10 d-flex align-center align-self-center output-email-width-button-tab justify-center
                                   ${outputEmailWidth === "Tab" && "bg-active"}
                                   `}
-                                      onClick={() => toggleOutputEmailWidth("Tab")}
+                                      onClick={() =>
+                                        toggleOutputEmailWidth("Tab")
+                                      }
                                     >
                                       <svg
                                         xmlns="http://www.w3.org/2000/svg"
@@ -2880,7 +2835,12 @@ const Output: React.FC<OutputInterface> = ({
                                           strokeWidth="2"
                                           strokeLinecap="round"
                                         />
-                                        <circle cx="12" cy="18" r="1" fill="#200E32" />
+                                        <circle
+                                          cx="12"
+                                          cy="18"
+                                          r="1"
+                                          fill="#200E32"
+                                        />
                                       </svg>
                                       {/* <span className="ml-3 font-size-medium">Tab View</span> */}
                                     </button>
@@ -2910,9 +2870,20 @@ const Output: React.FC<OutputInterface> = ({
                                         version="1.1"
                                       >
                                         <title>Desktop</title>
-                                        <g stroke="none" strokeWidth="1" fill="none" fillRule="evenodd">
+                                        <g
+                                          stroke="none"
+                                          strokeWidth="1"
+                                          fill="none"
+                                          fillRule="evenodd"
+                                        >
                                           <g>
-                                            <rect x="0" y="0" width="24" height="24" fillRule="nonzero" />
+                                            <rect
+                                              x="0"
+                                              y="0"
+                                              width="24"
+                                              height="24"
+                                              fillRule="nonzero"
+                                            />
                                             <rect
                                               x="3"
                                               y="4"
@@ -2947,7 +2918,6 @@ const Output: React.FC<OutputInterface> = ({
                                       {/* <span className="ml-5 font-size-medium">Desktop</span> */}
                                     </button>
                                   </>
-
                                 )}
                               </div>
                             )}
@@ -3053,15 +3023,15 @@ const Output: React.FC<OutputInterface> = ({
                                 display: "flex",
                                 alignItems: "center",
                                 borderRadius: "4px",
-                                background: 'none !important',
+                                background: "none !important",
                                 cursor:
                                   combinedResponses[currentIndex] &&
-                                    !isRegenerating
+                                  !isRegenerating
                                     ? "pointer"
                                     : "not-allowed",
                                 opacity:
                                   combinedResponses[currentIndex] &&
-                                    !isRegenerating
+                                  !isRegenerating
                                     ? 1
                                     : 0.6,
                               }}
@@ -3090,8 +3060,9 @@ const Output: React.FC<OutputInterface> = ({
                           </ReactTooltip>
                           <button
                             id="copy-to-clipboard-tooltip"
-                            className={`button d-flex align-center square-40 justify-center ${isCopyText && "save-button auto-width"
-                              }`}
+                            className={`button d-flex align-center square-40 justify-center ${
+                              isCopyText && "save-button auto-width"
+                            }`}
                             onClick={copyToClipboardHandler}
                           >
                             {isCopyText ? (
@@ -3233,7 +3204,9 @@ const Output: React.FC<OutputInterface> = ({
                       }}
                       aria-label="Close"
                       title="Close"
-                    >×</button>
+                    >
+                      ×
+                    </button>
                   </div>
                   <div>
                     <label>Email Body</label>
@@ -3246,8 +3219,12 @@ const Output: React.FC<OutputInterface> = ({
                         dangerouslySetInnerHTML={{
                           __html: editableContent,
                         }}
-                        onInput={e => setEditableContent(e.currentTarget.innerHTML)}
-                        onBlur={e => setEditableContent(e.currentTarget.innerHTML)}
+                        onInput={(e) =>
+                          setEditableContent(e.currentTarget.innerHTML)
+                        }
+                        onBlur={(e) =>
+                          setEditableContent(e.currentTarget.innerHTML)
+                        }
                         style={{
                           minHeight: "340px",
                           height: "auto",
@@ -3278,8 +3255,9 @@ const Output: React.FC<OutputInterface> = ({
                   <li className="flex-50percent-991 flex-full-640">
                     <button
                       onClick={tabHandler3}
-                      className={`button full-width ${tab3 === "Stages" ? "active" : ""
-                        }`}
+                      className={`button full-width ${
+                        tab3 === "Stages" ? "active" : ""
+                      }`}
                     >
                       Stages
                     </button>
@@ -3287,8 +3265,9 @@ const Output: React.FC<OutputInterface> = ({
                   <li className="flex-50percent-991 flex-full-640">
                     <button
                       onClick={() => setTab3("Search results")}
-                      className={`button full-width ${tab3 === "Search results" ? "active" : ""
-                        }`}
+                      className={`button full-width ${
+                        tab3 === "Search results" ? "active" : ""
+                      }`}
                     >
                       Search results
                     </button>
@@ -3296,8 +3275,9 @@ const Output: React.FC<OutputInterface> = ({
                   <li className="flex-50percent-991 flex-full-640">
                     <button
                       onClick={tabHandler3}
-                      className={`button full-width ${tab3 === "All sourced data" ? "active" : ""
-                        }`}
+                      className={`button full-width ${
+                        tab3 === "All sourced data" ? "active" : ""
+                      }`}
                     >
                       All sourced data
                     </button>
@@ -3305,8 +3285,9 @@ const Output: React.FC<OutputInterface> = ({
                   <li className="flex-50percent-991 flex-full-640">
                     <button
                       onClick={tabHandler3}
-                      className={`button full-width ${tab3 === "Sourced data summary" ? "active" : ""
-                        }`}
+                      className={`button full-width ${
+                        tab3 === "Sourced data summary" ? "active" : ""
+                      }`}
                     >
                       Sourced data summary
                     </button>
@@ -3451,7 +3432,7 @@ const Output: React.FC<OutputInterface> = ({
                       <pre className="textarea-full-height preview-content-area">
                         <ul>
                           {(allsearchResults[currentIndex] ?? []).length ===
-                            0 ? (
+                          0 ? (
                             <li>No search results available.</li>
                           ) : (
                             allsearchResults[currentIndex].map(
@@ -3693,7 +3674,10 @@ const Output: React.FC<OutputInterface> = ({
                         if (handleSubjectTextChange) {
                           handleSubjectTextChange("");
                         }
-                      } else if (newMode === "With Placeholder" && toneSettings?.subjectTemplate) {
+                      } else if (
+                        newMode === "With Placeholder" &&
+                        toneSettings?.subjectTemplate
+                      ) {
                         // Only call if setSubjectText is defined
                         if (setSubjectText) {
                           setSubjectText(toneSettings.subjectTemplate);
@@ -3713,7 +3697,9 @@ const Output: React.FC<OutputInterface> = ({
                     <input
                       type="text"
                       placeholder="Enter subject here"
-                      value={subjectMode === "With Placeholder" ? subjectText : ""}
+                      value={
+                        subjectMode === "With Placeholder" ? subjectText : ""
+                      }
                       onChange={(e) => {
                         if (handleSubjectTextChange) {
                           handleSubjectTextChange(e.target.value);
@@ -3728,8 +3714,14 @@ const Output: React.FC<OutputInterface> = ({
                   <select
                     className="form-control"
                     value={toneSettings?.language || "English"}
-                    onChange={(e) => toneSettingsHandler?.({ target: { name: 'language', value: e.target.value } })}
-                    disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+                    onChange={(e) =>
+                      toneSettingsHandler?.({
+                        target: { name: "language", value: e.target.value },
+                      })
+                    }
+                    disabled={
+                      sessionStorage.getItem("isDemoAccount") === "true"
+                    }
                   >
                     <option value="English">English</option>
                     <option value="Spanish">Spanish</option>
@@ -3749,8 +3741,14 @@ const Output: React.FC<OutputInterface> = ({
                   <select
                     className="form-control"
                     value={toneSettings?.emojis || "None"}
-                    onChange={(e) => toneSettingsHandler?.({ target: { name: 'emojis', value: e.target.value } })}
-                    disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+                    onChange={(e) =>
+                      toneSettingsHandler?.({
+                        target: { name: "emojis", value: e.target.value },
+                      })
+                    }
+                    disabled={
+                      sessionStorage.getItem("isDemoAccount") === "true"
+                    }
                   >
                     <option value="None">None</option>
                     <option value="Minimal">Minimal</option>
@@ -3763,8 +3761,14 @@ const Output: React.FC<OutputInterface> = ({
                   <select
                     className="form-control"
                     value={toneSettings?.tone || "Professional"}
-                    onChange={(e) => toneSettingsHandler?.({ target: { name: 'tone', value: e.target.value } })}
-                    disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+                    onChange={(e) =>
+                      toneSettingsHandler?.({
+                        target: { name: "tone", value: e.target.value },
+                      })
+                    }
+                    disabled={
+                      sessionStorage.getItem("isDemoAccount") === "true"
+                    }
                   >
                     <option value="Professional">Professional</option>
                     <option value="Casual">Casual</option>
@@ -3784,8 +3788,14 @@ const Output: React.FC<OutputInterface> = ({
                   <select
                     className="form-control"
                     value={toneSettings?.chatty || "Medium"}
-                    onChange={(e) => toneSettingsHandler?.({ target: { name: 'chatty', value: e.target.value } })}
-                    disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+                    onChange={(e) =>
+                      toneSettingsHandler?.({
+                        target: { name: "chatty", value: e.target.value },
+                      })
+                    }
+                    disabled={
+                      sessionStorage.getItem("isDemoAccount") === "true"
+                    }
                   >
                     <option value="Low">Low</option>
                     <option value="Medium">Medium</option>
@@ -3798,8 +3808,14 @@ const Output: React.FC<OutputInterface> = ({
                   <select
                     className="form-control"
                     value={toneSettings?.creativity || "Medium"}
-                    onChange={(e) => toneSettingsHandler?.({ target: { name: 'creativity', value: e.target.value } })}
-                    disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+                    onChange={(e) =>
+                      toneSettingsHandler?.({
+                        target: { name: "creativity", value: e.target.value },
+                      })
+                    }
+                    disabled={
+                      sessionStorage.getItem("isDemoAccount") === "true"
+                    }
                   >
                     <option value="Low">Low</option>
                     <option value="Medium">Medium</option>
@@ -3812,8 +3828,14 @@ const Output: React.FC<OutputInterface> = ({
                   <select
                     className="form-control"
                     value={toneSettings?.reasoning || "Medium"}
-                    onChange={(e) => toneSettingsHandler?.({ target: { name: 'reasoning', value: e.target.value } })}
-                    disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+                    onChange={(e) =>
+                      toneSettingsHandler?.({
+                        target: { name: "reasoning", value: e.target.value },
+                      })
+                    }
+                    disabled={
+                      sessionStorage.getItem("isDemoAccount") === "true"
+                    }
                   >
                     <option value="Low">Low</option>
                     <option value="Medium">Medium</option>
@@ -3826,8 +3848,14 @@ const Output: React.FC<OutputInterface> = ({
                   <select
                     className="form-control"
                     value={toneSettings?.dateGreeting || "No"}
-                    onChange={(e) => toneSettingsHandler?.({ target: { name: 'dateGreeting', value: e.target.value } })}
-                    disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+                    onChange={(e) =>
+                      toneSettingsHandler?.({
+                        target: { name: "dateGreeting", value: e.target.value },
+                      })
+                    }
+                    disabled={
+                      sessionStorage.getItem("isDemoAccount") === "true"
+                    }
                   >
                     <option value="Yes">Yes</option>
                     <option value="No">No</option>
@@ -3839,8 +3867,14 @@ const Output: React.FC<OutputInterface> = ({
                   <select
                     className="form-control"
                     value={toneSettings?.dateFarewell || "No"}
-                    onChange={(e) => toneSettingsHandler?.({ target: { name: 'dateFarewell', value: e.target.value } })}
-                    disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+                    onChange={(e) =>
+                      toneSettingsHandler?.({
+                        target: { name: "dateFarewell", value: e.target.value },
+                      })
+                    }
+                    disabled={
+                      sessionStorage.getItem("isDemoAccount") === "true"
+                    }
                   >
                     <option value="Yes">Yes</option>
                     <option value="No">No</option>
@@ -3865,7 +3899,7 @@ const Output: React.FC<OutputInterface> = ({
                       opacity: isSavingSettings ? 0.6 : 1,
                       fontSize: "16px",
                       fontWeight: "500",
-                      marginTop: "20px"
+                      marginTop: "20px",
                     }}
                   >
                     {isSavingSettings ? "Saving..." : "Save Settings"}
@@ -3874,15 +3908,19 @@ const Output: React.FC<OutputInterface> = ({
               )}
 
               {sessionStorage.getItem("isDemoAccount") === "true" && (
-                <div className="demo-notice" style={{
-                  padding: "10px",
-                  background: "#fff3cd",
-                  border: "1px solid #ffeaa7",
-                  borderRadius: "4px",
-                  color: "#856404",
-                  marginTop: "20px"
-                }}>
-                  <strong>Demo Mode:</strong> Settings are visible but disabled. Upgrade your account to enable these features.
+                <div
+                  className="demo-notice"
+                  style={{
+                    padding: "10px",
+                    background: "#fff3cd",
+                    border: "1px solid #ffeaa7",
+                    borderRadius: "4px",
+                    color: "#856404",
+                    marginTop: "20px",
+                  }}
+                >
+                  <strong>Demo Mode:</strong> Settings are visible but disabled.
+                  Upgrade your account to enable these features.
                 </div>
               )}
             </div>
@@ -3898,7 +3936,7 @@ const Output: React.FC<OutputInterface> = ({
       {/* Email Sending Loader Modal */}
       <AppModal
         isOpen={sendingEmail}
-        onClose={() => { }}
+        onClose={() => {}}
         type="loader"
         loaderMessage="Sending email..."
         closeOnOverlayClick={false}
