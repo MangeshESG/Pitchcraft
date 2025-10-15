@@ -24,11 +24,31 @@ type GPTModel = {
 // ====================================================================
 // PROPS INTERFACES
 // ====================================================================
+
+interface TemplateDefinition {
+  id: number;
+  templateName: string;
+  aiInstructions: string;
+  aiInstructionsForEdit: string;
+  placeholderList: string;
+  placeholderListExtensive: string;
+  masterBlueprintUnpopulated: string;
+  createdAt: string;
+  updatedAt?: string;
+  isActive: boolean;
+  usageCount: number;
+}
+
+
 interface TemplateTabProps {
   masterPrompt: string;
   setMasterPrompt: (value: string) => void;
+  masterPromptExtensive: string;
+  setMasterPromptExtensive: (value: string) => void;
   systemPrompt: string;
   setSystemPrompt: (value: string) => void;
+  systemPromptForEdit: string;
+  setSystemPromptForEdit: (value: string) => void;
   previewText: string;
   setPreviewText: (value: string) => void;
   startConversation: () => void;
@@ -37,6 +57,15 @@ interface TemplateTabProps {
   selectedModel: string;
   setSelectedModel: (value: string) => void;
   availableModels: GPTModel[];
+  // ✅ NEW PROPS
+  saveTemplateDefinition: () => Promise<void>;
+  isSavingDefinition: boolean;
+  saveDefinitionStatus: 'idle' | 'success' | 'error';
+  templateDefinitions: TemplateDefinition[];
+  loadTemplateDefinition: (id: number) => Promise<void>;
+  selectedTemplateDefinitionId: number | null;
+  templateName: string;
+  setTemplateName: (value: string) => void;
 }
 
 interface EmailCampaignBuilderProps {
@@ -56,7 +85,6 @@ interface ConversationTabProps {
   resetAll: () => void;
 }
 
-// Updated ResultTabProps with additional props
 interface ResultTabProps {
   isComplete: boolean;
   finalPrompt: string;
@@ -71,6 +99,19 @@ interface ResultTabProps {
   selectedModel: string;
   effectiveUserId: string | null;
   messages: Message[];
+  selectedTemplateDefinitionId: number | null;
+}
+
+// ✅ Add interface for EditInstructionsModal
+interface EditInstructionsModalProps {
+  showEditInstructions: boolean;
+  isEditMode: boolean;
+  editInstructionsInput: string;
+  setEditInstructionsInput: (value: string) => void;
+  setShowEditInstructions: (value: boolean) => void;
+  setIsEditMode: (value: boolean) => void;
+  setCustomEditInstructions: (value: string) => void;
+  setShowPlaceholderPicker: (value: boolean) => void;
 }
 
 // ====================================================================
@@ -91,14 +132,64 @@ export function useSessionState<T>(key: string, defaultValue: T): [T, React.Disp
 
 const TemplateTab: React.FC<TemplateTabProps> = ({
   masterPrompt, setMasterPrompt,
+  masterPromptExtensive, setMasterPromptExtensive,
   systemPrompt, setSystemPrompt,
+  systemPromptForEdit, setSystemPromptForEdit,
   previewText, setPreviewText,
   startConversation, currentPlaceholders,
   extractPlaceholders, selectedModel,
-  setSelectedModel, availableModels
+  setSelectedModel, availableModels,
+  saveTemplateDefinition, isSavingDefinition,
+  saveDefinitionStatus, templateDefinitions,
+  loadTemplateDefinition, selectedTemplateDefinitionId,
+  templateName, setTemplateName
 }) => {
   return (
     <div className="template-tab">
+      {/* ✅ NEW - Template Definition Selector */}
+      <div className="template-definition-section">
+        <div className="template-section">
+          <h2>📋 Load Existing Template Definition</h2>
+          <p>Select a saved template definition to auto-fill all fields below.</p>
+        </div>
+        <div className="template-definition-selector">
+          {templateDefinitions.length > 0 ? (
+            <select
+              className="template-definition-dropdown"
+              onChange={(e) => {
+                const id = parseInt(e.target.value);
+                if (id > 0) loadTemplateDefinition(id);
+              }}
+              value={selectedTemplateDefinitionId || ''}
+            >
+              <option value="">-- Select a template definition --</option>
+              {templateDefinitions.map((def) => (
+                <option key={def.id} value={def.id}>
+                  {def.templateName} (Used {def.usageCount} times)
+                </option>
+              ))}
+            </select>
+          ) : (
+            <p className="no-templates-message">No saved template definitions yet. Create one below!</p>
+          )}
+        </div>
+      </div>
+
+      {/* ✅ NEW - Template Name Input */}
+      <div className="template-name-section">
+        <div className="template-section">
+          <h2>Template Name</h2>
+          <p>Give this template definition a unique name.</p>
+        </div>
+        <input
+          type="text"
+          value={templateName}
+          onChange={(e) => setTemplateName(e.target.value)}
+          className="template-name-input"
+          placeholder="e.g., Sales Outreach Template v1"
+        />
+      </div>
+
       {/* Model Selection Section */}
       <div className="model-selection-section">
         <h2>Select GPT-5 Model</h2>
@@ -130,19 +221,56 @@ const TemplateTab: React.FC<TemplateTabProps> = ({
             onChange={(e) => setSystemPrompt(e.target.value)}
             className="template-textarea"
             placeholder="e.g., You are a helpful assistant. Your goal is to fill in the placeholders in the user's template..."
+            rows={6}
           />
         </div>
+        
         <div>
           <div className="template-section">
-            <h2>2. Placeholders List</h2>
-            <p>Enter your {'{'}placeholders{'}'} for the AI to fill.</p>
+            <h2>1b. AI Instructions for Editing</h2>
+            <p>Define how the AI should behave when editing placeholder values.</p>
+          </div>
+          <textarea
+            value={systemPromptForEdit}
+            onChange={(e) => setSystemPromptForEdit(e.target.value)}
+            className="template-textarea"
+            placeholder="e.g., You are an AI assistant helping to edit placeholder values. Use {placeholder} and {currentValue} as variables..."
+            rows={6}
+          />
+          <p className="helper-text" style={{ fontSize: '12px', color: '#6b7280', marginTop: '8px' }}>
+            💡 Use <code>{'{placeholder}'}</code> and <code>{'{currentValue}'}</code> as placeholders in your instructions
+          </p>
+        </div>
+
+        <div>
+          <div className="template-section">
+            <h2>2. Placeholders List (Short)</h2>
+            <p>Enter a brief list of placeholders for the AI to fill.</p>
           </div>
           <textarea
             value={masterPrompt}
             onChange={(e) => setMasterPrompt(e.target.value)}
             className="template-textarea"
-            placeholder="e.g., Subject: Hi {name}, I noticed..."
+            placeholder="e.g., {name}, {company}, {role}"
+            rows={4}
           />
+        </div>
+
+        <div>
+          <div className="template-section">
+            <h2>2b. Placeholders List (Extensive)</h2>
+            <p>Provide detailed descriptions and context for each placeholder.</p>
+          </div>
+          <textarea
+            value={masterPromptExtensive}
+            onChange={(e) => setMasterPromptExtensive(e.target.value)}
+            className="template-textarea"
+            placeholder="e.g., {name} - Recipient's full name&#10;{company} - Company name where they work&#10;{role} - Their job title or position"
+            rows={8}
+          />
+          <p className="helper-text" style={{ fontSize: '12px', color: '#6b7280', marginTop: '8px' }}>
+            💡 This extensive list helps the AI understand context and generate better questions
+          </p>
         </div>
       </div>
       
@@ -179,18 +307,56 @@ const TemplateTab: React.FC<TemplateTabProps> = ({
         )}
       </div>
       
-      <div className="start-button-container">
-        <button
-          onClick={startConversation}
-          disabled={currentPlaceholders.length === 0 || systemPrompt.trim() === ''}
-          className="start-button"
-        >
-          Start Filling Placeholders →
-        </button>
+      {/* ✅ NEW - Save Template Definition Button */}
+      <div className="template-actions-section">
+        <div className="template-actions-grid">
+          <button
+            onClick={saveTemplateDefinition}
+            disabled={isSavingDefinition || !templateName.trim() || !systemPrompt.trim() || !masterPrompt.trim()}
+            className="save-definition-button"
+          >
+            {isSavingDefinition ? (
+              <>
+                <Loader2 size={20} className="spinning" /> Saving Template Definition...
+              </>
+            ) : saveDefinitionStatus === 'success' ? (
+              <>
+                <CheckCircle size={20} /> Template Definition Saved!
+              </>
+            ) : saveDefinitionStatus === 'error' ? (
+              <>
+                <XCircle size={20} /> Save Failed
+              </>
+            ) : (
+              <>
+                <FileText size={20} /> Save Template Definition
+              </>
+            )}
+          </button>
+
+          <button
+            onClick={startConversation}
+            disabled={currentPlaceholders.length === 0 || systemPrompt.trim() === '' || !selectedTemplateDefinitionId}
+            className="start-button"
+          >
+            <MessageSquare size={20} /> Start Filling Placeholders →
+          </button>
+        </div>
+        
+        {saveDefinitionStatus === 'success' && (
+          <p className="success-message">✅ Template definition saved successfully! You can now start the conversation.</p>
+        )}
+        {saveDefinitionStatus === 'error' && (
+          <p className="error-message">❌ Failed to save template definition. Please try again.</p>
+        )}
+        {!selectedTemplateDefinitionId && currentPlaceholders.length > 0 && (
+          <p className="info-message">ℹ️ Please save the template definition before starting the conversation.</p>
+        )}
       </div>
     </div>
   );
 };
+
 
 const ConversationTab: React.FC<ConversationTabProps> = ({
   conversationStarted, messages, isTyping, isComplete, currentAnswer, setCurrentAnswer, handleSendMessage, handleKeyPress, chatEndRef, resetAll
@@ -276,7 +442,6 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   );
 };
 
-// Updated ResultTab with save functionality
 const ResultTab: React.FC<ResultTabProps> = ({ 
   isComplete, 
   finalPrompt, 
@@ -290,12 +455,12 @@ const ResultTab: React.FC<ResultTabProps> = ({
   placeholderValues,
   selectedModel,
   effectiveUserId,
-  messages
+  messages,
+  selectedTemplateDefinitionId
 }) => {
   const [copiedItem, setCopiedItem] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [templateName, setTemplateName] = useState("");
 
   const handleCopy = (text: string, item: string) => {
     copyToClipboard(text);
@@ -303,48 +468,49 @@ const ResultTab: React.FC<ResultTabProps> = ({
     setTimeout(() => setCopiedItem(""), 2000);
   };
 
-const saveCampaignTemplate = async () => {
-  if (!effectiveUserId || !templateName.trim()) {
-    alert("Please enter a template name");
-    return;
-  }
-
-  setIsSaving(true);
-  setSaveStatus('idle');
-
-  try {
-    const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template/save`, {
-      clientId: effectiveUserId,
-      templateName: templateName,
-      aiInstructions: systemPrompt,  // Changed from systemPrompt
-      placeholderListInfo: masterPrompt,  // Changed from masterPrompt
-      masterBlueprintUnpopulated: previewText,  // Changed from previewText
-      placeholderListWithValue: finalPrompt,  // Changed from finalPrompt
-      campaignBlueprint: finalPreviewText,  // Changed from finalPreviewText
-      placeholderValues: placeholderValues,
-      selectedModel: selectedModel,
-      conversationMessages: messages.map(msg => ({
-        type: msg.type,
-        content: msg.content,
-        timestamp: msg.timestamp
-      }))
-    });
-
-    if (response.data.success) {
-      setSaveStatus('success');
-      setTemplateName('');
-      setTimeout(() => setSaveStatus('idle'), 3000);
+  const saveCampaignTemplate = async () => {
+    if (!effectiveUserId) {
+      alert("User ID is required");
+      return;
     }
-  } catch (error) {
-    console.error('Error saving template:', error);
-    setSaveStatus('error');
-    setTimeout(() => setSaveStatus('idle'), 3000);
-  } finally {
-    setIsSaving(false);
-  }
-};
 
-   const renderContent = (content: string) => {
+    if (!selectedTemplateDefinitionId || selectedTemplateDefinitionId <= 0) {
+      alert("Please create or select a template definition first");
+      return;
+    }
+
+    setIsSaving(true);
+    setSaveStatus('idle');
+
+    try {
+      const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template/save`, {
+        clientId: effectiveUserId,
+        templateDefinitionId: selectedTemplateDefinitionId,
+        placeholderListWithValue: finalPrompt,
+        campaignBlueprint: finalPreviewText,
+        placeholderValues: placeholderValues,
+        selectedModel: selectedModel,
+        conversationMessages: messages.map(msg => ({
+          type: msg.type,
+          content: msg.content,
+          timestamp: msg.timestamp
+        }))
+      });
+
+      if (response.data.success) {
+        setSaveStatus('success');
+        setTimeout(() => setSaveStatus('idle'), 3000);
+      }
+    } catch (error) {
+      console.error('Error saving template:', error);
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus('idle'), 3000);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const renderContent = (content: string) => {
     if (!content) return null;
     const isHtml = /<[a-z][\s\S]*>/i.test(content.trim());
 
@@ -386,7 +552,6 @@ const saveCampaignTemplate = async () => {
             </p>
           </div>
 
-          {/* Campaign Template (Previously Additional Text Result) */}
           {previewText && finalPreviewText ? (
             <div className="result-section campaign-template">
               <h3>Campaign Template:</h3>
@@ -412,7 +577,6 @@ const saveCampaignTemplate = async () => {
             </div>
           )}
 
-          {/* Master Campaign Result */}
           {finalPrompt && (
             <div className="result-section">
               <h3>Master Campaign Result:</h3>
@@ -434,21 +598,17 @@ const saveCampaignTemplate = async () => {
             </div>
           )}
 
-          {/* Save Template Section */}
           <div className="save-template-section">
-            <h3>Save Campaign Template</h3>
+            <h3>Save Campaign</h3>
+            {!selectedTemplateDefinitionId && (
+              <p className="warning-text" style={{ marginBottom: '10px' }}>
+                ⚠️ No template definition selected. Please create one from the Template tab first.
+              </p>
+            )}
             <div className="save-template-form">
-              <input
-                type="text"
-                value={templateName}
-                onChange={(e) => setTemplateName(e.target.value)}
-                placeholder="Enter template name..."
-                className="template-name-input"
-                disabled={isSaving}
-              />
               <button 
                 onClick={saveCampaignTemplate} 
-                disabled={isSaving || !templateName.trim()}
+                disabled={isSaving || !selectedTemplateDefinitionId}
                 className="save-template-button"
               >
                 {isSaving ? (
@@ -465,16 +625,16 @@ const saveCampaignTemplate = async () => {
                   </>
                 ) : (
                   <>
-                    <FileText size={16} /> Save Template
+                    <FileText size={16} /> Save Campaign
                   </>
                 )}
               </button>
             </div>
             {saveStatus === 'success' && (
-              <p className="success-message">Template saved successfully!</p>
+              <p className="success-message">Campaign saved successfully!</p>
             )}
             {saveStatus === 'error' && (
-              <p className="error-message">Failed to save template. Please try again.</p>
+              <p className="error-message">Failed to save campaign. Please try again.</p>
             )}
           </div>
 
@@ -488,18 +648,8 @@ const saveCampaignTemplate = async () => {
     </div>
   );
 };
-// Add these interface and component definitions here
-interface EditInstructionsModalProps {
-  showEditInstructions: boolean;
-  isEditMode: boolean;
-  editInstructionsInput: string;
-  setEditInstructionsInput: (value: string) => void;
-  setShowEditInstructions: (value: boolean) => void;
-  setIsEditMode: (value: boolean) => void;
-  setCustomEditInstructions: (value: string) => void;
-  setShowPlaceholderPicker: (value: boolean) => void;
-}
 
+// ✅ Add EditInstructionsModal component BEFORE MasterPromptCampaignBuilder
 const EditInstructionsModal: React.FC<EditInstructionsModalProps> = ({
   showEditInstructions,
   isEditMode,
@@ -535,7 +685,7 @@ const EditInstructionsModal: React.FC<EditInstructionsModalProps> = ({
             <textarea
               value={editInstructionsInput}
               onChange={(e) => setEditInstructionsInput(e.target.value)}
-              className="edit-instructions-textarea"
+               className="edit-instructions-textarea"
               rows={20}
               placeholder="Enter custom instructions for the AI..."
               autoFocus
@@ -589,6 +739,7 @@ const EditInstructionsModal: React.FC<EditInstructionsModalProps> = ({
     </div>
   );
 };
+
 // ====================================================================
 // MAIN COMPONENT
 // ====================================================================
@@ -613,91 +764,195 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
   const [customEditInstructions, setCustomEditInstructions] = useState("");
   const [editInstructionsInput, setEditInstructionsInput] = useState("");
 
+  // ✅ Add selectedTemplateDefinitionId state
+  const [selectedTemplateDefinitionId, setSelectedTemplateDefinitionId] = useState<number | null>(null);
+
+  const [messages, setMessages] = useSessionState<Message[]>("campaign_messages", []);
+  const [finalPrompt, setFinalPrompt] = useSessionState<string>("campaign_final_prompt", "");
+  const [finalPreviewText, setFinalPreviewText] = useSessionState<string>("campaign_final_preview", "");
+  const [placeholderValues, setPlaceholderValues] = useSessionState<Record<string, string>>("campaign_placeholder_values", {});
+  const [isComplete, setIsComplete] = useSessionState<boolean>("campaign_is_complete", false);
+  const [conversationStarted, setConversationStarted] = useSessionState<boolean>("campaign_started", false);
+  const [systemPrompt, setSystemPrompt] = useSessionState<string>("campaign_system_prompt", "");
+  const [systemPromptForEdit, setSystemPromptForEdit] = useSessionState<string>("campaign_system_prompt_edit", ""); // ✅ NEW
+  const [masterPrompt, setMasterPrompt] = useSessionState<string>("campaign_master_prompt", "");
+  const [previewText, setPreviewText] = useSessionState<string>("campaign_preview_text", "");
+  const [selectedModel, setSelectedModel] = useSessionState<string>("campaign_selected_model", "gpt-5");
+  const [masterPromptExtensive, setMasterPromptExtensive] = useSessionState<string>("campaign_master_prompt_extensive", ""); // ✅ NEW
+
+  const baseUserId = sessionStorage.getItem("clientId");
+  const effectiveUserId = selectedClient || baseUserId;
+
+  const [templateDefinitions, setTemplateDefinitions] = useState<TemplateDefinition[]>([]);
+  const [isSavingDefinition, setIsSavingDefinition] = useState(false);
+  const [saveDefinitionStatus, setSaveDefinitionStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [templateName, setTemplateName] = useSessionState<string>("campaign_template_name", "");
+  const [isLoadingDefinitions, setIsLoadingDefinitions] = useState(false);
+
+  useEffect(() => {
+    loadTemplateDefinitions();
+  }, []);
+
+  const loadTemplateDefinitions = async () => {
+    setIsLoadingDefinitions(true);
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/CampaignPrompt/template-definitions?activeOnly=true`);
+      setTemplateDefinitions(response.data.templateDefinitions || []);
+    } catch (error) {
+      console.error('Error loading template definitions:', error);
+    } finally {
+      setIsLoadingDefinitions(false);
+    }
+  };
+
+  // ✅ NEW - Save template definition function
+  const saveTemplateDefinition = async () => {
+    if (!templateName.trim()) {
+      alert("Please enter a template name");
+      return;
+    }
+
+    if (!systemPrompt.trim() || !masterPrompt.trim()) {
+      alert("Please fill in AI Instructions and Placeholders List");
+      return;
+    }
+
+    setIsSavingDefinition(true);
+    setSaveDefinitionStatus('idle');
+
+    try {
+      const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template-definition/save`, {
+        templateName: templateName,
+        aiInstructions: systemPrompt,
+        aiInstructionsForEdit: systemPromptForEdit,
+        placeholderList: masterPrompt,
+        placeholderListExtensive: masterPromptExtensive,
+        masterBlueprintUnpopulated: previewText,
+        createdBy: effectiveUserId
+      });
+
+      if (response.data.success) {
+        setSaveDefinitionStatus('success');
+        setSelectedTemplateDefinitionId(response.data.templateDefinitionId);
+        
+        // Reload template definitions
+        await loadTemplateDefinitions();
+        
+        setTimeout(() => setSaveDefinitionStatus('idle'), 3000);
+      }
+    } catch (error: any) {
+      console.error('Error saving template definition:', error);
+      
+      if (error.response?.data?.message?.includes('already exists')) {
+        alert('A template with this name already exists. Please use a different name.');
+      } else {
+        setSaveDefinitionStatus('error');
+        setTimeout(() => setSaveDefinitionStatus('idle'), 3000);
+      }
+    } finally {
+      setIsSavingDefinition(false);
+    }
+  };
+
+  // ✅ NEW - Load a specific template definition
+  const loadTemplateDefinitionById = async (id: number) => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/CampaignPrompt/template-definition/${id}`);
+      const def = response.data;
+      
+      setTemplateName(def.templateName);
+      setSystemPrompt(def.aiInstructions || "");
+      setSystemPromptForEdit(def.aiInstructionsForEdit || "");
+      setMasterPrompt(def.placeholderList || "");
+      setMasterPromptExtensive(def.placeholderListExtensive || "");
+      setPreviewText(def.masterBlueprintUnpopulated || "");
+      setSelectedTemplateDefinitionId(def.id);
+      
+      // Show success message
+      alert(`Template "${def.templateName}" loaded successfully!`);
+    } catch (error) {
+      console.error('Error loading template definition:', error);
+      alert('Failed to load template definition');
+    }
+  };
+
 
   useEffect(() => {
     const templateId = sessionStorage.getItem('editTemplateId');
     const editMode = sessionStorage.getItem('editTemplateMode');
     
     if (templateId && editMode === 'true') {
-      // Clear all existing campaign data first
       clearAllSessionData();
       
       setEditTemplateId(parseInt(templateId));
       setIsEditMode(true);
-      setShowEditInstructions(true); // Show instructions input first
+      setShowEditInstructions(true);
       loadTemplateForEdit(parseInt(templateId));
       
-      // Clear the session storage flags
       sessionStorage.removeItem('editTemplateId');
       sessionStorage.removeItem('editTemplateMode');
     }
   }, []);
 
-
-const clearAllSessionData = () => {
-  sessionStorage.removeItem("campaign_messages");
-  sessionStorage.removeItem("campaign_final_prompt");
-  sessionStorage.removeItem("campaign_final_preview");
-  sessionStorage.removeItem("campaign_placeholder_values");
-  sessionStorage.removeItem("campaign_is_complete");
-  sessionStorage.removeItem("campaign_started");
-  sessionStorage.removeItem("campaign_system_prompt");
-  sessionStorage.removeItem("campaign_master_prompt");
-  sessionStorage.removeItem("campaign_preview_text");
-  sessionStorage.removeItem("campaign_selected_model");
-};
-
-
-
-  const loadTemplateForEdit = async (templateId: number) => {
-    setIsLoadingTemplate(true);
-    try {
-      const response = await axios.get(`${API_BASE_URL}/api/CampaignPrompt/template/${templateId}`);
-      const template = response.data;
-      
-      setOriginalTemplateData(template);
-      
-      // Reset states before setting new values
-      setMessages([]);
-      setConversationStarted(false);
-      setIsComplete(false);
-      
-      // Set all the form values with the new column names
-      setSystemPrompt(template.aiInstructions || "");
-      setMasterPrompt(template.placeholderListInfo || "");
-      setPreviewText(template.masterBlueprintUnpopulated || "");
-      setSelectedModel(template.selectedModel || "gpt-5");
-      
-      // Set placeholder values
-      if (template.placeholderValues) {
-        setPlaceholderValues(template.placeholderValues);
-      } else {
-        setPlaceholderValues({});
-      }
-      
-      // Mark as complete if we have final results
-      if (template.placeholderListWithValue && template.campaignBlueprint) {
-        setFinalPrompt(template.placeholderListWithValue);
-        setFinalPreviewText(template.campaignBlueprint);
-        setIsComplete(true);
-      }
-      
-      // Don't show placeholder picker yet - wait for instructions
-      setActiveTab('template'); // Ensure we're on template tab
-    } catch (error) {
-      console.error('Error loading template:', error);
-      alert('Failed to load template for editing');
-      setIsEditMode(false);
-    } finally {
-      setIsLoadingTemplate(false);
-    }
+  const clearAllSessionData = () => {
+    sessionStorage.removeItem("campaign_messages");
+    sessionStorage.removeItem("campaign_final_prompt");
+    sessionStorage.removeItem("campaign_final_preview");
+    sessionStorage.removeItem("campaign_placeholder_values");
+    sessionStorage.removeItem("campaign_is_complete");
+    sessionStorage.removeItem("campaign_started");
+    sessionStorage.removeItem("campaign_system_prompt");
+    sessionStorage.removeItem("campaign_system_prompt_edit");
+    sessionStorage.removeItem("campaign_master_prompt");
+    sessionStorage.removeItem("campaign_master_prompt_extensive");
+    sessionStorage.removeItem("campaign_preview_text");
+    sessionStorage.removeItem("campaign_selected_model");
+    sessionStorage.removeItem("campaign_template_name"); // ✅ NEW
   };
 
+const loadTemplateForEdit = async (templateId: number) => {
+  setIsLoadingTemplate(true);
+  try {
+    const response = await axios.get(`${API_BASE_URL}/api/CampaignPrompt/campaign/${templateId}`);
+    const template = response.data;
+    
+    setOriginalTemplateData(template);
+    
+    setMessages([]);
+    setConversationStarted(false);
+    setIsComplete(false);
+    
+    setSystemPrompt(template.aiInstructions || "");
+    setSystemPromptForEdit(template.aiInstructionsForEdit || "");
+    setMasterPrompt(template.placeholderList || "");
+    setMasterPromptExtensive(template.placeholderListExtensive || ""); // ✅ NEW
+    setPreviewText(template.masterBlueprintUnpopulated || "");
+    setSelectedModel(template.selectedModel || "gpt-5");
+    setSelectedTemplateDefinitionId(template.templateDefinitionId || null);
+    
+    if (template.placeholderValues) {
+      setPlaceholderValues(template.placeholderValues);
+    } else {
+      setPlaceholderValues({});
+    }
+    
+    if (template.placeholderListWithValue && template.campaignBlueprint) {
+      setFinalPrompt(template.placeholderListWithValue);
+      setFinalPreviewText(template.campaignBlueprint);
+      setIsComplete(true);
+    }
+    
+    setActiveTab('template');
+  } catch (error) {
+    console.error('Error loading template:', error);
+    alert('Failed to load template for editing');
+    setIsEditMode(false);
+  } finally {
+    setIsLoadingTemplate(false);
+  }
+};
 
-
-
-  // Function to start edit conversation for specific placeholder
- const startEditConversation = async (placeholder: string) => {
+  const startEditConversation = async (placeholder: string) => {
     if (!effectiveUserId || !placeholder) return;
     
     setShowPlaceholderPicker(false);
@@ -710,8 +965,12 @@ const clearAllSessionData = () => {
     
     const currentValue = placeholderValues[placeholder] || "not set";
     
-    // Use custom instructions if available, otherwise use default
-    const editSystemPrompt = customEditInstructions 
+    // ✅ Use systemPromptForEdit if available
+    const editSystemPrompt = systemPromptForEdit 
+      ? systemPromptForEdit
+          .replace(/{placeholder}/g, placeholder)
+          .replace(/{currentValue}/g, currentValue)
+      : customEditInstructions 
       ? customEditInstructions
           .replace(/{placeholder}/g, placeholder)
           .replace(/{currentValue}/g, currentValue)
@@ -765,9 +1024,6 @@ const clearAllSessionData = () => {
       setIsTyping(false);
     }
   };
-
-
-
 
   useEffect(() => {
     audioRef.current = new Audio(notificationSound);
@@ -842,20 +1098,6 @@ const clearAllSessionData = () => {
     { id: 'gpt-5-mini', name: 'GPT-5 Mini', description: 'Lightweight, efficient, cost-effective' },
     { id: 'gpt-5-nano', name: 'GPT-5 Nano', description: 'Ultra-fast, minimal resource usage' },
   ];
-
-  const [messages, setMessages] = useSessionState<Message[]>("campaign_messages", []);
-  const [finalPrompt, setFinalPrompt] = useSessionState<string>("campaign_final_prompt", "");
-  const [finalPreviewText, setFinalPreviewText] = useSessionState<string>("campaign_final_preview", "");
-  const [placeholderValues, setPlaceholderValues] = useSessionState<Record<string, string>>("campaign_placeholder_values", {});
-  const [isComplete, setIsComplete] = useSessionState<boolean>("campaign_is_complete", false);
-  const [conversationStarted, setConversationStarted] = useSessionState<boolean>("campaign_started", false);
-  const [systemPrompt, setSystemPrompt] = useSessionState<string>("campaign_system_prompt", "");
-  const [masterPrompt, setMasterPrompt] = useSessionState<string>("campaign_master_prompt", "");
-  const [previewText, setPreviewText] = useSessionState<string>("campaign_preview_text", "");
-  const [selectedModel, setSelectedModel] = useSessionState<string>("campaign_selected_model", "gpt-5");
-  
-  const baseUserId = sessionStorage.getItem("clientId");
-  const effectiveUserId = selectedClient || baseUserId;
 
   const extractPlaceholders = (text: string): string[] => {
     const regex = /\{([^}]+)\}/g;
@@ -932,286 +1174,267 @@ const clearAllSessionData = () => {
     }
   };
 
-const handleSendMessage = async () => {
-  if (currentAnswer.trim() === '' || isTyping || !effectiveUserId) return;
+  const handleSendMessage = async () => {
+    if (currentAnswer.trim() === '' || isTyping || !effectiveUserId) return;
 
-  const userMessage: Message = { 
-    type: 'user', 
-    content: currentAnswer, 
-    timestamp: new Date() 
-  };
-
-  setMessages(prev => [...prev, userMessage]);
-  setCurrentAnswer('');
-  setIsTyping(true);
-
-  try {
-    const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/chat`, {
-      userId: effectiveUserId,
-      message: userMessage.content,
-      systemPrompt: "",
-      model: selectedModel
-    });
-
-    const data = response.data.response;
-
-    // Check for edit mode completion FIRST, before checking isComplete
-    if (isEditMode && data && data.assistantText) {
-      const updateMatch = data.assistantText.match(/==PLACEHOLDER_UPDATE_START==([\s\S]*?)==PLACEHOLDER_UPDATE_END==/);
-      
-      if (updateMatch) {
-        const updateSection = updateMatch[1].trim();
-        
-        // Updated regex to handle both formats: with and without curly braces
-        const placeholderRegex = /(?:\{)?([^{}=]+?)(?:\})?\s*=\s*([\s\S]+)/;
-        const match = placeholderRegex.exec(updateSection);
-        
-        if (match) {
-          const placeholder = match[1].trim();
-          const newValue = match[2].trim();
-          
-          console.log(`Updating placeholder: ${placeholder} with value: ${newValue}`);
-          
-          // Update local state
-          const updatedValues = { ...placeholderValues, [placeholder]: newValue };
-          setPlaceholderValues(updatedValues);
-          
-          // Update the final results
-          const allowedPlaceholders = extractPlaceholders(masterPrompt);
-          const filledMaster = replacePlaceholdersInText(masterPrompt, updatedValues, allowedPlaceholders);
-          setFinalPrompt(filledMaster);
-          
-          const previewPlaceholders = extractPlaceholders(previewText);
-          const filledPreview = replacePlaceholdersInText(previewText, updatedValues, previewPlaceholders);
-          setFinalPreviewText(filledPreview);
-          
-          // Save to database
-          try {
-            await updateTemplateInDatabase(updatedValues);
-            
-            const completionMessage: Message = { 
-              type: 'bot', 
-              content: `✅ Successfully updated {${placeholder}} to "${newValue}". The template has been saved.`, 
-              timestamp: new Date() 
-            };
-            setMessages(prev => [...prev, completionMessage]);
-            playNotificationSound();
-            
-            // Clear the chat history for this edit session
-            if (effectiveUserId) {
-              axios.post(`${API_BASE_URL}/api/CampaignPrompt/history/${effectiveUserId}/clear`)
-                .catch(err => console.error("Failed to clear history:", err));
-            }
-            
-            // Show placeholder picker again after a delay
-            setTimeout(() => {
-              setShowPlaceholderPicker(true);
-              setActiveTab('template');
-              setConversationStarted(false);
-              setMessages([]);
-            }, 2000);
-          } catch (saveError) {
-            console.error('Error saving template:', saveError);
-            const errorMessage: Message = { 
-              type: 'bot', 
-              content: '❌ Updated the value locally but failed to save to database. Please try saving again.', 
-              timestamp: new Date() 
-            };
-            setMessages(prev => [...prev, errorMessage]);
-          }
-          
-          return; // Exit early, don't process as normal message
-        }
-      }
-    }
-    
-    // Handle normal conversation flow (existing code for non-edit mode)
-    if (!isEditMode && data && data.isComplete) {
-      console.log('✅ Campaign completed!');
-      
-      const assistantText = data.assistantText || '';
-      const placeholderValuesMatch = assistantText
-        .match(/==PLACEHOLDER_VALUES_START==([\s\S]*?)==PLACEHOLDER_VALUES_END==/);
-
-      if (placeholderValuesMatch) {
-        const tempValues: Record<string, string> = {};
-        const placeholderSection = placeholderValuesMatch[1];
-        
-        // Updated regex to handle multi-line values
-        const placeholderRegex = /\{([^}]+)\}\s*=\s*([\s\S]*?)(?=\n\{[^}]+\}\s*=|$)/g;
-        let match;
-        
-        while ((match = placeholderRegex.exec(placeholderSection)) !== null) {
-          const placeholder = match[1].trim();
-          const value = match[2].trim();
-          tempValues[placeholder] = value;
-        }
-
-        console.log('Extracted placeholder values:', tempValues);
-
-        const allowedPlaceholders = extractPlaceholders(masterPrompt);
-        setPlaceholderValues(tempValues);
-
-        const filledMaster = replacePlaceholdersInText(masterPrompt, tempValues, allowedPlaceholders);
-        setFinalPrompt(filledMaster);
-
-        const previewPlaceholders = extractPlaceholders(previewText);
-        const filledPreview = replacePlaceholdersInText(previewText, tempValues, previewPlaceholders);
-        setFinalPreviewText(filledPreview);
-
-        setIsComplete(true);
-
-        const completionMessage: Message = { 
-          type: 'bot', 
-          content: "🎉 Great! I've filled in all the placeholders. Check the 'Final Result' tab.", 
-          timestamp: new Date() 
-        };
-        setMessages(prev => [...prev, completionMessage]);
-        playNotificationSound();
-
-        setTimeout(() => setActiveTab('result'), 1500);
-        return;
-      }
-    }
-
-    // Display the assistant's message for normal conversation flow
-    if (data && data.assistantText) {
-      const botMessage: Message = { 
-        type: 'bot', 
-        content: data.assistantText, 
-        timestamp: new Date() 
-      };
-      setMessages(prev => [...prev, botMessage]);
-      playNotificationSound();
-    }
-
-  } catch (error) {
-    console.error('❌ Error sending message:', error);
-    const errorMessage: Message = { 
-      type: 'bot', 
-      content: 'Sorry, there was an error processing your answer. Please try again.', 
+    const userMessage: Message = { 
+      type: 'user', 
+      content: currentAnswer, 
       timestamp: new Date() 
     };
-    setMessages(prev => [...prev, errorMessage]);
-    playNotificationSound();
-  } finally {
-    setIsTyping(false);
-  }
-};
-  // Function to update template in database
-const updateTemplateInDatabase = async (updatedPlaceholderValues: Record<string, string>) => {
-  if (!editTemplateId || !originalTemplateData) return;
 
-  try {
-    // Regenerate the final values with updated placeholders
-    const allowedPlaceholders = extractPlaceholders(masterPrompt);
-    const updatedFilledMaster = replacePlaceholdersInText(masterPrompt, updatedPlaceholderValues, allowedPlaceholders);
-    
-    const previewPlaceholders = extractPlaceholders(previewText);
-    const updatedFilledPreview = replacePlaceholdersInText(previewText, updatedPlaceholderValues, previewPlaceholders);
+    setMessages(prev => [...prev, userMessage]);
+    setCurrentAnswer('');
+    setIsTyping(true);
 
-    // Changed from PUT to POST
-    const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
-      id: editTemplateId,
-      templateName: originalTemplateData.templateName,
-      aiInstructions: systemPrompt,
-      placeholderListInfo: masterPrompt,
-      masterBlueprintUnpopulated: previewText,
-      placeholderListWithValue: updatedFilledMaster,
-      campaignBlueprint: updatedFilledPreview,
-      selectedModel: selectedModel,
-      placeholderValues: updatedPlaceholderValues,
-    });
+    try {
+      const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/chat`, {
+        userId: effectiveUserId,
+        message: userMessage.content,
+        systemPrompt: "",
+        model: selectedModel
+      });
 
-    if (!response.data.success) {
-      throw new Error('Failed to update template');
+      const data = response.data.response;
+
+      if (isEditMode && data && data.assistantText) {
+        const updateMatch = data.assistantText.match(/==PLACEHOLDER_UPDATE_START==([\s\S]*?)==PLACEHOLDER_UPDATE_END==/);
+        
+        if (updateMatch) {
+          const updateSection = updateMatch[1].trim();
+          const placeholderRegex = /(?:\{)?([^{}=]+?)(?:\})?\s*=\s*([\s\S]+)/;
+          const match = placeholderRegex.exec(updateSection);
+          
+          if (match) {
+            const placeholder = match[1].trim();
+            const newValue = match[2].trim();
+            
+            console.log(`Updating placeholder: ${placeholder} with value: ${newValue}`);
+            
+            const updatedValues = { ...placeholderValues, [placeholder]: newValue };
+            setPlaceholderValues(updatedValues);
+            
+            const allowedPlaceholders = extractPlaceholders(masterPrompt);
+            const filledMaster = replacePlaceholdersInText(masterPrompt, updatedValues, allowedPlaceholders);
+            setFinalPrompt(filledMaster);
+            
+            const previewPlaceholders = extractPlaceholders(previewText);
+            const filledPreview = replacePlaceholdersInText(previewText, updatedValues, previewPlaceholders);
+            setFinalPreviewText(filledPreview);
+            
+            try {
+              await updateTemplateInDatabase(updatedValues);
+              
+              const completionMessage: Message = { 
+                type: 'bot', 
+                content: `✅ Successfully updated {${placeholder}} to "${newValue}". The template has been saved.`, 
+                timestamp: new Date() 
+              };
+              setMessages(prev => [...prev, completionMessage]);
+              playNotificationSound();
+              
+              if (effectiveUserId) {
+                axios.post(`${API_BASE_URL}/api/CampaignPrompt/history/${effectiveUserId}/clear`)
+                  .catch(err => console.error("Failed to clear history:", err));
+              }
+              
+              setTimeout(() => {
+                setShowPlaceholderPicker(true);
+                setActiveTab('template');
+                setConversationStarted(false);
+                setMessages([]);
+              }, 2000);
+            } catch (saveError) {
+              console.error('Error saving template:', saveError);
+              const errorMessage: Message = { 
+                type: 'bot', 
+                content: '❌ Updated the value locally but failed to save to database. Please try saving again.', 
+                timestamp: new Date() 
+              };
+              setMessages(prev => [...prev, errorMessage]);
+            }
+            
+            return;
+          }
+        }
+      }
+      
+      if (!isEditMode && data && data.isComplete) {
+        console.log('✅ Campaign completed!');
+        
+        const assistantText = data.assistantText || '';
+        const placeholderValuesMatch = assistantText
+          .match(/==PLACEHOLDER_VALUES_START==([\s\S]*?)==PLACEHOLDER_VALUES_END==/);
+
+        if (placeholderValuesMatch) {
+          const tempValues: Record<string, string> = {};
+          const placeholderSection = placeholderValuesMatch[1];
+          
+          const placeholderRegex = /\{([^}]+)\}\s*=\s*([\s\S]*?)(?=\n\{[^}]+\}\s*=|$)/g;
+          let match;
+          
+          while ((match = placeholderRegex.exec(placeholderSection)) !== null) {
+            const placeholder = match[1].trim();
+            const value = match[2].trim();
+            tempValues[placeholder] = value;
+          }
+
+          console.log('Extracted placeholder values:', tempValues);
+
+          const allowedPlaceholders = extractPlaceholders(masterPrompt);
+          setPlaceholderValues(tempValues);
+
+          const filledMaster = replacePlaceholdersInText(masterPrompt, tempValues, allowedPlaceholders);
+          setFinalPrompt(filledMaster);
+
+          const previewPlaceholders = extractPlaceholders(previewText);
+          const filledPreview = replacePlaceholdersInText(previewText, tempValues, previewPlaceholders);
+          setFinalPreviewText(filledPreview);
+
+          setIsComplete(true);
+
+          const completionMessage: Message = { 
+            type: 'bot', 
+            content: "🎉 Great! I've filled in all the placeholders. Check the 'Final Result' tab.", 
+            timestamp: new Date() 
+          };
+          setMessages(prev => [...prev, completionMessage]);
+          playNotificationSound();
+
+          setTimeout(() => setActiveTab('result'), 1500);
+          return;
+        }
+      }
+
+      if (data && data.assistantText) {
+        const botMessage: Message = { 
+          type: 'bot', 
+          content: data.assistantText, 
+          timestamp: new Date() 
+        };
+        setMessages(prev => [...prev, botMessage]);
+        playNotificationSound();
+      }
+
+    } catch (error) {
+      console.error('❌ Error sending message:', error);
+      const errorMessage: Message = { 
+        type: 'bot', 
+        content: 'Sorry, there was an error processing your answer. Please try again.', 
+        timestamp: new Date() 
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      playNotificationSound();
+    } finally {
+      setIsTyping(false);
     }
-  } catch (error) {
-    console.error('Error updating template:', error);
-    throw error;
-  }
-};
+  };
 
-    // Placeholder Picker Component
-const PlaceholderPicker: React.FC = () => {
-  const availablePlaceholders = extractPlaceholders(masterPrompt);
+  const updateTemplateInDatabase = async (updatedPlaceholderValues: Record<string, string>) => {
+    if (!editTemplateId || !originalTemplateData) return;
 
-  if (!showPlaceholderPicker || !isEditMode || availablePlaceholders.length === 0) {
-    return null;
-  }
+    try {
+      const allowedPlaceholders = extractPlaceholders(masterPrompt);
+      const updatedFilledMaster = replacePlaceholdersInText(masterPrompt, updatedPlaceholderValues, allowedPlaceholders);
+      
+      const previewPlaceholders = extractPlaceholders(previewText);
+      const updatedFilledPreview = replacePlaceholdersInText(previewText, updatedPlaceholderValues, previewPlaceholders);
 
-  return (
-    <div className="placeholder-picker-overlay">
-      <div className="placeholder-picker-modal">
-        <div className="placeholder-picker-header">
-          <h2>
-            <AlertCircle size={24} className="inline mr-2" />
-            Edit Placeholder Values
-          </h2>
-          <button 
-            onClick={() => setShowPlaceholderPicker(false)}
-            className="close-button"
-            style={{ position: 'absolute', right: '20px', top: '20px' }}
-          >
-            <XCircle size={24} />
-          </button>
-          <p className="text-gray-600 mt-2">
-            Select a placeholder to modify its value, or choose to edit all values.
-          </p>
-        </div>
+      const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
+        id: editTemplateId,
+        placeholderListWithValue: updatedFilledMaster,
+        campaignBlueprint: updatedFilledPreview,
+        selectedModel: selectedModel,
+        placeholderValues: updatedPlaceholderValues,
+      });
 
-        <div className="placeholder-picker-content">
-          <div className="placeholder-list">
-            <h3 className="font-semibold mb-3">Available Placeholders:</h3>
-            {availablePlaceholders.map((placeholder) => (
-              <div
-                key={placeholder}
-                className="placeholder-item"
-                onClick={() => startEditConversation(placeholder)}
-              >
-                <div className="placeholder-info">
-                  <span className="placeholder-name">{`{${placeholder}}`}</span>
-                  <span className="placeholder-value">
-                    Current: {placeholderValues[placeholder] || "Not set"}
-                  </span>
-                </div>
-                <button className="edit-btn">
-                  Edit →
-                </button>
-              </div>
-            ))}
+      if (!response.data.success) {
+        throw new Error('Failed to update template');
+      }
+    } catch (error) {
+      console.error('Error updating template:', error);
+      throw error;
+    }
+  };
+
+  const PlaceholderPicker: React.FC = () => {
+    const availablePlaceholders = extractPlaceholders(masterPrompt);
+
+    if (!showPlaceholderPicker || !isEditMode || availablePlaceholders.length === 0) {
+      return null;
+    }
+
+    return (
+      <div className="placeholder-picker-overlay">
+        <div className="placeholder-picker-modal">
+          <div className="placeholder-picker-header">
+            <h2>
+              <AlertCircle size={24} className="inline mr-2" />
+              Edit Placeholder Values
+            </h2>
+            <button 
+              onClick={() => setShowPlaceholderPicker(false)}
+              className="close-button"
+              style={{ position: 'absolute', right: '20px', top: '20px' }}
+            >
+              <XCircle size={24} />
+            </button>
+            <p className="text-gray-600 mt-2">
+              Select a placeholder to modify its value, or choose to edit all values.
+            </p>
           </div>
 
-          <div className="placeholder-actions">
-            <button
-              onClick={() => {
-                setShowPlaceholderPicker(false);
-                setIsEditMode(false);
-                clearAllSessionData();
-                window.location.reload(); // Force a clean reload
-              }}
-              className="button secondary"
-            >
-              Start Fresh Campaign
-            </button>
-            
-            <button
-              onClick={() => {
-                setShowPlaceholderPicker(false);
-                setActiveTab('result');
-              }}
-              className="button primary"
-              disabled={!isComplete}
-            >
-              View Current Result
-            </button>
+          <div className="placeholder-picker-content">
+            <div className="placeholder-list">
+              <h3 className="font-semibold mb-3">Available Placeholders:</h3>
+              {availablePlaceholders.map((placeholder) => (
+                <div
+                  key={placeholder}
+                  className="placeholder-item"
+                  onClick={() => startEditConversation(placeholder)}
+                >
+                  <div className="placeholder-info">
+                    <span className="placeholder-name">{`{${placeholder}}`}</span>
+                    <span className="placeholder-value">
+                      Current: {placeholderValues[placeholder] || "Not set"}
+                    </span>
+                  </div>
+                  <button className="edit-btn">
+                    Edit →
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="placeholder-actions">
+              <button
+                onClick={() => {
+                  setShowPlaceholderPicker(false);
+                  setIsEditMode(false);
+                  clearAllSessionData();
+                  window.location.reload();
+                }}
+                className="button secondary"
+              >
+                Start Fresh Campaign
+              </button>
+              
+              <button
+                onClick={() => {
+                  setShowPlaceholderPicker(false);
+                  setActiveTab('result');
+                }}
+                className="button primary"
+                disabled={!isComplete}
+              >
+                View Current Result
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  );
-};
-
+    );
+  };
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -1227,44 +1450,42 @@ const PlaceholderPicker: React.FC = () => {
   };
 
  const resetAll = () => {
-  // Don't reset if we're in edit mode
-  if (isEditMode) return;
-  
-  if (effectiveUserId) {
-    axios.post(`${API_BASE_URL}/api/CampaignPrompt/history/${effectiveUserId}/clear`)
-      .catch(err => console.error("Failed to clear history:", err));
-  }
+    if (isEditMode) return;
+    
+    if (effectiveUserId) {
+      axios.post(`${API_BASE_URL}/api/CampaignPrompt/history/${effectiveUserId}/clear`)
+        .catch(err => console.error("Failed to clear history:", err));
+    }
 
-  clearAllSessionData();
+    clearAllSessionData();
 
-  // Reset edit mode
-  setIsEditMode(false);
-  setEditTemplateId(null);
-  setOriginalTemplateData(null);
-  setSelectedPlaceholder("");
-  setShowPlaceholderPicker(false);
+    setIsEditMode(false);
+    setEditTemplateId(null);
+    setOriginalTemplateData(null);
+    setSelectedPlaceholder("");
+    setShowPlaceholderPicker(false);
+    setSelectedTemplateDefinitionId(null);
+    setTemplateName(""); // ✅ NEW
 
-  // Reset all other states
-  setMessages([]);
-  setFinalPrompt('');
-  setFinalPreviewText('');
-  setPlaceholderValues({});
-  setIsComplete(false);
-  setConversationStarted(false);
-  setSystemPrompt("");
-  setMasterPrompt("");
-  setPreviewText("");
-  setSelectedModel("gpt-5");
-  setActiveTab('template');
-};
-
+    setMessages([]);
+    setFinalPrompt('');
+    setFinalPreviewText('');
+    setPlaceholderValues({});
+    setIsComplete(false);
+    setConversationStarted(false);
+    setSystemPrompt("");
+    setSystemPromptForEdit("");
+    setMasterPrompt("");
+    setMasterPromptExtensive("");
+    setPreviewText("");
+    setSelectedModel("gpt-5");
+    setActiveTab('template');
+  };
 
   const currentPlaceholders = extractPlaceholders(masterPrompt);
 
-  // Update the return statement to include EditInstructionsModal
   return (
     <div className="email-campaign-builder">
-      {/* Loading overlay */}
       {isLoadingTemplate && (
         <div className="loading-overlay">
           <div className="loading-content">
@@ -1274,7 +1495,6 @@ const PlaceholderPicker: React.FC = () => {
         </div>
       )}
 
-      {/* Edit Instructions Modal - Shows first */}
       <EditInstructionsModal
         showEditInstructions={showEditInstructions}
         isEditMode={isEditMode}
@@ -1286,13 +1506,20 @@ const PlaceholderPicker: React.FC = () => {
         setShowPlaceholderPicker={setShowPlaceholderPicker}
       />
 
-      {/* Placeholder Picker Modal - Shows after instructions */}
       <PlaceholderPicker />
+
+            {isLoadingDefinitions && (
+        <div className="loading-overlay">
+          <div className="loading-content">
+            <Loader2 size={48} className="spinning" />
+            <p>Loading template definitions...</p>
+          </div>
+        </div>
+      )}
 
       <div className="campaign-builder-container">
         <div className="campaign-builder-main">
-          {/* Header with Edit Mode Indicator */}
-                  <div className="campaign-header">
+          <div className="campaign-header">
             <div className="campaign-header-content">
               <h1>
                 <Globe className="campaign-header-icon" />
@@ -1308,7 +1535,6 @@ const PlaceholderPicker: React.FC = () => {
                 }
               </p>
             </div>
-            {/* Sound Toggle Button */}
             <button
               onClick={() => setSoundEnabled(!soundEnabled)}
               className="sound-toggle-button"
@@ -1318,7 +1544,6 @@ const PlaceholderPicker: React.FC = () => {
             </button>
           </div>
           
-          {/* Tab Navigation */}
           <div className="tab-navigation">
             <div className="tab-container">
               <button 
@@ -1354,36 +1579,39 @@ const PlaceholderPicker: React.FC = () => {
             </div>
           </div>
 
-          {/* Tab Content */}
           <div className="tab-content">
-            {activeTab === 'template' && (
-              <>
-                {isEditMode && (
-                  <div className="edit-mode-notice">
-                    <AlertCircle size={20} />
-                    <span>You're editing an existing template. Click on any placeholder to modify its value.</span>
-                    <button
-                      onClick={() => {
-                        setShowEditInstructions(true);
-                      }}
-                      className="show-picker-btn"
-                      style={{ marginLeft: '10px' }}
-                    >
-                      Edit Instructions
-                    </button>
-                    <button
-                      onClick={() => setShowPlaceholderPicker(true)}
-                      className="show-picker-btn"
-                    >
-                      Show Placeholders
-                    </button>
-                  </div>
-                )}
+          {activeTab === 'template' && (
+            <>
+              {isEditMode && (
+                <div className="edit-mode-notice">
+                  <AlertCircle size={20} />
+                  <span>You're editing an existing template. Click on any placeholder to modify its value.</span>
+                  <button
+                    onClick={() => {
+                      setShowEditInstructions(true);
+                    }}
+                    className="show-picker-btn"
+                    style={{ marginLeft: '10px' }}
+                  >
+                    Edit Instructions
+                  </button>
+                  <button
+                    onClick={() => setShowPlaceholderPicker(true)}
+                    className="show-picker-btn"
+                  >
+                    Show Placeholders
+                  </button>
+                </div>
+              )}
                 <TemplateTab 
                   masterPrompt={masterPrompt}
                   setMasterPrompt={setMasterPrompt}
+                  masterPromptExtensive={masterPromptExtensive}
+                  setMasterPromptExtensive={setMasterPromptExtensive}
                   systemPrompt={systemPrompt}
                   setSystemPrompt={setSystemPrompt}
+                  systemPromptForEdit={systemPromptForEdit}
+                  setSystemPromptForEdit={setSystemPromptForEdit}
                   previewText={previewText}
                   setPreviewText={setPreviewText}
                   startConversation={startConversation}
@@ -1392,6 +1620,14 @@ const PlaceholderPicker: React.FC = () => {
                   selectedModel={selectedModel}
                   setSelectedModel={setSelectedModel}
                   availableModels={availableModels}
+                  saveTemplateDefinition={saveTemplateDefinition}
+                  isSavingDefinition={isSavingDefinition}
+                  saveDefinitionStatus={saveDefinitionStatus}
+                  templateDefinitions={templateDefinitions}
+                  loadTemplateDefinition={loadTemplateDefinitionById}
+                  selectedTemplateDefinitionId={selectedTemplateDefinitionId}
+                  templateName={templateName}
+                  setTemplateName={setTemplateName}
                 />
               </>
             )}
@@ -1424,12 +1660,12 @@ const PlaceholderPicker: React.FC = () => {
                 selectedModel={selectedModel}
                 effectiveUserId={effectiveUserId}
                 messages={messages}
+                selectedTemplateDefinitionId={selectedTemplateDefinitionId}
               />
             )}
           </div>
         </div>
 
-        {/* Tips Section */}
         <details className="tips-section">
           <summary className="tips-header">
             <Eye size={20} className="icon" />
