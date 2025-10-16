@@ -11,6 +11,7 @@ import store, { persistor } from "./Redux/store";
 import ProtectedRoute from "./ProtectedRoute";
 import { AppDataProvider } from './contexts/AppDataContext';
 import Planes from "./components/planes";
+import CustomerCreateForm from "./components/feature/CustomerCreateForm";
 
 const UserComp = lazy(() => import("./components/User") as any);
 
@@ -63,6 +64,7 @@ const App: React.FC = () => {
                   }
                 />
                 <Route path="/amend-prompt/:id" element={<AmendPrompt />} />
+                <Route path="/create-customer" element={<CustomerCreateForm />} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
 

@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
 import { RootState } from "../../Redux/store";
 import { useDispatch } from "react-redux";
 import { clearToken } from "../../slices/authSLice";
+import Planes from "../planes";
 
 interface HeaderProps {
   connectTo: boolean;
@@ -32,12 +33,15 @@ const Header: React.FC<HeaderProps> = React.memo(({
   const firstName = useSelector((state: RootState) => state.auth.firstName);
   const lastName = useSelector((state: RootState) => state.auth.lastName);
   const credits = useSelector((state: RootState) => state.auth.credits);
+  console.log("credits:", credits);
   const username = useSelector(
     (state: RootState) => state.auth.username
   ) as string;
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showPlanes, setShowPlanes] = useState(false);
+   const [creditData, setCreditData] = useState<any>(null); 
 
   const logoutHandler = () => {
     dispatch(clearToken());
@@ -51,6 +55,36 @@ const Header: React.FC<HeaderProps> = React.memo(({
   const toggleMenu = () => {
     setIsMenuOpen((prev) => !prev);
   };
+  // Determine the effectiveUserId, fallback to reduxUserId if selectedClient is not provided
+  const reduxUserId = useSelector((state: RootState) => state.auth.userId);
+  const effectiveUserId = selectedClient !== "" ? selectedClient : reduxUserId;
+  console.log("API Payload Client ID:", effectiveUserId);
+
+  useEffect(() => {
+    const fetchCredits = async () => {
+      try {
+        const creditRes = await fetch(
+          `https://localhost:7216/api/Crm/user_credit?clientId=${effectiveUserId}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+        const data = await creditRes.json();
+        setCreditData(data); // Store the fetched data
+        console.log("credit data:", data); // Log the data for debugging
+      } catch (error) {
+        console.error("Error fetching credit data:", error);
+      }
+    };
+
+    // Only call fetchCredits if effectiveUserId is available
+    if (effectiveUserId) {
+      fetchCredits();
+    }
+  }, [effectiveUserId]);
 
   return (
     <div className="main-head d-flex justify-between align-center w-[100%]">
@@ -88,7 +122,7 @@ const Header: React.FC<HeaderProps> = React.memo(({
         </div>
         <div className="item group flex">
           <div className="item flex items-center">
-            <div className="user-info-wrapper flex flex-col items-center gap-2">
+            <div className="user-info-wrapper flex  items-center gap-2">
               <div className="user-greeting d-flex align-center mx-[0px]">
                 <span className="mr-5">
                   <svg
@@ -116,14 +150,35 @@ const Header: React.FC<HeaderProps> = React.memo(({
               <div className="user-credit text-sm text-gray-600">
                 Credit:{" "}
                 <span className="font-semibold text-green-600">
-                  {credits}
+                   {creditData !== null ? creditData : "Loading..."}
                 </span>
               </div>
+              {/* Buy Plans Button */}
+              <button
+                onClick={() => setShowPlanes(true)}
+                className="ml-2 px-3 py-1 rounded bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition"
+              >
+                Upgrade
+              </button>
 
             </div>
           </div>
 
-
+          {showPlanes && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white p-6 rounded-lg shadow-lg max-w-3xl w-full relative">
+                {/* Close button */}
+                <button
+                  className="absolute top-2 right-2 text-gray-600 hover:text-gray-900 text-xl font-bold"
+                  onClick={() => setShowPlanes(false)}
+                >
+                  ✖
+                </button>
+                {/* Planes component */}
+                <Planes />
+              </div>
+            </div>
+          )}
 
           <div className="item">
             <button

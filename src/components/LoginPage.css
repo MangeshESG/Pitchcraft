@@ -119,3 +119,33 @@
   border-radius: 4px;
   margin-top: 10px;
 }
+.name-fields {
+  display: flex;               /* Use Flexbox layout */
+  justify-content: space-between; /* Space them out evenly */
+  gap: 20px;                   /* Space between inputs */
+  margin-bottom: -10px;         /* Space below the input fields */
+}
+
+/* Styling for each input field container */
+.name-field {
+  flex: 1;                      /* Each input takes equal width */
+}
+
+/* Styling for the label */
+.name-field label {
+  display: block;               /* Ensure label takes full width */
+  margin-bottom: 5px;           /* Add space between label and input */
+}
+
+/* Styling for the input fields */
+.name-field input {
+  width: 100%;                  /* Make the input fill the container */
+  padding: 12px;                /* Add padding inside the input */
+  border: 1px solid #ccc;      /* Border style */
+  border-radius: 4px;          /* Rounded corners */
+  box-sizing: border-box;      /* Make padding and border part of the width */
+}
+
+.register-offset {
+  margin-top: 30px; /* or any value that works for your layout */
+}

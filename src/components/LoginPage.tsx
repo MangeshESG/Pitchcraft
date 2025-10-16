@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { CSSProperties, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -19,6 +19,7 @@ type ViewMode = "login" | "register" | "forgot" | "otp";
 
 interface ViewProps {
   setView: React.Dispatch<React.SetStateAction<ViewMode>>;
+   style?: CSSProperties;
 }
 
 // Cookie helper functions
@@ -50,9 +51,9 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
   const [error, setError] = useState("");
 
   useEffect(() => {
-  console.log("User ID from Redux:", reduxUserId);
- // console.log("Effective User ID:", effectiveUserId);
-}, [reduxUserId]);
+    console.log("User ID from Redux:", reduxUserId);
+    // console.log("Effective User ID:", effectiveUserId);
+  }, [reduxUserId]);
   // Helper function to decode JWT token
   const getUserIdFromToken = (token: string) => {
     try {
@@ -81,17 +82,17 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
-    
+
     try {
       const trustedDeviceNumber = getCookie("trustedDeviceNumber");
-      
+
       const response = await fetch(`${API_BASE_URL}/api/login/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          username, 
-          password, 
-          trustednumber: trustedDeviceNumber ? parseInt(trustedDeviceNumber) : null 
+        body: JSON.stringify({
+          username,
+          password,
+          trustednumber: trustedDeviceNumber ? parseInt(trustedDeviceNumber) : null
         }),
       });
 
@@ -105,62 +106,62 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
       // Direct login with trusted device
       if (response.ok && data.token) {
         // Store token using Redux
-        dispatch(setToken(data.token));       
-        
+        dispatch(setToken(data.token));
+
         // Extract user info from token
         const userId = getUserIdFromToken(data.token);
         console.log("Client ID stored in session:", userId);
         const userRole = getUserRoleFromToken(data.token);
-        
+
         // Store user info in Redux
         dispatch(saveUserName(username));
         if (userId) dispatch(saveUserId(userId));
         if (userRole) dispatch(saveUserRole(userRole));
-        
+
         // Store in sessionStorage for backward compatibility
         sessionStorage.setItem("clientId", data.clientID || "");
         sessionStorage.setItem("isAdmin", data.isAdmin || "false");
         sessionStorage.setItem("isDemoAccount", data.isDemoAccount || "false");
-        
+
         // Store first and last name if available
         if (data.firstName) dispatch(saveFirstName(data.firstName));
         if (data.lastName) dispatch(saveLastName(data.lastName));
-        
-        // ✅ CALL user_credit API here
-      try {
-        const creditRes = await fetch(
-          `https://localhost:7216/api/Crm/user_credit?clientId=${reduxUserId}`,
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${data.token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-        
-        if (creditRes.ok) {
-          const creditData = await creditRes.json();
-          dispatch(saveUserCredit(creditData));
-          console.log("User Credit:", creditData);
 
-          // you can dispatch it to Redux if needed:
-          // dispatch(saveUserCredit(creditData));
-        } else {
-          console.error("Failed to fetch user credit");
+        // ✅ CALL user_credit API here
+        try {
+          const creditRes = await fetch(
+            `https://localhost:7216/api/Crm/user_credit?clientId=${reduxUserId}`,
+            {
+              method: "GET",
+              headers: {
+                Authorization: `Bearer ${data.token}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          if (creditRes.ok) {
+            const creditData = await creditRes.json();
+            dispatch(saveUserCredit(creditData));
+            console.log("User Credit:", creditData);
+
+            // you can dispatch it to Redux if needed:
+            // dispatch(saveUserCredit(creditData));
+          } else {
+            console.error("Failed to fetch user credit");
+          }
+        } catch (err) {
+          console.error("Credit API error:", err);
         }
-      } catch (err) {
-        console.error("Credit API error:", err);
-      }
         navigate("/main");
         return;
-      } 
+      }
       // OTP required
       else if (response.ok && (data.success || data.message?.toLowerCase().includes("otp"))) {
         localStorage.setItem("loginUser", username);
         localStorage.setItem("trustThisDevice", trustThisDevice ? "true" : "false");
         setView("otp");
-      } 
+      }
       else {
         setError(data.message || "Invalid login credentials.");
       }
@@ -231,7 +232,7 @@ const RegisterForm: React.FC<ViewProps> = ({ setView }) => {
     e.preventDefault();
     setMessage("");
     setError("");
-    
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/login/register`, {
         method: "POST",
@@ -265,56 +266,81 @@ const RegisterForm: React.FC<ViewProps> = ({ setView }) => {
 
   return (
     <div>
-      <h2>Create Account</h2>
+      <h2 style={{ marginTop: '-10px'}}>Create Account</h2>
       <form onSubmit={handleRegister}>
-        <input 
-          placeholder="First Name" 
-          required 
-          value={form.firstName}
-          onChange={(e) => setForm({ ...form, firstName: e.target.value })}
-        />
-        <input 
-          placeholder="Last Name" 
-          required 
-          value={form.lastName}
-          onChange={(e) => setForm({ ...form, lastName: e.target.value })}
-        />
-        <input 
-          placeholder="Username" 
-          required 
-          value={form.username}
-          onChange={(e) => setForm({ ...form, username: e.target.value })}
-        />
-        <input 
-          type="email" 
-          placeholder="Email" 
-          required 
-          value={form.email}
-          onChange={(e) => setForm({ ...form, email: e.target.value })}
-        />
-        <input 
-          type="password" 
-          placeholder="Password" 
-          required 
-          value={form.password}
-          onChange={(e) => setForm({ ...form, password: e.target.value })}
-        />
-        <input 
-          placeholder="Company name" 
-          value={form.companyName}
-          onChange={(e) => setForm({ ...form, companyName: e.target.value })}
-        />
-        <input 
-          placeholder="Job Title" 
-          value={form.jobTitle}
-          onChange={(e) => setForm({ ...form, jobTitle: e.target.value })}
-        />
+        <div className="name-fields">
+          <div className="name-field">
+            <label>First name*</label>
+            <input
+              placeholder="First name"
+              required
+              value={form.firstName}
+              onChange={(e) => setForm({ ...form, firstName: e.target.value })}
+            />
+          </div>
+          <div className="name-field">
+            <label>Last name*</label>
+            <input
+              placeholder="Last Name"
+              required
+              value={form.lastName}
+              onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+            />
+          </div>
+        </div>
+        <div className="name-field">
+          <label>Email*</label>
+          <input
+            type="email"
+            placeholder="Email"
+            required
+            value={form.email}
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
+          />
+        </div>
+        <div className="name-fields">
+          <div className="name-field">
+            <label>User name*</label>
+            <input
+              placeholder="User name"
+              required
+              value={form.username}
+              onChange={(e) => setForm({ ...form, username: e.target.value })}
+            />
+          </div>
+          <div className="name-field">
+            <label>Password*</label>
+            <input
+              type="password"
+              placeholder="Password"
+              required
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+            />
+          </div>
+        </div>
+        <div className="name-field">
+          <label>Company name*</label>
+          <input
+            placeholder="Company name"
+            value={form.companyName}
+            onChange={(e) => setForm({ ...form, companyName: e.target.value })}
+          />
+        </div>
+        <div className="name-field">
+          <label>Job title</label>
+          <input
+            placeholder="Job title"
+            value={form.jobTitle}
+            onChange={(e) => setForm({ ...form, jobTitle: e.target.value })}
+          />
+        </div>
         <button type="submit" className="register-button">Register</button>
       </form>
       {message && <div className="success-message">{message}</div>}
       {error && <div className="error-message">{error}</div>}
       <div className="register-link">
-        <a onClick={() => setView("login")}>Back to Login</a>
+        <a onClick={() => setView("login")}>Back to login</a>
       </div>
     </div>
   );
@@ -330,15 +356,15 @@ const ForgotPasswordForm: React.FC<ViewProps> = ({ setView }) => {
     e.preventDefault();
     setMsg("");
     setError("");
-    
+
     try {
       const response = await fetch(
         `${API_BASE_URL}/api/login/restpass_send-otp?email=${email}`,
         { method: "POST" }
       );
-      
+
       const data = await response.json();
-      
+
       if (response.ok) {
         localStorage.setItem("resetEmail", email);
         setMsg("OTP sent! Check your inbox.");
@@ -351,15 +377,15 @@ const ForgotPasswordForm: React.FC<ViewProps> = ({ setView }) => {
     }
   };
 
-   return (
+  return (
     <div>
       <h2>Reset Password</h2>
       <form onSubmit={handleSendOtp}>
-        <input 
-          type="email" 
-          value={email} 
-          placeholder="Enter your email" 
-          required 
+        <input
+          type="email"
+          value={email}
+          placeholder="Enter your email"
+          required
           onChange={(e) => setEmail(e.target.value)}
         />
         <button type="submit" className="login-button">Send OTP</button>
@@ -390,7 +416,7 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
   const trustThisDevice = localStorage.getItem("trustThisDevice") === "true";
 
   // Helper functions
-   // Helper functions
+  // Helper functions
   const getUserIdFromToken = (token: string) => {
     try {
       const payloadBase64 = token.split(".")[1];
@@ -421,23 +447,23 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
       const response = await fetch(`${API_BASE_URL}/api/login/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          username: registerUsername, 
+        body: JSON.stringify({
+          username: registerUsername,
           password: registerPassword,
-          trustednumber: null 
+          trustednumber: null
         }),
       });
 
       const data = await response.json();
-      
+
       if (response.ok && data.token) {
         // Store token using Redux
         dispatch(setToken(data.token));
-        
+
         // Extract user info from token
         const userId = getUserIdFromToken(data.token);
         const userRole = getUserRoleFromToken(data.token);
-        
+
         // Store user info in Redux
         dispatch(saveUserName(registerUsername || ""));
         if (userId) dispatch(saveUserId(userId));
@@ -447,16 +473,16 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
         sessionStorage.setItem("clientId", data.clientID || "");
         sessionStorage.setItem("isAdmin", data.isAdmin || "false");
         sessionStorage.setItem("isDemoAccount", data.isDemoAccount || "false");
-        
+
         // Store first and last name if available
         if (data.firstName) dispatch(saveFirstName(data.firstName));
         if (data.lastName) dispatch(saveLastName(data.lastName));
-        
+
         // Clean up temporary storage
         localStorage.removeItem("registerEmail");
         localStorage.removeItem("registerUsername");
         localStorage.removeItem("registerPassword");
-        
+
         navigate("/main");
       } else if (response.ok && data.success) {
         // If OTP is required even after registration
@@ -482,7 +508,7 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
     e.preventDefault();
     setMsg("");
     setError("");
-    
+
     try {
       // Registration OTP verification
       if (registerEmail) {
@@ -491,37 +517,37 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email: registerEmail, otp }),
         });
-        
+
         const contentType = response.headers.get("content-type");
         let data: any = {};
-        
+
         if (contentType && contentType.includes("application/json")) {
           data = await response.json();
         } else {
           data = { message: await response.text() || "Success" };
         }
-        
+
         if (response.ok) {
           setMsg("Registration successful! Logging you in...");
           setTimeout(() => autoLoginAfterRegistration(), 500);
         } else {
           setError(data.message || "Invalid or expired OTP.");
         }
-      } 
+      }
       // Password reset OTP verification
       else if (resetEmail) {
         const res = await fetch(
           `${API_BASE_URL}/api/login/verify-otp-and-reset-password?Email=${resetEmail}&Otp=${otp}&NewPassword=${newPassword}`,
           { method: "POST" }
         );
-        
+
         const contentType = res.headers.get("content-type");
         let data: any = {};
-        
+
         if (contentType && contentType.includes("application/json")) {
           data = await res.json();
         }
-        
+
         if (res.ok) {
           setMsg("Password reset successful! Please log in with your new password.");
           localStorage.removeItem("resetEmail");
@@ -529,52 +555,52 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
         } else {
           setError(data.message || "OTP invalid or expired.");
         }
-      } 
+      }
       // Login OTP verification (with trust device)
       else if (loginUser) {
         const res = await fetch(
           `${API_BASE_URL}/api/login/verify_trust_otp?username=${loginUser}&otp=${otp}&trustthisdivice=${trustThisDevice}`,
           { method: "POST" }
         );
-        
+
         const contentType = res.headers.get("content-type");
         let data: any = {};
-        
+
         if (contentType && contentType.includes("application/json")) {
           data = await res.json();
         }
-        
+
         if (res.ok && data.token) {
           // Store token using Redux
           dispatch(setToken(data.token));
-          
+
           // Extract user info from token
           const userId = getUserIdFromToken(data.token);
           const userRole = getUserRoleFromToken(data.token);
-          
+
           // Store user info in Redux
           dispatch(saveUserName(loginUser));
           if (userId) dispatch(saveUserId(userId));
           if (userRole) dispatch(saveUserRole(userRole));
-          
+
           // Store in sessionStorage
           sessionStorage.setItem("clientId", data.clientID || "");
           sessionStorage.setItem("isAdmin", data.isAdmin || "false");
           sessionStorage.setItem("isDemoAccount", data.isDemoAccount || "false");
-          
+
           // Store first and last name if available
           if (data.firstName) dispatch(saveFirstName(data.firstName));
           if (data.lastName) dispatch(saveLastName(data.lastName));
-          
+
           // If user chose to trust device and backend returned trust number, store in cookie
           if (trustThisDevice && data.trustenumber) {
             setCookie("trustedDeviceNumber", data.trustenumber.toString(), 30);
           }
-          
+
           // Clean up localStorage
           localStorage.removeItem("loginUser");
           localStorage.removeItem("trustThisDevice");
-          
+
           // Navigate to main page
           navigate("/main");
         } else {
@@ -595,7 +621,7 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
         {resetEmail && "Please enter the OTP and your new password."}
         {loginUser && "Please enter the OTP sent to your email to complete login."}
       </p>
-      
+
       <form onSubmit={handleVerify}>
         <input
           type="text"
@@ -605,7 +631,7 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
           onChange={(e) => setOtp(e.target.value)}
           maxLength={6}
         />
-        
+
         {resetEmail && (
           <input
             type="password"
@@ -615,13 +641,13 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
             onChange={(e) => setNewPassword(e.target.value)}
           />
         )}
-        
+
         <button type="submit" className="login-button">Verify OTP</button>
       </form>
-      
+
       {msg && <div className="success-message">{msg}</div>}
       {error && <div className="error-message">{error}</div>}
-      
+
       <div className="register-link">
         <a onClick={() => {
           // Clear any stored data when going back
@@ -646,7 +672,7 @@ const LoginPage: React.FC = () => {
 
   return (
     <div className="page login-container">
-      <div className="login-boxx">
+      <div className={`login-boxx ${view === 'register' ? 'register-offset' : ''}`}>
         {view === "login" && <LoginForm setView={setView} />}
         {view === "register" && <RegisterForm setView={setView} />}
         {view === "forgot" && <ForgotPasswordForm setView={setView} />}
