@@ -9,6 +9,7 @@ import AeroplaneImg from "../../assets/images/aeroplane.png";
 import KiteImg from "../../assets/images/Kite.png";
 import RocketImg from "../../assets/images/rocket.png";
 import API_BASE_URL from "../../config";
+import { useNavigate } from "react-router-dom";
 
 
 export type Plan = {
@@ -69,6 +70,8 @@ const Planes: React.FC = () => {
 
     const [showForm, setShowForm] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
+     const navigate = useNavigate(); 
+    const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
 
     useEffect(() => {
         console.log("User ID from Redux:", reduxUserId);
@@ -90,7 +93,8 @@ const Planes: React.FC = () => {
             if (!text || text === "null" || text === "undefined") {
                 // No customer in DB → show form
                 console.log("No customer found, showing form");
-                setShowForm(true);
+               // setShowForm(true);
+                 navigate("/create-customer", { state: { plan, clientId: effectiveUserId } });
                 return;
             }
 
@@ -124,7 +128,8 @@ const Planes: React.FC = () => {
                 const subData = await subRes.json();
 
                 if (subData?.url) {
-                    window.location.href = subData.url; // 👈 navigate to API returned URL
+                      setPaymentUrl(subData.url);
+                 //   window.location.href = subData.url; // 👈 navigate to API returned URL
                 } else {
                     alert(`✅ ${plan.title} subscription created successfully!`);
                 }
@@ -137,25 +142,42 @@ const Planes: React.FC = () => {
             setShowForm(true); // fallback → show form
         }
     };
+      if (paymentUrl) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100 p-6">
+        <div className="bg-white shadow-2xl rounded-2xl w-full max-w-5xl p-8 transition-all hover:shadow-green-200">
+          <h3 className="text-xl font-bold text-center text-[#3f9f42] mb-4">Complete Payment</h3>
+          <iframe
+            src={paymentUrl}
+            title="Payment"
+            width="100%"
+            height="600"
+            frameBorder="0"
+            className="rounded-lg shadow-lg border"
+          />
+        </div>
+      </div>
+    );
+  }
 
     return (
         <div>
-            {showForm && (
+            {/* {showForm && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-auto">
                     <div className="bg-white p-6 rounded-lg shadow-lg max-w-5xl max-h-[98vh] w-full relative overflow-y-auto">
-                        {/* Close button */}
+                      
                         <button
                             className="absolute top-2 right-2 text-gray-600 hover:text-gray-900 text-xl font-bold"
                             onClick={() => setShowForm(false)}
                         >
                             ✖
                         </button>
-                        {/* Customer form */}
+                       
                         <CustomerCreateForm  plan={selectedPlan} // Pass the selected plan to the form
           clientId={effectiveUserId}/>
                     </div>
                 </div>
-            )}
+            )} */}
 
             <div className="pricing-table">
                 {plans.map((plan, index) => (

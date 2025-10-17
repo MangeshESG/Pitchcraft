@@ -4,12 +4,15 @@ import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { Plan } from "./planes";
 import API_BASE_URL from "../../config";
-
+import { useLocation } from "react-router-dom";
 interface CustomerCreateFormProps {
   plan: Plan | null;
   clientId: string;
 }
-const CustomerCreateForm: React.FC<CustomerCreateFormProps> = ({ plan, clientId }) => {
+// const CustomerCreateForm: React.FC<CustomerCreateFormProps> = ({ plan, clientId }) => {
+const CustomerCreateForm: React.FC = () => {
+  const location = useLocation();
+  const { plan, clientId } = location.state || {};
   const username = useSelector((state: RootState) => state.auth.username);
   console.log("username:", username);
   const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
@@ -167,14 +170,17 @@ const CustomerCreateForm: React.FC<CustomerCreateFormProps> = ({ plan, clientId 
         body: JSON.stringify(formData),
       });
 
-      if (!res.ok) throw new Error("Registration failed");
+      if (!res.ok) throw new Error("Customer creation failed");
 
       const data = await res.json();
       console.log("Success:", data);
+
+        const customerId = data.customer_id || data.customerId || data.id;
+    if (!customerId) throw new Error("Customer ID not found in response");
       // Now that the customer is created, subscribe them to the selected plan
       if (plan) {
         const subRes = await fetch(
-          `${API_BASE_URL}/api/Plane/new-subscription?clientId=${clientId}`,
+          `${API_BASE_URL}/api/Plane/new-subscription?clientId=${effectiveUserId}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -188,6 +194,7 @@ const CustomerCreateForm: React.FC<CustomerCreateFormProps> = ({ plan, clientId 
         );
         if (!subRes.ok) throw new Error("Subscription API failed");
         const subData = await subRes.json();
+         console.log("✅ Subscription created:", subData);
         if (subData?.url) {
           setMessage({ type: "success", text: "Account created, redirecting to payment..." });
           // setTimeout(() => window.location.href = subData.url, 1500);
@@ -237,8 +244,8 @@ const CustomerCreateForm: React.FC<CustomerCreateFormProps> = ({ plan, clientId 
     // </div>
 
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100 p-6">
-       {paymentUrl && (
-          <div className="mt-10">
+       {paymentUrl ? (
+          <div  className="bg-white shadow-2xl rounded-2xl w-full max-w-3xl p-8 transition-all hover:shadow-green-200">
             <h3 className="text-xl font-bold text-center text-[#3f9f42] mb-4">Complete Payment</h3>
             <iframe
               src={paymentUrl}
@@ -249,7 +256,7 @@ const CustomerCreateForm: React.FC<CustomerCreateFormProps> = ({ plan, clientId 
               className="rounded-lg shadow-lg border"
             />
           </div>
-        )}
+        ): (
       <div className="bg-white shadow-2xl rounded-2xl w-full max-w-2xl p-8 transition-all hover:shadow-green-200">
 
         <h2 className="text-3xl font-bold text-center text-[#3f9f42] mb-2 mt-[-12px]">
@@ -406,6 +413,7 @@ const CustomerCreateForm: React.FC<CustomerCreateFormProps> = ({ plan, clientId 
           </button>
         </form>
       </div>
+       )}
     </div>
 
   );

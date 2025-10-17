@@ -156,7 +156,10 @@ const Header: React.FC<HeaderProps> = React.memo(({
               {/* Buy Plans Button */}
               <button
                 onClick={() => setShowPlanes(true)}
-                className="ml-2 px-3 py-1 rounded bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition"
+                className="ml-2 px-3 py-1 rounded  text-white text-sm font-medium transition"
+                  style={{ backgroundColor: "#3f9f42" }}
+                  onMouseEnter={e => e.currentTarget.style.backgroundColor = "#37a137"}
+  onMouseLeave={e => e.currentTarget.style.backgroundColor = "#3f9f42"}
               >
                 Upgrade
               </button>

@@ -64,7 +64,8 @@ const App: React.FC = () => {
                   }
                 />
                 <Route path="/amend-prompt/:id" element={<AmendPrompt />} />
-                <Route path="/create-customer" element={<CustomerCreateForm plan={null} clientId={""} />} />
+                {/* <Route path="/create-customer" element={<CustomerCreateForm plan={null} clientId={""} />} /> */}
+                <Route path="/create-customer" element={<CustomerCreateForm />} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
 
