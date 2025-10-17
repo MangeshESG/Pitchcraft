@@ -995,42 +995,13 @@ const startEditConversation = async (placeholder: string) => {
   
   const currentValue = placeholderValues[placeholder] || "not set";
   
-  // ✅ Use systemPromptForEdit from database (loaded in loadTemplateForEdit)
-  let editSystemPrompt = "";
-  
-  if (systemPromptForEdit && systemPromptForEdit.trim() !== "") {
-    // Use the AI instructions for editing from the database
-    editSystemPrompt = systemPromptForEdit
-      .replace(/{placeholder}/g, placeholder)
-      .replace(/{currentValue}/g, currentValue);
-  } else {
-    // Fallback to default instructions if none in database
-    editSystemPrompt = `You are an AI assistant helping to edit a specific placeholder value in a campaign template. 
-The user wants to modify the value for {${placeholder}}.
-Current value: "${currentValue}"
-
-Your task:
-1. Ask the user what new value they want for {${placeholder}}
-2. Confirm the new value with them
-3. When confirmed, return the response in this EXACT format:
-
-==PLACEHOLDER_UPDATE_START==
-{${placeholder}} = [new value here]
-==PLACEHOLDER_UPDATE_END==
-
-{
-  "status": "complete",
-  "updated_placeholder": "${placeholder}",
-  "old_value": "${currentValue}",
-  "new_value": "[new value here]"
-}`;
-  }
-  
   try {
-    const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/chat`, {
+    // ✅ Use new edit/start endpoint with database AI instructions
+    const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/edit/start`, {
       userId: effectiveUserId,
-      message: `I want to change the value of {${placeholder}}. Current value is: "${currentValue}"`,
-      systemPrompt: editSystemPrompt,
+      campaignTemplateId: editTemplateId,
+      placeholder: placeholder,
+      currentValue: currentValue,
       model: selectedModel
     });
     
@@ -1207,161 +1178,192 @@ Your task:
     }
   };
 const handleSendMessage = async () => {
-    if (currentAnswer.trim() === '' || isTyping || !effectiveUserId) return;
+  if (currentAnswer.trim() === '' || isTyping || !effectiveUserId) return;
 
-    const userMessage: Message = { 
-      type: 'user', 
-      content: currentAnswer, 
-      timestamp: new Date() 
-    };
+  const userMessage: Message = { 
+    type: 'user', 
+    content: currentAnswer, 
+    timestamp: new Date() 
+  };
 
-    setMessages(prev => [...prev, userMessage]);
-    setCurrentAnswer('');
-    setIsTyping(true);
+  setMessages(prev => [...prev, userMessage]);
+  setCurrentAnswer('');
+  setIsTyping(true);
 
-    try {
-      const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/chat`, {
-        userId: effectiveUserId,
-        message: userMessage.content,
-        systemPrompt: "",
-        model: selectedModel
-      });
+  try {
+    // ✅ Use different endpoint based on mode
+    const endpoint = isEditMode 
+      ? `${API_BASE_URL}/api/CampaignPrompt/edit/chat`
+      : `${API_BASE_URL}/api/CampaignPrompt/chat`;
+    
+    const requestBody = isEditMode
+      ? {
+          userId: effectiveUserId,
+          campaignTemplateId: editTemplateId,
+          message: userMessage.content,
+          model: selectedModel
+        }
+      : {
+          userId: effectiveUserId,
+          message: userMessage.content,
+          systemPrompt: "",
+          model: selectedModel
+        };
 
-      const data = response.data.response;
+    const response = await axios.post(endpoint, requestBody);
+    const data = response.data.response;
 
-      if (isEditMode && data && data.assistantText) {
-        const updateMatch = data.assistantText.match(/==PLACEHOLDER_UPDATE_START==([\s\S]*?)==PLACEHOLDER_UPDATE_END==/);
+    // ✅ Handle EDIT MODE responses
+    if (isEditMode && data && data.assistantText) {
+      const updateMatch = data.assistantText.match(/==PLACEHOLDER_UPDATE_START==([\s\S]*?)==PLACEHOLDER_UPDATE_END==/);
+      
+      if (updateMatch) {
+        const updateSection = updateMatch[1].trim();
+        const placeholderRegex = /(?:\{)?([^{}=]+?)(?:\})?\s*=\s*([\s\S]+)/;
+        const match = placeholderRegex.exec(updateSection);
         
-        if (updateMatch) {
-          const updateSection = updateMatch[1].trim();
-          const placeholderRegex = /(?:\{)?([^{}=]+?)(?:\})?\s*=\s*([\s\S]+)/;
-          const match = placeholderRegex.exec(updateSection);
+        if (match) {
+          const placeholder = match[1].trim();
+          const newValue = match[2].trim();
           
-          if (match) {
-            const placeholder = match[1].trim();
-            const newValue = match[2].trim();
+          console.log(`Updating placeholder: ${placeholder} with value: ${newValue}`);
+          
+          // Update placeholder values
+          const updatedValues = { ...placeholderValues, [placeholder]: newValue };
+          setPlaceholderValues(updatedValues);
+          
+          // Update filled master prompt
+          const allowedPlaceholders = extractPlaceholders(masterPrompt);
+          const filledMaster = replacePlaceholdersInText(masterPrompt, updatedValues, allowedPlaceholders);
+          setFinalPrompt(filledMaster);
+          
+          // Update filled preview
+          const previewPlaceholders = extractPlaceholders(previewText);
+          const filledPreview = replacePlaceholdersInText(previewText, updatedValues, previewPlaceholders);
+          setFinalPreviewText(filledPreview);
+          
+          try {
+            // Update in database
+            await updateTemplateInDatabase(updatedValues);
             
-            console.log(`Updating placeholder: ${placeholder} with value: ${newValue}`);
+            const completionMessage: Message = { 
+              type: 'bot', 
+              content: `✅ Successfully updated {${placeholder}} to "${newValue}". The template has been saved.`, 
+              timestamp: new Date() 
+            };
+            setMessages(prev => [...prev, completionMessage]);
+            playNotificationSound();
             
-            const updatedValues = { ...placeholderValues, [placeholder]: newValue };
-            setPlaceholderValues(updatedValues);
-            
-            const allowedPlaceholders = extractPlaceholders(masterPrompt);
-            const filledMaster = replacePlaceholdersInText(masterPrompt, updatedValues, allowedPlaceholders);
-            setFinalPrompt(filledMaster);
-            
-            const previewPlaceholders = extractPlaceholders(previewText);
-            const filledPreview = replacePlaceholdersInText(previewText, updatedValues, previewPlaceholders);
-            setFinalPreviewText(filledPreview);
-            
-            try {
-              await updateTemplateInDatabase(updatedValues);
-              
-              const completionMessage: Message = { 
-                type: 'bot', 
-                content: `✅ Successfully updated {${placeholder}} to "${newValue}". The template has been saved.`, 
-                timestamp: new Date() 
-              };
-              setMessages(prev => [...prev, completionMessage]);
-              playNotificationSound();
-              
-              if (effectiveUserId) {
-                axios.post(`${API_BASE_URL}/api/CampaignPrompt/history/${effectiveUserId}/clear`)
-                  .catch(err => console.error("Failed to clear history:", err));
-              }
-              
-              // ✅ After successful update, reset conversation to show dropdown again
-              setTimeout(() => {
-                setConversationStarted(false);
-                setMessages([]);
-                setSelectedPlaceholder("");
-                setIsComplete(true); // Show updated results in result tab
-              }, 2000);
-            } catch (saveError) {
-              console.error('Error saving template:', saveError);
-              const errorMessage: Message = { 
-                type: 'bot', 
-                content: '❌ Updated the value locally but failed to save to database. Please try saving again.', 
-                timestamp: new Date() 
-              };
-              setMessages(prev => [...prev, errorMessage]);
+            // Clear edit chat history using the session key format
+            if (effectiveUserId && editTemplateId) {
+              axios.post(`${API_BASE_URL}/api/CampaignPrompt/edit/clear/${effectiveUserId}/${editTemplateId}`)
+                .catch(err => console.error("Failed to clear edit history:", err));
             }
             
-            return;
+            // Reset conversation to show dropdown again
+            setTimeout(() => {
+              setConversationStarted(false);
+              setMessages([]);
+              setSelectedPlaceholder("");
+              setIsComplete(true); // Show updated results in result tab
+            }, 2000);
+          } catch (saveError) {
+            console.error('Error saving template:', saveError);
+            const errorMessage: Message = { 
+              type: 'bot', 
+              content: '❌ Updated the value locally but failed to save to database. Please try saving again.', 
+              timestamp: new Date() 
+            };
+            setMessages(prev => [...prev, errorMessage]);
           }
-        }
-      }
-      
-      if (!isEditMode && data && data.isComplete) {
-        console.log('✅ Campaign completed!');
-        
-        const assistantText = data.assistantText || '';
-        const placeholderValuesMatch = assistantText
-          .match(/==PLACEHOLDER_VALUES_START==([\s\S]*?)==PLACEHOLDER_VALUES_END==/);
-
-        if (placeholderValuesMatch) {
-          const tempValues: Record<string, string> = {};
-          const placeholderSection = placeholderValuesMatch[1];
           
-          const placeholderRegex = /\{([^}]+)\}\s*=\s*([\s\S]*?)(?=\n\{[^}]+\}\s*=|$)/g;
-          let match;
-          
-          while ((match = placeholderRegex.exec(placeholderSection)) !== null) {
-            const placeholder = match[1].trim();
-            const value = match[2].trim();
-            tempValues[placeholder] = value;
-          }
-
-          console.log('Extracted placeholder values:', tempValues);
-
-          const allowedPlaceholders = extractPlaceholders(masterPrompt);
-          setPlaceholderValues(tempValues);
-
-          const filledMaster = replacePlaceholdersInText(masterPrompt, tempValues, allowedPlaceholders);
-          setFinalPrompt(filledMaster);
-
-          const previewPlaceholders = extractPlaceholders(previewText);
-          const filledPreview = replacePlaceholdersInText(previewText, tempValues, previewPlaceholders);
-          setFinalPreviewText(filledPreview);
-
-          setIsComplete(true);
-
-          const completionMessage: Message = { 
-            type: 'bot', 
-            content: "🎉 Great! I've filled in all the placeholders. Check the 'Final Result' tab.", 
-            timestamp: new Date() 
-          };
-          setMessages(prev => [...prev, completionMessage]);
-          playNotificationSound();
-
-          setTimeout(() => setActiveTab('result'), 1500);
           return;
         }
       }
-
-      if (data && data.assistantText) {
-        const botMessage: Message = { 
-          type: 'bot', 
-          content: data.assistantText, 
-          timestamp: new Date() 
-        };
-        setMessages(prev => [...prev, botMessage]);
-        playNotificationSound();
-      }
-
-    } catch (error) {
-      console.error('❌ Error sending message:', error);
-      const errorMessage: Message = { 
+      
+      // If no update match, just show the AI response
+      const botMessage: Message = { 
         type: 'bot', 
-        content: 'Sorry, there was an error processing your answer. Please try again.', 
+        content: data.assistantText, 
         timestamp: new Date() 
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => [...prev, botMessage]);
       playNotificationSound();
-    } finally {
-      setIsTyping(false);
+      return;
     }
-  };
+    
+    // ✅ Handle REGULAR MODE responses (campaign creation)
+    if (!isEditMode && data && data.isComplete) {
+      console.log('✅ Campaign completed!');
+      
+      const assistantText = data.assistantText || '';
+      const placeholderValuesMatch = assistantText
+        .match(/==PLACEHOLDER_VALUES_START==([\s\S]*?)==PLACEHOLDER_VALUES_END==/);
+
+      if (placeholderValuesMatch) {
+        const tempValues: Record<string, string> = {};
+        const placeholderSection = placeholderValuesMatch[1];
+        
+        const placeholderRegex = /\{([^}]+)\}\s*=\s*([\s\S]*?)(?=\n\{[^}]+\}\s*=|$)/g;
+        let match;
+        
+        while ((match = placeholderRegex.exec(placeholderSection)) !== null) {
+          const placeholder = match[1].trim();
+          const value = match[2].trim();
+          tempValues[placeholder] = value;
+        }
+
+        console.log('Extracted placeholder values:', tempValues);
+
+        const allowedPlaceholders = extractPlaceholders(masterPrompt);
+        setPlaceholderValues(tempValues);
+
+        const filledMaster = replacePlaceholdersInText(masterPrompt, tempValues, allowedPlaceholders);
+        setFinalPrompt(filledMaster);
+
+        const previewPlaceholders = extractPlaceholders(previewText);
+        const filledPreview = replacePlaceholdersInText(previewText, tempValues, previewPlaceholders);
+        setFinalPreviewText(filledPreview);
+
+        setIsComplete(true);
+
+        const completionMessage: Message = { 
+          type: 'bot', 
+          content: "🎉 Great! I've filled in all the placeholders. Check the 'Final Result' tab.", 
+          timestamp: new Date() 
+        };
+        setMessages(prev => [...prev, completionMessage]);
+        playNotificationSound();
+
+        setTimeout(() => setActiveTab('result'), 1500);
+        return;
+      }
+    }
+
+    // ✅ Regular bot response (conversation continues)
+    if (data && data.assistantText) {
+      const botMessage: Message = { 
+        type: 'bot', 
+        content: data.assistantText, 
+        timestamp: new Date() 
+      };
+      setMessages(prev => [...prev, botMessage]);
+      playNotificationSound();
+    }
+
+  } catch (error) {
+    console.error('❌ Error sending message:', error);
+    const errorMessage: Message = { 
+      type: 'bot', 
+      content: 'Sorry, there was an error processing your answer. Please try again.', 
+      timestamp: new Date() 
+    };
+    setMessages(prev => [...prev, errorMessage]);
+    playNotificationSound();
+  } finally {
+    setIsTyping(false);
+  }
+};
 
   const updateTemplateInDatabase = async (updatedPlaceholderValues: Record<string, string>) => {
     if (!editTemplateId || !originalTemplateData) return;
