@@ -2,18 +2,20 @@ import React, { useEffect, useState } from "react";
 import { RootState } from "../../Redux/store";
 import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
+import { Plan } from "./planes";
+import API_BASE_URL from "../../config";
 
-const CustomerCreateForm: React.FC = () => {
+ interface CustomerCreateFormProps {
+    plan: Plan | null;
+    clientId: string;
+  }
+const CustomerCreateForm: React.FC<CustomerCreateFormProps> = ({ plan, clientId }) => {
   const username = useSelector((state: RootState) => state.auth.username);
   console.log("username:", username);
-  const firstName = useSelector((state: RootState) => state.auth.firstName);
-  console.log("firstName:", firstName);
-  const lastName = useSelector((state: RootState) => state.auth.lastName);
-  console.log("lastName:", lastName);
   const [formData, setFormData] = useState({
     displayName: username || "",
-    firstName: firstName || "",
-    lastName: lastName || "",
+    firstName: "",
+    lastName: "",
     email: "",
     //companyName: "",
     // phone: "",
@@ -32,6 +34,8 @@ const CustomerCreateForm: React.FC = () => {
     // paymentTermsLabel: "",
   });
 
+ 
+
   // ✅ Handle nested and normal fields
   const reduxUserId = useSelector((state: RootState) => state.auth.userId);
 
@@ -47,7 +51,7 @@ const CustomerCreateForm: React.FC = () => {
     const fetchCountries = async () => {
       try {
         setLoadingCountries(true);
-        const res = await fetch("https://localhost:7216/api/Plane/get-Countries");
+        const res = await fetch("${API_BASE_URL}/api/Plane/get-Countries");
         if (!res.ok) throw new Error("Failed to fetch countries");
         const data = await res.json();
 
@@ -75,20 +79,26 @@ const CustomerCreateForm: React.FC = () => {
     const fetchCustomerDetails = async () => {
       try {
         const res = await fetch(
-          `https://localhost:7216/api/Plane/get-Customers?clientId=${effectiveUserId}`
+          `${API_BASE_URL}/api/Plane/get-CustomersInClient?clientId=${effectiveUserId}`
         );
         if (!res.ok) throw new Error("Failed to fetch customer details");
 
-        const data = await res.json();
-        console.log("Customer API response:", data);
+        const customer = await res.json();
+        console.log("InClientCustomer API response:", customer);
 
-        // Assuming you only want the first customer's email
-        if (Array.isArray(data) && data.length > 0) {
-          setFormData((prev) => ({
-            ...prev,
-            email: data[0].email || "",
-          }));
-        }
+        // ✅ Directly assign because it's a single object
+        setFormData((prev) => ({
+          ...prev,
+          firstName: customer.firstName || "",
+          lastName: customer.lastName || "",
+          email: customer.email || "",
+        }));
+
+        console.log("Updated formData:", {
+          firstName: customer.firstName,
+          lastName: customer.lastName,
+          email: customer.email,
+        });
       } catch (error) {
         console.error("Error fetching customer details:", error);
       }
@@ -150,7 +160,7 @@ const CustomerCreateForm: React.FC = () => {
 
     try {
       const res = await fetch(
-        `https://localhost:7216/api/Plane/create-customer?ClinteId=${effectiveUserId}`, {
+        `${API_BASE_URL}/api/Plane/create-customer?ClinteId=${effectiveUserId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
@@ -160,13 +170,32 @@ const CustomerCreateForm: React.FC = () => {
 
       const data = await res.json();
       console.log("Success:", data);
-      setMessage({
-        type: "success",
-        text: "Account created successfully!",
-      });
-      setTimeout(() => navigate("/"), 1500);
+      // Now that the customer is created, subscribe them to the selected plan
+      if (plan) {
+        const subRes = await fetch(
+          `${API_BASE_URL}/api/Plane/new-subscription?clientId=${clientId}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              customer_id: data.customer_id,
+              customer: { display_name: formData.displayName, email: formData.email },
+              plan: { plan_code: plan.planCode, quantity: 1 },
+              payment_gateways: [{ payment_gateway: "stripe" }],
+            }),
+          }
+        );
+         if (!subRes.ok) throw new Error("Subscription API failed");
+        const subData = await subRes.json();
+        if (subData?.url) {
+          setMessage({ type: "success", text: "Account created, redirecting to payment..." });
+          setTimeout(() => window.location.href = subData.url, 1500);
+        } else {
+          setMessage({ type: "success", text: "Account and subscription created!" });
+        }
+      }
     } catch (error) {
-      console.error(error);
+      console.error("Error creating account:", error);
       setMessage({
         type: "error",
         text: "Error creating account. Please try again.",
@@ -209,13 +238,13 @@ const CustomerCreateForm: React.FC = () => {
       <div className="bg-white shadow-2xl rounded-2xl w-full max-w-2xl p-8 transition-all hover:shadow-green-200">
 
         <h2 className="text-3xl font-bold text-center text-[#3f9f42] mb-2 mt-[-12px]">
-          Create account
+          Billing  information
         </h2>
         {message.text && (
           <div
             className={`text-center mb-4 p-3 rounded-xl font-semibold ${message.type === "success"
-                ? "bg-green-100 text-green-700 border border-green-300"
-                : "bg-red-100 text-red-700 border border-red-300"
+              ? "bg-green-100 text-green-700 border border-green-300"
+              : "bg-red-100 text-red-700 border border-red-300"
               }`}
           >
             {message.text}
@@ -249,7 +278,7 @@ const CustomerCreateForm: React.FC = () => {
                 name="firstName"
                 value={formData.firstName}
                 onChange={handleChange}
-                placeholder="Enter First name"
+                placeholder=""
                 className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#3f9f42] focus:border-transparent outline-none transition-all"
               />
             </div>
@@ -291,17 +320,26 @@ const CustomerCreateForm: React.FC = () => {
               <input
                 type="text"
                 placeholder="Street"
+                name="billingAddress.street"
+                 value={formData.billingAddress.street}
+              onChange={handleChange}
                 className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#3f9f42] focus:border-transparent outline-none transition-all"
               />
               <div className="grid grid-cols-2 gap-4">
                 <input
                   type="text"
                   placeholder="City"
+                  name="billingAddress.city"
+                   value={formData.billingAddress.city}
+              onChange={handleChange}
                   className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#3f9f42] focus:border-transparent outline-none transition-all"
                 />
                 <input
                   type="text"
                   placeholder="State"
+                  name="billingAddress.state"
+                   value={formData.billingAddress.state}
+              onChange={handleChange}
                   className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#3f9f42] focus:border-transparent outline-none transition-all"
                 />
               </div>
@@ -309,6 +347,9 @@ const CustomerCreateForm: React.FC = () => {
                 <input
                   type="text"
                   placeholder="Zip"
+                  name="billingAddress.zip"
+                   value={formData.billingAddress.zip}
+              onChange={handleChange}
                   className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#3f9f42] focus:border-transparent outline-none transition-all"
                 />
                 <select
@@ -325,14 +366,19 @@ const CustomerCreateForm: React.FC = () => {
                   ))}
                 </select>
               </div>
-              <input
-                type="text"
+              <select
                 name="currencyCode"
                 value={formData.currencyCode}
                 onChange={handleChange}
-                placeholder="currency"
                 className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#3f9f42] focus:border-transparent outline-none transition-all"
-              />
+              >
+                <option value="">Select currency</option>
+                {Array.from(new Set(countries.map((c) => c.currency))).map((currency) => (
+                  <option key={currency} value={currency}>
+                    {currency}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 

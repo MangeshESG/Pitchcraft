@@ -3,13 +3,15 @@ import "./planes.css";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faCloudDownloadAlt } from "@fortawesome/free-solid-svg-icons";
 import { useSelector } from "react-redux";
-import { RootState } from "../Redux/store";
-import CustomerCreateForm from "./feature/CustomerCreateForm";
-import AeroplaneImg from "../assets/images/aeroplane.png";
-import KiteImg from "../assets/images/Kite.png";
-import RocketImg from "../assets/images/rocket.png";
+import { RootState } from "../../Redux/store";
+import CustomerCreateForm from "./CustomerCreateForm";
+import AeroplaneImg from "../../assets/images/aeroplane.png";
+import KiteImg from "../../assets/images/Kite.png";
+import RocketImg from "../../assets/images/rocket.png";
+import API_BASE_URL from "../../config";
 
-type Plan = {
+
+export type Plan = {
     icon: string;
     title: string;
     price: string;
@@ -18,6 +20,10 @@ type Plan = {
     buttonText: string;
     planCode: string;
 };
+interface CustomerCreateFormProps {
+  plan: Plan | null;
+  clientId: string;
+}
 
 const plans: Plan[] = [
     {
@@ -58,9 +64,11 @@ const Planes: React.FC = () => {
     const reduxUserId = useSelector((state: RootState) => state.auth.userId);
 
     const selectedClient = ""; // placeholder — replace with real value
-    const effectiveUserId = selectedClient !== "" ? selectedClient : reduxUserId;
+    //const effectiveUserId = selectedClient !== "" ? selectedClient : reduxUserId;
+    const effectiveUserId: string = selectedClient !== "" ? selectedClient : reduxUserId || "";
 
     const [showForm, setShowForm] = useState(false);
+    const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
 
     useEffect(() => {
         console.log("User ID from Redux:", reduxUserId);
@@ -68,10 +76,11 @@ const Planes: React.FC = () => {
     }, [reduxUserId, effectiveUserId]);
 
     const handleTryItNowClick = async (plan: Plan) => {
+        setSelectedPlan(plan);
         try {
             // Step 1: Check if customer exists
             const response = await fetch(
-                `https://localhost:7216/api/Plane/get-Customers?clientId=${effectiveUserId}`
+                `${API_BASE_URL}/api/Plane/get-Customers?clientId=${effectiveUserId}`
             );
 
             if (!response.ok) throw new Error(`API error: ${response.status}`);
@@ -91,7 +100,7 @@ const Planes: React.FC = () => {
             if (data?.customerId) {
                 // ✅ Customer exists → create subscription
                 const subRes = await fetch(
-                    `https://localhost:7216/api/Plane/new-subscription?clientId=${effectiveUserId}`,
+                    `${API_BASE_URL}/api/Plane/new-subscription?clientId=${effectiveUserId}`,
                     {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
@@ -142,7 +151,8 @@ const Planes: React.FC = () => {
                             ✖
                         </button>
                         {/* Customer form */}
-                        <CustomerCreateForm />
+                        <CustomerCreateForm  plan={selectedPlan} // Pass the selected plan to the form
+          clientId={effectiveUserId}/>
                     </div>
                 </div>
             )}

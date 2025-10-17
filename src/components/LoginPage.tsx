@@ -19,7 +19,7 @@ type ViewMode = "login" | "register" | "forgot" | "otp";
 
 interface ViewProps {
   setView: React.Dispatch<React.SetStateAction<ViewMode>>;
-   style?: CSSProperties;
+  style?: CSSProperties;
 }
 
 // Cookie helper functions
@@ -266,7 +266,7 @@ const RegisterForm: React.FC<ViewProps> = ({ setView }) => {
 
   return (
     <div>
-      <h2 style={{ marginTop: '-10px'}}>Create Account</h2>
+      <h2 style={{ marginTop: '-10px' }}>Create account</h2>
       <form onSubmit={handleRegister}>
         <div className="name-fields">
           <div className="name-field">
@@ -379,7 +379,7 @@ const ForgotPasswordForm: React.FC<ViewProps> = ({ setView }) => {
 
   return (
     <div>
-      <h2>Reset Password</h2>
+      <h2>Reset password</h2>
       <form onSubmit={handleSendOtp}>
         <input
           type="email"
@@ -393,7 +393,7 @@ const ForgotPasswordForm: React.FC<ViewProps> = ({ setView }) => {
       {msg && <div className="success-message">{msg}</div>}
       {error && <div className="error-message">{error}</div>}
       <div className="register-link">
-        <a onClick={() => setView("login")}>Back to Login</a>
+        <a onClick={() => setView("login")}>Back to login</a>
       </div>
     </div>
   );
@@ -528,8 +528,13 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
         }
 
         if (response.ok) {
+          // Cleanup
+          localStorage.removeItem("registerEmail");
+          localStorage.removeItem("registerUsername");
+          localStorage.removeItem("registerPassword");
           setMsg("Registration successful! Logging you in...");
-          setTimeout(() => autoLoginAfterRegistration(), 500);
+           setTimeout(() => setView("login"), 2000);
+          //setTimeout(() => autoLoginAfterRegistration(), 500);
         } else {
           setError(data.message || "Invalid or expired OTP.");
         }
@@ -659,7 +664,7 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
           localStorage.removeItem("trustThisDevice");
           setView("login");
         }}>
-          Back to Login
+          Back to login
         </a>
       </div>
     </div>

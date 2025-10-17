@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { RootState } from "../../Redux/store";
 import { useDispatch } from "react-redux";
 import { clearToken } from "../../slices/authSLice";
-import Planes from "../planes";
+import Planes from "../feature/planes";
 
 interface HeaderProps {
   connectTo: boolean;
