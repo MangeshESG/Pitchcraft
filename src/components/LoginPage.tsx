@@ -80,96 +80,108 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
   };
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError("");
+  e.preventDefault();
+  setError("");
 
-    try {
-      const trustedDeviceNumber = getCookie("trustedDeviceNumber");
+  try {
+    const trustedDeviceNumber = getCookie("trustedDeviceNumber");
 
-      const response = await fetch(`${API_BASE_URL}/api/login/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username,
-          password,
-          trustednumber: trustedDeviceNumber ? parseInt(trustedDeviceNumber) : null
-        }),
-      });
+    // 🔍 Debug logs – check kar console me
+    console.log("All cookies:", document.cookie);
+    console.log("Trusted device cookie:", trustedDeviceNumber);
 
-      let data: any;
-      try {
-        data = await response.json();
-      } catch {
-        data = {};
-      }
+    // 👇 Safe body create kar rahe hain
+    const body: any = { username, password };
 
-      // Direct login with trusted device
-      if (response.ok && data.token) {
-        // Store token using Redux
-        dispatch(setToken(data.token));
-
-        // Extract user info from token
-        const userId = getUserIdFromToken(data.token);
-        console.log("Client ID stored in session:", userId);
-        const userRole = getUserRoleFromToken(data.token);
-
-        // Store user info in Redux
-        dispatch(saveUserName(username));
-        if (userId) dispatch(saveUserId(userId));
-        if (userRole) dispatch(saveUserRole(userRole));
-
-        // Store in sessionStorage for backward compatibility
-        sessionStorage.setItem("clientId", data.clientID || "");
-        sessionStorage.setItem("isAdmin", data.isAdmin || "false");
-        sessionStorage.setItem("isDemoAccount", data.isDemoAccount || "false");
-
-        // Store first and last name if available
-        if (data.firstName) dispatch(saveFirstName(data.firstName));
-        if (data.lastName) dispatch(saveLastName(data.lastName));
-
-        // ✅ CALL user_credit API here
-        try {
-          const creditRes = await fetch(
-            `https://localhost:7216/api/Crm/user_credit?clientId=${reduxUserId}`,
-            {
-              method: "GET",
-              headers: {
-                Authorization: `Bearer ${data.token}`,
-                "Content-Type": "application/json",
-              },
-            }
-          );
-
-          if (creditRes.ok) {
-            const creditData = await creditRes.json();
-            dispatch(saveUserCredit(creditData));
-            console.log("User Credit:", creditData);
-
-            // you can dispatch it to Redux if needed:
-            // dispatch(saveUserCredit(creditData));
-          } else {
-            console.error("Failed to fetch user credit");
-          }
-        } catch (err) {
-          console.error("Credit API error:", err);
-        }
-        navigate("/main");
-        return;
-      }
-      // OTP required
-      else if (response.ok && (data.success || data.message?.toLowerCase().includes("otp"))) {
-        localStorage.setItem("loginUser", username);
-        localStorage.setItem("trustThisDevice", trustThisDevice ? "true" : "false");
-        setView("otp");
-      }
-      else {
-        setError(data.message || "Invalid login credentials.");
-      }
-    } catch (err) {
-      console.error("Login error:", err);
-      setError("Server error. Please try again later.");
+    // Agar cookie valid hai tabhi trustednumber add karo
+    if (
+      trustedDeviceNumber &&
+      trustedDeviceNumber.trim() !== "" &&
+      trustedDeviceNumber !== "undefined" &&
+      !isNaN(Number(trustedDeviceNumber))
+    ) {
+      body.trustednumber = Number(trustedDeviceNumber);
+      console.log("✅ trustednumber added in body:", body.trustednumber);
+    } else {
+      console.log("🚫 No valid trusted device number found, skipping...");
     }
-  };
+
+    // 👇 API call
+    const response = await fetch(`${API_BASE_URL}/api/login/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    let data: any;
+    try {
+      data = await response.json();
+    } catch {
+      data = {};
+    }
+
+    // Direct login with trusted device
+    if (response.ok && data.token) {
+      dispatch(setToken(data.token));
+
+      const userId = getUserIdFromToken(data.token);
+      const userRole = getUserRoleFromToken(data.token);
+
+      dispatch(saveUserName(username));
+      if (userId) dispatch(saveUserId(userId));
+      if (userRole) dispatch(saveUserRole(userRole));
+
+      sessionStorage.setItem("clientId", data.clientID || "");
+      sessionStorage.setItem("isAdmin", data.isAdmin || "false");
+      sessionStorage.setItem("isDemoAccount", data.isDemoAccount || "false");
+
+      if (data.firstName) dispatch(saveFirstName(data.firstName));
+      if (data.lastName) dispatch(saveLastName(data.lastName));
+
+      // ✅ Optional: fetch user credit
+      try {
+        const creditRes = await fetch(
+          `https://localhost:7216/api/Crm/user_credit?clientId=${reduxUserId}`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${data.token}`,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        if (creditRes.ok) {
+          const creditData = await creditRes.json();
+          dispatch(saveUserCredit(creditData));
+          console.log("User Credit:", creditData);
+        } else {
+          console.error("Failed to fetch user credit");
+        }
+      } catch (err) {
+        console.error("Credit API error:", err);
+      }
+
+      navigate("/main");
+      return;
+    }
+
+    // OTP required
+    else if (
+      response.ok &&
+      (data.success || data.message?.toLowerCase().includes("otp"))
+    ) {
+      localStorage.setItem("loginUser", username);
+      localStorage.setItem("trustThisDevice", trustThisDevice ? "true" : "false");
+      setView("otp");
+    } else {
+      setError(data.message || "Invalid login credentials.");
+    }
+  } catch (err) {
+    console.error("Login error:", err);
+    setError("Server error. Please try again later.");
+  }
+};
 
   return (
     <div>
