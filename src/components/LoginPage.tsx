@@ -47,7 +47,7 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
   const dispatch = useDispatch();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [trustThisDevice, setTrustThisDevice] = useState(false);
+  // const [trustThisDevice, setTrustThisDevice] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -172,7 +172,7 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
       (data.success || data.message?.toLowerCase().includes("otp"))
     ) {
       localStorage.setItem("loginUser", username);
-      localStorage.setItem("trustThisDevice", trustThisDevice ? "true" : "false");
+      // localStorage.setItem("trustThisDevice", trustThisDevice ? "true" : "false");
       setView("otp");
     } else {
       setError(data.message || "Invalid login credentials.");
@@ -204,7 +204,7 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
           required
         />
 
-        <div style={{ margin: "10px 0" }}>
+        {/* <div style={{ margin: "10px 0" }}>
           <label>
             <input
               type="checkbox"
@@ -213,7 +213,7 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
             />{" "}
             Trust this device (Don't ask for OTP for 30 days)
           </label>
-        </div>
+        </div> */}
 
         <button type="submit" className="login-button">Log in</button>
       </form>
@@ -425,7 +425,8 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
   const registerPassword = localStorage.getItem("registerPassword");
   const resetEmail = localStorage.getItem("resetEmail");
   const loginUser = localStorage.getItem("loginUser");
-  const trustThisDevice = localStorage.getItem("trustThisDevice") === "true";
+  // const trustThisDevice = localStorage.getItem("trustThisDevice") === "true";
+   const [trustThisDevice, setTrustThisDevice] = useState(false);
 
   // Helper functions
   // Helper functions
@@ -632,54 +633,71 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
 
   return (
     <div>
-      <h2>Enter OTP</h2>
-      <p style={{ fontSize: "14px", color: "#666", marginBottom: "20px" }}>
-        {registerEmail && "Please enter the OTP sent to your email to complete registration."}
-        {resetEmail && "Please enter the OTP and your new password."}
-        {loginUser && "Please enter the OTP sent to your email to complete login."}
-      </p>
+  <h2>Enter OTP</h2>
 
-      <form onSubmit={handleVerify}>
-        <input
-          type="text"
-          value={otp}
-          placeholder="Enter OTP"
-          required
-          onChange={(e) => setOtp(e.target.value)}
-          maxLength={6}
-        />
+  <p style={{ fontSize: "14px", color: "#666", marginBottom: "20px" }}>
+    {registerEmail && "Please enter the OTP sent to your email to complete registration."}
+    {resetEmail && "Please enter the OTP and your new password."}
+    {loginUser && "Please enter the OTP sent to your email to complete login."}
+  </p>
 
-        {resetEmail && (
+  <form onSubmit={handleVerify}>
+    <input
+      type="text"
+      value={otp}
+      placeholder="Enter OTP"
+      required
+      onChange={(e) => setOtp(e.target.value)}
+      maxLength={6}
+    />
+
+    {/* ✅ Correct conditional render */}
+    {loginUser && (
+      <div style={{ margin: "10px 0" }}>
+        <label>
           <input
-            type="password"
-            value={newPassword}
-            placeholder="New Password"
-            required
-            onChange={(e) => setNewPassword(e.target.value)}
-          />
-        )}
-
-        <button type="submit" className="login-button">Verify OTP</button>
-      </form>
-
-      {msg && <div className="success-message">{msg}</div>}
-      {error && <div className="error-message">{error}</div>}
-
-      <div className="register-link">
-        <a onClick={() => {
-          // Clear any stored data when going back
-          localStorage.removeItem("registerEmail");
-          localStorage.removeItem("registerUsername");
-          localStorage.removeItem("registerPassword");
-          localStorage.removeItem("resetEmail");
-          localStorage.removeItem("loginUser");
-          localStorage.removeItem("trustThisDevice");
-          setView("login");
-        }}>
-          Back to login
-        </a>
+            type="checkbox"
+            checked={trustThisDevice}
+            onChange={(e) => setTrustThisDevice(e.target.checked)}
+          />{" "}
+          Trust this device (Don't ask for OTP for 30 days)
+        </label>
       </div>
-    </div>
+    )}
+
+    {resetEmail && (
+      <input
+        type="password"
+        value={newPassword}
+        placeholder="New Password"
+        required
+        onChange={(e) => setNewPassword(e.target.value)}
+      />
+    )}
+
+    <button type="submit" className="login-button">Verify OTP</button>
+  </form>
+
+  {msg && <div className="success-message">{msg}</div>}
+  {error && <div className="error-message">{error}</div>}
+
+  <div className="register-link">
+    <a
+      onClick={() => {
+        // Clear any stored data when going back
+        localStorage.removeItem("registerEmail");
+        localStorage.removeItem("registerUsername");
+        localStorage.removeItem("registerPassword");
+        localStorage.removeItem("resetEmail");
+        localStorage.removeItem("loginUser");
+        localStorage.removeItem("trustThisDevice");
+        setView("login");
+      }}
+    >
+      Back to login
+    </a>
+  </div>
+</div>
   );
 };
 
