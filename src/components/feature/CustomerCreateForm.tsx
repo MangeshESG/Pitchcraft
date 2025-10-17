@@ -5,13 +5,14 @@ import { useNavigate } from "react-router-dom";
 import { Plan } from "./planes";
 import API_BASE_URL from "../../config";
 
- interface CustomerCreateFormProps {
-    plan: Plan | null;
-    clientId: string;
-  }
+interface CustomerCreateFormProps {
+  plan: Plan | null;
+  clientId: string;
+}
 const CustomerCreateForm: React.FC<CustomerCreateFormProps> = ({ plan, clientId }) => {
   const username = useSelector((state: RootState) => state.auth.username);
   console.log("username:", username);
+  const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     displayName: username || "",
     firstName: "",
@@ -34,7 +35,7 @@ const CustomerCreateForm: React.FC<CustomerCreateFormProps> = ({ plan, clientId 
     // paymentTermsLabel: "",
   });
 
- 
+
 
   // ✅ Handle nested and normal fields
   const reduxUserId = useSelector((state: RootState) => state.auth.userId);
@@ -51,7 +52,7 @@ const CustomerCreateForm: React.FC<CustomerCreateFormProps> = ({ plan, clientId 
     const fetchCountries = async () => {
       try {
         setLoadingCountries(true);
-        const res = await fetch("${API_BASE_URL}/api/Plane/get-Countries");
+        const res = await fetch("https://localhost:7216/api/Plane/get-Countries");
         if (!res.ok) throw new Error("Failed to fetch countries");
         const data = await res.json();
 
@@ -185,11 +186,12 @@ const CustomerCreateForm: React.FC<CustomerCreateFormProps> = ({ plan, clientId 
             }),
           }
         );
-         if (!subRes.ok) throw new Error("Subscription API failed");
+        if (!subRes.ok) throw new Error("Subscription API failed");
         const subData = await subRes.json();
         if (subData?.url) {
           setMessage({ type: "success", text: "Account created, redirecting to payment..." });
-          setTimeout(() => window.location.href = subData.url, 1500);
+          // setTimeout(() => window.location.href = subData.url, 1500);
+          setPaymentUrl(subData.url);
         } else {
           setMessage({ type: "success", text: "Account and subscription created!" });
         }
@@ -235,6 +237,19 @@ const CustomerCreateForm: React.FC<CustomerCreateFormProps> = ({ plan, clientId 
     // </div>
 
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100 p-6">
+       {paymentUrl && (
+          <div className="mt-10">
+            <h3 className="text-xl font-bold text-center text-[#3f9f42] mb-4">Complete Payment</h3>
+            <iframe
+              src={paymentUrl}
+              title="Payment"
+              width="100%"
+              height="600"
+              frameBorder="0"
+              className="rounded-lg shadow-lg border"
+            />
+          </div>
+        )}
       <div className="bg-white shadow-2xl rounded-2xl w-full max-w-2xl p-8 transition-all hover:shadow-green-200">
 
         <h2 className="text-3xl font-bold text-center text-[#3f9f42] mb-2 mt-[-12px]">
@@ -321,8 +336,8 @@ const CustomerCreateForm: React.FC<CustomerCreateFormProps> = ({ plan, clientId 
                 type="text"
                 placeholder="Street"
                 name="billingAddress.street"
-                 value={formData.billingAddress.street}
-              onChange={handleChange}
+                value={formData.billingAddress.street}
+                onChange={handleChange}
                 className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#3f9f42] focus:border-transparent outline-none transition-all"
               />
               <div className="grid grid-cols-2 gap-4">
@@ -330,16 +345,16 @@ const CustomerCreateForm: React.FC<CustomerCreateFormProps> = ({ plan, clientId 
                   type="text"
                   placeholder="City"
                   name="billingAddress.city"
-                   value={formData.billingAddress.city}
-              onChange={handleChange}
+                  value={formData.billingAddress.city}
+                  onChange={handleChange}
                   className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#3f9f42] focus:border-transparent outline-none transition-all"
                 />
                 <input
                   type="text"
                   placeholder="State"
                   name="billingAddress.state"
-                   value={formData.billingAddress.state}
-              onChange={handleChange}
+                  value={formData.billingAddress.state}
+                  onChange={handleChange}
                   className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#3f9f42] focus:border-transparent outline-none transition-all"
                 />
               </div>
@@ -348,8 +363,8 @@ const CustomerCreateForm: React.FC<CustomerCreateFormProps> = ({ plan, clientId 
                   type="text"
                   placeholder="Zip"
                   name="billingAddress.zip"
-                   value={formData.billingAddress.zip}
-              onChange={handleChange}
+                  value={formData.billingAddress.zip}
+                  onChange={handleChange}
                   className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#3f9f42] focus:border-transparent outline-none transition-all"
                 />
                 <select
@@ -387,7 +402,7 @@ const CustomerCreateForm: React.FC<CustomerCreateFormProps> = ({ plan, clientId 
             type="submit"
             className="w-full mt-8 bg-[#3f9f42] text-white font-semibold py-3 rounded-xl hover:bg-green-700 transition-all shadow-lg hover:shadow-green-300"
           >
-            Create account
+            Save details
           </button>
         </form>
       </div>

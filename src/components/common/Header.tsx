@@ -144,7 +144,7 @@ const Header: React.FC<HeaderProps> = React.memo(({
                 </span>
                 Hello
                 <Link to="" className="ml-5 green">
-                  {full_Name}
+                  {username}
                 </Link>
               </div>
               <div className="user-credit text-sm text-gray-600">
