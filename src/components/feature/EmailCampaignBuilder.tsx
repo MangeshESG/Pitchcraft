@@ -406,157 +406,188 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
 
   return (
     <div className="conversation-container">
-      {/* ✅ NEW: Placeholder Selector for Edit Mode */}
-      {isEditMode && !conversationStarted && (
-        <div className="placeholder-selector-section" style={{
-          padding: '20px',
-          backgroundColor: '#f9fafb',
-          borderRadius: '8px',
-          marginBottom: '20px'
-        }}>
-          <div className="placeholder-selector-header" style={{ marginBottom: '15px' }}>
-            <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '8px' }}>
-              Select Placeholder to Edit
-            </h3>
-            <p style={{ color: '#6b7280', fontSize: '14px' }}>
-              Choose which placeholder value you want to modify
-            </p>
-          </div>
-          
-          <div className="placeholder-selector-content">
-            <select
-              className="placeholder-dropdown"
-              value={selectedPlaceholder || ''}
-              onChange={(e) => {
-                if (e.target.value && onPlaceholderSelect) {
-                  onPlaceholderSelect(e.target.value);
-                }
-              }}
-              style={{
-                width: '100%',
-                padding: '12px',
-                fontSize: '15px',
-                border: '1px solid #d1d5db',
-                borderRadius: '8px',
-                backgroundColor: 'white',
-                cursor: 'pointer'
-              }}
-            >
-              <option value="">-- Select a placeholder to edit --</option>
-              {availablePlaceholders.map((placeholder) => (
-                <option key={placeholder} value={placeholder}>
-                  {`{${placeholder}}`} - Current: {placeholderValues[placeholder] || "Not set"}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="placeholder-actions" style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
-            <button
-              onClick={() => {
-                window.location.reload();
-              }}
-              className="button secondary"
-              style={{
-                padding: '10px 20px',
-                backgroundColor: '#6b7280',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer'
-              }}
-            >
-              Cancel Edit Mode
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Messages Area */}
-      <div className="messages-area">
-        {conversationStarted && (
-          <button
-            onClick={resetAll}
-            className="clear-history-button"
-            title="Clear history and start fresh"
-          >
-            <XCircle size={16} />
-            Clear History
-          </button>
-        )}
-        
-        {!conversationStarted && !isEditMode ? (
-          <div className="empty-conversation">
-            <div className="empty-conversation-content">
-              <MessageSquare size={48} className="empty-conversation-icon" />
-              <p className="empty-conversation-text">Start by entering your template in the 'Template' tab.</p>
-            </div>
-          </div>
-        ) : conversationStarted ? (
-          <div className="messages-list">
-            {isEditMode && selectedPlaceholder && (
-              <div className="edit-mode-indicator" style={{
-                backgroundColor: '#fef3c7',
-                border: '1px solid #fbbf24',
-                padding: '12px',
-                borderRadius: '8px',
-                marginBottom: '15px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
-                <AlertCircle size={16} color="#f59e0b" />
-                <span>Editing: <strong>{`{${selectedPlaceholder}}`}</strong></span>
+      <div className="chat-layout">
+        {/* ===================== CHAT SECTION ===================== */}
+        <div className="chat-section">
+          {isEditMode && !conversationStarted && (
+            <div className="placeholder-selector-section" style={{
+              padding: '20px',
+              backgroundColor: '#f9fafb',
+              borderRadius: '8px',
+              marginBottom: '20px'
+            }}>
+              <div className="placeholder-selector-header" style={{ marginBottom: '15px' }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '8px' }}>
+                  Select Placeholder to Edit
+                </h3>
+                <p style={{ color: '#6b7280', fontSize: '14px' }}>
+                  Choose which placeholder value you want to modify
+                </p>
               </div>
+              
+              <div className="placeholder-selector-content">
+                <select
+                  className="placeholder-dropdown"
+                  value={selectedPlaceholder || ''}
+                  onChange={(e) => {
+                    if (e.target.value && onPlaceholderSelect) {
+                      onPlaceholderSelect(e.target.value);
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    fontSize: '15px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    backgroundColor: 'white',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="">-- Select a placeholder to edit --</option>
+                  {availablePlaceholders.map((placeholder) => (
+                    <option key={placeholder} value={placeholder}>
+                      {`{${placeholder}}`} - Current: {placeholderValues[placeholder] || "Not set"}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="placeholder-actions" style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={() => {
+                    window.location.reload();
+                  }}
+                  className="button secondary"
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor: '#6b7280',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel Edit Mode
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Messages Area */}
+          <div className="messages-area">
+            {conversationStarted && (
+              <button
+                onClick={resetAll}
+                className="clear-history-button"
+                title="Clear history and start fresh"
+              >
+                <XCircle size={16} />
+                Clear History
+              </button>
             )}
             
-            {messages.map((message, index) => (
-              <div key={index} className={`message-wrapper ${message.type}`}>
-                <div className={`message-bubble ${message.type}`}>
-                  {renderMessageContent(message.content)}
-                  <div className={`message-time ${message.type}`}>
-                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </div>
+            {!conversationStarted && !isEditMode ? (
+              <div className="empty-conversation">
+                <div className="empty-conversation-content">
+                  <MessageSquare size={48} className="empty-conversation-icon" />
+                  <p className="empty-conversation-text">
+                    Start by entering your template in the 'Template' tab.
+                  </p>
                 </div>
               </div>
-            ))}
-            {isTyping && (
-              <div className="typing-indicator">
-                <div className="typing-bubble">
-                  <div className="typing-content">
-                    <Loader2 className="typing-spinner" />
-                    <span className="typing-text">Campaign Builder is thinking...</span>
+            ) : conversationStarted ? (
+              <div className="messages-list">
+                {isEditMode && selectedPlaceholder && (
+                  <div className="edit-mode-indicator" style={{
+                    backgroundColor: '#fef3c7',
+                    border: '1px solid #fbbf24',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    marginBottom: '15px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    <AlertCircle size={16} color="#f59e0b" />
+                    <span>Editing: <strong>{`{${selectedPlaceholder}}`}</strong></span>
                   </div>
-                </div>
+                )}
+                
+                {messages.map((message, index) => (
+                  <div key={index} className={`message-wrapper ${message.type}`}>
+                    <div className={`message-bubble ${message.type}`}>
+                      {renderMessageContent(message.content)}
+                      <div className={`message-time ${message.type}`}>
+                        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {isTyping && (
+                  <div className="typing-indicator">
+                    <div className="typing-bubble">
+                      <div className="typing-content">
+                        <Loader2 className="typing-spinner" />
+                        <span className="typing-text">Campaign Builder is thinking...</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div ref={chatEndRef} />
               </div>
-            )}
-            <div ref={chatEndRef} />
+            ) : null}
           </div>
-        ) : null}
-      </div>
-      
-      {conversationStarted && !isComplete && (
-        <div className="input-area">
-          <div className="input-container">
-            <textarea
-              value={currentAnswer}
-              onChange={(e) => setCurrentAnswer(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Type your answer..."
-              className="message-input"
-              rows={2}
-              disabled={isTyping}
-            />
-            <button
-              onClick={handleSendMessage}
-              disabled={isTyping || !currentAnswer.trim()}
-              className="send-button"
-            >
-              <Send size={20} />
-            </button>
+          
+          {/* Input field */}
+          {conversationStarted && !isComplete && (
+            <div className="input-area">
+              <div className="input-container">
+                <textarea
+                  value={currentAnswer}
+                  onChange={(e) => setCurrentAnswer(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Type your answer..."
+                  className="message-input"
+                  rows={2}
+                  disabled={isTyping}
+                />
+                <button
+                  onClick={handleSendMessage}
+                  disabled={isTyping || !currentAnswer.trim()}
+                  className="send-button"
+                >
+                  <Send size={20} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ===================== EXAMPLE SECTION ===================== */}
+        <div className="example-section">
+          <div className="example-header">
+            <h3>Example email</h3>
+            <div className="example-controls">
+              <select className="example-dropdown">
+                <option value="contact">Contact</option>
+                <option value="followup">Follow-up</option>
+              </select>
+              <button className="regenerate-btn">Regenerate</button>
+            </div>
+          </div>
+
+          <div className="example-body">
+            <pre className="example-content">
+Hi Dennis,
+
+I hope you are well.
+I wanted to reach out to see whether a focused IP view would be useful for NACCHO...
+{/* Replace this with dynamically generated email */}
+            </pre>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };
