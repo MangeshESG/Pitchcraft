@@ -10,7 +10,7 @@ import KiteImg from "../../assets/images/Kite.png";
 import RocketImg from "../../assets/images/rocket.png";
 import API_BASE_URL from "../../config";
 import { useNavigate } from "react-router-dom";
-
+import pitchLogo from "../../assets/images/pitch_logo.png";
 
 export type Plan = {
     icon: string;
@@ -22,8 +22,8 @@ export type Plan = {
     planCode: string;
 };
 interface CustomerCreateFormProps {
-  plan: Plan | null;
-  clientId: string;
+    plan: Plan | null;
+    clientId: string;
 }
 
 const plans: Plan[] = [
@@ -70,7 +70,7 @@ const Planes: React.FC = () => {
 
     const [showForm, setShowForm] = useState(false);
     const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
-     const navigate = useNavigate(); 
+    const navigate = useNavigate();
     const [paymentUrl, setPaymentUrl] = useState<string | null>(null);
 
     useEffect(() => {
@@ -93,8 +93,8 @@ const Planes: React.FC = () => {
             if (!text || text === "null" || text === "undefined") {
                 // No customer in DB → show form
                 console.log("No customer found, showing form");
-               // setShowForm(true);
-                 navigate("/create-customer", { state: { plan, clientId: effectiveUserId } });
+                // setShowForm(true);
+                navigate("/create-customer", { state: { plan, clientId: effectiveUserId } });
                 return;
             }
 
@@ -128,8 +128,8 @@ const Planes: React.FC = () => {
                 const subData = await subRes.json();
 
                 if (subData?.url) {
-                      setPaymentUrl(subData.url);
-                 //   window.location.href = subData.url; // 👈 navigate to API returned URL
+                    setPaymentUrl(subData.url);
+                    //   window.location.href = subData.url; // 👈 navigate to API returned URL
                 } else {
                     alert(`✅ ${plan.title} subscription created successfully!`);
                 }
@@ -142,56 +142,47 @@ const Planes: React.FC = () => {
             setShowForm(true); // fallback → show form
         }
     };
-      if (paymentUrl) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-emerald-100 p-6">
-        <div className="bg-white shadow-2xl rounded-2xl w-full max-w-5xl p-8 transition-all hover:shadow-green-200">
-          <h3 className="text-xl font-bold text-center text-[#3f9f42] mb-4">Complete Payment</h3>
-          <iframe
-            src={paymentUrl}
-            title="Payment"
-            width="100%"
-            height="600"
-            frameBorder="0"
-            className="rounded-lg shadow-lg border"
-          />
-        </div>
-      </div>
-    );
-  }
-
+    if (paymentUrl) {
+        return (
+            <div
+                className="fixed inset-0 bg-gradient-to-br from-green-50 to-emerald-100"
+                style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    overflow: "hidden", // ✅ Removes outer scrollbar
+                    height: "100vh",
+                    position: "relative",
+                }}
+            >
+                <img
+                    src={pitchLogo}
+                    alt="Pitchcraft Logo"
+                    style={{
+                        position: "absolute",
+                        top: "74px",
+                        left: "110px",
+                        height: "92px",
+                        zIndex: 10,
+                    }}
+                />
+                <iframe
+                    src={paymentUrl}
+                    title="Payment"
+                    style={{
+                        border: "none",
+                        width: "100%",
+                        height: "100vh", // ✅ Full viewport height
+                    }}
+                />
+            </div>
+        );
+    }
     return (
         <div>
-            {/* {showForm && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-auto">
-                    <div className="bg-white p-6 rounded-lg shadow-lg max-w-5xl max-h-[98vh] w-full relative overflow-y-auto">
-                      
-                        <button
-                            className="absolute top-2 right-2 text-gray-600 hover:text-gray-900 text-xl font-bold"
-                            onClick={() => setShowForm(false)}
-                        >
-                            ✖
-                        </button>
-                       
-                        <CustomerCreateForm  plan={selectedPlan} // Pass the selected plan to the form
-          clientId={effectiveUserId}/>
-                    </div>
-                </div>
-            )} */}
-
             <div className="pricing-table">
                 {plans.map((plan, index) => (
                     <div className="card" key={index}>
-                        {/* <div className="card-header">
-                            <div className="title-row">
-                                 <img src={plan.icon} alt={plan.title} className="w-12 h-12 mr-10 rounded-md" />
-                                <h3>{plan.title}</h3>
-                            </div>
-                            <div className="price-row">
-                                <span className="amount">{plan.price}</span>
-                                <span className="period">{plan.period}</span>
-                            </div>
-                        </div> */}
                         <div className="container">
                             <img src={plan.icon} alt={plan.title} className="x  mr-10" />
                             <div className="yz">
@@ -200,11 +191,6 @@ const Planes: React.FC = () => {
                             </div>
                             <div className="A">{plan.period}</div>
                         </div>
-                        {/* <ul>
-                            {plan.features.map((feature, i) => (
-                                <li key={i}>{feature}</li>
-                            ))}
-                        </ul> */}
                         <ul className="features-list">
                             {plan.features.map((feature, i) => (
                                 <li key={i}>

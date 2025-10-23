@@ -40,8 +40,7 @@ const Header: React.FC<HeaderProps> = React.memo(({
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [showPlanes, setShowPlanes] = useState(false);
-   const [creditData, setCreditData] = useState<any>(null); 
+  const [creditData, setCreditData] = useState<any>(null);
 
   const logoutHandler = () => {
     dispatch(clearToken());
@@ -150,39 +149,22 @@ const Header: React.FC<HeaderProps> = React.memo(({
               <div className="user-credit text-sm text-gray-600">
                 Credit:{" "}
                 <span className="font-semibold text-green-600">
-                   {creditData !== null ? creditData : "Loading..."}
+                  {creditData !== null ? creditData : "Loading..."}
                 </span>
               </div>
               {/* Buy Plans Button */}
               <button
-                onClick={() => setShowPlanes(true)}
+                onClick={() => window.open("/planes", "_blank")}
                 className="ml-2 px-3 py-1 rounded  text-white text-sm font-medium transition"
-                  style={{ backgroundColor: "#3f9f42" }}
-                  onMouseEnter={e => e.currentTarget.style.backgroundColor = "#37a137"}
-  onMouseLeave={e => e.currentTarget.style.backgroundColor = "#3f9f42"}
+                style={{ backgroundColor: "#3f9f42" }}
+                onMouseEnter={e => e.currentTarget.style.backgroundColor = "#37a137"}
+                onMouseLeave={e => e.currentTarget.style.backgroundColor = "#3f9f42"}
               >
                 Upgrade
               </button>
 
             </div>
           </div>
-
-          {showPlanes && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-white p-6 rounded-lg shadow-lg max-w-3xl w-full relative">
-                {/* Close button */}
-                <button
-                  className="absolute top-2 right-2 text-gray-600 hover:text-gray-900 text-xl font-bold"
-                  onClick={() => setShowPlanes(false)}
-                >
-                  ✖
-                </button>
-                {/* Planes component */}
-                <Planes />
-              </div>
-            </div>
-          )}
-
           <div className="item">
             <button
               onClick={logoutHandler}
