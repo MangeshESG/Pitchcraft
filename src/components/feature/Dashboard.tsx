@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import React, { useState } from "react";
 import { faFileAlt } from "@fortawesome/free-regular-svg-icons";
 import { faContactCard, faPlayCircle } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -335,8 +334,9 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
         </div>
+        </div>
       )}
-
+      
       {/* ================= Progress ================= */}
       {mode === "existing" && (
         <div className="grid gap-3 mt-2 md:grid-cols-4">
