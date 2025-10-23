@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import React, { useState } from "react";
 import { faFileAlt } from "@fortawesome/free-regular-svg-icons";
 import { faContactCard, faPlayCircle } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -77,6 +78,8 @@ export const Dashboard: React.FC = () => {
                     </button>
                   </div>
                   <div className="min-w-[180px] d-flex justify-center items-center">
+                    <div className="flex items-center justify-center rounded-full">
+                      <img src={CreateATemplete} alt="" className="h-[100px]"></img>
                     <div className="flex items-center justify-center rounded-full">
                       <img src={CreateATemplete} alt="" className="h-[100px]"></img>
                     </div>
