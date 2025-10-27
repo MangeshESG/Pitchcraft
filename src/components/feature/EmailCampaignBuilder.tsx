@@ -73,6 +73,10 @@ interface EmailCampaignBuilderProps {
 }
 
 interface ConversationTabProps {
+  previewText?: string;
+  exampleOutput?: string; // ✅ new
+  regenerateExampleOutput?: () => void; // ✅ new
+
   conversationStarted: boolean;
   messages: Message[];
   isTyping: boolean;
@@ -375,6 +379,8 @@ interface ConversationTabProps {
   placeholderValues?: Record<string, string>;
   onPlaceholderSelect?: (placeholder: string) => void;
   selectedPlaceholder?: string;
+  previewText?: string;
+
 }
 
 // ✅ UPDATED ConversationTab Component
@@ -393,7 +399,10 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   availablePlaceholders = [],
   placeholderValues = {},
   onPlaceholderSelect,
-  selectedPlaceholder
+  selectedPlaceholder,
+  previewText ,  // ✅ <-- add this line
+  exampleOutput,
+  regenerateExampleOutput
 }) => {
   const renderMessageContent = (content: string) => {
     const isHtml = /<[a-z][\s\S]*>/i.test(content);
@@ -564,27 +573,36 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
           )}
         </div>
 
-        {/* ===================== EXAMPLE SECTION ===================== */}
-        <div className="example-section">
+{/* ===================== EXAMPLE SECTION ===================== */}
+<div className="example-section">
           <div className="example-header">
-            <h3>Example email</h3>
+            <h3>📧 Live Preview</h3>
             <div className="example-controls">
-              <select className="example-dropdown">
-                <option value="contact">Contact</option>
-                <option value="followup">Follow-up</option>
-              </select>
-              <button className="regenerate-btn">Regenerate</button>
+              <button 
+                className="regenerate-btn" 
+                onClick={regenerateExampleOutput}
+                disabled={!conversationStarted}
+              >
+                🔄 Regenerate
+              </button>
             </div>
           </div>
 
           <div className="example-body">
-            <pre className="example-content">
-Hi Dennis,
-
-I hope you are well.
-I wanted to reach out to see whether a focused IP view would be useful for NACCHO...
-{/* Replace this with dynamically generated email */}
-            </pre>
+            {exampleOutput ? (
+              <div
+                className="example-content"
+                dangerouslySetInnerHTML={{ __html: exampleOutput }}
+              />
+            ) : conversationStarted ? (
+              <div className="example-placeholder">
+                <p>💬 Start answering questions to see live preview...</p>
+              </div>
+            ) : (
+              <div className="example-placeholder">
+                <p>📧 Example output will appear here</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -801,6 +819,8 @@ const ResultTab: React.FC<ResultTabProps> = ({
 
 
 
+
+
 // ====================================================================
 // MAIN COMPONENT
 // ====================================================================
@@ -827,6 +847,8 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
   const [messages, setMessages] = useSessionState<Message[]>("campaign_messages", []);
   const [finalPrompt, setFinalPrompt] = useSessionState<string>("campaign_final_prompt", "");
   const [finalPreviewText, setFinalPreviewText] = useSessionState<string>("campaign_final_preview", "");
+  const [exampleOutput, setExampleOutput] = useState<string>('');
+
   const [placeholderValues, setPlaceholderValues] = useSessionState<Record<string, string>>("campaign_placeholder_values", {});
   const [isComplete, setIsComplete] = useSessionState<boolean>("campaign_is_complete", false);
   const [conversationStarted, setConversationStarted] = useSessionState<boolean>("campaign_started", false);
@@ -846,6 +868,92 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
   const [templateName, setTemplateName] = useSessionState<string>("campaign_template_name", "");
   const [isLoadingDefinitions, setIsLoadingDefinitions] = useState(false);
 
+useEffect(() => {
+  const autoStart = sessionStorage.getItem('autoStartConversation');
+  const newCampaignId = sessionStorage.getItem('newCampaignId');
+  const selectedDefinition = sessionStorage.getItem('selectedTemplateDefinitionId');
+  const campaignName = sessionStorage.getItem('newCampaignName');
+
+  if (autoStart && newCampaignId && selectedDefinition) {
+    console.log('🚀 Auto-starting conversation for campaign:', campaignName);
+    
+    // ✅ Load template definition and start conversation
+    const definitionId = parseInt(selectedDefinition);
+    setSelectedTemplateDefinitionId(definitionId);
+    setTemplateName(campaignName || "");
+    
+    // ✅ Load template definition to populate fields
+    loadTemplateDefinitionById(definitionId).then(() => {
+      // ✅ Navigate to conversation tab
+      setActiveTab('conversation');
+      
+      // ✅ Start conversation automatically
+      setTimeout(() => {
+        startConversation();
+      }, 500);
+    });
+    
+    // ✅ Clear auto-start flag
+    sessionStorage.removeItem('autoStartConversation');
+  }
+}, []);
+
+const regenerateExampleOutput = async () => {
+  try {
+    // Check if we have a saved template ID
+    if (!editTemplateId && !selectedTemplateDefinitionId) {
+      alert('Please save the template first before regenerating example output.');
+      return;
+    }
+
+    // If we're in edit mode, use the edit/chat endpoint
+    if (isEditMode && editTemplateId) {
+      const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/edit/chat`, {
+        userId: effectiveUserId,
+        campaignTemplateId: editTemplateId,
+        message: "Regenerate example output using current placeholders",
+        model: selectedModel
+      });
+
+      const aiResponse = response.data.response?.assistantText || '';
+      const match = aiResponse.match(/==PLACEHOLDER_VALUES_START==([\s\S]*?)==PLACEHOLDER_VALUES_END==/);
+    
+      if (match) {
+        const section = match[1];
+        const regex = /\{example_output\}\s*=\s*([\s\S]*)/;
+        const exampleMatch = section.match(regex);
+        if (exampleMatch) {
+          setExampleOutput(exampleMatch[1].trim());
+        }
+      }
+    } 
+    // If template is saved but not in edit mode, use the example/generate endpoint
+    else if (selectedTemplateDefinitionId) {
+const storedId = sessionStorage.getItem("newCampaignId");
+const activeCampaignId = editTemplateId ?? (storedId ? Number(storedId) : null);
+
+if (!activeCampaignId) {
+  alert("No campaign instance found. Please start a campaign first.");
+  return;
+}
+
+const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/example/generate`, {
+  userId: effectiveUserId,
+  campaignTemplateId: activeCampaignId, // now it's a pure number
+  model: selectedModel
+});
+
+if ((response.data.success || response.data.Success) && 
+    (response.data.exampleOutput || response.data.ExampleOutput)) {
+  setExampleOutput(response.data.exampleOutput || response.data.ExampleOutput);
+  console.log('✅ Example Output set:', response.data.exampleOutput || response.data.ExampleOutput);
+}
+    }
+  } catch (error) {
+    console.error('Error regenerating example email:', error);
+    alert('Failed to regenerate example email. Please try again.');
+  }
+};
 
   useEffect(() => {
     loadTemplateDefinitions();
@@ -1185,6 +1293,8 @@ const startEditConversation = async (placeholder: string) => {
     setConversationStarted(true);
     setActiveTab('conversation');
     setIsTyping(true);
+    setExampleOutput(''); // ✅ clear example output completely
+
     
     try {
       const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/chat`, {
@@ -1211,10 +1321,10 @@ const startEditConversation = async (placeholder: string) => {
 const handleSendMessage = async () => {
   if (currentAnswer.trim() === '' || isTyping || !effectiveUserId) return;
 
-  const userMessage: Message = { 
-    type: 'user', 
-    content: currentAnswer, 
-    timestamp: new Date() 
+  const userMessage: Message = {
+    type: 'user',
+    content: currentAnswer,
+    timestamp: new Date(),
   };
 
   setMessages(prev => [...prev, userMessage]);
@@ -1222,175 +1332,114 @@ const handleSendMessage = async () => {
   setIsTyping(true);
 
   try {
-    // ✅ Use different endpoint based on mode
-    const endpoint = isEditMode 
+    const endpoint = isEditMode
       ? `${API_BASE_URL}/api/CampaignPrompt/edit/chat`
       : `${API_BASE_URL}/api/CampaignPrompt/chat`;
-    
+
     const requestBody = isEditMode
       ? {
           userId: effectiveUserId,
           campaignTemplateId: editTemplateId,
           message: userMessage.content,
-          model: selectedModel
+          model: selectedModel,
         }
       : {
           userId: effectiveUserId,
           message: userMessage.content,
-          systemPrompt: "",
-          model: selectedModel
+          systemPrompt: '', // continue conversation, not reset full prompt
+          model: selectedModel,
         };
 
     const response = await axios.post(endpoint, requestBody);
     const data = response.data.response;
 
-    // ✅ Handle EDIT MODE responses
-    if (isEditMode && data && data.assistantText) {
-      const updateMatch = data.assistantText.match(/==PLACEHOLDER_UPDATE_START==([\s\S]*?)==PLACEHOLDER_UPDATE_END==/);
-      
-      if (updateMatch) {
-        const updateSection = updateMatch[1].trim();
-        const placeholderRegex = /(?:\{)?([^{}=]+?)(?:\})?\s*=\s*([\s\S]+)/;
-        const match = placeholderRegex.exec(updateSection);
-        
-        if (match) {
-          const placeholder = match[1].trim();
-          const newValue = match[2].trim();
-          
-          console.log(`Updating placeholder: ${placeholder} with value: ${newValue}`);
-          
-          // Update placeholder values
-          const updatedValues = { ...placeholderValues, [placeholder]: newValue };
-          setPlaceholderValues(updatedValues);
-          
-          // Update filled master prompt
-          const allowedPlaceholders = extractPlaceholders(masterPrompt);
-          const filledMaster = replacePlaceholdersInText(masterPrompt, updatedValues, allowedPlaceholders);
-          setFinalPrompt(filledMaster);
-          
-          // Update filled preview
-          const previewPlaceholders = extractPlaceholders(previewText);
-          const filledPreview = replacePlaceholdersInText(previewText, updatedValues, previewPlaceholders);
-          setFinalPreviewText(filledPreview);
-          
-          try {
-            // Update in database
-            await updateTemplateInDatabase(updatedValues);
-            
-            const completionMessage: Message = { 
-              type: 'bot', 
-              content: `✅ Successfully updated {${placeholder}} to "${newValue}". The template has been saved.`, 
-              timestamp: new Date() 
-            };
-            setMessages(prev => [...prev, completionMessage]);
-            playNotificationSound();
-            
-            // Clear edit chat history using the session key format
-            if (effectiveUserId && editTemplateId) {
-              axios.post(`${API_BASE_URL}/api/CampaignPrompt/edit/clear/${effectiveUserId}/${editTemplateId}`)
-                .catch(err => console.error("Failed to clear edit history:", err));
+    // 🧠 1️⃣ Try updating placeholders progressively
+    if (data?.assistantText) {
+      const match = data.assistantText.match(
+        /==PLACEHOLDER_VALUES_START==([\s\S]*?)==PLACEHOLDER_VALUES_END==/
+      );
+      if (match) {
+        const placeholderBlock = match[1];
+        const lines = placeholderBlock.split(/\r?\n/).filter(Boolean);
+        const updatedValues = { ...placeholderValues };
+
+        lines.forEach((line: string) => {
+          const kv = line.match(/\{([^}]+)\}\s*=\s*(.+)/);
+          if (kv) updatedValues[kv[1].trim()] = kv[2].trim();
+        });
+
+        // 📌 Update local state
+        setPlaceholderValues(updatedValues);
+        console.log('📦 Updated placeholders: ', updatedValues);
+
+        // 🧠 2️⃣ Request Example Output Regeneration (async)
+        try {
+          //-----------------------------------------
+          // ✅ FIX: always use CampaignTemplates.Id, not TemplateDefinition.Id
+          //-----------------------------------------
+          const storedId = sessionStorage.getItem('newCampaignId');
+          const activeCampaignId = editTemplateId ?? (storedId ? Number(storedId) : null);
+          if (!activeCampaignId) {
+            console.warn('⚠️ No active campaign id found; skipping example generation.');
+          } else {
+            const regenRes = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/example/generate`, {
+              userId: effectiveUserId,
+              campaignTemplateId: activeCampaignId, // ✅ number, correct param
+              model: selectedModel,
+            });
+
+            if (regenRes.data.Success && regenRes.data.ExampleOutput) {
+              setExampleOutput(regenRes.data.ExampleOutput);
+              console.log('✅ Example Output Regenerated');
+            } else {
+              console.log('ℹ️ Example regeneration returned no content.');
             }
-            
-            // Reset conversation to show dropdown again
-            setTimeout(() => {
-              setConversationStarted(false);
-              setMessages([]);
-              setSelectedPlaceholder("");
-              setIsComplete(true); // Show updated results in result tab
-            }, 2000);
-          } catch (saveError) {
-            console.error('Error saving template:', saveError);
-            const errorMessage: Message = { 
-              type: 'bot', 
-              content: '❌ Updated the value locally but failed to save to database. Please try saving again.', 
-              timestamp: new Date() 
-            };
-            setMessages(prev => [...prev, errorMessage]);
           }
-          
-          return;
+        } catch (err) {
+          console.warn('⚠️ Failed to regenerate example:', err);
         }
       }
-      
-      // If no update match, just show the AI response
-      const botMessage: Message = { 
-        type: 'bot', 
-        content: data.assistantText, 
-        timestamp: new Date() 
+    }
+
+    // ✅ 3️⃣ Handle exampleOutput from response directly (rare)
+    if (data.exampleOutput) {
+      setExampleOutput(data.exampleOutput);
+      console.log(
+        `✅ Example output updated (${data.placeholdersUpdated?.length || 0} placeholders filled)`
+      );
+    }
+
+    // 🏁 4️⃣ Handle conversation completion
+    if (data.isComplete) {
+      const completionMessage: Message = {
+        type: 'bot',
+        content: "🎉 Great! I've filled in all placeholders. Check the 'Final Result' tab.",
+        timestamp: new Date(),
       };
-      setMessages(prev => [...prev, botMessage]);
-      playNotificationSound();
+      setMessages(prev => [...prev, completionMessage]);
+      setIsComplete(true);
+      setTimeout(() => setActiveTab('result'), 1500);
       return;
     }
-    
-    // ✅ Handle REGULAR MODE responses (campaign creation)
-    if (!isEditMode && data && data.isComplete) {
-      console.log('✅ Campaign completed!');
-      
-      const assistantText = data.assistantText || '';
-      const placeholderValuesMatch = assistantText
-        .match(/==PLACEHOLDER_VALUES_START==([\s\S]*?)==PLACEHOLDER_VALUES_END==/);
 
-      if (placeholderValuesMatch) {
-        const tempValues: Record<string, string> = {};
-        const placeholderSection = placeholderValuesMatch[1];
-        
-        const placeholderRegex = /\{([^}]+)\}\s*=\s*([\s\S]*?)(?=\n\{[^}]+\}\s*=|$)/g;
-        let match;
-        
-        while ((match = placeholderRegex.exec(placeholderSection)) !== null) {
-          const placeholder = match[1].trim();
-          const value = match[2].trim();
-          tempValues[placeholder] = value;
-        }
-
-        console.log('Extracted placeholder values:', tempValues);
-
-        const allowedPlaceholders = extractPlaceholders(masterPrompt);
-        setPlaceholderValues(tempValues);
-
-        const filledMaster = replacePlaceholdersInText(masterPrompt, tempValues, allowedPlaceholders);
-        setFinalPrompt(filledMaster);
-
-        const previewPlaceholders = extractPlaceholders(previewText);
-        const filledPreview = replacePlaceholdersInText(previewText, tempValues, previewPlaceholders);
-        setFinalPreviewText(filledPreview);
-
-        setIsComplete(true);
-
-        const completionMessage: Message = { 
-          type: 'bot', 
-          content: "🎉 Great! I've filled in all the placeholders. Check the 'Final Result' tab.", 
-          timestamp: new Date() 
-        };
-        setMessages(prev => [...prev, completionMessage]);
-        playNotificationSound();
-
-        setTimeout(() => setActiveTab('result'), 1500);
-        return;
-      }
-    }
-
-    // ✅ Regular bot response (conversation continues)
+    // 💬 5️⃣ Regular assistant message
     if (data && data.assistantText) {
-      const botMessage: Message = { 
-        type: 'bot', 
-        content: data.assistantText, 
-        timestamp: new Date() 
+      const botMessage: Message = {
+        type: 'bot',
+        content: data.assistantText,
+        timestamp: new Date(),
       };
       setMessages(prev => [...prev, botMessage]);
       playNotificationSound();
     }
-
   } catch (error) {
     console.error('❌ Error sending message:', error);
-    const errorMessage: Message = { 
-      type: 'bot', 
-      content: 'Sorry, there was an error processing your answer. Please try again.', 
-      timestamp: new Date() 
+    const errorMessage: Message = {
+      type: 'bot',
+      content: 'Sorry, there was an error. Please try again.',
+      timestamp: new Date(),
     };
     setMessages(prev => [...prev, errorMessage]);
-    playNotificationSound();
   } finally {
     setIsTyping(false);
   }
@@ -1605,6 +1654,9 @@ return (
               placeholderValues={placeholderValues}
               onPlaceholderSelect={startEditConversation}
               selectedPlaceholder={selectedPlaceholder}
+              previewText={previewText}
+              exampleOutput={exampleOutput}
+              regenerateExampleOutput={regenerateExampleOutput}
             />
           )}
           {activeTab === 'result' && (

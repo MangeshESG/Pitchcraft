@@ -28,21 +28,34 @@ interface Prompt {
   description?: string;
 }
 
-// Updated CampaignTemplate interface with new column names
 interface CampaignTemplate {
   id: number;
   clientId: string;
   templateName: string;
-  aiInstructions: string; // Changed from systemPrompt
-  placeholderListInfo: string; // Changed from masterPrompt
-  masterBlueprintUnpopulated: string; // Changed from previewText
-  placeholderListWithValue: string; // Changed from finalPrompt
-  campaignBlueprint: string; // Changed from finalPreviewText
+  aiInstructions: string;
+  placeholderListInfo: string;
+  masterBlueprintUnpopulated: string;
+  placeholderListWithValue: string;
+  campaignBlueprint: string;
   placeholderValues?: Record<string, string>;
   selectedModel: string;
   createdAt: string;
   updatedAt?: string;
   hasConversation?: boolean;
+}
+
+// ✅ NEW: Template Definition interface
+interface TemplateDefinition {
+  id: number;
+  templateName: string;
+  aiInstructions: string;
+  aiInstructionsForEdit: string;
+  placeholderList: string;
+  masterBlueprintUnpopulated: string;
+  createdAt: string;
+  updatedAt?: string;
+  isActive: boolean;
+  usageCount: number;
 }
 
 interface TemplateProps {
@@ -70,7 +83,7 @@ const Template: React.FC<TemplateProps> = ({
   isDemoAccount = false,
   onTemplateSelect,
 }) => {
-  // States - Remove regular template related states
+  // States
   const [campaignTemplates, setCampaignTemplates] = useState<CampaignTemplate[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -87,7 +100,6 @@ const Template: React.FC<TemplateProps> = ({
   const [editableCampaignTemplate, setEditableCampaignTemplate] = useState("");
   const [currentPlaceholderValues, setCurrentPlaceholderValues] = useState<Record<string, string>>({});
   
-  // Updated editCampaignForm with new property names
   const [editCampaignForm, setEditCampaignForm] = useState({
     templateName: "",
     aiInstructions: "",
@@ -102,6 +114,13 @@ const Template: React.FC<TemplateProps> = ({
 
   const [showCampaignBuilder, setShowCampaignBuilder] = useState(false);
 
+  // ✅ NEW: Template name modal states
+  const [showTemplateNameModal, setShowTemplateNameModal] = useState(false);
+  const [templateNameInput, setTemplateNameInput] = useState("");
+  const [templateDefinitions, setTemplateDefinitions] = useState<TemplateDefinition[]>([]);
+  const [selectedTemplateDefinitionId, setSelectedTemplateDefinitionId] = useState<number | null>(null);
+  const [isCreatingCampaign, setIsCreatingCampaign] = useState(false);
+
   // Utility functions
   const formatDate = (dateString?: string | null) => {
     if (!dateString) return "-";
@@ -115,6 +134,28 @@ const Template: React.FC<TemplateProps> = ({
     };
     return date.toLocaleDateString("en-GB", options);
   };
+
+  // ✅ NEW: Fetch template definitions
+  const fetchTemplateDefinitions = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/template-definitions?activeOnly=true`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setTemplateDefinitions(data.templateDefinitions || []);
+      
+      // ✅ Auto-select first template definition
+      if (data.templateDefinitions && data.templateDefinitions.length > 0) {
+        setSelectedTemplateDefinitionId(data.templateDefinitions[0].id);
+      }
+    } catch (error) {
+      console.error("Error fetching template definitions:", error);
+      setTemplateDefinitions([]);
+    }
+  }, []);
 
   // Fetch campaign templates
   const fetchCampaignTemplates = useCallback(async () => {
@@ -138,47 +179,107 @@ const Template: React.FC<TemplateProps> = ({
     }
   }, [effectiveUserId]);
 
-  // Update template
+  // ✅ NEW: Handle create campaign button click
+  const handleCreateCampaignClick = async () => {
+    // Fetch template definitions first
+    await fetchTemplateDefinitions();
+    
+    // Show template name modal
+    setShowTemplateNameModal(true);
+    setTemplateNameInput("");
+  };
 
-  // Updated handleUpdateCampaignTemplate with new property names
- const handleUpdateCampaignTemplate = async () => {
-  if (!selectedCampaignTemplate || !editCampaignForm.templateName) {
-    appModal.showError("Please fill all required fields");
+  // ✅ NEW: Handle template name submission
+ // ✅ UPDATED: Handle template name submission
+const handleTemplateNameSubmit = async () => {
+  if (!templateNameInput.trim()) {
+    appModal.showError("Please enter a campaign name");
     return;
   }
 
-  setIsLoading(true);
+  if (!selectedTemplateDefinitionId) {
+    appModal.showError("Please select a template definition first");
+    return;
+  }
+
+  setIsCreatingCampaign(true);
   try {
-    // Changed from PUT to POST
-    const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
-      method: "POST", // Changed from PUT
+    // ✅ Step 1: Create campaign instance
+    const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/campaign/start`, {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        id: selectedCampaignTemplate.id,
-        templateName: editCampaignForm.templateName,
-        aiInstructions: editCampaignForm.aiInstructions,
-        placeholderListInfo: editCampaignForm.placeholderListInfo,
-        masterBlueprintUnpopulated: editCampaignForm.masterBlueprintUnpopulated,
-        selectedModel: editCampaignForm.selectedModel,
-      }),
+        clientId: effectiveUserId,
+        templateDefinitionId: selectedTemplateDefinitionId,
+        templateName: templateNameInput,
+        model: "gpt-5"
+      })
     });
 
     if (!response.ok) {
-      throw new Error("Failed to update campaign template");
+      throw new Error("Failed to create campaign");
     }
 
-    appModal.showSuccess("Campaign template updated successfully!");
-    setShowEditCampaignModal(false);
-    await fetchCampaignTemplates();
-  } catch (error) {
-    appModal.showError("Failed to update campaign template");
+    const data = await response.json();
+    
+    if (data.success || data.Success) {
+      // ✅ Step 2: Store campaign info in session storage
+      sessionStorage.setItem("newCampaignId", data.campaignId.toString());
+      sessionStorage.setItem("newCampaignName", data.templateName);
+      sessionStorage.setItem("selectedTemplateDefinitionId", selectedTemplateDefinitionId.toString());
+      sessionStorage.setItem("autoStartConversation", "true");
+      
+      // ✅ Step 3: Close modal and open builder
+      setShowTemplateNameModal(false);
+      setShowCampaignBuilder(true);
+      
+      appModal.showSuccess(`✅ Campaign "${data.templateName}" created! Starting conversation...`);
+    } else {
+      throw new Error(data.message || data.Message || "Failed to create campaign");
+    }
+  } catch (error: any) {
+    console.error("Error creating campaign:", error);
+    appModal.showError(error.message || "Failed to create campaign");
   } finally {
-    setIsLoading(false);
+    setIsCreatingCampaign(false);
   }
 };
 
-  // Delete template
+  // Update template
+  const handleUpdateCampaignTemplate = async () => {
+    if (!selectedCampaignTemplate || !editCampaignForm.templateName) {
+      appModal.showError("Please fill all required fields");
+      return;
+    }
 
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selectedCampaignTemplate.id,
+          templateName: editCampaignForm.templateName,
+          aiInstructions: editCampaignForm.aiInstructions,
+          placeholderListInfo: editCampaignForm.placeholderListInfo,
+          masterBlueprintUnpopulated: editCampaignForm.masterBlueprintUnpopulated,
+          selectedModel: editCampaignForm.selectedModel,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update campaign template");
+      }
+
+      appModal.showSuccess("Campaign template updated successfully!");
+      setShowEditCampaignModal(false);
+      await fetchCampaignTemplates();
+    } catch (error) {
+      appModal.showError("Failed to update campaign template");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Delete campaign template
   const handleDeleteCampaignTemplate = async () => {
@@ -210,8 +311,6 @@ const Template: React.FC<TemplateProps> = ({
   };
 
   // Filter templates
-
-
   const filteredCampaignTemplates = campaignTemplates.filter((template) => {
     const searchLower = searchQuery.toLowerCase();
     return (
@@ -227,24 +326,20 @@ const Template: React.FC<TemplateProps> = ({
     }
   }, [effectiveUserId, fetchCampaignTemplates]);
 
-   // Updated generateExampleEmail function
   const generateExampleEmail = (template: CampaignTemplate) => {
     if (!template.placeholderValues) return "";
     
-    // Look for {example_output} in placeholder values
     const placeholders = template.placeholderValues as Record<string, string>;
     if (placeholders.example_output) {
       return placeholders.example_output;
     }
     
-    // If no example_output, generate from campaign blueprint
     return template.campaignBlueprint || "";
   };
 
-  // Update the fetch function to get full template data
   const fetchCampaignTemplateDetails = async (templateId: number) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/template/${templateId}`);
+      const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/campaign/${templateId}`);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -258,7 +353,6 @@ const Template: React.FC<TemplateProps> = ({
     }
   };
 
-  // Update the view handler
   const handleViewCampaignTemplate = async (template: CampaignTemplate) => {
     setIsLoading(true);
     try {
@@ -278,39 +372,38 @@ const Template: React.FC<TemplateProps> = ({
     }
   };
 
-  // Updated handleSaveCampaignTemplateChanges with new property names
-const handleSaveCampaignTemplateChanges = async () => {
-  if (!selectedCampaignTemplate) return;
+  const handleSaveCampaignTemplateChanges = async () => {
+    if (!selectedCampaignTemplate) return;
 
-  setIsLoading(true);
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
-      method: "POST", // Changed from PUT to POST
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id: selectedCampaignTemplate.id,
-        templateName: selectedCampaignTemplate.templateName,
-        aiInstructions: selectedCampaignTemplate.aiInstructions,
-        placeholderListInfo: selectedCampaignTemplate.placeholderListInfo,
-        masterBlueprintUnpopulated: selectedCampaignTemplate.masterBlueprintUnpopulated,
-        campaignBlueprint: editableCampaignTemplate,
-        selectedModel: selectedCampaignTemplate.selectedModel,
-        placeholderValues: currentPlaceholderValues,
-      }),
-    });
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selectedCampaignTemplate.id,
+          templateName: selectedCampaignTemplate.templateName,
+          aiInstructions: selectedCampaignTemplate.aiInstructions,
+          placeholderListInfo: selectedCampaignTemplate.placeholderListInfo,
+          masterBlueprintUnpopulated: selectedCampaignTemplate.masterBlueprintUnpopulated,
+          campaignBlueprint: editableCampaignTemplate,
+          selectedModel: selectedCampaignTemplate.selectedModel,
+          placeholderValues: currentPlaceholderValues,
+        }),
+      });
 
-    if (!response.ok) {
-      throw new Error("Failed to update campaign template");
+      if (!response.ok) {
+        throw new Error("Failed to update campaign template");
+      }
+
+      appModal.showSuccess("Campaign template updated successfully!");
+      await fetchCampaignTemplates();
+    } catch (error) {
+      appModal.showError("Failed to update campaign template");
+    } finally {
+      setIsLoading(false);
     }
-
-    appModal.showSuccess("Campaign template updated successfully!");
-    await fetchCampaignTemplates();
-  } catch (error) {
-    appModal.showError("Failed to update campaign template");
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   return (
     <div className="template-container">
@@ -318,7 +411,7 @@ const handleSaveCampaignTemplateChanges = async () => {
         <h2 className="section-title">Templates</h2>
 
         {/* Search and Create button */}
- <div className="controls-wrapper">
+        <div className="controls-wrapper">
           <input
             type="text"
             className="search-input"
@@ -328,7 +421,7 @@ const handleSaveCampaignTemplateChanges = async () => {
           />
           <button
             className="button save-button auto-width small"
-            onClick={() => setShowCampaignBuilder(true)}
+            onClick={handleCreateCampaignClick}
             disabled={userRole !== "ADMIN"}
           >
             <span className="text-[20px] mr-1">+</span> Create campaign template
@@ -403,7 +496,7 @@ const handleSaveCampaignTemplateChanges = async () => {
                           <span>View</span>
                         </button>
                         
-                        {!isDemoAccount && userRole === "ADMIN" && (
+                                               {!isDemoAccount && userRole === "ADMIN" && (
                           <>
                             <button
                               onClick={() => {
@@ -443,13 +536,201 @@ const handleSaveCampaignTemplateChanges = async () => {
         </table>
       </div>
 
+      {/* ✅ NEW: Template Name Modal */}
+{/* ✅ UPDATED: Template Name Modal */}
+{showTemplateNameModal && (
+  <div className="modal-backdrop" onClick={() => setShowTemplateNameModal(false)}>
+    <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "600px" }}>
+      <div className="modal-header">
+        <h2>📝 Create New Campaign Template</h2>
+        <button 
+          className="modal-close-btn"
+          onClick={() => setShowTemplateNameModal(false)}
+          style={{
+            background: "none",
+            border: "none",
+            fontSize: "24px",
+            cursor: "pointer",
+            color: "#6b7280"
+          }}
+        >
+          ✕
+        </button>
+      </div>
+      
+      <div className="modal-body" style={{ padding: "24px" }}>
+        {/* ✅ Template Definition Selector */}
+        <div className="form-group" style={{ marginBottom: "20px" }}>
+          <label htmlFor="templateDefinition" style={{ display: "block", marginBottom: "8px", fontWeight: "500" }}>
+            Select Base Template <span style={{ color: "red" }}>*</span>
+          </label>
+          <select
+            id="templateDefinition"
+            value={selectedTemplateDefinitionId || ''}
+            onChange={(e) => setSelectedTemplateDefinitionId(parseInt(e.target.value))}
+            style={{
+              width: "100%",
+              padding: "12px 16px",
+              border: "2px solid #e5e7eb",
+              borderRadius: "8px",
+              fontSize: "15px",
+              backgroundColor: "white"
+            }}
+          >
+            <option value="">-- Select a template definition --</option>
+            {templateDefinitions.map((def) => (
+              <option key={def.id} value={def.id}>
+                {def.templateName} {def.usageCount > 0 && `(Used ${def.usageCount} times)`}
+              </option>
+            ))}
+          </select>
+          <p style={{ 
+            marginTop: "8px", 
+            fontSize: "13px", 
+            color: "#6b7280" 
+          }}>
+            💡 Choose which template structure to use for this campaign
+          </p>
+        </div>
 
-        
-     
+        {/* Template Name Input */}
+        <div className="form-group" style={{ marginBottom: "20px" }}>
+          <label htmlFor="templateName" style={{ display: "block", marginBottom: "8px", fontWeight: "500" }}>
+            Campaign Name <span style={{ color: "red" }}>*</span>
+          </label>
+          <input
+            id="templateName"
+            type="text"
+            value={templateNameInput}
+            onChange={(e) => setTemplateNameInput(e.target.value)}
+            placeholder="e.g., IBM Sales Outreach - Q1 2024"
+            autoFocus
+            onKeyPress={(e) => {
+              if (e.key === 'Enter' && templateNameInput.trim() && selectedTemplateDefinitionId) {
+                handleTemplateNameSubmit();
+              }
+            }}
+            style={{
+              width: "100%",
+              padding: "12px 16px",
+              border: "2px solid #e5e7eb",
+              borderRadius: "8px",
+              fontSize: "15px"
+            }}
+          />
+          <p style={{ 
+            marginTop: "8px", 
+            fontSize: "13px", 
+            color: "#6b7280" 
+          }}>
+            💡 Give this specific campaign instance a unique name
+          </p>
+        </div>
 
+        {/* Template Definition Preview */}
+        {selectedTemplateDefinitionId && templateDefinitions.length > 0 && (
+          <div style={{
+            background: "#f0f9ff",
+            border: "1px solid #bfdbfe",
+            borderRadius: "8px",
+            padding: "16px",
+            marginTop: "16px"
+          }}>
+            <p style={{ margin: 0, fontSize: "14px", color: "#1e40af", fontWeight: "600" }}>
+              📋 Selected Template:
+            </p>
+            <p style={{ margin: "4px 0 0 0", fontSize: "13px", color: "#3b82f6" }}>
+              {templateDefinitions.find(t => t.id === selectedTemplateDefinitionId)?.templateName || "Loading..."}
+            </p>
+            <p style={{ margin: "8px 0 0 0", fontSize: "12px", color: "#6b7280" }}>
+              This will be loaded with all AI instructions and placeholders configured
+            </p>
+          </div>
+        )}
+      </div>
+      
+      <div className="modal-footer" style={{ 
+        display: "flex", 
+        gap: "12px", 
+        padding: "16px 24px",
+        borderTop: "1px solid #e5e7eb",
+        justifyContent: "flex-end"
+      }}>
+        <button 
+          className="button secondary"
+          onClick={() => setShowTemplateNameModal(false)}
+          disabled={isCreatingCampaign}
+          style={{
+            padding: "10px 20px",
+            borderRadius: "8px",
+            cursor: "pointer"
+          }}
+        >
+          Cancel
+        </button>
+        <button 
+          className="button save-button"
+          onClick={handleTemplateNameSubmit}
+          disabled={!templateNameInput.trim() || !selectedTemplateDefinitionId || isCreatingCampaign}
+          style={{
+            padding: "10px 20px",
+            borderRadius: "8px",
+            cursor: (!templateNameInput.trim() || !selectedTemplateDefinitionId || isCreatingCampaign) ? "not-allowed" : "pointer",
+            opacity: (!templateNameInput.trim() || !selectedTemplateDefinitionId || isCreatingCampaign) ? 0.6 : 1
+          }}
+        >
+          {isCreatingCampaign ? (
+            <>
+              <span className="spinner" style={{ marginRight: "8px" }}>⏳</span>
+              Creating...
+            </>
+          ) : (
+            <>
+              ▶️ Create & Start Chat
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirmModal && selectedCampaignTemplate && (
+        <div className="modal-backdrop">
+          <div className="modal-content">
+            <h2>Confirm Deletion</h2>
+            <p>
+              Are you sure you want to delete the campaign template{" "}
+              <strong>"{selectedCampaignTemplate.templateName}"</strong>?
+            </p>
+            <p style={{ color: "#dc3545", fontSize: "14px" }}>
+              ⚠️ This action cannot be undone. All associated conversation data will also be deleted.
+            </p>
+            <div className="modal-footer">
+              <button
+                className="button secondary"
+                onClick={() => {
+                  setShowDeleteConfirmModal(false);
+                  setSelectedCampaignTemplate(null);
+                }}
+                disabled={isLoading}
+              >
+                Cancel
+              </button>
+              <button
+                className="button"
+                style={{ backgroundColor: "#dc3545", color: "white" }}
+                onClick={handleDeleteCampaignTemplate}
+                disabled={isLoading}
+              >
+                {isLoading ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
-
-      {/* Enhanced View Campaign Template Modal - Updated with new property names */}
+      {/* View Campaign Template Modal */}
       {showViewCampaignModal && selectedCampaignTemplate && (
         <div className="modal-backdrop">
           <div className="modal-content modal-large">
@@ -489,7 +770,6 @@ const handleSaveCampaignTemplateChanges = async () => {
                     value={exampleEmail}
                     onChange={(value) => {
                       setExampleEmail(value);
-                      // Update the placeholder values
                       setCurrentPlaceholderValues({
                         ...currentPlaceholderValues,
                         example_output: value
@@ -611,7 +891,94 @@ const handleSaveCampaignTemplateChanges = async () => {
         </div>
       )}
 
-     
+      {/* Edit Campaign Modal */}
+      {showEditCampaignModal && selectedCampaignTemplate && (
+        <div className="modal-backdrop">
+          <div className="modal-content modal-large">
+            <h2>Advanced Edit: {selectedCampaignTemplate.templateName}</h2>
+            
+            <div className="form-group">
+              <label>Template Name</label>
+              <input
+                type="text"
+                value={editCampaignForm.templateName}
+                onChange={(e) => setEditCampaignForm({ ...editCampaignForm, templateName: e.target.value })}
+                placeholder="Template Name"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>AI Instructions</label>
+              <textarea
+                value={editCampaignForm.aiInstructions}
+                onChange={(e) => setEditCampaignForm({ ...editCampaignForm, aiInstructions: e.target.value })}
+                rows={6}
+                placeholder="AI Instructions for conversation"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Placeholder List</label>
+              <textarea
+                value={editCampaignForm.placeholderListInfo}
+                onChange={(e) => setEditCampaignForm({ ...editCampaignForm, placeholderListInfo: e.target.value })}
+                rows={4}
+                placeholder="{name}, {company}, {role}"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Master Blueprint (Unpopulated)</label>
+              <textarea
+                value={editCampaignForm.masterBlueprintUnpopulated}
+                onChange={(e) => setEditCampaignForm({ ...editCampaignForm, masterBlueprintUnpopulated: e.target.value })}
+                rows={10}
+                placeholder="Template with {placeholders}"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>GPT Model</label>
+              <select
+                value={editCampaignForm.selectedModel}
+                onChange={(e) => setEditCampaignForm({ ...editCampaignForm, selectedModel: e.target.value })}
+              >
+                <option value="gpt-4.1">GPT-4.1</option>
+                <option value="gpt-4.1-mini">GPT-4.1 Mini</option>
+                <option value="gpt-5">GPT-5</option>
+                <option value="gpt-5-mini">GPT-5 Mini</option>
+                <option value="gpt-5-nano">GPT-5 Nano</option>
+              </select>
+            </div>
+
+            <div className="modal-footer">
+              <button
+                className="button secondary"
+                onClick={() => {
+                  setShowEditCampaignModal(false);
+                  setEditCampaignForm({
+                    templateName: "",
+                    aiInstructions: "",
+                    placeholderListInfo: "",
+                    masterBlueprintUnpopulated: "",
+                    selectedModel: "gpt-5",
+                  });
+                }}
+                disabled={isLoading}
+              >
+                Cancel
+              </button>
+              <button
+                className="button save-button"
+                onClick={handleUpdateCampaignTemplate}
+                disabled={isLoading || !editCampaignForm.templateName}
+              >
+                {isLoading ? "Updating..." : "Update Template"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Campaign Builder Modal */}
       {showCampaignBuilder && (
@@ -630,6 +997,11 @@ const handleSaveCampaignTemplateChanges = async () => {
           <button
             onClick={() => {
               setShowCampaignBuilder(false);
+              // Clear session storage
+              sessionStorage.removeItem('newCampaignId');
+              sessionStorage.removeItem('newCampaignName');
+              sessionStorage.removeItem('selectedTemplateDefinitionId');
+              sessionStorage.removeItem('autoStartConversation');
               // Refresh campaign templates when closing
               fetchCampaignTemplates();
             }}
@@ -645,10 +1017,11 @@ const handleSaveCampaignTemplateChanges = async () => {
               padding: '10px 20px',
               cursor: 'pointer',
               fontSize: '16px',
-              fontWeight: 'bold'
+              fontWeight: 'bold',
+              boxShadow: '0 4px 12px rgba(220, 53, 69, 0.4)'
             }}
           >
-            Close
+            ✕ Close Builder
           </button>
         </div>
       )}
@@ -657,3 +1030,4 @@ const handleSaveCampaignTemplateChanges = async () => {
 };
 
 export default Template;
+                
