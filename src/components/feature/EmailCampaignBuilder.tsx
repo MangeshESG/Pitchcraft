@@ -1080,16 +1080,12 @@ if ((response.data.success || response.data.Success) &&
 const loadTemplateForEdit = async (templateId: number) => {
   setIsLoadingTemplate(true);
   try {
-    const response = await axios.get(`${API_BASE_URL}/api/CampaignPrompt/campaign/${templateId}`);
-    const template = response.data;
-    
+    const res = await axios.get(`${API_BASE_URL}/api/CampaignPrompt/campaign/${templateId}`);
+    const template = res.data;
+
     setOriginalTemplateData(template);
-    
-    setMessages([]);
-    setConversationStarted(false);
-    setIsComplete(false);
-    
-    // ✅ Load AI instructions from database
+
+    // Core fields
     setSystemPrompt(template.aiInstructions || "");
     setSystemPromptForEdit(template.aiInstructionsForEdit || "");
     setMasterPrompt(template.placeholderList || "");
@@ -1098,72 +1094,112 @@ const loadTemplateForEdit = async (templateId: number) => {
     setSelectedModel(template.selectedModel || "gpt-5");
     setSelectedTemplateDefinitionId(template.templateDefinitionId || null);
     setTemplateName(template.templateName || "");
-    
-    if (template.placeholderValues) {
-      setPlaceholderValues(template.placeholderValues);
-    } else {
-      setPlaceholderValues({});
+    setIsComplete(false);
+    setMessages([]);
+
+    // ✅ Load placeholders and Example Output from DB
+    if (template.placeholderValues) setPlaceholderValues(template.placeholderValues);
+    else setPlaceholderValues({});
+
+    if (template.exampleOutput) {
+      setExampleOutput(template.exampleOutput);  // HTML preview
+    } else if (template.campaignBlueprint) {
+      setExampleOutput(template.campaignBlueprint);
     }
-    
-    if (template.placeholderListWithValue && template.campaignBlueprint) {
-      setFinalPrompt(template.placeholderListWithValue);
-      setFinalPreviewText(template.campaignBlueprint);
-      setIsComplete(true);
-    }
-    
-    // ✅ Go directly to conversation tab in edit mode
-    setActiveTab('conversation');
+
+    // ✅ Go straight into edit mode with conversation tab
+    setActiveTab("conversation");
+    setConversationStarted(false);
+    setIsTyping(false);
+    setIsEditMode(true);
   } catch (error) {
-    console.error('Error loading template:', error);
-    alert('Failed to load template for editing');
+    console.error("Error loading template:", error);
+    alert("Failed to load template for editing");
     setIsEditMode(false);
   } finally {
     setIsLoadingTemplate(false);
   }
 };
 
-
 const startEditConversation = async (placeholder: string) => {
   if (!effectiveUserId || !placeholder) return;
-  
+
   setSelectedPlaceholder(placeholder);
   setMessages([]);
   setConversationStarted(true);
   setIsComplete(false);
   setIsTyping(true);
-  
+
   const currentValue = placeholderValues[placeholder] || "not set";
-  
+
   try {
-    // ✅ Use new edit/start endpoint with database AI instructions
+    // 🔹 Ask GPT to suggest/edit specific placeholder
     const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/edit/start`, {
       userId: effectiveUserId,
       campaignTemplateId: editTemplateId,
-      placeholder: placeholder,
-      currentValue: currentValue,
-      model: selectedModel
+      placeholder,
+      currentValue,
+      model: selectedModel,
     });
-    
+
     const data = response.data.response;
     if (data && data.assistantText) {
-      const botMessage: Message = { 
-        type: 'bot', 
-        content: data.assistantText, 
-        timestamp: new Date() 
-      };
-      setMessages([botMessage]);
+      setMessages([{ type: "bot", content: data.assistantText, timestamp: new Date() }]);
       playNotificationSound();
     }
   } catch (error) {
-    console.error('Error starting edit conversation:', error);
-    const errorMessage: Message = { 
-      type: 'bot', 
-      content: 'Sorry, I couldn\'t start the edit conversation. Please try again.', 
-      timestamp: new Date() 
-    };
-    setMessages([errorMessage]);
+    console.error("Error starting edit conversation:", error);
+    setMessages([
+      {
+        type: "bot",
+        content: "Sorry, I couldn't start the edit conversation. Please try again.",
+        timestamp: new Date(),
+      },
+    ]);
   } finally {
     setIsTyping(false);
+  }
+};
+
+//  ⚙️ After the chat finishes, update DB and regenerate
+const finalizeEditPlaceholder = async (updatedPlaceholder: string, newValue: string) => {
+  if (!editTemplateId || !effectiveUserId) return;
+
+  // Merge previous set with new one
+  const updatedValues = {
+    ...placeholderValues,
+    [updatedPlaceholder]: newValue,
+  };
+
+  setPlaceholderValues(updatedValues);
+
+  try {
+    // 1️⃣ Persist merged placeholder values to DB
+    await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
+      id: editTemplateId,
+      placeholderValues: updatedValues,
+      selectedModel,
+    });
+    console.log("✅ Placeholder saved in DB:", updatedPlaceholder);
+
+    // 2️⃣ Regenerate Example Output using all placeholders
+    const regen = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/example/generate`, {
+      userId: effectiveUserId,
+      campaignTemplateId: editTemplateId,
+      model: selectedModel,
+    });
+
+    if (
+      (regen.data.success || regen.data.Success) &&
+      (regen.data.exampleOutput || regen.data.ExampleOutput)
+    ) {
+      setExampleOutput(regen.data.exampleOutput || regen.data.ExampleOutput);
+      console.log("✅ Example regenerated successfully");
+    } else {
+      console.warn("⚠️ No ExampleOutput returned");
+    }
+  } catch (err) {
+    console.error("⚠️ Error during placeholder finalization:", err);
   }
 };
 
@@ -1431,6 +1467,16 @@ const handleSendMessage = async () => {
       };
       setMessages(prev => [...prev, botMessage]);
       playNotificationSound();
+    }
+
+      // 💾 6️⃣ In Edit Mode: Regenerate Example Output + Save Placeholder
+    if (isEditMode && selectedPlaceholder && currentAnswer.trim()) {
+      try {
+        await finalizeEditPlaceholder(selectedPlaceholder, currentAnswer.trim());
+        console.log(`🧠 Finalized edit for {${selectedPlaceholder}}`);
+      } catch (err) {
+        console.warn("⚠️ finalizeEditPlaceholder failed:", err);
+      }
     }
   } catch (error) {
     console.error('❌ Error sending message:', error);

@@ -326,16 +326,19 @@ const handleTemplateNameSubmit = async () => {
     }
   }, [effectiveUserId, fetchCampaignTemplates]);
 
-  const generateExampleEmail = (template: CampaignTemplate) => {
-    if (!template.placeholderValues) return "";
-    
-    const placeholders = template.placeholderValues as Record<string, string>;
-    if (placeholders.example_output) {
-      return placeholders.example_output;
-    }
-    
-    return template.campaignBlueprint || "";
-  };
+const generateExampleEmail = (template: CampaignTemplate) => {
+  if (!template) return "";
+
+  if ((template as any).exampleOutput) {       // ✅ DB field preferred
+    return (template as any).exampleOutput;
+  }
+
+  if (template.placeholderValues?.example_output) {
+    return template.placeholderValues.example_output;
+  }
+
+  return template.campaignBlueprint || "";
+};
 
   const fetchCampaignTemplateDetails = async (templateId: number) => {
     try {
