@@ -317,6 +317,7 @@ pre span {
 }
 
 .modal {
+  display: none;
   position: fixed;
   width: 90%;
   /* height: 90%; */
@@ -353,6 +354,7 @@ pre span {
 .modal.active {
   opacity: 1;
   transform: scale(1) translate(-50%, -50%);
+   display: block;
 }
 
 .modal:before {

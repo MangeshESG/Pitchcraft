@@ -863,3 +863,23 @@ select:not([value=""]) option {
     max-height: calc(100vh - 450px);
   }
 }
+.datafile-modal {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 24px 28px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  width: 400px;
+  max-width: 90%;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.datafile-modal h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  text-align: center;
+  color: #333;
+}

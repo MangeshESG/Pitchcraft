@@ -531,7 +531,15 @@ useEffect(() => {
     XLSX.utils.book_append_sheet(wb, ws, "Contacts");
     XLSX.writeFile(wb, "contact_template.xlsx");
   };
-
+  const handleButtonClick = () => {
+    debugger
+  console.log("Button clicked!");
+  setShowDataFileModal(true);
+   console.log("showDataFileModal after click:", showDataFileModal);
+   
+};
+console.log("isProcessing:", isProcessing);
+console.log("processingStats.valid:", processingStats.valid);
   return (
     <div className="full-width d-flex">
       <div className="input-section edit-section w-[100%]">
@@ -838,7 +846,8 @@ useEffect(() => {
                   Back to Mapping
                 </button>
                 <button
-                  onClick={() => setShowDataFileModal(true)}
+                  //onClick={() => {console.log("Process & Save Data button clicked!");setShowDataFileModal(true)}}
+                  onClick={handleButtonClick}
                   className="button action-button"
                   disabled={isProcessing || processingStats.valid === 0}
                 >
@@ -961,7 +970,7 @@ useEffect(() => {
         buttonLabel=""
         size="auto-width"
       >
-        <div className="datafile-modal">
+        <div className="datafile-modal" >
           <h3>Enter Data File Information</h3>
           <div className="form-group">
             <label>

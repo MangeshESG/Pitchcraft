@@ -1,4 +1,5 @@
 import React from "react";
+import ReactDOM from "react-dom";
 
 interface ModalProps {
   show: boolean;
@@ -14,10 +15,11 @@ const Modal: React.FC<ModalProps> = ({
   children,
   buttonLabel,
   size,
-}) => {
-  return (
-    <div className={`modal ${size} ${show ? "active" : ""}`}>
-      <div className="modal-content">
+}) => {console.log("Modal show prop:", show);
+  if (!show) return null;
+  return ReactDOM.createPortal (
+    <div className={`modal-overlay ${size} ${show ? "active" : ""}`}>
+      <div className={`modal-content ${size || ""}`}>
         {children}
         {buttonLabel && (
           <button
@@ -28,7 +30,8 @@ const Modal: React.FC<ModalProps> = ({
           </button>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
