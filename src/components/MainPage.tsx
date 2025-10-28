@@ -1474,11 +1474,11 @@ const MainPage: React.FC = () => {
               new RegExp(placeholder.replace(/[{}]/g, "\\$&"), "g")
             ) || []
           ).length
-          `Found ${(
-            text.match(
-              new RegExp(placeholder.replace(/[{}]/g, "\\$&"), "g")
-            ) || []
-          ).length
+          // `Found ${(
+          //   text.match(
+          //     new RegExp(placeholder.replace(/[{}]/g, "\\$&"), "g")
+          //   ) || []
+          // ).length
           } occurrences`
         );
 
@@ -1654,7 +1654,7 @@ const MainPage: React.FC = () => {
               `<span style="color: orange">[${formatDateTime(
                 new Date()
               )}] Crafting phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${entry.email
-              )}] Crafting phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${entry.email
+              // )}] Crafting phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${entry.email
               }</span><br/>` + prev.generatedContent,
           }));
           const scrapeResponse = await fetch(
@@ -1687,7 +1687,7 @@ const MainPage: React.FC = () => {
               `<span style="color: #b38f00">[${formatDateTime(
                 new Date()
               )}] Loading phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${entry.email
-              )}] Loading phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${entry.email
+              // )}] Loading phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${entry.email
               }</span><br/>` + prev.generatedContent,
           }));
         }
@@ -1763,9 +1763,9 @@ const MainPage: React.FC = () => {
             )}] Pitch successfully crafted(att:${searchCount} org:${dataAnalysis.original
             } ass:${dataAnalysis.assisted
             }), for contact ${full_name} with company name ${company_name} and domain ${entry.email
-            )}] Pitch successfully crafted(att:${searchCount} org:${dataAnalysis.original
-            } ass:${dataAnalysis.assisted
-            }), for contact ${full_name} with company name ${company_name} and domain ${entry.email
+            // )}] Pitch successfully crafted(att:${searchCount} org:${dataAnalysis.original
+            // } ass:${dataAnalysis.assisted
+            // }), for contact ${full_name} with company name ${company_name} and domain ${entry.email
             }</span><br/>` + prev.generatedContent,
           linkLabel: pitchData.response.content,
         }));
@@ -1794,7 +1794,7 @@ const MainPage: React.FC = () => {
               `<span style="color: blue">[${formatDateTime(
                 new Date()
               )}] Crafting phase #3 concinnus, for contact ${full_name} with company name ${company_name} and domain ${entry.email
-              )}] Crafting phase #3 concinnus, for contact ${full_name} with company name ${company_name} and domain ${entry.email
+              // )}] Crafting phase #3 concinnus, for contact ${full_name} with company name ${company_name} and domain ${entry.email
               }</span><br/>` + prev.generatedContent,
           }));
 
@@ -1817,7 +1817,7 @@ const MainPage: React.FC = () => {
                 `<span style="color: green">[${formatDateTime(
                   new Date()
                 )}] Subject successfully crafted, for contact ${full_name} with company name ${company_name} and domain ${entry.email
-                )}] Subject successfully crafted, for contact ${full_name} with company name ${company_name} and domain ${entry.email
+                // )}] Subject successfully crafted, for contact ${full_name} with company name ${company_name} and domain ${entry.email
                 }</span><br/>` + prev.generatedContent,
               emailSubject: subjectLine,
             }));
@@ -1849,7 +1849,7 @@ const MainPage: React.FC = () => {
               `<span style="color: green">[${formatDateTime(
                 new Date()
               )}] Subject using user placeholder for contact ${full_name} with company name ${company_name} and domain ${entry.email
-              )}] Subject using user placeholder for contact ${full_name} with company name ${company_name} and domain ${entry.email
+              // )}] Subject using user placeholder for contact ${full_name} with company name ${company_name} and domain ${entry.email
               }</span><br/>` + prev.generatedContent,
             emailSubject: subjectLine,
           }));
@@ -1908,7 +1908,7 @@ const MainPage: React.FC = () => {
                     `<span style="color: orange">[${formatDateTime(
                       new Date()
                     )}] Updating contact in database incomplete for ${full_name}. Error: ${updateContactError.Message || "Unknown error"
-                    )}] Updating contact in database incomplete for ${full_name}. Error: ${updateContactError.Message || "Unknown error"
+                    // )}] Updating contact in database incomplete for ${full_name}. Error: ${updateContactError.Message || "Unknown error"
                     }</span><br/>` + prevOutputForm.generatedContent,
                 }));
               } else {
@@ -2306,7 +2306,7 @@ const MainPage: React.FC = () => {
                 `<span style="color: orange">[${formatDateTime(
                   new Date()
                 )}] Crafting phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${entry.email
-                )}] Crafting phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${entry.email
+                // )}] Crafting phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${entry.email
                 }</span><br/>` + prevOutputForm.generatedContent,
             }));
 
@@ -2333,7 +2333,7 @@ const MainPage: React.FC = () => {
                   `<span style="color: red">[${formatDateTime(
                     new Date()
                   )}] Centum nulla analysis incomplete for contact ${full_name} with company name ${company_name} and domain ${entry.email
-                  )}] Centum nulla analysis incomplete for contact ${full_name} with company name ${company_name} and domain ${entry.email
+                  // )}] Centum nulla analysis incomplete for contact ${full_name} with company name ${company_name} and domain ${entry.email
                   }</span><br/>` + prevOutputForm.generatedContent,
                 usage:
                   `Cost: $${cost.toFixed(6)}    ` +
@@ -2360,7 +2360,7 @@ const MainPage: React.FC = () => {
                 `<span style="color: #b38f00">[${formatDateTime(
                   new Date()
                 )}] Loading phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${entry.email
-                )}] Loading phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${entry.email
+                // )}] Loading phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${entry.email
                 }</span><br/>` + prevOutputForm.generatedContent,
             }));
           }
@@ -2382,7 +2382,7 @@ const MainPage: React.FC = () => {
                 `<span style="color: red">[${formatDateTime(
                   new Date()
                 )}] Centum nulla analysis incomplete for contact ${full_name} with company name ${company_name} and domain ${entry.email
-                )}] Centum nulla analysis incomplete for contact ${full_name} with company name ${company_name} and domain ${entry.email
+                // )}] Centum nulla analysis incomplete for contact ${full_name} with company name ${company_name} and domain ${entry.email
                 }</span><br/>` + prevOutputForm.generatedContent,
               usage:
                 `Cost: $${cost.toFixed(6)}    ` +
@@ -2440,9 +2440,9 @@ const MainPage: React.FC = () => {
               )}] Crafting phase #2 integritas (att:${searchCount} org:${dataAnalysis.original
               } ass:${dataAnalysis.assisted
               }), for contact ${full_name} with company name ${company_name} and domain ${entry.email
-              )}] Crafting phase #2 integritas (att:${searchCount} org:${dataAnalysis.original
-              } ass:${dataAnalysis.assisted
-              }), for contact ${full_name} with company name ${company_name} and domain ${entry.email
+              // )}] Crafting phase #2 integritas (att:${searchCount} org:${dataAnalysis.original
+              // } ass:${dataAnalysis.assisted
+              // }), for contact ${full_name} with company name ${company_name} and domain ${entry.email
               }</span><br/>` + prevOutputForm.generatedContent,
           }));
 
@@ -2475,7 +2475,7 @@ const MainPage: React.FC = () => {
                 `<span style="color: red">[${formatDateTime(
                   new Date()
                 )}] Phase #2 integritas incomplete for contact ${full_name} with company name ${company_name} and domain ${entry.email
-                )}] Phase #2 integritas incomplete for contact ${full_name} with company name ${company_name} and domain ${entry.email
+                // )}] Phase #2 integritas incomplete for contact ${full_name} with company name ${company_name} and domain ${entry.email
                 }</span><br/>` + prevOutputForm.generatedContent,
               usage:
                 `Cost: $${cost.toFixed(6)}    ` +
@@ -2505,7 +2505,7 @@ const MainPage: React.FC = () => {
               `<span style="color: green">[${formatDateTime(
                 new Date()
               )}] Pitch successfully crafted for contact ${full_name} with company name ${company_name} and domain ${entry.email
-              )}] Pitch successfully crafted for contact ${full_name} with company name ${company_name} and domain ${entry.email
+              // )}] Pitch successfully crafted for contact ${full_name} with company name ${company_name} and domain ${entry.email
               }</span><br/>` + prevOutputForm.generatedContent,
             usage:
               `Cost: $${cost.toFixed(6)}    ` +
@@ -2558,7 +2558,7 @@ const MainPage: React.FC = () => {
                 `<span style="color: blue">[${formatDateTime(
                   new Date()
                 )}] Crafting phase #3 concinnus, for contact ${full_name} with company name ${company_name} and domain ${entry.email
-                )}] Crafting phase #3 concinnus, for contact ${full_name} with company name ${company_name} and domain ${entry.email
+                // )}] Crafting phase #3 concinnus, for contact ${full_name} with company name ${company_name} and domain ${entry.email
                 }</span><br/>` + prev.generatedContent,
             }));
 
@@ -2591,7 +2591,7 @@ const MainPage: React.FC = () => {
                   `<span style="color: orange">[${formatDateTime(
                     new Date()
                   )}] Subject generation failed for contact ${full_name} with company name ${company_name} and domain ${entry.email
-                  )}] Subject generation failed for contact ${full_name} with company name ${company_name} and domain ${entry.email
+                  // )}] Subject generation failed for contact ${full_name} with company name ${company_name} and domain ${entry.email
                   }</span><br/>` + prev.generatedContent,
               }));
             }
@@ -2613,7 +2613,7 @@ const MainPage: React.FC = () => {
                 `<span style="color: green">[${formatDateTime(
                   new Date()
                 )}] Subject using user placeholder for contact ${full_name} with company name ${company_name} and domain ${entry.email
-                )}] Subject using user placeholder for contact ${full_name} with company name ${company_name} and domain ${entry.email
+                // )}] Subject using user placeholder for contact ${full_name} with company name ${company_name} and domain ${entry.email
                 }</span><br/>` + prev.generatedContent,
               emailSubject: subjectLine,
             }));
@@ -2785,7 +2785,7 @@ const MainPage: React.FC = () => {
                       `<span style="color: orange">[${formatDateTime(
                         new Date()
                       )}] Updating contact in database incomplete for ${full_name}. Error: ${updateContactError.Message || "Unknown error"
-                      )}] Updating contact in database incomplete for ${full_name}. Error: ${updateContactError.Message || "Unknown error"
+                      // )}] Updating contact in database incomplete for ${full_name}. Error: ${updateContactError.Message || "Unknown error"
                       }</span><br/>` + prevOutputForm.generatedContent,
                   }));
                 } else {
@@ -2834,8 +2834,8 @@ const MainPage: React.FC = () => {
                 new Date()
               )}] Phase #2 integritas incomplete for contact ${entry.full_name
               } with company name ${entry.company_name} and domain ${entry.email
-              )}] Phase #2 integritas incomplete for contact ${entry.full_name
-              } with company name ${entry.company_name} and domain ${entry.email
+              // )}] Phase #2 integritas incomplete for contact ${entry.full_name
+              // } with company name ${entry.company_name} and domain ${entry.email
               }</span><br/>` + prevOutputForm.generatedContent,
             usage:
               `Cost: $${cost.toFixed(6)}    ` +
@@ -3593,10 +3593,10 @@ const MainPage: React.FC = () => {
                         ? "has-submenu submenu-open"
                         : "has-submenu"
                         }`}
-                      className={`${tab === "DataCampaigns" ? "active" : ""} ${showContactsSubmenu
-                        ? "has-submenu submenu-open"
-                        : "has-submenu"
-                        }`}
+                      // className={`${tab === "DataCampaigns" ? "active" : ""} ${showContactsSubmenu
+                      //   ? "has-submenu submenu-open"
+                      //   : "has-submenu"
+                      //   }`}
                     >
                       <button
                         onClick={() => {
@@ -3708,10 +3708,10 @@ const MainPage: React.FC = () => {
                         ? "has-submenu submenu-open"
                         : "has-submenu"
                         }`}
-                      className={`${tab === "Mail" ? "active" : ""} ${showMailSubmenu
-                        ? "has-submenu submenu-open"
-                        : "has-submenu"
-                        }`}
+                      // className={`${tab === "Mail" ? "active" : ""} ${showMailSubmenu
+                      //   ? "has-submenu submenu-open"
+                      //   : "has-submenu"
+                      //   }`}
                     >
                       <button
                         onClick={() => {
@@ -3976,8 +3976,8 @@ const MainPage: React.FC = () => {
                                     onClick={tabHandler2}
                                     className={`button ${tab2 === "Template" ? "active" : ""
                                       }`}
-                                    className={`button ${tab2 === "Template" ? "active" : ""
-                                      }`}
+                                    // className={`button ${tab2 === "Template" ? "active" : ""
+                                    //   }`}
                                   >
                                     Template
                                   </button>
@@ -3988,8 +3988,8 @@ const MainPage: React.FC = () => {
                                     onClick={tabHandler2}
                                     className={`button ${tab2 === "Instructions" ? "active" : ""
                                       }`}
-                                    className={`button ${tab2 === "Instructions" ? "active" : ""
-                                      }`}
+                                    // className={`button ${tab2 === "Instructions" ? "active" : ""
+                                    //   }`}
                                   >
                                     Instructions
                                   </button>
@@ -4009,10 +4009,10 @@ const MainPage: React.FC = () => {
                                     ? ""
                                     : "disabled"
                                     }`}
-                                  className={`save-button button justify-center square-40 d-flex align-center button-full-width-480 mb-10-480 ${selectedPrompt?.name !== "Select a prompt"
-                                    ? ""
-                                    : "disabled"
-                                    }`}
+                                  // className={`save-button button justify-center square-40 d-flex align-center button-full-width-480 mb-10-480 ${selectedPrompt?.name !== "Select a prompt"
+                                  //   ? ""
+                                  //   : "disabled"
+                                  //   }`}
                                   disabled={
                                     !selectedPrompt?.name ||
                                     selectedPrompt?.name === "Select a prompt"
@@ -4085,10 +4085,10 @@ const MainPage: React.FC = () => {
                                     ? "text-light"
                                     : ""
                                     }`}
-                                  className={`no-content height-400 ql-editor ${!selectedPrompt?.template
-                                    ? "text-light"
-                                    : ""
-                                    }`}
+                                  // className={`no-content height-400 ql-editor ${!selectedPrompt?.template
+                                  //   ? "text-light"
+                                  //   : ""
+                                  //   }`}
                                   dangerouslySetInnerHTML={{
                                     __html:
                                       selectedPrompt?.template ??
@@ -4112,8 +4112,8 @@ const MainPage: React.FC = () => {
                                         ? formatTextForDisplay(
                                           selectedPrompt.text
                                         )
-                                          selectedPrompt.text
-                                        )
+                                        //   selectedPrompt.text
+                                        // )
                                         : ""
                                     }
                                     defaultValue={selectedPrompt?.text}
@@ -4177,8 +4177,8 @@ const MainPage: React.FC = () => {
                                 <pre
                                   className={`no-content height-400 ql-editor ${!selectedPrompt?.text ? "text-light" : ""
                                     }`}
-                                  className={`no-content height-400 ql-editor ${!selectedPrompt?.text ? "text-light" : ""
-                                    }`}
+                                  // className={`no-content height-400 ql-editor ${!selectedPrompt?.text ? "text-light" : ""
+                                  //   }`}
                                   dangerouslySetInnerHTML={{
                                     __html:
                                       selectedPrompt?.text ??
@@ -4202,8 +4202,8 @@ const MainPage: React.FC = () => {
                                         ? formatTextForDisplay(
                                           selectedPrompt.text
                                         )
-                                          selectedPrompt.text
-                                        )
+                                        //   selectedPrompt.text
+                                        // )
                                         : ""
                                     }
                                     defaultValue={selectedPrompt?.text}
@@ -4296,8 +4296,8 @@ const MainPage: React.FC = () => {
                                           onClick={tabHandler4}
                                           className={`button ${tab4 === "Template" ? "active" : ""
                                             }`}
-                                          className={`button ${tab4 === "Template" ? "active" : ""
-                                            }`}
+                                          // className={`button ${tab4 === "Template" ? "active" : ""
+                                          //   }`}
                                         >
                                           Template
                                         </button>
@@ -4310,10 +4310,10 @@ const MainPage: React.FC = () => {
                                             ? "active"
                                             : ""
                                             }`}
-                                          className={`button ${tab4 === "Instructions"
-                                            ? "active"
-                                            : ""
-                                            }`}
+                                          // className={`button ${tab4 === "Instructions"
+                                          //   ? "active"
+                                          //   : ""
+                                          //   }`}
                                         >
                                           Instructions
                                         </button>
@@ -4334,8 +4334,8 @@ const MainPage: React.FC = () => {
                                             ? formatTextForDisplay(
                                               addPrompt?.promptTemplate
                                             )
-                                              addPrompt?.promptTemplate
-                                            )
+                                            //   addPrompt?.promptTemplate
+                                            // )
                                             : ""
                                         }
                                         defaultValue={addPrompt?.promptTemplate}
@@ -4363,8 +4363,8 @@ const MainPage: React.FC = () => {
                                               ? formatTextForDisplay(
                                                 addPrompt?.promptInput
                                               )
-                                                addPrompt?.promptInput
-                                              )
+                                              //   addPrompt?.promptInput
+                                              // )
                                               : ""
                                           }
                                           defaultValue={addPrompt?.promptInput}
@@ -4428,8 +4428,8 @@ const MainPage: React.FC = () => {
                                           onClick={tabHandler3}
                                           className={`button ${tab3 === "Template" ? "active" : ""
                                             }`}
-                                          className={`button ${tab3 === "Template" ? "active" : ""
-                                            }`}
+                                          // className={`button ${tab3 === "Template" ? "active" : ""
+                                          //   }`}
                                         >
                                           Template
                                         </button>
@@ -4442,10 +4442,10 @@ const MainPage: React.FC = () => {
                                             ? "active"
                                             : ""
                                             }`}
-                                          className={`button ${tab3 === "Instructions"
-                                            ? "active"
-                                            : ""
-                                            }`}
+                                          // className={`button ${tab3 === "Instructions"
+                                          //   ? "active"
+                                          //   : ""
+                                          //   }`}
                                         >
                                           Instructions
                                         </button>
@@ -4466,8 +4466,8 @@ const MainPage: React.FC = () => {
                                             ? formatTextForDisplay(
                                               editPrompt?.promptTemplate
                                             )
-                                              editPrompt?.promptTemplate
-                                            )
+                                            //   editPrompt?.promptTemplate
+                                            // )
                                             : ""
                                         }
                                         defaultValue={
@@ -4497,8 +4497,8 @@ const MainPage: React.FC = () => {
                                               ? formatTextForDisplay(
                                                 editPrompt?.promptInput
                                               )
-                                                editPrompt?.promptInput
-                                              )
+                                              //   editPrompt?.promptInput
+                                              // )
                                               : ""
                                           }
                                           defaultValue={editPrompt?.promptInput}
