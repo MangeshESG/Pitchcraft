@@ -41,6 +41,8 @@ import CampaignManagement from "./feature/CampaignManagement";
 import { useAppData } from "../contexts/AppDataContext";
 import { Dashboard } from "./feature/Dashboard";
 import EmailCampaignBuilder from "./feature/EmailCampaignBuilder";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
+
 
 interface Prompt {
   id: number;
@@ -321,12 +323,63 @@ const MainPage: React.FC = () => {
   } = useSelector((state: RootState) => state.auth);
 
   //submenu
-  const [tab, setTab] = useState<string>("Dashboard");
-  const [mailSubTab, setMailSubTab] = useState<string>("Dashboard");
-  const [showMailSubmenu, setShowMailSubmenu] = useState<boolean>(false);
-  const [showContactsSubmenu, setShowContactsSubmenu] = useState(false);
-  const [contactsSubTab, setContactsSubTab] = useState("List");
+ //submenu
 
+  const location = useLocation();
+
+  const navigate = useNavigate();
+
+  const queryParams = new URLSearchParams(location.search);
+
+
+
+  const initialTab = queryParams.get("tab") || "Dashboard";
+
+  const initialContactsSubTab = queryParams.get("subtab") || "List";
+
+  const initialMailSubTab = queryParams.get("mailSubTab") || "Dashboard";
+
+
+
+  // states initialized correctly
+
+  const [tab, setTab] = useState<string>(initialTab);
+
+  const [mailSubTab, setMailSubTab] = useState<string>(initialMailSubTab);
+
+  const [contactsSubTab, setContactsSubTab] = useState<string>(initialContactsSubTab);
+
+
+
+  const [showMailSubmenu, setShowMailSubmenu] = useState(initialTab === "Mail");
+
+  const [showContactsSubmenu, setShowContactsSubmenu] = useState(false);
+
+
+
+  // update states when query changes
+
+  useEffect(() => {
+
+    setTab(initialTab);
+
+    setContactsSubTab(initialContactsSubTab);
+
+    setMailSubTab(initialMailSubTab);
+
+  }, [initialTab, initialContactsSubTab, initialMailSubTab]);
+
+
+
+
+
+
+
+
+
+
+
+ 
   const [showDataFileUpload, setShowDataFileUpload] = useState(false);
 
   const [isLoadingClientSettings, setIsLoadingClientSettings] = useState(false);
@@ -3579,6 +3632,7 @@ const MainPage: React.FC = () => {
                           setTab("Template");
                           setShowMailSubmenu(false);
                           setShowContactsSubmenu(false);
+                          navigate("/main");
                         }}
                         className="side-menu-button"
                         title="Click to view the original non-personalized email template"
@@ -3671,6 +3725,9 @@ const MainPage: React.FC = () => {
                           setTab("Campaigns");
                           setShowMailSubmenu(false);
                           setShowContactsSubmenu(false);
+                          navigate("/main?tab=Campaigns");
+
+
                         }}
                         className="side-menu-button"
                         title="Manage campaigns"
@@ -3690,6 +3747,7 @@ const MainPage: React.FC = () => {
                           setTab("Output");
                           setShowMailSubmenu(false);
                           setShowContactsSubmenu(false);
+                          navigate("/main?tab=Output");
                         }}
                         className="side-menu-button"
                         title="Click to view the hyper-personalized emails being generated"

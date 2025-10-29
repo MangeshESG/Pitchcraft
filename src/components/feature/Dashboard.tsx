@@ -7,8 +7,14 @@ import ImportContact from '../../assets/images/icons/import-contact.png';
 import CreateACampaign from '../../assets/images/icons/create-a-campaign.png';
 import GenerateEmail from '../../assets/images/icons/generate-email.png';
 import ScheduleCampaign from '../../assets/images/icons/schedule-campaign.png';
+import { useNavigate } from "react-router-dom";
 export const Dashboard: React.FC = () => {
   const [mode, setMode] = useState<"new" | "existing">("new");
+  const navigate = useNavigate();
+  const [showModal, setShowModal] = useState(false);
+
+  const handleOpen = () => setShowModal(true);
+  const handleClose = () => setShowModal(false);
 
   return (
     <div className="mx-auto">
@@ -66,7 +72,7 @@ export const Dashboard: React.FC = () => {
                       <p>Contact your account manager for new pitch templates. Soon you'll
                         be able to build them right in PitchKraft.</p>
                     </div>
-                    <button className="border-[#3f9f42] border  w-[fit-content] mt-[auto] text-[#3f9f42]  rounded-md px-3 py-1.5  font-semibold ">
+                    <button onClick={() => navigate("/main?tab=Template")} className="border-[#3f9f42] border  w-[fit-content] mt-[auto] text-[#3f9f42]  rounded-md px-3 py-1.5  font-semibold ">
                       Create template
                     </button>
                   </div>
@@ -88,20 +94,62 @@ export const Dashboard: React.FC = () => {
                     </span>
                     Import contacts
                   </div>
-                  <button className=" green flex gap-2 items-center">
+                  <button onClick={handleOpen} className=" green flex gap-2 items-center">
                     <FontAwesomeIcon
                       icon={faPlayCircle}
                       className=" text-[#3f9f42] text-[14px]"
                     />
-                    <span>Watch quick intro</span>
+                    <span>
+                      Watch quick intro
+                    </span>
                   </button>
+                  {showModal && (
+                    <div
+                      style={{
+                        position: "fixed",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        height: "100%",
+                        backgroundColor: "rgba(0,0,0,0.5)",
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        zIndex: 1000,
+                      }}
+                    >
+                      <div
+                        style={{
+                          backgroundColor: "#fff",
+                          padding: "20px",
+                          borderRadius: "10px",
+                          maxWidth: "800px",
+                          width: "90%",
+                        }}
+                      >
+                        <button
+                          onClick={handleClose}
+                          style={{ float: "right", fontSize: "16px" }}
+                        >
+                          Close
+                        </button>
+                        <video
+                          width="100%"
+                          height="auto"
+                          controls
+                          autoPlay
+                          src="/video/Import contacts into PitchKraft.mp4"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="flex justify-between h-[calc(100%-30px)]">
                   <div className="flex-1 flex flex-col">
                     <div className="text-gray-500 my-6">
                       <p className="flex-1">Add your audience (we’ll help map columns).</p>
                     </div>
-                    <button className="border-[#3f9f42] border  w-[fit-content] mt-[auto] text-[#3f9f42]  rounded-md px-3 py-1.5  font-semibold">
+                    <button onClick={() => navigate("/main?tab=DataCampaigns&subtab=List")} className="border-[#3f9f42] border  w-[fit-content] mt-[auto] text-[#3f9f42]  rounded-md px-3 py-1.5  font-semibold">
                       Import contacts
                     </button>
                   </div>
@@ -123,20 +171,62 @@ export const Dashboard: React.FC = () => {
                     </span>
                     Create a campaign
                   </div>
-                  <button className=" green flex gap-2 items-center">
+                  <button onClick={handleOpen} className=" green flex gap-2 items-center">
                     <FontAwesomeIcon
                       icon={faPlayCircle}
                       className=" text-[#3f9f42] text-[14px]"
                     />
-                    <span>Watch quick intro</span>
+                    <span>
+                      Watch quick intro
+                    </span>
                   </button>
+                  {showModal && (
+                    <div
+                      style={{
+                        position: "fixed",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        height: "100%",
+                        backgroundColor: "rgba(0,0,0,0.5)",
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        zIndex: 1000,
+                      }}
+                    >
+                      <div
+                        style={{
+                          backgroundColor: "#fff",
+                          padding: "20px",
+                          borderRadius: "10px",
+                          maxWidth: "800px",
+                          width: "90%",
+                        }}
+                      >
+                        <button
+                          onClick={handleClose}
+                          style={{ float: "right", fontSize: "16px" }}
+                        >
+                          Close
+                        </button>
+                        <video
+                          width="100%"
+                          height="auto"
+                          controls
+                          autoPlay
+                          src="/video/Create a campaign.mp4"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="flex justify-between h-[calc(100%-30px)]">
                   <div className="flex-1 flex flex-col">
                     <div className="text-gray-500 my-6">
                       <p className="flex-1">Pick a template + audience, then you’re ready to send.</p>
                     </div>
-                    <button className="border-[#3f9f42] border  w-[fit-content] mt-[auto] text-[#3f9f42]  rounded-md px-3 py-1.5  font-semibold">
+                    <button onClick={() => navigate("/main?tab=Campaigns")} className="border-[#3f9f42] border  w-[fit-content] mt-[auto] text-[#3f9f42]  rounded-md px-3 py-1.5  font-semibold">
                       New campaign
                     </button>
                   </div>
@@ -174,7 +264,7 @@ export const Dashboard: React.FC = () => {
                     <div className="text-gray-500 my-6">
                       <p className="flex-1">Create hyper-personalized emails for your campaigns.</p>
                     </div>
-                    <button className="border-[#3f9f42] border  w-[fit-content] mt-[auto] text-[#3f9f42]  rounded-md px-3 py-1.5  font-semibold">
+                    <button onClick={() => navigate("/main?tab=Output")} className="border-[#3f9f42] border  w-[fit-content] mt-[auto] text-[#3f9f42]  rounded-md px-3 py-1.5  font-semibold">
                       Generate emails
                     </button>
                   </div>
@@ -206,7 +296,7 @@ export const Dashboard: React.FC = () => {
                     <div className="text-gray-500 my-6">
                       <p className="flex-1">Add email settings, set sending schedules, then check analytics for opens, clicks and replies.</p>
                     </div>
-                    <button className="border-[#3f9f42] border  w-[fit-content] mt-[auto] text-[#3f9f42]  rounded-md px-3 py-1.5  font-semibold">
+                    <button onClick={() => navigate("/main?tab=Mail&mailSubTab=Schedule")} className="border-[#3f9f42] border  w-[fit-content] mt-[auto] text-[#3f9f42]  rounded-md px-3 py-1.5  font-semibold">
                       Schedule and review campaigns
                     </button>
                   </div>
