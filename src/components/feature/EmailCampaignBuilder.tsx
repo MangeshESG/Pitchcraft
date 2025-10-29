@@ -623,7 +623,7 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
     </select>
   </div>
 </div>
-            <h3>📧 Live Preview</h3>
+            
             <div className="example-controls">
               <button 
                 className="regenerate-btn" 
@@ -930,32 +930,35 @@ useEffect(() => {
 }, [effectiveUserId]);
 
 useEffect(() => {
-  const autoStart = sessionStorage.getItem('autoStartConversation');
-  const newCampaignId = sessionStorage.getItem('newCampaignId');
-  const selectedDefinition = sessionStorage.getItem('selectedTemplateDefinitionId');
-  const campaignName = sessionStorage.getItem('newCampaignName');
+  const autoStart = sessionStorage.getItem("autoStartConversation");
+  const newCampaignId = sessionStorage.getItem("newCampaignId");
+  const selectedDefinition = sessionStorage.getItem("selectedTemplateDefinitionId");
+  const campaignName = sessionStorage.getItem("newCampaignName");
 
   if (autoStart && newCampaignId && selectedDefinition) {
-    console.log('🚀 Auto-starting conversation for campaign:', campaignName);
-    
-    // ✅ Load template definition and start conversation
+    console.log(`🚀 Preparing campaign "${campaignName}"...`);
+
     const definitionId = parseInt(selectedDefinition);
     setSelectedTemplateDefinitionId(definitionId);
     setTemplateName(campaignName || "");
-    
-    // ✅ Load template definition to populate fields
-    loadTemplateDefinitionById(definitionId).then(() => {
-      // ✅ Navigate to conversation tab
-      setActiveTab('conversation');
-      
-      // ✅ Start conversation automatically
-      setTimeout(() => {
-        startConversation();
-      }, 500);
-    });
-    
-    // ✅ Clear auto-start flag
-    sessionStorage.removeItem('autoStartConversation');
+
+    setIsTyping(true);
+    setActiveTab("conversation");
+
+    loadTemplateDefinitionById(definitionId)
+      .then(() => {
+        // ✅ Now template fields are ready
+        setTimeout(() => {
+          startConversation(); // will start without showing alert()
+        }, 300);
+      })
+      .catch((err) => {
+        console.error("⚠️ Failed to auto‑load template definition:", err);
+      })
+      .finally(() => {
+        sessionStorage.removeItem("autoStartConversation");
+        sessionStorage.removeItem("openConversationTab");
+      });
   }
 }, []);
 
@@ -1099,26 +1102,25 @@ if ((response.data.success || response.data.Success) &&
   };
 
   // ✅ NEW - Load a specific template definition
-  const loadTemplateDefinitionById = async (id: number) => {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/api/CampaignPrompt/template-definition/${id}`);
-      const def = response.data;
-      
-      setTemplateName(def.templateName);
-      setSystemPrompt(def.aiInstructions || "");
-      setSystemPromptForEdit(def.aiInstructionsForEdit || "");
-      setMasterPrompt(def.placeholderList || "");
-      setMasterPromptExtensive(def.placeholderListExtensive || "");
-      setPreviewText(def.masterBlueprintUnpopulated || "");
-      setSelectedTemplateDefinitionId(def.id);
-      
-      // Show success message
-      alert(`Template "${def.templateName}" loaded successfully!`);
-    } catch (error) {
-      console.error('Error loading template definition:', error);
-      alert('Failed to load template definition');
-    }
-  };
+ const loadTemplateDefinitionById = async (id: number) => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/api/CampaignPrompt/template-definition/${id}`);
+    const def = response.data;
+
+    // ✅ Populate UI fields directly
+    setTemplateName(def.templateName || "");
+    setSystemPrompt(def.aiInstructions || "");
+    setSystemPromptForEdit(def.aiInstructionsForEdit || "");
+    setMasterPrompt(def.placeholderList || "");
+    setMasterPromptExtensive(def.placeholderListExtensive || "");
+    setPreviewText(def.masterBlueprintUnpopulated || "");
+    setSelectedTemplateDefinitionId(def.id);
+
+    console.log(`✅ Template loaded: ${def.templateName}`);
+  } catch (error) {
+    console.error("⚠️ Failed to load template definition:", error);
+  }
+};
 
 
   useEffect(() => {
@@ -1391,49 +1393,73 @@ const finalizeEditPlaceholder = async (updatedPlaceholder: string, newValue: str
     }
   }, [selectedClient]);
 
-  const startConversation = async () => {
-    if (!effectiveUserId) {
-        alert("Cannot start conversation: No client ID is available.");
-        return;
-    }
-    if (systemPrompt.trim() === '' || masterPrompt.trim() === '') {
-        alert("Please provide both the AI Instructions and the Master Template before starting.");
-        return;
-    }
+const startConversation = async () => {
+  if (!effectiveUserId) {
+    console.warn("⚠️ No client ID available — cannot start conversation.");
+    return;
+  }
 
-    setMessages([]);
-    setFinalPrompt('');
-    setFinalPreviewText('');
-    setPlaceholderValues({});
-    setIsComplete(false);
-    setConversationStarted(true);
-    setActiveTab('conversation');
-    setIsTyping(true);
-    setExampleOutput(''); // ✅ clear example output completely
+  if (systemPrompt.trim() === "" || masterPrompt.trim() === "") {
+    console.log("⏳ Template not ready yet — skipping manual alert.");
+    return;
+  }
 
-    
-    try {
-      const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/chat`, {
-        userId: effectiveUserId,
-        message: masterPrompt,
-        systemPrompt: systemPrompt,
-        model: selectedModel
-      });
-      const data = response.data.response;
-      if (data && data.assistantText) {
-        const botMessage: Message = { type: 'bot', content: data.assistantText, timestamp: new Date() };
-        setMessages([botMessage]);
-        playNotificationSound();
-      }
-    } catch (error) {
-      console.error('Error starting conversation:', error);
-      const errorMessage: Message = { type: 'bot', content: 'Sorry, I couldn\'t start the conversation. Please check the API connection and try again.', timestamp: new Date() };
-      setMessages([errorMessage]);
-      playNotificationSound();
-    } finally {
-      setIsTyping(false);
-    }
+  // ✅ Reset conversation state
+  setMessages([]);
+  setFinalPrompt("");
+  setFinalPreviewText("");
+  setPlaceholderValues({});
+  setIsComplete(false);
+  setConversationStarted(true);
+  setActiveTab("conversation");
+  setIsTyping(true);
+  setExampleOutput("");
+
+  // ✅ Reuse the same cleaning logic as in handleSendMessage
+  const cleanAssistantMessage = (text: string): string => {
+    if (!text) return "";
+    return text
+      .replace(/==PLACEHOLDER_VALUES_START==[\s\S]*?==PLACEHOLDER_VALUES_END==/g, "")
+      .replace(/{\s*"status"[\s\S]*?}/g, "")
+      .trim();
   };
+
+  try {
+    const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/chat`, {
+      userId: effectiveUserId,
+      message: masterPrompt,
+      systemPrompt: systemPrompt,
+      model: selectedModel,
+    });
+
+    const data = response.data.response;
+    if (data && data.assistantText) {
+      // ✅ Clean AI message before showing
+      const cleanText = cleanAssistantMessage(data.assistantText);
+      const botMessage: Message = {
+        type: "bot",
+        content: cleanText,
+        timestamp: new Date(),
+      };
+      setMessages([botMessage]);
+      playNotificationSound();
+    }
+  } catch (error) {
+    console.error("❌ Error starting conversation:", error);
+    const errorMessage: Message = {
+      type: "bot",
+      content:
+        "Sorry, I couldn't start the conversation. Please check the API connection and try again.",
+      timestamp: new Date(),
+    };
+    setMessages([errorMessage]);
+    playNotificationSound();
+  } finally {
+    setIsTyping(false);
+  }
+};
+
+
 const handleSendMessage = async () => {
   if (currentAnswer.trim() === '' || isTyping || !effectiveUserId) return;
 
@@ -1443,7 +1469,7 @@ const handleSendMessage = async () => {
     timestamp: new Date(),
   };
 
-  setMessages(prev => [...prev, userMessage]);
+  setMessages((prev) => [...prev, userMessage]);
   setCurrentAnswer('');
   setIsTyping(true);
 
@@ -1469,8 +1495,18 @@ const handleSendMessage = async () => {
     const response = await axios.post(endpoint, requestBody);
     const data = response.data.response;
 
+    // ✅ Helper: clean up bot messages before rendering
+    const cleanAssistantMessage = (text: string): string => {
+      if (!text) return '';
+      return text
+        .replace(/==PLACEHOLDER_VALUES_START==[\s\S]*?==PLACEHOLDER_VALUES_END==/g, '')
+        .replace(/{\s*"status"[\s\S]*?}/g, '')
+        .trim();
+    };
+
     // 🧠 1️⃣ Try updating placeholders progressively
     if (data?.assistantText) {
+      const cleanText = cleanAssistantMessage(data.assistantText);
       const match = data.assistantText.match(
         /==PLACEHOLDER_VALUES_START==([\s\S]*?)==PLACEHOLDER_VALUES_END==/
       );
@@ -1488,25 +1524,31 @@ const handleSendMessage = async () => {
         setPlaceholderValues(updatedValues);
         console.log('📦 Updated placeholders: ', updatedValues);
 
-        // 🧠 2️⃣ Request Example Output Regeneration (async)
+        // 🧠 2️⃣ Regenerate Example Output (async)
         try {
-          //-----------------------------------------
-          // ✅ FIX: always use CampaignTemplates.Id, not TemplateDefinition.Id
-          //-----------------------------------------
           const storedId = sessionStorage.getItem('newCampaignId');
-          const activeCampaignId = editTemplateId ?? (storedId ? Number(storedId) : null);
+          const activeCampaignId =
+            editTemplateId ?? (storedId ? Number(storedId) : null);
+
           if (!activeCampaignId) {
-            console.warn('⚠️ No active campaign id found; skipping example generation.');
+            console.warn(
+              '⚠️ No active campaign id found; skipping example generation.'
+            );
           } else {
-            const regenRes = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/example/generate`, {
-              userId: effectiveUserId,
-              campaignTemplateId: activeCampaignId, // ✅ number, correct param
-              model: selectedModel,
-              placeholderValues   // ✅ send the current merged values
+            const regenRes = await axios.post(
+              `${API_BASE_URL}/api/CampaignPrompt/example/generate`,
+              {
+                userId: effectiveUserId,
+                campaignTemplateId: activeCampaignId,
+                model: selectedModel,
+                placeholderValues, // ✅ send the merged values
+              }
+            );
 
-            });
-
-            if (regenRes.data.Success && regenRes.data.ExampleOutput) {
+            if (
+              regenRes.data.Success &&
+              regenRes.data.ExampleOutput
+            ) {
               setExampleOutput(regenRes.data.ExampleOutput);
               console.log('✅ Example Output Regenerated');
             } else {
@@ -1517,9 +1559,18 @@ const handleSendMessage = async () => {
           console.warn('⚠️ Failed to regenerate example:', err);
         }
       }
+
+      // 🧠 Also show cleaned bot message (without placeholders) in chat
+      const botMessage: Message = {
+        type: 'bot',
+        content: cleanText,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, botMessage]);
+      playNotificationSound();
     }
 
-    // ✅ 3️⃣ Handle exampleOutput from response directly (rare)
+    // ✅ 3️⃣ Handle exampleOutput from response directly (rare case)
     if (data.exampleOutput) {
       setExampleOutput(data.exampleOutput);
       console.log(
@@ -1531,33 +1582,23 @@ const handleSendMessage = async () => {
     if (data.isComplete) {
       const completionMessage: Message = {
         type: 'bot',
-        content: "🎉 Great! I've filled in all placeholders. Check the 'Final Result' tab.",
+        content:
+          "🎉 Great! I've filled in all placeholders. Check the 'Final Result' tab.",
         timestamp: new Date(),
       };
-      setMessages(prev => [...prev, completionMessage]);
+      setMessages((prev) => [...prev, completionMessage]);
       setIsComplete(true);
       setTimeout(() => setActiveTab('result'), 1500);
       return;
     }
 
-    // 💬 5️⃣ Regular assistant message
-    if (data && data.assistantText) {
-      const botMessage: Message = {
-        type: 'bot',
-        content: data.assistantText,
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, botMessage]);
-      playNotificationSound();
-    }
-
-      // 💾 6️⃣ In Edit Mode: Regenerate Example Output + Save Placeholder
+    // 💾 5️⃣ Edit Mode: Save Placeholder + Regenerate Example Output
     if (isEditMode && selectedPlaceholder && currentAnswer.trim()) {
       try {
         await finalizeEditPlaceholder(selectedPlaceholder, currentAnswer.trim());
         console.log(`🧠 Finalized edit for {${selectedPlaceholder}}`);
       } catch (err) {
-        console.warn("⚠️ finalizeEditPlaceholder failed:", err);
+        console.warn('⚠️ finalizeEditPlaceholder failed:', err);
       }
     }
   } catch (error) {
@@ -1567,7 +1608,7 @@ const handleSendMessage = async () => {
       content: 'Sorry, there was an error. Please try again.',
       timestamp: new Date(),
     };
-    setMessages(prev => [...prev, errorMessage]);
+    setMessages((prev) => [...prev, errorMessage]);
   } finally {
     setIsTyping(false);
   }

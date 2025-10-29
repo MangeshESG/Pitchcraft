@@ -1,4 +1,6 @@
-/* Template.css */
+/* ------------------------ */
+/* Base Layout Styles       */
+/* ------------------------ */
 .template-container {
   padding: 0;
 }
@@ -16,6 +18,9 @@
   color: #333;
 }
 
+/* ------------------------ */
+/* Controls & Table         */
+/* ------------------------ */
 .controls-wrapper {
   display: flex;
   align-items: center;
@@ -53,29 +58,37 @@
   font-size: 14px;
 }
 
+.contacts-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+/* ------------------------ */
+/* Action Buttons & Menus   */
+/* ------------------------ */
 .template-link {
-  color: #3f9f42;
+  color: #007bff;
   cursor: pointer;
-  text-decoration: underline;
+  text-decoration: none;
 }
 
 .template-link:hover {
-  color: #2d7a30;
+  color: #0056b3;
+  text-decoration: underline;
 }
 
 .template-actions-btn {
   border: none;
   background: none;
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
   cursor: pointer;
-  padding: 2px 10px;
+  padding: 4px 10px;
 }
 
 .template-actions-menu {
   position: absolute;
-  right: 0;
   top: 32px;
+  right: 0;
   background: #fff;
   border: 1px solid #eee;
   border-radius: 6px;
@@ -85,52 +98,103 @@
   padding: 10px 0;
 }
 
-/* Modal Styles */
+/* ------------------------ */
+/* Modal Popup Styles       */
+/* ------------------------ */
+/* Modal Backdrop (Centered Popup) */
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background-color: rgba(0, 0, 0, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 99999;
+  animation: fadeIn 0.25s ease;
 }
 
+/* Modal Content (Popup Box) */
 .modal-content {
   background: #fff;
-  padding: 24px;
-  border-radius: 8px;
-  min-width: 600px;
+  border-radius: 10px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+  width: 600px;
   max-width: 90%;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  animation: scaleIn 0.25s ease;
 }
 
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.97);
+    opacity: 0.6;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
 .modal-content.modal-large {
-  min-width: 800px;
+  width: 800px;
+  max-width: 95%;
 }
 
-.modal-content.modal-small {
-  min-width: 400px;
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 0 24px;
 }
 
-.modal-content h2 {
-  margin-top: 0;
-  margin-bottom: 20px;
+.modal-header h2 {
+  margin: 0;
   font-size: 20px;
   font-weight: 600;
+  color: #333;
 }
 
-.modal-content h3 {
-  margin-top: 0;
-  margin-bottom: 16px;
-  font-size: 18px;
-  font-weight: 600;
+.modal-close-btn {
+  background: none;
+  border: none;
+  color: #777;
+  font-size: 24px;
+  cursor: pointer;
 }
 
+.modal-close-btn:hover {
+  color: #333;
+}
+
+.modal-body {
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.modal-footer {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding: 16px 24px;
+  border-top: 1px solid #eee;
+}
+
+/* ------------------------ */
+/* Forms and Inputs         */
+/* ------------------------ */
 .form-group {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .form-group label {
@@ -141,53 +205,29 @@
 }
 
 .form-group input,
+.form-group select,
 .form-group textarea {
   width: 100%;
-  padding: 8px 12px;
+  padding: 10px 12px;
   border: 1px solid #ddd;
-  border-radius: 4px;
+  border-radius: 6px;
   font-size: 14px;
 }
 
-.form-group textarea {
-  resize: vertical;
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: #3f9f42;
+  box-shadow: 0 0 0 2px rgba(63, 159, 66, 0.2);
 }
 
-.required {
-  color: red;
-}
-
-.template-editor {
-  height: 350px;
-}
-
-.template-editor .ql-container {
-  height: 300px;
-}
-
-.template-preview {
-  background: #f8f9fa;
-  padding: 16px;
-  border-radius: 4px;
-  min-height: 200px;
-  max-height: 400px;
-  overflow-y: auto;
-  font-size: 14px;
-  line-height: 1.6;
-}
-
-.modal-footer {
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
-  margin-top: 24px;
-  padding-top: 20px;
-  border-top: 1px solid #eee;
-}
-
+/* ------------------------ */
+/* Buttons                  */
+/* ------------------------ */
 .button {
   padding: 8px 16px;
-  border-radius: 4px;
+  border-radius: 6px;
   font-size: 14px;
   cursor: pointer;
   border: none;
@@ -196,7 +236,7 @@
 
 .button.save-button {
   background: #3f9f42;
-  color: white;
+  color: #fff;
 }
 
 .button.save-button:hover:not(:disabled) {
@@ -215,28 +255,12 @@
 }
 
 .button.secondary:hover {
-  background: #f8f9fa;
+  background: #f9fafb;
 }
 
-.button.danger {
-  background: #dc3545;
-  color: white;
-}
-
-.button.danger:hover:not(:disabled) {
-  background: #c82333;
-}
-
-.button.auto-width {
-  width: auto;
-}
-
-.button.small {
-  padding: 6px 12px;
-  font-size: 13px;
-}
-
-/* Tabs */
+/* ------------------------ */
+/* Tabs                     */
+/* ------------------------ */
 .tabs.secondary {
   margin-bottom: 20px;
 }
@@ -249,16 +273,12 @@
   border-bottom: 1px solid #ddd;
 }
 
-.tabs li {
-  margin-right: 20px;
-}
-
 .tabs .button {
   background: none;
   border: none;
-  padding: 10px 0;
   color: #666;
   font-weight: 500;
+  padding: 10px 0;
   border-bottom: 2px solid transparent;
 }
 
@@ -267,88 +287,40 @@
   border-bottom-color: #3f9f42;
 }
 
-.tabs .button:hover {
-  color: #3f9f42;
+/* ------------------------ */
+/* Animations               */
+/* ------------------------ */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
-/* Utility Classes */
-.d-flex {
-  display: flex;
+@keyframes scaleIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
-.align-center {
-  align-items: center;
-}
-
-.justify-center {
-  justify-content: center;
-}
-
-.justify-between {
-  justify-content: space-between;
-}
-
-.gap-2 {
-  gap: 8px;
-}
-
-.flex {
-  display: flex;
-}
-
-.flex-col {
-  flex-direction: column;
-}
-
-.items-center {
-  align-items: center;
-}
-
-/* Text Sizes */
-.text-20 {
-  font-size: 20px;
-}
-
-/* Text Colors */
-.text-primary {
-  color: #3f9f42;
-}
-
-.text-dark {
-  color: #333333;
-}
-
-/* Font Weights */
-.font-semibold {
-  font-weight: 600;
-}
-
-/* Margins */
-.mr-1 {
-  margin-right: 4px;
-}
-
-.ml-10 {
-  margin-left: 10px;
-}
-
-.mb-0 {
-  margin-bottom: 0;
-}
-
-.mt-0 {
-  margin-top: 0;
-}
-
-/* Loading State */
+/* ------------------------ */
+/* Utility / Responsive     */
+/* ------------------------ */
 .loading-spinner {
   display: inline-block;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border: 3px solid rgba(0, 0, 0, 0.1);
   border-radius: 50%;
   border-top-color: #3f9f42;
-  animation: spin 0.8s ease-in-out infinite;
+  animation: spin 0.9s linear infinite;
 }
 
 @keyframes spin {
@@ -357,11 +329,9 @@
   }
 }
 
-/* Responsive Styles */
 @media (max-width: 768px) {
   .modal-content {
-    min-width: auto;
-    width: 95%;
+    width: 94%;
     margin: 20px;
   }
 
@@ -372,35 +342,11 @@
 
   .search-input {
     width: 100%;
-    margin-bottom: 10px;
-  }
-
-  .button.auto-width {
-    width: 100%;
-  }
-
-  .template-editor {
-    height: 250px;
-  }
-
-  .template-editor .ql-container {
-    height: 200px;
-  }
-}
-
-@media (max-width: 480px) {
-  .contacts-table {
-    font-size: 12px;
-  }
-
-  .contacts-table th,
-  .contacts-table td {
-    padding: 8px;
   }
 
   .modal-footer {
     flex-direction: column;
-    gap: 8px;
+    align-items: stretch;
   }
 
   .modal-footer .button {
@@ -408,380 +354,11 @@
   }
 }
 
-/* Hover Effects */
-.contacts-table tbody tr:hover {
-  background-color: #f8f9fa;
-}
-
-.template-actions-btn:hover {
-  background-color: #f0f0f0;
-  border-radius: 4px;
-}
-
-.button:not(:disabled):hover {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-/* Focus States */
-input:focus,
-textarea:focus,
-select:focus {
-  outline: none;
-  border-color: #3f9f42;
-  box-shadow: 0 0 0 2px rgba(63, 159, 66, 0.2);
-}
-
-.button:focus {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(63, 159, 66, 0.3);
-}
-
-/* Quill Editor Overrides */
-.ql-toolbar.ql-snow {
-  border-top-left-radius: 4px;
-  border-top-right-radius: 4px;
-}
-
-.ql-container.ql-snow {
-  border-bottom-left-radius: 4px;
-  border-bottom-right-radius: 4px;
-}
-
-.ql-editor {
-  font-size: 14px;
-  line-height: 1.6;
-}
-
-.ql-editor.ql-blank::before {
-  font-style: normal;
-  color: #999;
-}
-
-/* Animation Classes */
-.fade-in {
-  animation: fadeIn 0.3s ease-in;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.slide-in {
-  animation: slideIn 0.3s ease-out;
-}
-
-@keyframes slideIn {
-  from {
-    transform: translateY(-10px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-/* Empty State */
-.empty-state {
-  text-align: center;
-  padding: 60px 20px;
-  color: #666;
-}
-
-.empty-state h3 {
-  font-size: 18px;
-  margin-bottom: 10px;
-  color: #333;
-}
-
-.empty-state p {
-  font-size: 14px;
-  margin-bottom: 20px;
-}
-
-/* Error State */
-.error-message {
-  background-color: #fee;
-  border: 1px solid #fcc;
-  border-radius: 4px;
-  padding: 12px 16px;
-  color: #c33;
-  font-size: 14px;
-  margin-bottom: 16px;
-}
-
-/* Success State */
-.success-message {
-  background-color: #efe;
-  border: 1px solid #cfc;
-  border-radius: 4px;
-  padding: 12px 16px;
-  color: #3c763d;
-  font-size: 14px;
-  margin-bottom: 16px;
-}
-
-/* Disabled State */
-.disabled,
-[disabled] {
-  opacity: 0.6;
-  cursor: not-allowed !important;
-}
-
-/* Print Styles */
 @media print {
   .controls-wrapper,
   .template-actions-btn,
   .template-actions-menu,
   .modal-backdrop {
     display: none !important;
-  }
-
-  .contacts-table {
-    border: 1px solid #ddd;
-  }
-
-  .contacts-table th,
-  .contacts-table td {
-    border: 1px solid #ddd;
-  }
-}
-
-/* Tab styles for template types */
-.tabs.secondary.mb-4 {
-  margin-bottom: 1rem;
-}
-
-/* Modal large */
-.modal-content.modal-large {
-  max-width: 800px;
-  width: 90%;
-}
-
-/* Form select */
-.form-select {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 1rem;
-  background-color: white;
-}
-
-/* Template preview for campaign templates */
-.template-preview pre {
-  background-color: #f5f5f5;
-  padding: 1rem;
-  border-radius: 4px;
-  margin: 0;
-}
-
-.template-preview pre {
-  background-color: #f5f5f5;
-  padding: 1rem;
-  border-radius: 4px;
-  margin: 0;
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 0.875rem;
-  line-height: 1.5;
-  overflow-x: auto;
-}
-
-/* Campaign template specific styles */
-.template-container .template-link {
-  color: #007bff;
-  cursor: pointer;
-  text-decoration: none;
-  transition: color 0.2s;
-}
-
-.template-container .template-link:hover {
-  color: #0056b3;
-  text-decoration: underline;
-}
-
-/* Form group spacing for modals */
-.modal-content .form-group {
-  margin-bottom: 1.5rem;
-}
-
-.modal-content .form-group:last-child {
-  margin-bottom: 0;
-}
-
-/* Label styles in modals */
-.modal-content .form-group label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 600;
-  color: #333;
-}
-
-.modal-content .form-group p {
-  margin: 0;
-  color: #555;
-}
-
-/* Textarea styles for campaign templates */
-.modal-content textarea {
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 0.875rem;
-  resize: vertical;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-
-.modal-content textarea:focus {
-  outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
-}
-
-/* Template actions menu positioning */
-.template-actions-menu {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  z-index: 1000;
-  min-width: 120px;
-  margin-top: 4px;
-}
-
-/* Modal backdrop for campaign templates */
-.modal-backdrop {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-  padding: 2rem;
-  overflow-y: auto;
-}
-
-/* Campaign template table styles */
-.contacts-table th,
-.contacts-table td {
-  text-align: left;
-  padding: 0.75rem;
-  vertical-align: middle;
-}
-
-.contacts-table tbody tr:hover {
-  background-color: #f8f9fa;
-}
-
-/* Model badge style */
-.contacts-table td:nth-child(3) {
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 0.875rem;
-  color: #666;
-}
-
-/* Has conversation indicator */
-.contacts-table td:nth-child(5) {
-  font-weight: 500;
-}
-
-/* Responsive styles for campaign templates */
-@media (max-width: 768px) {
-  .modal-content.modal-large {
-    max-width: 100%;
-    width: 100%;
-    margin: 1rem;
-  }
-  
-  .modal-content textarea {
-    font-size: 0.875rem;
-  }
-  
-  .template-preview pre {
-    font-size: 0.75rem;
-  }
-}
-
-/* Loading state for tables */
-.contacts-table tbody tr td[colspan] {
-  text-align: center;
-  padding: 2rem;
-  color: #666;
-  font-style: italic;
-}
-
-
-
-
-
-
-
-/* Empty state styling */
-.contacts-table tbody tr td[colspan] {
-  background-color: #fafafa;
-  border: 1px dashed #ddd;
-}
-
-/* Campaign template specific modal adjustments */
-.modal-content.modal-large .template-preview {
-  max-height: 400px;
-  overflow-y: auto;
-  border: 1px solid #e9ecef;
-  border-radius: 4px;
-  background-color: #fafafa;
-}
-
-/* Final result preview styling */
-.template-preview[dangerouslySetInnerHTML] {
-  padding: 1rem;
-  background-color: white;
-  border: 1px solid #e9ecef;
-}
-
-/* Button group styling in modals */
-.modal-footer {
-  display: flex;
-  gap: 0.5rem;
-  justify-content: flex-end;
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid #e9ecef;
-}
-
-/* Success message for saved templates */
-.template-saved-toast {
-  position: fixed;
-  bottom: 2rem;
-  right: 2rem;
-  background-color: #28a745;
-  color: white;
-  padding: 1rem 1.5rem;
-  border-radius: 4px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-  animation: slideIn 0.3s ease-out;
-}
-
-@keyframes slideIn {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
   }
 }

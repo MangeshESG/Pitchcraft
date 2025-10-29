@@ -196,15 +196,14 @@ const handleTemplateNameSubmit = async () => {
     appModal.showError("Please enter a campaign name");
     return;
   }
-
   if (!selectedTemplateDefinitionId) {
     appModal.showError("Please select a template definition first");
     return;
   }
 
   setIsCreatingCampaign(true);
+
   try {
-    // ✅ Step 1: Create campaign instance
     const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/campaign/start`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -212,8 +211,8 @@ const handleTemplateNameSubmit = async () => {
         clientId: effectiveUserId,
         templateDefinitionId: selectedTemplateDefinitionId,
         templateName: templateNameInput,
-        model: "gpt-5"
-      })
+        model: "gpt-5",
+      }),
     });
 
     if (!response.ok) {
@@ -221,27 +220,26 @@ const handleTemplateNameSubmit = async () => {
     }
 
     const data = await response.json();
-    
+
     if (data.success || data.Success) {
-      // ✅ Step 2: Store campaign info in session storage
+      // ✅ Store campaign info
       sessionStorage.setItem("newCampaignId", data.campaignId.toString());
       sessionStorage.setItem("newCampaignName", data.templateName);
       sessionStorage.setItem("selectedTemplateDefinitionId", selectedTemplateDefinitionId.toString());
       sessionStorage.setItem("autoStartConversation", "true");
+      sessionStorage.setItem("openConversationTab", "true"); // ✅ NEW FLAG
       
-      // ✅ Step 3: Close modal and open builder
+      // ✅ Close modal and open builder
       setShowTemplateNameModal(false);
       setShowCampaignBuilder(true);
-      
-      appModal.showSuccess(`✅ Campaign "${data.templateName}" created! Starting conversation...`);
     } else {
       throw new Error(data.message || data.Message || "Failed to create campaign");
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error creating campaign:", error);
-    appModal.showError(error.message || "Failed to create campaign");
+    appModal.showError(  "Failed to create campaign");
   } finally {
-    setIsCreatingCampaign(false);
+    setIsCreatingCampaign(false); // Loader disappears after
   }
 };
 
@@ -408,142 +406,156 @@ const generateExampleEmail = (template: CampaignTemplate) => {
     }
   };
 
-  return (
-    <div className="template-container">
-      <div className="section-wrapper">
-        <h2 className="section-title">Templates</h2>
+ return (
+  <div className="template-container">
+    {!showCampaignBuilder ? (
+      <>
+        <div className="section-wrapper">
+          <h2 className="section-title">Templates</h2>
 
-        {/* Search and Create button */}
-        <div className="controls-wrapper">
-          <input
-            type="text"
-            className="search-input"
-            placeholder="Search a template name or ID"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          <button
-            className="button save-button auto-width small"
-            onClick={handleCreateCampaignClick}
-            disabled={userRole !== "ADMIN"}
-          >
-            <span className="text-[20px] mr-1">+</span> Create campaign template
-          </button>
-        </div>
+          {/* Search and Create button */}
+          <div className="controls-wrapper">
+            <input
+              type="text"
+              className="search-input"
+              placeholder="Search a template name or ID"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            <button
+              className="button save-button auto-width small"
+              onClick={handleCreateCampaignClick}
+              disabled={userRole !== "ADMIN"}
+            >
+              <span className="text-[20px] mr-1">+</span> Create campaign template
+            </button>
+          </div>
 
-        {/* Campaign Templates Table */}
-        <table className="contacts-table">
-          <thead>
-            <tr>
-              <th>Templates</th>
-              <th>ID</th>
-              <th>Model</th>
-              <th>Creation date</th>
-              <th>Has Conversation</th>
-              <th style={{ minWidth: 48 }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
+          {/* Campaign Templates Table */}
+          <table className="contacts-table">
+            <thead>
               <tr>
-                <td colSpan={6} style={{ textAlign: "center" }}>
-                  Loading...
-                </td>
+                <th>Templates</th>
+                <th>ID</th>
+                <th>Model</th>
+                <th>Creation date</th>
+                <th>Has Conversation</th>
+                <th style={{ minWidth: 48 }}>Actions</th>
               </tr>
-            ) : filteredCampaignTemplates.length === 0 ? (
-              <tr>
-                <td colSpan={6} style={{ textAlign: "center" }}>
-                  No campaign templates found.
-                </td>
-              </tr>
-            ) : (
-              filteredCampaignTemplates.map((template) => (
-                <tr key={template.id}>
-                  <td>
-                    <span
-                      className="template-link"
-                      onClick={() => handleViewCampaignTemplate(template)}
-                    >
-                      {template.templateName}
-                    </span>
-                  </td>
-                  <td>#{template.id}</td>
-                  <td>{template.selectedModel}</td>
-                  <td>{formatDate(template.createdAt)}</td>
-                  <td>{template.hasConversation ? "Yes" : "No"}</td>
-                  <td style={{ position: "relative" }}>
-                    <button
-                      className="template-actions-btn"
-                      onClick={() =>
-                        setTemplateActionsAnchor(
-                          `campaign-${template.id}` === templateActionsAnchor
-                            ? null
-                            : `campaign-${template.id}`
-                        )
-                      }
-                    >
-                      ⋮
-                    </button>
-                    
-                    {templateActionsAnchor === `campaign-${template.id}` && (
-                      <div className="template-actions-menu">
-                        <button
-                          onClick={() => {
-                            handleViewCampaignTemplate(template);
-                            setTemplateActionsAnchor(null);
-                          }}
-                          style={menuBtnStyle}
-                          className="flex gap-2 items-center"
-                        >
-                          <span>👁</span>
-                          <span>View</span>
-                        </button>
-                        
-                                               {!isDemoAccount && userRole === "ADMIN" && (
-                          <>
-                            <button
-                              onClick={() => {
-                                sessionStorage.setItem('editTemplateId', template.id.toString());
-                                sessionStorage.setItem('editTemplateMode', 'true');
-                                setShowCampaignBuilder(true);
-                                setTemplateActionsAnchor(null);
-                              }}
-                              style={menuBtnStyle}
-                              className="flex gap-2 items-center"
-                            >
-                              <span>✏️</span>
-                              <span>Edit</span>
-                            </button>
-                            
-                            <button
-                              onClick={() => {
-                                setSelectedCampaignTemplate(template);
-                                setShowDeleteConfirmModal(true);
-                                setTemplateActionsAnchor(null);
-                              }}
-                              style={menuBtnStyle}
-                              className="flex gap-2 items-center"
-                            >
-                              <span>🗑️</span>
-                              <span>Delete</span>
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    )}
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: "center" }}>
+                    Loading...
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              ) : filteredCampaignTemplates.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: "center" }}>
+                    No campaign templates found.
+                  </td>
+                </tr>
+              ) : (
+                filteredCampaignTemplates.map((template) => (
+                  <tr key={template.id}>
+                    <td>
+                      <span
+                        className="template-link"
+                        onClick={() => handleViewCampaignTemplate(template)}
+                      >
+                        {template.templateName}
+                      </span>
+                    </td>
+                    <td>#{template.id}</td>
+                    <td>{template.selectedModel}</td>
+                    <td>{formatDate(template.createdAt)}</td>
+                    <td>{template.hasConversation ? "Yes" : "No"}</td>
+                    <td style={{ position: "relative" }}>
+                      <button
+                        className="template-actions-btn"
+                        onClick={() =>
+                          setTemplateActionsAnchor(
+                            `campaign-${template.id}` ===
+                              templateActionsAnchor
+                              ? null
+                              : `campaign-${template.id}`
+                          )
+                        }
+                      >
+                        ⋮
+                      </button>
+
+                      {templateActionsAnchor === `campaign-${template.id}` && (
+                        <div className="template-actions-menu">
+                          <button
+                            onClick={() => {
+                              handleViewCampaignTemplate(template);
+                              setTemplateActionsAnchor(null);
+                            }}
+                            style={menuBtnStyle}
+                            className="flex gap-2 items-center"
+                          >
+                            <span>👁</span>
+                            <span>View</span>
+                          </button>
+
+                          {!isDemoAccount && userRole === "ADMIN" && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  sessionStorage.setItem(
+                                    "editTemplateId",
+                                    template.id.toString()
+                                  );
+                                  sessionStorage.setItem(
+                                    "editTemplateMode",
+                                    "true"
+                                  );
+                                  setShowCampaignBuilder(true);
+                                  setTemplateActionsAnchor(null);
+                                }}
+                                style={menuBtnStyle}
+                                className="flex gap-2 items-center"
+                              >
+                                <span>✏️</span>
+                                <span>Edit</span>
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setSelectedCampaignTemplate(template);
+                                  setShowDeleteConfirmModal(true);
+                                  setTemplateActionsAnchor(null);
+                                }}
+                                style={menuBtnStyle}
+                                className="flex gap-2 items-center"
+                              >
+                                <span>🗑️</span>
+                                <span>Delete</span>
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
 
       {/* ✅ NEW: Template Name Modal */}
 {/* ✅ UPDATED: Template Name Modal */}
 {showTemplateNameModal && (
-  <div className="modal-backdrop" onClick={() => setShowTemplateNameModal(false)}>
-    <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "600px" }}>
+
+  <div className="modal-backdrop">
+    <div
+      className="modal-content"
+      onClick={(e) => e.stopPropagation()}
+      style={{ maxWidth: "600px" }}
+    >
       <div className="modal-header">
         <h2>📝 Create New Campaign Template</h2>
         <button 
@@ -671,28 +683,22 @@ const generateExampleEmail = (template: CampaignTemplate) => {
         >
           Cancel
         </button>
-        <button 
-          className="button save-button"
-          onClick={handleTemplateNameSubmit}
-          disabled={!templateNameInput.trim() || !selectedTemplateDefinitionId || isCreatingCampaign}
-          style={{
-            padding: "10px 20px",
-            borderRadius: "8px",
-            cursor: (!templateNameInput.trim() || !selectedTemplateDefinitionId || isCreatingCampaign) ? "not-allowed" : "pointer",
-            opacity: (!templateNameInput.trim() || !selectedTemplateDefinitionId || isCreatingCampaign) ? 0.6 : 1
-          }}
-        >
-          {isCreatingCampaign ? (
-            <>
-              <span className="spinner" style={{ marginRight: "8px" }}>⏳</span>
-              Creating...
-            </>
-          ) : (
-            <>
-              ▶️ Create & Start Chat
-            </>
-          )}
-        </button>
+<button
+  className="button save-button"
+  onClick={handleTemplateNameSubmit}
+  disabled={!templateNameInput.trim() || !selectedTemplateDefinitionId || isCreatingCampaign}
+>
+  {isCreatingCampaign ? (
+    <>
+      <span className="spinner" style={{ marginRight: "8px" }}>⏳</span>
+      Creating campaign...
+    </>
+  ) : (
+    <>
+      ▶️ Create & Start Chat
+    </>
+  )}
+</button>
       </div>
     </div>
   </div>
@@ -982,54 +988,71 @@ const generateExampleEmail = (template: CampaignTemplate) => {
           </div>
         </div>
       )}
-
-      {/* Campaign Builder Modal */}
-      {showCampaignBuilder && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          zIndex: 999999,
-          background: 'white'
-        }}>
-          <EmailCampaignBuilder 
-            selectedClient={selectedClient}
-          />
+ </>
+    ) : (
+      /* ✅ Show Campaign Builder Inline */
+      <div
+        className="campaign-builder-container"
+        style={{
+          width: "100%",
+          marginTop: "16px",
+          background: "#fff",
+          borderRadius: "8px",
+          boxShadow: "0 2px 12px rgba(0, 0, 0, 0.05)",
+          padding: "0",
+          overflow: "hidden"
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            padding: "12px 16px",
+            borderBottom: "1px solid #e5e7eb",
+            background: "#f9fafb"
+          }}
+        >
           <button
-            onClick={() => {
-              setShowCampaignBuilder(false);
-              // Clear session storage
-              sessionStorage.removeItem('newCampaignId');
-              sessionStorage.removeItem('newCampaignName');
-              sessionStorage.removeItem('selectedTemplateDefinitionId');
-              sessionStorage.removeItem('autoStartConversation');
-              // Refresh campaign templates when closing
-              fetchCampaignTemplates();
-            }}
+           onClick={async () => {
+            // ✅ Close UI first
+            setShowCampaignBuilder(false);
+
+            // ✅ Give React state a tick before cleanup
+            setTimeout(async () => {
+              // Only clear temp campaign session, not builder state keys used later
+              sessionStorage.removeItem("newCampaignId");
+              sessionStorage.removeItem("newCampaignName");
+              sessionStorage.removeItem("autoStartConversation");
+              sessionStorage.removeItem("openConversationTab");
+
+              // Don’t remove selectedTemplateDefinitionId – we need that next time
+
+              // ✅ Refresh campaign list
+              await fetchCampaignTemplates();
+            }, 300);
+          }}
             style={{
-              position: 'fixed',
-              top: '20px',
-              right: '20px',
-              zIndex: 1000000,
-              background: '#dc3545',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '10px 20px',
-              cursor: 'pointer',
-              fontSize: '16px',
-              fontWeight: 'bold',
-              boxShadow: '0 4px 12px rgba(220, 53, 69, 0.4)'
+              background: "#dc3545",
+              color: "#fff",
+              border: "none",
+              borderRadius: "8px",
+              padding: "8px 16px",
+              cursor: "pointer",
+              fontSize: "14px",
+              fontWeight: "bold"
             }}
           >
             ✕ Close Builder
           </button>
         </div>
-      )}
-    </div>
-  );
+
+        <div style={{ padding: "20px" }}>
+          <EmailCampaignBuilder selectedClient={selectedClient} />
+        </div>
+      </div>
+    )}
+  </div>
+);
 };
 
 export default Template;
