@@ -73,10 +73,7 @@ interface EmailCampaignBuilderProps {
 }
 
 interface ConversationTabProps {
-  previewText?: string;
-  exampleOutput?: string; // ✅ new
-  regenerateExampleOutput?: () => void; // ✅ new
-
+  // --- Core fields ---
   conversationStarted: boolean;
   messages: Message[];
   isTyping: boolean;
@@ -87,6 +84,29 @@ interface ConversationTabProps {
   handleKeyPress: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
   chatEndRef: React.Ref<HTMLDivElement>;
   resetAll: () => void;
+
+  // --- Edit‑mode support ---
+  isEditMode?: boolean;
+  availablePlaceholders?: string[];
+  placeholderValues?: Record<string, string>;
+  onPlaceholderSelect?: (placeholder: string) => void;
+  selectedPlaceholder?: string;
+
+  // --- Preview & output ---
+  previewText?: string;
+  exampleOutput?: string;
+  regenerateExampleOutput?: () => void;
+
+  // --- Data‑file + contact selectors ---
+  dataFiles: any[];
+  contacts: any[];
+  selectedDataFileId: number | null;
+  selectedContactId: number | null;
+  handleSelectDataFile: (id: number) => void;
+  setSelectedContactId: React.Dispatch<React.SetStateAction<number | null>>;
+
+  // --- Contact‑placeholder filler ---
+  applyContactPlaceholders: (contact: any) => void;
 }
 
 interface ResultTabProps {
@@ -362,26 +382,7 @@ const TemplateTab: React.FC<TemplateTabProps> = ({
 };
 
 
-interface ConversationTabProps {
-  conversationStarted: boolean;
-  messages: Message[];
-  isTyping: boolean;
-  isComplete: boolean;
-  currentAnswer: string;
-  setCurrentAnswer: (value: string) => void;
-  handleSendMessage: () => void;
-  handleKeyPress: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
-  chatEndRef: React.Ref<HTMLDivElement>;
-  resetAll: () => void;
-  // ✅ NEW PROPS for edit mode
-  isEditMode?: boolean;
-  availablePlaceholders?: string[];
-  placeholderValues?: Record<string, string>;
-  onPlaceholderSelect?: (placeholder: string) => void;
-  selectedPlaceholder?: string;
-  previewText?: string;
 
-}
 
 // ✅ UPDATED ConversationTab Component
 const ConversationTab: React.FC<ConversationTabProps> = ({
@@ -402,7 +403,16 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   selectedPlaceholder,
   previewText ,  // ✅ <-- add this line
   exampleOutput,
-  regenerateExampleOutput
+  regenerateExampleOutput,
+
+  dataFiles,
+  contacts,
+  selectedDataFileId,
+  selectedContactId,
+  handleSelectDataFile,
+  setSelectedContactId,
+  applyContactPlaceholders  // 👈 add this
+
 }) => {
   const renderMessageContent = (content: string) => {
     const isHtml = /<[a-z][\s\S]*>/i.test(content);
@@ -576,6 +586,43 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
 {/* ===================== EXAMPLE SECTION ===================== */}
 <div className="example-section">
           <div className="example-header">
+          {/* DATAFILE + CONTACT SELECTION */}
+<div className="example-datafile-section">
+  <h3>📂 Select Data Source</h3>
+  <div style={{ display: "flex", gap: "10px", marginBottom: "12px" }}>
+    <select
+      className="datafile-dropdown"
+      value={selectedDataFileId || ""}
+      onChange={e => handleSelectDataFile(Number(e.target.value))}
+    >
+      <option value="">-- Select Data File --</option>
+      {dataFiles.map(df => (
+        <option key={df.id} value={df.id}>{df.name}</option>
+      ))}
+    </select>
+
+    <select
+      className="contact-dropdown"
+      value={selectedContactId || ""}
+      disabled={!contacts.length}
+      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+        const id = Number(e.target.value);
+        setSelectedContactId(id);
+        if (id) {
+          const sel = contacts.find(c => c.id === id);
+          if (sel) applyContactPlaceholders(sel);  // ✅ direct call
+        }
+      }}  
+       >
+      <option value="">
+        {contacts.length ? "-- Select Contact --" : "Select Datafile First"}
+      </option>
+      {contacts.map(c => (
+        <option key={c.id} value={c.id}>{c.full_name}</option>
+      ))}
+    </select>
+  </div>
+</div>
             <h3>📧 Live Preview</h3>
             <div className="example-controls">
               <button 
@@ -868,6 +915,20 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
   const [templateName, setTemplateName] = useSessionState<string>("campaign_template_name", "");
   const [isLoadingDefinitions, setIsLoadingDefinitions] = useState(false);
 
+  // ---- Datafiles & contacts ---
+const [dataFiles, setDataFiles] = useState<any[]>([]);
+const [contacts, setContacts] = useState<any[]>([]);
+const [selectedDataFileId, setSelectedDataFileId] = useState<number | null>(null);
+const [selectedContactId, setSelectedContactId] = useState<number | null>(null);
+
+
+useEffect(() => {
+  if (!effectiveUserId) return;
+  axios.get(`${API_BASE_URL}/api/Crm/datafile-byclientid?clientId=${effectiveUserId}`)
+    .then(res => setDataFiles(res.data || []))
+    .catch(err => console.error("Failed to load datafiles", err));
+}, [effectiveUserId]);
+
 useEffect(() => {
   const autoStart = sessionStorage.getItem('autoStartConversation');
   const newCampaignId = sessionStorage.getItem('newCampaignId');
@@ -897,6 +958,21 @@ useEffect(() => {
     sessionStorage.removeItem('autoStartConversation');
   }
 }, []);
+
+
+const handleSelectDataFile = (id: number) => {
+  setSelectedDataFileId(id);
+  setContacts([]);
+  setSelectedContactId(null);
+  if (id) {
+    axios.get(`${API_BASE_URL}/api/Crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${id}`)
+      .then(res => {
+        setContacts(res.data.contacts || []);
+      })
+      .catch(err => console.error("Failed to load contacts", err));
+  }
+};
+
 
 const regenerateExampleOutput = async () => {
   try {
@@ -940,7 +1016,9 @@ if (!activeCampaignId) {
 const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/example/generate`, {
   userId: effectiveUserId,
   campaignTemplateId: activeCampaignId, // now it's a pure number
-  model: selectedModel
+  model: selectedModel,
+  placeholderValues   // ✅ send the current merged values
+
 });
 
 if ((response.data.success || response.data.Success) && 
@@ -1187,6 +1265,8 @@ const finalizeEditPlaceholder = async (updatedPlaceholder: string, newValue: str
       userId: effectiveUserId,
       campaignTemplateId: editTemplateId,
       model: selectedModel,
+      placeholderValues   // ✅ send the current merged values
+
     });
 
     if (
@@ -1422,6 +1502,8 @@ const handleSendMessage = async () => {
               userId: effectiveUserId,
               campaignTemplateId: activeCampaignId, // ✅ number, correct param
               model: selectedModel,
+              placeholderValues   // ✅ send the current merged values
+
             });
 
             if (regenRes.data.Success && regenRes.data.ExampleOutput) {
@@ -1567,6 +1649,75 @@ const handleSendMessage = async () => {
 
   const currentPlaceholders = extractPlaceholders(masterPrompt);
 
+
+// ⚙️ inside MasterPromptCampaignBuilder component
+const applyContactPlaceholders = async (contact: any) => {
+  if (!contact) return;
+
+  try {
+    // ============================================
+    // 🧠 STEP 1: Derive friendly / abbrev variants
+    // ============================================
+    const friendly =
+      contact.company_name?.replace(/\b(ltd|llc|limited|plc)\b/gi, "").trim() ||
+      contact.company_name;
+
+    const abbrev = friendly
+      ? friendly.toLowerCase().replace(/\s+/g, "-")
+      : "";
+
+    const [first = "", last = ""] = (contact.full_name || "").split(" ");
+
+    // ============================================
+    // 📦 STEP 2: Build placeholders for this contact
+    // ============================================
+    const contactValues: Record<string, string> = {
+      full_name: contact.full_name || "",
+      first_name: first,
+      last_name: last,
+      job_title: contact.job_title || "",
+      location: contact.country_or_address || "",
+      company_name: contact.company_name || "",
+      company_name_friendly: friendly || "",
+      company_name_abbrev: abbrev || "",
+      linkedin_url: contact.linkedin_url || "",
+    };
+
+    // ============================================
+    // 🔄 STEP 3: Replace placeholders in local state
+    // (overwrite previous contact data, keep AI/chat ones)
+    // ============================================
+    const mergedValues = { ...placeholderValues, ...contactValues };
+    setPlaceholderValues(mergedValues);
+
+    // ============================================
+    // 💾 STEP 4: Persist immediately to the database
+    // so backend has updated values for regeneration
+    // ============================================
+    const storedId = sessionStorage.getItem("newCampaignId");
+    const campaignId = editTemplateId ?? (storedId ? Number(storedId) : null);
+
+    if (campaignId) {
+      await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
+        id: campaignId,
+        placeholderValues: mergedValues,
+      });
+
+      console.log(`✅ Contact placeholders updated in DB for campaign ${campaignId}`);
+    } else {
+      console.warn("⚠️ Missing campaign ID — skipping DB update");
+    }
+
+    // ============================================
+    // ⚡ STEP 5: Regenerate Example Output immediately
+    // ============================================
+    await regenerateExampleOutput();
+    console.log("📧 Example output regenerated for selected contact");
+  } catch (error) {
+    console.error("⚠️ Error applying contact placeholders:", error);
+  }
+};
+
 return (
   <div className="email-campaign-builder">
     {isLoadingTemplate && (
@@ -1703,6 +1854,17 @@ return (
               previewText={previewText}
               exampleOutput={exampleOutput}
               regenerateExampleOutput={regenerateExampleOutput}
+
+
+              dataFiles={dataFiles}
+              contacts={contacts}
+              selectedDataFileId={selectedDataFileId}
+              selectedContactId={selectedContactId}
+              handleSelectDataFile={handleSelectDataFile}
+              setSelectedContactId={setSelectedContactId}
+
+              applyContactPlaceholders={applyContactPlaceholders}
+
             />
           )}
           {activeTab === 'result' && (
