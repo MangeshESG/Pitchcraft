@@ -3626,7 +3626,7 @@ const MainPage: React.FC = () => {
                         <span className="menu-text">Dashboard</span>
                       </button>
                     </li>
-                    <li className={tab === "Template" ? "active" : ""}>
+                    {/* <li className={tab === "Template" ? "active" : ""}>
                       <button
                         onClick={() => {
                           setTab("Template");
@@ -3645,8 +3645,27 @@ const MainPage: React.FC = () => {
                         </span>
                         <span className="menu-text">Templates</span>
                       </button>
-                    </li>
-
+                    </li> */}
+                    <li className={tab === "TestTemplate" ? "active" : ""}>
+                        <button
+                          onClick={() => {
+                            setTab("TestTemplate");
+                            setShowMailSubmenu(false);
+                            setShowContactsSubmenu(false);
+                             navigate("/main");
+                          }}
+                          className="side-menu-button"
+                          title="Manage test templates"
+                        >
+                          <span className="menu-icon">
+                            <FontAwesomeIcon
+                              icon={faFileAlt}
+                              className=" text-[#333333] text-lg"
+                            />
+                          </span>
+                          <span className="menu-text">Blueprints</span>
+                        </button>
+                      </li>
 
                     <li
                       className={`${tab === "DataCampaigns" ? "active" : ""} ${showContactsSubmenu
@@ -3864,7 +3883,7 @@ const MainPage: React.FC = () => {
                       </li>
                     )}
 
-                    {userRole === "ADMIN" && (
+                    {/* {userRole === "ADMIN" && (
                       <li className={tab === "CampaignBuilder" ? "active" : ""}>
                         <button
                           onClick={() => {
@@ -3889,9 +3908,9 @@ const MainPage: React.FC = () => {
                           <span className="menu-text">Blueprint builder</span>
                         </button>
                       </li>
-                    )}
+                    )} */}
 
-                    {userRole === "ADMIN" && (
+                    {/* {userRole === "ADMIN" && (
                       <li className={tab === "TestTemplate" ? "active" : ""}>
                         <button
                           onClick={() => {
@@ -3911,7 +3930,7 @@ const MainPage: React.FC = () => {
                           <span className="menu-text">Test Templates</span>
                         </button>
                       </li>
-                    )}
+                    )} */}
                   </ul>
                 </div>
               </div>

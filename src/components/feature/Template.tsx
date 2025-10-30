@@ -411,14 +411,14 @@ const generateExampleEmail = (template: CampaignTemplate) => {
     {!showCampaignBuilder ? (
       <>
         <div className="section-wrapper">
-          <h2 className="section-title">Templates</h2>
+          <h2 className="section-title">Blueprints</h2>
 
           {/* Search and Create button */}
           <div className="controls-wrapper">
             <input
               type="text"
               className="search-input"
-              placeholder="Search a template name or ID"
+              placeholder="Search a blueprint name or ID"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -427,7 +427,7 @@ const generateExampleEmail = (template: CampaignTemplate) => {
               onClick={handleCreateCampaignClick}
               disabled={userRole !== "ADMIN"}
             >
-              <span className="text-[20px] mr-1">+</span> Create campaign template
+              <span className="text-[20px] mr-1">+</span> Create campaign blueprint
             </button>
           </div>
 
@@ -435,11 +435,9 @@ const generateExampleEmail = (template: CampaignTemplate) => {
           <table className="contacts-table">
             <thead>
               <tr>
-                <th>Templates</th>
+                <th>Blueprints</th>
                 <th>ID</th>
-                <th>Model</th>
                 <th>Creation date</th>
-                <th>Has Conversation</th>
                 <th style={{ minWidth: 48 }}>Actions</th>
               </tr>
             </thead>
@@ -453,7 +451,7 @@ const generateExampleEmail = (template: CampaignTemplate) => {
               ) : filteredCampaignTemplates.length === 0 ? (
                 <tr>
                   <td colSpan={6} style={{ textAlign: "center" }}>
-                    No campaign templates found.
+                    No campaign blueprint found.
                   </td>
                 </tr>
               ) : (
@@ -468,9 +466,7 @@ const generateExampleEmail = (template: CampaignTemplate) => {
                       </span>
                     </td>
                     <td>#{template.id}</td>
-                    <td>{template.selectedModel}</td>
                     <td>{formatDate(template.createdAt)}</td>
-                    <td>{template.hasConversation ? "Yes" : "No"}</td>
                     <td style={{ position: "relative" }}>
                       <button
                         className="template-actions-btn"
@@ -557,7 +553,7 @@ const generateExampleEmail = (template: CampaignTemplate) => {
       style={{ maxWidth: "600px" }}
     >
       <div className="modal-header">
-        <h2>📝 Create New Campaign Template</h2>
+        <h2>📝 Create new campaign blueprint</h2>
         <button 
           className="modal-close-btn"
           onClick={() => setShowTemplateNameModal(false)}
@@ -643,25 +639,7 @@ const generateExampleEmail = (template: CampaignTemplate) => {
         </div>
 
         {/* Template Definition Preview */}
-        {selectedTemplateDefinitionId && templateDefinitions.length > 0 && (
-          <div style={{
-            background: "#f0f9ff",
-            border: "1px solid #bfdbfe",
-            borderRadius: "8px",
-            padding: "16px",
-            marginTop: "16px"
-          }}>
-            <p style={{ margin: 0, fontSize: "14px", color: "#1e40af", fontWeight: "600" }}>
-              📋 Selected Template:
-            </p>
-            <p style={{ margin: "4px 0 0 0", fontSize: "13px", color: "#3b82f6" }}>
-              {templateDefinitions.find(t => t.id === selectedTemplateDefinitionId)?.templateName || "Loading..."}
-            </p>
-            <p style={{ margin: "8px 0 0 0", fontSize: "12px", color: "#6b7280" }}>
-              This will be loaded with all AI instructions and placeholders configured
-            </p>
-          </div>
-        )}
+
       </div>
       
       <div className="modal-footer" style={{ 
@@ -695,7 +673,7 @@ const generateExampleEmail = (template: CampaignTemplate) => {
     </>
   ) : (
     <>
-      ▶️ Create & Start Chat
+      Create blueprint
     </>
   )}
 </button>
@@ -1042,7 +1020,7 @@ const generateExampleEmail = (template: CampaignTemplate) => {
               fontWeight: "bold"
             }}
           >
-            ✕ Close Builder
+            View blueprints
           </button>
         </div>
 

@@ -548,7 +548,7 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
                     <div className="typing-bubble">
                       <div className="typing-content">
                         <Loader2 className="typing-spinner" />
-                        <span className="typing-text">Campaign Builder is thinking...</span>
+                        <span className="typing-text">Blueprint builder is thinking...</span>
                       </div>
                     </div>
                   </div>
@@ -588,14 +588,14 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
           <div className="example-header">
           {/* DATAFILE + CONTACT SELECTION */}
 <div className="example-datafile-section">
-  <h3>📂 Select Data Source</h3>
+  
   <div style={{ display: "flex", gap: "10px", marginBottom: "12px" }}>
     <select
       className="datafile-dropdown"
       value={selectedDataFileId || ""}
       onChange={e => handleSelectDataFile(Number(e.target.value))}
     >
-      <option value="">-- Select Data File --</option>
+      <option value="">-- Select contact file --</option>
       {dataFiles.map(df => (
         <option key={df.id} value={df.id}>{df.name}</option>
       ))}
@@ -615,7 +615,7 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
       }}  
        >
       <option value="">
-        {contacts.length ? "-- Select Contact --" : "Select Datafile First"}
+        {contacts.length ? "-- Select contact --" : "Select contact "}
       </option>
       {contacts.map(c => (
         <option key={c.id} value={c.id}>{c.full_name}</option>
@@ -657,212 +657,212 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   );
 };
 
-const ResultTab: React.FC<ResultTabProps> = ({ 
-  isComplete, 
-  finalPrompt, 
-  finalPreviewText, 
-  previewText, 
-  copied, 
-  copyToClipboard, 
-  resetAll,
-  systemPrompt,
-  masterPrompt,
-  placeholderValues,
-  selectedModel,
-  effectiveUserId,
-  messages,
-  selectedTemplateDefinitionId
-}) => {
-  const [copiedItem, setCopiedItem] = useState<string>("");
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
+// const ResultTab: React.FC<ResultTabProps> = ({ 
+//   isComplete, 
+//   finalPrompt, 
+//   finalPreviewText, 
+//   previewText, 
+//   copied, 
+//   copyToClipboard, 
+//   resetAll,
+//   systemPrompt,
+//   masterPrompt,
+//   placeholderValues,
+//   selectedModel,
+//   effectiveUserId,
+//   messages,
+//   selectedTemplateDefinitionId
+// }) => {
+//   const [copiedItem, setCopiedItem] = useState<string>("");
+//   const [isSaving, setIsSaving] = useState(false);
+//   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
-  const handleCopy = (text: string, item: string) => {
-    copyToClipboard(text);
-    setCopiedItem(item);
-    setTimeout(() => setCopiedItem(""), 2000);
-  };
+//   const handleCopy = (text: string, item: string) => {
+//     copyToClipboard(text);
+//     setCopiedItem(item);
+//     setTimeout(() => setCopiedItem(""), 2000);
+//   };
 
-  const saveCampaignTemplate = async () => {
-    if (!effectiveUserId) {
-      alert("User ID is required");
-      return;
-    }
+//   const saveCampaignTemplate = async () => {
+//     if (!effectiveUserId) {
+//       alert("User ID is required");
+//       return;
+//     }
 
-    if (!selectedTemplateDefinitionId || selectedTemplateDefinitionId <= 0) {
-      alert("Please create or select a template definition first");
-      return;
-    }
+//     if (!selectedTemplateDefinitionId || selectedTemplateDefinitionId <= 0) {
+//       alert("Please create or select a template definition first");
+//       return;
+//     }
 
-    setIsSaving(true);
-    setSaveStatus('idle');
+//     setIsSaving(true);
+//     setSaveStatus('idle');
 
-    try {
-      const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template/save`, {
-        clientId: effectiveUserId,
-        templateDefinitionId: selectedTemplateDefinitionId,
-        placeholderListWithValue: finalPrompt,
-        campaignBlueprint: finalPreviewText,
-        placeholderValues: placeholderValues,
-        selectedModel: selectedModel,
-        conversationMessages: messages.map(msg => ({
-          type: msg.type,
-          content: msg.content,
-          timestamp: msg.timestamp
-        }))
-      });
+//     try {
+//       const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template/save`, {
+//         clientId: effectiveUserId,
+//         templateDefinitionId: selectedTemplateDefinitionId,
+//         placeholderListWithValue: finalPrompt,
+//         campaignBlueprint: finalPreviewText,
+//         placeholderValues: placeholderValues,
+//         selectedModel: selectedModel,
+//         conversationMessages: messages.map(msg => ({
+//           type: msg.type,
+//           content: msg.content,
+//           timestamp: msg.timestamp
+//         }))
+//       });
 
-      if (response.data.success) {
-        setSaveStatus('success');
-        setTimeout(() => setSaveStatus('idle'), 3000);
-      }
-    } catch (error) {
-      console.error('Error saving template:', error);
-      setSaveStatus('error');
-      setTimeout(() => setSaveStatus('idle'), 3000);
-    } finally {
-      setIsSaving(false);
-    }
-  };
+//       if (response.data.success) {
+//         setSaveStatus('success');
+//         setTimeout(() => setSaveStatus('idle'), 3000);
+//       }
+//     } catch (error) {
+//       console.error('Error saving template:', error);
+//       setSaveStatus('error');
+//       setTimeout(() => setSaveStatus('idle'), 3000);
+//     } finally {
+//       setIsSaving(false);
+//     }
+//   };
 
-  const renderContent = (content: string) => {
-    if (!content) return null;
-    const isHtml = /<[a-z][\s\S]*>/i.test(content.trim());
+//   const renderContent = (content: string) => {
+//     if (!content) return null;
+//     const isHtml = /<[a-z][\s\S]*>/i.test(content.trim());
 
-    if (isHtml) {
-      return (
-        <div
-          className="result-content"
-          dangerouslySetInnerHTML={{ __html: content }}
-        />
-      );
-    } else {
-      return (
-        <pre className="result-content" style={{ whiteSpace: "pre-wrap", wordWrap: "break-word" }}>
-          {content}
-        </pre>
-      );
-    }
-  };
+//     if (isHtml) {
+//       return (
+//         <div
+//           className="result-content"
+//           dangerouslySetInnerHTML={{ __html: content }}
+//         />
+//       );
+//     } else {
+//       return (
+//         <pre className="result-content" style={{ whiteSpace: "pre-wrap", wordWrap: "break-word" }}>
+//           {content}
+//         </pre>
+//       );
+//     }
+//   };
 
-  return (
-    <div className="result-tab">
-      {!isComplete ? (
-        <div className="empty-result">
-          <div className="empty-result-content">
-            <CheckCircle size={48} className="empty-result-icon" />
-            <p className="empty-result-text">
-              Complete the conversation to see your final template.
-            </p>
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className="result-header">
-            <h2>
-              <Check className="success-icon" /> Your Completed Campaign Template
-            </h2>
-            <p>
-              All placeholders have been replaced based on your conversation.
-            </p>
-          </div>
+//   return (
+//     <div className="result-tab">
+//       {!isComplete ? (
+//         <div className="empty-result">
+//           <div className="empty-result-content">
+//             <CheckCircle size={48} className="empty-result-icon" />
+//             <p className="empty-result-text">
+//               Complete the conversation to see your final template.
+//             </p>
+//           </div>
+//         </div>
+//       ) : (
+//         <>
+//           <div className="result-header">
+//             <h2>
+//               <Check className="success-icon" /> Your Completed Campaign Template
+//             </h2>
+//             <p>
+//               All placeholders have been replaced based on your conversation.
+//             </p>
+//           </div>
 
-          {previewText && finalPreviewText ? (
-            <div className="result-section campaign-template">
-              <h3>Campaign Template:</h3>
-              {renderContent(finalPreviewText)}
-              <button
-                onClick={() => handleCopy(finalPreviewText, "preview")}
-                className="copy-button"
-              >
-                {copiedItem === "preview" ? (
-                  <>
-                    <Check size={16} /> Copied!
-                  </>
-                ) : (
-                  <>
-                    <Copy size={16} /> Copy Campaign Template
-                  </>
-                )}
-              </button>
-            </div>
-          ) : (
-            <div style={{ textAlign: "center", color: "#6b7280" }}>
-              <p>No campaign template was provided.</p>
-            </div>
-          )}
+//           {previewText && finalPreviewText ? (
+//             <div className="result-section campaign-template">
+//               <h3>Campaign Template:</h3>
+//               {renderContent(finalPreviewText)}
+//               <button
+//                 onClick={() => handleCopy(finalPreviewText, "preview")}
+//                 className="copy-button"
+//               >
+//                 {copiedItem === "preview" ? (
+//                   <>
+//                     <Check size={16} /> Copied!
+//                   </>
+//                 ) : (
+//                   <>
+//                     <Copy size={16} /> Copy Campaign Template
+//                   </>
+//                 )}
+//               </button>
+//             </div>
+//           ) : (
+//             <div style={{ textAlign: "center", color: "#6b7280" }}>
+//               <p>No campaign template was provided.</p>
+//             </div>
+//           )}
 
-          {finalPrompt && (
-            <div className="result-section">
-              <h3>Master Campaign Result:</h3>
-              {renderContent(finalPrompt)}
-              <button
-                onClick={() => handleCopy(finalPrompt, "master")}
-                className="copy-button"
-              >
-                {copiedItem === "master" ? (
-                  <>
-                    <Check size={16} /> Copied!
-                  </>
-                ) : (
-                  <>
-                    <Copy size={16} /> Copy Master Campaign
-                  </>
-                )}
-              </button>
-            </div>
-          )}
+//           {finalPrompt && (
+//             <div className="result-section">
+//               <h3>Master Campaign Result:</h3>
+//               {renderContent(finalPrompt)}
+//               <button
+//                 onClick={() => handleCopy(finalPrompt, "master")}
+//                 className="copy-button"
+//               >
+//                 {copiedItem === "master" ? (
+//                   <>
+//                     <Check size={16} /> Copied!
+//                   </>
+//                 ) : (
+//                   <>
+//                     <Copy size={16} /> Copy Master Campaign
+//                   </>
+//                 )}
+//               </button>
+//             </div>
+//           )}
 
-          <div className="save-template-section">
-            <h3>Save Campaign</h3>
-            {!selectedTemplateDefinitionId && (
-              <p className="warning-text" style={{ marginBottom: '10px' }}>
-                ⚠️ No template definition selected. Please create one from the Template tab first.
-              </p>
-            )}
-            <div className="save-template-form">
-              <button 
-                onClick={saveCampaignTemplate} 
-                disabled={isSaving || !selectedTemplateDefinitionId}
-                className="save-template-button"
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 size={16} className="spinning" /> Saving...
-                  </>
-                ) : saveStatus === 'success' ? (
-                  <>
-                    <CheckCircle size={16} /> Saved!
-                  </>
-                ) : saveStatus === 'error' ? (
-                  <>
-                    <XCircle size={16} /> Failed
-                  </>
-                ) : (
-                  <>
-                    <FileText size={16} /> Save Campaign
-                  </>
-                )}
-              </button>
-            </div>
-            {saveStatus === 'success' && (
-              <p className="success-message">Campaign saved successfully!</p>
-            )}
-            {saveStatus === 'error' && (
-              <p className="error-message">Failed to save campaign. Please try again.</p>
-            )}
-          </div>
+//           <div className="save-template-section">
+//             <h3>Save Campaign</h3>
+//             {!selectedTemplateDefinitionId && (
+//               <p className="warning-text" style={{ marginBottom: '10px' }}>
+//                 ⚠️ No template definition selected. Please create one from the Template tab first.
+//               </p>
+//             )}
+//             <div className="save-template-form">
+//               <button 
+//                 onClick={saveCampaignTemplate} 
+//                 disabled={isSaving || !selectedTemplateDefinitionId}
+//                 className="save-template-button"
+//               >
+//                 {isSaving ? (
+//                   <>
+//                     <Loader2 size={16} className="spinning" /> Saving...
+//                   </>
+//                 ) : saveStatus === 'success' ? (
+//                   <>
+//                     <CheckCircle size={16} /> Saved!
+//                   </>
+//                 ) : saveStatus === 'error' ? (
+//                   <>
+//                     <XCircle size={16} /> Failed
+//                   </>
+//                 ) : (
+//                   <>
+//                     <FileText size={16} /> Save Campaign
+//                   </>
+//                 )}
+//               </button>
+//             </div>
+//             {saveStatus === 'success' && (
+//               <p className="success-message">Campaign saved successfully!</p>
+//             )}
+//             {saveStatus === 'error' && (
+//               <p className="error-message">Failed to save campaign. Please try again.</p>
+//             )}
+//           </div>
 
-          <div style={{ marginTop: "1.5rem" }}>
-            <button onClick={resetAll} className="reset-button">
-              <RefreshCw size={20} /> Start Over
-            </button>
-          </div>
-        </>
-      )}
-    </div>
-  );
-};
+//           <div style={{ marginTop: "1.5rem" }}>
+//             <button onClick={resetAll} className="reset-button">
+//               <RefreshCw size={20} /> Start Over
+//             </button>
+//           </div>
+//         </>
+//       )}
+//     </div>
+//   );
+// };
 
 
 
@@ -1784,30 +1784,7 @@ return (
 
     <div className="campaign-builder-container">
       <div className="campaign-builder-main">
-        <div className="campaign-header">
-          <div className="campaign-header-content">
-            <h1>
-              <Globe className="campaign-header-icon" />
-              Campaign blueprint builder
-              {isEditMode && (
-                <span className="edit-mode-badge">Edit mode</span>
-              )}
-            </h1>
-            <p>
-              {isEditMode 
-                ? `Editing template: ${originalTemplateData?.templateName || 'Loading...'}`
-                : 'Create personalized email campaigns through a dynamic conversation.'
-              }
-            </p>
-          </div>
-          <button
-            onClick={() => setSoundEnabled(!soundEnabled)}
-            className="sound-toggle-button"
-            title={soundEnabled ? "Mute notifications" : "Enable notifications"}
-          >
-            {soundEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
-          </button>
-        </div>
+        
         
         <div className="tab-navigation">
           <div className="tab-container">
@@ -1817,7 +1794,7 @@ return (
               disabled={isEditMode} // ✅ Disable template tab in edit mode
             >
               <FileText className="tab-button-icon" />
-              <span className="tab-button-text-desktop">Template</span>
+              <span className="tab-button-text-desktop">Settings</span>
               <span className="tab-button-text-mobile">Setup</span>
             </button>
             
@@ -1832,7 +1809,7 @@ return (
               {conversationStarted && !isComplete && <span className="status-indicator active"></span>}
             </button>
             
-            <button 
+            {/* <button 
               onClick={() => setActiveTab('result')} 
               className={`tab-button ${activeTab === 'result' ? 'active' : ''}`} 
               disabled={!isComplete && !isEditMode}
@@ -1841,7 +1818,7 @@ return (
               <span className="tab-button-text-desktop">Final Result</span>
               <span className="tab-button-text-mobile">Result</span>
               {isComplete && <span className="status-indicator complete"></span>}
-            </button>
+            </button> */}
           </div>
         </div>
 
@@ -1908,7 +1885,7 @@ return (
 
             />
           )}
-          {activeTab === 'result' && (
+          {/* {activeTab === 'result' && (
             <ResultTab
               isComplete={isComplete || isEditMode}
               finalPrompt={finalPrompt}
@@ -1925,7 +1902,7 @@ return (
               messages={messages}
               selectedTemplateDefinitionId={selectedTemplateDefinitionId}
             />
-          )}
+          )} */}
         </div>
       </div>
 
