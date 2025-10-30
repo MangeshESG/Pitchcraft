@@ -40,6 +40,8 @@ import CampaignPrompt from "./feature/CampaignPrompt";
 import { Dashboard } from "./feature/Dashboard";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import {saveUserCredit} from "../slices/authSLice";
+import { useCreditCheck } from "../hooks/useCreditCheck";
+import CreditCheckModal from "./common/CreditCheckModal";
 
 
 interface Prompt {
@@ -225,6 +227,21 @@ interface SettingsFormType {
 }
 
 const MainPage: React.FC = () => {
+  // Credit check hook
+  const { credits, showCreditModal, checkUserCredits, closeCreditModal, handleSkipModal } = useCreditCheck();
+  
+  // Listen for credit modal event from login
+  useEffect(() => {
+    const handleShowCreditModal = () => {
+      if (credits === 0 && !localStorage.getItem('creditModalSkipped')) {
+        checkUserCredits();
+      }
+    };
+    
+    window.addEventListener('showCreditModal', handleShowCreditModal);
+    return () => window.removeEventListener('showCreditModal', handleShowCreditModal);
+  }, [credits, checkUserCredits]);
+
   // Modal states
   const [modalState, setModalState] = useState({
     isOpen: false,
@@ -1083,6 +1100,8 @@ const MainPage: React.FC = () => {
     }
   }, [effectiveUserId]); // Add effectiveUserId as dependency
 
+
+
   const buildReplacements = (
     entry: any,
     currentDate: string,
@@ -1430,6 +1449,17 @@ const MainPage: React.FC = () => {
       useCachedData?: boolean;
     }
   ) => {
+    // Calculate effectiveUserId first
+    const tempEffectiveUserId = selectedClient !== "" ? selectedClient : userId;
+    
+    // Check credits before starting generation process
+    if (tab === "Output" && !options?.regenerate && sessionStorage.getItem("isDemoAccount") !== "true") {
+      const currentCredits = await checkUserCredits(tempEffectiveUserId);
+      if (currentCredits === 0) {
+        return; // Stop execution if no credits
+      }
+    }
+
     // --- Get current date in readable format ---
     const currentDate = new Date().toLocaleDateString("en-US", {
       year: "numeric",
@@ -2769,6 +2799,8 @@ const MainPage: React.FC = () => {
                   const userCreditData = await userCreditResponse.json();
                   console.log("User credit data:", userCreditData);
                   dispatch(saveUserCredit(userCreditData));
+                  
+
                 } catch (creditError) {
                   console.error("User credit API error:", creditError);
                 }
@@ -3150,6 +3182,15 @@ const MainPage: React.FC = () => {
 
   const handleStart = async (startIndex?: number) => {
     if (!selectedPrompt) return;
+
+    // Check credits before starting
+    if (sessionStorage.getItem("isDemoAccount") !== "true") {
+      const tempEffectiveUserId = selectedClient !== "" ? selectedClient : userId;
+      const currentCredits = await checkUserCredits(tempEffectiveUserId);
+      if (currentCredits === 0) {
+        return; // Stop execution if no credits
+      }
+    }
 
     setAllRecordsProcessed(false);
     setIsStarted(true);
@@ -4670,6 +4711,12 @@ const MainPage: React.FC = () => {
             : "Loading client settings..."
         }
         closeOnOverlayClick={false}
+      />
+      <CreditCheckModal
+        isOpen={showCreditModal}
+        onClose={closeCreditModal}
+        onSkip={handleSkipModal}
+        credits={credits || 0}
       />
     </div>
   );

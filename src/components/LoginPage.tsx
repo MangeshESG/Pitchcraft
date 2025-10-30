@@ -138,10 +138,10 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
       if (data.firstName) dispatch(saveFirstName(data.firstName));
       if (data.lastName) dispatch(saveLastName(data.lastName));
 
-      // ✅ Optional: fetch user credit
+      // ✅ Fetch user credit after successful login and show popup if 0
       try {
         const creditRes = await fetch(
-          `https://localhost:7216/api/Crm/user_credit?clientId=${reduxUserId}`,
+          `${API_BASE_URL}/api/Crm/user_credit?clientId=${userId}`,
           {
             method: "GET",
             headers: {
@@ -155,12 +155,22 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
           const creditData = await creditRes.json();
           dispatch(saveUserCredit(creditData));
           console.log("User Credit:", creditData);
+          
+          // Show popup if credits are 0 and not skipped
+          if (creditData === 0 && !localStorage.getItem('creditModalSkipped')) {
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('showCreditModal'));
+            }, 1000);
+          }
         } else {
           console.error("Failed to fetch user credit");
         }
       } catch (err) {
         console.error("Credit API error:", err);
       }
+
+      // Clear credit modal skip flag on new login
+      localStorage.removeItem('creditModalSkipped');
 
       navigate("/main");
       return;
@@ -615,9 +625,41 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
             setCookie("trustedDeviceNumber", data.trustenumber.toString(), 30);
           }
 
+          // ✅ Fetch user credit after successful OTP verification and show popup if 0
+          try {
+            const creditRes = await fetch(
+              `${API_BASE_URL}/api/Crm/user_credit?clientId=${userId}`,
+              {
+                method: "GET",
+                headers: {
+                  Authorization: `Bearer ${data.token}`,
+                  "Content-Type": "application/json",
+                },
+              }
+            );
+
+            if (creditRes.ok) {
+              const creditData = await creditRes.json();
+              dispatch(saveUserCredit(creditData));
+              console.log("User Credit after OTP:", creditData);
+              
+              // Show popup if credits are 0 and not skipped
+              if (creditData === 0 && !localStorage.getItem('creditModalSkipped')) {
+                setTimeout(() => {
+                  window.dispatchEvent(new CustomEvent('showCreditModal'));
+                }, 1000);
+              }
+            } else {
+              console.error("Failed to fetch user credit after OTP");
+            }
+          } catch (err) {
+            console.error("Credit API error after OTP:", err);
+          }
+
           // Clean up localStorage
           localStorage.removeItem("loginUser");
           localStorage.removeItem("trustThisDevice");
+          localStorage.removeItem('creditModalSkipped');
 
           // Navigate to main page
           navigate("/main");
