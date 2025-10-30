@@ -7,6 +7,7 @@ import {
   saveUserRole,
   saveFirstName,
   saveLastName,
+  saveEmail,
   setToken,
   saveLoginDeviceInfo,
   saveUserCredit
@@ -47,14 +48,12 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
   const dispatch = useDispatch();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  // const [trustThisDevice, setTrustThisDevice] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
     console.log("User ID from Redux:", reduxUserId);
-    // console.log("Effective User ID:", effectiveUserId);
   }, [reduxUserId]);
-  // Helper function to decode JWT token
+
   const getUserIdFromToken = (token: string) => {
     try {
       const payloadBase64 = token.split(".")[1];
@@ -80,118 +79,106 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
   };
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
-  e.preventDefault();
-  setError("");
+    e.preventDefault();
+    setError("");
 
-  try {
-    const trustedDeviceNumber = getCookie("trustedDeviceNumber");
-
-    // 🔍 Debug logs – check kar console me
-    console.log("All cookies:", document.cookie);
-    console.log("Trusted device cookie:", trustedDeviceNumber);
-
-    // 👇 Safe body create kar rahe hain
-    const body: any = { username, password };
-
-    // Agar cookie valid hai tabhi trustednumber add karo
-    if (
-      trustedDeviceNumber &&
-      trustedDeviceNumber.trim() !== "" &&
-      trustedDeviceNumber !== "undefined" &&
-      !isNaN(Number(trustedDeviceNumber))
-    ) {
-      body.trustednumber = Number(trustedDeviceNumber);
-      console.log("✅ trustednumber added in body:", body.trustednumber);
-    } else {
-      console.log("🚫 No valid trusted device number found, skipping...");
-    }
-
-    // 👇 API call
-    const response = await fetch(`${API_BASE_URL}/api/login/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-
-    let data: any;
     try {
-      data = await response.json();
-    } catch {
-      data = {};
-    }
+      const trustedDeviceNumber = getCookie("trustedDeviceNumber");
+      console.log("All cookies:", document.cookie);
+      console.log("Trusted device cookie:", trustedDeviceNumber);
 
-    // Direct login with trusted device
-    if (response.ok && data.token) {
-      dispatch(setToken(data.token));
+      const body: any = { username, password };
 
-      const userId = getUserIdFromToken(data.token);
-      const userRole = getUserRoleFromToken(data.token);
-
-      dispatch(saveUserName(username));
-      if (userId) dispatch(saveUserId(userId));
-      if (userRole) dispatch(saveUserRole(userRole));
-
-      sessionStorage.setItem("clientId", data.clientID || "");
-      sessionStorage.setItem("isAdmin", data.isAdmin || "false");
-      sessionStorage.setItem("isDemoAccount", data.isDemoAccount || "false");
-
-      if (data.firstName) dispatch(saveFirstName(data.firstName));
-      if (data.lastName) dispatch(saveLastName(data.lastName));
-
-      // ✅ Fetch user credit after successful login and show popup if 0
-      try {
-        const creditRes = await fetch(
-          `${API_BASE_URL}/api/Crm/user_credit?clientId=${userId}`,
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${data.token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-
-        if (creditRes.ok) {
-          const creditData = await creditRes.json();
-          dispatch(saveUserCredit(creditData));
-          console.log("User Credit:", creditData);
-          
-          // Show popup if credits are 0 and not skipped
-          if (creditData === 0 && !localStorage.getItem('creditModalSkipped')) {
-            setTimeout(() => {
-              window.dispatchEvent(new CustomEvent('showCreditModal'));
-            }, 1000);
-          }
-        } else {
-          console.error("Failed to fetch user credit");
-        }
-      } catch (err) {
-        console.error("Credit API error:", err);
+      if (
+        trustedDeviceNumber &&
+        trustedDeviceNumber.trim() !== "" &&
+        trustedDeviceNumber !== "undefined" &&
+        !isNaN(Number(trustedDeviceNumber))
+      ) {
+        body.trustednumber = Number(trustedDeviceNumber);
+        console.log("✅ trustednumber added in body:", body.trustednumber);
+      } else {
+        console.log("🚫 No valid trusted device number found, skipping...");
       }
 
-      // Clear credit modal skip flag on new login
-      localStorage.removeItem('creditModalSkipped');
+      const response = await fetch(`${API_BASE_URL}/api/login/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
 
-      navigate("/main");
-      return;
-    }
+      let data: any;
+      try {
+        data = await response.json();
+      } catch {
+        data = {};
+      }
 
-    // OTP required
-    else if (
-      response.ok &&
-      (data.success || data.message?.toLowerCase().includes("otp"))
-    ) {
-      localStorage.setItem("loginUser", username);
-      // localStorage.setItem("trustThisDevice", trustThisDevice ? "true" : "false");
-      setView("otp");
-    } else {
-      setError(data.message || "Invalid login credentials.");
+      if (response.ok && data.token) {
+        dispatch(setToken(data.token));
+
+        const userId = getUserIdFromToken(data.token);
+        const userRole = getUserRoleFromToken(data.token);
+
+        dispatch(saveUserName(username));
+        if (userId) dispatch(saveUserId(userId));
+        if (userRole) dispatch(saveUserRole(userRole));
+        if (data.email) dispatch(saveEmail(data.email));
+
+        sessionStorage.setItem("clientId", data.clientID || "");
+        sessionStorage.setItem("isAdmin", data.isAdmin || "false");
+        sessionStorage.setItem("isDemoAccount", data.isDemoAccount || "false");
+
+        if (data.firstName) dispatch(saveFirstName(data.firstName));
+        if (data.lastName) dispatch(saveLastName(data.lastName));
+
+        try {
+          const creditRes = await fetch(
+            `${API_BASE_URL}/api/Crm/user_credit?clientId=${userId}`,
+            {
+              method: "GET",
+              headers: {
+                Authorization: `Bearer ${data.token}`,
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          if (creditRes.ok) {
+            const creditData = await creditRes.json();
+            dispatch(saveUserCredit(creditData));
+            console.log("User Credit:", creditData);
+            
+            if (creditData === 0 && !localStorage.getItem('creditModalSkipped')) {
+              setTimeout(() => {
+                window.dispatchEvent(new CustomEvent('showCreditModal'));
+              }, 1000);
+            }
+          } else {
+            console.error("Failed to fetch user credit");
+          }
+        } catch (err) {
+          console.error("Credit API error:", err);
+        }
+
+        localStorage.removeItem('creditModalSkipped');
+        navigate("/main");
+        return;
+      }
+      else if (
+        response.ok &&
+        (data.success || data.message?.toLowerCase().includes("otp"))
+      ) {
+        localStorage.setItem("loginUser", username);
+        setView("otp");
+      } else {
+        setError(data.message || "Invalid login credentials.");
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("Server error. Please try again later.");
     }
-  } catch (err) {
-    console.error("Login error:", err);
-    setError("Server error. Please try again later.");
-  }
-};
+  };
 
   return (
     <div>
@@ -213,18 +200,6 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
           onChange={(e) => setPassword(e.target.value)}
           required
         />
-
-        {/* <div style={{ margin: "10px 0" }}>
-          <label>
-            <input
-              type="checkbox"
-              checked={trustThisDevice}
-              onChange={(e) => setTrustThisDevice(e.target.checked)}
-            />{" "}
-            Trust this device (Don't ask for OTP for 30 days)
-          </label>
-        </div> */}
-
         <button type="submit" className="login-button">Log in</button>
       </form>
       {error && <div className="error-message">{error}</div>}
@@ -238,6 +213,8 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
 
 /* ---------------- REGISTER FORM ---------------- */
 const RegisterForm: React.FC<ViewProps> = ({ setView }) => {
+  const dispatch = useDispatch();
+  
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -271,10 +248,11 @@ const RegisterForm: React.FC<ViewProps> = ({ setView }) => {
       }
 
       if (response.ok) {
-        // Store registration details for auto-login after OTP
         localStorage.setItem("registerEmail", form.email);
         localStorage.setItem("registerUsername", form.username);
-        localStorage.setItem("registerPassword", form.password); // Store temporarily for auto-login
+        localStorage.setItem("registerPassword", form.password);
+        dispatch(saveEmail(form.email));
+         
         setMessage("OTP sent to your email!");
         setTimeout(() => setView("otp"), 2000);
       } else {
@@ -429,17 +407,14 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
   const [newPassword, setNewPassword] = useState("");
   const [msg, setMsg] = useState("");
   const [error, setError] = useState("");
+  const [trustThisDevice, setTrustThisDevice] = useState(false);
 
   const registerEmail = localStorage.getItem("registerEmail");
   const registerUsername = localStorage.getItem("registerUsername");
   const registerPassword = localStorage.getItem("registerPassword");
   const resetEmail = localStorage.getItem("resetEmail");
   const loginUser = localStorage.getItem("loginUser");
-  // const trustThisDevice = localStorage.getItem("trustThisDevice") === "true";
-   const [trustThisDevice, setTrustThisDevice] = useState(false);
 
-  // Helper functions
-  // Helper functions
   const getUserIdFromToken = (token: string) => {
     try {
       const payloadBase64 = token.split(".")[1];
@@ -461,69 +436,6 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
     } catch (error) {
       console.error("Error decoding token:", error);
       return null;
-    }
-  };
-
-  // Auto-login function after registration
-  const autoLoginAfterRegistration = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/login/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: registerUsername,
-          password: registerPassword,
-          trustednumber: null
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.token) {
-        // Store token using Redux
-        dispatch(setToken(data.token));
-
-        // Extract user info from token
-        const userId = getUserIdFromToken(data.token);
-        const userRole = getUserRoleFromToken(data.token);
-
-        // Store user info in Redux
-        dispatch(saveUserName(registerUsername || ""));
-        if (userId) dispatch(saveUserId(userId));
-        if (userRole) dispatch(saveUserRole(userRole));
-        debugger;
-        // Store in sessionStorage
-        sessionStorage.setItem("clientId", data.clientID || "");
-        sessionStorage.setItem("isAdmin", data.isAdmin || "false");
-        sessionStorage.setItem("isDemoAccount", data.isDemoAccount || "false");
-
-        // Store first and last name if available
-        if (data.firstName) dispatch(saveFirstName(data.firstName));
-        if (data.lastName) dispatch(saveLastName(data.lastName));
-
-        // Clean up temporary storage
-        localStorage.removeItem("registerEmail");
-        localStorage.removeItem("registerUsername");
-        localStorage.removeItem("registerPassword");
-
-        navigate("/main");
-      } else if (response.ok && data.success) {
-        // If OTP is required even after registration
-        if (registerUsername) {
-          localStorage.setItem("loginUser", registerUsername);
-        }
-        localStorage.removeItem("registerEmail");
-        localStorage.removeItem("registerPassword");
-        setMsg("Please enter OTP to complete login.");
-      } else {
-        // If auto-login fails, redirect to login page
-        setMsg("Registration successful! Please log in.");
-        setTimeout(() => setView("login"), 2000);
-      }
-    } catch (err) {
-      console.error("Auto-login error:", err);
-      setMsg("Registration successful! Please log in.");
-      setTimeout(() => setView("login"), 2000);
     }
   };
 
@@ -551,13 +463,11 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
         }
 
         if (response.ok) {
-          // Cleanup
           localStorage.removeItem("registerEmail");
           localStorage.removeItem("registerUsername");
           localStorage.removeItem("registerPassword");
           setMsg("Registration successful! Logging you in...");
-           setTimeout(() => setView("login"), 2000);
-          //setTimeout(() => autoLoginAfterRegistration(), 500);
+          setTimeout(() => setView("login"), 2000);
         } else {
           setError(data.message || "Invalid or expired OTP.");
         }
@@ -599,33 +509,27 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
         }
 
         if (res.ok && data.token) {
-          // Store token using Redux
           dispatch(setToken(data.token));
 
-          // Extract user info from token
           const userId = getUserIdFromToken(data.token);
           const userRole = getUserRoleFromToken(data.token);
 
-          // Store user info in Redux
           dispatch(saveUserName(loginUser));
           if (userId) dispatch(saveUserId(userId));
           if (userRole) dispatch(saveUserRole(userRole));
+          if (data.email) dispatch(saveEmail(data.email));
 
-          // Store in sessionStorage
           sessionStorage.setItem("clientId", data.clientID || "");
           sessionStorage.setItem("isAdmin", data.isAdmin || "false");
           sessionStorage.setItem("isDemoAccount", data.isDemoAccount || "false");
 
-          // Store first and last name if available
           if (data.firstName) dispatch(saveFirstName(data.firstName));
           if (data.lastName) dispatch(saveLastName(data.lastName));
 
-          // If user chose to trust device and backend returned trust number, store in cookie
           if (trustThisDevice && data.trustenumber) {
             setCookie("trustedDeviceNumber", data.trustenumber.toString(), 30);
           }
 
-          // ✅ Fetch user credit after successful OTP verification and show popup if 0
           try {
             const creditRes = await fetch(
               `${API_BASE_URL}/api/Crm/user_credit?clientId=${userId}`,
@@ -643,7 +547,6 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
               dispatch(saveUserCredit(creditData));
               console.log("User Credit after OTP:", creditData);
               
-              // Show popup if credits are 0 and not skipped
               if (creditData === 0 && !localStorage.getItem('creditModalSkipped')) {
                 setTimeout(() => {
                   window.dispatchEvent(new CustomEvent('showCreditModal'));
@@ -656,12 +559,10 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
             console.error("Credit API error after OTP:", err);
           }
 
-          // Clean up localStorage
           localStorage.removeItem("loginUser");
           localStorage.removeItem("trustThisDevice");
           localStorage.removeItem('creditModalSkipped');
 
-          // Navigate to main page
           navigate("/main");
         } else {
           setError(data.message || "Invalid OTP");
@@ -675,71 +576,68 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
 
   return (
     <div>
-  <h2>Enter OTP</h2>
+      <h2>Enter OTP</h2>
+      <p style={{ fontSize: "14px", color: "#666", marginBottom: "20px" }}>
+        {registerEmail && "Please enter the OTP sent to your email to complete registration."}
+        {resetEmail && "Please enter the OTP and your new password."}
+        {loginUser && "Please enter the OTP sent to your email to complete login."}
+      </p>
 
-  <p style={{ fontSize: "14px", color: "#666", marginBottom: "20px" }}>
-    {registerEmail && "Please enter the OTP sent to your email to complete registration."}
-    {resetEmail && "Please enter the OTP and your new password."}
-    {loginUser && "Please enter the OTP sent to your email to complete login."}
-  </p>
+      <form onSubmit={handleVerify}>
+        <input
+          type="text"
+          value={otp}
+          placeholder="Enter OTP"
+          required
+          onChange={(e) => setOtp(e.target.value)}
+          maxLength={6}
+        />
 
-  <form onSubmit={handleVerify}>
-    <input
-      type="text"
-      value={otp}
-      placeholder="Enter OTP"
-      required
-      onChange={(e) => setOtp(e.target.value)}
-      maxLength={6}
-    />
+        {loginUser && (
+          <div style={{ margin: "10px 0" }}>
+            <label>
+              <input
+                type="checkbox"
+                checked={trustThisDevice}
+                onChange={(e) => setTrustThisDevice(e.target.checked)}
+              />{" "}
+              Trust this device (Don't ask for OTP for 30 days)
+            </label>
+          </div>
+        )}
 
-    {/* ✅ Correct conditional render */}
-    {loginUser && (
-      <div style={{ margin: "10px 0" }}>
-        <label>
+        {resetEmail && (
           <input
-            type="checkbox"
-            checked={trustThisDevice}
-            onChange={(e) => setTrustThisDevice(e.target.checked)}
-          />{" "}
-          Trust this device (Don't ask for OTP for 30 days)
-        </label>
+            type="password"
+            value={newPassword}
+            placeholder="New Password"
+            required
+            onChange={(e) => setNewPassword(e.target.value)}
+          />
+        )}
+
+        <button type="submit" className="login-button">Verify OTP</button>
+      </form>
+
+      {msg && <div className="success-message">{msg}</div>}
+      {error && <div className="error-message">{error}</div>}
+
+      <div className="register-link">
+        <a
+          onClick={() => {
+            localStorage.removeItem("registerEmail");
+            localStorage.removeItem("registerUsername");
+            localStorage.removeItem("registerPassword");
+            localStorage.removeItem("resetEmail");
+            localStorage.removeItem("loginUser");
+            localStorage.removeItem("trustThisDevice");
+            setView("login");
+          }}
+        >
+          Back to login
+        </a>
       </div>
-    )}
-
-    {resetEmail && (
-      <input
-        type="password"
-        value={newPassword}
-        placeholder="New Password"
-        required
-        onChange={(e) => setNewPassword(e.target.value)}
-      />
-    )}
-
-    <button type="submit" className="login-button">Verify OTP</button>
-  </form>
-
-  {msg && <div className="success-message">{msg}</div>}
-  {error && <div className="error-message">{error}</div>}
-
-  <div className="register-link">
-    <a
-      onClick={() => {
-        // Clear any stored data when going back
-        localStorage.removeItem("registerEmail");
-        localStorage.removeItem("registerUsername");
-        localStorage.removeItem("registerPassword");
-        localStorage.removeItem("resetEmail");
-        localStorage.removeItem("loginUser");
-        localStorage.removeItem("trustThisDevice");
-        setView("login");
-      }}
-    >
-      Back to login
-    </a>
-  </div>
-</div>
+    </div>
   );
 };
 
@@ -760,4 +658,3 @@ const LoginPage: React.FC = () => {
 };
 
 export default LoginPage;
-

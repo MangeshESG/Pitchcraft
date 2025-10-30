@@ -8,6 +8,7 @@ interface AuthState {
   userRole: string | null;
   firstName: string | null;
   lastName: string | null;
+  email: string | null; // ✅ Add this
   ipAddress?: string | null;              // NEW
   browserName?: string | null;            // NEW
   browserVersion?: string | null; 
@@ -21,6 +22,7 @@ const initialState: AuthState = {
   userRole: null,
   firstName: null,
   lastName: null,
+  email: null,
   ipAddress: null,       // NEW
   browserName: null,     // NEW
   browserVersion: null, 
@@ -57,6 +59,10 @@ const authSlice = createSlice({
     saveLastName: (state, action: PayloadAction<string>) => {
       state.lastName = action.payload;
     },
+
+    saveEmail: (state, action: PayloadAction<string>) => {
+      state.email = action.payload;
+    },
     
     clearUsername: (state) => {
       state.username = null;
@@ -80,7 +86,7 @@ const authSlice = createSlice({
   },
 });
 
-export const { setToken, clearToken, saveUserName, saveUserRole, saveUserId,saveFirstName,saveLoginDeviceInfo ,
+export const { setToken, clearToken, saveUserName, saveUserRole,saveEmail, saveUserId,saveFirstName,saveLoginDeviceInfo ,
   saveLastName, clearUsername,saveUserCredit, } =
   authSlice.actions;
 export default authSlice.reducer;

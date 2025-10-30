@@ -149,17 +149,24 @@ function PaymentForm({ clientSecret }: { clientSecret: string }) {
 // ✅ Main Plans Component
 const Planes: React.FC = () => {
   const reduxUserId = useSelector((state: RootState) => state.auth.userId);
+  const userEmail = useSelector((state: RootState) => state.auth.email); // ✅ Add this
   const effectiveUserId = reduxUserId || "";
   const [clientSecret, setClientSecret] = useState<string | null>(null);
 
   const handleTryItNowClick = async (plan: Plan) => {
   try {
+    debugger;
+     if (!userEmail) {
+        alert("User email not found. Please log in again.");
+        return;
+      }
+
     const response = await fetch(`${API_BASE_URL}/api/stripe/create-subscription`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         userId: effectiveUserId,
-        email: "testuser@example.com",
+         email: userEmail,
         priceId: plan.planCode,
       }),
     });
