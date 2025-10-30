@@ -87,7 +87,7 @@ function PaymentForm({ clientSecret }: { clientSecret: string }) {
         
         // ✅ Redirect to dashboard after short delay
         setTimeout(() => {
-          window.location.href = "/Main";  // apna actual dashboard route
+          window.location.href = "/main";  // correct dashboard route
         }, 2000);
       }
 
