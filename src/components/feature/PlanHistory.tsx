@@ -80,6 +80,8 @@ const PlanHistory: React.FC = () => {
     setIsLoading(true);
     try {
       const url = `${API_BASE_URL}/api/stripe/get-user-plan_history?clientId=${customerId}&pageNumber=${page}&pageSize=${pageSize}`;
+      console.log('Fetching from URL:', url);
+      
       const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -88,17 +90,22 @@ const PlanHistory: React.FC = () => {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch subscriptions');
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
       const data: SubscriptionResponse = await response.json();
-      setSubscriptions(data.items || []);
-      setTotalPages(data.totalPages || 1);
-      setTotalRecords(data.totalRecords || 0);
-      setCurrentPage(data.currentPage || 1);
+      console.log('API Response:', data);
+      
+      setSubscriptions(Array.isArray(data.items) ? data.items : []);
+      setTotalPages(typeof data.totalPages === 'number' ? data.totalPages : 1);
+      setTotalRecords(typeof data.totalRecords === 'number' ? data.totalRecords : 0);
+      setCurrentPage(typeof data.currentPage === 'number' ? data.currentPage : 1);
     } catch (error) {
       console.error('Error fetching subscriptions:', error);
       setSubscriptions([]);
+      setTotalPages(1);
+      setTotalRecords(0);
+      setCurrentPage(1);
     } finally {
       setIsLoading(false);
     }
@@ -288,28 +295,31 @@ const PlanHistory: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {subscriptions.length === 0 ? (
+                        {!Array.isArray(subscriptions) || subscriptions.length === 0 ? (
                           <tr>
                             <td colSpan={7} className="text-center">
                               No subscription history found.
                             </td>
                           </tr>
                         ) : (
-                          subscriptions.map((subscription, index) => (
-                            <tr key={subscription.subscriptionId || `subscription-${index}`}>
-                              <td style={{ fontFamily: 'monospace' }}>
-                                {subscription.subscriptionId}
-                              </td>
-                              <td>{subscription.planName}</td>
-                              <td>{formatAmount(subscription.planAmount)}</td>
-                              <td style={{ textTransform: 'capitalize' }}>
-                                {subscription.interval}
-                              </td>
-                              <td>{getStatusBadge(subscription.status)}</td>
-                              <td>{formatDate(subscription.startDate)}</td>
-                              <td>{formatDate(subscription.endDate)}</td>
-                            </tr>
-                          ))
+                          subscriptions.map((subscription, index) => {
+                            if (!subscription) return null;
+                            return (
+                              <tr key={subscription.subscriptionId || `subscription-${index}`}>
+                                <td style={{ fontFamily: 'monospace' }}>
+                                  {subscription.subscriptionId || 'N/A'}
+                                </td>
+                                <td>{subscription.planName || 'Unknown'}</td>
+                                <td>{formatAmount(subscription.planAmount)}</td>
+                                <td style={{ textTransform: 'capitalize' }}>
+                                  {subscription.interval || 'Unknown'}
+                                </td>
+                                <td>{getStatusBadge(subscription.status)}</td>
+                                <td>{formatDate(subscription.startDate)}</td>
+                                <td>{formatDate(subscription.endDate)}</td>
+                              </tr>
+                            );
+                          })
                         )}
                       </tbody>
                     </table>
