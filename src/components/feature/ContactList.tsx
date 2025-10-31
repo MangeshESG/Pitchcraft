@@ -6,6 +6,7 @@ import AppModal from "../common/AppModal";
 import { useAppModal } from "../../hooks/useAppModal";
 import { useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
+import PaginationControls from "./PaginationControls";
 
 const menuBtnStyle = {
   width: "100%",
@@ -1050,6 +1051,15 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                     <span className="text-[20px] mr-1">+</span> Create a list
                   </button>
                 </div>
+                 {/* ✅ Pagination on top right */}
+  <PaginationControls
+    currentPage={currentPage}
+    totalPages={totalPages}
+    startIndex={startIndex}
+    pageSize={pageSize}
+    filteredDataLength={filteredDatafiles.length}
+    setCurrentPage={setCurrentPage}
+  />
                 <table
                   className="contacts-table"
                   style={{ background: "#fff" }}
@@ -1294,7 +1304,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                   </tbody>
                 </table>
                 {/* Pagination controls */}
-                <div
+                {/* <div
                   style={{
                     display: "flex",
                     justifyContent: "space-between",
@@ -1339,7 +1349,16 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                       Next &gt;
                     </button>
                   </div>
-                </div>
+                </div> */}
+                 {/* ✅ Pagination on top right */}
+  <PaginationControls
+    currentPage={currentPage}
+    totalPages={totalPages}
+    startIndex={startIndex}
+    pageSize={pageSize}
+    filteredDataLength={filteredDatafiles.length}
+    setCurrentPage={setCurrentPage}
+  />
 
               </>
             ) : (
@@ -1724,6 +1743,15 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                     onChange={(e) => setSegmentSearchQuery(e.target.value)}
                   />
                 </div>
+                 {/* ✅ Pagination on top right */}
+  <PaginationControls
+    currentPage={currentPage}
+    totalPages={totalPages}
+    startIndex={startIndex}
+    pageSize={pageSize}
+    filteredDataLength={filteredDatafiles.length}
+    setCurrentPage={setCurrentPage}
+  />
 
                 <table
                   className="contacts-table"
@@ -1931,7 +1959,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                   </tbody>
                 </table>
                 {/* Pagination controls */}
-                <div
+                {/* <div
                   style={{
                     display: "flex",
                     justifyContent: "space-between",
@@ -1976,7 +2004,16 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                       Next
                     </button>
                   </div>
-                </div>
+                </div> */}
+                 {/* ✅ Pagination on top right */}
+  <PaginationControls
+    currentPage={currentPage}
+    totalPages={totalPages}
+    startIndex={startIndex}
+    pageSize={pageSize}
+    filteredDataLength={filteredDatafiles.length}
+    setCurrentPage={setCurrentPage}
+  />
 
               </>
             ) : (

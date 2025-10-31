@@ -12,6 +12,7 @@ import ProtectedRoute from "./ProtectedRoute";
 import { AppDataProvider } from './contexts/AppDataContext';
 import Planes from "./components/feature/planes";
 import CustomerCreateForm from "./components/feature/CustomerCreateForm";
+import Myplan from "./components/feature/Myplan";
 
 const UserComp = lazy(() => import("./components/User") as any);
 
@@ -47,8 +48,13 @@ const App: React.FC = () => {
               <Route path="/register" element={<RegistrationPage />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route element={<ProtectedRoute />}>
-                <Route path="/main" element={<MainPage />} />
+                {/* <Route path="/main" element={<MainPage />} /> */}
+                <Route path="/main" element={<MainPage />}>
+                   <Route index element={<Planes />} />         {/* default page */}
+                   <Route path="myplan" element={<Myplan />} /> {/* nested page */}
+                </Route>
                 <Route path="/planes" element={<Planes/>} />
+                <Route path="myplan" element={<Myplan/>}/>
                 <Route
                   path="/user"
                   element={

@@ -96,7 +96,7 @@ function PaymentForm({ clientSecret }: { clientSecret: string }) {
 
   return (
     <div
-      className="fixed inset-0 bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center h-screen relative"
+      className="fixed inset-0 bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center min-h-screen relative "
     >
       <img
         src={pitchLogo}
@@ -116,7 +116,8 @@ function PaymentForm({ clientSecret }: { clientSecret: string }) {
           padding: "40px",
           borderRadius: "12px",
           boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
-          width: "400px",
+          width: "683px",
+           marginTop: "20px",
         }}
       >
         <PaymentElement />
