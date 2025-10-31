@@ -3,11 +3,11 @@
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  flex-wrap: nowrap; /* Keeps cards side by side */
+  flex-wrap: wrap;
   gap: 30px;
-  padding: 40px 375px;
+  padding: 40px 20px;
   background-color: #f4f4f4;
-  overflow-x: auto; /* Horizontal scroll for small screens */
+  overflow-x: auto;
 }
 
 /* Individual card styles */
@@ -16,11 +16,13 @@
   border-radius: 16px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
   width: 300px;
+  min-height: 500px;
   text-align: center;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  flex: 0 0 auto;
 }
 
 .card:hover {

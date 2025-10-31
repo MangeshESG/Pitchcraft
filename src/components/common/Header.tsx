@@ -148,7 +148,12 @@ const Header: React.FC<HeaderProps> = React.memo(({
               </div>
               <div className="user-credit text-sm text-gray-600">
                 Credit:{" "}
-                <span className="font-semibold text-green-600">
+                <span 
+                  className="font-semibold text-green-600 cursor-pointer hover:underline"
+                  onClick={() => navigate('/plan-history')}
+                  style={{ cursor: 'pointer' }}
+                  title="Click to view plan history"
+                >
                   {creditData !== null ? creditData : "Loading..."}
                 </span>
               </div>
