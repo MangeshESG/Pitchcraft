@@ -1570,7 +1570,7 @@ const handleSave = () => {
 
             {/* BCC Email Management Section */}
             <div className="section-wrapper" style={{ marginTop: 40 }}>
-              <h2 className="section-title">BCC Email Management</h2>
+              <h2 style={{ color:"black" }} className="section-title">BCC email management</h2>
               <div style={{ marginBottom: 4, color: "#555" }}>
                 Add BCC email addresses to receive copies of all sent emails.
               </div>

@@ -5,6 +5,8 @@ import { RootState } from "../../Redux/store";
 import { useDispatch } from "react-redux";
 import { clearToken } from "../../slices/authSLice";
 import Planes from "../feature/planes";
+import API_BASE_URL from "../../config";
+
 
 interface HeaderProps {
   connectTo: boolean;
@@ -63,7 +65,7 @@ const Header: React.FC<HeaderProps> = React.memo(({
     const fetchCredits = async () => {
       try {
         const creditRes = await fetch(
-          `https://localhost:7216/api/Crm/user_credit?clientId=${effectiveUserId}`,
+          `${API_BASE_URL}/api/Crm/user_credit?clientId=${effectiveUserId}`,
           {
             method: "GET",
             headers: {
@@ -159,7 +161,8 @@ const Header: React.FC<HeaderProps> = React.memo(({
               </div>
               {/* Buy Plans Button */}
               <button
-                onClick={() => window.open("/planes", "_blank")}
+                 onClick={() => navigate("/main/myplan")}
+                // onClick={() => window.open("/planes", "_blank")}
                 className="ml-2 px-3 py-1 rounded  text-white text-sm font-medium transition"
                 style={{ backgroundColor: "#3f9f42" }}
                 onMouseEnter={e => e.currentTarget.style.backgroundColor = "#37a137"}

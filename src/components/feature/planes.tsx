@@ -204,6 +204,7 @@ function PaymentForm({ clientSecret, selectedPlan, onGoBack }: { clientSecret: s
 // ✅ Main Plans Component
 const Planes: React.FC = () => {
   const reduxUserId = useSelector((state: RootState) => state.auth.userId);
+  const userEmail = useSelector((state: RootState) => state.auth.email); // ✅ Add this
   const effectiveUserId = reduxUserId || "";
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
