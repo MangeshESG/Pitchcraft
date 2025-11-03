@@ -6,6 +6,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
 import AeroplaneImg from "../../assets/images/aeroplane.png";
 import RocketImg from "../../assets/images/rocket.png";
+import PetrolPumpImg from "../../assets/images/petrol-pump.svg";
 import API_BASE_URL from "../../config";
 import pitchLogo from "../../assets/images/pitch_logo.png";
 import { loadStripe } from "@stripe/stripe-js";
@@ -58,9 +59,9 @@ const plans: Plan[] = [
     planCode: "price_1SMmZ6HDCkj9hBmZNyIzVJQL",
   },
   {
-    icon: "💳",
-    title: "Pay-as-you-go",
-    price: 0.15,
+    icon: PetrolPumpImg,
+    title: "Pay-As-You-Go",
+    price: 0.20,
     period: "/credit",
     features: [
       "No monthly commitment",
@@ -68,7 +69,7 @@ const plans: Plan[] = [
       "Credits never expire",
       "Same features as Premium",
       "Perfect for occasional use",
-      "Minimum purchase: 100 credits ($15)",
+      "Minimum purchase: 100 credits ($20)",
     ],
     buttonText: "Buy Credits",
     planCode: "credits",
@@ -81,7 +82,6 @@ function PaymentForm({ clientSecret, selectedPlan, onGoBack }: { clientSecret: s
   const elements = useElements();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState('credit-card');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,8 +109,9 @@ function PaymentForm({ clientSecret, selectedPlan, onGoBack }: { clientSecret: s
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-100 overflow-y-auto flex items-center justify-center" data-secure="true">
-      <div className="bg-white rounded-lg shadow-lg max-w-4xl w-full mx-4 my-8 p-8">
+    <div className="fixed inset-0 bg-gray-100 overflow-y-auto" data-secure="true">
+      <div className="min-h-full flex items-start justify-center py-8">
+        <div className="bg-white rounded-lg shadow-lg max-w-4xl w-full mx-4 p-8">
         <div className="flex gap-8">
           {/* Left Side - Order Summary */}
           <div className="flex-1">
@@ -196,6 +197,7 @@ function PaymentForm({ clientSecret, selectedPlan, onGoBack }: { clientSecret: s
             )}
           </div>
         </div>
+        </div>
       </div>
     </div>
   );
@@ -250,18 +252,14 @@ const Planes: React.FC = () => {
       const customPlan = {
         ...plans[2],
         title: `${creditAmount} Credits`,
-        price: creditAmount * 0.15,
+        price: creditAmount * 0.20,
       };
       setSelectedPlan(customPlan);
       
-      const response = await fetch(`${API_BASE_URL}/api/stripe/create-payment-intent`, {
+      const response = await fetch(`${API_BASE_URL}/api/stripe/create-credit-intent?UserId=${effectiveUserId}&Credits=${creditAmount}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: effectiveUserId,
-          planName: `${creditAmount} Credits`,
-          amount: creditAmount * 0.15,
-        }),
+        headers: { "accept": "*/*" },
+        body: "",
       });
 
       if (!response.ok) throw new Error("Failed to create payment intent");
@@ -281,6 +279,7 @@ const Planes: React.FC = () => {
       appearance: {
         theme: 'stripe' as const,
       },
+      paymentMethodTypes: ['card', 'paypal', 'apple_pay', 'google_pay', 'link', 'us_bank_account'],
     };
     
     return (
@@ -303,7 +302,7 @@ const Planes: React.FC = () => {
               )}
               <div className="yz">
                 <h3 className="y">{plan.title}</h3>
-                <span className="z">${plan.price}</span>
+                <span className="z">${plan.price.toFixed(2)}</span>
               </div>
               <div className="A">{plan.period}</div>
             </div>
@@ -342,10 +341,10 @@ const Planes: React.FC = () => {
             </div>
             <div className="mb-4 p-3 bg-gray-50 rounded">
               <p className="text-sm text-gray-600">
-                <strong>Total Cost:</strong> ${(creditAmount * 0.15).toFixed(2)}
+                <strong>Total Cost:</strong> ${(creditAmount * 0.20).toFixed(2)}
               </p>
               <p className="text-xs text-gray-500 mt-1">
-                Rate: $0.15 per credit
+                Rate: $0.20 per credit
               </p>
             </div>
             <div className="flex gap-3">

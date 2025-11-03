@@ -161,7 +161,7 @@ const Header: React.FC<HeaderProps> = React.memo(({
               </div>
               {/* Buy Plans Button */}
               <button
-                onClick={() => navigate("/planes")}
+                onClick={() => navigate("/plans")}
                 className="ml-2 px-3 py-1 rounded  text-white text-sm font-medium transition"
                 style={{ backgroundColor: "#3f9f42" }}
                 onMouseEnter={e => e.currentTarget.style.backgroundColor = "#37a137"}
