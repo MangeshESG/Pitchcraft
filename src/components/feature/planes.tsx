@@ -60,7 +60,7 @@ const plans: Plan[] = [
   },
   {
     icon: PetrolPumpImg,
-    title: "Pay-As-You-Go",
+    title: "Pay-as-you-go",
     price: 0.20,
     period: "/credit",
     features: [
@@ -82,6 +82,7 @@ function PaymentForm({ clientSecret, selectedPlan, onGoBack }: { clientSecret: s
   const elements = useElements();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState('credit-card');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -279,7 +280,6 @@ const Planes: React.FC = () => {
       appearance: {
         theme: 'stripe' as const,
       },
-      paymentMethodTypes: ['card', 'paypal', 'apple_pay', 'google_pay', 'link', 'us_bank_account'],
     };
     
     return (
@@ -302,7 +302,7 @@ const Planes: React.FC = () => {
               )}
               <div className="yz">
                 <h3 className="y">{plan.title}</h3>
-                <span className="z">${plan.price.toFixed(2)}</span>
+                <span className="z">${plan.price}</span>
               </div>
               <div className="A">{plan.period}</div>
             </div>
@@ -325,10 +325,10 @@ const Planes: React.FC = () => {
       {showCreditsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-xl font-bold mb-4">Select Credit Amount</h3>
+            <h3 className="text-xl font-bold mb-4">Select credit amount</h3>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Number of Credits (Min: 100)
+                Number of credits (Min: 100)
               </label>
               <input
                 type="number"
@@ -341,7 +341,7 @@ const Planes: React.FC = () => {
             </div>
             <div className="mb-4 p-3 bg-gray-50 rounded">
               <p className="text-sm text-gray-600">
-                <strong>Total Cost:</strong> ${(creditAmount * 0.20).toFixed(2)}
+                <strong>Total cost:</strong> ${(creditAmount * 0.20).toFixed(2)}
               </p>
               <p className="text-xs text-gray-500 mt-1">
                 Rate: $0.20 per credit
@@ -359,7 +359,7 @@ const Planes: React.FC = () => {
                 className="flex-1 px-4 py-2 text-white rounded-md"
                 style={{ backgroundColor: '#008508' }}
               >
-                Continue to Payment
+                Continue to payment
               </button>
             </div>
           </div>
