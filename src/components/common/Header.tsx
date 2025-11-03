@@ -150,13 +150,18 @@ const Header: React.FC<HeaderProps> = React.memo(({
               </div>
               <div className="user-credit text-sm text-gray-600">
                 Credit:{" "}
-                <span className="font-semibold text-green-600">
+                <span 
+                  className="font-semibold text-green-600 cursor-pointer hover:underline"
+                  onClick={() => navigate('/plan-history')}
+                  style={{ cursor: 'pointer' }}
+                  title="Click to view plan history"
+                >
                   {creditData !== null ? creditData : "Loading..."}
                 </span>
               </div>
               {/* Buy Plans Button */}
               <button
-                onClick={() => window.open("/planes", "_blank")}
+                onClick={() => navigate("/plans")}
                 className="ml-2 px-3 py-1 rounded  text-white text-sm font-medium transition"
                 style={{ backgroundColor: "#3f9f42" }}
                 onMouseEnter={e => e.currentTarget.style.backgroundColor = "#37a137"}
