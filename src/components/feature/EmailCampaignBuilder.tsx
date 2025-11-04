@@ -138,6 +138,58 @@ interface EditInstructionsModalProps {
   setShowPlaceholderPicker: (value: boolean) => void;
 }
 
+
+const CONTACT_PLACEHOLDERS = [
+  'full_name',
+  'first_name',
+  'last_name',
+  'linkedin_url',
+  'job_title',
+  'location',
+  'company_name',
+  'company_name_friendly',
+  'company_name_abbrev',
+  'website'
+];
+
+// ====================================================================
+// HELPER FUNCTIONS
+// ====================================================================
+
+// Filter out contact placeholders - keep only conversation placeholders
+const getConversationPlaceholders = (allPlaceholders: Record<string, string>): Record<string, string> => {
+  const filtered: Record<string, string> = {};
+  
+  Object.entries(allPlaceholders).forEach(([key, value]) => {
+    if (!CONTACT_PLACEHOLDERS.includes(key)) {
+      filtered[key] = value;
+    }
+  });
+  
+  return filtered;
+};
+
+// Get only contact placeholders from merged set
+const getContactPlaceholders = (allPlaceholders: Record<string, string>): Record<string, string> => {
+  const contactOnly: Record<string, string> = {};
+  
+  CONTACT_PLACEHOLDERS.forEach(key => {
+    if (allPlaceholders[key]) {
+      contactOnly[key] = allPlaceholders[key];
+    }
+  });
+  
+  return contactOnly;
+};
+
+// Merge conversation + contact placeholders for display/preview only
+const getMergedPlaceholdersForDisplay = (
+  conversationPlaceholders: Record<string, string>,
+  contactPlaceholders: Record<string, string>
+): Record<string, string> => {
+  return { ...conversationPlaceholders, ...contactPlaceholders };
+};
+
 // ====================================================================
 // CHILD COMPONENTS
 // ====================================================================
@@ -414,6 +466,10 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   applyContactPlaceholders  // 👈 add this
 
 }) => {
+
+
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+
   const renderMessageContent = (content: string) => {
     const isHtml = /<[a-z][\s\S]*>/i.test(content);
     if (isHtml) {
@@ -422,6 +478,14 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
       return <p className="message-content">{content}</p>;
     }
   };
+
+  useEffect(() => {
+  // Focus input when conversation starts or after a new bot message
+  if (!isTyping && conversationStarted && inputRef.current) {
+    inputRef.current.focus();
+  }
+}, [isTyping, messages, conversationStarted]);
+
 
   return (
     <div className="conversation-container">
@@ -495,7 +559,7 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
 
           {/* Messages Area */}
           <div className="messages-area">
-            {conversationStarted && (
+            {/* {conversationStarted && (
               <button
                 onClick={resetAll}
                 className="clear-history-button"
@@ -504,7 +568,7 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
                 <XCircle size={16} />
                 Clear History
               </button>
-            )}
+            )} */}
             
             {!conversationStarted && !isEditMode ? (
               <div className="empty-conversation">
@@ -563,14 +627,16 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
             <div className="input-area">
               <div className="input-container">
                 <textarea
-                  value={currentAnswer}
-                  onChange={(e) => setCurrentAnswer(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Type your answer..."
-                  className="message-input"
-                  rows={2}
-                  disabled={isTyping}
-                />
+                    ref={inputRef}
+                    value={currentAnswer}
+                    onChange={(e) => setCurrentAnswer(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Type your answer..."
+                    className="message-input"
+                    rows={2}
+                    disabled={isTyping}
+                  />
+
                 <button
                   onClick={handleSendMessage}
                   disabled={isTyping || !currentAnswer.trim()}
@@ -587,7 +653,7 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
 <div className="example-section">
           <div className="example-header">
           {/* DATAFILE + CONTACT SELECTION */}
-<div className="example-datafile-section">
+      <div className="example-datafile-section">
   
   <div style={{ display: "flex", gap: "10px", marginBottom: "12px" }}>
     <select
@@ -657,217 +723,6 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   );
 };
 
-// const ResultTab: React.FC<ResultTabProps> = ({ 
-//   isComplete, 
-//   finalPrompt, 
-//   finalPreviewText, 
-//   previewText, 
-//   copied, 
-//   copyToClipboard, 
-//   resetAll,
-//   systemPrompt,
-//   masterPrompt,
-//   placeholderValues,
-//   selectedModel,
-//   effectiveUserId,
-//   messages,
-//   selectedTemplateDefinitionId
-// }) => {
-//   const [copiedItem, setCopiedItem] = useState<string>("");
-//   const [isSaving, setIsSaving] = useState(false);
-//   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
-
-//   const handleCopy = (text: string, item: string) => {
-//     copyToClipboard(text);
-//     setCopiedItem(item);
-//     setTimeout(() => setCopiedItem(""), 2000);
-//   };
-
-//   const saveCampaignTemplate = async () => {
-//     if (!effectiveUserId) {
-//       alert("User ID is required");
-//       return;
-//     }
-
-//     if (!selectedTemplateDefinitionId || selectedTemplateDefinitionId <= 0) {
-//       alert("Please create or select a template definition first");
-//       return;
-//     }
-
-//     setIsSaving(true);
-//     setSaveStatus('idle');
-
-//     try {
-//       const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template/save`, {
-//         clientId: effectiveUserId,
-//         templateDefinitionId: selectedTemplateDefinitionId,
-//         placeholderListWithValue: finalPrompt,
-//         campaignBlueprint: finalPreviewText,
-//         placeholderValues: placeholderValues,
-//         selectedModel: selectedModel,
-//         conversationMessages: messages.map(msg => ({
-//           type: msg.type,
-//           content: msg.content,
-//           timestamp: msg.timestamp
-//         }))
-//       });
-
-//       if (response.data.success) {
-//         setSaveStatus('success');
-//         setTimeout(() => setSaveStatus('idle'), 3000);
-//       }
-//     } catch (error) {
-//       console.error('Error saving template:', error);
-//       setSaveStatus('error');
-//       setTimeout(() => setSaveStatus('idle'), 3000);
-//     } finally {
-//       setIsSaving(false);
-//     }
-//   };
-
-//   const renderContent = (content: string) => {
-//     if (!content) return null;
-//     const isHtml = /<[a-z][\s\S]*>/i.test(content.trim());
-
-//     if (isHtml) {
-//       return (
-//         <div
-//           className="result-content"
-//           dangerouslySetInnerHTML={{ __html: content }}
-//         />
-//       );
-//     } else {
-//       return (
-//         <pre className="result-content" style={{ whiteSpace: "pre-wrap", wordWrap: "break-word" }}>
-//           {content}
-//         </pre>
-//       );
-//     }
-//   };
-
-//   return (
-//     <div className="result-tab">
-//       {!isComplete ? (
-//         <div className="empty-result">
-//           <div className="empty-result-content">
-//             <CheckCircle size={48} className="empty-result-icon" />
-//             <p className="empty-result-text">
-//               Complete the conversation to see your final template.
-//             </p>
-//           </div>
-//         </div>
-//       ) : (
-//         <>
-//           <div className="result-header">
-//             <h2>
-//               <Check className="success-icon" /> Your Completed Campaign Template
-//             </h2>
-//             <p>
-//               All placeholders have been replaced based on your conversation.
-//             </p>
-//           </div>
-
-//           {previewText && finalPreviewText ? (
-//             <div className="result-section campaign-template">
-//               <h3>Campaign Template:</h3>
-//               {renderContent(finalPreviewText)}
-//               <button
-//                 onClick={() => handleCopy(finalPreviewText, "preview")}
-//                 className="copy-button"
-//               >
-//                 {copiedItem === "preview" ? (
-//                   <>
-//                     <Check size={16} /> Copied!
-//                   </>
-//                 ) : (
-//                   <>
-//                     <Copy size={16} /> Copy Campaign Template
-//                   </>
-//                 )}
-//               </button>
-//             </div>
-//           ) : (
-//             <div style={{ textAlign: "center", color: "#6b7280" }}>
-//               <p>No campaign template was provided.</p>
-//             </div>
-//           )}
-
-//           {finalPrompt && (
-//             <div className="result-section">
-//               <h3>Master Campaign Result:</h3>
-//               {renderContent(finalPrompt)}
-//               <button
-//                 onClick={() => handleCopy(finalPrompt, "master")}
-//                 className="copy-button"
-//               >
-//                 {copiedItem === "master" ? (
-//                   <>
-//                     <Check size={16} /> Copied!
-//                   </>
-//                 ) : (
-//                   <>
-//                     <Copy size={16} /> Copy Master Campaign
-//                   </>
-//                 )}
-//               </button>
-//             </div>
-//           )}
-
-//           <div className="save-template-section">
-//             <h3>Save Campaign</h3>
-//             {!selectedTemplateDefinitionId && (
-//               <p className="warning-text" style={{ marginBottom: '10px' }}>
-//                 ⚠️ No template definition selected. Please create one from the Template tab first.
-//               </p>
-//             )}
-//             <div className="save-template-form">
-//               <button 
-//                 onClick={saveCampaignTemplate} 
-//                 disabled={isSaving || !selectedTemplateDefinitionId}
-//                 className="save-template-button"
-//               >
-//                 {isSaving ? (
-//                   <>
-//                     <Loader2 size={16} className="spinning" /> Saving...
-//                   </>
-//                 ) : saveStatus === 'success' ? (
-//                   <>
-//                     <CheckCircle size={16} /> Saved!
-//                   </>
-//                 ) : saveStatus === 'error' ? (
-//                   <>
-//                     <XCircle size={16} /> Failed
-//                   </>
-//                 ) : (
-//                   <>
-//                     <FileText size={16} /> Save Campaign
-//                   </>
-//                 )}
-//               </button>
-//             </div>
-//             {saveStatus === 'success' && (
-//               <p className="success-message">Campaign saved successfully!</p>
-//             )}
-//             {saveStatus === 'error' && (
-//               <p className="error-message">Failed to save campaign. Please try again.</p>
-//             )}
-//           </div>
-
-//           <div style={{ marginTop: "1.5rem" }}>
-//             <button onClick={resetAll} className="reset-button">
-//               <RefreshCw size={20} /> Start Over
-//             </button>
-//           </div>
-//         </>
-//       )}
-//     </div>
-//   );
-// };
-
-
-
-
-
 // ====================================================================
 // MAIN COMPONENT
 // ====================================================================
@@ -881,14 +736,12 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
   const [soundEnabled, setSoundEnabled] = useSessionState<boolean>("campaign_sound_enabled", true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // ✅ ADD MISSING EDIT MODE STATES
   const [isEditMode, setIsEditMode] = useState(false);
   const [editTemplateId, setEditTemplateId] = useState<number | null>(null);
   const [originalTemplateData, setOriginalTemplateData] = useState<any>(null);
   const [selectedPlaceholder, setSelectedPlaceholder] = useState<string>("");
   const [isLoadingTemplate, setIsLoadingTemplate] = useState(false);
 
-  // ✅ Add selectedTemplateDefinitionId state
   const [selectedTemplateDefinitionId, setSelectedTemplateDefinitionId] = useState<number | null>(null);
 
   const [messages, setMessages] = useSessionState<Message[]>("campaign_messages", []);
@@ -916,126 +769,377 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
   const [isLoadingDefinitions, setIsLoadingDefinitions] = useState(false);
 
   // ---- Datafiles & contacts ---
-const [dataFiles, setDataFiles] = useState<any[]>([]);
-const [contacts, setContacts] = useState<any[]>([]);
-const [selectedDataFileId, setSelectedDataFileId] = useState<number | null>(null);
-const [selectedContactId, setSelectedContactId] = useState<number | null>(null);
+  const [dataFiles, setDataFiles] = useState<any[]>([]);
+  const [contacts, setContacts] = useState<any[]>([]);
+  const [selectedDataFileId, setSelectedDataFileId] = useState<number | null>(null);
+  const [selectedContactId, setSelectedContactId] = useState<number | null>(null);
 
+  // ====================================================================
+  // LOAD DATA FILES
+  // ====================================================================
+  useEffect(() => {
+    if (!effectiveUserId) return;
+    axios.get(`${API_BASE_URL}/api/Crm/datafile-byclientid?clientId=${effectiveUserId}`)
+      .then(res => setDataFiles(res.data || []))
+      .catch(err => console.error("Failed to load datafiles", err));
+  }, [effectiveUserId]);
 
+  // ====================================================================
+  // AUTO-START CONVERSATION
+  // ====================================================================
+  // ====================================================================
+// AUTO-START CONVERSATION (Robust version)
+// ====================================================================
 useEffect(() => {
-  if (!effectiveUserId) return;
-  axios.get(`${API_BASE_URL}/api/Crm/datafile-byclientid?clientId=${effectiveUserId}`)
-    .then(res => setDataFiles(res.data || []))
-    .catch(err => console.error("Failed to load datafiles", err));
-}, [effectiveUserId]);
+  let attempts = 0;
 
-useEffect(() => {
-  const autoStart = sessionStorage.getItem("autoStartConversation");
-  const newCampaignId = sessionStorage.getItem("newCampaignId");
-  const selectedDefinition = sessionStorage.getItem("selectedTemplateDefinitionId");
-  const campaignName = sessionStorage.getItem("newCampaignName");
+  const tryAutoStart = async () => {
+    const autoStart = sessionStorage.getItem("autoStartConversation");
+    const newCampaignId = sessionStorage.getItem("newCampaignId");
+    const selectedDefinition = sessionStorage.getItem("selectedTemplateDefinitionId");
+    const campaignName = sessionStorage.getItem("newCampaignName");
 
-  if (autoStart && newCampaignId && selectedDefinition) {
-    console.log(`🚀 Preparing campaign "${campaignName}"...`);
+    if (autoStart && newCampaignId && selectedDefinition) {
+      console.log(`🚀 Auto-starting campaign "${campaignName}"...`);
+      const definitionId = parseInt(selectedDefinition);
+      setSelectedTemplateDefinitionId(definitionId);
+      setTemplateName(campaignName || "");
 
-    const definitionId = parseInt(selectedDefinition);
-    setSelectedTemplateDefinitionId(definitionId);
-    setTemplateName(campaignName || "");
+      setIsTyping(true);
+      setActiveTab("conversation");
 
-    setIsTyping(true);
-    setActiveTab("conversation");
+      await loadTemplateDefinitionById(definitionId);
 
-    loadTemplateDefinitionById(definitionId)
-      .then(() => {
-        // ✅ Now template fields are ready
-        setTimeout(() => {
-          startConversation(); // will start without showing alert()
-        }, 300);
-      })
-      .catch((err) => {
-        console.error("⚠️ Failed to auto‑load template definition:", err);
-      })
-      .finally(() => {
-        sessionStorage.removeItem("autoStartConversation");
-        sessionStorage.removeItem("openConversationTab");
-      });
-  }
+      // ✅ small delay ensures builder UI fully ready
+      setTimeout(() => {
+        startConversation();
+      }, 300);
+
+      // ✅ clear flags so it doesn't re-trigger
+      sessionStorage.removeItem("autoStartConversation");
+      sessionStorage.removeItem("openConversationTab");
+      return;
+    }
+
+    // Retry up to 10 times (every 300 ms)
+    if (attempts < 10) {
+      attempts++;
+      setTimeout(tryAutoStart, 300);
+    } else {
+      console.log("⏳ No auto-start data found after retries — skipping.");
+    }
+  };
+
+  tryAutoStart();
 }, []);
 
 
-const handleSelectDataFile = (id: number) => {
-  setSelectedDataFileId(id);
-  setContacts([]);
-  setSelectedContactId(null);
-  if (id) {
-    axios.get(`${API_BASE_URL}/api/Crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${id}`)
-      .then(res => {
-        setContacts(res.data.contacts || []);
-      })
-      .catch(err => console.error("Failed to load contacts", err));
+  // ====================================================================
+  // SELECT DATA FILE AND LOAD CONTACTS
+  // ====================================================================
+  const handleSelectDataFile = (id: number) => {
+    setSelectedDataFileId(id);
+    setContacts([]);
+    setSelectedContactId(null);
+    if (id) {
+      axios.get(`${API_BASE_URL}/api/Crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${id}`)
+        .then(res => {
+          setContacts(res.data.contacts || []);
+        })
+        .catch(err => console.error("Failed to load contacts", err));
+    }
+  };
+
+
+const applyContactPlaceholders = async (contact: any) => {
+  if (!contact) return;
+
+  try {
+    console.log('📇 Applying contact placeholders:', contact.full_name);
+
+    // Derive friendly / abbrev variants
+    const friendly = contact.company_name?.replace(/\b(ltd|llc|limited|plc)\b/gi, "").trim() || contact.company_name;
+    const abbrev = friendly ? friendly.toLowerCase().replace(/\s+/g, "-") : "";
+    const [first = "", last = ""] = (contact.full_name || "").split(" ");
+
+    // Build TEMPORARY contact placeholders
+    const contactValues: Record<string, string> = {
+      full_name: contact.full_name || "",
+      first_name: first,
+      last_name: last,
+      job_title: contact.job_title || "",
+      location: contact.country_or_address || "",
+      company_name: contact.company_name || "",
+      company_name_friendly: friendly || "",
+      company_name_abbrev: abbrev || "",
+      linkedin_url: contact.linkedin_url || "",
+      website: contact.company_website || "",
+    };
+
+    // Get current conversation placeholders (without old contact data)
+    const conversationValues = getConversationPlaceholders(placeholderValues);
+    
+    // Merge for display
+    const mergedForDisplay = getMergedPlaceholdersForDisplay(conversationValues, contactValues);
+    
+    // Update UI state
+    setPlaceholderValues(mergedForDisplay);
+    console.log('✅ Contact placeholders applied to local state');
+    console.log('ℹ️ Click "Regenerate" to generate the email with this contact');
+
+    // ❌ REMOVED: Auto-regeneration
+    // User must click "Regenerate" button manually
+
+  } catch (error) {
+    console.error("⚠️ Error applying contact placeholders:", error);
   }
 };
 
+// ====================================================================
+// ✅ HELPER: Regenerate with Specific Values (Used by regenerateExampleOutput)
+// ====================================================================
+const regenerateExampleOutputWithValues = async (placeholders: Record<string, string>) => {
+  try {
+    console.log('🔄 Regenerating example output with provided placeholders...');
 
+    const storedId = sessionStorage.getItem('newCampaignId');
+    const activeCampaignId = editTemplateId ?? (storedId ? Number(storedId) : null);
+
+    if (!activeCampaignId) {
+      console.warn("⚠️ No campaign instance found");
+      return;
+    }
+
+    console.log('📧 Calling example/generate API with:', Object.keys(placeholders));
+
+    const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/example/generate`, {
+      userId: effectiveUserId,
+      campaignTemplateId: activeCampaignId,
+      model: selectedModel,
+      placeholderValues: placeholders
+    });
+
+    if ((response.data.success || response.data.Success) && 
+        (response.data.exampleOutput || response.data.ExampleOutput)) {
+      setExampleOutput(response.data.exampleOutput || response.data.ExampleOutput);
+      console.log('✅ Example output generated successfully');
+    } else {
+      console.warn('⚠️ No example output returned from API');
+    }
+
+  } catch (error: any) {
+    console.error('❌ Error regenerating example output:', error);
+    throw error; // Propagate error to caller
+  }
+};
+
+  // ====================================================================
+  // ✅ UPDATED: Regenerate Button Handler (Manual Only)
+  // ====================================================================
+// ====================================================================
+// ✅ COMPLETE: Regenerate Example Output (MANUAL ONLY)
+// ====================================================================
 const regenerateExampleOutput = async () => {
   try {
-    // Check if we have a saved template ID
+    console.log('🚀 Manual regenerate button clicked');
+
     if (!editTemplateId && !selectedTemplateDefinitionId) {
       alert('Please save the template first before regenerating example output.');
       return;
     }
 
-    // If we're in edit mode, use the edit/chat endpoint
-    if (isEditMode && editTemplateId) {
-      const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/edit/chat`, {
-        userId: effectiveUserId,
-        campaignTemplateId: editTemplateId,
-        message: "Regenerate example output using current placeholders",
-        model: selectedModel
-      });
+    // Get conversation and contact placeholders
+    const conversationValues = getConversationPlaceholders(placeholderValues);
+    const contactValues = getContactPlaceholders(placeholderValues);
+    const mergedForSearch = getMergedPlaceholdersForDisplay(conversationValues, contactValues);
 
-      const aiResponse = response.data.response?.assistantText || '';
-      const match = aiResponse.match(/==PLACEHOLDER_VALUES_START==([\s\S]*?)==PLACEHOLDER_VALUES_END==/);
-    
-      if (match) {
-        const section = match[1];
-        const regex = /\{example_output\}\s*=\s*([\s\S]*)/;
-        const exampleMatch = section.match(regex);
-        if (exampleMatch) {
-          setExampleOutput(exampleMatch[1].trim());
+    console.log('📦 Conversation placeholders:', Object.keys(conversationValues));
+    console.log('📇 Contact placeholders:', Object.keys(contactValues));
+
+    // ====================================================================
+    // 🔍 STEP 1: CHECK IF SEARCH IS NEEDED
+    // ====================================================================
+    const hasSearchTermsPlaceholder = masterPrompt.includes('{hook_search_terms}');
+    let searchResultSummary = '';
+
+    if (hasSearchTermsPlaceholder && conversationValues['hook_search_terms']) {
+      console.log('🔍 Search terms detected, preparing search API call...');
+
+      // ✅ Validate required conversation placeholders
+      if (!conversationValues['vendor_company_email_main_theme']) {
+        alert('❌ Missing "vendor_company_email_main_theme" value. Please complete the conversation first.');
+        return;
+      }
+
+      let searchTerm = conversationValues['hook_search_terms'];
+      
+      // ✅ Replace placeholders in search term
+      const processedSearchTerm = replacePlaceholdersInString(searchTerm, mergedForSearch);
+
+      // ✅ Check for unreplaced placeholders in search term
+      const unreplacedInSearchTerm = processedSearchTerm.match(/\{[^}]+\}/g);
+      if (unreplacedInSearchTerm) {
+        const placeholderNames = unreplacedInSearchTerm.map(p => p.replace(/[{}]/g, ''));
+        const missingContactPlaceholders = placeholderNames.filter(p => CONTACT_PLACEHOLDERS.includes(p));
+        
+        if (missingContactPlaceholders.length > 0) {
+          alert(`⚠️ Search query requires contact information: ${missingContactPlaceholders.join(', ')}.\n\nPlease select a contact from the dropdown first.`);
+          return;
+        } else {
+          alert(`⚠️ Missing required values: ${placeholderNames.join(', ')}`);
+          return;
         }
       }
-    } 
-    // If template is saved but not in edit mode, use the example/generate endpoint
-    else if (selectedTemplateDefinitionId) {
-const storedId = sessionStorage.getItem("newCampaignId");
-const activeCampaignId = editTemplateId ?? (storedId ? Number(storedId) : null);
 
-if (!activeCampaignId) {
-  alert("No campaign instance found. Please start a campaign first.");
-  return;
-}
+      console.log('🔍 Processed search term:', processedSearchTerm);
 
-const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/example/generate`, {
-  userId: effectiveUserId,
-  campaignTemplateId: activeCampaignId, // now it's a pure number
-  model: selectedModel,
-  placeholderValues   // ✅ send the current merged values
+      // ✅ Build instructions template
+      const instructionsTemplate = `Vendor company theme = {vendor_company_email_main_theme}
+The following text comes from an internet search on the efforts and successes of {company_name} related to the vendor company theme.
+If there is nothing that directly references {company_name} and its efforts and successes related to {vendor_company_email_main_theme} then do not summarise it, rather just ignore it.
+If there is content that directly references {company_name} and its efforts and successes related to {vendor_company_email_main_theme} then summarise it in up to 500 words depending on how much relevant content there is. DO NOT INCLUDE ANYTHING THAT IS NOT DIRECTLY LINKED TO the efforts and successes related to {vendor_company_email_main_theme} of {company_name} specifically. Only include content that is flattering to {company_name} and its efforts and successes related to {vendor_company_email_main_theme}. Do NOT include anything that refers to reducing its efforts and successes related to {vendor_company_email_main_theme}. Show references and the URLs and do NOT invent them.`;
 
-});
+      const processedInstructions = replacePlaceholdersInString(instructionsTemplate, mergedForSearch);
 
-if ((response.data.success || response.data.Success) && 
-    (response.data.exampleOutput || response.data.ExampleOutput)) {
-  setExampleOutput(response.data.exampleOutput || response.data.ExampleOutput);
-  console.log('✅ Example Output set:', response.data.exampleOutput || response.data.ExampleOutput);
-}
+      // ✅ Check for unreplaced placeholders in instructions
+      const unreplacedInInstructions = processedInstructions.match(/\{[^}]+\}/g);
+      if (unreplacedInInstructions) {
+        console.warn('⚠️ Unreplaced placeholders in instructions:', unreplacedInInstructions);
+        alert(`⚠️ Missing values for search instructions: ${unreplacedInInstructions.join(', ')}`);
+        return;
+      }
+
+      // ✅ Call Search API
+      try {
+        console.log('📤 Calling Search API (process)...');
+        console.log('📤 Payload:', {
+          searchTerm: processedSearchTerm,
+          modelName: selectedModel,
+          searchCount: 5
+        });
+
+        const searchResponse = await axios.post(`${API_BASE_URL}/api/auth/process`, {
+          searchTerm: processedSearchTerm,
+          instructions: processedInstructions,
+          modelName: selectedModel,
+          searchCount: 5
+        });
+
+        console.log('📥 Search API response received');
+
+        // Extract result
+        const pitchResponse = searchResponse.data?.pitchResponse || searchResponse.data?.PitchResponse;
+
+        if (pitchResponse) {
+          searchResultSummary = pitchResponse.content || 
+                               pitchResponse.Content || 
+                               pitchResponse.result ||
+                               pitchResponse.Result ||
+                               '';
+        }
+
+        if (!searchResultSummary) {
+          searchResultSummary = searchResponse.data?.content ||
+                               searchResponse.data?.Content ||
+                               searchResponse.data?.result ||
+                               searchResponse.data?.Result ||
+                               '';
+        }
+
+        console.log('✅ Search summary length:', searchResultSummary?.length || 0);
+
+        if (!searchResultSummary) {
+          console.warn('⚠️ No content found in search response');
+          alert('Search completed but no results were found. Proceeding with example generation...');
+        } else {
+          // ✅ Update conversation placeholders with search result
+          conversationValues['search_output_summary'] = searchResultSummary;
+          
+          // Update merged values
+          const updatedMerged = getMergedPlaceholdersForDisplay(conversationValues, contactValues);
+          setPlaceholderValues(updatedMerged);
+          console.log('📦 Added search_output_summary to conversation placeholders');
+
+          // ✅ Save updated conversation placeholders to database
+          const storedId = sessionStorage.getItem('newCampaignId');
+          const activeCampaignId = editTemplateId ?? (storedId ? Number(storedId) : null);
+
+          if (activeCampaignId) {
+            await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
+              id: activeCampaignId,
+              placeholderValues: conversationValues // ✅ Only conversation placeholders
+            });
+            console.log('💾 Saved conversation placeholders with search result to DB');
+          }
+        }
+
+      } catch (searchError: any) {
+        console.error('❌ Search API error:', searchError);
+        console.error('❌ Error response:', searchError.response?.data);
+        alert(`Search API failed: ${searchError.response?.data?.message || searchError.message}\n\nProceeding with example generation without search results...`);
+      }
+    } else {
+      console.log('ℹ️ No search terms placeholder or value not set - skipping search');
     }
-  } catch (error) {
-    console.error('Error regenerating example email:', error);
-    alert('Failed to regenerate example email. Please try again.');
+
+    // ====================================================================
+    // 📧 STEP 2: GENERATE EXAMPLE OUTPUT
+    // ====================================================================
+    const storedId = sessionStorage.getItem('newCampaignId');
+    const activeCampaignId = editTemplateId ?? (storedId ? Number(storedId) : null);
+
+        if (!activeCampaignId) {
+      alert("❌ No campaign instance found. Please start a campaign first.");
+      return;
+    }
+
+    // ✅ Use merged values (conversation + contact) for example generation
+    const finalMergedValues = getMergedPlaceholdersForDisplay(conversationValues, contactValues);
+
+    console.log('📧 Generating example output...');
+    console.log('📦 Using placeholders:', Object.keys(finalMergedValues));
+
+    // ✅ Call Example Generation API
+    try {
+      console.log('📤 Calling Example Generation API...');
+
+      const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/example/generate`, {
+        userId: effectiveUserId,
+        campaignTemplateId: activeCampaignId,
+        model: selectedModel,
+        placeholderValues: finalMergedValues // ✅ Merged values (conversation + contact)
+      });
+
+      console.log('📥 Example generation response received');
+
+      if ((response.data.success || response.data.Success) && 
+          (response.data.exampleOutput || response.data.ExampleOutput)) {
+        const generatedOutput = response.data.exampleOutput || response.data.ExampleOutput;
+        setExampleOutput(generatedOutput);
+        console.log('✅ Example output set successfully');
+        console.log('📧 Output length:', generatedOutput.length);
+      } else {
+        console.warn('⚠️ No example output returned from API');
+        alert('Example generation completed but no output was returned. Please try again.');
+      }
+
+    } catch (error: any) {
+      console.error('❌ Example generation error:', error);
+      console.error('❌ Error response:', error.response?.data);
+      alert(`Failed to generate example output: ${error.response?.data?.message || error.message}`);
+    }
+
+    console.log('✅ regenerateExampleOutput completed');
+
+  } catch (error: any) {
+    console.error('❌ Fatal error in regenerateExampleOutput:', error);
+    console.error('❌ Error stack:', error.stack);
+    alert(`Failed to regenerate: ${error.message}`);
   }
 };
-
+  // ====================================================================
+  // LOAD TEMPLATE DEFINITIONS
+  // ====================================================================
   useEffect(() => {
     loadTemplateDefinitions();
   }, []);
@@ -1052,7 +1156,9 @@ if ((response.data.success || response.data.Success) &&
     }
   };
 
-  // ✅ NEW - Save template definition function
+  // ====================================================================
+  // SAVE TEMPLATE DEFINITION
+  // ====================================================================
   const saveTemplateDefinition = async () => {
     if (!templateName.trim()) {
       alert("Please enter a template name");
@@ -1082,7 +1188,6 @@ if ((response.data.success || response.data.Success) &&
         setSaveDefinitionStatus('success');
         setSelectedTemplateDefinitionId(response.data.templateDefinitionId);
         
-        // Reload template definitions
         await loadTemplateDefinitions();
         
         setTimeout(() => setSaveDefinitionStatus('idle'), 3000);
@@ -1101,28 +1206,31 @@ if ((response.data.success || response.data.Success) &&
     }
   };
 
-  // ✅ NEW - Load a specific template definition
- const loadTemplateDefinitionById = async (id: number) => {
-  try {
-    const response = await axios.get(`${API_BASE_URL}/api/CampaignPrompt/template-definition/${id}`);
-    const def = response.data;
+  // ====================================================================
+  // LOAD TEMPLATE DEFINITION BY ID
+  // ====================================================================
+  const loadTemplateDefinitionById = async (id: number) => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/CampaignPrompt/template-definition/${id}`);
+      const def = response.data;
 
-    // ✅ Populate UI fields directly
-    setTemplateName(def.templateName || "");
-    setSystemPrompt(def.aiInstructions || "");
-    setSystemPromptForEdit(def.aiInstructionsForEdit || "");
-    setMasterPrompt(def.placeholderList || "");
-    setMasterPromptExtensive(def.placeholderListExtensive || "");
-    setPreviewText(def.masterBlueprintUnpopulated || "");
-    setSelectedTemplateDefinitionId(def.id);
+      setTemplateName(def.templateName || "");
+      setSystemPrompt(def.aiInstructions || "");
+      setSystemPromptForEdit(def.aiInstructionsForEdit || "");
+      setMasterPrompt(def.placeholderList || "");
+      setMasterPromptExtensive(def.placeholderListExtensive || "");
+      setPreviewText(def.masterBlueprintUnpopulated || "");
+      setSelectedTemplateDefinitionId(def.id);
 
-    console.log(`✅ Template loaded: ${def.templateName}`);
-  } catch (error) {
-    console.error("⚠️ Failed to load template definition:", error);
-  }
-};
+      console.log(`✅ Template loaded: ${def.templateName}`);
+    } catch (error) {
+      console.error("⚠️ Failed to load template definition:", error);
+    }
+  };
 
-
+  // ====================================================================
+  // LOAD TEMPLATE FOR EDIT MODE
+  // ====================================================================
   useEffect(() => {
     const templateId = sessionStorage.getItem('editTemplateId');
     const editMode = sessionStorage.getItem('editTemplateMode');
@@ -1132,14 +1240,13 @@ if ((response.data.success || response.data.Success) &&
       
       setEditTemplateId(parseInt(templateId));
       setIsEditMode(true);
-      setActiveTab('conversation'); // ✅ Go directly to conversation tab
+      setActiveTab('conversation');
       loadTemplateForEdit(parseInt(templateId));
       
       sessionStorage.removeItem('editTemplateId');
       sessionStorage.removeItem('editTemplateMode');
     }
   }, []);
-
 
   const clearAllSessionData = () => {
     sessionStorage.removeItem("campaign_messages");
@@ -1154,138 +1261,136 @@ if ((response.data.success || response.data.Success) &&
     sessionStorage.removeItem("campaign_master_prompt_extensive");
     sessionStorage.removeItem("campaign_preview_text");
     sessionStorage.removeItem("campaign_selected_model");
-    sessionStorage.removeItem("campaign_template_name"); // ✅ NEW
+    sessionStorage.removeItem("campaign_template_name");
   };
 
-const loadTemplateForEdit = async (templateId: number) => {
-  setIsLoadingTemplate(true);
-  try {
-    const res = await axios.get(`${API_BASE_URL}/api/CampaignPrompt/campaign/${templateId}`);
-    const template = res.data;
+  const loadTemplateForEdit = async (templateId: number) => {
+    setIsLoadingTemplate(true);
+    try {
+      const res = await axios.get(`${API_BASE_URL}/api/CampaignPrompt/campaign/${templateId}`);
+      const template = res.data;
 
-    setOriginalTemplateData(template);
+      setOriginalTemplateData(template);
 
-    // Core fields
-    setSystemPrompt(template.aiInstructions || "");
-    setSystemPromptForEdit(template.aiInstructionsForEdit || "");
-    setMasterPrompt(template.placeholderList || "");
-    setMasterPromptExtensive(template.placeholderListExtensive || "");
-    setPreviewText(template.masterBlueprintUnpopulated || "");
-    setSelectedModel(template.selectedModel || "gpt-5");
-    setSelectedTemplateDefinitionId(template.templateDefinitionId || null);
-    setTemplateName(template.templateName || "");
-    setIsComplete(false);
+      setSystemPrompt(template.aiInstructions || "");
+      setSystemPromptForEdit(template.aiInstructionsForEdit || "");
+      setMasterPrompt(template.placeholderList || "");
+      setMasterPromptExtensive(template.placeholderListExtensive || "");
+      setPreviewText(template.masterBlueprintUnpopulated || "");
+      setSelectedModel(template.selectedModel || "gpt-5");
+      setSelectedTemplateDefinitionId(template.templateDefinitionId || null);
+      setTemplateName(template.templateName || "");
+      setIsComplete(false);
+      setMessages([]);
+
+      // ✅ Load ONLY conversation placeholders from DB
+      if (template.placeholderValues) {
+        const conversationOnly = getConversationPlaceholders(template.placeholderValues);
+        setPlaceholderValues(conversationOnly);
+      } else {
+        setPlaceholderValues({});
+      }
+
+      if (template.exampleOutput) {
+        setExampleOutput(template.exampleOutput);
+      } else if (template.campaignBlueprint) {
+        setExampleOutput(template.campaignBlueprint);
+      }
+
+      setActiveTab("conversation");
+      setConversationStarted(false);
+      setIsTyping(false);
+      setIsEditMode(true);
+    } catch (error) {
+      console.error("Error loading template:", error);
+      alert("Failed to load template for editing");
+      setIsEditMode(false);
+    } finally {
+      setIsLoadingTemplate(false);
+    }
+  };
+
+  // ====================================================================
+  // START EDIT CONVERSATION
+  // ====================================================================
+  const startEditConversation = async (placeholder: string) => {
+    if (!effectiveUserId || !placeholder) return;
+
+    setSelectedPlaceholder(placeholder);
     setMessages([]);
+    setConversationStarted(true);
+    setIsComplete(false);
+    setIsTyping(true);
 
-    // ✅ Load placeholders and Example Output from DB
-    if (template.placeholderValues) setPlaceholderValues(template.placeholderValues);
-    else setPlaceholderValues({});
+    const currentValue = placeholderValues[placeholder] || "not set";
 
-    if (template.exampleOutput) {
-      setExampleOutput(template.exampleOutput);  // HTML preview
-    } else if (template.campaignBlueprint) {
-      setExampleOutput(template.campaignBlueprint);
+    try {
+      const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/edit/start`, {
+        userId: effectiveUserId,
+        campaignTemplateId: editTemplateId,
+        placeholder,
+        currentValue,
+        model: selectedModel,
+      });
+
+      const data = response.data.response;
+      if (data && data.assistantText) {
+        setMessages([{ type: "bot", content: data.assistantText, timestamp: new Date() }]);
+        playNotificationSound();
+      }
+    } catch (error) {
+      console.error("Error starting edit conversation:", error);
+      setMessages([
+        {
+          type: "bot",
+          content: "Sorry, I couldn't start the edit conversation. Please try again.",
+          timestamp: new Date(),
+        },
+      ]);
+    } finally {
+      setIsTyping(false);
     }
+  };
 
-    // ✅ Go straight into edit mode with conversation tab
-    setActiveTab("conversation");
-    setConversationStarted(false);
-    setIsTyping(false);
-    setIsEditMode(true);
-  } catch (error) {
-    console.error("Error loading template:", error);
-    alert("Failed to load template for editing");
-    setIsEditMode(false);
-  } finally {
-    setIsLoadingTemplate(false);
-  }
-};
+  // ====================================================================
+  // ✅ UPDATED: Finalize Edit Placeholder (Save Only Conversation)
+  // ====================================================================
 
-const startEditConversation = async (placeholder: string) => {
-  if (!effectiveUserId || !placeholder) return;
-
-  setSelectedPlaceholder(placeholder);
-  setMessages([]);
-  setConversationStarted(true);
-  setIsComplete(false);
-  setIsTyping(true);
-
-  const currentValue = placeholderValues[placeholder] || "not set";
-
-  try {
-    // 🔹 Ask GPT to suggest/edit specific placeholder
-    const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/edit/start`, {
-      userId: effectiveUserId,
-      campaignTemplateId: editTemplateId,
-      placeholder,
-      currentValue,
-      model: selectedModel,
-    });
-
-    const data = response.data.response;
-    if (data && data.assistantText) {
-      setMessages([{ type: "bot", content: data.assistantText, timestamp: new Date() }]);
-      playNotificationSound();
-    }
-  } catch (error) {
-    console.error("Error starting edit conversation:", error);
-    setMessages([
-      {
-        type: "bot",
-        content: "Sorry, I couldn't start the edit conversation. Please try again.",
-        timestamp: new Date(),
-      },
-    ]);
-  } finally {
-    setIsTyping(false);
-  }
-};
-
-//  ⚙️ After the chat finishes, update DB and regenerate
 const finalizeEditPlaceholder = async (updatedPlaceholder: string, newValue: string) => {
   if (!editTemplateId || !effectiveUserId) return;
 
-  // Merge previous set with new one
-  const updatedValues = {
-    ...placeholderValues,
-    [updatedPlaceholder]: newValue,
-  };
+  // Get current conversation placeholders
+  const conversationValues = getConversationPlaceholders(placeholderValues);
+  const contactValues = getContactPlaceholders(placeholderValues);
 
-  setPlaceholderValues(updatedValues);
+  // Update the specific placeholder
+  conversationValues[updatedPlaceholder] = newValue;
+
+  // Merge for display
+  const mergedForDisplay = getMergedPlaceholdersForDisplay(conversationValues, contactValues);
+  setPlaceholderValues(mergedForDisplay);
 
   try {
-    // 1️⃣ Persist merged placeholder values to DB
+    // ✅ Save ONLY conversation placeholders to DB
     await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
       id: editTemplateId,
-      placeholderValues: updatedValues,
+      placeholderValues: conversationValues, // ✅ Only conversation placeholders
       selectedModel,
     });
-    console.log("✅ Placeholder saved in DB:", updatedPlaceholder);
+    console.log("✅ Conversation placeholder saved in DB:", updatedPlaceholder);
+    console.log("ℹ️ Click 'Regenerate' to see the updated email");
 
-    // 2️⃣ Regenerate Example Output using all placeholders
-    const regen = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/example/generate`, {
-      userId: effectiveUserId,
-      campaignTemplateId: editTemplateId,
-      model: selectedModel,
-      placeholderValues   // ✅ send the current merged values
+    // ❌ REMOVED: Auto-regeneration
+    // User must click "Regenerate" button manually
 
-    });
-
-    if (
-      (regen.data.success || regen.data.Success) &&
-      (regen.data.exampleOutput || regen.data.ExampleOutput)
-    ) {
-      setExampleOutput(regen.data.exampleOutput || regen.data.ExampleOutput);
-      console.log("✅ Example regenerated successfully");
-    } else {
-      console.warn("⚠️ No ExampleOutput returned");
-    }
   } catch (err) {
     console.error("⚠️ Error during placeholder finalization:", err);
   }
 };
 
-
+  // ====================================================================
+  // AUDIO & NOTIFICATIONS
+  // ====================================================================
   useEffect(() => {
     audioRef.current = new Audio(notificationSound);
     audioRef.current.volume = 1.0;
@@ -1352,14 +1457,20 @@ const finalizeEditPlaceholder = async (updatedPlaceholder: string, newValue: str
     };
   }, []);
 
+  // ====================================================================
+  // AVAILABLE MODELS
+  // ====================================================================
   const availableModels: GPTModel[] = [
-    { id: 'gpt-4.1', name: 'GPT-4.1', description: 'Latest GPT-4.1 model' },
-    { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini', description: 'Efficient GPT-4.1 model' },
+    { id: 'gpt-4o', name: 'GPT-4o', description: 'Standard GPT-4 Optimized' },
+    { id: 'gpt-4o-mini', name: 'GPT-4o Mini', description: 'Efficient GPT-4o model' },
     { id: 'gpt-5', name: 'GPT-5', description: 'Standard flagship model' },
     { id: 'gpt-5-mini', name: 'GPT-5 Mini', description: 'Lightweight, efficient, cost-effective' },
     { id: 'gpt-5-nano', name: 'GPT-5 Nano', description: 'Ultra-fast, minimal resource usage' },
   ];
 
+  // ====================================================================
+  // EXTRACT PLACEHOLDERS
+  // ====================================================================
   const extractPlaceholders = (text: string): string[] => {
     const regex = /\{([^}]+)\}/g;
     const placeholders: string[] = [];
@@ -1372,94 +1483,119 @@ const finalizeEditPlaceholder = async (updatedPlaceholder: string, newValue: str
     return placeholders;
   };
 
-  const replacePlaceholdersInText = (text: string, values: Record<string, string>, allowedPlaceholders: string[]): string => {
+  // ====================================================================
+  // REPLACE PLACEHOLDERS IN STRING
+  // ====================================================================
+  const replacePlaceholdersInString = (
+    text: string, 
+    values: Record<string, string>
+  ): string => {
+    if (!text) return '';
+    
     let result = text;
+    
     Object.entries(values).forEach(([key, value]) => {
-      if (allowedPlaceholders.includes(key)) {
-        const regex = new RegExp(`\\{${key}\\}`, 'g');
-        result = result.replace(regex, value);
+      if (!value) {
+        return;
       }
+      
+      const patterns = [
+        new RegExp(`\\{${key}\\}`, 'g'),
+        new RegExp(`\\{ ${key} \\}`, 'g'),
+        new RegExp(`\\{${key} \\}`, 'g'),
+        new RegExp(`\\{ ${key}\\}`, 'g'),
+      ];
+      
+      patterns.forEach(regex => {
+        result = result.replace(regex, value);
+      });
     });
+    
     return result;
   };
-  
+
+  // ====================================================================
+  // SCROLL TO BOTTOM
+  // ====================================================================
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // ====================================================================
+  // RESET ON CLIENT CHANGE
+  // ====================================================================
   useEffect(() => {
     if (conversationStarted && !isEditMode) {
       resetAll();
     }
   }, [selectedClient]);
 
-const startConversation = async () => {
-  if (!effectiveUserId) {
-    console.warn("⚠️ No client ID available — cannot start conversation.");
-    return;
-  }
+  // ====================================================================
+  // START CONVERSATION
+  // ====================================================================
+  const startConversation = async () => {
+    if (!effectiveUserId) {
+      console.warn("⚠️ No client ID available — cannot start conversation.");
+      return;
+    }
 
-  if (systemPrompt.trim() === "" || masterPrompt.trim() === "") {
-    console.log("⏳ Template not ready yet — skipping manual alert.");
-    return;
-  }
+    if (systemPrompt.trim() === "" || masterPrompt.trim() === "") {
+      console.log("⏳ Template not ready yet — skipping manual alert.");
+      return;
+    }
 
-  // ✅ Reset conversation state
-  setMessages([]);
-  setFinalPrompt("");
-  setFinalPreviewText("");
-  setPlaceholderValues({});
-  setIsComplete(false);
-  setConversationStarted(true);
-  setActiveTab("conversation");
-  setIsTyping(true);
-  setExampleOutput("");
+    setMessages([]);
+    setFinalPrompt("");
+    setFinalPreviewText("");
+    setPlaceholderValues({});
+    setIsComplete(false);
+    setConversationStarted(true);
+    setActiveTab("conversation");
+    setIsTyping(true);
+    setExampleOutput("");
 
-  // ✅ Reuse the same cleaning logic as in handleSendMessage
-  const cleanAssistantMessage = (text: string): string => {
-    if (!text) return "";
-    return text
-      .replace(/==PLACEHOLDER_VALUES_START==[\s\S]*?==PLACEHOLDER_VALUES_END==/g, "")
-      .replace(/{\s*"status"[\s\S]*?}/g, "")
-      .trim();
-  };
+    const cleanAssistantMessage = (text: string): string => {
+      if (!text) return "";
+      return text
+        .replace(/==PLACEHOLDER_VALUES_START==[\s\S]*?==PLACEHOLDER_VALUES_END==/g, "")
+        .replace(/{\s*"status"[\s\S]*?}/g, "")
+        .trim();
+    };
 
-  try {
-    const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/chat`, {
-      userId: effectiveUserId,
-      message: masterPrompt,
-      systemPrompt: systemPrompt,
-      model: selectedModel,
-    });
+    try {
+      const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/chat`, {
+        userId: effectiveUserId,
+        message: masterPrompt,
+        systemPrompt: systemPrompt,
+        model: selectedModel, // ✅ Use selected model
+      });
 
-    const data = response.data.response;
-    if (data && data.assistantText) {
-      // ✅ Clean AI message before showing
-      const cleanText = cleanAssistantMessage(data.assistantText);
-      const botMessage: Message = {
+      const data = response.data.response;
+      if (data && data.assistantText) {
+        const cleanText = cleanAssistantMessage(data.assistantText);
+        const botMessage: Message = {
+          type: "bot",
+          content: cleanText,
+          timestamp: new Date(),
+        };
+        setMessages([botMessage]);
+        playNotificationSound();
+      }
+    } catch (error) {
+      console.error("❌ Error starting conversation:", error);
+      const errorMessage: Message = {
         type: "bot",
-        content: cleanText,
+        content: "Sorry, I couldn't start the conversation. Please check the API connection and try again.",
         timestamp: new Date(),
       };
-      setMessages([botMessage]);
+      setMessages([errorMessage]);
       playNotificationSound();
+    } finally {
+      setIsTyping(false);
     }
-  } catch (error) {
-    console.error("❌ Error starting conversation:", error);
-    const errorMessage: Message = {
-      type: "bot",
-      content:
-        "Sorry, I couldn't start the conversation. Please check the API connection and try again.",
-      timestamp: new Date(),
-    };
-    setMessages([errorMessage]);
-    playNotificationSound();
-  } finally {
-    setIsTyping(false);
-  }
-};
+  };
 
-
+  
 const handleSendMessage = async () => {
   if (currentAnswer.trim() === '' || isTyping || !effectiveUserId) return;
 
@@ -1488,14 +1624,13 @@ const handleSendMessage = async () => {
       : {
           userId: effectiveUserId,
           message: userMessage.content,
-          systemPrompt: '', // continue conversation, not reset full prompt
+          systemPrompt: '',
           model: selectedModel,
         };
 
     const response = await axios.post(endpoint, requestBody);
     const data = response.data.response;
 
-    // ✅ Helper: clean up bot messages before rendering
     const cleanAssistantMessage = (text: string): string => {
       if (!text) return '';
       return text
@@ -1504,63 +1639,75 @@ const handleSendMessage = async () => {
         .trim();
     };
 
-    // 🧠 1️⃣ Try updating placeholders progressively
+    // ====================================================================
+    // ✅ EXTRACT AND UPDATE PLACEHOLDERS FROM AI RESPONSE
+    // ====================================================================
     if (data?.assistantText) {
       const cleanText = cleanAssistantMessage(data.assistantText);
       const match = data.assistantText.match(
         /==PLACEHOLDER_VALUES_START==([\s\S]*?)==PLACEHOLDER_VALUES_END==/
       );
+      
       if (match) {
         const placeholderBlock = match[1];
         const lines = placeholderBlock.split(/\r?\n/).filter(Boolean);
-        const updatedValues = { ...placeholderValues };
+        
+        // ✅ Get current conversation and contact placeholders separately
+        const currentConversationValues = getConversationPlaceholders(placeholderValues);
+        const currentContactValues = getContactPlaceholders(placeholderValues);
+        const updatedConversationValues = { ...currentConversationValues };
 
+        // ✅ Parse and update ONLY conversation placeholders
         lines.forEach((line: string) => {
           const kv = line.match(/\{([^}]+)\}\s*=\s*(.+)/);
-          if (kv) updatedValues[kv[1].trim()] = kv[2].trim();
-        });
-
-        // 📌 Update local state
-        setPlaceholderValues(updatedValues);
-        console.log('📦 Updated placeholders: ', updatedValues);
-
-        // 🧠 2️⃣ Regenerate Example Output (async)
-        try {
-          const storedId = sessionStorage.getItem('newCampaignId');
-          const activeCampaignId =
-            editTemplateId ?? (storedId ? Number(storedId) : null);
-
-          if (!activeCampaignId) {
-            console.warn(
-              '⚠️ No active campaign id found; skipping example generation.'
-            );
-          } else {
-            const regenRes = await axios.post(
-              `${API_BASE_URL}/api/CampaignPrompt/example/generate`,
-              {
-                userId: effectiveUserId,
-                campaignTemplateId: activeCampaignId,
-                model: selectedModel,
-                placeholderValues, // ✅ send the merged values
-              }
-            );
-
-            if (
-              regenRes.data.Success &&
-              regenRes.data.ExampleOutput
-            ) {
-              setExampleOutput(regenRes.data.ExampleOutput);
-              console.log('✅ Example Output Regenerated');
+          if (kv) {
+            const key = kv[1].trim();
+            const value = kv[2].trim();
+            
+            // ✅ Only update if it's NOT a contact placeholder
+            if (!CONTACT_PLACEHOLDERS.includes(key)) {
+              updatedConversationValues[key] = value;
+              console.log(`✅ Updated conversation placeholder: ${key}`);
             } else {
-              console.log('ℹ️ Example regeneration returned no content.');
+              console.log(`⏭️ Skipped contact placeholder: ${key}`);
             }
           }
-        } catch (err) {
-          console.warn('⚠️ Failed to regenerate example:', err);
+        });
+
+        // ✅ Merge for display (conversation + contact)
+        const mergedForDisplay = getMergedPlaceholdersForDisplay(
+          updatedConversationValues, 
+          currentContactValues
+        );
+        
+        setPlaceholderValues(mergedForDisplay);
+        console.log('📦 Updated conversation placeholders:', Object.keys(updatedConversationValues));
+
+        // ====================================================================
+        // ❌ REMOVED: Search API auto-call
+        // ❌ REMOVED: Example generation auto-call
+        // User must click "Regenerate" button manually
+        // ====================================================================
+
+        // ====================================================================
+        // 💾 SAVE ONLY CONVERSATION PLACEHOLDERS TO DATABASE
+        // ====================================================================
+        const storedId = sessionStorage.getItem('newCampaignId');
+        const activeCampaignId = editTemplateId ?? (storedId ? Number(storedId) : null);
+
+        if (activeCampaignId) {
+          try {
+            await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
+              id: activeCampaignId,
+              placeholderValues: updatedConversationValues, // ✅ Only conversation placeholders
+            });
+            console.log('💾 Saved conversation placeholders to DB (no auto-generation)');
+          } catch (err) {
+            console.warn('⚠️ Failed to save placeholders:', err);
+          }
         }
       }
 
-      // 🧠 Also show cleaned bot message (without placeholders) in chat
       const botMessage: Message = {
         type: 'bot',
         content: cleanText,
@@ -1570,33 +1717,26 @@ const handleSendMessage = async () => {
       playNotificationSound();
     }
 
-    // ✅ 3️⃣ Handle exampleOutput from response directly (rare case)
-    if (data.exampleOutput) {
-      setExampleOutput(data.exampleOutput);
-      console.log(
-        `✅ Example output updated (${data.placeholdersUpdated?.length || 0} placeholders filled)`
-      );
-    }
-
-    // 🏁 4️⃣ Handle conversation completion
+    // ====================================================================
+    // HANDLE COMPLETION
+    // ====================================================================
     if (data.isComplete) {
       const completionMessage: Message = {
         type: 'bot',
-        content:
-          "🎉 Great! I've filled in all placeholders. Check the 'Final Result' tab.",
+        content: "🎉 Great! I've filled in all placeholders. Select a contact and click 'Regenerate' to see the personalized email.",
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, completionMessage]);
       setIsComplete(true);
-      setTimeout(() => setActiveTab('result'), 1500);
       return;
     }
 
-    // 💾 5️⃣ Edit Mode: Save Placeholder + Regenerate Example Output
+    // ====================================================================
+    // EDIT MODE FINALIZATION
+    // ====================================================================
     if (isEditMode && selectedPlaceholder && currentAnswer.trim()) {
       try {
         await finalizeEditPlaceholder(selectedPlaceholder, currentAnswer.trim());
-        console.log(`🧠 Finalized edit for {${selectedPlaceholder}}`);
       } catch (err) {
         console.warn('⚠️ finalizeEditPlaceholder failed:', err);
       }
@@ -1614,22 +1754,20 @@ const handleSendMessage = async () => {
   }
 };
 
+  // ====================================================================
+  // UPDATE TEMPLATE IN DATABASE (UNUSED - Can be removed if not needed)
+  // ====================================================================
   const updateTemplateInDatabase = async (updatedPlaceholderValues: Record<string, string>) => {
     if (!editTemplateId || !originalTemplateData) return;
 
     try {
-      const allowedPlaceholders = extractPlaceholders(masterPrompt);
-      const updatedFilledMaster = replacePlaceholdersInText(masterPrompt, updatedPlaceholderValues, allowedPlaceholders);
-      
-      const previewPlaceholders = extractPlaceholders(previewText);
-      const updatedFilledPreview = replacePlaceholdersInText(previewText, updatedPlaceholderValues, previewPlaceholders);
+      // ✅ Only use conversation placeholders for database update
+      const conversationOnly = getConversationPlaceholders(updatedPlaceholderValues);
 
       const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
         id: editTemplateId,
-        placeholderListWithValue: updatedFilledMaster,
-        campaignBlueprint: updatedFilledPreview,
+        placeholderValues: conversationOnly, // ✅ Only conversation placeholders
         selectedModel: selectedModel,
-        placeholderValues: updatedPlaceholderValues,
       });
 
       if (!response.data.success) {
@@ -1641,8 +1779,9 @@ const handleSendMessage = async () => {
     }
   };
 
- 
-
+  // ====================================================================
+  // HANDLE KEY PRESS
+  // ====================================================================
   const handleKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -1650,13 +1789,19 @@ const handleSendMessage = async () => {
     }
   };
 
+  // ====================================================================
+  // COPY TO CLIPBOARD
+  // ====================================================================
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
- const resetAll = () => {
+  // ====================================================================
+  // RESET ALL
+  // ====================================================================
+  const resetAll = () => {
     if (isEditMode) return;
     
     if (effectiveUserId) {
@@ -1671,7 +1816,7 @@ const handleSendMessage = async () => {
     setOriginalTemplateData(null);
     setSelectedPlaceholder("");
     setSelectedTemplateDefinitionId(null);
-    setTemplateName(""); // ✅ NEW
+    setTemplateName("");
 
     setMessages([]);
     setFinalPrompt('');
@@ -1687,266 +1832,142 @@ const handleSendMessage = async () => {
     setSelectedModel("gpt-5");
     setActiveTab('template');
   };
+  const [userRole, setUserRole] = useState<string>(""); // Store user role
 
+  // ====================================================================
+  // CURRENT PLACEHOLDERS
+  // ====================================================================
   const currentPlaceholders = extractPlaceholders(masterPrompt);
-
-
-// ⚙️ inside MasterPromptCampaignBuilder component
-const applyContactPlaceholders = async (contact: any) => {
-  if (!contact) return;
-
-  try {
-    // ============================================
-    // 🧠 STEP 1: Derive friendly / abbrev variants
-    // ============================================
-    const friendly =
-      contact.company_name?.replace(/\b(ltd|llc|limited|plc)\b/gi, "").trim() ||
-      contact.company_name;
-
-    const abbrev = friendly
-      ? friendly.toLowerCase().replace(/\s+/g, "-")
-      : "";
-
-    const [first = "", last = ""] = (contact.full_name || "").split(" ");
-
-    // ============================================
-    // 📦 STEP 2: Build placeholders for this contact
-    // ============================================
-    const contactValues: Record<string, string> = {
-      full_name: contact.full_name || "",
-      first_name: first,
-      last_name: last,
-      job_title: contact.job_title || "",
-      location: contact.country_or_address || "",
-      company_name: contact.company_name || "",
-      company_name_friendly: friendly || "",
-      company_name_abbrev: abbrev || "",
-      linkedin_url: contact.linkedin_url || "",
-    };
-
-    // ============================================
-    // 🔄 STEP 3: Replace placeholders in local state
-    // (overwrite previous contact data, keep AI/chat ones)
-    // ============================================
-    const mergedValues = { ...placeholderValues, ...contactValues };
-    setPlaceholderValues(mergedValues);
-
-    // ============================================
-    // 💾 STEP 4: Persist immediately to the database
-    // so backend has updated values for regeneration
-    // ============================================
-    const storedId = sessionStorage.getItem("newCampaignId");
-    const campaignId = editTemplateId ?? (storedId ? Number(storedId) : null);
-
-    if (campaignId) {
-      await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
-        id: campaignId,
-        placeholderValues: mergedValues,
-      });
-
-      console.log(`✅ Contact placeholders updated in DB for campaign ${campaignId}`);
-    } else {
-      console.warn("⚠️ Missing campaign ID — skipping DB update");
-    }
-
-    // ============================================
-    // ⚡ STEP 5: Regenerate Example Output immediately
-    // ============================================
-    await regenerateExampleOutput();
-    console.log("📧 Example output regenerated for selected contact");
-  } catch (error) {
-    console.error("⚠️ Error applying contact placeholders:", error);
-  }
-};
-
-return (
-  <div className="email-campaign-builder">
-    {isLoadingTemplate && (
-      <div className="loading-overlay">
-        <div className="loading-content">
-          <Loader2 size={48} className="spinning" />
-          <p>Loading template for editing...</p>
+  useEffect(() => {
+    const isAdminString = sessionStorage.getItem("isAdmin");
+    const isAdmin = isAdminString === "true"; // Correct comparison
+    setUserRole(isAdmin ? "ADMIN" : "USER");
+  }, []);
+  // ====================================================================
+  // RENDER
+  // ====================================================================
+  return (
+    <div className="email-campaign-builder">
+      {isLoadingTemplate && (
+        <div className="loading-overlay">
+          <div className="loading-content">
+            <Loader2 size={48} className="spinning" />
+            <p>Loading template for editing...</p>
+          </div>
         </div>
-      </div>
+      )}
+
+      {isLoadingDefinitions && (
+        <div className="loading-overlay">
+          <div className="loading-content">
+            <Loader2 size={48} className="spinning" />
+            <p>Loading template definitions...</p>
+          </div>
+        </div>
+      )}
+
+      <div className="campaign-builder-container">
+        <div className="campaign-builder-main">
+          
+<div className="tab-navigation">
+  <div className="tab-container">
+
+    <button 
+      onClick={() => setActiveTab('conversation')} 
+      className={`tab-button ${activeTab === 'conversation' ? 'active' : ''}`} 
+      disabled={!conversationStarted && !isEditMode}
+    >
+      <MessageSquare className="tab-button-icon" />
+      <span className="tab-button-text-desktop">Conversation</span>
+      <span className="tab-button-text-mobile">Chat</span>
+      {conversationStarted && !isComplete && (
+        <span className="status-indicator active"></span>
+      )}
+    </button>
+
+    {/* ✅ Settings tab visible only for ADMIN */}
+    {userRole === "ADMIN" && (
+      <button 
+        onClick={() => setActiveTab('template')} 
+        className={`tab-button ${activeTab === 'template' ? 'active' : ''}`}
+        disabled={isEditMode}
+      >
+        <FileText className="tab-button-icon" />
+        <span className="tab-button-text-mobile">Setup</span>
+        <span className="tab-button-text-desktop">Settings</span>
+      </button>
     )}
 
-    {/* ✅ REMOVED: EditInstructionsModal */}
-    {/* ✅ REMOVED: PlaceholderPicker */}
-
-    {isLoadingDefinitions && (
-      <div className="loading-overlay">
-        <div className="loading-content">
-          <Loader2 size={48} className="spinning" />
-          <p>Loading template definitions...</p>
-        </div>
-      </div>
-    )}
-
-    <div className="campaign-builder-container">
-      <div className="campaign-builder-main">
-        
-        
-        <div className="tab-navigation">
-          <div className="tab-container">
-            <button 
-              onClick={() => setActiveTab('template')} 
-              className={`tab-button ${activeTab === 'template' ? 'active' : ''}`}
-              disabled={isEditMode} // ✅ Disable template tab in edit mode
-            >
-              <FileText className="tab-button-icon" />
-              <span className="tab-button-text-desktop">Settings</span>
-              <span className="tab-button-text-mobile">Setup</span>
-            </button>
-            
-            <button 
-              onClick={() => setActiveTab('conversation')} 
-              className={`tab-button ${activeTab === 'conversation' ? 'active' : ''}`} 
-              disabled={!conversationStarted && !isEditMode}
-            >
-              <MessageSquare className="tab-button-icon" />
-              <span className="tab-button-text-desktop">Conversation</span>
-              <span className="tab-button-text-mobile">Chat</span>
-              {conversationStarted && !isComplete && <span className="status-indicator active"></span>}
-            </button>
-            
-            {/* <button 
-              onClick={() => setActiveTab('result')} 
-              className={`tab-button ${activeTab === 'result' ? 'active' : ''}`} 
-              disabled={!isComplete && !isEditMode}
-            >
-              <CheckCircle className="tab-button-icon" />
-              <span className="tab-button-text-desktop">Final Result</span>
-              <span className="tab-button-text-mobile">Result</span>
-              {isComplete && <span className="status-indicator complete"></span>}
-            </button> */}
-          </div>
-        </div>
-
-        <div className="tab-content">
-          {activeTab === 'template' && !isEditMode && (
-            <TemplateTab 
-              masterPrompt={masterPrompt}
-              setMasterPrompt={setMasterPrompt}
-              masterPromptExtensive={masterPromptExtensive}
-              setMasterPromptExtensive={setMasterPromptExtensive}
-              systemPrompt={systemPrompt}
-              setSystemPrompt={setSystemPrompt}
-              systemPromptForEdit={systemPromptForEdit}
-              setSystemPromptForEdit={setSystemPromptForEdit}
-              previewText={previewText}
-              setPreviewText={setPreviewText}
-              startConversation={startConversation}
-              currentPlaceholders={currentPlaceholders}
-              extractPlaceholders={extractPlaceholders}
-              selectedModel={selectedModel}
-              setSelectedModel={setSelectedModel}
-              availableModels={availableModels}
-              saveTemplateDefinition={saveTemplateDefinition}
-              isSavingDefinition={isSavingDefinition}
-              saveDefinitionStatus={saveDefinitionStatus}
-              templateDefinitions={templateDefinitions}
-              loadTemplateDefinition={loadTemplateDefinitionById}
-              selectedTemplateDefinitionId={selectedTemplateDefinitionId}
-              templateName={templateName}
-              setTemplateName={setTemplateName}
-            />
-          )}
-          {activeTab === 'conversation' && (
-            <ConversationTab 
-              conversationStarted={conversationStarted}
-              messages={messages}
-              isTyping={isTyping}
-              isComplete={isComplete}
-              currentAnswer={currentAnswer}
-              setCurrentAnswer={setCurrentAnswer}
-              handleSendMessage={handleSendMessage}
-              handleKeyPress={handleKeyPress}
-              chatEndRef={chatEndRef}
-              resetAll={resetAll}
-              // ✅ NEW: Pass edit mode props
-              isEditMode={isEditMode}
-              availablePlaceholders={extractPlaceholders(masterPrompt)}
-              placeholderValues={placeholderValues}
-              onPlaceholderSelect={startEditConversation}
-              selectedPlaceholder={selectedPlaceholder}
-              previewText={previewText}
-              exampleOutput={exampleOutput}
-              regenerateExampleOutput={regenerateExampleOutput}
-
-
-              dataFiles={dataFiles}
-              contacts={contacts}
-              selectedDataFileId={selectedDataFileId}
-              selectedContactId={selectedContactId}
-              handleSelectDataFile={handleSelectDataFile}
-              setSelectedContactId={setSelectedContactId}
-
-              applyContactPlaceholders={applyContactPlaceholders}
-
-            />
-          )}
-          {/* {activeTab === 'result' && (
-            <ResultTab
-              isComplete={isComplete || isEditMode}
-              finalPrompt={finalPrompt}
-              finalPreviewText={finalPreviewText}
-              previewText={previewText}
-              copied={copied}
-              copyToClipboard={copyToClipboard}
-              resetAll={resetAll}
-              systemPrompt={systemPrompt}
-              masterPrompt={masterPrompt}
-              placeholderValues={placeholderValues}
-              selectedModel={selectedModel}
-              effectiveUserId={effectiveUserId}
-              messages={messages}
-              selectedTemplateDefinitionId={selectedTemplateDefinitionId}
-            />
-          )} */}
-        </div>
-      </div>
-
-      <details className="tips-section">
-        <summary className="tips-header">
-          <Eye size={20} className="icon" />
-          How to Use
-        </summary>
-        <div className="tips-grid">
-          <div className="tip-item">
-            <div className="tip-number">1</div>
-            <div className="tip-content">
-              <h4>Select Model & Enter Templates</h4>
-              <p>Choose your GPT-5 model, define AI instructions, master template, and optional additional text with {'{'}placeholders{'}'}.</p>
-            </div>
-          </div>
-          <div className="tip-item">
-            <div className="tip-number">2</div>
-            <div className="tip-content">
-              <h4>Chat with the AI</h4>
-              <p>Answer the AI's questions to provide values for each placeholder.</p>
-            </div>
-          </div>
-          <div className="tip-item">
-            <div className="tip-number">3</div>
-            <div className="tip-content">
-              <h4>Get Final Results</h4>
-              <p>View your completed templates with all placeholders filled with actual values.</p>
-            </div>
-          </div>
-        </div>
-        <div className="tip-highlight">
-          <p>
-            <span className="highlight">💡 Tip:</span> 
-            {isEditMode 
-              ? "In edit mode, select a placeholder from the dropdown to start editing. The AI will use the edit instructions defined in the template definition."
-              : "The additional text field is perfect for email signatures, disclaimers, or any content that shares the same placeholder values as your main template."
-            }
-          </p>
-        </div>
-      </details>
-    </div>
   </div>
-);
+</div>
+
+
+          <div className="tab-content">
+            {activeTab === 'template' && !isEditMode && (
+              <TemplateTab 
+                masterPrompt={masterPrompt}
+                setMasterPrompt={setMasterPrompt}
+                masterPromptExtensive={masterPromptExtensive}
+                setMasterPromptExtensive={setMasterPromptExtensive}
+                systemPrompt={systemPrompt}
+                setSystemPrompt={setSystemPrompt}
+                systemPromptForEdit={systemPromptForEdit}
+                setSystemPromptForEdit={setSystemPromptForEdit}
+                previewText={previewText}
+                setPreviewText={setPreviewText}
+                startConversation={startConversation}
+                currentPlaceholders={currentPlaceholders}
+                extractPlaceholders={extractPlaceholders}
+                selectedModel={selectedModel}
+                setSelectedModel={setSelectedModel}
+                availableModels={availableModels}
+                saveTemplateDefinition={saveTemplateDefinition}
+                isSavingDefinition={isSavingDefinition}
+                saveDefinitionStatus={saveDefinitionStatus}
+                templateDefinitions={templateDefinitions}
+                loadTemplateDefinition={loadTemplateDefinitionById}
+                selectedTemplateDefinitionId={selectedTemplateDefinitionId}
+                templateName={templateName}
+                setTemplateName={setTemplateName}
+              />
+            )}
+            {activeTab === 'conversation' && (
+              <ConversationTab 
+                conversationStarted={conversationStarted}
+                messages={messages}
+                isTyping={isTyping}
+                isComplete={isComplete}
+                currentAnswer={currentAnswer}
+                setCurrentAnswer={setCurrentAnswer}
+                handleSendMessage={handleSendMessage}
+                handleKeyPress={handleKeyPress}
+                chatEndRef={chatEndRef}
+                resetAll={resetAll}
+                isEditMode={isEditMode}
+                availablePlaceholders={extractPlaceholders(masterPrompt)}
+                placeholderValues={placeholderValues}
+                onPlaceholderSelect={startEditConversation}
+                selectedPlaceholder={selectedPlaceholder}
+                previewText={previewText}
+                exampleOutput={exampleOutput}
+                regenerateExampleOutput={regenerateExampleOutput}
+                dataFiles={dataFiles}
+                contacts={contacts}
+                selectedDataFileId={selectedDataFileId}
+                selectedContactId={selectedContactId}
+                handleSelectDataFile={handleSelectDataFile}
+                setSelectedContactId={setSelectedContactId}
+                applyContactPlaceholders={applyContactPlaceholders}
+              />
+            )}
+          </div>
+        </div>
+
+
+      </div>
+    </div>
+  );
 };
 
 export default MasterPromptCampaignBuilder;
+

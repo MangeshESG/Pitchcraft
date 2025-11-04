@@ -981,48 +981,49 @@ const generateExampleEmail = (template: CampaignTemplate) => {
           overflow: "hidden"
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            padding: "12px 16px",
-            borderBottom: "1px solid #e5e7eb",
-            background: "#f9fafb"
-          }}
-        >
-          <button
-           onClick={async () => {
-            // ✅ Close UI first
-            setShowCampaignBuilder(false);
+<div
+  style={{
+    display: "flex",
+    justifyContent: "flex-start", // ⬅️ Move to left side
+    padding: "12px 16px",
+    borderBottom: "1px solid #e5e7eb",
+    background: "#f9fafb"
+  }}
+>
+  <button
+    onClick={async () => {
+      // ✅ Close UI first
+      setShowCampaignBuilder(false);
 
-            // ✅ Give React state a tick before cleanup
-            setTimeout(async () => {
-              // Only clear temp campaign session, not builder state keys used later
-              sessionStorage.removeItem("newCampaignId");
-              sessionStorage.removeItem("newCampaignName");
-              sessionStorage.removeItem("autoStartConversation");
-              sessionStorage.removeItem("openConversationTab");
+      // ✅ Give React state a tick before cleanup
+      setTimeout(async () => {
+        // Only clear temp campaign session, not builder state keys used later
+        sessionStorage.removeItem("newCampaignId");
+        sessionStorage.removeItem("newCampaignName");
+        sessionStorage.removeItem("autoStartConversation");
+        sessionStorage.removeItem("openConversationTab");
 
-              // Don’t remove selectedTemplateDefinitionId – we need that next time
+        // Don’t remove selectedTemplateDefinitionId – we need that next time
 
-              // ✅ Refresh campaign list
-              await fetchCampaignTemplates();
-            }, 300);
-          }}
-            style={{
-              background: "#dc3545",
-              color: "#fff",
-              border: "none",
-              borderRadius: "8px",
-              padding: "8px 16px",
-              cursor: "pointer",
-              fontSize: "14px",
-              fontWeight: "bold"
-            }}
-          >
-            View blueprints
-          </button>
-        </div>
+        // ✅ Refresh campaign list
+        await fetchCampaignTemplates();
+      }, 300);
+    }}
+    style={{
+      background: "#3f9f42", // ✅ Match PitchKraft green
+      color: "#fff",
+      border: "none",
+      borderRadius: "8px",
+      padding: "8px 16px",
+      cursor: "pointer",
+      fontSize: "14px",
+      fontWeight: "bold"
+    }}
+  >
+    ← Back to blueprints
+  </button>
+</div>
+
 
         <div style={{ padding: "20px" }}>
           <EmailCampaignBuilder selectedClient={selectedClient} />

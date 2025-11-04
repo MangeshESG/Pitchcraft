@@ -3572,6 +3572,11 @@ const MainPage: React.FC = () => {
     }));
   };
 
+
+  const [showBlueprintSubmenu, setShowBlueprintSubmenu] = useState<boolean>(false);
+const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
+
+
   return (
     // <div className="login-container pitch-page flex-col d-flex">
     <div className="flex h-full bg-gray-100">
@@ -3646,26 +3651,76 @@ const MainPage: React.FC = () => {
                         <span className="menu-text">Templates</span>
                       </button>
                     </li>
-                    <li className={tab === "TestTemplate" ? "active" : ""}>
-                        <button
-                          onClick={() => {
-                            setTab("TestTemplate");
-                            setShowMailSubmenu(false);
-                            setShowContactsSubmenu(false);
-                             navigate("/main");
-                          }}
-                          className="side-menu-button"
-                          title="Manage test templates"
-                        >
-                          <span className="menu-icon">
-                            <FontAwesomeIcon
-                              icon={faFileAlt}
-                              className=" text-[#333333] text-lg"
-                            />
-                          </span>
-                          <span className="menu-text">Blueprints</span>
-                        </button>
-                      </li>
+
+
+<li
+  className={`${tab === "TestTemplate" ? "active" : ""} ${
+    showBlueprintSubmenu ? "has-submenu submenu-open" : "has-submenu"
+  }`}
+>
+  <button
+    onClick={() => {
+      if (tab !== "TestTemplate") {
+        setTab("TestTemplate");
+        setShowBlueprintSubmenu(true);
+        setShowMailSubmenu(false);
+        setShowContactsSubmenu(false);
+        navigate("/main");
+      } else {
+        setShowBlueprintSubmenu((prev: boolean) => !prev);
+      }
+    }}
+    className="side-menu-button"
+    title="Manage test templates and playground"
+  >
+    <span className="menu-icon">
+      <FontAwesomeIcon icon={faFileAlt} className="text-[#333333] text-lg" />
+    </span>
+    <span className="menu-text">Blueprints</span>
+    <span className="submenu-arrow">
+      <FontAwesomeIcon
+        icon={faAngleRight}
+        className="text-[#333333] text-lg"
+      />
+    </span>
+  </button>
+
+  {/* Submenu items */}
+  {showBlueprintSubmenu && (
+    <ul className="submenu">
+      {/* Normal Blueprint list */}
+      <li className={blueprintSubTab === "List" ? "active" : ""}>
+        <button
+          onClick={() => {
+            setBlueprintSubTab("List");
+            setTab("TestTemplate");
+            navigate("/main");
+          }}
+          className="submenu-button"
+        >
+          Blueprints
+        </button>
+      </li>
+
+      {/* ADMIN only Playground */}
+      {userRole === "ADMIN" && (
+        <li className={blueprintSubTab === "Playground" ? "active" : ""}>
+          <button
+            onClick={() => {
+              setBlueprintSubTab("Playground");
+              setTab("Playground");
+              navigate("/main?tab=Playground");
+            }}
+            className="submenu-button"
+          >
+            Playground
+          </button>
+        </li>
+      )}
+    </ul>
+  )}
+</li>
+
 
                     <li
                       className={`${tab === "DataCampaigns" ? "active" : ""} ${showContactsSubmenu
@@ -4789,7 +4844,7 @@ const MainPage: React.FC = () => {
                 onTabChange={setMailSubTab}
               />
             )}
-            {tab === "CampaignBuilder" && userRole === "ADMIN" && (
+            {tab === "Playground" && userRole === "ADMIN" && (
               <EmailCampaignBuilder selectedClient={selectedClient} />
             )}
 
