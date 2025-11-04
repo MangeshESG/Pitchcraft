@@ -52,8 +52,9 @@ const PlanHistory: React.FC = () => {
   const customerId = reduxUserId || "1";
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return '';
     const date = new Date(dateString);
-    if (isNaN(date.getTime())) return '-';
+    if (isNaN(date.getTime())) return '';
     return date.toLocaleDateString('en-GB', {
       day: 'numeric',
       month: 'short',
@@ -312,7 +313,7 @@ const PlanHistory: React.FC = () => {
                                 <td>{subscription.planName || 'Unknown'}</td>
                                 <td>{formatAmount(subscription.planAmount)}</td>
                                 <td style={{ textTransform: 'capitalize' }}>
-                                  {subscription.interval || 'Unknown'}
+                                  {subscription.interval || ''}
                                 </td>
                                 <td>{getStatusBadge(subscription.status)}</td>
                                 <td>{formatDate(subscription.startDate)}</td>

@@ -6,7 +6,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
 import AeroplaneImg from "../../assets/images/aeroplane.png";
 import RocketImg from "../../assets/images/rocket.png";
-import PetrolPumpImg from "../../assets/images/petrol-pump.svg";
+import PetrolPumpImg from "../../assets/images/petrol-pump.png";
 import API_BASE_URL from "../../config";
 import pitchLogo from "../../assets/images/pitch_logo.png";
 import { loadStripe } from "@stripe/stripe-js";
@@ -213,6 +213,28 @@ const Planes: React.FC = () => {
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [showCreditsModal, setShowCreditsModal] = useState(false);
   const [creditAmount, setCreditAmount] = useState(100);
+  const [isYearly, setIsYearly] = useState(false);
+  const [currentPlan, setCurrentPlan] = useState<string | null>(null);
+  const [currentInterval, setCurrentInterval] = useState<string | null>(null);
+
+  const fetchCurrentPlan = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/stripe/active/${effectiveUserId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setCurrentPlan(data.plane || null);
+        setCurrentInterval(data.interval || null);
+      }
+    } catch (error) {
+      console.error('Error fetching current plan:', error);
+    }
+  };
+
+  React.useEffect(() => {
+    if (effectiveUserId) {
+      fetchCurrentPlan();
+    }
+  }, [effectiveUserId]);
 
   const handleGoBack = () => {
     setClientSecret(null);
@@ -235,6 +257,7 @@ const Planes: React.FC = () => {
           userId: effectiveUserId,
           email: "testuser@example.com",
           priceId: plan.planCode,
+          interval: isYearly ? "Yearly" : "Monthly",
         }),
       });
 
@@ -291,9 +314,40 @@ const Planes: React.FC = () => {
 
   return (
     <div>
+      {/* Billing Toggle */}
+      <div className="flex justify-center mb-8">
+        <div className="bg-gray-100 p-1 rounded-lg flex items-center">
+          <button
+            onClick={() => setIsYearly(false)}
+            className={`px-4 py-2 rounded-md transition-colors ${
+              !isYearly ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600'
+            }`}
+          >
+            Monthly
+          </button>
+          <button
+            onClick={() => setIsYearly(true)}
+            className={`px-4 py-2 rounded-md transition-colors ${
+              isYearly ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600'
+            }`}
+          >
+            Yearly <span className="text-green-600 text-sm font-medium">-20%</span>
+          </button>
+        </div>
+      </div>
       <div className="pricing-table">
-        {plans.map((plan, index) => (
-          <div className="card" key={index}>
+        {plans.map((plan, index) => {
+          const yearlyPrice = plan.planCode !== 'credits' ? plan.price * 12 * 0.8 : plan.price;
+          const displayPrice = isYearly && plan.planCode !== 'credits' ? yearlyPrice : plan.price;
+          const displayPeriod = isYearly && plan.planCode !== 'credits' ? '/year' : plan.period;
+          const currentBillingType = isYearly ? 'Yearly' : 'Monthly';
+          const isExactSamePlan = !!currentPlan && currentPlan.toLowerCase() === plan.title.toLowerCase() && currentInterval?.toLowerCase() === currentBillingType.toLowerCase();
+          const canUpgrade = !!currentPlan && (currentPlan.toLowerCase() === 'standard' && plan.title.toLowerCase() === 'premium');
+          const canSwitchInterval = !!currentPlan && currentPlan.toLowerCase() === plan.title.toLowerCase() && currentInterval?.toLowerCase() !== currentBillingType.toLowerCase();
+          const cannotBuy = !!currentPlan && (currentPlan.toLowerCase() === 'premium' && plan.title.toLowerCase() === 'standard');
+          
+          return (
+          <div className="card" key={index} title={isExactSamePlan ? 'You already have this plan with same billing' : cannotBuy ? 'Cannot downgrade to lower plan' : canSwitchInterval ? 'Switch billing interval' : ''}>
             <div className="container">
               {plan.icon.startsWith('http') || plan.icon.includes('.') ? (
                 <img src={plan.icon} alt={plan.title} className="x mr-10" />
@@ -302,9 +356,14 @@ const Planes: React.FC = () => {
               )}
               <div className="yz">
                 <h3 className="y">{plan.title}</h3>
-                <span className="z">${plan.price}</span>
+                <div className="z">${displayPrice.toFixed(2)}</div>
+                {isYearly && plan.planCode !== 'credits' && (
+                  <div style={{fontSize: '14px', opacity: 0.75, textDecoration: 'line-through'}}>
+                    ${(plan.price * 12).toFixed(2)}
+                  </div>
+                )}
+                <div className="A">{displayPeriod}</div>
               </div>
-              <div className="A">{plan.period}</div>
             </div>
             <ul className="features-list">
               {plan.features.map((feature, i) => (
@@ -314,11 +373,19 @@ const Planes: React.FC = () => {
                 </li>
               ))}
             </ul>
-            <button className="try-button" onClick={() => handleTryItNowClick(plan)}>
-              <FontAwesomeIcon icon={faCloudDownloadAlt} /> {plan.buttonText}
+            <button 
+              className={`try-button ${(isExactSamePlan || cannotBuy) ? 'disabled' : ''}`}
+              onClick={() => {
+                if (isExactSamePlan || cannotBuy) return;
+                handleTryItNowClick({...plan, price: displayPrice, period: displayPeriod});
+              }}
+              disabled={isExactSamePlan || cannotBuy}
+            >
+              <FontAwesomeIcon icon={faCloudDownloadAlt} /> 
+              {isExactSamePlan ? 'Current Plan' : cannotBuy ? 'Cannot Downgrade' : canSwitchInterval ? `Switch to ${currentBillingType}` : canUpgrade ? 'Upgrade' : plan.buttonText}
             </button>
           </div>
-        ))}
+        )})}
       </div>
 
       {/* Credits Selection Modal */}
