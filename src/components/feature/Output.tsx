@@ -796,7 +796,7 @@ const Output: React.FC<OutputInterface> = ({
 
   // Get token and userId (add if not already present)
   const token = sessionStorage.getItem("token");
-//  const userId = sessionStorage.getItem("clientId");
+  //  const userId = sessionStorage.getItem("clientId");
   //const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
   const reduxUserId = useSelector((state: RootState) => state.auth.userId);
   const effectiveUserId = selectedClient !== "" ? selectedClient : reduxUserId;
@@ -1543,7 +1543,7 @@ const Output: React.FC<OutputInterface> = ({
                         onChange={settingsFormHandler}
                         className="!mr-0"
                       />
-                      <span className="text-[14px]">Overwrite</span>
+                      <span className="text-[14px] font-bold">Overwrite</span>
                     </label>
                     <span>
                       <ReactTooltip anchorSelect="#overwrite-checkbox" place="top">
@@ -1795,7 +1795,7 @@ const Output: React.FC<OutputInterface> = ({
         </div>
 
         {/* Contact index */}
-        <div className="d-flex align-items-center font-size-medium">
+        {/* <div className="d-flex align-items-center font-size-medium">
           <strong>Contact:</strong>
           <input
             type="number"
@@ -1813,7 +1813,14 @@ const Output: React.FC<OutputInterface> = ({
             min="1"
             max={combinedResponses.length}
             className="form-control text-center !mx-2"
-            style={{ width: "70px", padding: "8px" }}
+            style={{  width: "55px",
+      height: "28px",
+      padding: "0",
+      fontSize: "14px",
+      textAlign: "center",
+      lineHeight: "1",
+      border: "1px solid #ccc",
+      borderRadius: "4px",}}
           />
           of{" "}
           {selectedZohoviewId
@@ -1826,18 +1833,63 @@ const Output: React.FC<OutputInterface> = ({
                 : combinedResponses.length;
             })()
             : zohoClient.reduce((sum, client) => sum + client.totalContact, 0)}
+        </div> */}
+        <div
+          className="flex items-center text-[14px]"
+          style={{ gap: "6px" }}
+        >
+          <strong>Contact:</strong>
+          <input
+            type="number"
+            value={inputValue}
+            onChange={handleIndexChange}
+            onBlur={() => {
+              if (
+                inputValue.trim() === "" ||
+                isNaN(parseInt(inputValue, 10)) ||
+                parseInt(inputValue, 10) < 1
+              ) {
+                setInputValue((currentIndex + 1).toString());
+              }
+            }}
+            min="1"
+            max={combinedResponses.length}
+            className="text-center border border-gray-300 rounded font-normal"
+            style={{
+              width: "55px",
+              height: "28px",
+              fontSize: "14px",
+              lineHeight: "1.2",
+              padding: "2px 0",
+            }}
+          />
+          <span className="font-normal">of</span>
+          <span className="font-normal">
+            {selectedZohoviewId
+              ? (() => {
+                const selectedView = zohoClient.find(
+                  (client) => client.zohoviewId === selectedZohoviewId
+                );
+                return selectedView
+                  ? selectedView.totalContact
+                  : combinedResponses.length;
+              })()
+              : zohoClient.reduce((sum, client) => sum + client.totalContact, 0)}
+          </span>
         </div>
+
+
         {/* Add this inside your green box area */}
-        <div style={{
+        {/* <div style={{
           padding: '10px',
           backgroundColor: '#e8f5e9',
           border: '1px solid #4caf50',
           borderRadius: '4px',
           marginBottom: '10px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            {/* Date Range Selection */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+        }}> */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          {/* Date Range Selection */}
+          {/* <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
               <span style={{ fontSize: '13px', fontWeight: '600' }}>Date range:</span>
               <input
                 type="date"
@@ -1876,10 +1928,10 @@ const Output: React.FC<OutputInterface> = ({
                   fontSize: '13px'
                 }}
               />
-            </div>
+            </div> */}
 
-            {/* Filter Buttons */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+          {/* Filter Buttons */}
+          {/* <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
               <button
                 type="button"
                 onClick={() => {
@@ -1925,48 +1977,48 @@ const Output: React.FC<OutputInterface> = ({
               >
                 Email Sent Date
               </button>
-            </div>
+            </div> */}
 
-            {/* Clear Filters Button */}
+          {/* Clear Filters Button */}
+          {(dateFilter.kraftedDateEnabled || dateFilter.sentDateEnabled) && (
+            <button
+              type="button"
+              onClick={() => {
+                setDateFilter({
+                  startDate: '',
+                  endDate: '',
+                  kraftedDateEnabled: false,
+                  sentDateEnabled: false,
+                  includeNullKrafted: false,
+                  includeNullSent: false
+                });
+              }}
+              style={{
+                padding: '5px 10px',
+                border: '1px solid #f44336',
+                borderRadius: '4px',
+                backgroundColor: 'white',
+                color: '#f44336',
+                cursor: 'pointer',
+                fontSize: '13px'
+              }}
+            >
+              Clear filters
+            </button>
+          )}
+
+          {/* Show filter status */}
+          <div style={{ fontSize: '12px', color: '#666', marginLeft: 'auto' }}>
             {(dateFilter.kraftedDateEnabled || dateFilter.sentDateEnabled) && (
-              <button
-                type="button"
-                onClick={() => {
-                  setDateFilter({
-                    startDate: '',
-                    endDate: '',
-                    kraftedDateEnabled: false,
-                    sentDateEnabled: false,
-                    includeNullKrafted: false,
-                    includeNullSent: false
-                  });
-                }}
-                style={{
-                  padding: '5px 10px',
-                  border: '1px solid #f44336',
-                  borderRadius: '4px',
-                  backgroundColor: 'white',
-                  color: '#f44336',
-                  cursor: 'pointer',
-                  fontSize: '13px'
-                }}
-              >
-                Clear filters
-              </button>
+              <span>
+                Showing {combinedResponses.length} of {originalCombinedResponses.length} records
+                {dateFilter.includeNullKrafted && ' (showing non-krafted)'}
+                {dateFilter.includeNullSent && ' (showing non-sent)'}
+              </span>
             )}
-
-            {/* Show filter status */}
-            <div style={{ fontSize: '12px', color: '#666', marginLeft: 'auto' }}>
-              {(dateFilter.kraftedDateEnabled || dateFilter.sentDateEnabled) && (
-                <span>
-                  Showing {combinedResponses.length} of {originalCombinedResponses.length} records
-                  {dateFilter.includeNullKrafted && ' (showing non-krafted)'}
-                  {dateFilter.includeNullSent && ' (showing non-sent)'}
-                </span>
-              )}
-            </div>
           </div>
         </div>
+        {/* </div> */}
       </div>
 
 
@@ -2572,10 +2624,10 @@ const Output: React.FC<OutputInterface> = ({
                       style={{
                         width: "100%",
                         maxWidth: `${outputEmailWidth === "Mobile"
-                            ? "480px"
-                            : outputEmailWidth === "Tab"
-                              ? "768px"
-                              : "100%"
+                          ? "480px"
+                          : outputEmailWidth === "Tab"
+                            ? "768px"
+                            : "100%"
                           }`,
                       }}
                     >
@@ -2816,10 +2868,10 @@ const Output: React.FC<OutputInterface> = ({
                           wordWrap: "break-word",
                           width: "100%",
                           maxWidth: `${outputEmailWidth === "Mobile"
-                              ? "480px"
-                              : outputEmailWidth === "Tab"
-                                ? "768px"
-                                : "100%"
+                            ? "480px"
+                            : outputEmailWidth === "Tab"
+                              ? "768px"
+                              : "100%"
                             }`,
                         }}
                         dangerouslySetInnerHTML={{

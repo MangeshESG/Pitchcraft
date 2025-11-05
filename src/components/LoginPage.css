@@ -11,13 +11,13 @@
 /* 🌟 Box Wrapper */
 .login-boxx {
   background: white;
-  padding: 2rem;
+  padding: 1.5rem;
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-  width: 30%;
+  width: 400px;
   animation: fadeIn 0.4s ease-in-out;
   position: relative;
-  margin-top: 190px;
+  margin-top: 100px;
 }
 
 /* Fade-in animation for smooth UX */
@@ -34,7 +34,7 @@
   transform: translateX(-50%);
   color: #ffffff; /* white text */
   font-size: 24px;
-  font-weight: 600;
+  font-weight: 400;
   margin: 0;
   text-align: center;
   background: transparent;
@@ -52,15 +52,17 @@
   margin-bottom: 0.5rem;
   font-weight: 600;
   color: #333;
+  font-size: 14px;
 }
 
 /* Inputs */
 .login-boxx input {
-  padding: 0.75rem;
+  padding: 0.5rem 0.75rem;
   border: 1px solid #ddd;
   border-radius: 4px;
   margin-bottom: 1rem;
   font-size: 14px;
+  height: 40px;
 }
 .login-boxx input:focus {
   /* outline: none; */
@@ -74,12 +76,13 @@
   background: #3f9f42;;
   color: white;
   font-weight: 600;
-  padding: 0.75rem;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  margin-top: 0.5rem;
+  margin-top: 0.3rem;
   transition: all 0.3s ease;
+  font-size: 14px;
+  padding: 8px 16px;
 }
 
 .login-button:hover,
@@ -149,3 +152,66 @@
 .register-offset {
   margin-top: 30px; /* or any value that works for your layout */
 }
+.password-wrapper {
+  position: relative;
+}
+
+.password-wrapper input {
+  width: 100%;
+  padding-right: 40px;
+  border: 1.5px solid #ccc;
+  border-radius: 12px;
+  height: 38px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.password-wrapper.valid input {
+  border-color:#ccc; /* green */
+}
+
+.password-wrapper.invalid input {
+  border-color: #d93025; /* red */
+}
+
+.password-toggle {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  color: #555;
+  font-size: 1.2rem;
+}
+
+.password-validation {
+  margin-top: 4px;
+  font-size: 13px;
+}
+
+/* .valid-text {
+  color: #00b140;
+}
+
+.invalid-text {
+  color: #d93025;
+} */
+ .password-hint {
+  margin-top: 5px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Gray ✓ hint when valid */
+.hint-valid {
+  color: #777;
+}
+
+/* Red hint when invalid */
+.hint-invalid {
+  color: #d93025;
+}
+
+

@@ -5,6 +5,7 @@ import { RootState } from "../../Redux/store";
 import { useAppData } from "../../contexts/AppDataContext";
 import AppModal from "../common/AppModal";
 import { useAppModal } from "../../hooks/useAppModal";
+import PaginationControls from "./PaginationControls";
 
 interface CampaignManagementProps {
   selectedClient: string;
@@ -570,7 +571,17 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
       document.removeEventListener("click", handleClickOutside);
     };
   }, [campaignActionsAnchor]);
+const [currentPage, setCurrentPage] = useState(1);
+const pageSize = 5; // or 10, adjust as needed
 
+// Calculate total pages
+const totalPages = Math.ceil(filteredCampaigns.length / pageSize);
+
+// Paginated data
+const paginatedCampaigns = filteredCampaigns.slice(
+  (currentPage - 1) * pageSize,
+  currentPage * pageSize
+);
   return (
     <div className="data-campaigns-container">
       <div className="section-wrapper">
@@ -771,6 +782,13 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
             )}
           </tbody>
         </table>
+          <PaginationControls
+  currentPage={currentPage}
+  totalPages={totalPages}
+  pageSize={pageSize}
+  totalRecords={filteredCampaigns.length}
+  setCurrentPage={setCurrentPage}
+/>
       </div>
 
       {/* Create/Edit Campaign Modal */}

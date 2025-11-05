@@ -42,6 +42,7 @@ import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import {saveUserCredit} from "../slices/authSLice";
 import { useCreditCheck } from "../hooks/useCreditCheck";
 import CreditCheckModal from "./common/CreditCheckModal";
+import Myplan from "./feature/Myplan";
 
 
 interface Prompt {
@@ -3514,6 +3515,7 @@ const MainPage: React.FC = () => {
       usage: "", // Correctly clears the usage field
     }));
   };
+  <Header onUpgradeClick={() => setTab("MyPlan")} connectTo={true} />
 
   return (
     // <div className="login-container pitch-page flex-col d-flex">
@@ -3891,6 +3893,7 @@ const MainPage: React.FC = () => {
             handleClientChange={handleClientChange}
             clientNames={clientNames}
             userRole={userRole}
+             onUpgradeClick={() => setTab("MyPlan")} 
           />
         </header>
 
@@ -4708,6 +4711,7 @@ const MainPage: React.FC = () => {
                 <button onClick={() => handlePopupResponse(false)}>No</button>
               </div>
             )}
+            {tab === "MyPlan" && <Myplan />}
           </div>
         </main>
       </div>

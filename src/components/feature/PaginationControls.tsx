@@ -1,69 +1,151 @@
 import React from "react";
+import singleprvIcon from "../../assets/images/SinglePrv.png";
+import previousIcon from "../../assets/images/previous.png";
+import singlenextIcon from "../../assets/images/SingleNext.png";
+import nextIcon from "../../assets/images/Next.png";
 
 interface PaginationControlsProps {
   currentPage: number;
   totalPages: number;
-  startIndex: number;
+  totalRecords: number;
   pageSize: number;
-  filteredDataLength: number;
   setCurrentPage: React.Dispatch<React.SetStateAction<number>>;
 }
 
 const PaginationControls: React.FC<PaginationControlsProps> = ({
   currentPage,
   totalPages,
-  startIndex,
+  totalRecords,
   pageSize,
-  filteredDataLength,
   setCurrentPage,
 }) => {
+  const handlePrevPage = () => {
+    if (currentPage > 1) setCurrentPage(currentPage - 1);
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+  };
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) setCurrentPage(page);
+  };
+
   return (
     <div
+      className="d-flex justify-between align-center"
       style={{
+        marginTop: "16px",
         display: "flex",
-        justifyContent: "flex-end",
+        justifyContent: "space-between",
         alignItems: "center",
-        marginBottom: "12px",
-        marginTop: "12px",
-        gap: "10px",
       }}
     >
-      <div style={{ marginRight: "auto" }}>
-        Showing {startIndex + 1} to{" "}
-        {Math.min(startIndex + pageSize, filteredDataLength)} of{" "}
-        {filteredDataLength} items
+      <div className="pagination-info">
+        Showing {(currentPage - 1) * pageSize + 1} to{" "}
+        {Math.min(currentPage * pageSize, totalRecords)} of {totalRecords} items
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-        <button
-          disabled={currentPage === 1}
-          onClick={() => setCurrentPage((prev) => prev - 1)}
+      <div
+        className="pagination-controls"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "6px",
+        }}
+      >
+        {/* Left controls */}
+        <div style={{ display: "flex", alignItems: "center", gap: "2px" }}>
+          <button
+            className="pagination-btn"
+            disabled={currentPage === 1}
+            onClick={() => handlePageChange(1)}
+            title="First page"
+          >
+            <img
+              src={previousIcon}
+              alt="First"
+              style={{ width: "20px", height: "20px", objectFit: "contain" }}
+            />
+          </button>
+          <button
+            className="pagination-btn"
+            disabled={currentPage === 1}
+            onClick={handlePrevPage}
+            title="Previous page"
+            style={{ display: "flex", alignItems: "center", gap: "3px" }}
+          >
+            <img
+              src={singleprvIcon}
+              alt="Prev"
+              style={{ width: "20px", height: "20px", objectFit: "contain" }}
+            />
+            <span>Prev</span>
+          </button>
+        </div>
+
+        {/* Right controls */}
+        <div style={{ display: "flex", alignItems: "center", gap: "2px" }}>
+          <button
+            className="pagination-btn"
+            disabled={currentPage >= totalPages}
+            onClick={handleNextPage}
+            title="Next page"
+            style={{ display: "flex", alignItems: "center", gap: "3px" }}
+          >
+            <span>Next</span>
+            <img
+              src={singlenextIcon}
+              alt="Next"
+              style={{ width: "20px", height: "20px", objectFit: "contain" }}
+            />
+          </button>
+          <button
+            className="pagination-btn"
+            disabled={currentPage >= totalPages}
+            onClick={() => handlePageChange(totalPages)}
+            title="Last page"
+          >
+            <img
+              src={nextIcon}
+              alt="Last"
+              style={{ width: "20px", height: "20px", objectFit: "contain" }}
+            />
+          </button>
+        </div>
+
+        {/* Page display */}
+        <span
           style={{
-            padding: "5px 10px",
-            cursor: currentPage === 1 ? "not-allowed" : "pointer",
-            border: "1px solid #ddd",
-            borderRadius: "4px",
+            marginLeft: "16px",
+            fontSize: "14px",
+            color: "#000",
+            fontWeight: "600",
           }}
         >
-          &lt; Prev
-        </button>
-
-        <span>
-          Page {currentPage} of {totalPages}
+          Contact:
         </span>
-
-        <button
-          disabled={currentPage === totalPages}
-          onClick={() => setCurrentPage((prev) => prev + 1)}
+        <input
+          type="number"
+          value={currentPage}
+          onChange={(e) => {
+            const page = parseInt(e.target.value);
+            if (page >= 1 && page <= totalPages) handlePageChange(page);
+          }}
           style={{
-            padding: "5px 10px",
-            cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+            width: "45px",
+            padding: "4px 6px",
             border: "1px solid #ddd",
             borderRadius: "4px",
+            textAlign: "center",
+            fontSize: "14px",
+            color: "#000000",
+            fontWeight: "400",
           }}
-        >
-          Next &gt;
-        </button>
+        />
+        <span style={{ fontSize: "14px", color: "#000", fontWeight: "600" }}>
+          of {totalPages}
+        </span>
       </div>
     </div>
   );

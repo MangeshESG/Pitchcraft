@@ -15,6 +15,7 @@ import AppModal from "../common/AppModal";
 import { useAppModal } from "../../hooks/useAppModal";
 import { useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
+import PaginationControls from "./PaginationControls";
 
 type MailTabType = "Dashboard" | "Configuration" | "Schedule";
 
@@ -1052,7 +1053,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
 
     fetchBcc();
   }, [effectiveUserId]);
-const handleSave = () => {
+  const handleSave = () => {
     handleAddBcc();
     setNewBccEmail("");
     setShowPopup(false);
@@ -1407,7 +1408,7 @@ const handleSave = () => {
           <div className="data-campaigns-container">
             {/* Mailboxes Section */}
             <div className="section-wrapper">
-              <h2 style={{ color:"black" }} className="section-title">Mailboxes</h2>
+              <h2 style={{ color: "black", textAlign: "left" }} className="section-title">Mailboxes</h2>
 
               <div
                 style={{
@@ -1570,7 +1571,7 @@ const handleSave = () => {
 
             {/* BCC Email Management Section */}
             <div className="section-wrapper" style={{ marginTop: 40 }}>
-              <h2 style={{ color:"black" }} className="section-title">BCC email management</h2>
+              <h2 style={{ color: "black", textAlign: "left" }} className="section-title">BCC email management</h2>
               <div style={{ marginBottom: 4, color: "#555" }}>
                 Add BCC email addresses to receive copies of all sent emails.
               </div>
@@ -1662,7 +1663,7 @@ const handleSave = () => {
               {/* Popup Modal */}
               {showPopup && (
                 <div
-                onClick={() => setShowPopup(false)}
+                  onClick={() => setShowPopup(false)}
                   style={{
                     position: "fixed",
                     top: 0,
@@ -1677,7 +1678,7 @@ const handleSave = () => {
                   }}
                 >
                   <div
-                  onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
                     style={{
                       background: "#fff",
                       padding: 24,
@@ -1720,7 +1721,7 @@ const handleSave = () => {
                     </div>
                   </div>
                 </div>
-                )}
+              )}
             </div>
           </div>
 
@@ -2071,7 +2072,14 @@ const handleSave = () => {
               </table>
 
               {/* Pagination controls */}
-              <div
+              <PaginationControls
+                currentPage={currentPage}
+                totalPages={totalPages}
+                pageSize={rowsPerPage}               // ✅ use same variable
+                totalRecords={totalPages  } // ✅ use filtered length
+                setCurrentPage={setCurrentPage}
+              />
+              {/* <div
                 className="d-flex align-center justify-end"
                 style={{ marginTop: 16 }}
               >
@@ -2139,7 +2147,7 @@ const handleSave = () => {
                     style={{ width: 20, height: 20, marginLeft: 5 }}
                   />
                 </button>
-              </div>
+              </div> */}
             </div>
           </div>
 

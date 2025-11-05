@@ -285,7 +285,9 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   const totalPages = Math.ceil(filteredContacts.length / pageSize);
   const startIndex =
     filteredContacts.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-  const endIndex = Math.min(currentPage * pageSize, filteredContacts.length);
+  const endIndex = Math.min(currentPage * pageSize, filteredContacts.length)
+ // const endIndex = startIndex + pageSize;
+  //const currentData = filteredContacts.slice(startIndex, endIndex);
 
   // Load data when client changes
   useEffect(() => {
@@ -990,7 +992,9 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   };
   const totalPages1 = Math.ceil(filteredDatafiles.length / pageSize);
   const startIndex1 = (currentPage - 1) * pageSize;
-  const currentData = filteredDatafiles.slice(startIndex, startIndex + pageSize);
+  const endIndex1 = startIndex1 + pageSize;
+  const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
+  //const currentData = filteredDatafiles.slice(currentPage, currentPage + pageSize);
   return (
     <div className="data-campaigns-container">
       {/* Sub-tabs Navigation */}
@@ -1051,15 +1055,6 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                     <span className="text-[20px] mr-1">+</span> Create a list
                   </button>
                 </div>
-                 {/* ✅ Pagination on top right */}
-  <PaginationControls
-    currentPage={currentPage}
-    totalPages={totalPages}
-    startIndex={startIndex}
-    pageSize={pageSize}
-    filteredDataLength={filteredDatafiles.length}
-    setCurrentPage={setCurrentPage}
-  />
                 <table
                   className="contacts-table"
                   style={{ background: "#fff" }}
@@ -1303,62 +1298,13 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                     ))}
                   </tbody>
                 </table>
-                {/* Pagination controls */}
-                {/* <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginTop: "12px",
-                  }}
-                >
-                  <div>
-                    Showing {startIndex + 1} to{" "}
-                    {Math.min(startIndex + pageSize, filteredDatafiles.length)} of{" "}
-                    {filteredDatafiles.length} items
-                  </div>
-
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <button
-                      disabled={currentPage === 1}
-                      onClick={() => setCurrentPage((prev) => prev - 1)}
-                      style={{
-                        padding: "5px 10px",
-                        cursor: currentPage === 1 ? "not-allowed" : "pointer",
-                        border: "1px solid #ddd",
-                        borderRadius: "4px",
-                      }}
-                    >
-                     &lt; Prev
-                    </button>
-
-                    <span>
-                      Page {currentPage} of {totalPages}
-                    </span>
-
-                    <button
-                      disabled={currentPage === totalPages}
-                      onClick={() => setCurrentPage((prev) => prev + 1)}
-                      style={{
-                        padding: "5px 10px",
-                        cursor: currentPage === totalPages ? "not-allowed" : "pointer",
-                        border: "1px solid #ddd",
-                        borderRadius: "4px",
-                      }}
-                    >
-                      Next &gt;
-                    </button>
-                  </div>
-                </div> */}
-                 {/* ✅ Pagination on top right */}
   <PaginationControls
-    currentPage={currentPage}
-    totalPages={totalPages}
-    startIndex={startIndex}
-    pageSize={pageSize}
-    filteredDataLength={filteredDatafiles.length}
-    setCurrentPage={setCurrentPage}
-  />
+  currentPage={currentPage}
+  totalPages={totalPages}
+  pageSize={pageSize}
+  totalRecords={filteredDatafiles.length}
+  setCurrentPage={setCurrentPage}
+/>
 
               </>
             ) : (
@@ -1744,15 +1690,6 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                   />
                 </div>
                  {/* ✅ Pagination on top right */}
-  <PaginationControls
-    currentPage={currentPage}
-    totalPages={totalPages}
-    startIndex={startIndex}
-    pageSize={pageSize}
-    filteredDataLength={filteredDatafiles.length}
-    setCurrentPage={setCurrentPage}
-  />
-
                 <table
                   className="contacts-table"
                   style={{ background: "#fff" }}
@@ -2007,13 +1944,12 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                 </div> */}
                  {/* ✅ Pagination on top right */}
   <PaginationControls
-    currentPage={currentPage}
-    totalPages={totalPages}
-    startIndex={startIndex}
-    pageSize={pageSize}
-    filteredDataLength={filteredDatafiles.length}
-    setCurrentPage={setCurrentPage}
-  />
+  currentPage={currentPage}
+  totalPages={totalPages}
+  pageSize={pageSize}
+  totalRecords={filteredDatafiles.length}
+  setCurrentPage={setCurrentPage}
+/>
 
               </>
             ) : (

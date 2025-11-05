@@ -18,6 +18,10 @@ import Header from '../common/Header';
 import AppModal from '../common/AppModal';
 import API_BASE_URL from '../../config';
 import './ContactList.css';
+import singleprvIcon from "../../assets/images/SinglePrv.png";
+import previousIcon from "../../assets/images/previous.png";
+import singlenextIcon from "../../assets/images/SingleNext.png";
+import nextIcon from "../../assets/images/Next.png";
 
 interface Subscription {
   subscriptionId: string;
@@ -81,7 +85,7 @@ const PlanHistory: React.FC = () => {
     try {
       const url = `${API_BASE_URL}/api/stripe/get-user-plan_history?clientId=${customerId}&pageNumber=${page}&pageSize=${pageSize}`;
       console.log('Fetching from URL:', url);
-      
+
       const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -95,7 +99,7 @@ const PlanHistory: React.FC = () => {
 
       const data: SubscriptionResponse = await response.json();
       console.log('API Response:', data);
-      
+
       setSubscriptions(Array.isArray(data.items) ? data.items : []);
       setTotalPages(typeof data.totalPages === 'number' ? data.totalPages : 1);
       setTotalRecords(typeof data.totalRecords === 'number' ? data.totalRecords : 0);
@@ -138,7 +142,7 @@ const PlanHistory: React.FC = () => {
   return (
     <div className="flex h-full bg-gray-100">
       {/* Sidebar */}
-      {isSidebarOpen && (
+      {/* {isSidebarOpen && (
         <aside className="bg-white border-r shadow-sm flex flex-col transition-all duration-300 h-full">
           <div className="p-2 text-xl font-bold border-b">
             <div className="flex justify-between items-start">
@@ -247,12 +251,12 @@ const PlanHistory: React.FC = () => {
             </nav>
           </div>
         </aside>
-      )}
+      )} */}
 
       {/* Content Area */}
       <div className="flex flex-col flex-1 h-full">
         {/* Header */}
-        <header className="bg-white shadow-sm border-b p-2 px-4 flex justify-between items-center min-h-[77px]">
+        {/* <header className="bg-white shadow-sm border-b p-2 px-4 flex justify-between items-center min-h-[77px]">
           {!isSidebarOpen && (
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -270,8 +274,9 @@ const PlanHistory: React.FC = () => {
             handleClientChange={() => {}}
             clientNames={[]}
             userRole={"USER"}
+            onUpgradeClick={() => {}}
           />
-        </header>
+        </header> */}
 
         {/* Main Content */}
         <main className="flex-1 overflow-y-auto h-[calc(100%-87px)]">
@@ -329,40 +334,70 @@ const PlanHistory: React.FC = () => {
                         <div className="pagination-info">
                           Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, totalRecords)} of {totalRecords} items
                         </div>
-                        <div className="pagination-controls d-flex align-center" style={{ gap: '8px' }}>
+                        <div
+                          className="pagination-controls d-flex align-center"
+                          style={{ gap: "8px", alignItems: "center" }}
+                        >
                           <button
                             className="pagination-btn"
                             disabled={currentPage === 1}
                             onClick={() => handlePageChange(1)}
                             title="First page"
                           >
-                            ≪
+                            <img
+                              src={previousIcon}
+                              alt="First"
+                              style={{ width: "20px", height: "20px", objectFit: "contain" }}
+                            />
                           </button>
+
                           <button
-                            className="pagination-btn"
+                            className="pagination-btn d-flex align-center"
                             disabled={currentPage === 1}
                             onClick={handlePrevPage}
                             title="Previous page"
+                            style={{ display: "flex", alignItems: "center", gap: "4px" }}
                           >
-                            ‹ Prev
+                            <img
+                              src={singleprvIcon}
+                              alt="Prev"
+                              style={{ width: "18px", height: "18px", objectFit: "contain" }}
+                            />
+                            <span>Prev</span>
                           </button>
+
                           <button
-                            className="pagination-btn"
+                            className="pagination-btn d-flex align-center"
                             disabled={currentPage >= totalPages}
                             onClick={handleNextPage}
                             title="Next page"
+                            style={{ display: "flex", alignItems: "center", gap: "4px" }}
                           >
-                            Next ›
+                            <span>Next</span>
+                            <img
+                              src={singlenextIcon}
+                              alt="Next"
+                              style={{ width: "18px", height: "18px", objectFit: "contain" }}
+                            />
                           </button>
+
                           <button
                             className="pagination-btn"
                             disabled={currentPage >= totalPages}
                             onClick={() => handlePageChange(totalPages)}
                             title="Last page"
                           >
-                            ≫
+                            <img
+                              src={nextIcon}
+                              alt="Last"
+                              style={{ width: "20px", height: "20px", objectFit: "contain" }}
+                            />
                           </button>
-                          <span style={{ marginLeft: '16px', fontSize: '14px', color: '#666' }}>Page</span>
+
+                          <span style={{ marginLeft: "16px", fontSize: "14px", color: "#666" }}>
+                            Page
+                          </span>
+
                           <input
                             type="number"
                             value={currentPage}
@@ -373,16 +408,18 @@ const PlanHistory: React.FC = () => {
                               }
                             }}
                             style={{
-                              width: '50px',
-                              padding: '4px 8px',
-                              border: '1px solid #ddd',
-                              borderRadius: '4px',
-                              textAlign: 'center',
-                              fontSize: '14px'
+                              width: "50px",
+                              padding: "4px 8px",
+                              border: "1px solid #ddd",
+                              borderRadius: "4px",
+                              textAlign: "center",
+                              fontSize: "14px",
                             }}
                           />
-                          <span style={{ fontSize: '14px', color: '#666' }}>of {totalPages}</span>
+
+                          <span style={{ fontSize: "14px", color: "#666" }}>of {totalPages}</span>
                         </div>
+
                       </div>
                     )}
                   </>
@@ -394,7 +431,7 @@ const PlanHistory: React.FC = () => {
       </div>
       <AppModal
         isOpen={isLoading}
-        onClose={() => {}}
+        onClose={() => { }}
         type="loader"
         loaderMessage="Loading subscriptions..."
         closeOnOverlayClick={false}

@@ -148,7 +148,7 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
             const creditData = await creditRes.json();
             dispatch(saveUserCredit(creditData));
             console.log("User Credit:", creditData);
-            
+
             if (creditData === 0 && !localStorage.getItem('creditModalSkipped')) {
               setTimeout(() => {
                 window.dispatchEvent(new CustomEvent('showCreditModal'));
@@ -214,7 +214,7 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
 /* ---------------- REGISTER FORM ---------------- */
 const RegisterForm: React.FC<ViewProps> = ({ setView }) => {
   const dispatch = useDispatch();
-  
+
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -226,11 +226,17 @@ const RegisterForm: React.FC<ViewProps> = ({ setView }) => {
   });
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [passwordValid, setPasswordValid] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
 
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setMessage("");
     setError("");
+    if (!passwordValid) {
+      alert("Password must be at least 8 characters long.");
+      return;
+    }
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/login/register`, {
@@ -252,7 +258,7 @@ const RegisterForm: React.FC<ViewProps> = ({ setView }) => {
         localStorage.setItem("registerUsername", form.username);
         localStorage.setItem("registerPassword", form.password);
         dispatch(saveEmail(form.email));
-         
+
         setMessage("OTP sent to your email!");
         setTimeout(() => setView("otp"), 2000);
       } else {
@@ -308,7 +314,7 @@ const RegisterForm: React.FC<ViewProps> = ({ setView }) => {
               onChange={(e) => setForm({ ...form, username: e.target.value })}
             />
           </div>
-          <div className="name-field">
+          {/* <div className="name-field">
             <label>Password*</label>
             <input
               type="password"
@@ -317,7 +323,41 @@ const RegisterForm: React.FC<ViewProps> = ({ setView }) => {
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
             />
+          </div> */}
+          <div className="form-group">
+            <label>Password*</label>
+            <div
+              className={`password-wrapper ${passwordTouched && !passwordValid
+                ? "invalid"
+                : passwordValid
+                  ? "valid"
+                  : ""
+                }`}
+            >
+              <input
+                type="password"
+                placeholder="Enter password"
+                value={form.password}
+                onFocus={() => setPasswordTouched(true)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setForm({ ...form, password: value });
+                  setPasswordValid(value.length >= 8);
+                }}
+                required
+              />
+            </div>
+
+            {passwordTouched && (
+              <div
+                className={`password-hint ${passwordValid ? "hint-valid" : "hint-invalid"
+                  }`}
+              >
+                 {passwordValid ? "✓" : "✕"} At least 8 characters long
+              </div>
+            )}
           </div>
+
         </div>
         <div className="name-field">
           <label>Company name*</label>
@@ -546,7 +586,7 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
               const creditData = await creditRes.json();
               dispatch(saveUserCredit(creditData));
               console.log("User Credit after OTP:", creditData);
-              
+
               if (creditData === 0 && !localStorage.getItem('creditModalSkipped')) {
                 setTimeout(() => {
                   window.dispatchEvent(new CustomEvent('showCreditModal'));

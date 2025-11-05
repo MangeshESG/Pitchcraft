@@ -6,7 +6,7 @@ import Header from "./common/Header";
 const User: React.FC = () => {
   return (
     <div className="login-container pitch-page flex-col d-flex">
-      <Header connectTo={false} />
+      <Header connectTo={false} onUpgradeClick={() => {}}  />
 
       <h2 className="left mt-10">Manage user </h2>
       <div className="login-box user-form gap-down d-flex">
