@@ -6,6 +6,10 @@ import { useAppData } from "../../contexts/AppDataContext";
 import AppModal from "../common/AppModal";
 import { useAppModal } from "../../hooks/useAppModal";
 import { set } from "react-datepicker/dist/date_utils";
+import { useSelector } from "react-redux";
+import { RootState } from "../../Redux/store";
+
+
 
 interface SettingsProps {
   selectedClient: string;
@@ -115,6 +119,12 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
   const [openModals, setOpenModals] = useState<{ [key: string]: boolean }>({});
   const { selectedModelName, setSelectedModelName } = useModel();
   const [models, setModels] = useState<Model[]>([]);
+
+  const clientId = useSelector((state: RootState) => state.client.clientId);
+
+  const userId = useSelector((state: RootState) => state.auth.userId);
+  
+  const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
 
   const appModal = useAppModal();
   const [isLoading, setIsLoading] = useState(false);
@@ -352,7 +362,7 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
       console.log("Sending update with:", settingsData);
 
       const response = await fetch(
-        `${API_BASE_URL}/api/auth/updateClientSettings/${selectedClient}`,
+        `${API_BASE_URL}/api/auth/updateClientSettings/${effectiveUserId}`,
         {
           method: "POST",
           headers: {

@@ -373,15 +373,6 @@ const MainPage: React.FC = () => {
   }, [initialTab, initialContactsSubTab, initialMailSubTab]);
 
 
-
-
-
-
-
-
-
-
-
  
   const [showDataFileUpload, setShowDataFileUpload] = useState(false);
 
@@ -3995,7 +3986,7 @@ const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
                         <span className="menu-text">Plan history</span>
                       </button>
                     </li>
-                    {userRole === "ADMIN" && (
+                  
                       <li className={tab === "Settings" ? "active" : ""}>
                         <button
                           onClick={() => {
@@ -4014,7 +4005,7 @@ const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
                           <span className="menu-text">Settings</span>
                         </button>
                       </li>
-                    )}
+                    
 
                     {userRole === "ADMIN" && (
                       <li className={tab === "CampaignBuilder" ? "active" : ""}>
@@ -4181,7 +4172,7 @@ const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
                               onClick={() =>
                                 handleModalOpen("modal-add-prompt")
                               }
-                              disabled={userRole !== "ADMIN"}
+                              //disabled={userRole !== "ADMIN"}
                             >
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -4199,7 +4190,7 @@ const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
 
                       <div className="row">
                         <div className="col-12 col">
-                          {userRole === "ADMIN" && (
+                         
                             <div className="tabs secondary d-flex justify-between-991 flex-col-768 bb-0-768">
                               <ul className="d-flex bb-1-768">
                                 <li>
@@ -4298,7 +4289,7 @@ const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
                                 </span>
                               </div>
                             </div>
-                          )}
+                          
 
                           {tab2 === "Template" && (
                             <div className="form-group">
@@ -4388,7 +4379,7 @@ const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
                             </div>
                           )}
 
-                          {tab2 === "Instructions" && userRole === "ADMIN" && (
+                          {tab2 === "Instructions"  && (
                             <div className="form-group">
                               <label>Instructions</label>
                               <span className="pos-relative">
@@ -4868,7 +4859,7 @@ const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
               />
             )}
 
-            {tab === "Settings" && userRole === "ADMIN" && (
+            {tab === "Settings" &&  (
               <Settings
                 selectedClient={selectedClient}
                 fetchClientSettings={fetchClientSettings}
