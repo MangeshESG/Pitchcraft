@@ -46,7 +46,6 @@ interface Campaign {
   description?: string;
 }
 
-
 interface OutputInterface {
   outputForm: {
     generatedContent: string;
@@ -55,7 +54,6 @@ interface OutputInterface {
     currentPrompt: string;
     searchResults: string[];
     allScrapedData: string;
-
   };
   isResetEnabled: boolean; // Add this prop
 
@@ -156,10 +154,6 @@ interface OutputInterface {
   saveToneSettings?: () => Promise<boolean>;
   selectedSegmentId?: number | null; // Add this
   handleSubjectTextChange?: (value: string) => void; // Add this
-  onFilteredContactsChange?: (contacts: any[]) => void;
-
-
-
 }
 
 const Output: React.FC<OutputInterface> = ({
@@ -235,11 +229,7 @@ const Output: React.FC<OutputInterface> = ({
   saveToneSettings,
   selectedSegmentId,
   handleSubjectTextChange,
-  onFilteredContactsChange,
-
-
 }) => {
-
   const appModal = useAppModal();
   const [loading, setLoading] = useState(true);
 
@@ -360,38 +350,27 @@ const Output: React.FC<OutputInterface> = ({
 
   const [combinedResponses, setCombinedResponses] = useState<any[]>([]);
 
-  useEffect(() => {
-    // Only check when combinedResponses changes, not when currentIndex changes
-    if (combinedResponses.length > 0) {
-      setCurrentIndex(prevIndex => {
-        if (prevIndex >= combinedResponses.length) {
-          return combinedResponses.length - 1;
-        }
-        return prevIndex;
-      });
-    }
-  }, [combinedResponses.length, setCurrentIndex]);
-
   // Update the useEffect that sets combinedResponses to also store the original
   // In the second useEffect that notifies parent of initial data
-  // Replace this:
   useEffect(() => {
-    let newCombinedResponses = [...allResponses];
+    // Keep currentIndex as is when new responses are added
+    if (
+      currentIndex >= combinedResponses.length &&
+      combinedResponses.length > 0
+    ) {
+      setCurrentIndex(Math.max(0, combinedResponses.length - 1));
+    }
+  }, [allResponses, currentIndex, setCurrentIndex, combinedResponses.length]);
 
+  useEffect(() => {
+    // Prioritize allResponses, then add unique existingResponses
+    let newCombinedResponses = [...allResponses]; // Start with fresh responses
     existingResponse.forEach((existing) => {
       if (!newCombinedResponses.find((nr) => nr.id === existing.id)) {
         newCombinedResponses.push(existing);
       }
     });
-
     setCombinedResponses(newCombinedResponses);
-    setOriginalCombinedResponses(newCombinedResponses);
-
-    // Remove the setTimeout
-    if (onFilteredContactsChange) {
-      onFilteredContactsChange(newCombinedResponses);
-    }
-
   }, [allResponses, existingResponse]);
 
   const [jumpToNewLast, setJumpToNewLast] = useState(false);
@@ -632,23 +611,28 @@ const Output: React.FC<OutputInterface> = ({
     if (!clientId) throw new Error("Client ID is required to update");
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/Crm/contacts/update-email`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          clientId,
-          contactId,
-          emailSubject: emailSubject ?? "",
-          emailBody: emailBody ?? "",
-          // dataFileId removed from request body
-        }),
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/api/Crm/contacts/update-email`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            clientId,
+            contactId,
+            emailSubject: emailSubject ?? "",
+            emailBody: emailBody ?? "",
+            // dataFileId removed from request body
+          }),
+        }
+      );
 
       if (!response.ok) {
         const errJson = await response.json();
-        throw new Error(errJson.message || "Failed to update contact via CRM API");
+        throw new Error(
+          errJson.message || "Failed to update contact via CRM API"
+        );
       }
 
       return await response.json();
@@ -657,7 +641,6 @@ const Output: React.FC<OutputInterface> = ({
       throw error;
     }
   };
-
 
   // You'll need this helper function
   const formatDateTime = (date: Date): string => {
@@ -769,10 +752,12 @@ const Output: React.FC<OutputInterface> = ({
     }
   }, [isEditing, editableContent, currentIndex]);
 
+  const [openDeviceDropdown, setOpenDeviceDropdown] = useState(false);
   const [outputEmailWidth, setOutputEmailWidth] = useState<string>("");
 
   const toggleOutputEmailWidth = (deviceName: string) => {
     setOutputEmailWidth(deviceName);
+    setOpenDeviceDropdown(false);
   };
 
   //-----------------------------------------
@@ -832,16 +817,20 @@ const Output: React.FC<OutputInterface> = ({
 
   const handleSendEmail = async (
     subjectFromButton: string,
-    targetContact: typeof combinedResponses[number] | null = null
+
+    targetContact: (typeof combinedResponses)[number] | null = null
   ) => {
     setEmailMessage("");
+
     setEmailError("");
 
     const subjectToUse = subjectFromButton || emailFormData.Subject;
+
     if (!subjectToUse || !selectedSmtpUser) {
       setEmailError(
         "Please fill in all required fields: Subject and From Email."
       );
+
       return;
     }
 
@@ -852,53 +841,91 @@ const Output: React.FC<OutputInterface> = ({
 
       if (!currentContact || !currentContact.id) {
         setEmailError("No valid contact selected");
+
         setSendingEmail(false);
+
         return;
       }
 
       console.log("Sending email to:", currentContact?.name);
 
-      const requestBody = {
-        clientId: effectiveUserId,
-        contactid: currentContact.id,
-        // Only send dataFileId if segmentId is not present
-        dataFileId: (currentContact.segmentId && currentContact.segmentId !== "null")
-          ? null
-          : (currentContact.dataFileId === "null" || !currentContact.dataFileId ? null : parseInt(currentContact.dataFileId) || null),
-        segmentId: currentContact.segmentId === "null" || !currentContact.segmentId ? null : parseInt(currentContact.segmentId) || null,
-        toEmail: currentContact.email,
-        subject: subjectToUse,
-        body: currentContact.pitch || "",
-        bccEmail: emailFormData.BccEmail || "",
-        smtpId: selectedSmtpUser,
-        fullName: currentContact.name,
-        countryOrAddress: currentContact.location || "",
-        companyName: currentContact.company || "",
-        website: currentContact.website || "",
-        linkedinUrl: currentContact.linkedin || "",
-        jobTitle: currentContact.title || "",
-      };
+// In handleSendEmail function, replace the requestBody with:
+          const requestBody = {
+            clientId: effectiveUserId,
+            contactid: currentContact.id,
+            
+            // Priority: segmentId first, then dataFileId, ensure at least one is always set
+            segmentId:
+              currentContact.segmentId && 
+              currentContact.segmentId !== "null" && 
+              currentContact.segmentId !== "" &&
+              !isNaN(parseInt(currentContact.segmentId))
+                ? parseInt(currentContact.segmentId)
+                : null,
+                
+            dataFileId:
+              // Only send dataFileId if segmentId is not present
+              (!currentContact.segmentId || 
+              currentContact.segmentId === "null" || 
+              currentContact.segmentId === "" ||
+              isNaN(parseInt(currentContact.segmentId))) &&
+              currentContact.dataFileId &&
+              currentContact.dataFileId !== "null" &&
+              currentContact.dataFileId !== "" &&
+              !isNaN(parseInt(currentContact.dataFileId))
+                ? parseInt(currentContact.dataFileId)
+                : null,
+
+            toEmail: currentContact.email,
+            subject: subjectToUse,
+            body: currentContact.pitch || "",
+            bccEmail: emailFormData.BccEmail || "",
+            smtpId: selectedSmtpUser,
+            fullName: currentContact.name,
+            countryOrAddress: currentContact.location || "",
+            companyName: currentContact.company || "",
+            website: currentContact.website || "",
+            linkedinUrl: currentContact.linkedin || "",
+            jobTitle: currentContact.title || "",
+          };
+
+          // Add validation before sending
+          if (!requestBody.segmentId && !requestBody.dataFileId) {
+            setEmailError("Contact must have either a Segment ID or Data File ID");
+            setSendingEmail(false);
+            toast.error("Missing required ID: Contact must have either Segment ID or Data File ID");
+            return;
+          }
+
       const response = await axios.post(
         `${API_BASE_URL}/api/email/send-singleEmail`,
+
         requestBody,
+
         {
           headers: {
             "Content-Type": "application/json",
+
             ...(token && { Authorization: `Bearer ${token}` }),
           },
         }
       );
 
       setEmailMessage(response.data.message || "Email sent successfully!");
+
       toast.success("Email sent successfully!");
 
       // Update the contact's email sent status
+
       try {
         const updatedItem = {
           ...combinedResponses[currentIndex],
+
           emailsentdate: new Date().toISOString(),
+
           PG_Added_Correctly: true,
         };
+
         setCombinedResponses((prev) =>
           prev.map((item, i) => (i === currentIndex ? updatedItem : item))
         );
@@ -906,17 +933,24 @@ const Output: React.FC<OutputInterface> = ({
         const allResponsesIndex = allResponses.findIndex(
           (item) => item.id === updatedItem.id
         );
+
         if (allResponsesIndex !== -1) {
           const updatedAll = [...allResponses];
+
           updatedAll[allResponsesIndex] = updatedItem;
+
           setAllResponses(updatedAll);
         }
+
         const existingResponseIndex = existingResponse.findIndex(
           (item) => item.id === updatedItem.id
         );
+
         if (existingResponseIndex !== -1) {
           const updatedExisting = [...existingResponse];
+
           updatedExisting[existingResponseIndex] = updatedItem;
+
           setexistingResponse(updatedExisting);
         }
 
@@ -925,28 +959,32 @@ const Output: React.FC<OutputInterface> = ({
         }
       } catch (updateError) {
         console.error("Failed to update contact record:", updateError);
+
         if (axios.isAxiosError(updateError)) {
           console.error("Update error details:", updateError.response?.data);
         }
+
         toast.warning("Email sent but failed to update record status");
       }
 
       setTimeout(() => {
         setShowEmailModal(false);
+
         setEmailMessage("");
       }, 2000);
     } catch (err) {
       if (axios.isAxiosError(err)) {
         setEmailError(
           err.response?.data?.message ||
-          err.response?.data ||
-          "Failed to send email."
+            err.response?.data ||
+            "Failed to send email."
         );
       } else if (err instanceof Error) {
         setEmailError(err.message);
       } else {
         setEmailError("An unknown error occurred.");
       }
+
       toast.error("Failed to send email");
     } finally {
       setSendingEmail(false);
@@ -1143,72 +1181,113 @@ const Output: React.FC<OutputInterface> = ({
     }
   }, [combinedResponses]);
 
-  // useEffect(() => {
-  //   // This will trigger when campaigns are created/updated/deleted
-  //   console.log('Campaigns updated in Output component:', campaigns?.length);
-  // }, [campaigns, refreshTrigger]); // Add refreshTrigger dependency
-
+  useEffect(() => {
+    // This will trigger when campaigns are created/updated/deleted
+    console.log("Campaigns updated in Output component:", campaigns?.length);
+  }, [campaigns, refreshTrigger]); // Add refreshTrigger dependency
 
   const [isBulkSending, setIsBulkSending] = useState(false);
+
   const [bulkSendIndex, setBulkSendIndex] = useState(currentIndex);
+
   const stopBulkRef = useRef(false);
 
   const sendEmailsInBulk = async (startIndex = 0) => {
     // Check if we have SMTP user selected BEFORE starting
+
     if (!selectedSmtpUser) {
       return; // Exit early
     }
 
     setIsBulkSending(true);
+
     stopBulkRef.current = false;
 
     let index = startIndex;
     let sentCount = 0;
     let skippedCount = 0;
-
     while (index < combinedResponses.length && !stopBulkRef.current) {
       // Update current index to show the contact being processed
       setCurrentIndex(index);
 
       const contact = combinedResponses[index];
-
       try {
         // Prepare subject and request body
+
         const subjectToUse = contact.subject || "No subject";
-        console.log('Subject:', subjectToUse);
+
+        console.log("Subject:", subjectToUse);
 
         if (!contact.id) {
           index++;
+
           skippedCount++;
+
           setBulkSendIndex(index);
-          await new Promise(res => setTimeout(res, 500)); // Small delay before next
+
+          await new Promise((res) => setTimeout(res, 500)); // Small delay before next
+
           continue;
         }
 
-        const requestBody = {
-          clientId: effectiveUserId,
-          contactid: contact.id,
-          dataFileId: contact.datafileid === "null" || !contact.datafileid ? null : parseInt(contact.datafileid) || null,
-          segmentId: contact.segmentId === "null" || !contact.segmentId ? null : parseInt(contact.segmentId) || null,
-          toEmail: contact.email,
-          subject: subjectToUse,
-          body: contact.pitch || "",
-          bccEmail: emailFormData.BccEmail || "",
-          smtpId: selectedSmtpUser,
-          fullName: contact.name,
-          countryOrAddress: contact.location || "",
-          companyName: contact.company || "",
-          website: contact.website || "",
-          linkedinUrl: contact.linkedin || "",
-          jobTitle: contact.title || "",
-        };
+          // In sendEmailsInBulk function, replace the requestBody with:
+          const requestBody = {
+            clientId: effectiveUserId,
+            contactid: contact.id,
+            
+            // Priority: segmentId first, then dataFileId
+            segmentId:
+              contact.segmentId && 
+              contact.segmentId !== "null" && 
+              contact.segmentId !== "" &&
+              !isNaN(parseInt(contact.segmentId))
+                ? parseInt(contact.segmentId)
+                : null,
+                
+            dataFileId:
+              (!contact.segmentId || 
+              contact.segmentId === "null" || 
+              contact.segmentId === "" ||
+              isNaN(parseInt(contact.segmentId))) &&
+              contact.dataFileId &&
+              contact.dataFileId !== "null" &&
+              contact.dataFileId !== "" &&
+              !isNaN(parseInt(contact.dataFileId))
+                ? parseInt(contact.dataFileId)
+                : null,
+
+            toEmail: contact.email,
+            subject: subjectToUse,
+            body: contact.pitch || "",
+            bccEmail: emailFormData.BccEmail || "",
+            smtpId: selectedSmtpUser,
+            fullName: contact.name,
+            countryOrAddress: contact.location || "",
+            companyName: contact.company || "",
+            website: contact.website || "",
+            linkedinUrl: contact.linkedin || "",
+            jobTitle: contact.title || "",
+          };
+
+          // Add validation before sending
+          if (!requestBody.segmentId && !requestBody.dataFileId) {
+            console.error(`Skipping contact ${contact.id}: Missing both segmentId and dataFileId`);
+            skippedCount++;
+            index++;
+            setBulkSendIndex(index);
+            await new Promise((res) => setTimeout(res, 500));
+            continue;
+          }
 
         const response = await axios.post(
           `${API_BASE_URL}/api/email/send-singleEmail`,
+
           requestBody,
+
           {
             headers: {
               "Content-Type": "application/json",
+
               ...(token && { Authorization: `Bearer ${token}` }),
             },
           }
@@ -1217,203 +1296,110 @@ const Output: React.FC<OutputInterface> = ({
         sentCount++;
 
         // UPDATE local state for this contact
+
         const updatedItem = {
           ...contact,
+
           emailsentdate: new Date().toISOString(),
+
           PG_Added_Correctly: true,
         };
 
         // Update combinedResponses
-        setCombinedResponses(prev =>
+
+        setCombinedResponses((prev) =>
           prev.map((item, i) => (i === index ? updatedItem : item))
         );
 
         // Update allResponses if needed
+
         const allResponsesIndex = allResponses.findIndex(
           (item) => item.id === contact.id
         );
+
         if (allResponsesIndex !== -1) {
-          setAllResponses(prev => {
+          setAllResponses((prev) => {
             const updated = [...prev];
+
             updated[allResponsesIndex] = updatedItem;
+
             return updated;
           });
         }
 
         // Update existingResponse if needed
+
         const existingResponseIndex = existingResponse.findIndex(
           (item) => item.id === contact.id
         );
+
         if (existingResponseIndex !== -1) {
-          setexistingResponse(prev => {
+          setexistingResponse((prev) => {
             const updated = [...prev];
+
             updated[existingResponseIndex] = updatedItem;
+
             return updated;
           });
         }
-
       } catch (err) {
         console.error(`Error sending email to ${contact.email}:`, err);
+
         if (axios.isAxiosError(err)) {
-          console.error('API Error:', err.response?.data);
+          console.error("API Error:", err.response?.data);
         }
+
         skippedCount++;
       }
 
       index++;
+
       setBulkSendIndex(index);
 
       // Show progress
+
       const progress = `Progress: ${index}/${combinedResponses.length} (Sent: ${sentCount}, Skipped: ${skippedCount})`;
+
       console.log(progress); // Add console log to track progress
 
       // Wait before processing next email
-      await new Promise(res => setTimeout(res, 1200)); // Throttle emails
+
+      await new Promise((res) => setTimeout(res, 1200)); // Throttle emails
     }
 
     setIsBulkSending(false);
+
     stopBulkRef.current = false;
 
-    console.log(`Bulk send completed. Sent: ${sentCount}, Skipped: ${skippedCount}`);
+    console.log(
+      `Bulk send completed. Sent: ${sentCount}, Skipped: ${skippedCount}`
+    );
   };
 
   const stopBulkSending = () => {
     stopBulkRef.current = true;
+
     setIsBulkSending(false);
   };
+
   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   const handleSaveSettings = async () => {
     setIsSavingSettings(true);
+
     try {
       if (saveToneSettings) {
         await saveToneSettings();
       }
     } catch (error) {
-      console.error('Error saving settings:', error);
+      console.error("Error saving settings:", error);
     } finally {
       setIsSavingSettings(false);
     }
   };
 
+  const [sendEmailControls, setSendEmailControls] = useState(false);
 
-  // Add these state variables at the top of your Output component
-  // Add these state variables at the top of your Output component
-  const [dateFilter, setDateFilter] = useState({
-    startDate: '',
-    endDate: '',
-    kraftedDateEnabled: false,
-    sentDateEnabled: false,
-    includeNullKrafted: false,
-    includeNullSent: false
-  });
-
-  // Store the original unfiltered data
-  const [originalCombinedResponses, setOriginalCombinedResponses] = useState<any[]>([]);
-
-  // Update the useEffect that sets combinedResponses to also store the original
-  useEffect(() => {
-    // Prioritize allResponses, then add unique existingResponses
-    let newCombinedResponses = [...allResponses]; // Start with fresh responses
-
-    existingResponse.forEach((existing) => {
-      if (!newCombinedResponses.find((nr) => nr.id === existing.id)) {
-        newCombinedResponses.push(existing);
-      }
-    });
-
-    setCombinedResponses(newCombinedResponses);
-    setOriginalCombinedResponses(newCombinedResponses); // Store original data
-  }, [allResponses, existingResponse]);
-
-  // Add this useEffect to apply filters whenever they change
-  // Add this useEffect to apply filters whenever they change
-  useEffect(() => {
-    if (!dateFilter.kraftedDateEnabled && !dateFilter.sentDateEnabled) {
-      setCombinedResponses(originalCombinedResponses);
-      onFilteredContactsChange?.(originalCombinedResponses);
-      console.log("No filters active, total contacts:", originalCombinedResponses.length);
-      return;
-    }
-
-    const filtered = originalCombinedResponses.filter(item => {
-      let passedFilter = false;
-
-      // Check Krafted Date
-      if (dateFilter.kraftedDateEnabled) {
-        const itemDraftDate = item.lastemailupdateddate;
-
-        // If we want to include null values and no date range is set
-        if (dateFilter.includeNullKrafted && (!itemDraftDate || itemDraftDate === 'N/A')) {
-          passedFilter = true;
-        }
-        // If date range is set, check if the date falls within range
-        else if (dateFilter.startDate || dateFilter.endDate) {
-          if (itemDraftDate && itemDraftDate !== 'N/A') {
-            const draftDate = new Date(itemDraftDate);
-            const startDate = dateFilter.startDate ? new Date(dateFilter.startDate) : null;
-            const endDate = dateFilter.endDate ? new Date(dateFilter.endDate) : null;
-
-            const passedDateRange = (!startDate || draftDate >= startDate) &&
-              (!endDate || draftDate <= endDate);
-            if (passedDateRange) passedFilter = true;
-          }
-        }
-      }
-
-      // Check Sent Date
-      if (dateFilter.sentDateEnabled) {
-        const itemSentDate = item.emailsentdate;
-
-        // If we want to include null values and no date range is set
-        if (dateFilter.includeNullSent && (!itemSentDate || itemSentDate === 'N/A')) {
-          passedFilter = true;
-        }
-        // If date range is set, check if the date falls within range
-        else if (dateFilter.startDate || dateFilter.endDate) {
-          if (itemSentDate && itemSentDate !== 'N/A') {
-            const sentDate = new Date(itemSentDate);
-            const startDate = dateFilter.startDate ? new Date(dateFilter.startDate) : null;
-            const endDate = dateFilter.endDate ? new Date(dateFilter.endDate) : null;
-
-            const passedDateRange = (!startDate || sentDate >= startDate) &&
-              (!endDate || sentDate <= endDate);
-            if (passedDateRange) passedFilter = true;
-          }
-        }
-      }
-
-      return passedFilter;
-    });
-    setCombinedResponses(filtered);
-    onFilteredContactsChange?.(filtered);
-
-    console.log("Filtered contacts:", filtered.length, "Current index:", currentIndex);
-    if (filtered[currentIndex]) {
-      console.log("Current filtered contact:", filtered[currentIndex].name, "ID:", filtered[currentIndex].id);
-    }
-
-    if (currentIndex >= filtered.length && filtered.length > 0) {
-      setCurrentIndex(0);
-    }
-  }, [dateFilter, originalCombinedResponses]); // ADD onFilteredContactsChange to dependencies
-
-
-  // Add this new useEffect after your filter useEffect:
-  useEffect(() => {
-    // This runs only when combinedResponses length changes
-    if (combinedResponses.length === 0) return;
-
-    // Get current stored index
-    const storedIndex = sessionStorage.getItem("currentIndex");
-    if (storedIndex) {
-      const index = parseInt(storedIndex, 10);
-      if (index >= combinedResponses.length) {
-        setCurrentIndex(0);
-        sessionStorage.setItem("currentIndex", "0");
-      }
-    }
-  }, [combinedResponses.length, setCurrentIndex]);
   return (
     <div className="login-box gap-down">
       {/* Add the selection dropdowns and subject line section */}
@@ -1433,7 +1419,7 @@ const Output: React.FC<OutputInterface> = ({
                     onChange={handleCampaignChange}
                     value={selectedCampaign}
                   >
-                    {/* <option value="">Campaign</option> */}
+                    <option value="">Campaign</option>
                     {campaigns?.map((campaign) => (
                       <option key={campaign.id} value={campaign.id.toString()}>
                         {campaign.campaignName}
@@ -1464,48 +1450,17 @@ const Output: React.FC<OutputInterface> = ({
                 <div className="flex">
                   {isResetEnabled ? (
                     // In Output.tsx, update the button click handler:
+
                     <button
                       className="primary-button bg-[#3f9f42]"
-                      onClick={() => {
-                        // Get all contacts starting from current index (already filtered if filters are active)
-                        const contactsToProcess = combinedResponses.slice(currentIndex);
-
-                        // Map the fields to match what goToTab expects
-                        const mappedContacts = contactsToProcess.map(contact => ({
-                          ...contact,
-                          // Map Output fields to goToTab expected fields
-                          full_name: contact.name || contact.full_name,
-                          job_title: contact.title || contact.job_title,
-                          company_name: contact.company || contact.company_name,
-                          country_or_address: contact.location || contact.country_or_address,
-                          linkedin_url: contact.linkedin || contact.linkedin_url,
-                          email_body: contact.pitch || contact.email_body,
-                          email_subject: contact.subject || contact.email_subject,
-                          updated_at: contact.lastemailupdateddate || contact.updated_at,
-                          email_sent_at: contact.emailsentdate || contact.email_sent_at,
-                          // Keep original fields too for backward compatibility
-                          name: contact.name,
-                          title: contact.title,
-                          company: contact.company,
-                          location: contact.location,
-                          linkedin: contact.linkedin,
-                          pitch: contact.pitch,
-                          subject: contact.subject,
-                        }));
-
-                        if (mappedContacts.length > 0) {
-                          // Store the mapped contact data
-                          sessionStorage.setItem('contactsToProcess', JSON.stringify(mappedContacts));
-                          console.log("Processing contacts:", mappedContacts.length, "starting from:", mappedContacts[0]?.name);
-                        }
-
-                        handleStart?.(currentIndex);
-                      }}
+                      onClick={() => handleStart?.(currentIndex)}
                       disabled={
                         (!selectedPrompt?.name || !selectedZohoviewId) &&
                         !selectedCampaign
                       }
-                      title={`Click to generate hyper-personalized emails starting from contact ${currentIndex + 1}`}
+                      title={`Click to generate hyper-personalized emails starting from contact ${
+                        currentIndex + 1
+                      }`}
                     >
                       Generate
                     </button>
@@ -1543,16 +1498,37 @@ const Output: React.FC<OutputInterface> = ({
                         onChange={settingsFormHandler}
                         className="!mr-0"
                       />
-                      <span className="text-[14px] font-bold">Overwrite</span>
+                      <span className="text-[14px]">Overwrite</span>
                     </label>
                     <span>
-                      <ReactTooltip anchorSelect="#overwrite-checkbox" place="top">
+                      <ReactTooltip
+                        anchorSelect="#overwrite-checkbox"
+                        place="top"
+                      >
                         Reset all company level intel
                       </ReactTooltip>
-                      <svg id="overwrite-checkbox" width="14px" height="14px" viewBox="0 0 24 24" fill="#555555" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 17.75C12.4142 17.75 12.75 17.4142 12.75 17V11C12.75 10.5858 12.4142 10.25 12 10.25C11.5858 10.25 11.25 10.5858 11.25 11V17C11.25 17.4142 11.5858 17.75 12 17.75Z" fill="#1C274C" />
-                        <path d="M12 7C12.5523 7 13 7.44772 13 8C13 8.55228 12.5523 9 12 9C11.4477 9 11 8.55228 11 8C11 7.44772 11.4477 7 12 7Z" fill="#1C274C" />
-                        <path fill-rule="evenodd" clip-rule="evenodd" d="M1.25 12C1.25 6.06294 6.06294 1.25 12 1.25C17.9371 1.25 22.75 6.06294 22.75 12C22.75 17.9371 17.9371 22.75 12 22.75C6.06294 22.75 1.25 17.9371 1.25 12ZM12 2.75C6.89137 2.75 2.75 6.89137 2.75 12C2.75 17.1086 6.89137 21.25 12 21.25C17.1086 21.25 21.25 17.1086 21.25 12C21.25 6.89137 17.1086 2.75 12 2.75Z" fill="#1C274C" />
+                      <svg
+                        id="overwrite-checkbox"
+                        width="14px"
+                        height="14px"
+                        viewBox="0 0 24 24"
+                        fill="#555555"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M12 17.75C12.4142 17.75 12.75 17.4142 12.75 17V11C12.75 10.5858 12.4142 10.25 12 10.25C11.5858 10.25 11.25 10.5858 11.25 11V17C11.25 17.4142 11.5858 17.75 12 17.75Z"
+                          fill="#1C274C"
+                        />
+                        <path
+                          d="M12 7C12.5523 7 13 7.44772 13 8C13 8.55228 12.5523 9 12 9C11.4477 9 11 8.55228 11 8C11 7.44772 11.4477 7 12 7Z"
+                          fill="#1C274C"
+                        />
+                        <path
+                          fill-rule="evenodd"
+                          clip-rule="evenodd"
+                          d="M1.25 12C1.25 6.06294 6.06294 1.25 12 1.25C17.9371 1.25 22.75 6.06294 22.75 12C22.75 17.9371 17.9371 22.75 12 22.75C6.06294 22.75 1.25 17.9371 1.25 12ZM12 2.75C6.89137 2.75 2.75 6.89137 2.75 12C2.75 17.1086 6.89137 21.25 12 21.25C17.1086 21.25 21.25 17.1086 21.25 12C21.25 6.89137 17.1086 2.75 12 2.75Z"
+                          fill="#1C274C"
+                        />
                       </svg>
                     </span>
                   </div>
@@ -1724,7 +1700,6 @@ const Output: React.FC<OutputInterface> = ({
       </span>
       {/* Wrapper for navigation + contact index */}
       <div className="d-flex align-items-center gap mt-[26px] gap-3">
-
         {/* Navigation buttons */}
         <div className="d-flex align-items-center gap-1">
           <button
@@ -1762,7 +1737,9 @@ const Output: React.FC<OutputInterface> = ({
 
           <button
             onClick={handleNextPage}
-            disabled={isProcessing || currentIndex === combinedResponses.length - 1}
+            disabled={
+              isProcessing || currentIndex === combinedResponses.length - 1
+            }
             className="secondary-button !h-[35px] !py-[10px] !px-[10px] flex justify-center items-center"
             title="Click to go to the next generated email"
           >
@@ -1782,21 +1759,28 @@ const Output: React.FC<OutputInterface> = ({
 
           <button
             onClick={handleLastPage}
-            disabled={isProcessing || currentIndex === combinedResponses.length - 1}
+            disabled={
+              isProcessing || currentIndex === combinedResponses.length - 1
+            }
             className="secondary-button h-[35px] w-[38px] !px-[5px] !py-[10px] flex justify-center items-center !px-[10px]"
             title="Click to go to the last generated email"
           >
             <img
               src={nextIcon}
               alt="Next"
-              style={{ width: "20px", height: "20px", objectFit: "contain", marginLeft: "2px" }}
+              style={{
+                width: "20px",
+                height: "20px",
+                objectFit: "contain",
+                marginLeft: "2px",
+              }}
             />
           </button>
         </div>
 
         {/* Contact index */}
-        {/* <div className="d-flex align-items-center font-size-medium">
-          <strong>Contact:</strong>
+        <div className="d-flex align-items-center font-size-medium h-[35px]">
+          <strong className="flex items-center">Contact:</strong>
           <input
             type="number"
             value={inputValue}
@@ -1813,222 +1797,33 @@ const Output: React.FC<OutputInterface> = ({
             min="1"
             max={combinedResponses.length}
             className="form-control text-center !mx-2"
-            style={{  width: "55px",
-      height: "28px",
-      padding: "0",
-      fontSize: "14px",
-      textAlign: "center",
-      lineHeight: "1",
-      border: "1px solid #ccc",
-      borderRadius: "4px",}}
+            style={{ width: "70px", padding: "8px" }}
           />
-          of{" "}
-          {selectedZohoviewId
-            ? (() => {
-              const selectedView = zohoClient.find(
-                (client) => client.zohoviewId === selectedZohoviewId
-              );
-              return selectedView
-                ? selectedView.totalContact
-                : combinedResponses.length;
-            })()
-            : zohoClient.reduce((sum, client) => sum + client.totalContact, 0)}
-        </div> */}
-        <div
-          className="flex items-center text-[14px]"
-          style={{ gap: "6px" }}
-        >
-          <strong>Contact:</strong>
-          <input
-            type="number"
-            value={inputValue}
-            onChange={handleIndexChange}
-            onBlur={() => {
-              if (
-                inputValue.trim() === "" ||
-                isNaN(parseInt(inputValue, 10)) ||
-                parseInt(inputValue, 10) < 1
-              ) {
-                setInputValue((currentIndex + 1).toString());
-              }
-            }}
-            min="1"
-            max={combinedResponses.length}
-            className="text-center border border-gray-300 rounded font-normal"
-            style={{
-              width: "55px",
-              height: "28px",
-              fontSize: "14px",
-              lineHeight: "1.2",
-              padding: "2px 0",
-            }}
-          />
-          <span className="font-normal">of</span>
-          <span className="font-normal">
+          <span className="flex items-center">
+            of{" "}
             {selectedZohoviewId
               ? (() => {
-                const selectedView = zohoClient.find(
-                  (client) => client.zohoviewId === selectedZohoviewId
-                );
-                return selectedView
-                  ? selectedView.totalContact
-                  : combinedResponses.length;
-              })()
-              : zohoClient.reduce((sum, client) => sum + client.totalContact, 0)}
+                  const selectedView = zohoClient.find(
+                    (client) => client.zohoviewId === selectedZohoviewId
+                  );
+                  return selectedView
+                    ? selectedView.totalContact
+                    : combinedResponses.length;
+                })()
+              : zohoClient.reduce(
+                  (sum, client) => sum + client.totalContact,
+                  0
+                )}
           </span>
         </div>
-
-
         {/* Add this inside your green box area */}
-        {/* <div style={{
-          padding: '10px',
-          backgroundColor: '#e8f5e9',
-          border: '1px solid #4caf50',
-          borderRadius: '4px',
-          marginBottom: '10px'
-        }}> */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          {/* Date Range Selection */}
-          {/* <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <span style={{ fontSize: '13px', fontWeight: '600' }}>Date range:</span>
-              <input
-                type="date"
-                value={dateFilter.startDate}
-                onChange={(e) => {
-                  setDateFilter(prev => ({
-                    ...prev,
-                    startDate: e.target.value,
-                    includeNullKrafted: false,
-                    includeNullSent: false
-                  }));
-                }}
-                style={{
-                  padding: '4px',
-                  border: '1px solid #ccc',
-                  borderRadius: '4px',
-                  fontSize: '13px'
-                }}
-              />
-              <span style={{ fontSize: '13px' }}>to</span>
-              <input
-                type="date"
-                value={dateFilter.endDate}
-                onChange={(e) => {
-                  setDateFilter(prev => ({
-                    ...prev,
-                    endDate: e.target.value,
-                    includeNullKrafted: false,
-                    includeNullSent: false
-                  }));
-                }}
-                style={{
-                  padding: '4px',
-                  border: '1px solid #ccc',
-                  borderRadius: '4px',
-                  fontSize: '13px'
-                }}
-              />
-            </div> */}
-
-          {/* Filter Buttons */}
-          {/* <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <button
-                type="button"
-                onClick={() => {
-                  const hasNoDateRange = !dateFilter.startDate && !dateFilter.endDate;
-                  setDateFilter(prev => ({
-                    ...prev,
-                    kraftedDateEnabled: !prev.kraftedDateEnabled,
-                    includeNullKrafted: hasNoDateRange ? !prev.kraftedDateEnabled : false
-                  }));
-                }}
-                style={{
-                  padding: '5px 10px',
-                  border: '1px solid #4caf50',
-                  borderRadius: '4px',
-                  backgroundColor: dateFilter.kraftedDateEnabled ? '#4caf50' : 'white',
-                  color: dateFilter.kraftedDateEnabled ? 'white' : '#4caf50',
-                  cursor: 'pointer',
-                  fontSize: '13px'
-                }}
-              >
-                Krafted date
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  const hasNoDateRange = !dateFilter.startDate && !dateFilter.endDate;
-                  setDateFilter(prev => ({
-                    ...prev,
-                    sentDateEnabled: !prev.sentDateEnabled,
-                    includeNullSent: hasNoDateRange ? !prev.sentDateEnabled : false
-                  }));
-                }}
-                style={{
-                  padding: '5px 10px',
-                  border: '1px solid #4caf50',
-                  borderRadius: '4px',
-                  backgroundColor: dateFilter.sentDateEnabled ? '#4caf50' : 'white',
-                  color: dateFilter.sentDateEnabled ? 'white' : '#4caf50',
-                  cursor: 'pointer',
-                  fontSize: '13px'
-                }}
-              >
-                Email Sent Date
-              </button>
-            </div> */}
-
-          {/* Clear Filters Button */}
-          {(dateFilter.kraftedDateEnabled || dateFilter.sentDateEnabled) && (
-            <button
-              type="button"
-              onClick={() => {
-                setDateFilter({
-                  startDate: '',
-                  endDate: '',
-                  kraftedDateEnabled: false,
-                  sentDateEnabled: false,
-                  includeNullKrafted: false,
-                  includeNullSent: false
-                });
-              }}
-              style={{
-                padding: '5px 10px',
-                border: '1px solid #f44336',
-                borderRadius: '4px',
-                backgroundColor: 'white',
-                color: '#f44336',
-                cursor: 'pointer',
-                fontSize: '13px'
-              }}
-            >
-              Clear filters
-            </button>
-          )}
-
-          {/* Show filter status */}
-          <div style={{ fontSize: '12px', color: '#666', marginLeft: 'auto' }}>
-            {(dateFilter.kraftedDateEnabled || dateFilter.sentDateEnabled) && (
-              <span>
-                Showing {combinedResponses.length} of {originalCombinedResponses.length} records
-                {dateFilter.includeNullKrafted && ' (showing non-krafted)'}
-                {dateFilter.includeNullSent && ' (showing non-sent)'}
-              </span>
-            )}
-          </div>
-        </div>
-        {/* </div> */}
       </div>
-
-
 
       {/* New Tab */}
       {tab === "New" && (
         <>
           <div className="tabs secondary d-flex align-center flex-col-991 justify-between">
             <ul className="d-flex">
-
               <li>
                 <button
                   onClick={tabHandler2}
@@ -2050,15 +1845,15 @@ const Output: React.FC<OutputInterface> = ({
               )}
               <li>
                 <button
-                  className={`tab-button ${tab2 === "Settings" ? "active" : ""}`}
+                  className={`tab-button ${
+                    tab2 === "Settings" ? "active" : ""
+                  }`}
                   onClick={() => setTab2("Settings")}
                 >
                   Settings
                 </button>
               </li>
             </ul>
-
-
           </div>
           {tab2 === "Output" && (
             <>
@@ -2073,8 +1868,6 @@ const Output: React.FC<OutputInterface> = ({
                     </button>
                   )}
                 </div> */}
-
-
               </div>
               <div className="form-group mb-0 mt-2">
                 <div className="d-flex justify-between w-full">
@@ -2085,11 +1878,17 @@ const Output: React.FC<OutputInterface> = ({
                     {/* <strong style={{ whiteSpace: "pre" }}>Contact: </strong> */}
                     {/* <span style={{ whiteSpace: "pre" }}> </span> */}
                     {combinedResponses[currentIndex]?.name || "NA"}
-                    <span className="text-[25px] inline-block relative top-[4px] px-[10px]">&bull;</span>
+                    <span className="text-[25px] inline-block relative top-[4px] px-[10px]">
+                      &bull;
+                    </span>
                     {combinedResponses[currentIndex]?.title || "NA"}
-                    <span className="text-[25px] inline-block relative top-[4px] px-[10px]">&bull;</span>
+                    <span className="text-[25px] inline-block relative top-[4px] px-[10px]">
+                      &bull;
+                    </span>
                     {combinedResponses[currentIndex]?.company || "NA"}
-                    <span className="text-[25px] inline-block relative top-[4px] px-[10px]">&bull;</span>
+                    <span className="text-[25px] inline-block relative top-[4px] px-[10px]">
+                      &bull;
+                    </span>
                     {combinedResponses[currentIndex]?.location || "NA"}
                     <span style={{ whiteSpace: "pre" }}> </span>
                     {/* <span className="inline-block relative top-[6px] mr-[3px]">
@@ -2097,7 +1896,10 @@ const Output: React.FC<OutputInterface> = ({
                         <path d="M14 7H16C18.7614 7 21 9.23858 21 12C21 14.7614 18.7614 17 16 17H14M10 7H8C5.23858 7 3 9.23858 3 12C3 14.7614 5.23858 17 8 17H10M8 12H16" stroke="#3f9f42" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                       </svg>
                     </span> */}
-                    <ReactTooltip anchorSelect="#website-icon-tooltip" place="top">
+                    <ReactTooltip
+                      anchorSelect="#website-icon-tooltip"
+                      place="top"
+                    >
                       Open company website
                     </ReactTooltip>
                     <a
@@ -2112,11 +1914,21 @@ const Output: React.FC<OutputInterface> = ({
                       target="_blank"
                       rel="noopener noreferrer"
                       id="website-icon-tooltip"
-
                     >
                       <span className="inline-block relative top-[8px] mr-[3px]">
-                        <svg width="26px" height="26px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <path fill-rule="evenodd" clip-rule="evenodd" d="M9.83824 18.4467C10.0103 18.7692 10.1826 19.0598 10.3473 19.3173C8.59745 18.9238 7.07906 17.9187 6.02838 16.5383C6.72181 16.1478 7.60995 15.743 8.67766 15.4468C8.98112 16.637 9.40924 17.6423 9.83824 18.4467ZM11.1618 17.7408C10.7891 17.0421 10.4156 16.1695 10.1465 15.1356C10.7258 15.0496 11.3442 15 12.0001 15C12.6559 15 13.2743 15.0496 13.8535 15.1355C13.5844 16.1695 13.2109 17.0421 12.8382 17.7408C12.5394 18.3011 12.2417 18.7484 12 19.0757C11.7583 18.7484 11.4606 18.3011 11.1618 17.7408ZM9.75 12C9.75 12.5841 9.7893 13.1385 9.8586 13.6619C10.5269 13.5594 11.2414 13.5 12.0001 13.5C12.7587 13.5 13.4732 13.5593 14.1414 13.6619C14.2107 13.1384 14.25 12.5841 14.25 12C14.25 11.4159 14.2107 10.8616 14.1414 10.3381C13.4732 10.4406 12.7587 10.5 12.0001 10.5C11.2414 10.5 10.5269 10.4406 9.8586 10.3381C9.7893 10.8615 9.75 11.4159 9.75 12ZM8.38688 10.0288C8.29977 10.6478 8.25 11.3054 8.25 12C8.25 12.6946 8.29977 13.3522 8.38688 13.9712C7.11338 14.3131 6.05882 14.7952 5.24324 15.2591C4.76698 14.2736 4.5 13.168 4.5 12C4.5 10.832 4.76698 9.72644 5.24323 8.74088C6.05872 9.20472 7.1133 9.68686 8.38688 10.0288ZM10.1465 8.86445C10.7258 8.95042 11.3442 9 12.0001 9C12.6559 9 13.2743 8.95043 13.8535 8.86447C13.5844 7.83055 13.2109 6.95793 12.8382 6.2592C12.5394 5.69894 12.2417 5.25156 12 4.92432C11.7583 5.25156 11.4606 5.69894 11.1618 6.25918C10.7891 6.95791 10.4156 7.83053 10.1465 8.86445ZM15.6131 10.0289C15.7002 10.6479 15.75 11.3055 15.75 12C15.75 12.6946 15.7002 13.3521 15.6131 13.9711C16.8866 14.3131 17.9412 14.7952 18.7568 15.2591C19.233 14.2735 19.5 13.1679 19.5 12C19.5 10.8321 19.233 9.72647 18.7568 8.74093C17.9413 9.20477 16.8867 9.6869 15.6131 10.0289ZM17.9716 7.46178C17.2781 7.85231 16.39 8.25705 15.3224 8.55328C15.0189 7.36304 14.5908 6.35769 14.1618 5.55332C13.9897 5.23077 13.8174 4.94025 13.6527 4.6827C15.4026 5.07623 16.921 6.08136 17.9716 7.46178ZM8.67765 8.55325C7.61001 8.25701 6.7219 7.85227 6.02839 7.46173C7.07906 6.08134 8.59745 5.07623 10.3472 4.6827C10.1826 4.94025 10.0103 5.23076 9.83823 5.5533C9.40924 6.35767 8.98112 7.36301 8.67765 8.55325ZM15.3224 15.4467C15.0189 16.637 14.5908 17.6423 14.1618 18.4467C13.9897 18.7692 13.8174 19.0598 13.6527 19.3173C15.4026 18.9238 16.921 17.9186 17.9717 16.5382C17.2782 16.1477 16.3901 15.743 15.3224 15.4467ZM12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21Z" fill="#3f9f42" />
+                        <svg
+                          width="26px"
+                          height="26px"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            fill-rule="evenodd"
+                            clip-rule="evenodd"
+                            d="M9.83824 18.4467C10.0103 18.7692 10.1826 19.0598 10.3473 19.3173C8.59745 18.9238 7.07906 17.9187 6.02838 16.5383C6.72181 16.1478 7.60995 15.743 8.67766 15.4468C8.98112 16.637 9.40924 17.6423 9.83824 18.4467ZM11.1618 17.7408C10.7891 17.0421 10.4156 16.1695 10.1465 15.1356C10.7258 15.0496 11.3442 15 12.0001 15C12.6559 15 13.2743 15.0496 13.8535 15.1355C13.5844 16.1695 13.2109 17.0421 12.8382 17.7408C12.5394 18.3011 12.2417 18.7484 12 19.0757C11.7583 18.7484 11.4606 18.3011 11.1618 17.7408ZM9.75 12C9.75 12.5841 9.7893 13.1385 9.8586 13.6619C10.5269 13.5594 11.2414 13.5 12.0001 13.5C12.7587 13.5 13.4732 13.5593 14.1414 13.6619C14.2107 13.1384 14.25 12.5841 14.25 12C14.25 11.4159 14.2107 10.8616 14.1414 10.3381C13.4732 10.4406 12.7587 10.5 12.0001 10.5C11.2414 10.5 10.5269 10.4406 9.8586 10.3381C9.7893 10.8615 9.75 11.4159 9.75 12ZM8.38688 10.0288C8.29977 10.6478 8.25 11.3054 8.25 12C8.25 12.6946 8.29977 13.3522 8.38688 13.9712C7.11338 14.3131 6.05882 14.7952 5.24324 15.2591C4.76698 14.2736 4.5 13.168 4.5 12C4.5 10.832 4.76698 9.72644 5.24323 8.74088C6.05872 9.20472 7.1133 9.68686 8.38688 10.0288ZM10.1465 8.86445C10.7258 8.95042 11.3442 9 12.0001 9C12.6559 9 13.2743 8.95043 13.8535 8.86447C13.5844 7.83055 13.2109 6.95793 12.8382 6.2592C12.5394 5.69894 12.2417 5.25156 12 4.92432C11.7583 5.25156 11.4606 5.69894 11.1618 6.25918C10.7891 6.95791 10.4156 7.83053 10.1465 8.86445ZM15.6131 10.0289C15.7002 10.6479 15.75 11.3055 15.75 12C15.75 12.6946 15.7002 13.3521 15.6131 13.9711C16.8866 14.3131 17.9412 14.7952 18.7568 15.2591C19.233 14.2735 19.5 13.1679 19.5 12C19.5 10.8321 19.233 9.72647 18.7568 8.74093C17.9413 9.20477 16.8867 9.6869 15.6131 10.0289ZM17.9716 7.46178C17.2781 7.85231 16.39 8.25705 15.3224 8.55328C15.0189 7.36304 14.5908 6.35769 14.1618 5.55332C13.9897 5.23077 13.8174 4.94025 13.6527 4.6827C15.4026 5.07623 16.921 6.08136 17.9716 7.46178ZM8.67765 8.55325C7.61001 8.25701 6.7219 7.85227 6.02839 7.46173C7.07906 6.08134 8.59745 5.07623 10.3472 4.6827C10.1826 4.94025 10.0103 5.23076 9.83823 5.5533C9.40924 6.35767 8.98112 7.36301 8.67765 8.55325ZM15.3224 15.4467C15.0189 16.637 14.5908 17.6423 14.1618 18.4467C13.9897 18.7692 13.8174 19.0598 13.6527 19.3173C15.4026 18.9238 16.921 17.9186 17.9717 16.5382C17.2782 16.1477 16.3901 15.743 15.3224 15.4467ZM12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21Z"
+                            fill="#3f9f42"
+                          />
                         </svg>
                       </span>
                       {/* {combinedResponses[currentIndex]?.website || "NA"} */}
@@ -2201,8 +2013,6 @@ const Output: React.FC<OutputInterface> = ({
                     </a>
                   </div>
 
-
-
                   {/* Email Sent Date - remaining width */}
                   <div
                     style={{
@@ -2224,9 +2034,9 @@ const Output: React.FC<OutputInterface> = ({
                     >
                       {combinedResponses[currentIndex]?.lastemailupdateddate
                         ? `Krafted: ${formatLocalDateTime(
-                          combinedResponses[currentIndex]
-                            ?.lastemailupdateddate
-                        )}`
+                            combinedResponses[currentIndex]
+                              ?.lastemailupdateddate
+                          )}`
                         : ""}
                     </span>
 
@@ -2241,98 +2051,10 @@ const Output: React.FC<OutputInterface> = ({
                     >
                       {combinedResponses[currentIndex]?.emailsentdate
                         ? `Emailed: ${formatLocalDateTime(
-                          combinedResponses[currentIndex]?.emailsentdate
-                        )}`
+                            combinedResponses[currentIndex]?.emailsentdate
+                          )}`
                         : ""}
                     </span>
-                  </div>
-                  <div className="d-flex mb-10 align-items-center justify-between flex-col-991">
-                    <div className="d-flex">
-                      <div className="d-flex ml-10 output-responsive-button-group justify-center-991 col-12-991 flex-col-640">
-                        <button
-                          className={`button pad-10 d-flex align-center align-self-center output-email-width-button-mobile justify-center
-                              ${outputEmailWidth === "Mobile" && "bg-active"}
-                              `}
-                          onClick={() => toggleOutputEmailWidth("Mobile")}
-                        >
-                          <svg
-                            fill="#000000"
-                            data-name="Layer 1"
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 120 120"
-                            style={{ width: "20px" }}
-                          >
-                            <path d="M85.81 120H34.19a8.39 8.39 0 0 1-8.38-8.39V8.39A8.39 8.39 0 0 1 34.19 0h51.62a8.39 8.39 0 0 1 8.38 8.39v103.22a8.39 8.39 0 0 1-8.38 8.39zM34.19 3.87a4.52 4.52 0 0 0-4.51 4.52v103.22a4.52 4.52 0 0 0 4.51 4.52h51.62a4.52 4.52 0 0 0 4.51-4.52V8.39a4.52 4.52 0 0 0-4.51-4.52z" />
-                            <path d="M73.7 10.32H46.3L39.28 3.3 42.01.57l5.89 5.88h24.2L77.99.57l2.73 2.73-7.02 7.02zM47.1 103.23h25.81v3.87H47.1z" />
-                          </svg>
-                          {/* <span className="ml-3 font-size-medium">Mobile View</span> */}
-                        </button>
-                        <button
-                          className={`button pad-10 ml-5 d-flex align-center align-self-center output-email-width-button-tab justify-center
-                              ${outputEmailWidth === "Tab" && "bg-active"}
-                              `}
-                          onClick={() => toggleOutputEmailWidth("Tab")}
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            xmlnsXlink="http://www.w3.org/1999/xlink"
-                            fill="#000000"
-                            version="1.1"
-                            id="Capa_1"
-                            width="20px"
-                            height="20px"
-                            viewBox="0 0 54.355 54.355"
-                            xmlSpace="preserve"
-                          >
-                            <g>
-                              <g>
-                                <path d="M8.511,54.355h37.333c1.379,0,2.5-1.121,2.5-2.5V2.5c0-1.378-1.121-2.5-2.5-2.5H8.511c-1.379,0-2.5,1.122-2.5,2.5v49.354    C6.011,53.234,7.133,54.355,8.511,54.355z M9.011,3h36.333v48.354H9.011V3z" />
-                                <path d="M40.928,6.678h-27.5c-0.827,0-1.5,0.673-1.5,1.5v34.25c0,0.827,0.673,1.5,1.5,1.5h27.5c0.827,0,1.5-0.673,1.5-1.5V8.178    C42.428,7.351,41.755,6.678,40.928,6.678z M41.428,42.428c0,0.275-0.224,0.5-0.5,0.5h-27.5c-0.276,0-0.5-0.225-0.5-0.5V8.178    c0-0.276,0.224-0.5,0.5-0.5h27.5c0.276,0,0.5,0.224,0.5,0.5V42.428z" />
-                                <path d="M27.178,45.013c-1.378,0-2.499,1.121-2.499,2.499s1.121,2.499,2.499,2.499c1.377,0,2.498-1.121,2.498-2.499    S28.556,45.013,27.178,45.013z M27.178,49.01c-0.827,0-1.499-0.672-1.499-1.499s0.672-1.499,1.499-1.499    c0.826,0,1.498,0.672,1.498,1.499S28.005,49.01,27.178,49.01z" />
-                              </g>
-                            </g>
-                          </svg>
-                          {/* <span className="ml-3 font-size-medium">Tab View</span> */}
-                        </button>
-                        <button
-                          className={`button pad-10 ml-5 d-flex align-center align-self-center output-email-width-button-desktop justify-center
-                              ${outputEmailWidth === "" && "bg-active"}
-                              `}
-                          onClick={() => toggleOutputEmailWidth("")}
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            fill="#000000"
-                            width="20"
-                            height="20"
-                            viewBox="0 -3 32 32"
-                            preserveAspectRatio="xMidYMid"
-                          >
-                            <path d="M30.000,21.000 L17.000,21.000 L17.000,24.000 L22.047,24.000 C22.600,24.000 23.047,24.448 23.047,25.000 C23.047,25.552 22.600,26.000 22.047,26.000 L10.047,26.000 C9.494,26.000 9.047,25.552 9.047,25.000 C9.047,24.448 9.494,24.000 10.047,24.000 L15.000,24.000 L15.000,21.000 L2.000,21.000 C0.898,21.000 0.000,20.103 0.000,19.000 L0.000,2.000 C0.000,0.897 0.898,0.000 2.000,0.000 L30.000,0.000 C31.103,0.000 32.000,0.897 32.000,2.000 L32.000,19.000 C32.000,20.103 31.103,21.000 30.000,21.000 ZM2.000,2.000 L2.000,19.000 L29.997,19.000 L30.000,2.000 L2.000,2.000 Z" />
-                          </svg>
-                          {/* <span className="ml-5 font-size-medium">Desktop</span> */}
-                        </button>
-                      </div>
-
-                      {/* Your existing Generated/Existing indicator */}
-                      {/* {combinedResponses[currentIndex]?.generated ? (
-                            <span
-                              className="generated-indicator d-flex align-center"
-                              title="Generated Content"
-                            >
-                              Generated
-                            </span>
-                          ) : (
-                            combinedResponses[currentIndex] && (
-                              <span
-                                className="existing-indicator d-flex align-center ml-10"
-                                title="Existing Content"
-                              >
-                                Existing
-                              </span>
-                            )
-                          )} */}
-                    </div>
                   </div>
                 </div>
                 <div className="form-group" style={{ marginBottom: "20px" }}>
@@ -2376,245 +2098,291 @@ const Output: React.FC<OutputInterface> = ({
                       </div>
                     </div>
 
+                    {/* Toggle Send Email controls */}
                     {/* BCC field - 20% width */}
-                    <div style={{ flex: "0 0 15%", paddingRight: "15px" }}>
-                      <label
-                        style={{
-                          display: "block",
-                          marginBottom: "8px",
-                          fontWeight: "600",
-                          fontSize: "14px",
-                        }}
-                      >
-                        BCC
-                      </label>
-                      <select
-                        className="form-control"
-                        value={
-                          bccSelectMode === "other"
-                            ? "Other"
-                            : emailFormData.BccEmail
-                        }
-                        onChange={(e) => {
-                          const selected = e.target.value;
-                          if (selected === "Other") {
-                            setBccSelectMode("other");
-                            setEmailFormData({
-                              ...emailFormData,
-                              BccEmail: "",
-                            });
-                            localStorage.setItem("lastBCCOtherMode", "true");
-                            // Do NOT clear lastBCC, keep it if exists
-                          } else {
-                            setBccSelectMode("dropdown");
-                            setEmailFormData({
-                              ...emailFormData,
-                              BccEmail: selected,
-                            });
-                            localStorage.setItem("lastBCCOtherMode", "false");
-                            localStorage.setItem("lastBCC", selected);
-                          }
-                        }}
-                        style={{
-                          width: "100%",
-                          padding: "10px",
-                          border: "1px solid #ccc",
-                          borderRadius: "4px",
-                          fontSize: "inherit",
-                          minHeight: "30px",
-                          marginBottom: bccSelectMode === "other" ? "8px" : 0,
-                          background: "#f8fff8",
-                        }}
-                      >
-                        <option value="">BCC email</option>
-                        {bccOptions.map((option) => (
-                          <option
-                            key={option.id}
-                            value={option.bccEmailAddress}
+                    <div className="relative ml-[auto] flex">
+                      {sendEmailControls && (
+                        <div
+                          className="right-angle flex w-[100%] items-start justify-end absolute right-[140px] top-[13px] p-[15px] w-auto bg-white rounded-md shadow-[0_0_15px_rgba(0,0,0,0.2)] z-[100] border border-[#3f9f42] border-r-[5px] border-r-[#3f9f42]
+"
+                        >
+                          <div
+                            style={{ flex: "0 0 15%", paddingRight: "15px" }}
+                            className="flex items-center"
                           >
-                            {option.bccEmailAddress}
-                          </option>
-                        ))}
-                        <option value="Other">Other</option>
-                      </select>
-                      {bccSelectMode === "other" && (
-                        <input
-                          type="email"
-                          placeholder="Type BCC email"
-                          value={emailFormData.BccEmail}
-                          onChange={(e) => {
-                            setEmailFormData({
-                              ...emailFormData,
-                              BccEmail: e.target.value,
-                            });
-                            localStorage.setItem("lastBCC", e.target.value); // <== store as soon as typed
-                          }}
-                          style={{
-                            width: "100%",
-                            padding: "10px",
-                            border: "1px solid #ccc",
-                            borderRadius: "4px",
-                            fontSize: "inherit",
-                            minHeight: "30px",
-                            marginTop: "8px",
-                            background: "#f8fff8",
-                          }}
-                        />
+                            <label
+                              style={{
+                                display: "block",
+                                marginRight: "10px",
+                                marginBottom: "0",
+                                fontWeight: "600",
+                                fontSize: "14px",
+                              }}
+                            >
+                              BCC
+                            </label>
+                            <select
+                              className="form-control"
+                              value={
+                                bccSelectMode === "other"
+                                  ? "Other"
+                                  : emailFormData.BccEmail
+                              }
+                              onChange={(e) => {
+                                const selected = e.target.value;
+                                if (selected === "Other") {
+                                  setBccSelectMode("other");
+                                  setEmailFormData({
+                                    ...emailFormData,
+                                    BccEmail: "",
+                                  });
+                                  localStorage.setItem(
+                                    "lastBCCOtherMode",
+                                    "true"
+                                  );
+                                  // Do NOT clear lastBCC, keep it if exists
+                                } else {
+                                  setBccSelectMode("dropdown");
+                                  setEmailFormData({
+                                    ...emailFormData,
+                                    BccEmail: selected,
+                                  });
+                                  localStorage.setItem(
+                                    "lastBCCOtherMode",
+                                    "false"
+                                  );
+                                  localStorage.setItem("lastBCC", selected);
+                                }
+                              }}
+                              style={{
+                                width: "100%",
+                                padding: "10px",
+                                border: "1px solid #ccc",
+                                borderRadius: "4px",
+                                fontSize: "inherit",
+                                minHeight: "30px",
+                                background: "#f8fff8",
+                              }}
+                            >
+                              <option value="">BCC email</option>
+                              {bccOptions.map((option) => (
+                                <option
+                                  key={option.id}
+                                  value={option.bccEmailAddress}
+                                >
+                                  {option.bccEmailAddress}
+                                </option>
+                              ))}
+                              <option value="Other">Other</option>
+                            </select>
+                            {bccSelectMode === "other" && (
+                              <input
+                                type="email"
+                                placeholder="Type BCC email"
+                                value={emailFormData.BccEmail}
+                                onChange={(e) => {
+                                  setEmailFormData({
+                                    ...emailFormData,
+                                    BccEmail: e.target.value,
+                                  });
+                                  localStorage.setItem(
+                                    "lastBCC",
+                                    e.target.value
+                                  ); // <== store as soon as typed
+                                }}
+                                style={{
+                                  width: "100%",
+                                  padding: "10px",
+                                  border: "1px solid #ccc",
+                                  borderRadius: "4px",
+                                  fontSize: "inherit",
+                                  minHeight: "30px",
+                                  marginTop: "0",
+                                  background: "#f8fff8",
+                                  marginLeft: "15px",
+                                  minWidth: "200px",
+                                }}
+                              />
+                            )}
+                          </div>
+
+                          {/* From Email field - 20% width */}
+                          <div
+                            style={{ flex: "0 0 15%", paddingRight: "15px" }}
+                            className="flex items-center"
+                          >
+                            <label
+                              style={{
+                                display: "block",
+                                marginRight: "10px",
+                                marginBottom: "0",
+                                fontWeight: "600",
+                                fontSize: "14px",
+                              }}
+                            >
+                              From
+                            </label>
+                            <select
+                              className="form-control"
+                              value={selectedSmtpUser}
+                              onChange={(e) =>
+                                setSelectedSmtpUser(e.target.value)
+                              }
+                              style={{
+                                width: "100%",
+                                padding: "10px",
+                                border: "1px solid #ccc",
+                                borderRadius: "4px",
+                                fontSize: "inherit",
+                                minHeight: "30px",
+                              }}
+                            >
+                              <option value="">Sender</option>
+                              {smtpUsers.map((user) => (
+                                <option key={user.id} value={user.id}>
+                                  {user.username}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Send Button - 10% width to align in row */}
+                          <div
+                            style={{
+                              flex: "0 0 10%",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "flex-start",
+                              marginLeft: "auto",
+                            }}
+                          >
+                            <ReactTooltip
+                              anchorSelect="#output-send-email-tooltip"
+                              place="top"
+                            >
+                              Send email
+                            </ReactTooltip>
+                            <button
+                              id="output-send-email-btn"
+                              type="button"
+                              className="button save-button x-small d-flex align-center align-self-center my-5-640 mr-[5px]"
+                              onClick={async () => {
+                                if (!combinedResponses[currentIndex]) {
+                                  toast.error("No contact selected");
+                                  return;
+                                }
+
+                                if (!selectedSmtpUser) {
+                                  toast.error("Please select From email");
+                                  return;
+                                }
+
+                                const subject =
+                                  combinedResponses[currentIndex]?.subject ||
+                                  "No subject";
+
+                                await handleSendEmail(subject); // 👈 Pass subject here
+                              }}
+                              disabled={
+                                !combinedResponses[currentIndex] ||
+                                sendingEmail ||
+                                sessionStorage.getItem("isDemoAccount") ===
+                                  "true"
+                              }
+                              style={{
+                                cursor:
+                                  combinedResponses[currentIndex] &&
+                                  !sendingEmail
+                                    ? "pointer"
+                                    : "not-allowed",
+                                padding: "5px 15px",
+                                opacity:
+                                  combinedResponses[currentIndex] &&
+                                  !sendingEmail
+                                    ? 1
+                                    : 0.6,
+                                height: "40px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                marginRight: 0,
+                              }}
+                            >
+                              {!sendingEmail && emailMessage === "" && "Send"}
+                              {sendingEmail && "Sending..."}
+                              {!sendingEmail && emailMessage && "Sent"}
+                            </button>
+
+                            {/* <span className="relative top-[15px]">
+                              <svg id="send-email-info" width="14px" height="14px" viewBox="0 0 24 24" fill="#555555" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M12 17.75C12.4142 17.75 12.75 17.4142 12.75 17V11C12.75 10.5858 12.4142 10.25 12 10.25C11.5858 10.25 11.25 10.5858 11.25 11V17C11.25 17.4142 11.5858 17.75 12 17.75Z" fill="#1C274C"/>
+                              <path d="M12 7C12.5523 7 13 7.44772 13 8C13 8.55228 12.5523 9 12 9C11.4477 9 11 8.55228 11 8C11 7.44772 11.4477 7 12 7Z" fill="#1C274C"/>
+                              <path fill-rule="evenodd" clip-rule="evenodd" d="M1.25 12C1.25 6.06294 6.06294 1.25 12 1.25C17.9371 1.25 22.75 6.06294 22.75 12C22.75 17.9371 17.9371 22.75 12 22.75C6.06294 22.75 1.25 17.9371 1.25 12ZM12 2.75C6.89137 2.75 2.75 6.89137 2.75 12C2.75 17.1086 6.89137 21.25 12 21.25C17.1086 21.25 21.25 17.1086 21.25 12C21.25 6.89137 17.1086 2.75 12 2.75Z" fill="#1C274C"/>
+                            </svg>
+                          </span>
+                          <ReactTooltip anchorSelect="#send-email-info" place="top">
+                            Send this email
+                          </ReactTooltip> */}
+                            <button
+                              type="button"
+                              className="nowrap ml-1 button save-button x-small d-flex align-center align-self-center my-5-640 mr-[5px]"
+                              onClick={() => {
+                                console.log(
+                                  "Button clicked, isBulkSending:",
+                                  isBulkSending
+                                );
+
+                                if (isBulkSending) {
+                                  console.log("Stopping bulk send...");
+                                  stopBulkSending();
+                                } else {
+                                  // Check if SMTP is selected before starting
+                                  if (!selectedSmtpUser) {
+                                    toast.error(
+                                      "Please select From email first"
+                                    );
+                                    return;
+                                  }
+                                  console.log("Starting bulk send...");
+                                  sendEmailsInBulk(currentIndex);
+                                }
+                              }}
+                              disabled={
+                                sessionStorage.getItem("isDemoAccount") ===
+                                "true"
+                              }
+                              style={{
+                                cursor:
+                                  sessionStorage.getItem("isDemoAccount") !==
+                                  "true"
+                                    ? "pointer"
+                                    : "not-allowed",
+                                padding: "5px 15px",
+                                opacity:
+                                  sessionStorage.getItem("isDemoAccount") !==
+                                  "true"
+                                    ? 1
+                                    : 0.6,
+                                height: "40px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                marginRight: 0,
+                              }}
+                            >
+                              {isBulkSending ? "Stop" : "Send All"}
+                            </button>
+                          </div>
+                        </div>
                       )}
-                    </div>
 
-                    {/* From Email field - 20% width */}
-                    <div style={{ flex: "0 0 15%", paddingRight: "15px" }}>
-                      <label
-                        style={{
-                          display: "block",
-                          marginBottom: "8px",
-                          fontWeight: "600",
-                          fontSize: "14px",
-                        }}
-                      >
-                        From
-                      </label>
-                      <select
-                        className="form-control"
-                        value={selectedSmtpUser}
-                        onChange={(e) => setSelectedSmtpUser(e.target.value)}
-                        style={{
-                          width: "100%",
-                          padding: "10px",
-                          border: "1px solid #ccc",
-                          borderRadius: "4px",
-                          fontSize: "inherit",
-                          minHeight: "30px",
-                        }}
-                      >
-                        <option value="">Sender</option>
-                        {smtpUsers.map((user) => (
-                          <option key={user.id} value={user.id}>
-                            {user.username}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Send Button - 10% width to align in row */}
-                    <div
-                      style={{
-                        flex: "0 0 10%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "flex-start",
-                        marginLeft: 'auto'
-                      }}
-                    >
-                      <ReactTooltip
-                        anchorSelect="#output-send-email-tooltip"
-                        place="top"
-                      >
-                        Send email
-                      </ReactTooltip>
                       <button
-                        id="output-send-email-btn"
-                        type="button"
-                        className="button save-button x-small d-flex align-center align-self-center my-5-640 mr-[5px]"
-                        onClick={async () => {
-                          if (!combinedResponses[currentIndex]) {
-                            toast.error("No contact selected");
-                            return;
-                          }
-
-                          if (!selectedSmtpUser) {
-                            toast.error("Please select From email");
-                            return;
-                          }
-
-                          const subject =
-                            combinedResponses[currentIndex]?.subject ||
-                            "No subject";
-
-                          await handleSendEmail(subject); // 👈 Pass subject here
-                        }}
-                        disabled={
-                          !combinedResponses[currentIndex] ||
-                          sendingEmail ||
-                          sessionStorage.getItem("isDemoAccount") === "true"
-                        }
-                        style={{
-                          cursor:
-                            combinedResponses[currentIndex] && !sendingEmail
-                              ? "pointer"
-                              : "not-allowed",
-                          padding: "5px 15px",
-                          opacity:
-                            combinedResponses[currentIndex] && !sendingEmail
-                              ? 1
-                              : 0.6,
-                          height: "38px",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          marginTop: "30px",
-                        }}
+                        className="green rounded-md mt-[32px] ml-[5px] py-[5px] px-[15px] border border-[#3f9f42]"
+                        onClick={() => setSendEmailControls(!sendEmailControls)}
                       >
-                        {!sendingEmail && emailMessage === "" && "Send"}
-                        {sendingEmail && "Sending..."}
-                        {!sendingEmail && emailMessage && "Sent"}
-                      </button>
-                      {/* <span className="relative top-[15px]">
-                          <svg id="send-email-info" width="14px" height="14px" viewBox="0 0 24 24" fill="#555555" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M12 17.75C12.4142 17.75 12.75 17.4142 12.75 17V11C12.75 10.5858 12.4142 10.25 12 10.25C11.5858 10.25 11.25 10.5858 11.25 11V17C11.25 17.4142 11.5858 17.75 12 17.75Z" fill="#1C274C"/>
-                          <path d="M12 7C12.5523 7 13 7.44772 13 8C13 8.55228 12.5523 9 12 9C11.4477 9 11 8.55228 11 8C11 7.44772 11.4477 7 12 7Z" fill="#1C274C"/>
-                          <path fill-rule="evenodd" clip-rule="evenodd" d="M1.25 12C1.25 6.06294 6.06294 1.25 12 1.25C17.9371 1.25 22.75 6.06294 22.75 12C22.75 17.9371 17.9371 22.75 12 22.75C6.06294 22.75 1.25 17.9371 1.25 12ZM12 2.75C6.89137 2.75 2.75 6.89137 2.75 12C2.75 17.1086 6.89137 21.25 12 21.25C17.1086 21.25 21.25 17.1086 21.25 12C21.25 6.89137 17.1086 2.75 12 2.75Z" fill="#1C274C"/>
-                        </svg>
-                      </span>
-                      <ReactTooltip anchorSelect="#send-email-info" place="top">
-                        Send this email
-                      </ReactTooltip> */}
-                      <button
-                        type="button"
-                        className="nowrap ml-1 button save-button x-small d-flex align-center align-self-center my-5-640 mr-[5px]"
-                        onClick={() => {
-                          console.log('Button clicked, isBulkSending:', isBulkSending);
-
-                          if (isBulkSending) {
-                            console.log('Stopping bulk send...');
-                            stopBulkSending();
-                          } else {
-                            // Check if SMTP is selected before starting
-                            if (!selectedSmtpUser) {
-                              toast.error("Please select From email first");
-                              return;
-                            }
-                            console.log('Starting bulk send...');
-                            sendEmailsInBulk(currentIndex);
-                          }
-                        }}
-                        disabled={
-                          sessionStorage.getItem("isDemoAccount") === "true"
-                        }
-                        style={{
-                          cursor:
-                            sessionStorage.getItem("isDemoAccount") !== "true"
-                              ? "pointer"
-                              : "not-allowed",
-                          padding: "5px 15px",
-                          opacity:
-                            sessionStorage.getItem("isDemoAccount") !== "true"
-                              ? 1
-                              : 0.6,
-                          height: "38px",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          marginTop: "30px",
-                        }}
-                      >
-                        {isBulkSending ? "Stop" : "Send all"}
+                        Send emails
                       </button>
                     </div>
-
-
-
                   </div>
                 </div>
                 <span className="pos-relative d-flex justify-center">
@@ -2880,7 +2648,328 @@ const Output: React.FC<OutputInterface> = ({
                           ),
                         }}
                       ></div>
-                      <div className="output-email-floated-icons d-flex">
+                      <div className="output-email-floated-icons d-flex bg-[#ffffff] rounded-md">
+                        <div className="d-flex align-items-center justify-between flex-col-991">
+                          <div className="d-flex relative">
+                            <button
+                              onClick={() =>
+                                setOpenDeviceDropdown(!openDeviceDropdown)
+                              }
+                              className="w-[55px] justify-center px-3 py-2 bg-gray-200 rounded-md flex items-center device-icon"
+                            >
+                              {outputEmailWidth === "Mobile" && (
+                                <>
+                                  <ReactTooltip
+                                    anchorSelect="#mobile-device-view"
+                                    place="left"
+                                  >
+                                    Mobile view
+                                  </ReactTooltip>
+                                  <span id="mobile-device-view">
+                                    {/* Mobile icon */}
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      width="25px"
+                                      height=""
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                    >
+                                      <path
+                                        d="M11 18H13M9.2 21H14.8C15.9201 21 16.4802 21 16.908 20.782C17.2843 20.5903 17.5903 20.2843 17.782 19.908C18 19.4802 18 18.9201 18 17.8V6.2C18 5.0799 18 4.51984 17.782 4.09202C17.5903 3.71569 17.2843 3.40973 16.908 3.21799C16.4802 3 15.9201 3 14.8 3H9.2C8.0799 3 7.51984 3 7.09202 3.21799C6.71569 3.40973 6.40973 3.71569 6.21799 4.09202C6 4.51984 6 5.07989 6 6.2V17.8C6 18.9201 6 19.4802 6.21799 19.908C6.40973 20.2843 6.71569 20.5903 7.09202 20.782C7.51984 21 8.07989 21 9.2 21Z"
+                                        stroke="#000000"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                      ></path>
+                                    </svg>
+                                  </span>
+                                </>
+                              )}
+                              {outputEmailWidth === "Tab" && (
+                                <>
+                                  <ReactTooltip
+                                    anchorSelect="#tab-device-view"
+                                    place="left"
+                                  >
+                                    Tab view
+                                  </ReactTooltip>
+                                  <span id="tab-device-view">
+                                    {/* Tab icon */}
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      width="25px"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                    >
+                                      <rect
+                                        x="4"
+                                        y="3"
+                                        width="16"
+                                        height="18"
+                                        rx="1"
+                                        stroke="#200E32"
+                                        strokeWidth="2"
+                                        strokeLinecap="round"
+                                      />
+                                      <circle
+                                        cx="12"
+                                        cy="18"
+                                        r="1"
+                                        fill="#200E32"
+                                      />
+                                    </svg>
+                                  </span>
+                                </>
+                              )}
+                              {outputEmailWidth === "" && (
+                                <>
+                                  <ReactTooltip
+                                    anchorSelect="#desktop-device-view"
+                                    place="left"
+                                  >
+                                    Desktop view
+                                  </ReactTooltip>
+                                  <span id="desktop-device-view">
+                                    {/* Desktop icon */}
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      xmlnsXlink="http://www.w3.org/1999/xlink"
+                                      width="25px"
+                                      viewBox="0 0 24 24"
+                                      version="1.1"
+                                    >
+                                      <title>Desktop</title>
+                                      <g
+                                        stroke="none"
+                                        strokeWidth="1"
+                                        fill="none"
+                                        fillRule="evenodd"
+                                      >
+                                        <g>
+                                          <rect
+                                            x="0"
+                                            y="0"
+                                            width="24"
+                                            height="24"
+                                            fillRule="nonzero"
+                                          />
+                                          <rect
+                                            x="3"
+                                            y="4"
+                                            width="18"
+                                            height="13"
+                                            rx="2"
+                                            stroke="#0C0310"
+                                            strokeWidth="2"
+                                            strokeLinecap="round"
+                                          />
+                                          <line
+                                            x1="7.5"
+                                            y1="21"
+                                            x2="16.5"
+                                            y2="21"
+                                            stroke="#0C0310"
+                                            strokeWidth="2"
+                                            strokeLinecap="round"
+                                          />
+                                          <line
+                                            x1="12"
+                                            y1="17"
+                                            x2="12"
+                                            y2="21"
+                                            stroke="#0C0310"
+                                            strokeWidth="2"
+                                            strokeLinecap="round"
+                                          />
+                                        </g>
+                                      </g>
+                                    </svg>
+                                  </span>
+                                </>
+                              )}
+                            </button>
+                            {openDeviceDropdown && (
+                              <div className="w-[55px] absolute right-0 mt-[35px] bg-[#eeeeee] pt-[5px] rounded-b-md rounded-t-none d-flex flex-col output-responsive-button-group justify-center-991 col-12-991">
+                                {outputEmailWidth !== "Mobile" && (
+                                  <>
+                                    <ReactTooltip
+                                      anchorSelect="#mobile-device-view"
+                                      place="left"
+                                    >
+                                      Mobile view
+                                    </ReactTooltip>
+                                    <button
+                                      id="mobile-device-view"
+                                      className={`w-[55px] button pad-10 d-flex align-center align-self-center output-email-width-button-mobile justify-center
+                                    ${
+                                      outputEmailWidth === "Mobile" &&
+                                      "bg-active"
+                                    }
+                                    `}
+                                      onClick={() =>
+                                        toggleOutputEmailWidth("Mobile")
+                                      }
+                                    >
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        width="25px"
+                                        height=""
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                      >
+                                        <path
+                                          d="M11 18H13M9.2 21H14.8C15.9201 21 16.4802 21 16.908 20.782C17.2843 20.5903 17.5903 20.2843 17.782 19.908C18 19.4802 18 18.9201 18 17.8V6.2C18 5.0799 18 4.51984 17.782 4.09202C17.5903 3.71569 17.2843 3.40973 16.908 3.21799C16.4802 3 15.9201 3 14.8 3H9.2C8.0799 3 7.51984 3 7.09202 3.21799C6.71569 3.40973 6.40973 3.71569 6.21799 4.09202C6 4.51984 6 5.07989 6 6.2V17.8C6 18.9201 6 19.4802 6.21799 19.908C6.40973 20.2843 6.71569 20.5903 7.09202 20.782C7.51984 21 8.07989 21 9.2 21Z"
+                                          stroke="#000000"
+                                          stroke-width="2"
+                                          stroke-linecap="round"
+                                          stroke-linejoin="round"
+                                        ></path>
+                                      </svg>
+                                      {/* <span className="ml-3 font-size-medium">Mobile View</span> */}
+                                    </button>
+                                  </>
+                                )}
+
+                                {outputEmailWidth !== "Tab" && (
+                                  <>
+                                    <ReactTooltip
+                                      anchorSelect="#tab-device-view"
+                                      place="left"
+                                    >
+                                      Tab view
+                                    </ReactTooltip>
+                                    <button
+                                      id="tab-device-view"
+                                      className={`w-[55px] button pad-10 d-flex align-center align-self-center output-email-width-button-tab justify-center
+                                  ${outputEmailWidth === "Tab" && "bg-active"}
+                                  `}
+                                      onClick={() =>
+                                        toggleOutputEmailWidth("Tab")
+                                      }
+                                    >
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        width="25px"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                      >
+                                        <rect
+                                          x="4"
+                                          y="3"
+                                          width="16"
+                                          height="18"
+                                          rx="1"
+                                          stroke="#200E32"
+                                          strokeWidth="2"
+                                          strokeLinecap="round"
+                                        />
+                                        <circle
+                                          cx="12"
+                                          cy="18"
+                                          r="1"
+                                          fill="#200E32"
+                                        />
+                                      </svg>
+                                      {/* <span className="ml-3 font-size-medium">Tab View</span> */}
+                                    </button>
+                                  </>
+                                )}
+
+                                {outputEmailWidth !== "" && (
+                                  <>
+                                    <ReactTooltip
+                                      anchorSelect="#desktop-device-view"
+                                      place="left"
+                                    >
+                                      Desktop view
+                                    </ReactTooltip>
+                                    <button
+                                      id="desktop-device-view"
+                                      className={`w-[55px] button pad-10 d-flex align-center align-self-center output-email-width-button-desktop justify-center
+                                    ${outputEmailWidth === "" && "bg-active"}
+                                    `}
+                                      onClick={() => toggleOutputEmailWidth("")}
+                                    >
+                                      <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        xmlnsXlink="http://www.w3.org/1999/xlink"
+                                        width="25px"
+                                        viewBox="0 0 24 24"
+                                        version="1.1"
+                                      >
+                                        <title>Desktop</title>
+                                        <g
+                                          stroke="none"
+                                          strokeWidth="1"
+                                          fill="none"
+                                          fillRule="evenodd"
+                                        >
+                                          <g>
+                                            <rect
+                                              x="0"
+                                              y="0"
+                                              width="24"
+                                              height="24"
+                                              fillRule="nonzero"
+                                            />
+                                            <rect
+                                              x="3"
+                                              y="4"
+                                              width="18"
+                                              height="13"
+                                              rx="2"
+                                              stroke="#0C0310"
+                                              strokeWidth="2"
+                                              strokeLinecap="round"
+                                            />
+                                            <line
+                                              x1="7.5"
+                                              y1="21"
+                                              x2="16.5"
+                                              y2="21"
+                                              stroke="#0C0310"
+                                              strokeWidth="2"
+                                              strokeLinecap="round"
+                                            />
+                                            <line
+                                              x1="12"
+                                              y1="17"
+                                              x2="12"
+                                              y2="21"
+                                              stroke="#0C0310"
+                                              strokeWidth="2"
+                                              strokeLinecap="round"
+                                            />
+                                          </g>
+                                        </g>
+                                      </svg>
+                                      {/* <span className="ml-5 font-size-medium">Desktop</span> */}
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Your existing Generated/Existing indicator */}
+                            {/* {combinedResponses[currentIndex]?.generated ? (
+                            <span
+                              className="generated-indicator d-flex align-center"
+                              title="Generated Content"
+                            >
+                              Generated
+                            </span>
+                          ) : (
+                            combinedResponses[currentIndex] && (
+                              <span
+                                className="existing-indicator d-flex align-center ml-10"
+                                title="Existing Content"
+                              >
+                                Existing
+                              </span>
+                            )
+                          )} */}
+                          </div>
+                        </div>
                         <>
                           <ReactTooltip
                             anchorSelect="#edit-email-body-tooltip"
@@ -2962,7 +3051,7 @@ const Output: React.FC<OutputInterface> = ({
                                 display: "flex",
                                 alignItems: "center",
                                 borderRadius: "4px",
-                                background: 'none !important',
+                                background: "none !important",
                                 cursor:
                                   combinedResponses[currentIndex] &&
                                     !isRegenerating
@@ -3142,7 +3231,9 @@ const Output: React.FC<OutputInterface> = ({
                       }}
                       aria-label="Close"
                       title="Close"
-                    >×</button>
+                    >
+                      ×
+                    </button>
                   </div>
                   <div>
                     <label>Email Body</label>
@@ -3155,8 +3246,12 @@ const Output: React.FC<OutputInterface> = ({
                         dangerouslySetInnerHTML={{
                           __html: editableContent,
                         }}
-                        onInput={e => setEditableContent(e.currentTarget.innerHTML)}
-                        onBlur={e => setEditableContent(e.currentTarget.innerHTML)}
+                        onInput={(e) =>
+                          setEditableContent(e.currentTarget.innerHTML)
+                        }
+                        onBlur={(e) =>
+                          setEditableContent(e.currentTarget.innerHTML)
+                        }
                         style={{
                           minHeight: "340px",
                           height: "auto",
@@ -3602,7 +3697,10 @@ const Output: React.FC<OutputInterface> = ({
                         if (handleSubjectTextChange) {
                           handleSubjectTextChange("");
                         }
-                      } else if (newMode === "With Placeholder" && toneSettings?.subjectTemplate) {
+                      } else if (
+                        newMode === "With Placeholder" &&
+                        toneSettings?.subjectTemplate
+                      ) {
                         // Only call if setSubjectText is defined
                         if (setSubjectText) {
                           setSubjectText(toneSettings.subjectTemplate);
@@ -3622,7 +3720,9 @@ const Output: React.FC<OutputInterface> = ({
                     <input
                       type="text"
                       placeholder="Enter subject here"
-                      value={subjectMode === "With Placeholder" ? subjectText : ""}
+                      value={
+                        subjectMode === "With Placeholder" ? subjectText : ""
+                      }
                       onChange={(e) => {
                         if (handleSubjectTextChange) {
                           handleSubjectTextChange(e.target.value);
@@ -3637,8 +3737,14 @@ const Output: React.FC<OutputInterface> = ({
                   <select
                     className="form-control"
                     value={toneSettings?.language || "English"}
-                    onChange={(e) => toneSettingsHandler?.({ target: { name: 'language', value: e.target.value } })}
-                    disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+                    onChange={(e) =>
+                      toneSettingsHandler?.({
+                        target: { name: "language", value: e.target.value },
+                      })
+                    }
+                    disabled={
+                      sessionStorage.getItem("isDemoAccount") === "true"
+                    }
                   >
                     <option value="English">English</option>
                     <option value="Spanish">Spanish</option>
@@ -3658,8 +3764,14 @@ const Output: React.FC<OutputInterface> = ({
                   <select
                     className="form-control"
                     value={toneSettings?.emojis || "None"}
-                    onChange={(e) => toneSettingsHandler?.({ target: { name: 'emojis', value: e.target.value } })}
-                    disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+                    onChange={(e) =>
+                      toneSettingsHandler?.({
+                        target: { name: "emojis", value: e.target.value },
+                      })
+                    }
+                    disabled={
+                      sessionStorage.getItem("isDemoAccount") === "true"
+                    }
                   >
                     <option value="None">None</option>
                     <option value="Minimal">Minimal</option>
@@ -3672,8 +3784,14 @@ const Output: React.FC<OutputInterface> = ({
                   <select
                     className="form-control"
                     value={toneSettings?.tone || "Professional"}
-                    onChange={(e) => toneSettingsHandler?.({ target: { name: 'tone', value: e.target.value } })}
-                    disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+                    onChange={(e) =>
+                      toneSettingsHandler?.({
+                        target: { name: "tone", value: e.target.value },
+                      })
+                    }
+                    disabled={
+                      sessionStorage.getItem("isDemoAccount") === "true"
+                    }
                   >
                     <option value="Professional">Professional</option>
                     <option value="Casual">Casual</option>
@@ -3693,8 +3811,14 @@ const Output: React.FC<OutputInterface> = ({
                   <select
                     className="form-control"
                     value={toneSettings?.chatty || "Medium"}
-                    onChange={(e) => toneSettingsHandler?.({ target: { name: 'chatty', value: e.target.value } })}
-                    disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+                    onChange={(e) =>
+                      toneSettingsHandler?.({
+                        target: { name: "chatty", value: e.target.value },
+                      })
+                    }
+                    disabled={
+                      sessionStorage.getItem("isDemoAccount") === "true"
+                    }
                   >
                     <option value="Low">Low</option>
                     <option value="Medium">Medium</option>
@@ -3707,8 +3831,14 @@ const Output: React.FC<OutputInterface> = ({
                   <select
                     className="form-control"
                     value={toneSettings?.creativity || "Medium"}
-                    onChange={(e) => toneSettingsHandler?.({ target: { name: 'creativity', value: e.target.value } })}
-                    disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+                    onChange={(e) =>
+                      toneSettingsHandler?.({
+                        target: { name: "creativity", value: e.target.value },
+                      })
+                    }
+                    disabled={
+                      sessionStorage.getItem("isDemoAccount") === "true"
+                    }
                   >
                     <option value="Low">Low</option>
                     <option value="Medium">Medium</option>
@@ -3721,8 +3851,14 @@ const Output: React.FC<OutputInterface> = ({
                   <select
                     className="form-control"
                     value={toneSettings?.reasoning || "Medium"}
-                    onChange={(e) => toneSettingsHandler?.({ target: { name: 'reasoning', value: e.target.value } })}
-                    disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+                    onChange={(e) =>
+                      toneSettingsHandler?.({
+                        target: { name: "reasoning", value: e.target.value },
+                      })
+                    }
+                    disabled={
+                      sessionStorage.getItem("isDemoAccount") === "true"
+                    }
                   >
                     <option value="Low">Low</option>
                     <option value="Medium">Medium</option>
@@ -3735,8 +3871,14 @@ const Output: React.FC<OutputInterface> = ({
                   <select
                     className="form-control"
                     value={toneSettings?.dateGreeting || "No"}
-                    onChange={(e) => toneSettingsHandler?.({ target: { name: 'dateGreeting', value: e.target.value } })}
-                    disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+                    onChange={(e) =>
+                      toneSettingsHandler?.({
+                        target: { name: "dateGreeting", value: e.target.value },
+                      })
+                    }
+                    disabled={
+                      sessionStorage.getItem("isDemoAccount") === "true"
+                    }
                   >
                     <option value="Yes">Yes</option>
                     <option value="No">No</option>
@@ -3748,8 +3890,14 @@ const Output: React.FC<OutputInterface> = ({
                   <select
                     className="form-control"
                     value={toneSettings?.dateFarewell || "No"}
-                    onChange={(e) => toneSettingsHandler?.({ target: { name: 'dateFarewell', value: e.target.value } })}
-                    disabled={sessionStorage.getItem("isDemoAccount") === "true"}
+                    onChange={(e) =>
+                      toneSettingsHandler?.({
+                        target: { name: "dateFarewell", value: e.target.value },
+                      })
+                    }
+                    disabled={
+                      sessionStorage.getItem("isDemoAccount") === "true"
+                    }
                   >
                     <option value="Yes">Yes</option>
                     <option value="No">No</option>
@@ -3774,7 +3922,7 @@ const Output: React.FC<OutputInterface> = ({
                       opacity: isSavingSettings ? 0.6 : 1,
                       fontSize: "16px",
                       fontWeight: "500",
-                      marginTop: "20px"
+                      marginTop: "20px",
                     }}
                   >
                     {isSavingSettings ? "Saving..." : "Save Settings"}
@@ -3783,15 +3931,19 @@ const Output: React.FC<OutputInterface> = ({
               )}
 
               {sessionStorage.getItem("isDemoAccount") === "true" && (
-                <div className="demo-notice" style={{
-                  padding: "10px",
-                  background: "#fff3cd",
-                  border: "1px solid #ffeaa7",
-                  borderRadius: "4px",
-                  color: "#856404",
-                  marginTop: "20px"
-                }}>
-                  <strong>Demo Mode:</strong> Settings are visible but disabled. Upgrade your account to enable these features.
+                <div
+                  className="demo-notice"
+                  style={{
+                    padding: "10px",
+                    background: "#fff3cd",
+                    border: "1px solid #ffeaa7",
+                    borderRadius: "4px",
+                    color: "#856404",
+                    marginTop: "20px",
+                  }}
+                >
+                  <strong>Demo Mode:</strong> Settings are visible but disabled.
+                  Upgrade your account to enable these features.
                 </div>
               )}
             </div>
@@ -3807,7 +3959,7 @@ const Output: React.FC<OutputInterface> = ({
       {/* Email Sending Loader Modal */}
       <AppModal
         isOpen={sendingEmail}
-        onClose={() => { }}
+        onClose={() => {}}
         type="loader"
         loaderMessage="Sending email..."
         closeOnOverlayClick={false}

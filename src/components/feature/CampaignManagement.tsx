@@ -745,7 +745,7 @@ const paginatedCampaigns = filteredCampaigns.slice(
                                 <path
                                   d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
                                   stroke="#000000"
-                                  stroke-width="2"
+                                  strokeWidth="2"
                                   stroke-linecap="round"
                                   stroke-linejoin="round"
                                 ></path>
@@ -907,8 +907,8 @@ const paginatedCampaigns = filteredCampaigns.slice(
                       campaignForm.zohoViewId
                         ? `list-${campaignForm.zohoViewId}`
                         : campaignForm.segmentId
-                        ? `segment-${campaignForm.segmentId}`
-                        : ""
+                          ? `segment-${campaignForm.segmentId}`
+                          : ""
                     }
                     className="form-control"
                     disabled={
@@ -1007,9 +1007,9 @@ const paginatedCampaigns = filteredCampaigns.slice(
                   padding: "8px 16px",
                   background:
                     !isLoading &&
-                    campaignForm.campaignName &&
-                    campaignForm.promptId &&
-                    (campaignForm.zohoViewId || campaignForm.segmentId)
+                      campaignForm.campaignName &&
+                      campaignForm.promptId &&
+                      (campaignForm.zohoViewId || campaignForm.segmentId)
                       ? "#3f9f42"
                       : "#ccc",
                   color: "#fff",
@@ -1017,9 +1017,9 @@ const paginatedCampaigns = filteredCampaigns.slice(
                   borderRadius: "4px",
                   cursor:
                     !isLoading &&
-                    campaignForm.campaignName &&
-                    campaignForm.promptId &&
-                    (campaignForm.zohoViewId || campaignForm.segmentId)
+                      campaignForm.campaignName &&
+                      campaignForm.promptId &&
+                      (campaignForm.zohoViewId || campaignForm.segmentId)
                       ? "pointer"
                       : "not-allowed",
                 }}
@@ -1029,8 +1029,8 @@ const paginatedCampaigns = filteredCampaigns.slice(
                     ? "Updating..."
                     : "Creating..."
                   : selectedCampaign
-                  ? "Update Campaign"
-                  : "Create Campaign"}
+                    ? "Update Campaign"
+                    : "Create Campaign"}
               </button>
             </div>
           </div>

@@ -341,8 +341,8 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
       searchFields.length > 0
         ? searchFields
         : columns
-            .filter((col) => col.searchable !== false)
-            .map((col) => col.key);
+          .filter((col) => col.searchable !== false)
+          .map((col) => col.key);
 
     const filtered = data.filter((item) => {
       return fieldsToSearch.some((field) => {
@@ -462,6 +462,25 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
     };
   }, [showColumnPanel]);
 
+  const [tableWidth, setTableWidth] = useState(window.innerWidth - 300);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setTableWidth(window.innerWidth - 300);
+    };
+
+    // Set initial width
+    handleResize();
+
+    // Add resize listener
+    window.addEventListener('resize', handleResize);
+
+    // Cleanup on unmount
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
   return (
     <>
       {/* Detail View Header */}
@@ -510,6 +529,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
             alignItems: "center",
             marginBottom: 12,
             gap: 12,
+
           }}
         >
           <input
@@ -541,11 +561,63 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
               ⚙️ Columns
             </button>
           )}
+          {/* Pagination */}
+          {paginated &&
+            filteredData.length > 0 &&
+            typeof onPageChange === "function" && (
+              <div className="pagination-wrapper d-flex justify-between align-center ml-auto">
+                <div className="pagination-info mr-2">
+                  Showing {(currentPage - 1) * pageSize + 1} to{" "}
+                  {Math.min(currentPage * pageSize, filteredData.length)} of{" "}
+                  {filteredData.length} items
+                </div>
+                <div className="pagination-controls d-flex align-center gap-10 ">
+                  <button
+                    className="secondary-button flex justify-center items-center !px-[10px] h-[35px]"
+                    onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAADsQAAA7EB9YPtSQAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAPESURBVHic7d1NjF1zGMfx75jW0ExIKxUTJBovqYqXBYJKWhpiQSJY0CYiNlQssGFpWbEhNsJGLIgNXWgtpAsskFAJiZd4l8pU0CKNlk6nFv9MoiEzz+H875P7P99Pcnaz+CXPM/fOnN+5/wuSJEmSJEmSJEmSJEmSJEmSJEmSxs9kdoAxNwmsBzYBpwPfAUdSE2lkzgY+BI7+7foKuDgzlEbjQmCWY4e/cO0BpvOiqbYrgH38+/AXrtvT0nV0XHaAMbMJeB1YucTPrR1Bll64AHE3AzuIvbz/UDmLRuxO4DCLv+wvXL8Aq3Niqob7gXliwz8I3JATUzU8TGzwR4EDwHU5MdW3CeBx4sPfB1yZklS9mwSeIT78WeCilKTq3fHAS8SH/w1wbkZQ9W8FsJP48D8BzkhJqt5NA7uID/89/FevGauAd4gP/w3gpJSk6t0M8BHx4e8ATkxJqt6tAb4gPvwXgeUpSdW7C4DviQ//aexNmnEZ8BPx4T9JuTGkBmwEfiM+/G0pKVXFTZSyJjL4eeCBnJiqYQvxOncOuCslpaq4j/KkbmT4h4BbcmKqBuvcgbLOHbBJ4Fniw7fObUjXOvdr4JyUpOrdCuA14sP/GOvcZpwMvEV8+Na5DTkV2E18+Na5Dela576KdW4z1gBfEh++dW5DrHMHrGuduw3r3GZcg3XuYF1NKWsigz8CbM2JqVo+IDb8P4HNSRlVyWpiwz9IefBDQePyl3E05xxlCdSg6A2fQ5TTPNSYaynv75ElOEw51UONuRH4ndgSzAMP5sRUTRuAX/FewKBdCvxIfAmewruBzVlHOZUzugTPA8tSkqqarh/w3A5MpSRVNTP889Dmxa5deJZvc1YBbxNfgjcpj5GpIdOUc3yjS/A+5XEyNWQKeIX4EnwKnJmSVNUsA54jvgTfAudlBFU9E5SDHaJLsBe4JCWpqpkAHiO+BPuBq1KSqqqunxC+PiemarqX+BkBfwC35cRUTXcQr5PngLtzYqqmrnXyQzkxVdMGrJMH77/UyePy/KSCzsc6efDOAj4nvgTbgRMygqqe07BOHryVdKuT36VU0GpI1zp5N9bJzZkCXia+BNbJDbJOFhPAE8SXwDq5UY8SX4L9wPqUlKrqEeJLcIDypRRqzFbidfLPwCk5MVXTZuJ18j1JGTuz4Ih7AbiVcv7AUmYqZ1GijSx9UtmWrHAajcXOKpzFs4gHYR3wGccOfw9weWaorvzM/P+znPKWsJbym7+T8siZJEmSJEmSJEmSJEmSJEmSJEmSJFX0Fy3JG1adekoFAAAAAElFTkSuQmCC" alt="Previous" style={{
+                      width: '20px',
+                      height: '20px',
+                      objectFit: 'contain',
+                      marginRight: '2px',
+                      marginLeft: '-7px'
+                    }}></img>
+                    Prev
+                  </button>
+                  <span>
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    className="secondary-button !h-[35px] !py-[10px] !px-[10px] flex justify-center items-center"
+                    onClick={() =>
+                      onPageChange(Math.min(totalPages, currentPage + 1))
+                    }
+                    disabled={currentPage >= totalPages}
+                  >
+
+                    Next
+                    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAADsQAAA7EB9YPtSQAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAPMSURBVHic7d1JiBwFFMbx/0xGJ5C4JG5xTVAxCiKiUcQtIAEXvBmDycGDiMkp4IZevelBRIzgRRH14MEdRFRUiOIGyhiNRoWEaHBFE3fiMu2hCRgxzquhXz+q+v+DOs0cPniPXuqrqgZJkiRJkiRJkiRJkiRJkiRJkiRJ7TOnOsAsHA2sBpYB+wE7auNomK4DfgN6/zieBQ6qDKXhOB/4i72Hv+d4BzisLpqG4X7+e/h7jg+BY8rSKd1G/n8BesA24MSqgG00Xh2ggS8D/7MEeBU4LTeKKlwETDPzq0AP+B44pyamMt1MbAF6wE/AipqYyrSOfX8b+PexG7iiJqYyrQF+J7YEfwLX1MRUpsuBX4ktwTRwfU1MZVoO/ED8c8HtNTGVaRnwLfEluAcYK0mqNKfQL4WiS/AQMFGSVGmWAJ8SX4KngMmKoMqzCNhEfAleAuaXJFWaBcAbxJfgTWBhSVKlmQ+8SHwJ3gUOL0mqNJPAk8SXYAtwbElSpZkAHiS+BNuBkyqCKs8YcDfxJfgKOL0kqdKMAXcQX4KdwLklSZXqFuJL8DNwcU1MZWpaJ6+sialMq7FOHnlN6+QbamIq03Ksk0febOrkNl1NrQDrZM2qTp5bEVR5rJPVuE5+C+vkzmlaJ78PHFmSVGkmgSeIL4F1cgdZJ4tx4D7iS7CDFr0dtPEZQcPWo/8Ymrn0n1IykwPpv308lxlKNW4l9iqwuSpgU57SbCb6nX86NYWGbhzYQPxzwJ01MZVhgv65/+jwtwGHliTVwO0PPEZ8+FuBE0qSauDmAc8TH/5m4KiSpBq4BcDrxIf/NnBISVIN3BHAFPHhvwIcUJJUA7cY+IT48J/BawI642Tgc+LDfwSvCuqMM4BviA//XjyJ1hkXALuID98rgzvkMprdG3BTTUxluIpmdwddWxNTGa4G/iA2/N3AqpqYyrCe+FPHfwEuqYmpDE1uD99F7AIQtcAYcBfx4X8HnF2SVAM3B3iA+PC/AE4tSaqBmwQeJz78rcDxJUk1cPOAF4gP/wOsczvDOneELQLeIz78l7HO7YzFNKtzn8Y6tzOa1rkPY53bGWfSrM7dgHVuZ1yID3oaWU3r3BtrYiqDde4IW0uzx71eWRNTGaxzR9htxD/s7QTOq4mpDJcSH/7X+KMPnRO9SXM7sLQooxJtZObhfwwcVxWwjdp0NmzLDH+fon9S6LMhZFGBs9j3lbyvAQfXRdOwrAF+ZO/hP0r/4g/NQht/Rn0hsIL+tX5TwEe1cSRJkiRJkiRJkiRJkiRJkiRJkiRp2P4GBGMa775ZD4wAAAAASUVORK5CYII=" alt="Next"
+                      style={{
+                        width: '20px',
+                        height: '20px',
+                        objectFit: 'contain',
+                        marginLeft: '2px',
+                        marginRight: '-7px'
+                      }}
+
+                    ></img>
+                  </button>
+                </div>
+              </div>
+            )}
         </div>
       )}
 
       {/* Main Content with Sidebar */}
       <div style={{ position: "relative", display: "flex" }}>
+
         {/* Table Content */}
         <div
           style={{
@@ -554,7 +626,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
             transition: "margin-right 0.3s ease",
           }}
         >
-          <div className="contacts-table-wrapper">
+          <div className="contacts-table-wrapper " style={{ width: `${tableWidth}px` }}>
             <table className="contacts-table">
               <thead>
                 <tr>
@@ -625,25 +697,43 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                   {Math.min(currentPage * pageSize, filteredData.length)} of{" "}
                   {filteredData.length} items
                 </div>
-                <div className="pagination-controls d-flex align-center gap-10">
+                <div className="pagination-controls d-flex align-center gap-10 ">
                   <button
-                    className="pagination-btn"
+                    className="secondary-button flex justify-center items-center !px-[10px] h-[35px]"
                     onClick={() => onPageChange(Math.max(1, currentPage - 1))}
                     disabled={currentPage === 1}
                   >
-                    Previous
+                    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAADsQAAA7EB9YPtSQAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAPESURBVHic7d1NjF1zGMfx75jW0ExIKxUTJBovqYqXBYJKWhpiQSJY0CYiNlQssGFpWbEhNsJGLIgNXWgtpAsskFAJiZd4l8pU0CKNlk6nFv9MoiEzz+H875P7P99Pcnaz+CXPM/fOnN+5/wuSJEmSJEmSJEmSJEmSJEmSJEmSxs9kdoAxNwmsBzYBpwPfAUdSE2lkzgY+BI7+7foKuDgzlEbjQmCWY4e/cO0BpvOiqbYrgH38+/AXrtvT0nV0XHaAMbMJeB1YucTPrR1Bll64AHE3AzuIvbz/UDmLRuxO4DCLv+wvXL8Aq3Niqob7gXliwz8I3JATUzU8TGzwR4EDwHU5MdW3CeBx4sPfB1yZklS9mwSeIT78WeCilKTq3fHAS8SH/w1wbkZQ9W8FsJP48D8BzkhJqt5NA7uID/89/FevGauAd4gP/w3gpJSk6t0M8BHx4e8ATkxJqt6tAb4gPvwXgeUpSdW7C4DviQ//aexNmnEZ8BPx4T9JuTGkBmwEfiM+/G0pKVXFTZSyJjL4eeCBnJiqYQvxOncOuCslpaq4j/KkbmT4h4BbcmKqBuvcgbLOHbBJ4Fniw7fObUjXOvdr4JyUpOrdCuA14sP/GOvcZpwMvEV8+Na5DTkV2E18+Na5Dela576KdW4z1gBfEh++dW5DrHMHrGuduw3r3GZcg3XuYF1NKWsigz8CbM2JqVo+IDb8P4HNSRlVyWpiwz9IefBDQePyl3E05xxlCdSg6A2fQ5TTPNSYaynv75ElOEw51UONuRH4ndgSzAMP5sRUTRuAX/FewKBdCvxIfAmewruBzVlHOZUzugTPA8tSkqqarh/w3A5MpSRVNTP889Dmxa5deJZvc1YBbxNfgjcpj5GpIdOUc3yjS/A+5XEyNWQKeIX4EnwKnJmSVNUsA54jvgTfAudlBFU9E5SDHaJLsBe4JCWpqpkAHiO+BPuBq1KSqqqunxC+PiemarqX+BkBfwC35cRUTXcQr5PngLtzYqqmrnXyQzkxVdMGrJMH77/UyePy/KSCzsc6efDOAj4nvgTbgRMygqqe07BOHryVdKuT36VU0GpI1zp5N9bJzZkCXia+BNbJDbJOFhPAE8SXwDq5UY8SX4L9wPqUlKrqEeJLcIDypRRqzFbidfLPwCk5MVXTZuJ18j1JGTuz4Ih7AbiVcv7AUmYqZ1GijSx9UtmWrHAajcXOKpzFs4gHYR3wGccOfw9weWaorvzM/P+znPKWsJbym7+T8siZJEmSJEmSJEmSJEmSJEmSJEmSJFX0Fy3JG1adekoFAAAAAElFTkSuQmCC" alt="Previous" style={{
+                      width: '20px',
+                      height: '20px',
+                      objectFit: 'contain',
+                      marginRight: '2px',
+                      marginLeft: '-7px'
+                    }}></img>
+                    Prev
                   </button>
                   <span>
                     Page {currentPage} of {totalPages}
                   </span>
                   <button
-                    className="pagination-btn"
+                    className="secondary-button !h-[35px] !py-[10px] !px-[10px] flex justify-center items-center"
                     onClick={() =>
                       onPageChange(Math.min(totalPages, currentPage + 1))
                     }
                     disabled={currentPage >= totalPages}
                   >
+
                     Next
+                    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAADsQAAA7EB9YPtSQAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAPMSURBVHic7d1JiBwFFMbx/0xGJ5C4JG5xTVAxCiKiUcQtIAEXvBmDycGDiMkp4IZevelBRIzgRRH14MEdRFRUiOIGyhiNRoWEaHBFE3fiMu2hCRgxzquhXz+q+v+DOs0cPniPXuqrqgZJkiRJkiRJkiRJkiRJkiRJkiRJ7TOnOsAsHA2sBpYB+wE7auNomK4DfgN6/zieBQ6qDKXhOB/4i72Hv+d4BzisLpqG4X7+e/h7jg+BY8rSKd1G/n8BesA24MSqgG00Xh2ggS8D/7MEeBU4LTeKKlwETDPzq0AP+B44pyamMt1MbAF6wE/AipqYyrSOfX8b+PexG7iiJqYyrQF+J7YEfwLX1MRUpsuBX4ktwTRwfU1MZVoO/ED8c8HtNTGVaRnwLfEluAcYK0mqNKfQL4WiS/AQMFGSVGmWAJ8SX4KngMmKoMqzCNhEfAleAuaXJFWaBcAbxJfgTWBhSVKlmQ+8SHwJ3gUOL0mqNJPAk8SXYAtwbElSpZkAHiS+BNuBkyqCKs8YcDfxJfgKOL0kqdKMAXcQX4KdwLklSZXqFuJL8DNwcU1MZWpaJ6+sialMq7FOHnlN6+QbamIq03Ksk0febOrkNl1NrQDrZM2qTp5bEVR5rJPVuE5+C+vkzmlaJ78PHFmSVGkmgSeIL4F1cgdZJ4tx4D7iS7CDFr0dtPEZQcPWo/8Ymrn0n1IykwPpv308lxlKNW4l9iqwuSpgU57SbCb6nX86NYWGbhzYQPxzwJ01MZVhgv65/+jwtwGHliTVwO0PPEZ8+FuBE0qSauDmAc8TH/5m4KiSpBq4BcDrxIf/NnBISVIN3BHAFPHhvwIcUJJUA7cY+IT48J/BawI642Tgc+LDfwSvCuqMM4BviA//XjyJ1hkXALuID98rgzvkMprdG3BTTUxluIpmdwddWxNTGa4G/iA2/N3AqpqYyrCe+FPHfwEuqYmpDE1uD99F7AIQtcAYcBfx4X8HnF2SVAM3B3iA+PC/AE4tSaqBmwQeJz78rcDxJUk1cPOAF4gP/wOsczvDOneELQLeIz78l7HO7YzFNKtzn8Y6tzOa1rkPY53bGWfSrM7dgHVuZ1yID3oaWU3r3BtrYiqDde4IW0uzx71eWRNTGaxzR9htxD/s7QTOq4mpDJcSH/7X+KMPnRO9SXM7sLQooxJtZObhfwwcVxWwjdp0NmzLDH+fon9S6LMhZFGBs9j3lbyvAQfXRdOwrAF+ZO/hP0r/4g/NQht/Rn0hsIL+tX5TwEe1cSRJkiRJkiRJkiRJkiRJkiRJkiRp2P4GBGMa775ZD4wAAAAASUVORK5CYII=" alt="Next"
+                      style={{
+                        width: '20px',
+                        height: '20px',
+                        objectFit: 'contain',
+                        marginLeft: '2px',
+                        marginRight: '-7px'
+                      }}
+
+                    ></img>
                   </button>
                 </div>
               </div>

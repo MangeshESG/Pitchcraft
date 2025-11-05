@@ -1,0 +1,364 @@
+/* ------------------------ */
+/* Base Layout Styles       */
+/* ------------------------ */
+.template-container {
+  padding: 0;
+}
+
+.section-wrapper {
+  background: #fff;
+  border-radius: 8px;
+  padding: 24px;
+}
+
+.section-title {
+  font-size: 22px;
+  margin-bottom: 20px;
+  font-weight: 600;
+  color: #333;
+}
+
+/* ------------------------ */
+/* Controls & Table         */
+/* ------------------------ */
+.controls-wrapper {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 16px;
+}
+
+.search-input {
+  width: 340px;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.contacts-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+}
+
+.contacts-table th {
+  background: #f8f9fa;
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 14px;
+  color: #666;
+  border-bottom: 1px solid #eee;
+}
+
+.contacts-table td {
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+  font-size: 14px;
+}
+
+.contacts-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+/* ------------------------ */
+/* Action Buttons & Menus   */
+/* ------------------------ */
+.template-link {
+  color: #007bff;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.template-link:hover {
+  color: #0056b3;
+  text-decoration: underline;
+}
+
+.template-actions-btn {
+  border: none;
+  background: none;
+  font-size: 20px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 10px;
+}
+
+.template-actions-menu {
+  position: absolute;
+  top: 32px;
+  right: 0;
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.12);
+  z-index: 101;
+  min-width: 160px;
+  padding: 10px 0;
+}
+
+/* ------------------------ */
+/* Modal Popup Styles       */
+/* ------------------------ */
+/* Modal Backdrop (Centered Popup) */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  animation: fadeIn 0.25s ease;
+}
+
+/* Modal Content (Popup Box) */
+.modal-content {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+  width: 600px;
+  max-width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  animation: scaleIn 0.25s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.97);
+    opacity: 0.6;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.modal-content.modal-large {
+  width: 800px;
+  max-width: 95%;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 0 24px;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #333;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  color: #777;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.modal-close-btn:hover {
+  color: #333;
+}
+
+.modal-body {
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.modal-footer {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding: 16px 24px;
+  border-top: 1px solid #eee;
+}
+
+/* ------------------------ */
+/* Forms and Inputs         */
+/* ------------------------ */
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: #3f9f42;
+  box-shadow: 0 0 0 2px rgba(63, 159, 66, 0.2);
+}
+
+/* ------------------------ */
+/* Buttons                  */
+/* ------------------------ */
+.button {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.button.save-button {
+  background: #3f9f42;
+  color: #fff;
+}
+
+.button.save-button:hover:not(:disabled) {
+  background: #2d7a30;
+}
+
+.button.save-button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.button.secondary {
+  background: #fff;
+  border: 1px solid #ddd;
+  color: #333;
+}
+
+.button.secondary:hover {
+  background: #f9fafb;
+}
+
+/* ------------------------ */
+/* Tabs                     */
+/* ------------------------ */
+.tabs.secondary {
+  margin-bottom: 20px;
+}
+
+.tabs ul {
+  display: flex;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-bottom: 1px solid #ddd;
+}
+
+.tabs .button {
+  background: none;
+  border: none;
+  color: #666;
+  font-weight: 500;
+  padding: 10px 0;
+  border-bottom: 2px solid transparent;
+}
+
+.tabs .button.active {
+  color: #3f9f42;
+  border-bottom-color: #3f9f42;
+}
+
+/* ------------------------ */
+/* Animations               */
+/* ------------------------ */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* ------------------------ */
+/* Utility / Responsive     */
+/* ------------------------ */
+.loading-spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 3px solid rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  border-top-color: #3f9f42;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 768px) {
+  .modal-content {
+    width: 94%;
+    margin: 20px;
+  }
+
+  .controls-wrapper {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-input {
+    width: 100%;
+  }
+
+  .modal-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .modal-footer .button {
+    width: 100%;
+  }
+}
+
+@media print {
+  .controls-wrapper,
+  .template-actions-btn,
+  .template-actions-menu,
+  .modal-backdrop {
+    display: none !important;
+  }
+}

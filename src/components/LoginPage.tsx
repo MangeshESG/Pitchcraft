@@ -180,6 +180,16 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
     }
   };
 
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("demo") === "true") {
+    setUsername("Acme");
+    setPassword("pitchcraft123");
+  }
+}, []);
+
+
+
   return (
     <div>
       <h2>Login to PitchKraft</h2>

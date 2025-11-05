@@ -72,7 +72,7 @@ export const Dashboard: React.FC = () => {
                       <p>Contact your account manager for new pitch templates. Soon you'll
                         be able to build them right in PitchKraft.</p>
                     </div>
-                    <button onClick={() => navigate("/main?tab=Template")} className="border-[#3f9f42] border  w-[fit-content] mt-[auto] text-[#3f9f42]  rounded-md px-3 py-1.5  font-semibold ">
+                    <button onClick={() => navigate("/main?tab=TestTemplate")} className="border-[#3f9f42] border  w-[fit-content] mt-[auto] text-[#3f9f42]  rounded-md px-3 py-1.5  font-semibold ">
                       Create template
                     </button>
                   </div>
