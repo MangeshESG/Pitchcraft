@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <!-- Petrol pump base -->
+  <rect x="30" y="60" width="110" height="20" fill="#1a1a1a" rx="10"/>
+  
+  <!-- Main pump body -->
+  <path d="M140 60 L140 80 L240 80 Q250 80 250 90 L250 120 Q250 130 240 130 L220 130 L220 110 Q220 100 210 100 L180 100 Q170 100 170 110 L170 150 Q170 160 180 160 L210 160 Q220 160 220 150 L220 130 L240 130 Q250 130 250 140 L250 170 Q250 180 240 180 L140 180 L140 60 Z" fill="#1a1a1a"/>
+  
+  <!-- Pump handle -->
+  <ellipse cx="195" cy="130" rx="15" ry="25" fill="white"/>
+  
+  <!-- Fuel hose -->
+  <path d="M250 180 Q280 200 300 240 Q320 280 340 320 Q360 340 380 330" stroke="#1a1a1a" stroke-width="8" fill="none"/>
+  
+  <!-- Fuel drop -->
+  <path d="M28 130 Q28 120 35 120 Q42 120 42 130 Q42 140 35 150 Q28 140 28 130 Z" fill="#1a1a1a"/>
+</svg>

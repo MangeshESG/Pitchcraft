@@ -6,6 +6,7 @@ import { useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
 import AeroplaneImg from "../../assets/images/aeroplane.png";
 import RocketImg from "../../assets/images/rocket.png";
+import PetrolPumpImg from "../../assets/images/petrol-pump.png";
 import API_BASE_URL from "../../config";
 import pitchLogo from "../../assets/images/pitch_logo.png";
 import { loadStripe } from "@stripe/stripe-js";
@@ -58,9 +59,9 @@ const plans: Plan[] = [
     planCode: "price_1SMmZ6HDCkj9hBmZNyIzVJQL",
   },
   {
-    icon: "💳",
+    icon: PetrolPumpImg,
     title: "Pay-as-you-go",
-    price: 0.15,
+    price: 0.20,
     period: "/credit",
     features: [
       "No monthly commitment",
@@ -68,9 +69,9 @@ const plans: Plan[] = [
       "Credits never expire",
       "Same features as Premium",
       "Perfect for occasional use",
-      "Minimum purchase: 100 credits ($15)",
+      "Minimum purchase: 100 credits ($20)",
     ],
-    buttonText: "Buy Credits",
+    buttonText: "Buy credits",
     planCode: "credits",
   },
 ];
@@ -109,8 +110,9 @@ function PaymentForm({ clientSecret, selectedPlan, onGoBack }: { clientSecret: s
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-100 overflow-y-auto flex items-center justify-center" data-secure="true">
-      <div className="bg-white rounded-lg shadow-lg max-w-4xl w-full mx-4 my-8 p-8">
+    <div className="fixed inset-0 bg-gray-100 overflow-y-auto" data-secure="true">
+      <div className="min-h-full flex items-start justify-center py-8">
+        <div className="bg-white rounded-lg shadow-lg max-w-4xl w-full mx-4 p-8">
         <div className="flex gap-8">
           {/* Left Side - Order Summary */}
           <div className="flex-1">
@@ -196,6 +198,7 @@ function PaymentForm({ clientSecret, selectedPlan, onGoBack }: { clientSecret: s
             )}
           </div>
         </div>
+        </div>
       </div>
     </div>
   );
@@ -210,6 +213,28 @@ const Planes: React.FC = () => {
   const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
   const [showCreditsModal, setShowCreditsModal] = useState(false);
   const [creditAmount, setCreditAmount] = useState(100);
+  const [isYearly, setIsYearly] = useState(false);
+  const [currentPlan, setCurrentPlan] = useState<string | null>(null);
+  const [currentInterval, setCurrentInterval] = useState<string | null>(null);
+
+  const fetchCurrentPlan = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/stripe/active/${effectiveUserId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setCurrentPlan(data.plane || null);
+        setCurrentInterval(data.interval || null);
+      }
+    } catch (error) {
+      console.error('Error fetching current plan:', error);
+    }
+  };
+
+  React.useEffect(() => {
+    if (effectiveUserId) {
+      fetchCurrentPlan();
+    }
+  }, [effectiveUserId]);
 
   const handleGoBack = () => {
     setClientSecret(null);
@@ -225,13 +250,14 @@ const Planes: React.FC = () => {
 
     try {
       setSelectedPlan(plan);
+      const priceId = isYearly ? (plan.title.toLowerCase() === 'standard' ? 'price_1SPgOFHDCkj9hBmZxSnUTzAT' : plan.title.toLowerCase() === 'premium' ? 'price_1SPh0hHDCkj9hBmZXtVBJ1QG' : plan.planCode) : plan.planCode;
       const response = await fetch(`${API_BASE_URL}/api/stripe/create-subscription`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: effectiveUserId,
-          email: "testuser@example.com",
-          priceId: plan.planCode,
+          priceId: priceId,
+          interval: isYearly ? "Yearly" : "Monthly",
         }),
       });
 
@@ -250,18 +276,14 @@ const Planes: React.FC = () => {
       const customPlan = {
         ...plans[2],
         title: `${creditAmount} Credits`,
-        price: creditAmount * 0.15,
+        price: creditAmount * 0.20,
       };
       setSelectedPlan(customPlan);
       
-      const response = await fetch(`${API_BASE_URL}/api/stripe/create-payment-intent`, {
+      const response = await fetch(`${API_BASE_URL}/api/stripe/create-credit-intent?UserId=${effectiveUserId}&Credits=${creditAmount}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: effectiveUserId,
-          planName: `${creditAmount} Credits`,
-          amount: creditAmount * 0.15,
-        }),
+        headers: { "accept": "*/*" },
+        body: "",
       });
 
       if (!response.ok) throw new Error("Failed to create payment intent");
@@ -292,9 +314,40 @@ const Planes: React.FC = () => {
 
   return (
     <div>
+      {/* Billing Toggle */}
+      <div className="flex justify-center mb-8">
+        <div className="bg-gray-100 p-1 rounded-lg flex items-center">
+          <button
+            onClick={() => setIsYearly(false)}
+            className={`px-4 py-2 rounded-md transition-colors ${
+              !isYearly ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600'
+            }`}
+          >
+            Monthly
+          </button>
+          <button
+            onClick={() => setIsYearly(true)}
+            className={`px-4 py-2 rounded-md transition-colors ${
+              isYearly ? 'bg-white shadow-sm text-gray-900' : 'text-gray-600'
+            }`}
+          >
+            Yearly <span className="text-green-600 text-sm font-medium">-20%</span>
+          </button>
+        </div>
+      </div>
       <div className="pricing-table">
-        {plans.map((plan, index) => (
-          <div className="card" key={index}>
+        {plans.map((plan, index) => {
+          const yearlyPrice = plan.planCode !== 'credits' ? (plan.title.toLowerCase() === 'standard' ? 1899 : plan.title.toLowerCase() === 'premium' ? 2849 : plan.price * 12 * 0.8) : plan.price;
+          const displayPrice = isYearly && plan.planCode !== 'credits' ? yearlyPrice : plan.price;
+          const displayPeriod = isYearly && plan.planCode !== 'credits' ? '/year' : plan.period;
+          const currentBillingType = isYearly ? 'Yearly' : 'Monthly';
+          const isExactSamePlan = !!currentPlan && currentPlan.toLowerCase() === plan.title.toLowerCase() && currentInterval?.toLowerCase() === currentBillingType.toLowerCase();
+          const canUpgrade = !!currentPlan && (currentPlan.toLowerCase() === 'standard' && plan.title.toLowerCase() === 'premium');
+          const canSwitchInterval = !!currentPlan && currentPlan.toLowerCase() === plan.title.toLowerCase() && currentInterval?.toLowerCase() === 'monthly' && currentBillingType.toLowerCase() === 'yearly';
+          const cannotBuy = !!currentPlan && plan.title.toLowerCase() !== 'pay-as-you-go' && ((currentPlan.toLowerCase() === 'premium' && plan.title.toLowerCase() === 'standard') || (currentInterval?.toLowerCase() === 'yearly' && !isYearly));
+          
+          return (
+          <div className="card" key={index} title={isExactSamePlan ? 'You already have this plan with same billing' : cannotBuy ? 'Cannot downgrade to lower plan' : canSwitchInterval ? 'Switch billing interval' : ''}>
             <div className="container">
               {plan.icon.startsWith('http') || plan.icon.includes('.') ? (
                 <img src={plan.icon} alt={plan.title} className="x mr-10" />
@@ -303,9 +356,14 @@ const Planes: React.FC = () => {
               )}
               <div className="yz">
                 <h3 className="y">{plan.title}</h3>
-                <span className="z">${plan.price}</span>
+                <div className="z">${displayPrice.toFixed(2)}</div>
+                {isYearly && plan.planCode !== 'credits' && (
+                  <div style={{fontSize: '14px', opacity: 0.75, textDecoration: 'line-through'}}>
+                    ${(plan.price * 12).toFixed(2)}
+                  </div>
+                )}
+                <div className="A">{displayPeriod}</div>
               </div>
-              <div className="A">{plan.period}</div>
             </div>
             <ul className="features-list">
               {plan.features.map((feature, i) => (
@@ -315,21 +373,29 @@ const Planes: React.FC = () => {
                 </li>
               ))}
             </ul>
-            <button className="try-button" onClick={() => handleTryItNowClick(plan)}>
-              <FontAwesomeIcon icon={faCloudDownloadAlt} /> {plan.buttonText}
+            <button 
+              className={`try-button ${(isExactSamePlan || cannotBuy) ? 'disabled' : ''}`}
+              onClick={() => {
+                if (isExactSamePlan || cannotBuy) return;
+                handleTryItNowClick({...plan, price: displayPrice, period: displayPeriod});
+              }}
+              disabled={isExactSamePlan || cannotBuy}
+            >
+              <FontAwesomeIcon icon={faCloudDownloadAlt} /> 
+              {isExactSamePlan ? 'Current plan' : cannotBuy ? 'Cannot downgrade' : canSwitchInterval ? `Switch to ${currentBillingType}` : canUpgrade ? 'Upgrade' : plan.buttonText}
             </button>
           </div>
-        ))}
+        )})}
       </div>
 
       {/* Credits Selection Modal */}
       {showCreditsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <h3 className="text-xl font-bold mb-4">Select Credit Amount</h3>
+            <h3 className="text-xl font-bold mb-4">Select credit amount</h3>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Number of Credits (Min: 100)
+                Number of credits (Min: 100)
               </label>
               <input
                 type="number"
@@ -342,10 +408,10 @@ const Planes: React.FC = () => {
             </div>
             <div className="mb-4 p-3 bg-gray-50 rounded">
               <p className="text-sm text-gray-600">
-                <strong>Total Cost:</strong> ${(creditAmount * 0.15).toFixed(2)}
+                <strong>Total cost:</strong> ${(creditAmount * 0.20).toFixed(2)}
               </p>
               <p className="text-xs text-gray-500 mt-1">
-                Rate: $0.15 per credit
+                Rate: $0.20 per credit
               </p>
             </div>
             <div className="flex gap-3">
@@ -360,7 +426,7 @@ const Planes: React.FC = () => {
                 className="flex-1 px-4 py-2 text-white rounded-md"
                 style={{ backgroundColor: '#008508' }}
               >
-                Continue to Payment
+                Continue to payment
               </button>
             </div>
           </div>

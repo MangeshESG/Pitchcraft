@@ -14,7 +14,7 @@ const CreditCheckModal: React.FC<CreditCheckModalProps> = ({ isOpen, onClose, cr
 
   const handleBuyPlan = () => {
     onClose();
-    navigate('/planes'); // Navigate to plans page
+    navigate('/plans'); // Navigate to plans page
   };
 
   const handleSkip = () => {

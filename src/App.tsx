@@ -55,7 +55,7 @@ const App: React.FC = () => {
                    <Route index element={<Planes />} />         {/* default page */}
                    <Route path="myplan" element={<Myplan />} /> {/* nested page */}
                 </Route>
-                <Route path="/planes" element={<Planes/>} />
+                <Route path="/plans" element={<Planes/>} />
                 <Route path="/plan-history" element={<PlanHistory />} />
                 <Route
                   path="/user"
