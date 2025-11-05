@@ -312,8 +312,8 @@ const PlanHistory: React.FC = () => {
                                 </td>
                                 <td>{subscription.planName || 'Unknown'}</td>
                                 <td>{formatAmount(subscription.planAmount)}</td>
-                                <td style={{ textTransform: 'capitalize' }}>
-                                  {subscription.interval || ''}
+                                <td>
+                                  {subscription.interval ? subscription.interval.charAt(0).toUpperCase() + subscription.interval.slice(1).toLowerCase() : ''}
                                 </td>
                                 <td>{getStatusBadge(subscription.status)}</td>
                                 <td>{formatDate(subscription.startDate)}</td>

@@ -71,7 +71,7 @@ const plans: Plan[] = [
       "Perfect for occasional use",
       "Minimum purchase: 100 credits ($20)",
     ],
-    buttonText: "Buy Credits",
+    buttonText: "Buy credits",
     planCode: "credits",
   },
 ];
@@ -382,7 +382,7 @@ const Planes: React.FC = () => {
               disabled={isExactSamePlan || cannotBuy}
             >
               <FontAwesomeIcon icon={faCloudDownloadAlt} /> 
-              {isExactSamePlan ? 'Current Plan' : cannotBuy ? 'Cannot Downgrade' : canSwitchInterval ? `Switch to ${currentBillingType}` : canUpgrade ? 'Upgrade' : plan.buttonText}
+              {isExactSamePlan ? 'Current plan' : cannotBuy ? 'Cannot downgrade' : canSwitchInterval ? `Switch to ${currentBillingType}` : canUpgrade ? 'Upgrade' : plan.buttonText}
             </button>
           </div>
         )})}
