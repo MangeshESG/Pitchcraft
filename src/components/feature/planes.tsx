@@ -250,13 +250,13 @@ const Planes: React.FC = () => {
 
     try {
       setSelectedPlan(plan);
+      const priceId = isYearly ? (plan.title.toLowerCase() === 'standard' ? 'price_1SPgOFHDCkj9hBmZxSnUTzAT' : plan.title.toLowerCase() === 'premium' ? 'price_1SPh0hHDCkj9hBmZXtVBJ1QG' : plan.planCode) : plan.planCode;
       const response = await fetch(`${API_BASE_URL}/api/stripe/create-subscription`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: effectiveUserId,
-          email: "testuser@example.com",
-          priceId: plan.planCode,
+          priceId: priceId,
           interval: isYearly ? "Yearly" : "Monthly",
         }),
       });
@@ -337,14 +337,14 @@ const Planes: React.FC = () => {
       </div>
       <div className="pricing-table">
         {plans.map((plan, index) => {
-          const yearlyPrice = plan.planCode !== 'credits' ? plan.price * 12 * 0.8 : plan.price;
+          const yearlyPrice = plan.planCode !== 'credits' ? (plan.title.toLowerCase() === 'standard' ? 1899 : plan.title.toLowerCase() === 'premium' ? 2849 : plan.price * 12 * 0.8) : plan.price;
           const displayPrice = isYearly && plan.planCode !== 'credits' ? yearlyPrice : plan.price;
           const displayPeriod = isYearly && plan.planCode !== 'credits' ? '/year' : plan.period;
           const currentBillingType = isYearly ? 'Yearly' : 'Monthly';
           const isExactSamePlan = !!currentPlan && currentPlan.toLowerCase() === plan.title.toLowerCase() && currentInterval?.toLowerCase() === currentBillingType.toLowerCase();
           const canUpgrade = !!currentPlan && (currentPlan.toLowerCase() === 'standard' && plan.title.toLowerCase() === 'premium');
-          const canSwitchInterval = !!currentPlan && currentPlan.toLowerCase() === plan.title.toLowerCase() && currentInterval?.toLowerCase() !== currentBillingType.toLowerCase();
-          const cannotBuy = !!currentPlan && (currentPlan.toLowerCase() === 'premium' && plan.title.toLowerCase() === 'standard');
+          const canSwitchInterval = !!currentPlan && currentPlan.toLowerCase() === plan.title.toLowerCase() && currentInterval?.toLowerCase() === 'monthly' && currentBillingType.toLowerCase() === 'yearly';
+          const cannotBuy = !!currentPlan && plan.title.toLowerCase() !== 'pay-as-you-go' && ((currentPlan.toLowerCase() === 'premium' && plan.title.toLowerCase() === 'standard') || (currentInterval?.toLowerCase() === 'yearly' && !isYearly));
           
           return (
           <div className="card" key={index} title={isExactSamePlan ? 'You already have this plan with same billing' : cannotBuy ? 'Cannot downgrade to lower plan' : canSwitchInterval ? 'Switch billing interval' : ''}>
