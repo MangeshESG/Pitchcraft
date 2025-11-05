@@ -353,7 +353,7 @@ const RegisterForm: React.FC<ViewProps> = ({ setView }) => {
                 className={`password-hint ${passwordValid ? "hint-valid" : "hint-invalid"
                   }`}
               >
-                 {passwordValid ? "✓" : "✕"} At least 8 characters long
+                {passwordValid ? "✓" : "✕"} At least 8 characters long
               </div>
             )}
           </div>
@@ -633,7 +633,7 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
           maxLength={6}
         />
 
-        {loginUser && (
+        {/* {loginUser && (
           <div style={{ margin: "10px 0" }}>
             <label>
               <input
@@ -641,6 +641,34 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
                 checked={trustThisDevice}
                 onChange={(e) => setTrustThisDevice(e.target.checked)}
               />{" "}
+              Trust this device (Don't ask for OTP for 30 days)
+            </label>
+          </div>
+        )} */}
+        {loginUser && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              margin: "0px 0px 5px",
+            }}
+          >
+            <input
+              type="checkbox"
+              id="trustDevice"
+              checked={trustThisDevice}
+              onChange={(e) => setTrustThisDevice(e.target.checked)}
+              style={{ cursor: "pointer" }}
+            />
+            <label
+              htmlFor="trustDevice"
+              style={{
+                fontSize: "14px",
+                color: "#444",
+                cursor: "pointer",
+              }}
+            >
               Trust this device (Don't ask for OTP for 30 days)
             </label>
           </div>
