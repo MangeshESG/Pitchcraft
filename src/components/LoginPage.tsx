@@ -360,7 +360,7 @@ const RegisterForm: React.FC<ViewProps> = ({ setView }) => {
 
         </div>
         <div className="name-field">
-          <label>Company name*</label>
+          <label>Company name</label>
           <input
             placeholder="Company name"
             value={form.companyName}
