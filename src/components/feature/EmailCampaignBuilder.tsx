@@ -109,22 +109,7 @@ interface ConversationTabProps {
   applyContactPlaceholders: (contact: any) => void;
 }
 
-interface ResultTabProps {
-  isComplete: boolean;
-  finalPrompt: string;
-  finalPreviewText: string;
-  previewText: string;
-  copied: boolean;
-  copyToClipboard: (text: string) => void;
-  resetAll: () => void;
-  systemPrompt: string;
-  masterPrompt: string;
-  placeholderValues: Record<string, string>;
-  selectedModel: string;
-  effectiveUserId: string | null;
-  messages: Message[];
-  selectedTemplateDefinitionId: number | null;
-}
+
 
 // ✅ Add interface for EditInstructionsModal
 interface EditInstructionsModalProps {
@@ -160,25 +145,26 @@ const CONTACT_PLACEHOLDERS = [
 const getConversationPlaceholders = (allPlaceholders: Record<string, string>): Record<string, string> => {
   const filtered: Record<string, string> = {};
   
-  Object.entries(allPlaceholders).forEach(([key, value]) => {
+  Object.keys(allPlaceholders || {}).forEach((key) => {
     if (!CONTACT_PLACEHOLDERS.includes(key)) {
-      filtered[key] = value;
+      filtered[key] = allPlaceholders[key] || "";
     }
   });
-  
+
   return filtered;
 };
+
 
 // Get only contact placeholders from merged set
 const getContactPlaceholders = (allPlaceholders: Record<string, string>): Record<string, string> => {
   const contactOnly: Record<string, string> = {};
   
   CONTACT_PLACEHOLDERS.forEach(key => {
-    if (allPlaceholders[key]) {
-      contactOnly[key] = allPlaceholders[key];
+    if (Object.prototype.hasOwnProperty.call(allPlaceholders, key)) {
+      contactOnly[key] = allPlaceholders[key] || "";
     }
   });
-  
+
   return contactOnly;
 };
 
@@ -696,7 +682,7 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
                 onClick={regenerateExampleOutput}
                 disabled={!conversationStarted}
               >
-                🔄 Regenerate
+               Generate
               </button>
             </div>
           </div>
@@ -708,9 +694,25 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
                 dangerouslySetInnerHTML={{ __html: exampleOutput }}
               />
             ) : conversationStarted ? (
-              <div className="example-placeholder">
-                <p>💬 Start answering questions to see live preview...</p>
-              </div>
+<div className="example-placeholder p-6 text-gray-700 bg-gray-50 rounded-2xl border border-gray-200 shadow-sm leading-relaxed">
+      <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+        <span role="img" aria-label="info">💡</span> How this works
+      </h3>
+      <p className="mb-3">
+        Once enough questions have been answered on the left conversation area,
+        you can click <strong>“Generate”</strong> to preview what your personalized email
+        will look like with real contact details.
+      </p>
+      <p className="mb-3">
+        First, select a <strong>contact file</strong> and then choose contacts
+        from the dropdown above. The preview will automatically update as you
+        refine your campaign blueprint.
+      </p>
+      <p className="text-gray-500 italic">
+        ✨ Tip: Adjust placeholders or content in your blueprint to instantly
+        see changes reflected here.
+      </p>
+    </div>
             ) : (
               <div className="example-placeholder">
                 <p>📧 Example output will appear here</p>
@@ -784,9 +786,7 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
       .catch(err => console.error("Failed to load datafiles", err));
   }, [effectiveUserId]);
 
-  // ====================================================================
-  // AUTO-START CONVERSATION
-  // ====================================================================
+  
   // ====================================================================
 // AUTO-START CONVERSATION (Robust version)
 // ====================================================================
@@ -862,38 +862,36 @@ const applyContactPlaceholders = async (contact: any) => {
     const abbrev = friendly ? friendly.toLowerCase().replace(/\s+/g, "-") : "";
     const [first = "", last = ""] = (contact.full_name || "").split(" ");
 
-    // Build TEMPORARY contact placeholders
+    // ✅ Build contact placeholders exactly matching template placeholders
     const contactValues: Record<string, string> = {
       full_name: contact.full_name || "",
       first_name: first,
       last_name: last,
       job_title: contact.job_title || "",
-      location: contact.country_or_address || "",
+      location: contact.country_or_address || contact.location || "",
       company_name: contact.company_name || "",
       company_name_friendly: friendly || "",
       company_name_abbrev: abbrev || "",
       linkedin_url: contact.linkedin_url || "",
-      website: contact.company_website || "",
+      website: contact.company_website || contact.website || "",
     };
 
-    // Get current conversation placeholders (without old contact data)
+    // ✅ Merge with current conversation placeholders
     const conversationValues = getConversationPlaceholders(placeholderValues);
-    
-    // Merge for display
     const mergedForDisplay = getMergedPlaceholdersForDisplay(conversationValues, contactValues);
-    
-    // Update UI state
-    setPlaceholderValues(mergedForDisplay);
-    console.log('✅ Contact placeholders applied to local state');
-    console.log('ℹ️ Click "Regenerate" to generate the email with this contact');
 
-    // ❌ REMOVED: Auto-regeneration
-    // User must click "Regenerate" button manually
+    setPlaceholderValues(mergedForDisplay);
+
+    console.log('✅ Contact placeholders applied');
+    console.log('🌐 Website value:', mergedForDisplay.website || '(none)');
+    console.log('🔗 LinkedIn value:', mergedForDisplay.linkedin_url || '(none)');
+    console.log('ℹ️ Click "Regenerate" to generate email with this contact');
 
   } catch (error) {
     console.error("⚠️ Error applying contact placeholders:", error);
   }
 };
+
 
 // ====================================================================
 // ✅ HELPER: Regenerate with Specific Values (Used by regenerateExampleOutput)
@@ -994,20 +992,32 @@ const regenerateExampleOutput = async () => {
       console.log('🔍 Processed search term:', processedSearchTerm);
 
       // ✅ Build instructions template
-      const instructionsTemplate = `Vendor company theme = {vendor_company_email_main_theme}
-The following text comes from an internet search on the efforts and successes of {company_name} related to the vendor company theme.
-If there is nothing that directly references {company_name} and its efforts and successes related to {vendor_company_email_main_theme} then do not summarise it, rather just ignore it.
-If there is content that directly references {company_name} and its efforts and successes related to {vendor_company_email_main_theme} then summarise it in up to 500 words depending on how much relevant content there is. DO NOT INCLUDE ANYTHING THAT IS NOT DIRECTLY LINKED TO the efforts and successes related to {vendor_company_email_main_theme} of {company_name} specifically. Only include content that is flattering to {company_name} and its efforts and successes related to {vendor_company_email_main_theme}. Do NOT include anything that refers to reducing its efforts and successes related to {vendor_company_email_main_theme}. Show references and the URLs and do NOT invent them.`;
+// ✅ Use search_objective from conversation placeholders ONLY
+if (!conversationValues['search_objective'] || !conversationValues['search_objective'].trim()) {
+  alert("❌ Missing 'search_objective' value in placeholders. Please ensure it is set before regenerating.");
+  console.error("❌ No search_objective found in conversationValues");
+  return;
+}
 
-      const processedInstructions = replacePlaceholdersInString(instructionsTemplate, mergedForSearch);
+console.log("📋 Using search_objective for Process API instructions...");
+const rawInstructions = conversationValues['search_objective'].trim();
 
-      // ✅ Check for unreplaced placeholders in instructions
-      const unreplacedInInstructions = processedInstructions.match(/\{[^}]+\}/g);
-      if (unreplacedInInstructions) {
-        console.warn('⚠️ Unreplaced placeholders in instructions:', unreplacedInInstructions);
-        alert(`⚠️ Missing values for search instructions: ${unreplacedInInstructions.join(', ')}`);
-        return;
-      }
+// ✅ Replace placeholders inside the search_objective text
+const processedInstructions = replacePlaceholdersInString(rawInstructions, mergedForSearch);
+
+// ✅ Check for any unreplaced placeholders
+const unreplacedInInstructions = processedInstructions.match(/\{[^}]+\}/g);
+if (unreplacedInInstructions) {
+  console.warn('⚠️ Unreplaced placeholders in search_objective:', unreplacedInInstructions);
+  alert(`⚠️ Missing values for search instructions: ${unreplacedInInstructions.join(', ')}`);
+  return;
+}
+
+console.log("✅ Final processed instructions ready for Process API:");
+console.log(processedInstructions);
+
+
+
 
       // ✅ Call Search API
       try {
@@ -1461,6 +1471,9 @@ const finalizeEditPlaceholder = async (updatedPlaceholder: string, newValue: str
   // AVAILABLE MODELS
   // ====================================================================
   const availableModels: GPTModel[] = [
+    { id: 'gpt-4.1', name: 'GPT-4.1', description: 'Flagship model in the 4.1 family' },
+    { id: 'gpt-4.1-mini', name: 'GPT-4.1 mini', description: 'Faster, lighter version of 4.1' },
+    { id: 'gpt-4.1-nano', name: 'GPT-4.1 nano', description: 'Smallest, fastest, lowest-cost variant' },
     { id: 'gpt-4o', name: 'GPT-4o', description: 'Standard GPT-4 Optimized' },
     { id: 'gpt-4o-mini', name: 'GPT-4o Mini', description: 'Efficient GPT-4o model' },
     { id: 'gpt-5', name: 'GPT-5', description: 'Standard flagship model' },
