@@ -65,11 +65,9 @@
   height: 40px;
 }
 .login-boxx input:focus {
-  /* outline: none; */
-  border-color: #333;
-  box-shadow: #333;
+  border-color: #ddd;  /* Keeps it the same as normal state */
+  box-shadow: lightgreen;     /* Removes shadow effect on focus */
 }
-
 /* 🌟 Buttons */
 .login-button,
 .register-button {

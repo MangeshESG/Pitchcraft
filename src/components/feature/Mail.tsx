@@ -1868,6 +1868,13 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       {/* Schedule Tab */}
       {tab === "Schedule" && (
         <>
+        <label style={{
+    display: "block",          // makes it span full width
+    textAlign: "center",       // centers the text
+    fontWeight: "600",
+    fontSize: "18px",
+    color:"black"       // makes it bold
+  }}>Email Schedules</label>
           <div className="data-campaigns-container">
             <div className="section-wrapper">
               <h2 className="section-title">Email Schedules</h2>

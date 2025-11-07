@@ -17,13 +17,22 @@ const Modal: React.FC<ModalProps> = ({
   size,
 }) => {console.log("Modal show prop:", show);
   if (!show) return null;
+  const dynamicSize =
+    size && (size.includes("%") || size.includes("px") || size.includes("vw"))
+      ? { width: size, height: "auto", maxHeight: "90vh" }
+      : {};
   return ReactDOM.createPortal (
     <div className={`modal-overlay ${size} ${show ? "active" : ""}`}>
-      <div className={`modal-content ${size || ""}`}>
+     <div
+        className={`modal-content ${
+          !size || dynamicSize.width ? "" : size // only apply class if not numeric
+        }`}
+        style={dynamicSize}
+      >
         {children}
-        {buttonLabel && (
+         {buttonLabel && (
           <button
-            className="close-button stop-button button"
+            className="absolute top-31 right-20 bg-green-600 text-white px-4 py-1 rounded-md hover:bg-green-700"
             onClick={closeModal}
           >
             {buttonLabel}

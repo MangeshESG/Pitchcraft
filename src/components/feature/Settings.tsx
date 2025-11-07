@@ -770,7 +770,14 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
                       handleModalClose("modal-subjectInstructions")
                     }
                     buttonLabel="Ok"
+                    size="100%"
                   >
+                     <div style={{
+            backgroundColor: "white",
+            padding: "20px",
+            borderRadius: "10px",
+            boxShadow: "0 4px 8px rgba(0,0,0,0.1)"
+          }}>
                     <label>Subject instruction</label>
                     <textarea
                       placeholder="Subject instruction"
@@ -780,6 +787,7 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
                       value={settingsForm.subjectInstructions}
                       onChange={settingsFormHandler}
                     ></textarea>
+                    </div>
                   </Modal>
                 </span>
               </div>
@@ -840,7 +848,14 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
                     handleModalClose("modal-systemInstructions")
                   }
                   buttonLabel="Ok"
+                  size="100%"
                 >
+                  <div style={{
+            backgroundColor: "white",
+            padding: "20px",
+            borderRadius: "10px",
+            boxShadow: "0 4px 8px rgba(0,0,0,0.1)"
+          }}>
                   <label>System instruction</label>
                   <textarea
                     placeholder=""
@@ -849,6 +864,7 @@ const Settings: React.FC<SettingInterface & SettingsProps> = ({
                     value={settingsForm.systemInstructions}
                     onChange={settingsFormHandler}
                   ></textarea>
+                  </div>
                 </Modal>
               </span>
             </div>

@@ -4313,7 +4313,14 @@ const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
                                     handleModalClose("modal-addInput")
                                   }
                                   buttonLabel="Ok"
+                                  size="100%"
                                 >
+                                                       <div style={{
+            backgroundColor: "white",
+            padding: "20px",
+            borderRadius: "10px",
+            boxShadow: "0 4px 8px rgba(0,0,0,0.1)"
+          }}>
                                   <label>Template</label>
                                   <ReactQuill
                                     theme="snow"
@@ -4333,6 +4340,7 @@ const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
                                     }
                                     modules={modules}
                                   />
+                                  </div>
                                 </Modal>
                                 <button
                                   className="full-view-icon d-flex align-center justify-center"
@@ -4475,7 +4483,13 @@ const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
                                 handleModalClose("modal-add-prompt")
                               }
                               buttonLabel="Close"
-                            >
+                              size="100%"
+                            > <div style={{
+            backgroundColor: "white",
+            padding: "20px",
+            borderRadius: "10px",
+            boxShadow: "0 4px 8px rgba(0,0,0,0.1)"
+          }}>
                               <form
                                 onSubmit={addPromptSubmitHandler}
                                 className="full-height"
@@ -4588,6 +4602,7 @@ const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
                                   )}
                                 </div>
                               </form>
+                              </div>
                             </Modal>
 
                             {/* Edit Prompt Modal */}

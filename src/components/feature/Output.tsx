@@ -849,53 +849,53 @@ const Output: React.FC<OutputInterface> = ({
 
       console.log("Sending email to:", currentContact?.name);
 
-// In handleSendEmail function, replace the requestBody with:
-          const requestBody = {
-            clientId: effectiveUserId,
-            contactid: currentContact.id,
-            
-            // Priority: segmentId first, then dataFileId, ensure at least one is always set
-            segmentId:
-              currentContact.segmentId && 
-              currentContact.segmentId !== "null" && 
-              currentContact.segmentId !== "" &&
-              !isNaN(parseInt(currentContact.segmentId))
-                ? parseInt(currentContact.segmentId)
-                : null,
-                
-            dataFileId:
-              // Only send dataFileId if segmentId is not present
-              (!currentContact.segmentId || 
-              currentContact.segmentId === "null" || 
-              currentContact.segmentId === "" ||
-              isNaN(parseInt(currentContact.segmentId))) &&
-              currentContact.dataFileId &&
-              currentContact.dataFileId !== "null" &&
-              currentContact.dataFileId !== "" &&
-              !isNaN(parseInt(currentContact.dataFileId))
-                ? parseInt(currentContact.dataFileId)
-                : null,
+      // In handleSendEmail function, replace the requestBody with:
+      const requestBody = {
+        clientId: effectiveUserId,
+        contactid: currentContact.id,
 
-            toEmail: currentContact.email,
-            subject: subjectToUse,
-            body: currentContact.pitch || "",
-            bccEmail: emailFormData.BccEmail || "",
-            smtpId: selectedSmtpUser,
-            fullName: currentContact.name,
-            countryOrAddress: currentContact.location || "",
-            companyName: currentContact.company || "",
-            website: currentContact.website || "",
-            linkedinUrl: currentContact.linkedin || "",
-            jobTitle: currentContact.title || "",
-          };
+        // Priority: segmentId first, then dataFileId, ensure at least one is always set
+        segmentId:
+          currentContact.segmentId &&
+            currentContact.segmentId !== "null" &&
+            currentContact.segmentId !== "" &&
+            !isNaN(parseInt(currentContact.segmentId))
+            ? parseInt(currentContact.segmentId)
+            : null,
 
-          // Add validation before sending
-          if (!requestBody.segmentId && !requestBody.dataFileId) {
-            setEmailError("Contact must have either a Segment ID or Data File ID");
-            setSendingEmail(false);
-            toast.error("Missing required ID: Contact must have either Segment ID or Data File ID");
-            return;
-          }
+        dataFileId:
+          // Only send dataFileId if segmentId is not present
+          (!currentContact.segmentId ||
+            currentContact.segmentId === "null" ||
+            currentContact.segmentId === "" ||
+            isNaN(parseInt(currentContact.segmentId))) &&
+            currentContact.dataFileId &&
+            currentContact.dataFileId !== "null" &&
+            currentContact.dataFileId !== "" &&
+            !isNaN(parseInt(currentContact.dataFileId))
+            ? parseInt(currentContact.dataFileId)
+            : null,
+
+        toEmail: currentContact.email,
+        subject: subjectToUse,
+        body: currentContact.pitch || "",
+        bccEmail: emailFormData.BccEmail || "",
+        smtpId: selectedSmtpUser,
+        fullName: currentContact.name,
+        countryOrAddress: currentContact.location || "",
+        companyName: currentContact.company || "",
+        website: currentContact.website || "",
+        linkedinUrl: currentContact.linkedin || "",
+        jobTitle: currentContact.title || "",
+      };
+
+      // Add validation before sending
+      if (!requestBody.segmentId && !requestBody.dataFileId) {
+        setEmailError("Contact must have either a Segment ID or Data File ID");
+        setSendingEmail(false);
+        toast.error("Missing required ID: Contact must have either Segment ID or Data File ID");
+        return;
+      }
 
       const response = await axios.post(
         `${API_BASE_URL}/api/email/send-singleEmail`,
@@ -976,8 +976,8 @@ const Output: React.FC<OutputInterface> = ({
       if (axios.isAxiosError(err)) {
         setEmailError(
           err.response?.data?.message ||
-            err.response?.data ||
-            "Failed to send email."
+          err.response?.data ||
+          "Failed to send email."
         );
       } else if (err instanceof Error) {
         setEmailError(err.message);
@@ -1230,54 +1230,54 @@ const Output: React.FC<OutputInterface> = ({
           continue;
         }
 
-          // In sendEmailsInBulk function, replace the requestBody with:
-          const requestBody = {
-            clientId: effectiveUserId,
-            contactid: contact.id,
-            
-            // Priority: segmentId first, then dataFileId
-            segmentId:
-              contact.segmentId && 
-              contact.segmentId !== "null" && 
+        // In sendEmailsInBulk function, replace the requestBody with:
+        const requestBody = {
+          clientId: effectiveUserId,
+          contactid: contact.id,
+
+          // Priority: segmentId first, then dataFileId
+          segmentId:
+            contact.segmentId &&
+              contact.segmentId !== "null" &&
               contact.segmentId !== "" &&
               !isNaN(parseInt(contact.segmentId))
-                ? parseInt(contact.segmentId)
-                : null,
-                
-            dataFileId:
-              (!contact.segmentId || 
-              contact.segmentId === "null" || 
+              ? parseInt(contact.segmentId)
+              : null,
+
+          dataFileId:
+            (!contact.segmentId ||
+              contact.segmentId === "null" ||
               contact.segmentId === "" ||
               isNaN(parseInt(contact.segmentId))) &&
               contact.dataFileId &&
               contact.dataFileId !== "null" &&
               contact.dataFileId !== "" &&
               !isNaN(parseInt(contact.dataFileId))
-                ? parseInt(contact.dataFileId)
-                : null,
+              ? parseInt(contact.dataFileId)
+              : null,
 
-            toEmail: contact.email,
-            subject: subjectToUse,
-            body: contact.pitch || "",
-            bccEmail: emailFormData.BccEmail || "",
-            smtpId: selectedSmtpUser,
-            fullName: contact.name,
-            countryOrAddress: contact.location || "",
-            companyName: contact.company || "",
-            website: contact.website || "",
-            linkedinUrl: contact.linkedin || "",
-            jobTitle: contact.title || "",
-          };
+          toEmail: contact.email,
+          subject: subjectToUse,
+          body: contact.pitch || "",
+          bccEmail: emailFormData.BccEmail || "",
+          smtpId: selectedSmtpUser,
+          fullName: contact.name,
+          countryOrAddress: contact.location || "",
+          companyName: contact.company || "",
+          website: contact.website || "",
+          linkedinUrl: contact.linkedin || "",
+          jobTitle: contact.title || "",
+        };
 
-          // Add validation before sending
-          if (!requestBody.segmentId && !requestBody.dataFileId) {
-            console.error(`Skipping contact ${contact.id}: Missing both segmentId and dataFileId`);
-            skippedCount++;
-            index++;
-            setBulkSendIndex(index);
-            await new Promise((res) => setTimeout(res, 500));
-            continue;
-          }
+        // Add validation before sending
+        if (!requestBody.segmentId && !requestBody.dataFileId) {
+          console.error(`Skipping contact ${contact.id}: Missing both segmentId and dataFileId`);
+          skippedCount++;
+          index++;
+          setBulkSendIndex(index);
+          await new Promise((res) => setTimeout(res, 500));
+          continue;
+        }
 
         const response = await axios.post(
           `${API_BASE_URL}/api/email/send-singleEmail`,
@@ -1458,9 +1458,8 @@ const Output: React.FC<OutputInterface> = ({
                         (!selectedPrompt?.name || !selectedZohoviewId) &&
                         !selectedCampaign
                       }
-                      title={`Click to generate hyper-personalized emails starting from contact ${
-                        currentIndex + 1
-                      }`}
+                      title={`Click to generate hyper-personalized emails starting from contact ${currentIndex + 1
+                        }`}
                     >
                       Generate
                     </button>
@@ -1643,25 +1642,40 @@ const Output: React.FC<OutputInterface> = ({
       )}
 
       <span className="pos-relative">
-        <pre
+        <pre  style={{
+    overflow: "hidden", // hides scrollbars
+    whiteSpace: "pre-wrap", // wraps text nicely
+    wordBreak: "break-word", // prevents long words from overflowing
+    maxHeight: "70vh", // optional, keeps height reasonable
+  }}
           className="w-full p-3 py-[5px] border border-gray-300 rounded-lg overflow-y-auto h-[30px] min-h-[30px] break-words whitespace-pre-wrap text-[13px]"
           dangerouslySetInnerHTML={{
             __html: formatOutput(outputForm.generatedContent),
           }}
         ></pre>
+
         <Modal
           show={openModals["modal-output-1"]}
           closeModal={() => handleModalClose("modal-output-1")}
           buttonLabel="Ok"
+          size="100%"
         >
-          <label>Output</label>
-          <pre
-            className="height-full--25 w-full p-3 border border-gray-300 rounded-lg overflow-y-auto textarea-height-600"
-            dangerouslySetInnerHTML={{
-              __html: formatOutput(outputForm.generatedContent),
-            }}
-          ></pre>
+          <div style={{
+            backgroundColor: "white",
+            padding: "20px",
+            borderRadius: "10px",
+            boxShadow: "0 4px 8px rgba(0,0,0,0.1)"
+          }}>
+            <label>Output</label>
+            <pre
+              className="height-full--25 w-full p-3 border border-gray-300 rounded-lg overflow-y-auto textarea-height-600"
+              dangerouslySetInnerHTML={{
+                __html: formatOutput(outputForm.generatedContent),
+              }}
+            ></pre>
+          </div>
         </Modal>
+
         {/* Add the full-view-icon button here */}
         <button
           className="full-view-icon d-flex align-center justify-center !top-0 !right-0"
@@ -1803,17 +1817,17 @@ const Output: React.FC<OutputInterface> = ({
             of{" "}
             {selectedZohoviewId
               ? (() => {
-                  const selectedView = zohoClient.find(
-                    (client) => client.zohoviewId === selectedZohoviewId
-                  );
-                  return selectedView
-                    ? selectedView.totalContact
-                    : combinedResponses.length;
-                })()
+                const selectedView = zohoClient.find(
+                  (client) => client.zohoviewId === selectedZohoviewId
+                );
+                return selectedView
+                  ? selectedView.totalContact
+                  : combinedResponses.length;
+              })()
               : zohoClient.reduce(
-                  (sum, client) => sum + client.totalContact,
-                  0
-                )}
+                (sum, client) => sum + client.totalContact,
+                0
+              )}
           </span>
         </div>
         {/* Add this inside your green box area */}
@@ -1845,9 +1859,8 @@ const Output: React.FC<OutputInterface> = ({
               )}
               <li>
                 <button
-                  className={`tab-button ${
-                    tab2 === "Settings" ? "active" : ""
-                  }`}
+                  className={`tab-button ${tab2 === "Settings" ? "active" : ""
+                    }`}
                   onClick={() => setTab2("Settings")}
                 >
                   Settings
@@ -2034,9 +2047,9 @@ const Output: React.FC<OutputInterface> = ({
                     >
                       {combinedResponses[currentIndex]?.lastemailupdateddate
                         ? `Krafted: ${formatLocalDateTime(
-                            combinedResponses[currentIndex]
-                              ?.lastemailupdateddate
-                          )}`
+                          combinedResponses[currentIndex]
+                            ?.lastemailupdateddate
+                        )}`
                         : ""}
                     </span>
 
@@ -2051,8 +2064,8 @@ const Output: React.FC<OutputInterface> = ({
                     >
                       {combinedResponses[currentIndex]?.emailsentdate
                         ? `Emailed: ${formatLocalDateTime(
-                            combinedResponses[currentIndex]?.emailsentdate
-                          )}`
+                          combinedResponses[currentIndex]?.emailsentdate
+                        )}`
                         : ""}
                     </span>
                   </div>
@@ -2287,18 +2300,18 @@ const Output: React.FC<OutputInterface> = ({
                                 !combinedResponses[currentIndex] ||
                                 sendingEmail ||
                                 sessionStorage.getItem("isDemoAccount") ===
-                                  "true"
+                                "true"
                               }
                               style={{
                                 cursor:
                                   combinedResponses[currentIndex] &&
-                                  !sendingEmail
+                                    !sendingEmail
                                     ? "pointer"
                                     : "not-allowed",
                                 padding: "5px 15px",
                                 opacity:
                                   combinedResponses[currentIndex] &&
-                                  !sendingEmail
+                                    !sendingEmail
                                     ? 1
                                     : 0.6,
                                 height: "40px",
@@ -2354,13 +2367,13 @@ const Output: React.FC<OutputInterface> = ({
                               style={{
                                 cursor:
                                   sessionStorage.getItem("isDemoAccount") !==
-                                  "true"
+                                    "true"
                                     ? "pointer"
                                     : "not-allowed",
                                 padding: "5px 15px",
                                 opacity:
                                   sessionStorage.getItem("isDemoAccount") !==
-                                  "true"
+                                    "true"
                                     ? 1
                                     : 0.6,
                                 height: "40px",
@@ -2801,10 +2814,9 @@ const Output: React.FC<OutputInterface> = ({
                                     <button
                                       id="mobile-device-view"
                                       className={`w-[55px] button pad-10 d-flex align-center align-self-center output-email-width-button-mobile justify-center
-                                    ${
-                                      outputEmailWidth === "Mobile" &&
-                                      "bg-active"
-                                    }
+                                    ${outputEmailWidth === "Mobile" &&
+                                        "bg-active"
+                                        }
                                     `}
                                       onClick={() =>
                                         toggleOutputEmailWidth("Mobile")
@@ -3205,7 +3217,13 @@ const Output: React.FC<OutputInterface> = ({
                   setIsEditing(false);
                 }}
                 buttonLabel=""
-              >
+                size="100%"
+              > <div style={{
+            backgroundColor: "white",
+            padding: "20px",
+            borderRadius: "10px",
+            boxShadow: "0 4px 8px rgba(0,0,0,0.1)"
+          }}>
                 <form
                   className="full-height"
                   style={{
@@ -3272,6 +3290,7 @@ const Output: React.FC<OutputInterface> = ({
                     </div>
                   </div>
                 </form>
+                </div>
               </Modal>
             </>
           )}
@@ -3959,7 +3978,7 @@ const Output: React.FC<OutputInterface> = ({
       {/* Email Sending Loader Modal */}
       <AppModal
         isOpen={sendingEmail}
-        onClose={() => {}}
+        onClose={() => { }}
         type="loader"
         loaderMessage="Sending email..."
         closeOnOverlayClick={false}

@@ -1,5 +1,6 @@
 import { useRef, useCallback, useState, useEffect, useMemo } from "react";
 import React from "react";
+import PaginationControls from "./PaginationControls";
 
 // Enhanced column configuration with type information
 interface ColumnConfig {
@@ -86,6 +87,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   const [showColumnPanel, setShowColumnPanel] = useState(false);
   const columnPanelRef = useRef<HTMLDivElement>(null);
   const isInitializedRef = useRef(false); // ADD THIS LINE
+  const [currentPage1, setCurrentPage] = useState(1);
 
   // Auto-generate columns from data
   const generateColumnsFromData = useCallback(
@@ -562,7 +564,16 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
             </button>
           )}
           {/* Pagination */}
-          {paginated &&
+          {/* <div className="pagination-info ml-[124px] mt-[-13px]">
+           <PaginationControls
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalRecords={filteredData.length}
+            setCurrentPage={setCurrentPage}
+          />
+          </div> */}
+          {/* {paginated &&
             filteredData.length > 0 &&
             typeof onPageChange === "function" && (
               <div className="pagination-wrapper d-flex justify-between align-center ml-auto">
@@ -584,7 +595,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                       marginRight: '2px',
                       marginLeft: '-7px'
                     }}></img>
-                    Prev
+                    Prevs
                   </button>
                   <span>
                     Page {currentPage} of {totalPages}
@@ -611,7 +622,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                   </button>
                 </div>
               </div>
-            )}
+            )} */}
         </div>
       )}
 
@@ -688,7 +699,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
           </div>
 
           {/* Pagination */}
-          {paginated &&
+          {/* {paginated &&
             filteredData.length > 0 &&
             typeof onPageChange === "function" && (
               <div className="pagination-wrapper d-flex justify-between align-center mt-20">
@@ -737,7 +748,14 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                   </button>
                 </div>
               </div>
-            )}
+            )} */}
+              <PaginationControls
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalRecords={filteredData.length}
+            setCurrentPage={setCurrentPage}
+          />
         </div>
 
         {/* Column Settings Sidebar Panel */}
