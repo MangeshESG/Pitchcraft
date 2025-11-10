@@ -1447,8 +1447,8 @@ const MainPage: React.FC = () => {
     // Check credits before starting generation process
     if (tab === "Output" && !options?.regenerate && sessionStorage.getItem("isDemoAccount") !== "true") {
       const currentCredits = await checkUserCredits(tempEffectiveUserId);
-      if (currentCredits === 0) {
-        return; // Stop execution if no credits
+      if (currentCredits && !currentCredits.canGenerate) {
+        return; // Stop execution if can't generate
       }
     }
 
@@ -1892,6 +1892,7 @@ const MainPage: React.FC = () => {
                     clientId: effectiveUserId,
                     dataFileId: updateDataFileId,
                     contactId: id,
+                    GPTGenerate: true,
                     emailSubject: subjectLine,
                     emailBody: pitchData.response.content,
                   }),
@@ -2880,6 +2881,7 @@ const MainPage: React.FC = () => {
                       clientId: effectiveUserId,
                       dataFileId: updateDataFileId,
                       contactId: entry.id,
+                      GPTGenerate: true,
                       emailSubject: subjectLine,
                       emailBody: pitchData.response.content,
                     }),
@@ -2906,7 +2908,6 @@ const MainPage: React.FC = () => {
                       prevOutputForm.generatedContent,
                   }));
                   try {
-                    debugger
                   const userCreditResponse = await fetch(
                     `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`
                   );
@@ -4855,7 +4856,9 @@ const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
                 fetchToneSettings={fetchToneSettings}
                 saveToneSettings={saveToneSettings}
                 handleSubjectTextChange={handleSubjectTextChange}
-
+                showCreditModal={showCreditModal}
+                checkUserCredits={checkUserCredits}
+                userId={userId}
               />
             )}
 
@@ -4963,7 +4966,8 @@ const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
         isOpen={showCreditModal}
         onClose={closeCreditModal}
         onSkip={handleSkipModal}
-        credits={credits || 0}
+        credits={credits}
+        setTab={setTab}
       />
     </div>
   );

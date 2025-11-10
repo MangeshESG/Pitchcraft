@@ -12,7 +12,7 @@ interface AuthState {
   ipAddress?: string | null;              // NEW
   browserName?: string | null;            // NEW
   browserVersion?: string | null; 
-  credits?: number | null;         // NEW
+  credits?: number | {total: number, canGenerate: boolean, monthlyLimitExceeded: boolean} | null;         // NEW
 }
 
 const initialState: AuthState = {
@@ -80,13 +80,23 @@ const authSlice = createSlice({
       state.browserName = action.payload.browserName;
       state.browserVersion = action.payload.browserVersion;
     },
-    saveUserCredit: (state, action: PayloadAction<number>) => {
+    saveUserCredit: (state, action: PayloadAction<number | {total: number, canGenerate: boolean, monthlyLimitExceeded: boolean}>) => {
       state.credits = action.payload; // 👈 store credit balance
     },
   },
 });
 
-export const { setToken, clearToken, saveUserName, saveUserRole,saveEmail, saveUserId,saveFirstName,saveLoginDeviceInfo ,
-  saveLastName, clearUsername,saveUserCredit, } =
-  authSlice.actions;
+export const { 
+  setToken, 
+  clearToken, 
+  saveUserName, 
+  saveUserRole, 
+  saveEmail, 
+  saveUserId, 
+  saveFirstName, 
+  saveLoginDeviceInfo, 
+  saveLastName, 
+  clearUsername, 
+  saveUserCredit 
+} = authSlice.actions;
 export default authSlice.reducer;

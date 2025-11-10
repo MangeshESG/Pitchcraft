@@ -1,20 +1,18 @@
 import React from 'react';
 import AppModal from './AppModal';
-import { useNavigate } from 'react-router-dom';
 
 interface CreditCheckModalProps {
   isOpen: boolean;
   onClose: () => void;
-  credits: number;
+  credits: any;
   onSkip: () => void;
+  setTab: (tab: string) => void;
 }
 
-const CreditCheckModal: React.FC<CreditCheckModalProps> = ({ isOpen, onClose, credits, onSkip }) => {
-  const navigate = useNavigate();
-
+const CreditCheckModal: React.FC<CreditCheckModalProps> = ({ isOpen, onClose, credits, onSkip, setTab }) => {
   const handleBuyPlan = () => {
     onClose();
-    navigate('/plans'); // Navigate to plans page
+    setTab('MyPlan');
   };
 
   const handleSkip = () => {
@@ -23,13 +21,21 @@ const CreditCheckModal: React.FC<CreditCheckModalProps> = ({ isOpen, onClose, cr
     onClose();
   };
 
+  const getModalMessage = () => {
+    if (credits?.monthlyLimitExceeded) {
+      return "You have reached your monthly generation limit. Please upgrade your plan or wait until next month to continue generating emails.";
+    }
+    const totalCredits = credits?.total || 0;
+    return `Your current credit balance is ${totalCredits}. You need credits to generate personalized emails. You can explore the website or purchase a plan to continue generating emails.`;
+  };
+
   return (
     <AppModal
       isOpen={isOpen}
       onClose={onClose}
       type="confirm"
-      title="Credit balance low"
-      message={`Your current credit balance is ${credits}. You need credits to generate personalized emails. You can explore the website or purchase a plan to continue generating emails.`}
+      title={credits?.monthlyLimitExceeded ? "Monthly limit exceeded" : "Credit balance low"}
+      message={getModalMessage()}
       confirmText="Buy plan"
       cancelText="Skip for now"
       onConfirm={handleBuyPlan}

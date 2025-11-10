@@ -154,6 +154,9 @@ interface OutputInterface {
   saveToneSettings?: () => Promise<boolean>;
   selectedSegmentId?: number | null; // Add this
   handleSubjectTextChange?: (value: string) => void; // Add this
+  showCreditModal?: boolean; // Add this
+  checkUserCredits?: (clientId?: string | number | null) => Promise<{total: number, canGenerate: boolean, monthlyLimitExceeded: boolean} | number | null>; // Add this
+  userId?: string | null; // Add this
 }
 
 const Output: React.FC<OutputInterface> = ({
@@ -229,6 +232,9 @@ const Output: React.FC<OutputInterface> = ({
   saveToneSettings,
   selectedSegmentId,
   handleSubjectTextChange,
+  showCreditModal,
+  checkUserCredits,
+  userId,
 }) => {
   const appModal = useAppModal();
   const [loading, setLoading] = useState(true);
@@ -3011,7 +3017,12 @@ const Output: React.FC<OutputInterface> = ({
                             </ReactTooltip>
                             <button
                               id="regenerate-email-body-tooltip"
-                              onClick={() => {
+                              onClick={async () => {
+                                // Don't trigger if credit modal is showing
+                                if (showCreditModal) {
+                                  return;
+                                }
+                                
                                 if (!combinedResponses[currentIndex]) {
                                   alert(
                                     "No contact selected to regenerate pitch for."
@@ -3024,6 +3035,16 @@ const Output: React.FC<OutputInterface> = ({
                                   );
                                   return;
                                 }
+
+                                // Check credits before regenerating
+                                if (sessionStorage.getItem("isDemoAccount") !== "true") {
+                                  const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
+                                  const currentCredits = await checkUserCredits?.(effectiveUserId);
+                                  if (currentCredits && typeof currentCredits === 'object' && !currentCredits.canGenerate) {
+                                    return; // Stop if can't generate
+                                  }
+                                }
+                                
                                 setIsRegenerating(true);
                                 setRegenerationTargetId(
                                   combinedResponses[currentIndex].id

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
 import { RootState } from "../../Redux/store";
-import { clearToken } from "../../slices/authSLice";
+import { clearToken, saveUserCredit } from "../../slices/authSLice";
 import API_BASE_URL from "../../config";
 
 interface HeaderProps {
@@ -31,7 +31,6 @@ const Header: React.FC<HeaderProps> = React.memo(
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [creditData, setCreditData] = useState<any>(null);
 
     const logoutHandler = () => {
       dispatch(clearToken());
@@ -52,13 +51,13 @@ const Header: React.FC<HeaderProps> = React.memo(
             { method: "GET", headers: { "Content-Type": "application/json" } }
           );
           const data = await creditRes.json();
-          setCreditData(data);
+          dispatch(saveUserCredit(data));
         } catch (error) {
           console.error("Error fetching credit data:", error);
         }
       };
       if (effectiveUserId) fetchCredits();
-    }, [effectiveUserId]);
+    }, [effectiveUserId, dispatch]);
 
     return (
       <div className="main-head d-flex justify-between align-center w-[100%]">
@@ -104,7 +103,7 @@ const Header: React.FC<HeaderProps> = React.memo(
                     onClick={() => navigate("/plan-history")}
                     title="Click to view plan history"
                   >
-                    {creditData !== null ? creditData : "Loading..."}
+                    {credits !== null ? (typeof credits === 'object' && credits !== null ? credits.total : credits) : "Loading..."}
                   </span>
                 </div>
 

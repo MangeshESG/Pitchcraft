@@ -5,7 +5,7 @@ import CreditCheckModal from './CreditCheckModal';
 
 const MockedCreditCheckModal = ({ isOpen, onClose, credits }: any) => (
   <BrowserRouter>
-    <CreditCheckModal isOpen={isOpen} onClose={onClose} credits={credits} onSkip={() => {}} />
+    <CreditCheckModal isOpen={isOpen} onClose={onClose} credits={credits} onSkip={() => {}} setTab={() => {}} />
   </BrowserRouter>
 );
 

@@ -32,8 +32,8 @@ export const useCreditCheck = () => {
         const creditData = await response.json();
         dispatch(saveUserCredit(creditData));
         
-        // Show modal if credits are 0 and not skipped
-        if (creditData === 0 && !localStorage.getItem('creditModalSkipped')) {
+        // Show modal if can't generate and not skipped
+        if (creditData && !creditData.canGenerate && !localStorage.getItem('creditModalSkipped')) {
           setShowCreditModal(true);
         }
         
