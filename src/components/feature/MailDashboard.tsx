@@ -1239,22 +1239,10 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
           (c) => c.id.toString() === selectedCampaign
         );
 
-        let dataFileId: number | undefined;
+        let dataFileId: number | null = null;
 
         if (campaign?.dataSource === "DataFile" && campaign.zohoViewId) {
           dataFileId = parseInt(campaign.zohoViewId);
-        } else if (campaign?.dataSource === "Segment") {
-          appModal.showError(
-            "Creating segments from segment-based campaigns is not currently supported. Please select a data file-based campaign."
-          );
-          setSavingSegment(false);
-          return;
-        }
-
-        if (!dataFileId) {
-          appModal.showError("Cannot determine data file for this campaign");
-          setSavingSegment(false);
-          return;
         }
 
         const segmentData = {

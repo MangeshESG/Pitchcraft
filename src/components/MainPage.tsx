@@ -1549,8 +1549,8 @@ useEffect(() => {
     // Check credits before starting generation process
     if (tab === "Output" && !options?.regenerate && sessionStorage.getItem("isDemoAccount") !== "true") {
       const currentCredits = await checkUserCredits(tempEffectiveUserId);
-      if (currentCredits === 0) {
-        return; // Stop execution if no credits
+      if (currentCredits && !currentCredits.canGenerate) {
+        return; // Stop execution if can't generate
       }
     }
 
@@ -2008,6 +2008,7 @@ if (tab === "Output" && selectedCampaign) {
                     clientId: effectiveUserId,
                     dataFileId: updateDataFileId,
                     contactId: id,
+                    GPTGenerate: true,
                     emailSubject: subjectLine,
                     emailBody: pitchData.response.content,
                   }),
@@ -2996,6 +2997,7 @@ if (tab === "Output" && selectedCampaign) {
                       clientId: effectiveUserId,
                       dataFileId: updateDataFileId,
                       contactId: entry.id,
+                      GPTGenerate: true,
                       emailSubject: subjectLine,
                       emailBody: pitchData.response.content,
                     }),
@@ -3022,11 +3024,10 @@ if (tab === "Output" && selectedCampaign) {
                       prevOutputForm.generatedContent,
                   }));
                   try {
-                    debugger
-                    const userCreditResponse = await fetch(
-                      `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`
-                    );
-                    if (!userCreditResponse.ok) throw new Error("Failed to fetch user credit");
+                  const userCreditResponse = await fetch(
+                    `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`
+                  );
+                  if (!userCreditResponse.ok) throw new Error("Failed to fetch user credit");
 
                     const userCreditData = await userCreditResponse.json();
                     console.log("User credit data:", userCreditData);
@@ -4385,7 +4386,9 @@ if (tab === "Output" && selectedCampaign) {
                 fetchToneSettings={fetchToneSettings}
                 saveToneSettings={saveToneSettings}
                 handleSubjectTextChange={handleSubjectTextChange}
-
+                showCreditModal={showCreditModal}
+                checkUserCredits={checkUserCredits}
+                userId={userId}
               />
             )}
 
@@ -4493,7 +4496,8 @@ if (tab === "Output" && selectedCampaign) {
         isOpen={showCreditModal}
         onClose={closeCreditModal}
         onSkip={handleSkipModal}
-        credits={credits || 0}
+        credits={credits}
+        setTab={setTab}
       />
     </div>
   );
