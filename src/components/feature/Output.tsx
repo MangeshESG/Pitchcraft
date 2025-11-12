@@ -34,7 +34,9 @@ interface Prompt {
   text: string;
   userId?: number; // userId might not always be returned from the API
   createdAt?: string;
-  template?: string;
+  template?: string;  
+  templateId?: number; // ✅ added for campaign blueprint
+
 }
 
 interface Campaign {
@@ -154,6 +156,8 @@ interface OutputInterface {
   saveToneSettings?: () => Promise<boolean>;
   selectedSegmentId?: number | null; // Add this
   handleSubjectTextChange?: (value: string) => void; // Add this
+  setSelectedPrompt?: React.Dispatch<React.SetStateAction<Prompt | null>>; // ✅ added
+
 }
 
 const Output: React.FC<OutputInterface> = ({
@@ -229,6 +233,8 @@ const Output: React.FC<OutputInterface> = ({
   saveToneSettings,
   selectedSegmentId,
   handleSubjectTextChange,
+  setSelectedPrompt,
+
 }) => {
   const appModal = useAppModal();
   const [loading, setLoading] = useState(true);
@@ -320,8 +326,121 @@ const Output: React.FC<OutputInterface> = ({
     setCurrentIndex(0); // Use the prop to reset currentIndex
     setCurrentPage(0); // Resetting the
   };
+//----------------------------------------------------------------------
+ useEffect(() => {
+    const stored = sessionStorage.getItem("selectedPrompt");
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        console.log("Restored Campaign Blueprint:", parsed);
+        setSelectedPrompt?.(parsed);
+      } catch (err) {
+        console.error("Error parsing stored blueprint:", err);
+      }
+    }
+  }, [setSelectedPrompt]);
 
+  // ✅ Load blueprint when campaign changes
+useEffect(() => {
+  const loadCampaignBlueprint = async () => {
+    if (!selectedCampaign || !campaigns?.length) return; // ✅ safely check campaigns
+
+    const campaign = campaigns.find(
+      (c) => c.id.toString() === selectedCampaign
+    );
+
+    if (campaign?.templateId) {
+      try {
+        console.log("Fetching campaign blueprint for:", campaign.templateId);
+        const response = await fetch(
+          `${API_BASE_URL}/api/CampaignPrompt/campaign/${campaign.templateId}`
+        );
+
+        if (!response.ok)
+          throw new Error("Failed to fetch campaign blueprint");
+
+        const data = await response.json();
+
+        const blueprintPrompt = {
+          id: data.id,
+          name: data.templateName,
+          text: data.campaignBlueprint,
+          model: data.selectedModel || "gpt-5",
+        };
+
+        // ✅ Safely call if function exists
+        setSelectedPrompt && setSelectedPrompt(blueprintPrompt);
+
+        // ✅ Save to sessionStorage
+        sessionStorage.setItem(
+          "selectedPrompt",
+          JSON.stringify(blueprintPrompt)
+        );
+
+        console.log("✅ Loaded Campaign Blueprint:", blueprintPrompt);
+      } catch (error) {
+        console.error("Error loading campaign blueprint:", error);
+      }
+    } else {
+      console.log("No Campaign Blueprint found for this campaign");
+    }
+  };
+
+  loadCampaignBlueprint();
+}, [selectedCampaign, campaigns, setSelectedPrompt]);
+
+
+//----------------------------------------------------------------------
   const [userRole, setUserRole] = useState<string>(""); // Store user role
+// === Load Campaign Blueprint when campaign is selected ===
+useEffect(() => {
+  const loadCampaignBlueprint = async () => {
+    if (!selectedCampaign || !campaigns || campaigns.length === 0) return;
+
+    const campaign = campaigns.find(
+      (c) => c.id.toString() === selectedCampaign
+    );
+
+    // If campaign exists and has a blueprint ID (templateId)
+    if (campaign && campaign.templateId) {
+      try {
+        console.log("Fetching campaign blueprint for:", campaign.templateId);
+        const response = await fetch(
+          `${API_BASE_URL}/api/CampaignPrompt/campaign/${campaign.templateId}`
+        );
+
+        if (!response.ok)
+          throw new Error("Failed to fetch campaign blueprint");
+
+        const data = await response.json();
+
+        const blueprintPrompt = {
+          id: data.id,
+          name: data.templateName,
+          text: data.campaignBlueprint,
+          model: data.selectedModel || "gpt-5",
+        };
+
+        // ✅ Update selectedPrompt state
+          setSelectedPrompt?.(blueprintPrompt);
+
+        // ✅ Save it in sessionStorage so Output persists across tabs
+        sessionStorage.setItem(
+          "selectedPrompt",
+          JSON.stringify(blueprintPrompt)
+        );
+
+        console.log("✅ Loaded Campaign Blueprint:", blueprintPrompt);
+      } catch (error) {
+        console.error("Error loading campaign blueprint:", error);
+      }
+    } else {
+      console.log("No Campaign Blueprint found for selected campaign");
+    }
+  };
+
+  loadCampaignBlueprint();
+}, [selectedCampaign, campaigns]);
 
   useEffect(() => {
     const isAdminString = sessionStorage.getItem("isAdmin");

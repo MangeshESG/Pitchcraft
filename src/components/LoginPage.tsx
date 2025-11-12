@@ -125,7 +125,7 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
         if (userRole) dispatch(saveUserRole(userRole));
         if (data.email) dispatch(saveEmail(data.email));
 
-        sessionStorage.setItem("clientId", data.clientID || "");
+        sessionStorage.setItem("clientId", data.clientId || data.clientID || userId?.toString() || "");
         sessionStorage.setItem("isAdmin", data.isAdmin || "false");
         sessionStorage.setItem("isDemoAccount", data.isDemoAccount || "false");
 
@@ -569,7 +569,7 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
           if (userRole) dispatch(saveUserRole(userRole));
           if (data.email) dispatch(saveEmail(data.email));
 
-          sessionStorage.setItem("clientId", data.clientID || "");
+          sessionStorage.setItem("clientId", data.clientId || data.clientID || userId?.toString() || "");
           sessionStorage.setItem("isAdmin", data.isAdmin || "false");
           sessionStorage.setItem("isDemoAccount", data.isDemoAccount || "false");
 
