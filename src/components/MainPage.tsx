@@ -3747,7 +3747,6 @@ if (tab === "Output" && selectedCampaign) {
 
   const [showBlueprintSubmenu, setShowBlueprintSubmenu] = useState<boolean>(false);
   const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
-  const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
 
   <Header onUpgradeClick={() => setTab("MyPlan")} connectTo={true} />
 
