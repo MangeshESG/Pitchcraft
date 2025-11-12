@@ -286,7 +286,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   const startIndex =
     filteredContacts.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const endIndex = Math.min(currentPage * pageSize, filteredContacts.length)
- // const endIndex = startIndex + pageSize;
+  // const endIndex = startIndex + pageSize;
   //const currentData = filteredContacts.slice(startIndex, endIndex);
 
   // Load data when client changes
@@ -995,6 +995,25 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   const endIndex1 = startIndex1 + pageSize;
   const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
   //const currentData = filteredDatafiles.slice(currentPage, currentPage + pageSize);
+  const columnNameMap: Record<string, string> = {
+    id: "ID",
+    full_name: "Full name",
+    email: "Email",
+    website: "Website",
+    company_name: "Company name",
+    job_title: "Job title",
+    linkedin_url: "LinkedIn url",
+    country_or_address: "Country or address",
+    created_at: "Created at",
+    updated_at: "Updated at",
+    email_sent_at: "Email sent at",
+    companyTelephone: "Company telephone",
+    companyEmployeeCount: "Company employee count",
+    companyIndustry: "Company industry",
+    companyLinkedInURL: "Company linked in url",
+    companyEventLink: "Company event link",
+  };
+
   return (
     <div className="data-campaigns-container">
       {/* Sub-tabs Navigation */}
@@ -1029,7 +1048,9 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
           <div className="section-wrapper">
             {viewMode === "list" ? (
               <>
-                <h2 className="section-title">Lists</h2>
+                <h2 className="section-title">
+                  Lists
+                </h2>
 
                 <div
                   style={{
@@ -1298,13 +1319,13 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                     ))}
                   </tbody>
                 </table>
-  <PaginationControls
-  currentPage={currentPage}
-  totalPages={totalPages}
-  pageSize={pageSize}
-  totalRecords={filteredDatafiles.length}
-  setCurrentPage={setCurrentPage}
-/>
+                <PaginationControls
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  pageSize={pageSize}
+                  totalRecords={filteredDatafiles.length}
+                  setCurrentPage={setCurrentPage}
+                />
 
               </>
             ) : (
@@ -1378,7 +1399,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                         }}
                         onClick={(e) => e.stopPropagation()}
                       >
-                        LinkedIn Profile
+                        LinkedIn profile
                       </a>
                     );
                   },
@@ -1419,6 +1440,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                   setSelectedDataFileForView(null);
                 }}
                 onAddItem={onAddContactClick}
+                columnNameMap={columnNameMap}
                 customHeader={
                   detailSelectedContacts.size > 0 && (
                     <div
@@ -1446,6 +1468,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                     </div>
                   )
                 }
+              // customColumns={customColumns}
               />
             )}
 
@@ -1689,7 +1712,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                     onChange={(e) => setSegmentSearchQuery(e.target.value)}
                   />
                 </div>
-                 {/* ✅ Pagination on top right */}
+                {/* ✅ Pagination on top right */}
                 <table
                   className="contacts-table"
                   style={{ background: "#fff" }}
@@ -1942,14 +1965,14 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                     </button>
                   </div>
                 </div> */}
-                 {/* ✅ Pagination on top right */}
-  <PaginationControls
-  currentPage={currentPage}
-  totalPages={totalPages}
-  pageSize={pageSize}
-  totalRecords={filteredDatafiles.length}
-  setCurrentPage={setCurrentPage}
-/>
+                {/* ✅ Pagination on top right */}
+                <PaginationControls
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  pageSize={pageSize}
+                  totalRecords={filteredDatafiles.length}
+                  setCurrentPage={setCurrentPage}
+                />
 
               </>
             ) : (

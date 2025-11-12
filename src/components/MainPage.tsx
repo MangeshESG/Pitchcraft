@@ -42,7 +42,7 @@ import { useAppData } from "../contexts/AppDataContext";
 import { Dashboard } from "./feature/Dashboard";
 import EmailCampaignBuilder from "./feature/EmailCampaignBuilder";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
-import {saveUserCredit} from "../slices/authSLice";
+import { saveUserCredit } from "../slices/authSLice";
 import { useCreditCheck } from "../hooks/useCreditCheck";
 import CreditCheckModal from "./common/CreditCheckModal";
 import Myplan from "./feature/Myplan";
@@ -233,7 +233,7 @@ interface SettingsFormType {
 const MainPage: React.FC = () => {
   // Credit check hook
   const { credits, showCreditModal, checkUserCredits, closeCreditModal, handleSkipModal } = useCreditCheck();
-  
+
   // Listen for credit modal event from login
   useEffect(() => {
     const handleShowCreditModal = () => {
@@ -241,7 +241,7 @@ const MainPage: React.FC = () => {
         checkUserCredits();
       }
     };
-    
+
     window.addEventListener('showCreditModal', handleShowCreditModal);
     return () => window.removeEventListener('showCreditModal', handleShowCreditModal);
   }, [credits, checkUserCredits]);
@@ -373,7 +373,7 @@ const MainPage: React.FC = () => {
   }, [initialTab, initialContactsSubTab, initialMailSubTab]);
 
 
- 
+
   const [showDataFileUpload, setShowDataFileUpload] = useState(false);
 
   const [isLoadingClientSettings, setIsLoadingClientSettings] = useState(false);
@@ -442,8 +442,8 @@ const MainPage: React.FC = () => {
 
         const data = await response.json();
         console.log("data", data);
-         setCampaigns(data);
-      //  setCampaigns(data.campaigns || []);
+        setCampaigns(data);
+        //  setCampaigns(data.campaigns || []);
       } catch (error) {
         console.error("Error fetching campaigns:", error);
         setCampaigns([]);
@@ -986,6 +986,24 @@ const MainPage: React.FC = () => {
       [name]: value,
     }));
   };
+   //  Close popup when clicking outside for support details
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        popupRef.current &&
+        !popupRef.current.contains(event.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target as Node)
+      ) {
+        setShowSupportPopup(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const fetchToneSettings = async (clientId?: string) => {
     try {
@@ -1443,7 +1461,7 @@ const MainPage: React.FC = () => {
   ) => {
     // Calculate effectiveUserId first
     const tempEffectiveUserId = selectedClient !== "" ? selectedClient : userId;
-    
+
     // Check credits before starting generation process
     if (tab === "Output" && !options?.regenerate && sessionStorage.getItem("isDemoAccount") !== "true") {
       const currentCredits = await checkUserCredits(tempEffectiveUserId);
@@ -2907,19 +2925,19 @@ const MainPage: React.FC = () => {
                   }));
                   try {
                     debugger
-                  const userCreditResponse = await fetch(
-                    `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`
-                  );
-                  if (!userCreditResponse.ok) throw new Error("Failed to fetch user credit");
+                    const userCreditResponse = await fetch(
+                      `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`
+                    );
+                    if (!userCreditResponse.ok) throw new Error("Failed to fetch user credit");
 
-                  const userCreditData = await userCreditResponse.json();
-                  console.log("User credit data:", userCreditData);
-                  dispatch(saveUserCredit(userCreditData));
-                  
+                    const userCreditData = await userCreditResponse.json();
+                    console.log("User credit data:", userCreditData);
+                    dispatch(saveUserCredit(userCreditData));
 
-                } catch (creditError) {
-                  console.error("User credit API error:", creditError);
-                }
+
+                  } catch (creditError) {
+                    console.error("User credit API error:", creditError);
+                  }
                 }
               }
             }
@@ -3243,6 +3261,9 @@ const MainPage: React.FC = () => {
   }
 
   const IsAdmin = sessionStorage.getItem("IsAdmin");
+  const [showSupportPopup, setShowSupportPopup] = useState(false);
+  const popupRef = useRef<HTMLDivElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
 
   // State for data files
   const [dataFiles, setDataFiles] = useState<DataFile[]>([]);
@@ -3452,8 +3473,8 @@ const MainPage: React.FC = () => {
       try {
         const response = await fetch(`${API_BASE_URL}/api/auth/campaigns/client/${effectiveUserId}`);
         const data = await response.json();
-         setCampaigns(data);
-       // setCampaigns(data.campaigns || []);
+        setCampaigns(data);
+        // setCampaigns(data.campaigns || []);
       } catch (err) {
         console.error("Error fetching campaigns", err);
       }
@@ -3627,7 +3648,7 @@ const MainPage: React.FC = () => {
 
 
   const [showBlueprintSubmenu, setShowBlueprintSubmenu] = useState<boolean>(false);
-const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
+  const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
 
   <Header onUpgradeClick={() => setTab("MyPlan")} connectTo={true} />
 
@@ -3708,73 +3729,72 @@ const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
                     </li>
 
 
-<li
-  className={`${tab === "TestTemplate" ? "active" : ""} ${
-    showBlueprintSubmenu ? "has-submenu submenu-open" : "has-submenu"
-  }`}
->
-  <button
-    onClick={() => {
-      if (tab !== "TestTemplate") {
-        setTab("TestTemplate");
-        setShowBlueprintSubmenu(true);
-        setShowMailSubmenu(false);
-        setShowContactsSubmenu(false);
-        navigate("/main");
-      } else {
-        setShowBlueprintSubmenu((prev: boolean) => !prev);
-      }
-    }}
-    className="side-menu-button"
-    title="Manage test templates and playground"
-  >
-    <span className="menu-icon">
-      <FontAwesomeIcon icon={faFileAlt} className="text-[#333333] text-lg" />
-    </span>
-    <span className="menu-text">Blueprints</span>
-    <span className="submenu-arrow">
-      <FontAwesomeIcon
-        icon={faAngleRight}
-        className="text-[#333333] text-lg"
-      />
-    </span>
-  </button>
+                    <li
+                      className={`${tab === "TestTemplate" ? "active" : ""} ${showBlueprintSubmenu ? "has-submenu submenu-open" : "has-submenu"
+                        }`}
+                    >
+                      <button
+                        onClick={() => {
+                          if (tab !== "TestTemplate") {
+                            setTab("TestTemplate");
+                            setShowBlueprintSubmenu(true);
+                            setShowMailSubmenu(false);
+                            setShowContactsSubmenu(false);
+                            navigate("/main");
+                          } else {
+                            setShowBlueprintSubmenu((prev: boolean) => !prev);
+                          }
+                        }}
+                        className="side-menu-button"
+                        title="Manage test templates and playground"
+                      >
+                        <span className="menu-icon">
+                          <FontAwesomeIcon icon={faFileAlt} className="text-[#333333] text-lg" />
+                        </span>
+                        <span className="menu-text">Blueprints</span>
+                        <span className="submenu-arrow">
+                          <FontAwesomeIcon
+                            icon={faAngleRight}
+                            className="text-[#333333] text-lg"
+                          />
+                        </span>
+                      </button>
 
-  {/* Submenu items */}
-  {showBlueprintSubmenu && (
-    <ul className="submenu">
-      {/* Normal Blueprint list */}
-      <li className={blueprintSubTab === "List" ? "active" : ""}>
-        <button
-          onClick={() => {
-            setBlueprintSubTab("List");
-            setTab("TestTemplate");
-            navigate("/main");
-          }}
-          className="submenu-button"
-        >
-          Blueprints
-        </button>
-      </li>
+                      {/* Submenu items */}
+                      {showBlueprintSubmenu && (
+                        <ul className="submenu">
+                          {/* Normal Blueprint list */}
+                          <li className={blueprintSubTab === "List" ? "active" : ""}>
+                            <button
+                              onClick={() => {
+                                setBlueprintSubTab("List");
+                                setTab("TestTemplate");
+                                navigate("/main");
+                              }}
+                              className="submenu-button"
+                            >
+                              Blueprints
+                            </button>
+                          </li>
 
-      {/* ADMIN only Playground */}
-      {userRole === "ADMIN" && (
-        <li className={blueprintSubTab === "Playground" ? "active" : ""}>
-          <button
-            onClick={() => {
-              setBlueprintSubTab("Playground");
-              setTab("Playground");
-              navigate("/main?tab=Playground");
-            }}
-            className="submenu-button"
-          >
-            Playground
-          </button>
-        </li>
-      )}
-    </ul>
-  )}
-</li>
+                          {/* ADMIN only Playground */}
+                          {userRole === "ADMIN" && (
+                            <li className={blueprintSubTab === "Playground" ? "active" : ""}>
+                              <button
+                                onClick={() => {
+                                  setBlueprintSubTab("Playground");
+                                  setTab("Playground");
+                                  navigate("/main?tab=Playground");
+                                }}
+                                className="submenu-button"
+                              >
+                                Playground
+                              </button>
+                            </li>
+                          )}
+                        </ul>
+                      )}
+                    </li>
 
 
                     <li
@@ -3980,32 +4000,82 @@ const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
                       >
                         <span className="menu-icon">
                           <svg xmlns="http://www.w3.org/2000/svg" width="20px" height="20px" viewBox="0 0 24 24" fill="#111111">
-                            <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
+                            <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z" />
                           </svg>
                         </span>
                         <span className="menu-text">Plan history</span>
                       </button>
                     </li>
-                  
-                      <li className={tab === "Settings" ? "active" : ""}>
-                        <button
-                          onClick={() => {
-                            setTab("Settings");
-                            setShowMailSubmenu(false);
-                            setShowContactsSubmenu(false);
-                          }}
-                          className="side-menu-button"
-                        >
-                          <span className="menu-icon">
-                            <FontAwesomeIcon
-                              icon={faGear}
-                              className=" text-[#333333] text-lg"
-                            />
-                          </span>
-                          <span className="menu-text">Settings</span>
-                        </button>
-                      </li>
-                    
+
+                    <li className={tab === "Settings" ? "active" : ""}>
+                      <button
+                        onClick={() => {
+                          setTab("Settings");
+                          setShowMailSubmenu(false);
+                          setShowContactsSubmenu(false);
+                        }}
+                        className="side-menu-button"
+                      >
+                        <span className="menu-icon">
+                          <FontAwesomeIcon
+                            icon={faGear}
+                            className=" text-[#333333] text-lg"
+                          />
+                        </span>
+                        <span className="menu-text">Settings</span>
+                      </button>
+                    </li>
+                   <li className="relative">
+        {/* Button */}
+        <button
+          ref={buttonRef}
+          onClick={() => setShowSupportPopup((prev) => !prev)}
+          className="side-menu-button w-full flex items-center gap-3 px-3 py-2 hover:bg-gray-100 rounded-md"
+        >
+          <span className="menu-icon">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20px"
+              height="20px"
+              viewBox="0 0 24 24"
+              fill="#111111"
+            >
+              <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-2h2v2zm1.07-7.75-.9.92C12.45 10.9 12 11.5 12 13h-2v-.5c0-.83.45-1.54 1.17-2.11l1.24-1.23a2 2 0 1 0-3.41-1.41H7a4 4 0 1 1 6.07 3.41z" />
+            </svg>
+          </span>
+          <span className="menu-text">Support Details</span>
+        </button>
+
+        {/* Popup */}
+        {showSupportPopup && (
+          <div
+            ref={popupRef}
+            className="absolute left-0 top-full mt-2 bg-white border border-gray-300 rounded-md shadow-lg p-3 w-50 z-50"
+          >
+            <h4 className="font-semibold mb-2 text-sm text-gray-800">
+              Need support?
+            </h4>
+            <div className="text-sm text-gray-700 space-y-1">
+              <p>
+                <strong>London:</strong> +44 (0) 207 660 4243
+              </p>
+              <p>
+                <strong>New York:</strong> +1 (0) 315 400 2402
+              </p>
+              <p>
+                <a
+                  href="mailto:support@pitchkraft.co"
+                  className="text-blue-600 hover:underline"
+                >
+                  support@pitchkraft.co
+                </a>
+              </p>
+            </div>
+          </div>
+        )}
+      </li>
+
+
 
                     {userRole === "ADMIN" && (
                       <li className={tab === "CampaignBuilder" ? "active" : ""}>
@@ -4108,7 +4178,7 @@ const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
             handleClientChange={handleClientChange}
             clientNames={clientNames}
             userRole={userRole}
-             onUpgradeClick={() => setTab("MyPlan")} 
+            onUpgradeClick={() => setTab("MyPlan")}
           />
         </header>
 
@@ -4172,7 +4242,7 @@ const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
                               onClick={() =>
                                 handleModalOpen("modal-add-prompt")
                               }
-                              //disabled={userRole !== "ADMIN"}
+                            //disabled={userRole !== "ADMIN"}
                             >
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
@@ -4190,106 +4260,106 @@ const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
 
                       <div className="row">
                         <div className="col-12 col">
-                         
-                            <div className="tabs secondary d-flex justify-between-991 flex-col-768 bb-0-768">
-                              <ul className="d-flex bb-1-768">
-                                <li>
-                                  <button
-                                    type="button"
-                                    onClick={tabHandler2}
-                                    className={`button ${tab2 === "Template" ? "active" : ""
-                                      }`}
-                                  >
-                                    Template
-                                  </button>
-                                </li>
-                                <li>
-                                  <button
-                                    type="button"
-                                    onClick={tabHandler2}
-                                    className={`button ${tab2 === "Instructions" ? "active" : ""
-                                      }`}
-                                  >
-                                    Instructions
-                                  </button>
-                                </li>
-                              </ul>
 
-                              <div className="d-flex align-self-center ml-10 ml-768-0 mt-10-768 flex-col-480 full-width">
+                          <div className="tabs secondary d-flex justify-between-991 flex-col-768 bb-0-768">
+                            <ul className="d-flex bb-1-768">
+                              <li>
+                                <button
+                                  type="button"
+                                  onClick={tabHandler2}
+                                  className={`button ${tab2 === "Template" ? "active" : ""
+                                    }`}
+                                >
+                                  Template
+                                </button>
+                              </li>
+                              <li>
+                                <button
+                                  type="button"
+                                  onClick={tabHandler2}
+                                  className={`button ${tab2 === "Instructions" ? "active" : ""
+                                    }`}
+                                >
+                                  Instructions
+                                </button>
+                              </li>
+                            </ul>
+
+                            <div className="d-flex align-self-center ml-10 ml-768-0 mt-10-768 flex-col-480 full-width">
+                              <ReactTooltip
+                                anchorSelect="#output-edit-prompt-tooltip"
+                                place="top"
+                              >
+                                Edit prompt
+                              </ReactTooltip>
+                              <button
+                                id="output-edit-prompt-tooltip"
+                                className={`save-button button justify-center square-40 d-flex align-center button-full-width-480 mb-10-480 ${selectedPrompt?.name !== "Select a prompt"
+                                  ? ""
+                                  : "disabled"
+                                  }`}
+                                disabled={
+                                  !selectedPrompt?.name ||
+                                  selectedPrompt?.name === "Select a prompt"
+                                }
+                                onClick={() => {
+                                  handleModalOpen("modal-edit-prompt");
+                                  setEditHandler();
+                                }}
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  width="22px"
+                                  height="22px"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                >
+                                  <path
+                                    d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
+                                    stroke="#ffffff"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  />
+                                </svg>
+                              </button>
+
+                              <span className="d-flex justify-right ml-0-480">
                                 <ReactTooltip
-                                  anchorSelect="#output-edit-prompt-tooltip"
+                                  anchorSelect="#output-delete-prompt-tooltip"
                                   place="top"
                                 >
-                                  Edit prompt
+                                  Delete prompt
                                 </ReactTooltip>
                                 <button
-                                  id="output-edit-prompt-tooltip"
-                                  className={`save-button button justify-center square-40 d-flex align-center button-full-width-480 mb-10-480 ${selectedPrompt?.name !== "Select a prompt"
-                                    ? ""
-                                    : "disabled"
-                                    }`}
+                                  id="output-delete-prompt-tooltip"
+                                  className="secondary button !p-[5px] square-40 d-flex justify-center align-center ml-10 button-full-width-480"
                                   disabled={
                                     !selectedPrompt?.name ||
                                     selectedPrompt?.name === "Select a prompt"
                                   }
-                                  onClick={() => {
-                                    handleModalOpen("modal-edit-prompt");
-                                    setEditHandler();
-                                  }}
+                                  onClick={() =>
+                                    handleModalOpen("modal-confirm-delete")
+                                  }
                                 >
                                   <svg
                                     xmlns="http://www.w3.org/2000/svg"
-                                    width="22px"
-                                    height="22px"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
+                                    fill="#FFFFFF"
+                                    viewBox="0 0 50 50"
+                                    width="18px"
+                                    height="18px"
+                                    style={{
+                                      position: "relative",
+                                      marginTop: "-2px",
+                                    }}
                                   >
-                                    <path
-                                      d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
-                                      stroke="#ffffff"
-                                      strokeWidth="2"
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                    />
+                                    <path d="M 21 2 C 19.354545 2 18 3.3545455 18 5 L 18 7 L 8 7 A 1.0001 1.0001 0 1 0 8 9 L 9 9 L 9 45 C 9 46.654 10.346 48 12 48 L 38 48 C 39.654 48 41 46.654 41 45 L 41 9 L 42 9 A 1.0001 1.0001 0 1 0 42 7 L 32 7 L 32 5 C 32 3.3545455 30.645455 2 29 2 L 21 2 z M 21 4 L 29 4 C 29.554545 4 30 4.4454545 30 5 L 30 7 L 20 7 L 20 5 C 20 4.4454545 20.445455 4 21 4 z M 19 14 C 19.552 14 20 14.448 20 15 L 20 40 C 20 40.553 19.552 41 19 41 C 18.448 41 18 40.553 18 40 L 18 15 C 18 14.448 18.448 14 19 14 z M 25 14 C 25.552 14 26 14.448 26 15 L 26 40 C 26 40.553 25.552 41 25 41 C 24.448 41 24 40.553 24 40 L 24 15 C 24 14.448 24.448 14 25 14 z M 31 14 C 31.553 14 32 14.448 32 15 L 32 40 C 32 40.553 31.553 41 31 41 C 30.447 41 30 40.553 30 40 L 30 15 C 30 14.448 30.447 14 31 14 z" />
                                   </svg>
                                 </button>
-
-                                <span className="d-flex justify-right ml-0-480">
-                                  <ReactTooltip
-                                    anchorSelect="#output-delete-prompt-tooltip"
-                                    place="top"
-                                  >
-                                    Delete prompt
-                                  </ReactTooltip>
-                                  <button
-                                    id="output-delete-prompt-tooltip"
-                                    className="secondary button !p-[5px] square-40 d-flex justify-center align-center ml-10 button-full-width-480"
-                                    disabled={
-                                      !selectedPrompt?.name ||
-                                      selectedPrompt?.name === "Select a prompt"
-                                    }
-                                    onClick={() =>
-                                      handleModalOpen("modal-confirm-delete")
-                                    }
-                                  >
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      fill="#FFFFFF"
-                                      viewBox="0 0 50 50"
-                                      width="18px"
-                                      height="18px"
-                                      style={{
-                                        position: "relative",
-                                        marginTop: "-2px",
-                                      }}
-                                    >
-                                      <path d="M 21 2 C 19.354545 2 18 3.3545455 18 5 L 18 7 L 8 7 A 1.0001 1.0001 0 1 0 8 9 L 9 9 L 9 45 C 9 46.654 10.346 48 12 48 L 38 48 C 39.654 48 41 46.654 41 45 L 41 9 L 42 9 A 1.0001 1.0001 0 1 0 42 7 L 32 7 L 32 5 C 32 3.3545455 30.645455 2 29 2 L 21 2 z M 21 4 L 29 4 C 29.554545 4 30 4.4454545 30 5 L 30 7 L 20 7 L 20 5 C 20 4.4454545 20.445455 4 21 4 z M 19 14 C 19.552 14 20 14.448 20 15 L 20 40 C 20 40.553 19.552 41 19 41 C 18.448 41 18 40.553 18 40 L 18 15 C 18 14.448 18.448 14 19 14 z M 25 14 C 25.552 14 26 14.448 26 15 L 26 40 C 26 40.553 25.552 41 25 41 C 24.448 41 24 40.553 24 40 L 24 15 C 24 14.448 24.448 14 25 14 z M 31 14 C 31.553 14 32 14.448 32 15 L 32 40 C 32 40.553 31.553 41 31 41 C 30.447 41 30 40.553 30 40 L 30 15 C 30 14.448 30.447 14 31 14 z" />
-                                    </svg>
-                                  </button>
-                                </span>
-                              </div>
+                              </span>
                             </div>
-                          
+                          </div>
+
 
                           {tab2 === "Template" && (
                             <div className="form-group">
@@ -4315,31 +4385,31 @@ const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
                                   buttonLabel="Ok"
                                   size="100%"
                                 >
-                                                       <div style={{
-            backgroundColor: "white",
-            padding: "20px",
-            borderRadius: "10px",
-            boxShadow: "0 4px 8px rgba(0,0,0,0.1)"
-          }}>
-                                  <label>Template</label>
-                                  <ReactQuill
-                                    theme="snow"
-                                    className="adjust-quill-height"
-                                    value={
-                                      selectedPrompt
-                                        ? formatTextForDisplay(
-                                          selectedPrompt.text
+                                  <div style={{
+                                    backgroundColor: "white",
+                                    padding: "20px",
+                                    borderRadius: "10px",
+                                    boxShadow: "0 4px 8px rgba(0,0,0,0.1)"
+                                  }}>
+                                    <label>Template</label>
+                                    <ReactQuill
+                                      theme="snow"
+                                      className="adjust-quill-height"
+                                      value={
+                                        selectedPrompt
+                                          ? formatTextForDisplay(
+                                            selectedPrompt.text
+                                          )
+                                          : ""
+                                      }
+                                      defaultValue={selectedPrompt?.text}
+                                      onChange={(value: string) =>
+                                        handleViewPromptRTE(
+                                          formatTextForEditor(value)
                                         )
-                                        : ""
-                                    }
-                                    defaultValue={selectedPrompt?.text}
-                                    onChange={(value: string) =>
-                                      handleViewPromptRTE(
-                                        formatTextForEditor(value)
-                                      )
-                                    }
-                                    modules={modules}
-                                  />
+                                      }
+                                      modules={modules}
+                                    />
                                   </div>
                                 </Modal>
                                 <button
@@ -4387,7 +4457,7 @@ const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
                             </div>
                           )}
 
-                          {tab2 === "Instructions"  && (
+                          {tab2 === "Instructions" && (
                             <div className="form-group">
                               <label>Instructions</label>
                               <span className="pos-relative">
@@ -4485,100 +4555,73 @@ const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
                               buttonLabel="Close"
                               size="100%"
                             > <div style={{
-            backgroundColor: "white",
-            padding: "20px",
-            borderRadius: "10px",
-            boxShadow: "0 4px 8px rgba(0,0,0,0.1)"
-          }}>
-                              <form
-                                onSubmit={addPromptSubmitHandler}
-                                className="full-height"
-                              >
-                                <h2 className="left">Add a prompt</h2>
-                                <div className="form-group">
-                                  <label>Prompt name</label>
-                                  <input
-                                    type="text"
-                                    name="promptName"
-                                    placeholder="Enter prompt name"
-                                    value={addPrompt.promptName}
-                                    onChange={addPromptHandler}
-                                  />
-                                </div>
-
-                                {userRole === "ADMIN" && (
-                                  <div className="tabs secondary">
-                                    <ul className="d-flex">
-                                      <li>
-                                        <button
-                                          type="button"
-                                          onClick={tabHandler4}
-                                          className={`button ${tab4 === "Template" ? "active" : ""
-                                            }`}
-                                        >
-                                          Template
-                                        </button>
-                                      </li>
-                                      <li>
-                                        <button
-                                          type="button"
-                                          onClick={tabHandler4}
-                                          className={`button ${tab4 === "Instructions"
-                                            ? "active"
-                                            : ""
-                                            }`}
-                                        >
-                                          Instructions
-                                        </button>
-                                      </li>
-                                    </ul>
+                              backgroundColor: "white",
+                              padding: "20px",
+                              borderRadius: "10px",
+                              boxShadow: "0 4px 8px rgba(0,0,0,0.1)"
+                            }}>
+                                <form
+                                  onSubmit={addPromptSubmitHandler}
+                                  className="full-height"
+                                >
+                                  <h2 className="left">Add a prompt</h2>
+                                  <div className="form-group">
+                                    <label>Prompt name</label>
+                                    <input
+                                      type="text"
+                                      name="promptName"
+                                      placeholder="Enter prompt name"
+                                      value={addPrompt.promptName}
+                                      onChange={addPromptHandler}
+                                    />
                                   </div>
-                                )}
 
-                                {tab4 === "Template" && (
-                                  <div className="form-group edit-prompt-form-height">
-                                    <label>Template</label>
-                                    <span className="pos-relative">
-                                      <ReactQuill
-                                        className="adjust-quill-height"
-                                        theme="snow"
-                                        value={
-                                          addPrompt?.promptTemplate
-                                            ? formatTextForDisplay(
-                                              addPrompt?.promptTemplate
-                                            )
-                                            : ""
-                                        }
-                                        defaultValue={addPrompt?.promptTemplate}
-                                        onChange={(value: string) =>
-                                          handleAddPromptTemplateRTE(
-                                            formatTextForEditor(value)
-                                          )
-                                        }
-                                        modules={modules}
-                                      />
-                                    </span>
-                                  </div>
-                                )}
+                                  {userRole === "ADMIN" && (
+                                    <div className="tabs secondary">
+                                      <ul className="d-flex">
+                                        <li>
+                                          <button
+                                            type="button"
+                                            onClick={tabHandler4}
+                                            className={`button ${tab4 === "Template" ? "active" : ""
+                                              }`}
+                                          >
+                                            Template
+                                          </button>
+                                        </li>
+                                        <li>
+                                          <button
+                                            type="button"
+                                            onClick={tabHandler4}
+                                            className={`button ${tab4 === "Instructions"
+                                              ? "active"
+                                              : ""
+                                              }`}
+                                          >
+                                            Instructions
+                                          </button>
+                                        </li>
+                                      </ul>
+                                    </div>
+                                  )}
 
-                                {tab4 === "Instructions" &&
-                                  userRole === "ADMIN" && (
+                                  {tab4 === "Template" && (
                                     <div className="form-group edit-prompt-form-height">
-                                      <label>Instructions</label>
+                                      <label>Template</label>
                                       <span className="pos-relative">
                                         <ReactQuill
                                           className="adjust-quill-height"
                                           theme="snow"
                                           value={
-                                            addPrompt?.promptInput
+                                            addPrompt?.promptTemplate
                                               ? formatTextForDisplay(
-                                                addPrompt?.promptInput
+                                                addPrompt?.promptTemplate
                                               )
                                               : ""
                                           }
-                                          defaultValue={addPrompt?.promptInput}
+                                          defaultValue={addPrompt?.promptTemplate}
                                           onChange={(value: string) =>
-                                            handleAddPromptInPutRTE(
+                                            handleAddPromptTemplateRTE(
                                               formatTextForEditor(value)
                                             )
                                           }
@@ -4588,20 +4631,47 @@ const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
                                     </div>
                                   )}
 
-                                <div className="form-group d-flex">
-                                  <button
-                                    type="submit"
-                                    className="action-button button mr-10"
-                                  >
-                                    Save prompt
-                                  </button>
-                                  {addPromptAlert && (
-                                    <span className="alert alert-success ml-10">
-                                      Prompt added successfully.
-                                    </span>
-                                  )}
-                                </div>
-                              </form>
+                                  {tab4 === "Instructions" &&
+                                    userRole === "ADMIN" && (
+                                      <div className="form-group edit-prompt-form-height">
+                                        <label>Instructions</label>
+                                        <span className="pos-relative">
+                                          <ReactQuill
+                                            className="adjust-quill-height"
+                                            theme="snow"
+                                            value={
+                                              addPrompt?.promptInput
+                                                ? formatTextForDisplay(
+                                                  addPrompt?.promptInput
+                                                )
+                                                : ""
+                                            }
+                                            defaultValue={addPrompt?.promptInput}
+                                            onChange={(value: string) =>
+                                              handleAddPromptInPutRTE(
+                                                formatTextForEditor(value)
+                                              )
+                                            }
+                                            modules={modules}
+                                          />
+                                        </span>
+                                      </div>
+                                    )}
+
+                                  <div className="form-group d-flex">
+                                    <button
+                                      type="submit"
+                                      className="action-button button mr-10"
+                                    >
+                                      Save prompt
+                                    </button>
+                                    {addPromptAlert && (
+                                      <span className="alert alert-success ml-10">
+                                        Prompt added successfully.
+                                      </span>
+                                    )}
+                                  </div>
+                                </form>
                               </div>
                             </Modal>
 
@@ -4874,7 +4944,7 @@ const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
               />
             )}
 
-            {tab === "Settings" &&  (
+            {tab === "Settings" && (
               <Settings
                 selectedClient={selectedClient}
                 fetchClientSettings={fetchClientSettings}

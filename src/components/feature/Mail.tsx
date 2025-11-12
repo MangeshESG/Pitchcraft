@@ -1687,7 +1687,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                       boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
                     }}
                   >
-                    <h3 style={{ marginBottom: 16 }}>Add BCC Email</h3>
+                    <h3 style={{ marginBottom: 16 }}>Add BCC email</h3>
 
                     <input
                       type="email"
@@ -1868,16 +1868,16 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       {/* Schedule Tab */}
       {tab === "Schedule" && (
         <>
-        <label style={{
-    display: "block",          // makes it span full width
-    textAlign: "center",       // centers the text
-    fontWeight: "600",
-    fontSize: "18px",
-    color:"black"       // makes it bold
-  }}>Email Schedules</label>
+          <label style={{
+            display: "block",          // makes it span full width
+            textAlign: "center",       // centers the text
+            fontWeight: "600",
+            fontSize: "18px",
+            color: "black"       // makes it bold
+          }}>Email schedules</label>
           <div className="data-campaigns-container">
             <div className="section-wrapper">
-              <h2 className="section-title">Email Schedules</h2>
+              <h2 className="section-title">Email schedules</h2>
               <div style={{ marginBottom: 4, color: "#555" }}>
                 Create and manage email delivery schedules for your campaigns.
               </div>
@@ -1913,7 +1913,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                 <thead>
                   <tr>
                     <th>Sequence name</th>
-                    <th>List/Segment</th>
+                    <th>List/segment</th>
                     <th>From</th>
                     <th>Scheduled date</th>
                     <th>Scheduled time</th>
@@ -2083,7 +2083,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                 currentPage={currentPage}
                 totalPages={totalPages}
                 pageSize={rowsPerPage}               // ✅ use same variable
-                totalRecords={totalPages  } // ✅ use filtered length
+                totalRecords={totalPages} // ✅ use filtered length
                 setCurrentPage={setCurrentPage}
               />
               {/* <div
@@ -2199,7 +2199,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                 onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
               >
                 <h2 style={{ marginTop: 0, marginBottom: 24 }}>
-                  {editingId ? "Edit Schedule" : "Create Schedule"}
+                  {editingId ? "Edit schedule" : "Create schedule"}
                 </h2>
 
                 <form onSubmit={handleSubmitSchedule}>
@@ -2228,7 +2228,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
 
                     <div className="form-group">
                       <label>
-                        List/Segment <span style={{ color: "red" }}>*</span>
+                        List/segment <span style={{ color: "red" }}>*</span>
                       </label>
                       <select
                         name="model"
@@ -2243,7 +2243,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                         required
                         style={{ width: "100%" }}
                       >
-                        <option value="">List or Segment</option>
+                        <option value="">List or segment</option>
                         {scheduleDataFiles.length > 0 && (
                           <optgroup label="Lists">
                             {scheduleDataFiles.map((file) => (

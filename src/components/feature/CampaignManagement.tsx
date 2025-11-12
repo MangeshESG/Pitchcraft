@@ -834,7 +834,7 @@ const paginatedCampaigns = filteredCampaigns.slice(
               className="sub-title"
               style={{ marginTop: 0, marginBottom: 24 }}
             >
-              {selectedCampaign ? "Edit Campaign" : "Create Campaign"}
+              {selectedCampaign ? "Edit campaign" : "Create campaign"}
             </h2>
 
             <div
@@ -883,7 +883,7 @@ const paginatedCampaigns = filteredCampaigns.slice(
               <div style={{ gridColumn: "1 / -1" }}>
                 <div className="form-group !mb-0">
                   <label>
-                    List/Segment <span style={{ color: "red" }}>*</span>
+                    List/segment <span style={{ color: "red" }}>*</span>
                   </label>
                   <select
                     onChange={(e) => {
@@ -917,7 +917,7 @@ const paginatedCampaigns = filteredCampaigns.slice(
                     }
                     required
                   >
-                    <option value="">List or Segment</option>
+                    <option value="">List or segment</option>
                     {dataFiles.length > 0 && (
                       <optgroup label="Lists">
                         {dataFiles.map((file) => (
@@ -1029,8 +1029,8 @@ const paginatedCampaigns = filteredCampaigns.slice(
                     ? "Updating..."
                     : "Creating..."
                   : selectedCampaign
-                    ? "Update Campaign"
-                    : "Create Campaign"}
+                    ? "Update campaign"
+                    : "Create campaign"}
               </button>
             </div>
           </div>
