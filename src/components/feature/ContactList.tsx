@@ -1051,7 +1051,9 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                 <h2 className="section-title">
                   Lists
                 </h2>
-
+                <p style={{ marginBottom: '16px', color: '#555' }}>
+                  This is where you organize your lists. Create, modify, and manage custom lists for targeted interactions, and keep them in folders for easy navigation.
+                </p>
                 <div
                   style={{
                     display: "flex",

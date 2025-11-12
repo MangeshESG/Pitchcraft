@@ -1882,6 +1882,7 @@ const Output: React.FC<OutputInterface> = ({
                     </button>
                   )}
                 </div> */}
+                <p>The Output tab shows the contact details and dynamic fields for review before sending the email.</p>
               </div>
               <div className="form-group mb-0 mt-2">
                 <div className="d-flex justify-between w-full">
@@ -3703,6 +3704,7 @@ const Output: React.FC<OutputInterface> = ({
           {/* Add this after the Output tab and before the Stages tab */}
           {tab2 === "Settings" && (
             <div className="settings-tab-content w-full">
+              <p style={{marginBottom:'20px'}}>The Settings tab allows you to configure campaign options and adjust email parameters.</p>
               <div className="col-12 flex gap-4">
                 <div className="form-group flex-1">
                   <label style={{ width: "100%" }}>Subject</label>
