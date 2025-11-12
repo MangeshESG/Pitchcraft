@@ -327,10 +327,16 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     const contactsToUse =
       viewMode === "detail"
         ? Array.from(detailSelectedContacts).map(Number)
+        : segmentViewMode === "detail"
+        ? Array.from(detailSelectedContacts).map(Number)
         : Array.from(selectedContacts).map(Number);
 
     const dataFileToUse =
-      viewMode === "detail" ? selectedDataFileForView?.id : selectedDataFile;
+      viewMode === "detail" 
+        ? selectedDataFileForView?.id 
+        : segmentViewMode === "detail"
+        ? selectedSegmentForView?.dataFileId
+        : selectedDataFile;
 
     const segmentData = {
       name: segmentName,
@@ -2059,6 +2065,33 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                   setSelectedSegmentForView(null);
                 }}
                 onAddItem={onAddContactClick}
+                customHeader={
+                  detailSelectedContacts.size > 0 && (
+                    <div
+                      style={{
+                        marginBottom: 16,
+                        padding: "12px 16px",
+                        background: "#f0f7ff",
+                        borderRadius: 6,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 16,
+                      }}
+                    >
+                      <span style={{ fontWeight: 500 }}>
+                        {detailSelectedContacts.size} contact
+                        {detailSelectedContacts.size > 1 ? "s" : ""} selected
+                      </span>
+                      <button
+                        className="button primary"
+                        onClick={() => setShowSaveSegmentModal(true)}
+                        style={{ marginLeft: "auto" }}
+                      >
+                        Create segment
+                      </button>
+                    </div>
+                  )
+                }
               />
             )}
           </div>
