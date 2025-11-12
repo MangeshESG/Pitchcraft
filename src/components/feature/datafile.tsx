@@ -547,7 +547,7 @@ console.log("processingStats.valid:", processingStats.valid);
           {onBack && (
             <div className="mb-20">
               <button className="button secondary" onClick={onBack}>
-                ← Back to Contacts
+                ← Back to contacts
               </button>
             </div>
           )}
@@ -557,28 +557,28 @@ console.log("processingStats.valid:", processingStats.valid);
           <div className="upload-steps d-flex justify-between mb-30">
             <div className={`step-item ${currentStep >= 1 ? "active" : ""}`}>
               <div className="step-number">1</div>
-              <div className="step-label">Upload File</div>
+              <div className="step-label">Upload file</div>
             </div>
             <div
               className={`step-connector ${currentStep >= 2 ? "active" : ""}`}
             ></div>
             <div className={`step-item ${currentStep >= 2 ? "active" : ""}`}>
               <div className="step-number">2</div>
-              <div className="step-label">Map Columns</div>
+              <div className="step-label">Map columns</div>
             </div>
             <div
               className={`step-connector ${currentStep >= 3 ? "active" : ""}`}
             ></div>
             <div className={`step-item ${currentStep >= 3 ? "active" : ""}`}>
               <div className="step-number">3</div>
-              <div className="step-label">Preview & Continue</div>
+              <div className="step-label">Preview & continue</div>
             </div>
             <div
               className={`step-connector ${currentStep >= 4 ? "active" : ""}`}
             ></div>
             <div className={`step-item ${currentStep >= 4 ? "active" : ""}`}>
               <div className="step-number">4</div>
-              <div className="step-label">Process Data</div>
+              <div className="step-label">Process data</div>
             </div>
           </div>
 

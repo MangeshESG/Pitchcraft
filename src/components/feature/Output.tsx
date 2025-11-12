@@ -1580,7 +1580,7 @@ useEffect(() => {
                       title={`Click to generate hyper-personalized emails starting from contact ${currentIndex + 1
                         }`}
                     >
-                      Generate
+                      Kraft emails
                     </button>
                   ) : (
                     <button
@@ -1599,9 +1599,10 @@ useEffect(() => {
                     className="secondary-button nowrap"
                     onClick={handleClearAll}
                     disabled={!isResetEnabled}
-                    title="Clear all data and reset the application state"
+                    title="Reset all company level intel"
+                  //  title="Clear all data and reset the application state"
                   >
-                    Reset all
+                    Reset
                   </button>
                 )}
 
@@ -1761,12 +1762,12 @@ useEffect(() => {
       )}
 
       <span className="pos-relative">
-        <pre  style={{
-    overflow: "hidden", // hides scrollbars
-    whiteSpace: "pre-wrap", // wraps text nicely
-    wordBreak: "break-word", // prevents long words from overflowing
-    maxHeight: "70vh", // optional, keeps height reasonable
-  }}
+        <pre style={{
+          overflow: "hidden", // hides scrollbars
+          whiteSpace: "pre-wrap", // wraps text nicely
+          wordBreak: "break-word", // prevents long words from overflowing
+          maxHeight: "70vh", // optional, keeps height reasonable
+        }}
           className="w-full p-3 py-[5px] border border-gray-300 rounded-lg overflow-y-auto h-[30px] min-h-[30px] break-words whitespace-pre-wrap text-[13px]"
           dangerouslySetInnerHTML={{
             __html: formatOutput(outputForm.generatedContent),
@@ -2395,7 +2396,7 @@ useEffect(() => {
                               Send email
                             </ReactTooltip>
                             <button
-                              id="output-send-email-btn"
+                              id="output-send-email-tooltip"
                               type="button"
                               className="button save-button x-small d-flex align-center align-self-center my-5-640 mr-[5px]"
                               onClick={async () => {
@@ -2455,7 +2456,11 @@ useEffect(() => {
                           <ReactTooltip anchorSelect="#send-email-info" place="top">
                             Send this email
                           </ReactTooltip> */}
+                            <ReactTooltip anchorSelect="#send-all-btn" place="top">
+                              Send all emails
+                            </ReactTooltip>
                             <button
+                             id="send-all-btn"
                               type="button"
                               className="nowrap ml-1 button save-button x-small d-flex align-center align-self-center my-5-640 mr-[5px]"
                               onClick={() => {
@@ -2502,7 +2507,7 @@ useEffect(() => {
                                 marginRight: 0,
                               }}
                             >
-                              {isBulkSending ? "Stop" : "Send All"}
+                              {isBulkSending ? "Stop" : "Send all"}
                             </button>
                           </div>
                         </div>
@@ -2735,7 +2740,7 @@ useEffect(() => {
                           }}
                           disabled={isSaving}
                         >
-                          {isSaving ? "Saving..." : "Save Changes"}
+                          {isSaving ? "Saving..." : "Save changes"}
                         </button>
                         <button
                           className="secondary button"
@@ -3338,77 +3343,77 @@ useEffect(() => {
                 buttonLabel=""
                 size="100%"
               > <div style={{
-            backgroundColor: "white",
-            padding: "20px",
-            borderRadius: "10px",
-            boxShadow: "0 4px 8px rgba(0,0,0,0.1)"
-          }}>
-                <form
-                  className="full-height"
-                  style={{
-                    margin: 0,
-                    padding: 0,
-                    maxHeight: "85vh",
-                    overflow: "auto",
-                    minWidth: 0,
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                    <button
-                      type="button"
-                      style={{
-                        border: "none",
-                        background: "transparent",
-                        fontSize: "2rem",
-                        cursor: "pointer",
-                      }}
-                      onClick={() => {
-                        handleModalClose("modal-output-2");
-                        setIsEditing(false);
-                      }}
-                      aria-label="Close"
-                      title="Close"
-                    >
-                      ×
-                    </button>
-                  </div>
-                  <div>
-                    <label>Email Body</label>
-                    <div>
-                      <div
-                        ref={editorRef}
-                        contentEditable={true}
-                        suppressContentEditableWarning={true}
-                        className="textarea-full-height preview-content-area"
-                        dangerouslySetInnerHTML={{
-                          __html: editableContent,
-                        }}
-                        onInput={(e) =>
-                          setEditableContent(e.currentTarget.innerHTML)
-                        }
-                        onBlur={(e) =>
-                          setEditableContent(e.currentTarget.innerHTML)
-                        }
+                backgroundColor: "white",
+                padding: "20px",
+                borderRadius: "10px",
+                boxShadow: "0 4px 8px rgba(0,0,0,0.1)"
+              }}>
+                  <form
+                    className="full-height"
+                    style={{
+                      margin: 0,
+                      padding: 0,
+                      maxHeight: "85vh",
+                      overflow: "auto",
+                      minWidth: 0,
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                      <button
+                        type="button"
                         style={{
-                          minHeight: "340px",
-                          height: "auto",
-                          maxHeight: "none",
-                          overflow: "visible",
-                          background: "#fff",
-                          width: "100%",
-                          padding: "10px",
-                          border: "1px solid #ccc",
-                          borderRadius: "4px",
-                          fontFamily: "inherit",
-                          fontSize: "inherit",
-                          whiteSpace: "normal",
-                          boxSizing: "border-box",
-                          wordWrap: "break-word",
+                          border: "none",
+                          background: "transparent",
+                          fontSize: "2rem",
+                          cursor: "pointer",
                         }}
-                      />
+                        onClick={() => {
+                          handleModalClose("modal-output-2");
+                          setIsEditing(false);
+                        }}
+                        aria-label="Close"
+                        title="Close"
+                      >
+                        ×
+                      </button>
                     </div>
-                  </div>
-                </form>
+                    <div>
+                      <label>Email body</label>
+                      <div>
+                        <div
+                          ref={editorRef}
+                          contentEditable={true}
+                          suppressContentEditableWarning={true}
+                          className="textarea-full-height preview-content-area"
+                          dangerouslySetInnerHTML={{
+                            __html: editableContent,
+                          }}
+                          onInput={(e) =>
+                            setEditableContent(e.currentTarget.innerHTML)
+                          }
+                          onBlur={(e) =>
+                            setEditableContent(e.currentTarget.innerHTML)
+                          }
+                          style={{
+                            minHeight: "340px",
+                            height: "auto",
+                            maxHeight: "none",
+                            overflow: "visible",
+                            background: "#fff",
+                            width: "100%",
+                            padding: "10px",
+                            border: "1px solid #ccc",
+                            borderRadius: "4px",
+                            fontFamily: "inherit",
+                            fontSize: "inherit",
+                            whiteSpace: "normal",
+                            boxSizing: "border-box",
+                            wordWrap: "break-word",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </form>
                 </div>
               </Modal>
             </>
@@ -3945,7 +3950,7 @@ useEffect(() => {
 
               <div className="col-12 flex gap-4">
                 <div className="form-group flex-1">
-                  <label>Chatty Level</label>
+                  <label>Chatty level</label>
                   <select
                     className="form-control"
                     value={toneSettings?.chatty || "Medium"}
@@ -3965,7 +3970,7 @@ useEffect(() => {
                 </div>
 
                 <div className="form-group flex-1">
-                  <label>Creativity Level</label>
+                  <label>Creativity level</label>
                   <select
                     className="form-control"
                     value={toneSettings?.creativity || "Medium"}
@@ -3985,7 +3990,7 @@ useEffect(() => {
                 </div>
 
                 <div className="form-group flex-1">
-                  <label>Reasoning Level</label>
+                  <label>Reasoning level</label>
                   <select
                     className="form-control"
                     value={toneSettings?.reasoning || "Medium"}
@@ -4005,7 +4010,7 @@ useEffect(() => {
                 </div>
 
                 <div className="form-group flex-1">
-                  <label>Date Related Greeting</label>
+                  <label>Date related greeting</label>
                   <select
                     className="form-control"
                     value={toneSettings?.dateGreeting || "No"}
@@ -4024,7 +4029,7 @@ useEffect(() => {
                 </div>
 
                 <div className="form-group flex-1">
-                  <label>Date Related Farewell</label>
+                  <label>Date related farewell</label>
                   <select
                     className="form-control"
                     value={toneSettings?.dateFarewell || "No"}
@@ -4063,7 +4068,7 @@ useEffect(() => {
                       marginTop: "20px",
                     }}
                   >
-                    {isSavingSettings ? "Saving..." : "Save Settings"}
+                    {isSavingSettings ? "Saving..." : "Save settings"}
                   </button>
                 </div>
               )}

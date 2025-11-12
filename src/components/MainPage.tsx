@@ -42,7 +42,7 @@ import { useAppData } from "../contexts/AppDataContext";
 import { Dashboard } from "./feature/Dashboard";
 import EmailCampaignBuilder from "./feature/EmailCampaignBuilder";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
-import {saveUserCredit} from "../slices/authSLice";
+import { saveUserCredit } from "../slices/authSLice";
 import { useCreditCheck } from "../hooks/useCreditCheck";
 import CreditCheckModal from "./common/CreditCheckModal";
 import Myplan from "./feature/Myplan";
@@ -233,7 +233,7 @@ interface SettingsFormType {
 const MainPage: React.FC = () => {
   // Credit check hook
   const { credits, showCreditModal, checkUserCredits, closeCreditModal, handleSkipModal } = useCreditCheck();
-  
+
   // Listen for credit modal event from login
   useEffect(() => {
     const handleShowCreditModal = () => {
@@ -241,7 +241,7 @@ const MainPage: React.FC = () => {
         checkUserCredits();
       }
     };
-    
+
     window.addEventListener('showCreditModal', handleShowCreditModal);
     return () => window.removeEventListener('showCreditModal', handleShowCreditModal);
   }, [credits, checkUserCredits]);
@@ -457,7 +457,7 @@ useEffect(() => {
   }, [initialTab, initialContactsSubTab, initialMailSubTab]);
 
 
- 
+
   const [showDataFileUpload, setShowDataFileUpload] = useState(false);
 
   const [isLoadingClientSettings, setIsLoadingClientSettings] = useState(false);
@@ -526,8 +526,8 @@ useEffect(() => {
 
         const data = await response.json();
         console.log("data", data);
-         setCampaigns(data);
-      //  setCampaigns(data.campaigns || []);
+        setCampaigns(data);
+        //  setCampaigns(data.campaigns || []);
       } catch (error) {
         console.error("Error fetching campaigns:", error);
         setCampaigns([]);
@@ -1070,6 +1070,24 @@ useEffect(() => {
       [name]: value,
     }));
   };
+   //  Close popup when clicking outside for support details
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        popupRef.current &&
+        !popupRef.current.contains(event.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target as Node)
+      ) {
+        setShowSupportPopup(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const fetchToneSettings = async (clientId?: string) => {
     try {
@@ -1527,7 +1545,7 @@ useEffect(() => {
   ) => {
     // Calculate effectiveUserId first
     const tempEffectiveUserId = selectedClient !== "" ? selectedClient : userId;
-    
+
     // Check credits before starting generation process
     if (tab === "Output" && !options?.regenerate && sessionStorage.getItem("isDemoAccount") !== "true") {
       const currentCredits = await checkUserCredits(tempEffectiveUserId);
@@ -3005,19 +3023,19 @@ if (tab === "Output" && selectedCampaign) {
                   }));
                   try {
                     debugger
-                  const userCreditResponse = await fetch(
-                    `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`
-                  );
-                  if (!userCreditResponse.ok) throw new Error("Failed to fetch user credit");
+                    const userCreditResponse = await fetch(
+                      `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`
+                    );
+                    if (!userCreditResponse.ok) throw new Error("Failed to fetch user credit");
 
-                  const userCreditData = await userCreditResponse.json();
-                  console.log("User credit data:", userCreditData);
-                  dispatch(saveUserCredit(userCreditData));
-                  
+                    const userCreditData = await userCreditResponse.json();
+                    console.log("User credit data:", userCreditData);
+                    dispatch(saveUserCredit(userCreditData));
 
-                } catch (creditError) {
-                  console.error("User credit API error:", creditError);
-                }
+
+                  } catch (creditError) {
+                    console.error("User credit API error:", creditError);
+                  }
                 }
               }
             }
@@ -3341,6 +3359,9 @@ if (tab === "Output" && selectedCampaign) {
   }
 
   const IsAdmin = sessionStorage.getItem("IsAdmin");
+  const [showSupportPopup, setShowSupportPopup] = useState(false);
+  const popupRef = useRef<HTMLDivElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
 
   // State for data files
   const [dataFiles, setDataFiles] = useState<DataFile[]>([]);
@@ -3550,8 +3571,8 @@ if (tab === "Output" && selectedCampaign) {
       try {
         const response = await fetch(`${API_BASE_URL}/api/auth/campaigns/client/${effectiveUserId}`);
         const data = await response.json();
-         setCampaigns(data);
-       // setCampaigns(data.campaigns || []);
+        setCampaigns(data);
+        // setCampaigns(data.campaigns || []);
       } catch (err) {
         console.error("Error fetching campaigns", err);
       }
@@ -3725,6 +3746,7 @@ if (tab === "Output" && selectedCampaign) {
 
 
   const [showBlueprintSubmenu, setShowBlueprintSubmenu] = useState<boolean>(false);
+  const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
   const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
 
   <Header onUpgradeClick={() => setTab("MyPlan")} connectTo={true} />
@@ -4059,32 +4081,82 @@ if (tab === "Output" && selectedCampaign) {
                       >
                         <span className="menu-icon">
                           <svg xmlns="http://www.w3.org/2000/svg" width="20px" height="20px" viewBox="0 0 24 24" fill="#111111">
-                            <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/>
+                            <path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z" />
                           </svg>
                         </span>
                         <span className="menu-text">Plan history</span>
                       </button>
                     </li>
-                  
-                      <li className={tab === "Settings" ? "active" : ""}>
-                        <button
-                          onClick={() => {
-                            setTab("Settings");
-                            setShowMailSubmenu(false);
-                            setShowContactsSubmenu(false);
-                          }}
-                          className="side-menu-button"
-                        >
-                          <span className="menu-icon">
-                            <FontAwesomeIcon
-                              icon={faGear}
-                              className=" text-[#333333] text-lg"
-                            />
-                          </span>
-                          <span className="menu-text">Settings</span>
-                        </button>
-                      </li>
-                    
+
+                    <li className={tab === "Settings" ? "active" : ""}>
+                      <button
+                        onClick={() => {
+                          setTab("Settings");
+                          setShowMailSubmenu(false);
+                          setShowContactsSubmenu(false);
+                        }}
+                        className="side-menu-button"
+                      >
+                        <span className="menu-icon">
+                          <FontAwesomeIcon
+                            icon={faGear}
+                            className=" text-[#333333] text-lg"
+                          />
+                        </span>
+                        <span className="menu-text">Settings</span>
+                      </button>
+                    </li>
+                   <li className="relative">
+        {/* Button */}
+        <button
+          ref={buttonRef}
+          onClick={() => setShowSupportPopup((prev) => !prev)}
+          className="side-menu-button w-full flex items-center gap-3 px-3 py-2 hover:bg-gray-100 rounded-md"
+        >
+          <span className="menu-icon">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20px"
+              height="20px"
+              viewBox="0 0 24 24"
+              fill="#111111"
+            >
+              <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-2h2v2zm1.07-7.75-.9.92C12.45 10.9 12 11.5 12 13h-2v-.5c0-.83.45-1.54 1.17-2.11l1.24-1.23a2 2 0 1 0-3.41-1.41H7a4 4 0 1 1 6.07 3.41z" />
+            </svg>
+          </span>
+          <span className="menu-text">Support Details</span>
+        </button>
+
+        {/* Popup */}
+        {showSupportPopup && (
+          <div
+            ref={popupRef}
+            className="absolute left-0 top-full mt-2 bg-white border border-gray-300 rounded-md shadow-lg p-3 w-50 z-50"
+          >
+            <h4 className="font-semibold mb-2 text-sm text-gray-800">
+              Need support?
+            </h4>
+            <div className="text-sm text-gray-700 space-y-1">
+              <p>
+                <strong>London:</strong> +44 (0) 207 660 4243
+              </p>
+              <p>
+                <strong>New York:</strong> +1 (0) 315 400 2402
+              </p>
+              <p>
+                <a
+                  href="mailto:support@pitchkraft.co"
+                  className="text-blue-600 hover:underline"
+                >
+                  support@pitchkraft.co
+                </a>
+              </p>
+            </div>
+          </div>
+        )}
+      </li>
+
+
 
                     {userRole === "ADMIN" && (
                       <li className={tab === "CampaignBuilder" ? "active" : ""}>
@@ -4187,7 +4259,7 @@ if (tab === "Output" && selectedCampaign) {
             handleClientChange={handleClientChange}
             clientNames={clientNames}
             userRole={userRole}
-             onUpgradeClick={() => setTab("MyPlan")} 
+            onUpgradeClick={() => setTab("MyPlan")}
           />
         </header>
 
@@ -4318,7 +4390,7 @@ if (tab === "Output" && selectedCampaign) {
               />
             )}
 
-            {tab === "Settings" &&  (
+            {tab === "Settings" && (
               <Settings
                 selectedClient={selectedClient}
                 fetchClientSettings={fetchClientSettings}

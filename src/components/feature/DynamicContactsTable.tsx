@@ -49,7 +49,10 @@ interface DynamicContactsTableProps {
   customHeader?: React.ReactNode;
   onColumnsChange?: (columns: ColumnConfig[]) => void;
 }
-
+interface DynamicContactsTableProps {
+  // ... existing props
+  columnNameMap?: Record<string, string>; // 👈 Add this line
+}
 const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   data,
   isLoading,
@@ -82,6 +85,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   hideSearch = false,
   customHeader,
   onColumnsChange,
+  columnNameMap,
 }) => {
   const [columns, setColumns] = useState<ColumnConfig[]>([]);
   const [showColumnPanel, setShowColumnPanel] = useState(false);
@@ -138,10 +142,21 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
           formatter: customFormatters[key] || getDefaultFormatter(columnType),
         });
       });
-
-      return generatedColumns;
+      const filteredColumns = generatedColumns.filter((col) => {
+        if (col.key === "checkbox") return true;
+        return dataArray.some((item) => {
+          const value = item[col.key];
+          return (
+            value !== null &&
+            value !== undefined &&
+            value !== "" &&
+            value !== "-"
+          );
+        });
+      });
+      return filteredColumns;
     },
-    [showCheckboxes, excludeFields, includeFields]
+    [showCheckboxes, excludeFields, includeFields,customFormatters]
   );
 
   // Detect column type based on key name and value
@@ -507,7 +522,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                 className="button secondary"
                 onClick={() => setShowColumnPanel(!showColumnPanel)}
               >
-                Show/Hide Columns
+                Show/hide columns
               </button>
             </div>
           </div>
@@ -655,7 +670,8 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                           onChange={(e) => handleSelectAll(e.target.checked)}
                         />
                       ) : (
-                        column.label
+                        columnNameMap?.[column.key] || column.label
+                        //column.label
                       )}
                     </th>
                   ))}
@@ -749,7 +765,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                 </div>
               </div>
             )} */}
-              <PaginationControls
+          <PaginationControls
             currentPage={currentPage}
             totalPages={totalPages}
             pageSize={pageSize}
@@ -794,7 +810,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                   color: "#333",
                 }}
               >
-                Show/Hide columns
+                Show/hide columns
               </h3>
               <button
                 onClick={() => setShowColumnPanel(false)}
@@ -849,7 +865,8 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                           display: "block",
                         }}
                       >
-                        {column.label}
+    {columnNameMap?.[column.key] || column.label}
+                        {/* {column.label} */}
                       </span>
                       <span
                         style={{
