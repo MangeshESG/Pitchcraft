@@ -107,6 +107,12 @@ interface ConversationTabProps {
 
   // --- Contact‑placeholder filler ---
   applyContactPlaceholders: (contact: any) => void;
+
+  searchResults: string[];
+  allSourcedData: string;
+  sourcedSummary: string;
+
+ 
 }
 
 
@@ -449,9 +455,15 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   selectedContactId,
   handleSelectDataFile,
   setSelectedContactId,
-  applyContactPlaceholders  // 👈 add this
+  applyContactPlaceholders,  // 👈 add this
+
+  searchResults,
+  allSourcedData,
+  sourcedSummary,
+
 
 }) => {
+
 
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -472,7 +484,8 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   }
 }, [isTyping, messages, conversationStarted]);
 
-
+const [activeMainTab, setActiveMainTab] = useState<'output' | 'stages'>('output');
+const [activeSubStageTab, setActiveSubStageTab] = useState<'search' | 'data' | 'summary'>('search');
   return (
     <div className="conversation-container">
       <div className="chat-layout">
@@ -637,89 +650,133 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
 
 {/* ===================== EXAMPLE SECTION ===================== */}
 <div className="example-section">
-          <div className="example-header">
-          {/* DATAFILE + CONTACT SELECTION */}
-      <div className="example-datafile-section">
-  
-  <div style={{ display: "flex", gap: "10px", marginBottom: "12px" }}>
-    <select
-      className="datafile-dropdown"
-      value={selectedDataFileId || ""}
-      onChange={e => handleSelectDataFile(Number(e.target.value))}
-    >
-      <option value="">-- Select contact file --</option>
-      {dataFiles.map(df => (
-        <option key={df.id} value={df.id}>{df.name}</option>
-      ))}
-    </select>
+  <div className="example-header">
+    <div className="example-datafile-section">
+      <div style={{ display: "flex", gap: "10px", marginBottom: "12px" }}>
+        <select
+          className="datafile-dropdown"
+          value={selectedDataFileId || ""}
+          onChange={e => handleSelectDataFile(Number(e.target.value))}
+        >
+          <option value="">-- Select contact file --</option>
+          {dataFiles.map(df => (
+            <option key={df.id} value={df.id}>{df.name}</option>
+          ))}
+        </select>
 
-    <select
-      className="contact-dropdown"
-      value={selectedContactId || ""}
-      disabled={!contacts.length}
-      onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-        const id = Number(e.target.value);
-        setSelectedContactId(id);
-        if (id) {
-          const sel = contacts.find(c => c.id === id);
-          if (sel) applyContactPlaceholders(sel);  // ✅ direct call
-        }
-      }}  
-       >
-      <option value="">
-        {contacts.length ? "-- Select contact --" : "Select contact "}
-      </option>
-      {contacts.map(c => (
-        <option key={c.id} value={c.id}>{c.full_name}</option>
-      ))}
-    </select>
-  </div>
-</div>
-            
-            <div className="example-controls">
-              <button 
-                className="regenerate-btn" 
-                onClick={regenerateExampleOutput}
-                disabled={!conversationStarted}
-              >
-               Generate
-              </button>
-            </div>
-          </div>
-
-          <div className="example-body">
-            {exampleOutput ? (
-              <div
-                className="example-content"
-                dangerouslySetInnerHTML={{ __html: exampleOutput }}
-              />
-            ) : conversationStarted ? (
-<div className="example-placeholder p-6 text-gray-700 bg-gray-50 rounded-2xl border border-gray-200 shadow-sm leading-relaxed">
-      <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-        <span role="img" aria-label="info">💡</span> How this works
-      </h3>
-      <p className="mb-3">
-        Once enough questions have been answered on the left conversation area,
-        you can click <strong>“Generate”</strong> to preview what your personalized email
-        will look like with real contact details.
-      </p>
-      <p className="mb-3">
-        First, select a <strong>contact file</strong> and then choose contacts
-        from the dropdown above. The preview will automatically update as you
-        refine your campaign blueprint.
-      </p>
-      <p className="text-gray-500 italic">
-        ✨ Tip: Adjust placeholders or content in your blueprint to instantly
-        see changes reflected here.
-      </p>
+        <select
+          className="contact-dropdown"
+          value={selectedContactId || ""}
+          disabled={!contacts.length}
+          onChange={(e) => {
+            const id = Number(e.target.value);
+            setSelectedContactId(id);
+            if (id) {
+              const sel = contacts.find(c => c.id === id);
+              if (sel) applyContactPlaceholders(sel);
+            }
+          }}
+        >
+          <option value="">
+            {contacts.length ? "-- Select contact --" : "Select contact "}
+          </option>
+          {contacts.map(c => (
+            <option key={c.id} value={c.id}>{c.full_name}</option>
+          ))}
+        </select>
+      </div>
     </div>
-            ) : (
-              <div className="example-placeholder">
-                <p>📧 Example output will appear here</p>
-              </div>
-            )}
-          </div>
+
+    <div className="example-controls">
+      <button 
+        className="regenerate-btn" 
+        onClick={regenerateExampleOutput}
+        disabled={!conversationStarted}
+      >
+        Generate
+      </button>
+    </div>
+  </div>
+
+  {/* === Tabs for Example Output === */}
+  <div className="example-tabs">
+    {["Output", "Stages"].map(tab => (
+      <button
+        key={tab}
+        className={`stage-tab-btn ${activeMainTab === tab.toLowerCase() ? "active" : ""}`}
+        onClick={() => setActiveMainTab(tab.toLowerCase() as 'output' | 'stages')}
+      >
+        {tab}
+      </button>
+    ))}
+  </div>
+
+  {/* === Main Tab Content === */}
+  {activeMainTab === "output" && (
+    <div className="example-body">
+      {exampleOutput ? (
+        <div
+          className="example-content"
+          dangerouslySetInnerHTML={{ __html: exampleOutput }}
+        />
+      ) : (
+        <div className="example-placeholder">
+          <p>📧 Example output will appear here</p>
         </div>
+      )}
+    </div>
+  )}
+
+  {activeMainTab === "stages" && (
+    <div className="stages-container">
+      <div className="stage-tabs">
+        {["search", "data", "summary"].map(tab => (
+          <button
+            key={tab}
+            className={`stage-tab ${activeSubStageTab === tab ? "active" : ""}`}
+            onClick={() => setActiveSubStageTab(tab as 'search' | 'data' | 'summary')}
+          >
+            {tab === "search" ? "Search Results" :
+             tab === "data" ? "All Sourced Data" :
+             "Sourced Data Summary"}
+          </button>
+        ))}
+      </div>
+
+      <div className="stage-content">
+        {activeSubStageTab === "search" && (
+          <ul className="search-results-list">
+            {searchResults.length > 0 ? (
+              searchResults.map((url: string, idx: number) => (
+                <li key={idx}>
+                  <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                    {url}
+                  </a>
+                </li>
+              ))
+            ) : (
+              <p>No search results available.</p>
+            )}
+          </ul>
+        )}
+
+        {activeSubStageTab === "data" && (
+          <pre className="all-sourced-data bg-gray-50 p-3 rounded-lg max-h-[400px] overflow-auto text-sm whitespace-pre-wrap">
+            {allSourcedData || "No sourced data available."}
+          </pre>
+        )}
+
+        {activeSubStageTab === "summary" && (
+          <div className="sourced-summary bg-gray-50 p-4 rounded-lg leading-relaxed text-gray-800">
+            {sourcedSummary || "No summary available."}
+          </div>
+        )}
+      </div>
+    </div>
+  )}
+</div>
+
+
       </div>
     </div>
   );
@@ -931,9 +988,13 @@ const regenerateExampleOutputWithValues = async (placeholders: Record<string, st
   }
 };
 
-  // ====================================================================
-  // ✅ UPDATED: Regenerate Button Handler (Manual Only)
-  // ====================================================================
+// 🧭 Stages tab state
+
+// 🔍 States for Stages tab data
+const [searchResults, setSearchResults] = useState<string[]>([]);
+const [allSourcedData, setAllSourcedData] = useState<string>('');
+const [sourcedSummary, setSourcedSummary] = useState<string>('');
+
 // ====================================================================
 // ✅ COMPLETE: Regenerate Example Output (MANUAL ONLY)
 // ====================================================================
@@ -1057,6 +1118,15 @@ console.log(processedInstructions);
         }
 
         console.log('✅ Search summary length:', searchResultSummary?.length || 0);
+        if (searchResponse.data.searchResults) {
+  setSearchResults(searchResponse.data.searchResults);
+}
+if (searchResponse.data.allScrapedData) {
+  setAllSourcedData(searchResponse.data.allScrapedData);
+}
+if (searchResponse.data.pitchResponse?.content) {
+  setSourcedSummary(searchResponse.data.pitchResponse.content);
+}
 
         if (!searchResultSummary) {
           console.warn('⚠️ No content found in search response');
@@ -1971,6 +2041,11 @@ const handleSendMessage = async () => {
                 handleSelectDataFile={handleSelectDataFile}
                 setSelectedContactId={setSelectedContactId}
                 applyContactPlaceholders={applyContactPlaceholders}
+
+                searchResults={searchResults}
+                allSourcedData={allSourcedData}
+                sourcedSummary={sourcedSummary}
+               
               />
             )}
           </div>
