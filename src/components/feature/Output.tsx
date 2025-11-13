@@ -346,6 +346,25 @@ const Output: React.FC<OutputInterface> = ({
 
   const [combinedResponses, setCombinedResponses] = useState<any[]>([]);
 
+  // ---------- Keep currentIndex within bounds when combinedResponses changes ----------
+useEffect(() => {
+  if (!combinedResponses || combinedResponses.length === 0) {
+    // No items — reset to 0
+    setCurrentIndex(0);
+    return;
+  }
+
+  // If currentIndex is out-of-range, reset to last valid index or 0
+  if (currentIndex < 0 || currentIndex >= combinedResponses.length) {
+    setCurrentIndex(Math.max(0, Math.min(currentIndex, combinedResponses.length - 1)));
+  }
+}, [combinedResponses, currentIndex, setCurrentIndex]);
+// DEBUG: monitor index/list sizes — remove in production
+useEffect(() => {
+  console.log("DEBUG: currentIndex =", currentIndex, " combinedResponses.length =", combinedResponses?.length);
+}, [currentIndex, combinedResponses]);
+
+
   // Update the useEffect that sets combinedResponses to also store the original
   // In the second useEffect that notifies parent of initial data
   useEffect(() => {
@@ -543,20 +562,54 @@ const Output: React.FC<OutputInterface> = ({
     }
   };
 
-  useEffect(() => {
-    console.table(combinedResponses);
-  }, [combinedResponses]);
+  // useEffect(() => {
+  //   console.table(combinedResponses);
+  // }, [combinedResponses]);
 
-  useEffect(() => {
-    sessionStorage.setItem("currentIndex", currentIndex.toString());
-  }, [currentIndex]);
+  // useEffect(() => {
+  //   sessionStorage.setItem("currentIndex", currentIndex.toString());
+  // }, [currentIndex]);
 
-  useEffect(() => {
-    const storedCurrentIndex = sessionStorage.getItem("currentIndex");
-    if (storedCurrentIndex !== null) {
-      setCurrentIndex(parseInt(storedCurrentIndex, 10));
+  // Save the current contact id to sessionStorage whenever currentIndex or combinedResponses changes
+useEffect(() => {
+  const currentId = combinedResponses?.[currentIndex]?.id;
+  if (currentId !== undefined && currentId !== null) {
+    sessionStorage.setItem("currentContactId", String(currentId));
+  } else {
+    sessionStorage.removeItem("currentContactId");
+  }
+}, [currentIndex, combinedResponses]);
+
+// Restore currentIndex by looking up the saved contact id after combinedResponses loads/changes
+useEffect(() => {
+  const storedContactId = sessionStorage.getItem("currentContactId");
+  if (!storedContactId) {
+    // nothing saved; you may want to keep default index 0
+    return;
+  }
+
+  // Only try to restore after combinedResponses has loaded
+  if (combinedResponses && combinedResponses.length > 0) {
+    const ix = combinedResponses.findIndex(
+      (c) => String(c.id) === storedContactId
+    );
+
+    if (ix !== -1) {
+      setCurrentIndex(ix);
+    } else {
+      // saved id not present anymore — fallback to 0 (or keep current)
+      setCurrentIndex(0);
     }
-  }, [setCurrentIndex]);
+  }
+}, [combinedResponses, setCurrentIndex]);
+
+
+  // useEffect(() => {
+  //   const storedCurrentIndex = sessionStorage.getItem("currentIndex");
+  //   if (storedCurrentIndex !== null) {
+  //     setCurrentIndex(parseInt(storedCurrentIndex, 10));
+  //   }
+  // }, [setCurrentIndex]);
 
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [regenerationTargetId, setRegenerationTargetId] = useState<
