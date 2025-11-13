@@ -425,7 +425,6 @@ const generateExampleEmail = (template: CampaignTemplate) => {
             <button
               className="button save-button auto-width small"
               onClick={handleCreateCampaignClick}
-              disabled={userRole !== "ADMIN"}
             >
               <span className="text-[20px] mr-1">+</span> Create campaign blueprint
             </button>
@@ -496,7 +495,6 @@ const generateExampleEmail = (template: CampaignTemplate) => {
                             <span>View</span>
                           </button>
 
-                          {!isDemoAccount && userRole === "ADMIN" && (
                             <>
                               <button
                                 onClick={() => {
@@ -531,7 +529,7 @@ const generateExampleEmail = (template: CampaignTemplate) => {
                                 <span>Delete</span>
                               </button>
                             </>
-                          )}
+                          
                         </div>
                       )}
                     </td>
@@ -766,7 +764,7 @@ const generateExampleEmail = (template: CampaignTemplate) => {
                     className="template-editor"
                     style={{ minHeight: "300px" }}
                   />
-                ) : (
+                  ) : (
                   <div 
                     className="template-preview example-email-preview"
                     dangerouslySetInnerHTML={{ __html: exampleEmail }}
@@ -802,7 +800,6 @@ const generateExampleEmail = (template: CampaignTemplate) => {
             {viewCampaignTab === "template" && (
               <div className="form-group">
                 <label>Campaign Template (Final Result)</label>
-                {userRole === "ADMIN" && !isDemoAccount ? (
                   <>
                     <textarea
                       value={editableCampaignTemplate}
@@ -829,7 +826,7 @@ const generateExampleEmail = (template: CampaignTemplate) => {
                       {selectedCampaignTemplate.campaignBlueprint || "No template content"}
                     </pre>
                   </div>
-                )}
+               
               </div>
             )}
 
@@ -846,7 +843,6 @@ const generateExampleEmail = (template: CampaignTemplate) => {
               >
                 Close
               </button>
-              {userRole === "ADMIN" && !isDemoAccount && (
                 <>
                   <button
                     className="button save-button"
@@ -872,7 +868,7 @@ const generateExampleEmail = (template: CampaignTemplate) => {
                     Advanced Edit
                   </button>
                 </>
-              )}
+             
             </div>
           </div>
         </div>

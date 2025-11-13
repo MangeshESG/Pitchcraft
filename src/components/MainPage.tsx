@@ -4412,7 +4412,7 @@ if (tab === "Output" && selectedCampaign) {
               <EmailCampaignBuilder selectedClient={selectedClient} />
             )}
 
-            {tab === "TestTemplate" && userRole === "ADMIN" && (
+            {tab === "TestTemplate" &&  (
               <Template
                 selectedClient={selectedClient}
                 userRole={userRole}
