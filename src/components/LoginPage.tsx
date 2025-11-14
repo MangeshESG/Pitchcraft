@@ -49,6 +49,7 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     console.log("User ID from Redux:", reduxUserId);
@@ -78,9 +79,22 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
     }
   };
 
+  const getFirstNameFromToken = (token: string) => {
+    try {
+      const payloadBase64 = token.split(".")[1];
+      const payloadJson = atob(payloadBase64);
+      const payload = JSON.parse(payloadJson);
+      return payload.firstname;
+    } catch (error) {
+      console.error("Error decoding token:", error);
+      return null;
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
+    setIsLoading(true);
 
     try {
       const trustedDeviceNumber = getCookie("trustedDeviceNumber");
@@ -119,6 +133,9 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
 
         const userId = getUserIdFromToken(data.token);
         const userRole = getUserRoleFromToken(data.token);
+        const firstName = getFirstNameFromToken(data.token);
+
+        console.log('Login Debug:', { dataFirstName: data.firstName, tokenFirstName: firstName, username });
 
         dispatch(saveUserName(username));
         if (userId) dispatch(saveUserId(userId));
@@ -129,7 +146,7 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
         sessionStorage.setItem("isAdmin", data.isAdmin || "false");
         sessionStorage.setItem("isDemoAccount", data.isDemoAccount || "false");
 
-        if (data.firstName) dispatch(saveFirstName(data.firstName));
+        if (data.firstName || firstName) dispatch(saveFirstName(data.firstName || firstName));
         if (data.lastName) dispatch(saveLastName(data.lastName));
 
         try {
@@ -177,6 +194,8 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
     } catch (err) {
       console.error("Login error:", err);
       setError("Server error. Please try again later.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -210,7 +229,16 @@ useEffect(() => {
           onChange={(e) => setPassword(e.target.value)}
           required
         />
-        <button type="submit" className="login-button">Log in</button>
+        <button type="submit" className="login-button" disabled={isLoading}>
+          {isLoading ? (
+            <>
+              <div className="spinner"></div>
+              Logging in...
+            </>
+          ) : (
+            "Log in"
+          )}
+        </button>
       </form>
       {error && <div className="error-message">{error}</div>}
       <div className="register-link">
@@ -238,6 +266,7 @@ const RegisterForm: React.FC<ViewProps> = ({ setView }) => {
   const [error, setError] = useState("");
   const [passwordValid, setPasswordValid] = useState(false);
   const [passwordTouched, setPasswordTouched] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -248,6 +277,7 @@ const RegisterForm: React.FC<ViewProps> = ({ setView }) => {
       return;
     }
 
+    setIsLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/api/login/register`, {
         method: "POST",
@@ -277,6 +307,8 @@ const RegisterForm: React.FC<ViewProps> = ({ setView }) => {
     } catch (err) {
       console.error("Registration error:", err);
       setError("Server error: " + (err as Error).message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -385,7 +417,16 @@ const RegisterForm: React.FC<ViewProps> = ({ setView }) => {
             onChange={(e) => setForm({ ...form, jobTitle: e.target.value })}
           />
         </div>
-        <button type="submit" className="register-button">Register</button>
+        <button type="submit" className="register-button" disabled={isLoading}>
+          {isLoading ? (
+            <>
+              <div className="spinner"></div>
+              Registering...
+            </>
+          ) : (
+            "Register"
+          )}
+        </button>
       </form>
       {message && <div className="success-message">{message}</div>}
       {error && <div className="error-message">{error}</div>}
@@ -401,11 +442,13 @@ const ForgotPasswordForm: React.FC<ViewProps> = ({ setView }) => {
   const [email, setEmail] = useState("");
   const [msg, setMsg] = useState("");
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSendOtp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setMsg("");
     setError("");
+    setIsLoading(true);
 
     try {
       const response = await fetch(
@@ -424,6 +467,8 @@ const ForgotPasswordForm: React.FC<ViewProps> = ({ setView }) => {
       }
     } catch {
       setError("Server error.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -438,7 +483,16 @@ const ForgotPasswordForm: React.FC<ViewProps> = ({ setView }) => {
           required
           onChange={(e) => setEmail(e.target.value)}
         />
-        <button type="submit" className="login-button">Send OTP</button>
+        <button type="submit" className="login-button" disabled={isLoading}>
+          {isLoading ? (
+            <>
+              <div className="spinner"></div>
+              Sending...
+            </>
+          ) : (
+            "Send OTP"
+          )}
+        </button>
       </form>
       {msg && <div className="success-message">{msg}</div>}
       {error && <div className="error-message">{error}</div>}
@@ -458,6 +512,7 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
   const [msg, setMsg] = useState("");
   const [error, setError] = useState("");
   const [trustThisDevice, setTrustThisDevice] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const registerEmail = localStorage.getItem("registerEmail");
   const registerUsername = localStorage.getItem("registerUsername");
@@ -493,6 +548,7 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
     e.preventDefault();
     setMsg("");
     setError("");
+    setIsLoading(true);
 
     try {
       // Registration OTP verification
@@ -621,6 +677,8 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
     } catch (err) {
       console.error("OTP verification error:", err);
       setError("An error occurred while verifying OTP. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -694,7 +752,16 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
           />
         )}
 
-        <button type="submit" className="login-button">Verify OTP</button>
+        <button type="submit" className="login-button" disabled={isLoading}>
+          {isLoading ? (
+            <>
+              <div className="spinner"></div>
+              Verifying...
+            </>
+          ) : (
+            "Verify OTP"
+          )}
+        </button>
       </form>
 
       {msg && <div className="success-message">{msg}</div>}

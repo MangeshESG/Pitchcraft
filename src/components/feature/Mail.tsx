@@ -48,6 +48,7 @@ interface SmtpConfig {
   username: string;
   password: string;
   usessl: boolean;
+  useSsl?: boolean;
   fromEmail: string;
 }
 interface EmailEntry {
@@ -369,6 +370,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       });
       setEditingId(null);
       fetchSmtp();
+      handleModalClose("modal-add-mailbox");
     } catch (err) {
       console.error(err);
       appModal.showError(
@@ -430,32 +432,41 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
         setSegmentsLoading(true);
 
         try {
-          // Fetch data files
-          const [dataFilesResponse, segmentsResponse] = await Promise.all([
-            axios.get(
+          // Fetch data files separately
+          try {
+            const dataFilesResponse = await axios.get(
               `${API_BASE_URL}/api/crm/datafile-byclientid?clientId=${effectiveUserId}`,
               {
                 headers: {
                   ...(token && { Authorization: `Bearer ${token}` }),
                 },
               }
-            ),
-            axios.get(
+            );
+            console.log('Data files response:', dataFilesResponse.data);
+            setScheduleDataFiles(dataFilesResponse.data || []);
+          } catch (error) {
+            console.error("Error fetching data files:", error);
+            setScheduleDataFiles([]);
+          }
+
+          // Fetch segments separately
+          try {
+            const segmentsResponse = await axios.get(
               `${API_BASE_URL}/api/Crm/get-segments-by-client?clientId=${effectiveUserId}`,
               {
                 headers: {
                   ...(token && { Authorization: `Bearer ${token}` }),
                 },
               }
-            ),
-          ]);
-
-          setScheduleDataFiles(dataFilesResponse.data);
-          setSegments(segmentsResponse.data);
+            );
+            console.log('Segments response:', segmentsResponse.data);
+            setSegments(segmentsResponse.data || []);
+          } catch (error) {
+            console.error("Error fetching segments:", error);
+            setSegments([]);
+          }
         } catch (error) {
-          console.error("Error fetching schedule data:", error);
-          setScheduleDataFiles([]);
-          setSegments([]);
+          console.error("Error in fetchScheduleData:", error);
         } finally {
           setScheduleDataLoading(false);
           setSegmentsLoading(false);
@@ -1139,6 +1150,59 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   >(null);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
 
+  // Fetch data when schedule modal opens
+  useEffect(() => {
+    const fetchScheduleDataForModal = async () => {
+      if (showScheduleModal && effectiveUserId && scheduleDataFiles.length === 0 && segments.length === 0) {
+        setScheduleDataLoading(true);
+        setSegmentsLoading(true);
+
+        try {
+          // Fetch data files separately
+          try {
+            const dataFilesResponse = await axios.get(
+              `${API_BASE_URL}/api/crm/datafile-byclientid?clientId=${effectiveUserId}`,
+              {
+                headers: {
+                  ...(token && { Authorization: `Bearer ${token}` }),
+                },
+              }
+            );
+            console.log('Modal - Data files response:', dataFilesResponse.data);
+            setScheduleDataFiles(dataFilesResponse.data || []);
+          } catch (error) {
+            console.error('Modal - Error fetching data files:', error);
+            setScheduleDataFiles([]);
+          }
+
+          // Fetch segments separately
+          try {
+            const segmentsResponse = await axios.get(
+              `${API_BASE_URL}/api/Crm/get-segments-by-client?clientId=${effectiveUserId}`,
+              {
+                headers: {
+                  ...(token && { Authorization: `Bearer ${token}` }),
+                },
+              }
+            );
+            console.log('Modal - Segments response:', segmentsResponse.data);
+            setSegments(segmentsResponse.data || []);
+          } catch (error) {
+            console.error('Modal - Error fetching segments:', error);
+            setSegments([]);
+          }
+        } catch (error) {
+          console.error('Modal - Error in fetchScheduleDataForModal:', error);
+        } finally {
+          setScheduleDataLoading(false);
+          setSegmentsLoading(false);
+        }
+      }
+    };
+
+    fetchScheduleDataForModal();
+  }, [showScheduleModal, effectiveUserId, token, scheduleDataFiles.length, segments.length]);
+
   // Menu button style constant
   const menuBtnStyle = {
     width: "100%",
@@ -1436,7 +1500,6 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                   </button>
                 )}
               </div>
-
               <table className="contacts-table" style={{ background: "#fff" }}>
                 <thead>
                   <tr>
@@ -1472,7 +1535,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                           <td>{item.port}</td>
                           <td>{item.username}</td>
                           <td>{item.fromEmail}</td>
-                          <td>{item.usessl ? "Yes" : "No"}</td>
+                          <td>{Boolean(item.useSsl || item.usessl) ? "Yes" : "No"}</td>
                           <td style={{ position: "relative" }}>
                             <button
                               className="segment-actions-btn"
@@ -2236,9 +2299,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                         value={selectedZohoviewId1 || ""}
                         disabled={
                           scheduleDataLoading ||
-                          segmentsLoading ||
-                          (scheduleDataFiles.length === 0 &&
-                            segments.length === 0)
+                          segmentsLoading
                         }
                         required
                         style={{ width: "100%" }}
@@ -2267,6 +2328,9 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                               </option>
                             ))}
                           </optgroup>
+                        )}
+                        {scheduleDataFiles.length === 0 && segments.length === 0 && !scheduleDataLoading && !segmentsLoading && (
+                          <option disabled>No lists or segments available</option>
                         )}
                       </select>
                     </div>

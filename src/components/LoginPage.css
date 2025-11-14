@@ -71,7 +71,7 @@
 /* 🌟 Buttons */
 .login-button,
 .register-button {
-  background: #3f9f42;;
+  background: #3f9f42;
   color: white;
   font-weight: 600;
   border: none;
@@ -81,11 +81,36 @@
   transition: all 0.3s ease;
   font-size: 14px;
   padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .login-button:hover,
 .register-button:hover {
   opacity: 0.9;
+}
+
+.login-button:disabled,
+.register-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Spinner */
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #ffffff;
+  animation: spin 1s ease-in-out infinite;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 /* 🌟 Links for switch between views */
