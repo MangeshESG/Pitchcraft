@@ -1409,6 +1409,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
             {/* Mailboxes Section */}
             <div className="section-wrapper">
               <h2 style={{ color: "black", textAlign: "left" }} className="section-title">Mailboxes</h2>
+              <p style={{marginBottom:'20px'}}>The Mailboxes section lets you add and manage email accounts for sending campaigns securely.</p>
 
               <div
                 style={{
@@ -1868,16 +1869,9 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       {/* Schedule Tab */}
       {tab === "Schedule" && (
         <>
-          <label style={{
-            display: "block",          // makes it span full width
-            textAlign: "center",       // centers the text
-            fontWeight: "600",
-            fontSize: "18px",
-            color: "black"       // makes it bold
-          }}>Email schedules</label>
           <div className="data-campaigns-container">
             <div className="section-wrapper">
-              <h2 className="section-title">Email schedules</h2>
+              <h2 className="section-title" style={{color:"black",textAlign:"left"}}>Email schedules</h2>
               <div style={{ marginBottom: 4, color: "#555" }}>
                 Create and manage email delivery schedules for your campaigns.
               </div>

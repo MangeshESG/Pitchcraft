@@ -1458,7 +1458,12 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
           Details
         </button>
       </div>
-
+{/* Dynamic Description */}
+  <p style={{marginBottom:'20px'}}>
+    {dashboardTab === "Overview"
+      ? "The Overview section displays key email campaign metrics—sent, unique opens, and unique clicks—within a selected date range for performance analysis."
+      : "The Details section provides in-depth analytics, including recipient-level engagement data and comprehensive campaign performance insights."}
+  </p>
       {/* Campaign Selection and Date Filters - Updated */}
       <div className="form-controls">
         <div className="form-group">

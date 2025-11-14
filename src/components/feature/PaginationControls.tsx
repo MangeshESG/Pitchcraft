@@ -46,21 +46,24 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
         {Math.min(currentPage * pageSize, totalRecords)} of {totalRecords} items
       </div>
 
-      <div
+      {/* <div
         className="pagination-controls"
         style={{
           display: "flex",
           alignItems: "center",
           gap: "6px",
         }}
-      >
+      > */}
+       <div className="d-flex align-items-center gap mt-[26px] gap-3">
         {/* Left controls */}
-        <div style={{ display: "flex", alignItems: "center", gap: "2px" }}>
+        {/* <div style={{ display: "flex", alignItems: "center", gap: "2px" }}> */}
+        <div className="d-flex align-items-center gap-1">
           <button
-            className="pagination-btn"
+            // className="pagination-btn"
             disabled={currentPage === 1}
             onClick={() => handlePageChange(1)}
             title="First page"
+              className="secondary-button h-[35px] w-[38px] !px-[5px] !py-[10px] flex justify-center items-center"
           >
             <img
               src={previousIcon}
@@ -69,29 +72,42 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
             />
           </button>
           <button
-            className="pagination-btn"
+            // className="pagination-btn"
             disabled={currentPage === 1}
             onClick={handlePrevPage}
             title="Previous page"
-            style={{ display: "flex", alignItems: "center", gap: "3px" }}
+            // style={{ display: "flex", alignItems: "center", gap: "3px" }}
+             className="secondary-button flex justify-center items-center !px-[10px] h-[35px]"
           >
-            <img
+            {/* <img
               src={singleprvIcon}
               alt="Prev"
               style={{ width: "20px", height: "20px", objectFit: "contain" }}
-            />
+            /> */}
+            <img
+                          src={singleprvIcon}
+                          alt="Previous"
+                          style={{
+                            width: "20px",
+                            height: "20px",
+                            objectFit: "contain",
+                            marginRight: "2px",
+                            marginLeft: "-7px",
+                          }}
+                        />
             <span>Prev</span>
           </button>
-        </div>
+        {/* </div> */}
 
         {/* Right controls */}
-        <div style={{ display: "flex", alignItems: "center", gap: "2px" }}>
+        {/* <div style={{ display: "flex", alignItems: "center", gap: "2px" }}> */}
           <button
-            className="pagination-btn"
+            // className="pagination-btn"
+            className="secondary-button !h-[35px] !py-[10px] !px-[10px] flex justify-center items-center"
             disabled={currentPage >= totalPages}
             onClick={handleNextPage}
             title="Next page"
-            style={{ display: "flex", alignItems: "center", gap: "3px" }}
+          
           >
             <span>Next</span>
             <img
@@ -115,16 +131,17 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
         </div>
 
         {/* Page display */}
-        <span
+        <strong
           style={{
             marginLeft: "16px",
             fontSize: "14px",
             color: "#000",
-            fontWeight: "600",
+            fontWeight: "bolder",
+            marginTop:"5px"
           }}
         >
           Contact:
-        </span>
+        </strong>
         <input
           type="number"
           value={currentPage}
@@ -133,8 +150,8 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
             if (page >= 1 && page <= totalPages) handlePageChange(page);
           }}
           style={{
-            width: "45px",
-            padding: "4px 6px",
+            width: "70px",
+            padding: "8px",
             border: "1px solid #ddd",
             borderRadius: "4px",
             textAlign: "center",
@@ -143,7 +160,7 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
             fontWeight: "400",
           }}
         />
-        <span style={{ fontSize: "14px", color: "#000", fontWeight: "600" }}>
+        <span style={{ fontSize: "14px", color: "#000",marginTop:"5px" }}>
           of {totalPages}
         </span>
       </div>
