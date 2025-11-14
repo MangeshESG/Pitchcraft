@@ -264,6 +264,7 @@ const createCampaign = async () => {
     appModal.showSuccess("Campaign created successfully");
     setShowCreateCampaignModal(false);
     fetchCampaigns();
+    triggerRefresh(); // Notify other components to refresh their campaign data
   } catch (err: any) {
     console.error(err);
     appModal.showError(err.message || "Failed to create campaign");
@@ -291,6 +292,7 @@ const createCampaign = async () => {
       appModal.showSuccess("Campaign updated successfully");
       setShowCreateCampaignModal(false);
       fetchCampaigns();
+      triggerRefresh(); // Notify other components to refresh their campaign data
     } catch (err) {
       console.error(err);
       appModal.showError("Failed to update campaign");
@@ -302,6 +304,7 @@ const createCampaign = async () => {
       await fetch(`${API_BASE_URL}/api/auth/deletecampaign/${campaign.id}`, { method: "POST" });
       appModal.showSuccess("Campaign deleted successfully");
       fetchCampaigns();
+      triggerRefresh(); // Notify other components to refresh their campaign data
     } catch (err) {
       console.error(err);
       appModal.showError("Failed to delete campaign");

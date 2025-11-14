@@ -11,7 +11,8 @@ interface HeaderProps {
   handleClientChange?: (event: React.ChangeEvent<HTMLSelectElement>) => void;
   clientNames?: Client[];
   userRole?: string;
-  onUpgradeClick: () => void; // ✅ Add prop properly
+  onUpgradeClick: () => void;
+  onCreditClick?: () => void;
 }
 
 interface Client {
@@ -22,11 +23,13 @@ interface Client {
 }
 
 const Header: React.FC<HeaderProps> = React.memo(
-  ({ connectTo, selectedClient, handleClientChange, clientNames = [], userRole, onUpgradeClick }) => {
+  ({ connectTo, selectedClient, handleClientChange, clientNames = [], userRole, onUpgradeClick, onCreditClick }) => {
     const firstName = useSelector((state: RootState) => state.auth.firstName);
     const lastName = useSelector((state: RootState) => state.auth.lastName);
     const credits = useSelector((state: RootState) => state.auth.credits);
     const username = useSelector((state: RootState) => state.auth.username) as string;
+
+    console.log('Header Debug:', { firstName, username });
 
     const dispatch = useDispatch();
     const navigate = useNavigate();
@@ -93,15 +96,15 @@ const Header: React.FC<HeaderProps> = React.memo(
                       <path d="M14 12C14 10.3431 12.6569 9 11 9H5C3.34315 9 2 10.3431 2 12V15H14V12Z" fill="#000000" />
                     </svg>
                   </span>
-                  Hello <Link to="" className="ml-5 green">{username}</Link>
+                  Hello <Link to="" className="ml-5 green">{firstName || ''}</Link>
                 </div>
 
                 <div className="user-credit text-sm text-gray-600">
                   Credit:{" "}
                   <span
                     className="font-semibold text-green-600 cursor-pointer hover:underline"
-                    onClick={() => navigate("/plan-history")}
-                    title="Click to view plan history"
+                    onClick={onCreditClick ? () => onCreditClick() : onUpgradeClick}
+                    title="Click to view billing history"
                   >
                     {credits !== null ? (typeof credits === 'object' && credits !== null ? credits.total : credits) : "Loading..."}
                   </span>
