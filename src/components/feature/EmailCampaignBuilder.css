@@ -2164,3 +2164,92 @@
 .all-sourced-data::-webkit-scrollbar-thumb:hover {
   background: #9ca3af;
 }
+
+.elements-container {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 16px;
+  height: calc(100vh - 260px); /* adjustable */
+  display: flex;
+  flex-direction: column;
+}
+
+.elements-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 12px;
+}
+
+/* Scrollable list */
+.elements-list {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 100%;
+}
+
+/* Single element row */
+.element-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 10px 12px;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.element-item:hover {
+  background: #eef2ff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+/* Left: placeholder key */
+.element-placeholder {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 600;
+  color: #2563eb;
+  flex: 0.4;
+}
+
+/* Right: actual value */
+.element-value {
+  flex: 0.6;
+  font-size: 14px;
+  color: #374151;
+  text-align: left;
+  word-break: break-word;
+}
+
+/* Empty text */
+.no-elements {
+  color: #6b7280;
+  font-size: 14px;
+  font-style: italic;
+}
+
+/* Scrollbar styling for Elements (Nice & Minimal) */
+.elements-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.elements-list::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.elements-list::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.elements-list::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}

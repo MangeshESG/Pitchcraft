@@ -484,8 +484,10 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   }
 }, [isTyping, messages, conversationStarted]);
 
-const [activeMainTab, setActiveMainTab] = useState<'output' | 'stages'>('output');
+const [activeMainTab, setActiveMainTab] = useState<'output' | 'stages' | 'elements'>('output');
 const [activeSubStageTab, setActiveSubStageTab] = useState<'search' | 'data' | 'summary'>('search');
+
+
   return (
     <div className="conversation-container">
       <div className="chat-layout">
@@ -700,7 +702,7 @@ const [activeSubStageTab, setActiveSubStageTab] = useState<'search' | 'data' | '
 
   {/* === Tabs for Example Output === */}
   <div className="example-tabs">
-    {["Output", "Stages"].map(tab => (
+{["Output", "Stages", "Elements"].map(tab => (
       <button
         key={tab}
         className={`stage-tab-btn ${activeMainTab === tab.toLowerCase() ? "active" : ""}`}
@@ -726,6 +728,26 @@ const [activeSubStageTab, setActiveSubStageTab] = useState<'search' | 'data' | '
       )}
     </div>
   )}
+
+  {activeMainTab === "elements" && (
+  <div className="elements-container">
+    <h3 className="elements-title">🧩 Placeholder Values</h3>
+
+    {Object.keys(placeholderValues).length === 0 ? (
+      <p className="no-elements">No placeholder values yet.</p>
+    ) : (
+      <div className="elements-list">
+        {Object.entries(placeholderValues).map(([key, value]) => (
+          <div className="element-item" key={key}>
+            <div className="element-placeholder">{`{${key}}`}</div>
+            <div className="element-value">{value || "—"}</div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+)}
+
 
   {activeMainTab === "stages" && (
     <div className="stages-container">
@@ -1541,6 +1563,7 @@ const finalizeEditPlaceholder = async (updatedPlaceholder: string, newValue: str
   // AVAILABLE MODELS
   // ====================================================================
   const availableModels: GPTModel[] = [
+    { id: 'gpt-5.1',      name: 'GPT-5.1',        description: 'Adaptive-reasoning flagship update to the GPT-5 series' },
     { id: 'gpt-4.1', name: 'GPT-4.1', description: 'Flagship model in the 4.1 family' },
     { id: 'gpt-4.1-mini', name: 'GPT-4.1 mini', description: 'Faster, lighter version of 4.1' },
     { id: 'gpt-4.1-nano', name: 'GPT-4.1 nano', description: 'Smallest, fastest, lowest-cost variant' },
@@ -1732,36 +1755,45 @@ const handleSendMessage = async () => {
       );
       
       if (match) {
-        const placeholderBlock = match[1];
-        const lines = placeholderBlock.split(/\r?\n/).filter(Boolean);
-        
-        // ✅ Get current conversation and contact placeholders separately
-        const currentConversationValues = getConversationPlaceholders(placeholderValues);
-        const currentContactValues = getContactPlaceholders(placeholderValues);
-        const updatedConversationValues = { ...currentConversationValues };
+        const placeholderBlock = match[1] || "";
 
-        // ✅ Parse and update ONLY conversation placeholders
-        lines.forEach((line: string) => {
-          const kv = line.match(/\{([^}]+)\}\s*=\s*(.+)/);
-          if (kv) {
-            const key = kv[1].trim();
-            const value = kv[2].trim();
-            
-            // ✅ Only update if it's NOT a contact placeholder
-            if (!CONTACT_PLACEHOLDERS.includes(key)) {
-              updatedConversationValues[key] = value;
-              console.log(`✅ Updated conversation placeholder: ${key}`);
-            } else {
-              console.log(`⏭️ Skipped contact placeholder: ${key}`);
-            }
-          }
-        });
+// Prepare storage for parsed placeholders
+const parsedPlaceholders: Record<string, string> = {};
 
-        // ✅ Merge for display (conversation + contact)
-        const mergedForDisplay = getMergedPlaceholdersForDisplay(
-          updatedConversationValues, 
-          currentContactValues
-        );
+// This global regex finds each "{key} = value" pair where value can be multiline.
+// It uses a non-greedy ([\s\S]*?) capture and looks ahead for either the next "{key} =" or the end marker.
+const kvRegex = /\{([^}]+)\}\s*=\s*([\s\S]*?)(?=\r?\n\{[^}]+\}\s*=|\r?\n==PLACEHOLDER_VALUES_END==|$)/g;
+
+let m: RegExpExecArray | null;
+while ((m = kvRegex.exec(placeholderBlock)) !== null) {
+  const key = m[1].trim();
+  let value = m[2] ?? "";
+  // Trim only a single trailing newline and surrounding whitespace; preserve intentional newlines in the body
+  value = value.replace(/^\r?\n/, '').replace(/\s+$/, '');
+  parsedPlaceholders[key] = value;
+  console.log(`🔎 Parsed placeholder: ${key} -> ${value.slice(0, 80)}${value.length > 80 ? '…' : ''}`);
+}
+
+// Now separate conversation vs contact placeholders
+const currentConversationValues = getConversationPlaceholders(placeholderValues);
+const currentContactValues = getContactPlaceholders(placeholderValues);
+const updatedConversationValues = { ...currentConversationValues };
+
+// Update conversation placeholders only
+Object.entries(parsedPlaceholders).forEach(([key, value]) => {
+  if (!CONTACT_PLACEHOLDERS.includes(key)) {
+    updatedConversationValues[key] = value;
+    console.log(`✅ Updated conversation placeholder: ${key}`);
+  } else {
+    console.log(`⏭️ Skipped contact placeholder: ${key}`);
+  }
+});
+
+// Merge for display and set state
+const mergedForDisplay = getMergedPlaceholdersForDisplay(updatedConversationValues, currentContactValues);
+setPlaceholderValues(mergedForDisplay);
+console.log('📦 Updated conversation placeholders:', Object.keys(updatedConversationValues));
+
         
         setPlaceholderValues(mergedForDisplay);
         console.log('📦 Updated conversation placeholders:', Object.keys(updatedConversationValues));
