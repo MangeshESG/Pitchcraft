@@ -5,6 +5,8 @@ import API_BASE_URL from "../../config";
 import './EmailCampaignBuilder.css';
 import notificationSound from '../../assets/sound/notification.mp3';
 import { AlertCircle } from 'lucide-react';
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 // --- Type Definitions ---
 interface Message {
@@ -13,7 +15,16 @@ interface Message {
   timestamp: Date;
 }
 
-type TabType = 'template' | 'conversation' | 'result';
+// include both old and new tab keys
+type TabType =
+  | 'template'
+  | 'conversation'
+  | 'result'
+  | 'build'
+  | 'elements'
+  | 'instructions'
+  | 'ct';
+
 
 type GPTModel = {
   id: string;
@@ -1326,27 +1337,59 @@ if (searchResponse.data.pitchResponse?.content) {
     }
   };
 
+
+  const updateTemplateDefinition = async () => {
+  if (!selectedTemplateDefinitionId) {
+    alert("No template selected to update.");
+    return;
+  }
+
+  setIsSavingDefinition(true);
+
+  try {
+    await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template-definition/update`, {
+      id: selectedTemplateDefinitionId,
+      templateName: templateName,
+      aiInstructions: systemPrompt,
+      aiInstructionsForEdit: systemPromptForEdit,
+      placeholderList: masterPrompt,
+      placeholderListExtensive: masterPromptExtensive,
+      masterBlueprintUnpopulated: previewText
+    });
+
+    alert("Template updated successfully.");
+    await loadTemplateDefinitions();
+  } catch (err) {
+    console.error("Update failed:", err);
+    alert("Failed to update template definition.");
+  } finally {
+    setIsSavingDefinition(false);
+  }
+};
+
   // ====================================================================
   // LOAD TEMPLATE DEFINITION BY ID
   // ====================================================================
-  const loadTemplateDefinitionById = async (id: number) => {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/api/CampaignPrompt/template-definition/${id}`);
-      const def = response.data;
+const loadTemplateDefinitionById = async (id: number) => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/api/CampaignPrompt/template-definition/${id}`);
+    const def = response.data;
 
-      setTemplateName(def.templateName || "");
-      setSystemPrompt(def.aiInstructions || "");
-      setSystemPromptForEdit(def.aiInstructionsForEdit || "");
-      setMasterPrompt(def.placeholderList || "");
-      setMasterPromptExtensive(def.placeholderListExtensive || "");
-      setPreviewText(def.masterBlueprintUnpopulated || "");
-      setSelectedTemplateDefinitionId(def.id);
+    setTemplateName(def.templateName || "");
+    setSystemPrompt(def.aiInstructions || "");
+    setSystemPromptForEdit(def.aiInstructionsForEdit || "");
+    setMasterPrompt(def.placeholderList || "");
+    setMasterPromptExtensive(def.placeholderListExtensive || "");
+    setPreviewText(def.masterBlueprintUnpopulated || "");
 
-      console.log(`✅ Template loaded: ${def.templateName}`);
-    } catch (error) {
-      console.error("⚠️ Failed to load template definition:", error);
-    }
-  };
+    // ✅ REQUIRED!!!
+    setSelectedTemplateDefinitionId(def.id);
+
+  } catch (error) {
+    console.error("⚠️ Failed to load template definition:", error);
+  }
+};
+
 
   // ====================================================================
   // LOAD TEMPLATE FOR EDIT MODE
@@ -1976,6 +2019,70 @@ console.log('📦 Updated conversation placeholders:', Object.keys(updatedConver
     const isAdmin = isAdminString === "true"; // Correct comparison
     setUserRole(isAdmin ? "ADMIN" : "USER");
   }, []);
+
+
+  const [instructionSubTab, setInstructionSubTab] = useState<
+  'ai_new' | 'ai_edit' | 'placeholder_short' | 'placeholder_long' | 'ct'
+>('ai_new');
+
+
+const isEditingDefinition = selectedTemplateDefinitionId !== null;
+
+const createNewInstruction = () => {
+  setSelectedTemplateDefinitionId(null);   // remove dropdown selection
+  setTemplateName("");
+  setSystemPrompt("");
+  setSystemPromptForEdit("");
+  setMasterPrompt("");
+  setMasterPromptExtensive("");
+  setPreviewText("");
+
+  // Clear conversation-related saved session
+  sessionStorage.removeItem("campaign_system_prompt");
+  sessionStorage.removeItem("campaign_system_prompt_edit");
+  sessionStorage.removeItem("campaign_master_prompt");
+  sessionStorage.removeItem("campaign_master_prompt_extensive");
+  sessionStorage.removeItem("campaign_preview_text");
+  sessionStorage.removeItem("campaign_template_name");
+
+  // Optional: Show toast
+  console.log("✨ Starting new instruction from scratch");
+};
+
+const deleteTemplateDefinition = async () => {
+  if (!selectedTemplateDefinitionId) return;
+
+  const confirmDelete = window.confirm(
+    "Are you sure you want to delete this template definition? This cannot be undone."
+  );
+
+  if (!confirmDelete) return;
+
+  try {
+    const response = await axios.post(
+      `${API_BASE_URL}/api/CampaignPrompt/template-definition/${selectedTemplateDefinitionId}/deactivate`
+    );
+
+    alert("Template deleted successfully.");
+
+    // Reset UI state
+    setSelectedTemplateDefinitionId(null);
+    setTemplateName("");
+    setSystemPrompt("");
+    setSystemPromptForEdit("");
+    setMasterPrompt("");
+    setMasterPromptExtensive("");
+    setPreviewText("");
+
+    // Reload list
+    loadTemplateDefinitions();
+
+  } catch (error) {
+    console.error("Delete failed:", error);
+    alert("Failed to delete template definition.");
+  }
+};
+
   // ====================================================================
   // RENDER
   // ====================================================================
@@ -2002,103 +2109,287 @@ console.log('📦 Updated conversation placeholders:', Object.keys(updatedConver
       <div className="campaign-builder-container">
         <div className="campaign-builder-main">
           
-<div className="tab-navigation">
-  <div className="tab-container">
+<div className="left-tabs-container">
+  <button
+    className={`left-tab-btn ${activeTab === 'build' ? 'active' : ''}`}
+    onClick={() => setActiveTab('build')}
+  >
+    Build
+  </button>
 
-    <button 
-      onClick={() => setActiveTab('conversation')} 
-      className={`tab-button ${activeTab === 'conversation' ? 'active' : ''}`} 
-      disabled={!conversationStarted && !isEditMode}
-    >
-      <MessageSquare className="tab-button-icon" />
-      <span className="tab-button-text-desktop">Conversation</span>
-      <span className="tab-button-text-mobile">Chat</span>
-      {conversationStarted && !isComplete && (
-        <span className="status-indicator active"></span>
-      )}
-    </button>
+  <button
+    className={`left-tab-btn ${activeTab === 'elements' ? 'active' : ''}`}
+    onClick={() => setActiveTab('elements')}
+  >
+    Elements
+  </button>
 
-    {/* ✅ Settings tab visible only for ADMIN */}
-    {userRole === "ADMIN" && (
-      <button 
-        onClick={() => setActiveTab('template')} 
-        className={`tab-button ${activeTab === 'template' ? 'active' : ''}`}
-        disabled={isEditMode}
-      >
-        <FileText className="tab-button-icon" />
-        <span className="tab-button-text-mobile">Setup</span>
-        <span className="tab-button-text-desktop">Settings</span>
-      </button>
-    )}
+  <button
+    className={`left-tab-btn ${activeTab === 'instructions' ? 'active' : ''}`}
+    onClick={() => setActiveTab('instructions')}
+  >
+    Instructions set
+  </button>
 
-  </div>
+  <button
+    className={`left-tab-btn ${activeTab === 'ct' ? 'active' : ''}`}
+    onClick={() => setActiveTab('ct')}
+  >
+    CT (unpopulated)
+  </button>
 </div>
 
 
-          <div className="tab-content">
-            {activeTab === 'template' && !isEditMode && (
-              <TemplateTab 
-                masterPrompt={masterPrompt}
-                setMasterPrompt={setMasterPrompt}
-                masterPromptExtensive={masterPromptExtensive}
-                setMasterPromptExtensive={setMasterPromptExtensive}
-                systemPrompt={systemPrompt}
-                setSystemPrompt={setSystemPrompt}
-                systemPromptForEdit={systemPromptForEdit}
-                setSystemPromptForEdit={setSystemPromptForEdit}
-                previewText={previewText}
-                setPreviewText={setPreviewText}
-                startConversation={startConversation}
-                currentPlaceholders={currentPlaceholders}
-                extractPlaceholders={extractPlaceholders}
-                selectedModel={selectedModel}
-                setSelectedModel={setSelectedModel}
-                availableModels={availableModels}
-                saveTemplateDefinition={saveTemplateDefinition}
-                isSavingDefinition={isSavingDefinition}
-                saveDefinitionStatus={saveDefinitionStatus}
-                templateDefinitions={templateDefinitions}
-                loadTemplateDefinition={loadTemplateDefinitionById}
-                selectedTemplateDefinitionId={selectedTemplateDefinitionId}
-                templateName={templateName}
-                setTemplateName={setTemplateName}
-              />
-            )}
-            {activeTab === 'conversation' && (
-              <ConversationTab 
-                conversationStarted={conversationStarted}
-                messages={messages}
-                isTyping={isTyping}
-                isComplete={isComplete}
-                currentAnswer={currentAnswer}
-                setCurrentAnswer={setCurrentAnswer}
-                handleSendMessage={handleSendMessage}
-                handleKeyPress={handleKeyPress}
-                chatEndRef={chatEndRef}
-                resetAll={resetAll}
-                isEditMode={isEditMode}
-                availablePlaceholders={extractPlaceholders(masterPrompt)}
-                placeholderValues={placeholderValues}
-                onPlaceholderSelect={startEditConversation}
-                selectedPlaceholder={selectedPlaceholder}
-                previewText={previewText}
-                exampleOutput={exampleOutput}
-                regenerateExampleOutput={regenerateExampleOutput}
-                dataFiles={dataFiles}
-                contacts={contacts}
-                selectedDataFileId={selectedDataFileId}
-                selectedContactId={selectedContactId}
-                handleSelectDataFile={handleSelectDataFile}
-                setSelectedContactId={setSelectedContactId}
-                applyContactPlaceholders={applyContactPlaceholders}
 
-                searchResults={searchResults}
-                allSourcedData={allSourcedData}
-                sourcedSummary={sourcedSummary}
-               
-              />
-            )}
-          </div>
+<div className="tab-content">
+
+  {/* 1️⃣ BUILD TAB (CHAT) */}
+  {activeTab === "build" && (
+    <ConversationTab
+      conversationStarted={conversationStarted}
+      messages={messages}
+      isTyping={isTyping}
+      isComplete={isComplete}
+      currentAnswer={currentAnswer}
+      setCurrentAnswer={setCurrentAnswer}
+      handleSendMessage={handleSendMessage}
+      handleKeyPress={handleKeyPress}
+      chatEndRef={chatEndRef}
+      resetAll={resetAll}
+      isEditMode={isEditMode}
+      availablePlaceholders={extractPlaceholders(masterPrompt)}
+      placeholderValues={placeholderValues}
+      onPlaceholderSelect={startEditConversation}
+      selectedPlaceholder={selectedPlaceholder}
+      previewText={previewText}
+      exampleOutput={exampleOutput}
+      regenerateExampleOutput={regenerateExampleOutput}
+      dataFiles={dataFiles}
+      contacts={contacts}
+      selectedDataFileId={selectedDataFileId}
+      selectedContactId={selectedContactId}
+      handleSelectDataFile={handleSelectDataFile}
+      setSelectedContactId={setSelectedContactId}
+      applyContactPlaceholders={applyContactPlaceholders}
+      searchResults={searchResults}
+      allSourcedData={allSourcedData}
+      sourcedSummary={sourcedSummary}
+    />
+  )}
+
+  {/* 2️⃣ ELEMENTS TAB */}
+  {activeTab === "elements" && (
+    <div className="elements-tab-container">
+      <h3>Detected Placeholder Values</h3>
+      <pre>{JSON.stringify(placeholderValues, null, 2)}</pre>
+    </div>
+  )}
+
+  {/* 3️⃣ INSTRUCTIONS SET TAB */}
+{activeTab === "instructions" && (
+  <div className="instructions-wrapper">
+
+    {/* =======================================================
+       TOP HEADER SECTION (Picklist + Inputs + Buttons)
+    ======================================================== */}
+    <div className="instructions-header">
+
+      {/* Load Template Definition */}
+      <div className="load-template-box">
+        <label className="section-label">Load Existing Template Definition</label>
+        <select
+          className="definition-select"
+          value={selectedTemplateDefinitionId || ""}
+          onChange={(e) => {
+            const id = Number(e.target.value);
+            if (id) loadTemplateDefinitionById(id);
+
+          }}
+        >
+          <option value="">-- Select a template definition --</option>
+          {templateDefinitions.map((def) => (
+            <option key={def.id} value={def.id}>
+              {def.templateName} (Used {def.usageCount} times)
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="input-row">
+        {/* Template Name */}
+        <div className="template-name-box">
+          <label className="section-label">Template Name</label>
+          <input
+            type="text"
+            value={templateName}
+            onChange={(e) => setTemplateName(e.target.value)}
+            placeholder="Enter template name"
+            className="text-input"
+          />
+        </div>
+
+        {/* Model Picker */}
+        <div className="model-select-box">
+          <label className="section-label">Select GPT Model</label>
+          <select
+            className="definition-select"
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value)}
+          >
+            {availableModels.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Save + Start Buttons */}
+        <div className="button-row">
+{/* Save new definition */}
+{/* Save new template definition */}
+{selectedTemplateDefinitionId === null && (
+  <button 
+    className="save-btn"
+    onClick={saveTemplateDefinition}
+    disabled={isSavingDefinition}
+  >
+    {isSavingDefinition ? "Saving..." : "Save Template Definition"}
+  </button>
+)}
+
+{/* Update existing template */}
+{selectedTemplateDefinitionId !== null && (
+  <button 
+    className="save-btn"
+    style={{ background: "#2563eb" }}
+    onClick={updateTemplateDefinition}
+    disabled={isSavingDefinition}
+  >
+    {isSavingDefinition ? "Updating..." : "Update Template Definition"}
+  </button>
+)}
+
+
+          <button 
+            className="start-btn" 
+            onClick={startConversation}
+            disabled={!selectedTemplateDefinitionId}
+          >
+            Start Filling Placeholders →
+          </button>
+          <button 
+            className="new-btn"
+            onClick={createNewInstruction}
+          >
+            + New Instruction
+          </button>
+        </div>
+        {selectedTemplateDefinitionId !== null && (
+          <button
+            className="delete-btn"
+            style={{ background: "#dc2626", color: "white" }}
+            onClick={deleteTemplateDefinition}
+          >
+            Delete
+          </button>
+        )}
+      </div>
+    </div>
+
+    {/* =======================================================
+       INTERNAL SUB-TABS
+    ======================================================== */}
+    <div className="instruction-subtabs">
+      {[
+        ["ai_new", "AI Instructions (new blueprint)"],
+        ["ai_edit", "AI Instructions (edit blueprint)"],
+        ["placeholder_short", "Placeholders list (essential)"],
+        ["placeholder_long", "Placeholders list (extended)"],
+        ["ct", "CT (unpopulated)"],
+      ].map(([key, label]) => (
+        <button
+          key={key}
+          className={`subtab-btn ${instructionSubTab === key ? "active" : ""}`}
+          onClick={() => setInstructionSubTab(key as any)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+
+    {/* =======================================================
+       INTERNAL TAB CONTENT
+    ======================================================== */}
+<div className="instruction-subtab-content">
+
+  {instructionSubTab === "ai_new" && (
+    <textarea
+      className="instruction-textarea"
+      value={systemPrompt}
+      onChange={(e) => setSystemPrompt(e.target.value)}
+      placeholder="AI instructions (new blueprint)..."
+    />
+  )}
+
+  {instructionSubTab === "ai_edit" && (
+    <textarea
+      className="instruction-textarea"
+      value={systemPromptForEdit}
+      onChange={(e) => setSystemPromptForEdit(e.target.value)}
+      placeholder="AI instructions (edit blueprint)..."
+    />
+  )}
+
+  {instructionSubTab === "placeholder_short" && (
+    <textarea
+      className="instruction-textarea"
+      value={masterPrompt}
+      onChange={(e) => setMasterPrompt(e.target.value)}
+      placeholder="Short placeholder list..."
+    />
+  )}
+
+  {instructionSubTab === "placeholder_long" && (
+    <textarea
+      className="instruction-textarea"
+      value={masterPromptExtensive}
+      onChange={(e) => setMasterPromptExtensive(e.target.value)}
+      placeholder="Extended placeholder list..."
+    />
+  )}
+
+  {instructionSubTab === "ct" && (
+    <textarea
+      className="instruction-textarea"
+      value={previewText}
+      onChange={(e) => setPreviewText(e.target.value)}
+      placeholder="Unpopulated master template..."
+    />
+  )}
+
+</div>
+
+
+  </div>
+)}
+
+
+
+  {/* 4️⃣ CT UNPOPULATED */}
+  {activeTab === "ct" && (
+    <div className="ct-tab-container">
+      <h3>Master Campaign Template (Unpopulated)</h3>
+      <textarea
+        className="ct-textarea"
+        value={previewText}
+        onChange={(e) => setPreviewText(e.target.value)}
+      />
+    </div>
+  )}
+
+</div>
+
         </div>
 
 
