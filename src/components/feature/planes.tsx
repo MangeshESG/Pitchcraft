@@ -91,9 +91,9 @@ function PaymentForm({ clientSecret, selectedPlan, onGoBack }: { clientSecret: s
     setLoading(true);
     const result = await stripe.confirmPayment({
       elements,
-      confirmParams: {
-        return_url: window.location.origin + "/payment-success",
-      },
+      // confirmParams: {
+      //   return_url: window.location.origin + "/payment-success",
+      // },
       redirect: "if_required",
     });
 
@@ -101,17 +101,23 @@ function PaymentForm({ clientSecret, selectedPlan, onGoBack }: { clientSecret: s
       setMessage(result.error.message || "Payment failed");
     } else if (result.paymentIntent?.status === "succeeded") {
       setMessage("✅ Payment successful!");
+      // setTimeout(() => {
+      //   window.location.href = "/main";
+      // }, 2000);
       setTimeout(() => {
-        window.location.href = "/main";
-      }, 2000);
+      onGoBack();            // close payment form
+      window.location.reload(); // optional: refresh data
+    }, 1500);
+  
     }
 
     setLoading(false);
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-100 overflow-y-auto" data-secure="true">
-      <div className="min-h-full flex items-start justify-center py-8">
+    <div className="w-full bg-gray-100 rounded-lg p-6" data-secure="true">
+      <div className="flex items-start justify-center py-4">
+        {/* other window page  */}
         <div className="bg-white rounded-lg shadow-lg max-w-4xl w-full mx-4 p-8">
         <div className="flex gap-8">
           {/* Left Side - Order Summary */}

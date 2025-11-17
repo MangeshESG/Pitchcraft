@@ -324,6 +324,7 @@ const createCampaign = async () => {
     <div className="data-campaigns-container">
       <div className="section-wrapper">
         <h2 className="section-title">Campaigns</h2>
+        <p style={{marginBottom:'10px'}}>Create and manage campaigns quickly and efficiently.</p>
 
         <div style={{ display: "flex", alignItems: "center", marginBottom: 16, gap: 16 }}>
           <input
@@ -350,16 +351,16 @@ const createCampaign = async () => {
               });
             }}
           >
-            + Create Campaign
+            + Create campaign
           </button>
         </div>
 
         <table className="contacts-table" style={{ background: "#fff" }}>
           <thead>
             <tr>
-              <th>Campaign Name</th>
+              <th>Campaign name</th>
               <th>Blueprint</th>
-              <th>Data Source</th>
+              <th>Data source</th>
               <th>Description</th>
               <th>Actions</th>
             </tr>
@@ -441,13 +442,13 @@ const createCampaign = async () => {
           color: "#222",
         }}
       >
-        {selectedCampaign ? "Edit Campaign" : "Create Campaign"}
+        {selectedCampaign ? "Edit campaign" : "Create campaign"}
       </h2>
 
       {/* Campaign Name */}
       <div style={{ marginBottom: "16px" }}>
         <label style={{ fontWeight: 500 }}>
-          Campaign Name <span style={{ color: "red" }}>*</span>
+          Campaign name <span style={{ color: "red" }}>*</span>
         </label>
         <input
           type="text"
@@ -503,7 +504,7 @@ const createCampaign = async () => {
       {/* List/Segment */}
       <div style={{ marginBottom: "16px" }}>
         <label style={{ fontWeight: 500 }}>
-          List/Segment <span style={{ color: "red" }}>*</span>
+          List/segment <span style={{ color: "red" }}>*</span>
         </label>
         <select
           onChange={(e) => {
@@ -539,7 +540,7 @@ const createCampaign = async () => {
             backgroundColor: "#fff",
           }}
         >
-          <option value="">Select List or Segment</option>
+          <option value="">Select list or segment</option>
           {dataFiles.length > 0 && (
             <optgroup label="Lists">
               {dataFiles.map((file) => (
@@ -634,8 +635,8 @@ const createCampaign = async () => {
               ? "Updating..."
               : "Creating..."
             : selectedCampaign
-            ? "Update Campaign"
-            : "Create Campaign"}
+            ? "Update campaign"
+            : "Create campaign"}
         </button>
       </div>
     </div>
