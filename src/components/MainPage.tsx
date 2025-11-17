@@ -3821,7 +3821,7 @@ if (tab === "Output" && selectedCampaign) {
                             setShowBlueprintSubmenu(true);
                             setShowMailSubmenu(false);
                             setShowContactsSubmenu(false);
-                            navigate("/main");
+                            navigate("/main?tab=TestTemplate");   
                           } else {
                             setShowBlueprintSubmenu((prev: boolean) => !prev);
                           }
@@ -3850,7 +3850,7 @@ if (tab === "Output" && selectedCampaign) {
                               onClick={() => {
                                 setBlueprintSubTab("List");
                                 setTab("TestTemplate");
-                                navigate("/main");
+                                navigate("/main?tab=TestTemplate");
                               }}
                               className="submenu-button"
                             >

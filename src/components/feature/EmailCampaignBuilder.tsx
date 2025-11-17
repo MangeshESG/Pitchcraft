@@ -5,6 +5,8 @@ import API_BASE_URL from "../../config";
 import './EmailCampaignBuilder.css';
 import notificationSound from '../../assets/sound/notification.mp3';
 import { AlertCircle } from 'lucide-react';
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 // --- Type Definitions ---
 interface Message {
@@ -13,7 +15,16 @@ interface Message {
   timestamp: Date;
 }
 
-type TabType = 'template' | 'conversation' | 'result';
+// include both old and new tab keys
+type TabType =
+  | 'template'
+  | 'conversation'
+  | 'result'
+  | 'build'
+  | 'elements'
+  | 'instructions'
+  | 'ct';
+
 
 type GPTModel = {
   id: string;
@@ -484,8 +495,10 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   }
 }, [isTyping, messages, conversationStarted]);
 
-const [activeMainTab, setActiveMainTab] = useState<'output' | 'stages'>('output');
+const [activeMainTab, setActiveMainTab] = useState<'output' | 'stages' | 'elements'>('output');
 const [activeSubStageTab, setActiveSubStageTab] = useState<'search' | 'data' | 'summary'>('search');
+
+
   return (
     <div className="conversation-container">
       <div className="chat-layout">
@@ -700,7 +713,7 @@ const [activeSubStageTab, setActiveSubStageTab] = useState<'search' | 'data' | '
 
   {/* === Tabs for Example Output === */}
   <div className="example-tabs">
-    {["Output", "Stages"].map(tab => (
+{["Output", "Stages", "Elements"].map(tab => (
       <button
         key={tab}
         className={`stage-tab-btn ${activeMainTab === tab.toLowerCase() ? "active" : ""}`}
@@ -726,6 +739,26 @@ const [activeSubStageTab, setActiveSubStageTab] = useState<'search' | 'data' | '
       )}
     </div>
   )}
+
+  {activeMainTab === "elements" && (
+  <div className="elements-container">
+    <h3 className="elements-title">🧩 Placeholder Values</h3>
+
+    {Object.keys(placeholderValues).length === 0 ? (
+      <p className="no-elements">No placeholder values yet.</p>
+    ) : (
+      <div className="elements-list">
+        {Object.entries(placeholderValues).map(([key, value]) => (
+          <div className="element-item" key={key}>
+            <div className="element-placeholder">{`{${key}}`}</div>
+            <div className="element-value">{value || "—"}</div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+)}
+
 
   {activeMainTab === "stages" && (
     <div className="stages-container">
@@ -843,8 +876,7 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
       .catch(err => console.error("Failed to load datafiles", err));
   }, [effectiveUserId]);
 
-  
-  // ====================================================================
+// ====================================================================
 // AUTO-START CONVERSATION (Robust version)
 // ====================================================================
 useEffect(() => {
@@ -859,36 +891,55 @@ useEffect(() => {
     if (autoStart && newCampaignId && selectedDefinition) {
       console.log(`🚀 Auto-starting campaign "${campaignName}"...`);
       const definitionId = parseInt(selectedDefinition);
+
+      // Set states (async)
       setSelectedTemplateDefinitionId(definitionId);
       setTemplateName(campaignName || "");
-
       setIsTyping(true);
-      setActiveTab("conversation");
 
+      // Load template
       await loadTemplateDefinitionById(definitionId);
 
-      // ✅ small delay ensures builder UI fully ready
-      setTimeout(() => {
-        startConversation();
-      }, 300);
+      // ⛔ DO NOT remove autoStartConversation here
+      // Let watcher handle it
 
-      // ✅ clear flags so it doesn't re-trigger
-      sessionStorage.removeItem("autoStartConversation");
-      sessionStorage.removeItem("openConversationTab");
       return;
     }
 
-    // Retry up to 10 times (every 300 ms)
     if (attempts < 10) {
       attempts++;
       setTimeout(tryAutoStart, 300);
-    } else {
-      console.log("⏳ No auto-start data found after retries — skipping.");
     }
   };
 
   tryAutoStart();
 }, []);
+
+
+// ---------------------------------------------------------
+// FIX: trigger startConversation ONLY when template is loaded
+// ---------------------------------------------------------
+useEffect(() => {
+  const shouldAutoStart = sessionStorage.getItem("autoStartConversation");
+
+  if (
+    shouldAutoStart &&
+    systemPrompt.trim() !== "" &&
+    masterPrompt.trim() !== "" &&
+    selectedTemplateDefinitionId !== null
+  ) {
+    console.log("⚡ All template data ready — starting conversation now!");
+
+    // Remove flags AFTER readiness is confirmed
+    sessionStorage.removeItem("autoStartConversation");
+    sessionStorage.removeItem("openConversationTab");
+
+    setActiveTab("conversation");
+    startConversation();
+  }
+}, [systemPrompt, masterPrompt, selectedTemplateDefinitionId]);
+
+
 
 
   // ====================================================================
@@ -1286,27 +1337,59 @@ if (searchResponse.data.pitchResponse?.content) {
     }
   };
 
+
+  const updateTemplateDefinition = async () => {
+  if (!selectedTemplateDefinitionId) {
+    alert("No template selected to update.");
+    return;
+  }
+
+  setIsSavingDefinition(true);
+
+  try {
+    await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template-definition/update`, {
+      id: selectedTemplateDefinitionId,
+      templateName: templateName,
+      aiInstructions: systemPrompt,
+      aiInstructionsForEdit: systemPromptForEdit,
+      placeholderList: masterPrompt,
+      placeholderListExtensive: masterPromptExtensive,
+      masterBlueprintUnpopulated: previewText
+    });
+
+    alert("Template updated successfully.");
+    await loadTemplateDefinitions();
+  } catch (err) {
+    console.error("Update failed:", err);
+    alert("Failed to update template definition.");
+  } finally {
+    setIsSavingDefinition(false);
+  }
+};
+
   // ====================================================================
   // LOAD TEMPLATE DEFINITION BY ID
   // ====================================================================
-  const loadTemplateDefinitionById = async (id: number) => {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/api/CampaignPrompt/template-definition/${id}`);
-      const def = response.data;
+const loadTemplateDefinitionById = async (id: number) => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/api/CampaignPrompt/template-definition/${id}`);
+    const def = response.data;
 
-      setTemplateName(def.templateName || "");
-      setSystemPrompt(def.aiInstructions || "");
-      setSystemPromptForEdit(def.aiInstructionsForEdit || "");
-      setMasterPrompt(def.placeholderList || "");
-      setMasterPromptExtensive(def.placeholderListExtensive || "");
-      setPreviewText(def.masterBlueprintUnpopulated || "");
-      setSelectedTemplateDefinitionId(def.id);
+    setTemplateName(def.templateName || "");
+    setSystemPrompt(def.aiInstructions || "");
+    setSystemPromptForEdit(def.aiInstructionsForEdit || "");
+    setMasterPrompt(def.placeholderList || "");
+    setMasterPromptExtensive(def.placeholderListExtensive || "");
+    setPreviewText(def.masterBlueprintUnpopulated || "");
 
-      console.log(`✅ Template loaded: ${def.templateName}`);
-    } catch (error) {
-      console.error("⚠️ Failed to load template definition:", error);
-    }
-  };
+    // ✅ REQUIRED!!!
+    setSelectedTemplateDefinitionId(def.id);
+
+  } catch (error) {
+    console.error("⚠️ Failed to load template definition:", error);
+  }
+};
+
 
   // ====================================================================
   // LOAD TEMPLATE FOR EDIT MODE
@@ -1541,6 +1624,7 @@ const finalizeEditPlaceholder = async (updatedPlaceholder: string, newValue: str
   // AVAILABLE MODELS
   // ====================================================================
   const availableModels: GPTModel[] = [
+    { id: 'gpt-5.1',      name: 'GPT-5.1',        description: 'Adaptive-reasoning flagship update to the GPT-5 series' },
     { id: 'gpt-4.1', name: 'GPT-4.1', description: 'Flagship model in the 4.1 family' },
     { id: 'gpt-4.1-mini', name: 'GPT-4.1 mini', description: 'Faster, lighter version of 4.1' },
     { id: 'gpt-4.1-nano', name: 'GPT-4.1 nano', description: 'Smallest, fastest, lowest-cost variant' },
@@ -1732,36 +1816,45 @@ const handleSendMessage = async () => {
       );
       
       if (match) {
-        const placeholderBlock = match[1];
-        const lines = placeholderBlock.split(/\r?\n/).filter(Boolean);
-        
-        // ✅ Get current conversation and contact placeholders separately
-        const currentConversationValues = getConversationPlaceholders(placeholderValues);
-        const currentContactValues = getContactPlaceholders(placeholderValues);
-        const updatedConversationValues = { ...currentConversationValues };
+        const placeholderBlock = match[1] || "";
 
-        // ✅ Parse and update ONLY conversation placeholders
-        lines.forEach((line: string) => {
-          const kv = line.match(/\{([^}]+)\}\s*=\s*(.+)/);
-          if (kv) {
-            const key = kv[1].trim();
-            const value = kv[2].trim();
-            
-            // ✅ Only update if it's NOT a contact placeholder
-            if (!CONTACT_PLACEHOLDERS.includes(key)) {
-              updatedConversationValues[key] = value;
-              console.log(`✅ Updated conversation placeholder: ${key}`);
-            } else {
-              console.log(`⏭️ Skipped contact placeholder: ${key}`);
-            }
-          }
-        });
+// Prepare storage for parsed placeholders
+const parsedPlaceholders: Record<string, string> = {};
 
-        // ✅ Merge for display (conversation + contact)
-        const mergedForDisplay = getMergedPlaceholdersForDisplay(
-          updatedConversationValues, 
-          currentContactValues
-        );
+// This global regex finds each "{key} = value" pair where value can be multiline.
+// It uses a non-greedy ([\s\S]*?) capture and looks ahead for either the next "{key} =" or the end marker.
+const kvRegex = /\{([^}]+)\}\s*=\s*([\s\S]*?)(?=\r?\n\{[^}]+\}\s*=|\r?\n==PLACEHOLDER_VALUES_END==|$)/g;
+
+let m: RegExpExecArray | null;
+while ((m = kvRegex.exec(placeholderBlock)) !== null) {
+  const key = m[1].trim();
+  let value = m[2] ?? "";
+  // Trim only a single trailing newline and surrounding whitespace; preserve intentional newlines in the body
+  value = value.replace(/^\r?\n/, '').replace(/\s+$/, '');
+  parsedPlaceholders[key] = value;
+  console.log(`🔎 Parsed placeholder: ${key} -> ${value.slice(0, 80)}${value.length > 80 ? '…' : ''}`);
+}
+
+// Now separate conversation vs contact placeholders
+const currentConversationValues = getConversationPlaceholders(placeholderValues);
+const currentContactValues = getContactPlaceholders(placeholderValues);
+const updatedConversationValues = { ...currentConversationValues };
+
+// Update conversation placeholders only
+Object.entries(parsedPlaceholders).forEach(([key, value]) => {
+  if (!CONTACT_PLACEHOLDERS.includes(key)) {
+    updatedConversationValues[key] = value;
+    console.log(`✅ Updated conversation placeholder: ${key}`);
+  } else {
+    console.log(`⏭️ Skipped contact placeholder: ${key}`);
+  }
+});
+
+// Merge for display and set state
+const mergedForDisplay = getMergedPlaceholdersForDisplay(updatedConversationValues, currentContactValues);
+setPlaceholderValues(mergedForDisplay);
+console.log('📦 Updated conversation placeholders:', Object.keys(updatedConversationValues));
+
         
         setPlaceholderValues(mergedForDisplay);
         console.log('📦 Updated conversation placeholders:', Object.keys(updatedConversationValues));
@@ -1926,6 +2019,70 @@ const handleSendMessage = async () => {
     const isAdmin = isAdminString === "true"; // Correct comparison
     setUserRole(isAdmin ? "ADMIN" : "USER");
   }, []);
+
+
+  const [instructionSubTab, setInstructionSubTab] = useState<
+  'ai_new' | 'ai_edit' | 'placeholder_short' | 'placeholder_long' | 'ct'
+>('ai_new');
+
+
+const isEditingDefinition = selectedTemplateDefinitionId !== null;
+
+const createNewInstruction = () => {
+  setSelectedTemplateDefinitionId(null);   // remove dropdown selection
+  setTemplateName("");
+  setSystemPrompt("");
+  setSystemPromptForEdit("");
+  setMasterPrompt("");
+  setMasterPromptExtensive("");
+  setPreviewText("");
+
+  // Clear conversation-related saved session
+  sessionStorage.removeItem("campaign_system_prompt");
+  sessionStorage.removeItem("campaign_system_prompt_edit");
+  sessionStorage.removeItem("campaign_master_prompt");
+  sessionStorage.removeItem("campaign_master_prompt_extensive");
+  sessionStorage.removeItem("campaign_preview_text");
+  sessionStorage.removeItem("campaign_template_name");
+
+  // Optional: Show toast
+  console.log("✨ Starting new instruction from scratch");
+};
+
+const deleteTemplateDefinition = async () => {
+  if (!selectedTemplateDefinitionId) return;
+
+  const confirmDelete = window.confirm(
+    "Are you sure you want to delete this template definition? This cannot be undone."
+  );
+
+  if (!confirmDelete) return;
+
+  try {
+    const response = await axios.post(
+      `${API_BASE_URL}/api/CampaignPrompt/template-definition/${selectedTemplateDefinitionId}/deactivate`
+    );
+
+    alert("Template deleted successfully.");
+
+    // Reset UI state
+    setSelectedTemplateDefinitionId(null);
+    setTemplateName("");
+    setSystemPrompt("");
+    setSystemPromptForEdit("");
+    setMasterPrompt("");
+    setMasterPromptExtensive("");
+    setPreviewText("");
+
+    // Reload list
+    loadTemplateDefinitions();
+
+  } catch (error) {
+    console.error("Delete failed:", error);
+    alert("Failed to delete template definition.");
+  }
+};
+
   // ====================================================================
   // RENDER
   // ====================================================================
@@ -1952,103 +2109,287 @@ const handleSendMessage = async () => {
       <div className="campaign-builder-container">
         <div className="campaign-builder-main">
           
-<div className="tab-navigation">
-  <div className="tab-container">
+<div className="left-tabs-container">
+  <button
+    className={`left-tab-btn ${activeTab === 'build' ? 'active' : ''}`}
+    onClick={() => setActiveTab('build')}
+  >
+    Build
+  </button>
 
-    <button 
-      onClick={() => setActiveTab('conversation')} 
-      className={`tab-button ${activeTab === 'conversation' ? 'active' : ''}`} 
-      disabled={!conversationStarted && !isEditMode}
-    >
-      <MessageSquare className="tab-button-icon" />
-      <span className="tab-button-text-desktop">Conversation</span>
-      <span className="tab-button-text-mobile">Chat</span>
-      {conversationStarted && !isComplete && (
-        <span className="status-indicator active"></span>
-      )}
-    </button>
+  <button
+    className={`left-tab-btn ${activeTab === 'elements' ? 'active' : ''}`}
+    onClick={() => setActiveTab('elements')}
+  >
+    Elements
+  </button>
 
-    {/* ✅ Settings tab visible only for ADMIN */}
-    {userRole === "ADMIN" && (
-      <button 
-        onClick={() => setActiveTab('template')} 
-        className={`tab-button ${activeTab === 'template' ? 'active' : ''}`}
-        disabled={isEditMode}
-      >
-        <FileText className="tab-button-icon" />
-        <span className="tab-button-text-mobile">Setup</span>
-        <span className="tab-button-text-desktop">Settings</span>
-      </button>
-    )}
+  <button
+    className={`left-tab-btn ${activeTab === 'instructions' ? 'active' : ''}`}
+    onClick={() => setActiveTab('instructions')}
+  >
+    Instructions set
+  </button>
 
-  </div>
+  <button
+    className={`left-tab-btn ${activeTab === 'ct' ? 'active' : ''}`}
+    onClick={() => setActiveTab('ct')}
+  >
+    CT (unpopulated)
+  </button>
 </div>
 
 
-          <div className="tab-content">
-            {activeTab === 'template' && !isEditMode && (
-              <TemplateTab 
-                masterPrompt={masterPrompt}
-                setMasterPrompt={setMasterPrompt}
-                masterPromptExtensive={masterPromptExtensive}
-                setMasterPromptExtensive={setMasterPromptExtensive}
-                systemPrompt={systemPrompt}
-                setSystemPrompt={setSystemPrompt}
-                systemPromptForEdit={systemPromptForEdit}
-                setSystemPromptForEdit={setSystemPromptForEdit}
-                previewText={previewText}
-                setPreviewText={setPreviewText}
-                startConversation={startConversation}
-                currentPlaceholders={currentPlaceholders}
-                extractPlaceholders={extractPlaceholders}
-                selectedModel={selectedModel}
-                setSelectedModel={setSelectedModel}
-                availableModels={availableModels}
-                saveTemplateDefinition={saveTemplateDefinition}
-                isSavingDefinition={isSavingDefinition}
-                saveDefinitionStatus={saveDefinitionStatus}
-                templateDefinitions={templateDefinitions}
-                loadTemplateDefinition={loadTemplateDefinitionById}
-                selectedTemplateDefinitionId={selectedTemplateDefinitionId}
-                templateName={templateName}
-                setTemplateName={setTemplateName}
-              />
-            )}
-            {activeTab === 'conversation' && (
-              <ConversationTab 
-                conversationStarted={conversationStarted}
-                messages={messages}
-                isTyping={isTyping}
-                isComplete={isComplete}
-                currentAnswer={currentAnswer}
-                setCurrentAnswer={setCurrentAnswer}
-                handleSendMessage={handleSendMessage}
-                handleKeyPress={handleKeyPress}
-                chatEndRef={chatEndRef}
-                resetAll={resetAll}
-                isEditMode={isEditMode}
-                availablePlaceholders={extractPlaceholders(masterPrompt)}
-                placeholderValues={placeholderValues}
-                onPlaceholderSelect={startEditConversation}
-                selectedPlaceholder={selectedPlaceholder}
-                previewText={previewText}
-                exampleOutput={exampleOutput}
-                regenerateExampleOutput={regenerateExampleOutput}
-                dataFiles={dataFiles}
-                contacts={contacts}
-                selectedDataFileId={selectedDataFileId}
-                selectedContactId={selectedContactId}
-                handleSelectDataFile={handleSelectDataFile}
-                setSelectedContactId={setSelectedContactId}
-                applyContactPlaceholders={applyContactPlaceholders}
 
-                searchResults={searchResults}
-                allSourcedData={allSourcedData}
-                sourcedSummary={sourcedSummary}
-               
-              />
-            )}
-          </div>
+<div className="tab-content">
+
+  {/* 1️⃣ BUILD TAB (CHAT) */}
+  {activeTab === "build" && (
+    <ConversationTab
+      conversationStarted={conversationStarted}
+      messages={messages}
+      isTyping={isTyping}
+      isComplete={isComplete}
+      currentAnswer={currentAnswer}
+      setCurrentAnswer={setCurrentAnswer}
+      handleSendMessage={handleSendMessage}
+      handleKeyPress={handleKeyPress}
+      chatEndRef={chatEndRef}
+      resetAll={resetAll}
+      isEditMode={isEditMode}
+      availablePlaceholders={extractPlaceholders(masterPrompt)}
+      placeholderValues={placeholderValues}
+      onPlaceholderSelect={startEditConversation}
+      selectedPlaceholder={selectedPlaceholder}
+      previewText={previewText}
+      exampleOutput={exampleOutput}
+      regenerateExampleOutput={regenerateExampleOutput}
+      dataFiles={dataFiles}
+      contacts={contacts}
+      selectedDataFileId={selectedDataFileId}
+      selectedContactId={selectedContactId}
+      handleSelectDataFile={handleSelectDataFile}
+      setSelectedContactId={setSelectedContactId}
+      applyContactPlaceholders={applyContactPlaceholders}
+      searchResults={searchResults}
+      allSourcedData={allSourcedData}
+      sourcedSummary={sourcedSummary}
+    />
+  )}
+
+  {/* 2️⃣ ELEMENTS TAB */}
+  {activeTab === "elements" && (
+    <div className="elements-tab-container">
+      <h3>Detected Placeholder Values</h3>
+      <pre>{JSON.stringify(placeholderValues, null, 2)}</pre>
+    </div>
+  )}
+
+  {/* 3️⃣ INSTRUCTIONS SET TAB */}
+{activeTab === "instructions" && (
+  <div className="instructions-wrapper">
+
+    {/* =======================================================
+       TOP HEADER SECTION (Picklist + Inputs + Buttons)
+    ======================================================== */}
+    <div className="instructions-header">
+
+      {/* Load Template Definition */}
+      <div className="load-template-box">
+        <label className="section-label">Load Existing Template Definition</label>
+        <select
+          className="definition-select"
+          value={selectedTemplateDefinitionId || ""}
+          onChange={(e) => {
+            const id = Number(e.target.value);
+            if (id) loadTemplateDefinitionById(id);
+
+          }}
+        >
+          <option value="">-- Select a template definition --</option>
+          {templateDefinitions.map((def) => (
+            <option key={def.id} value={def.id}>
+              {def.templateName} (Used {def.usageCount} times)
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="input-row">
+        {/* Template Name */}
+        <div className="template-name-box">
+          <label className="section-label">Template Name</label>
+          <input
+            type="text"
+            value={templateName}
+            onChange={(e) => setTemplateName(e.target.value)}
+            placeholder="Enter template name"
+            className="text-input"
+          />
+        </div>
+
+        {/* Model Picker */}
+        <div className="model-select-box">
+          <label className="section-label">Select GPT Model</label>
+          <select
+            className="definition-select"
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value)}
+          >
+            {availableModels.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Save + Start Buttons */}
+        <div className="button-row">
+{/* Save new definition */}
+{/* Save new template definition */}
+{selectedTemplateDefinitionId === null && (
+  <button 
+    className="save-btn"
+    onClick={saveTemplateDefinition}
+    disabled={isSavingDefinition}
+  >
+    {isSavingDefinition ? "Saving..." : "Save Template Definition"}
+  </button>
+)}
+
+{/* Update existing template */}
+{selectedTemplateDefinitionId !== null && (
+  <button 
+    className="save-btn"
+    style={{ background: "#2563eb" }}
+    onClick={updateTemplateDefinition}
+    disabled={isSavingDefinition}
+  >
+    {isSavingDefinition ? "Updating..." : "Update Template Definition"}
+  </button>
+)}
+
+
+          <button 
+            className="start-btn" 
+            onClick={startConversation}
+            disabled={!selectedTemplateDefinitionId}
+          >
+            Start Filling Placeholders →
+          </button>
+          <button 
+            className="new-btn"
+            onClick={createNewInstruction}
+          >
+            + New Instruction
+          </button>
+        </div>
+        {selectedTemplateDefinitionId !== null && (
+          <button
+            className="delete-btn"
+            style={{ background: "#dc2626", color: "white" }}
+            onClick={deleteTemplateDefinition}
+          >
+            Delete
+          </button>
+        )}
+      </div>
+    </div>
+
+    {/* =======================================================
+       INTERNAL SUB-TABS
+    ======================================================== */}
+    <div className="instruction-subtabs">
+      {[
+        ["ai_new", "AI Instructions (new blueprint)"],
+        ["ai_edit", "AI Instructions (edit blueprint)"],
+        ["placeholder_short", "Placeholders list (essential)"],
+        ["placeholder_long", "Placeholders list (extended)"],
+        ["ct", "CT (unpopulated)"],
+      ].map(([key, label]) => (
+        <button
+          key={key}
+          className={`subtab-btn ${instructionSubTab === key ? "active" : ""}`}
+          onClick={() => setInstructionSubTab(key as any)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+
+    {/* =======================================================
+       INTERNAL TAB CONTENT
+    ======================================================== */}
+<div className="instruction-subtab-content">
+
+  {instructionSubTab === "ai_new" && (
+    <textarea
+      className="instruction-textarea"
+      value={systemPrompt}
+      onChange={(e) => setSystemPrompt(e.target.value)}
+      placeholder="AI instructions (new blueprint)..."
+    />
+  )}
+
+  {instructionSubTab === "ai_edit" && (
+    <textarea
+      className="instruction-textarea"
+      value={systemPromptForEdit}
+      onChange={(e) => setSystemPromptForEdit(e.target.value)}
+      placeholder="AI instructions (edit blueprint)..."
+    />
+  )}
+
+  {instructionSubTab === "placeholder_short" && (
+    <textarea
+      className="instruction-textarea"
+      value={masterPrompt}
+      onChange={(e) => setMasterPrompt(e.target.value)}
+      placeholder="Short placeholder list..."
+    />
+  )}
+
+  {instructionSubTab === "placeholder_long" && (
+    <textarea
+      className="instruction-textarea"
+      value={masterPromptExtensive}
+      onChange={(e) => setMasterPromptExtensive(e.target.value)}
+      placeholder="Extended placeholder list..."
+    />
+  )}
+
+  {instructionSubTab === "ct" && (
+    <textarea
+      className="instruction-textarea"
+      value={previewText}
+      onChange={(e) => setPreviewText(e.target.value)}
+      placeholder="Unpopulated master template..."
+    />
+  )}
+
+</div>
+
+
+  </div>
+)}
+
+
+
+  {/* 4️⃣ CT UNPOPULATED */}
+  {activeTab === "ct" && (
+    <div className="ct-tab-container">
+      <h3>Master Campaign Template (Unpopulated)</h3>
+      <textarea
+        className="ct-textarea"
+        value={previewText}
+        onChange={(e) => setPreviewText(e.target.value)}
+      />
+    </div>
+  )}
+
+</div>
+
         </div>
 
 
