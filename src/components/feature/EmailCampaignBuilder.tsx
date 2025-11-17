@@ -865,8 +865,7 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
       .catch(err => console.error("Failed to load datafiles", err));
   }, [effectiveUserId]);
 
-  
-  // ====================================================================
+// ====================================================================
 // AUTO-START CONVERSATION (Robust version)
 // ====================================================================
 useEffect(() => {
@@ -881,36 +880,55 @@ useEffect(() => {
     if (autoStart && newCampaignId && selectedDefinition) {
       console.log(`🚀 Auto-starting campaign "${campaignName}"...`);
       const definitionId = parseInt(selectedDefinition);
+
+      // Set states (async)
       setSelectedTemplateDefinitionId(definitionId);
       setTemplateName(campaignName || "");
-
       setIsTyping(true);
-      setActiveTab("conversation");
 
+      // Load template
       await loadTemplateDefinitionById(definitionId);
 
-      // ✅ small delay ensures builder UI fully ready
-      setTimeout(() => {
-        startConversation();
-      }, 300);
+      // ⛔ DO NOT remove autoStartConversation here
+      // Let watcher handle it
 
-      // ✅ clear flags so it doesn't re-trigger
-      sessionStorage.removeItem("autoStartConversation");
-      sessionStorage.removeItem("openConversationTab");
       return;
     }
 
-    // Retry up to 10 times (every 300 ms)
     if (attempts < 10) {
       attempts++;
       setTimeout(tryAutoStart, 300);
-    } else {
-      console.log("⏳ No auto-start data found after retries — skipping.");
     }
   };
 
   tryAutoStart();
 }, []);
+
+
+// ---------------------------------------------------------
+// FIX: trigger startConversation ONLY when template is loaded
+// ---------------------------------------------------------
+useEffect(() => {
+  const shouldAutoStart = sessionStorage.getItem("autoStartConversation");
+
+  if (
+    shouldAutoStart &&
+    systemPrompt.trim() !== "" &&
+    masterPrompt.trim() !== "" &&
+    selectedTemplateDefinitionId !== null
+  ) {
+    console.log("⚡ All template data ready — starting conversation now!");
+
+    // Remove flags AFTER readiness is confirmed
+    sessionStorage.removeItem("autoStartConversation");
+    sessionStorage.removeItem("openConversationTab");
+
+    setActiveTab("conversation");
+    startConversation();
+  }
+}, [systemPrompt, masterPrompt, selectedTemplateDefinitionId]);
+
+
 
 
   // ====================================================================
