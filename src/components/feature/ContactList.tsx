@@ -762,8 +762,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   const handleRenameSegment = async () => {
     if (
       !editingSegment ||
-      !renamingSegmentName.trim() ||
-      !renamingSegmentDescription.trim()
+      !renamingSegmentName.trim()
     )
       return;
 
@@ -2216,14 +2215,12 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                 onClick={handleRenameSegment}
                 disabled={
                   !renamingSegmentName.trim() ||
-                  !renamingSegmentDescription.trim() ||
                   isRenamingSegment
                 }
                 style={{
                   padding: "8px 16px",
                   background:
                     renamingSegmentName.trim() &&
-                      renamingSegmentDescription.trim() &&
                       !isRenamingSegment
                       ? "#007bff"
                       : "#ccc",
@@ -2232,7 +2229,6 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                   borderRadius: "4px",
                   cursor:
                     renamingSegmentName.trim() &&
-                      renamingSegmentDescription.trim() &&
                       !isRenamingSegment
                       ? "pointer"
                       : "not-allowed",
