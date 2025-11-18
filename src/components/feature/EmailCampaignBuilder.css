@@ -2411,3 +2411,8 @@
   background: #fafafa;
   overflow-y: auto;
 }
+.ct-pre {
+  white-space: pre-wrap;
+  font-family: monospace;
+  font-size: 14px;
+}

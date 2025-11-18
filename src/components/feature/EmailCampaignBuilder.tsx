@@ -866,6 +866,9 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
   const [selectedDataFileId, setSelectedDataFileId] = useState<number | null>(null);
   const [selectedContactId, setSelectedContactId] = useState<number | null>(null);
 
+  const [campaignBlueprint, setCampaignBlueprint] = useState<string>('');
+
+
   // ====================================================================
   // LOAD DATA FILES
   // ====================================================================
@@ -1200,6 +1203,8 @@ if (searchResponse.data.pitchResponse?.content) {
               id: activeCampaignId,
               placeholderValues: conversationValues // ✅ Only conversation placeholders
             });
+            await reloadCampaignBlueprint();
+
             console.log('💾 Saved conversation placeholders with search result to DB');
           }
         }
@@ -1434,6 +1439,8 @@ const loadTemplateDefinitionById = async (id: number) => {
       const template = res.data;
 
       setOriginalTemplateData(template);
+      setCampaignBlueprint(template.campaignBlueprint || "");
+
 
       setSystemPrompt(template.aiInstructions || "");
       setSystemPromptForEdit(template.aiInstructionsForEdit || "");
@@ -1540,6 +1547,7 @@ const finalizeEditPlaceholder = async (updatedPlaceholder: string, newValue: str
       placeholderValues: conversationValues, // ✅ Only conversation placeholders
       selectedModel,
     });
+    await reloadCampaignBlueprint();
     console.log("✅ Conversation placeholder saved in DB:", updatedPlaceholder);
     console.log("ℹ️ Click 'Regenerate' to see the updated email");
 
@@ -1877,6 +1885,8 @@ console.log('📦 Updated conversation placeholders:', Object.keys(updatedConver
               id: activeCampaignId,
               placeholderValues: updatedConversationValues, // ✅ Only conversation placeholders
             });
+            await reloadCampaignBlueprint();
+
             console.log('💾 Saved conversation placeholders to DB (no auto-generation)');
           } catch (err) {
             console.warn('⚠️ Failed to save placeholders:', err);
@@ -1890,6 +1900,8 @@ console.log('📦 Updated conversation placeholders:', Object.keys(updatedConver
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, botMessage]);
+      await reloadCampaignBlueprint();
+
       playNotificationSound();
     }
 
@@ -1945,6 +1957,7 @@ console.log('📦 Updated conversation placeholders:', Object.keys(updatedConver
         placeholderValues: conversationOnly, // ✅ Only conversation placeholders
         selectedModel: selectedModel,
       });
+
 
       if (!response.data.success) {
         throw new Error('Failed to update template');
@@ -2083,6 +2096,31 @@ const deleteTemplateDefinition = async () => {
   }
 };
 
+
+const reloadCampaignBlueprint = async () => {
+  try {
+    // Load NEW campaign ID if editTemplateId is null
+    const storedId = sessionStorage.getItem("newCampaignId");
+    const activeCampaignId = editTemplateId ?? (storedId ? Number(storedId) : null);
+
+    if (!activeCampaignId) {
+      console.log("⚠ No campaign ID found for reloading blueprint.");
+      return;
+    }
+
+    const res = await axios.get(`${API_BASE_URL}/api/CampaignPrompt/campaign/${activeCampaignId}`);
+
+    if (res.data?.campaignBlueprint) {
+      setCampaignBlueprint(res.data.campaignBlueprint);
+    } else {
+      console.log("⚠ No campaignBlueprint returned from backend");
+    }
+
+  } catch (err) {
+    console.error("Failed to reload campaign blueprint:", err);
+  }
+};
+
   // ====================================================================
   // RENDER
   // ====================================================================
@@ -2135,7 +2173,7 @@ const deleteTemplateDefinition = async () => {
     className={`left-tab-btn ${activeTab === 'ct' ? 'active' : ''}`}
     onClick={() => setActiveTab('ct')}
   >
-    CT (unpopulated)
+    VT 
   </button>
 </div>
 
@@ -2377,16 +2415,17 @@ const deleteTemplateDefinition = async () => {
 
 
   {/* 4️⃣ CT UNPOPULATED */}
-  {activeTab === "ct" && (
-    <div className="ct-tab-container">
-      <h3>Master Campaign Template (Unpopulated)</h3>
-      <textarea
-        className="ct-textarea"
-        value={previewText}
-        onChange={(e) => setPreviewText(e.target.value)}
-      />
+{activeTab === "ct" && (
+  <div className="ct-tab-container">
+    <h3>Vendor Template (From Database)</h3>
+
+    <div className="ct-preview-box">
+<pre className="ct-pre">
+  {campaignBlueprint}
+</pre>
     </div>
-  )}
+  </div>
+)}
 
 </div>
 
