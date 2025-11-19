@@ -35,7 +35,7 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
     <div
       className="d-flex justify-between align-center"
       style={{
-        marginTop: "16px",
+       // marginTop: "16px",
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",

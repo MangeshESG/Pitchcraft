@@ -410,7 +410,7 @@ const generateExampleEmail = (template: CampaignTemplate) => {
   <div className="template-container">
     {!showCampaignBuilder ? (
       <>
-        <div className="section-wrapper">
+        <div className="section-wrapper" style={{marginTop:'-60px'}}>
           <h2 className="section-title">Blueprints</h2>
 
           {/* Search and Create button */}
