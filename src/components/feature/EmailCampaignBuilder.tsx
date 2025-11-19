@@ -289,6 +289,8 @@ const TemplateTab: React.FC<TemplateTabProps> = ({
         </div>
       </div>
 
+
+
       <div className="template-grid">
         <div>
           <div className="template-section">
@@ -867,6 +869,10 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
   const [selectedContactId, setSelectedContactId] = useState<number | null>(null);
 
   const [campaignBlueprint, setCampaignBlueprint] = useState<string>('');
+  // NEW
+const [searchURLCount, setSearchURLCount] = useState<number>(1);
+const [subjectInstructions, setSubjectInstructions] = useState<string>("");
+
 
 
   // ====================================================================
@@ -1317,7 +1323,9 @@ if (searchResponse.data.pitchResponse?.content) {
         placeholderList: masterPrompt,
         placeholderListExtensive: masterPromptExtensive,
         masterBlueprintUnpopulated: previewText,
-        createdBy: effectiveUserId
+        createdBy: effectiveUserId,
+        searchURLCount,
+        subjectInstructions
       });
 
       if (response.data.success) {
@@ -1359,7 +1367,9 @@ if (searchResponse.data.pitchResponse?.content) {
       aiInstructionsForEdit: systemPromptForEdit,
       placeholderList: masterPrompt,
       placeholderListExtensive: masterPromptExtensive,
-      masterBlueprintUnpopulated: previewText
+      masterBlueprintUnpopulated: previewText,
+      searchURLCount,
+      subjectInstructions
     });
 
     alert("Template updated successfully.");
@@ -1386,6 +1396,8 @@ const loadTemplateDefinitionById = async (id: number) => {
     setMasterPrompt(def.placeholderList || "");
     setMasterPromptExtensive(def.placeholderListExtensive || "");
     setPreviewText(def.masterBlueprintUnpopulated || "");
+    setSearchURLCount(def.searchURLCount || 1);
+    setSubjectInstructions(def.subjectInstructions || "");
 
     // ✅ REQUIRED!!!
     setSelectedTemplateDefinitionId(def.id);
@@ -2034,9 +2046,15 @@ console.log('📦 Updated conversation placeholders:', Object.keys(updatedConver
   }, []);
 
 
-  const [instructionSubTab, setInstructionSubTab] = useState<
-  'ai_new' | 'ai_edit' | 'placeholder_short' | 'placeholder_long' | 'ct'
->('ai_new');
+const [instructionSubTab, setInstructionSubTab] = useState<
+  "ai_new" 
+  | "ai_edit" 
+  | "placeholder_short" 
+  | "placeholder_long" 
+  | "ct"
+  | "subject_instructions"   // ⭐ NEW
+>("ai_new");
+
 
 
 const isEditingDefinition = selectedTemplateDefinitionId !== null;
@@ -2282,6 +2300,19 @@ const reloadCampaignBlueprint = async () => {
           </select>
         </div>
 
+        <div className="search-count-box">
+  <label className="section-label">Search URL Count</label>
+  <select
+    className="definition-select"
+    value={searchURLCount}
+    onChange={(e) => setSearchURLCount(Number(e.target.value))}
+  >
+    {Array.from({ length: 10 }, (_, i) => i + 1).map(n => (
+      <option key={n} value={n}>{n}</option>
+    ))}
+  </select>
+</div>
+
         {/* Save + Start Buttons */}
         <div className="button-row">
 {/* Save new definition */}
@@ -2345,6 +2376,8 @@ const reloadCampaignBlueprint = async () => {
         ["placeholder_short", "Placeholders list (essential)"],
         ["placeholder_long", "Placeholders list (extended)"],
         ["ct", "CT (unpopulated)"],
+        ["subject_instructions", "Email Subject Instructions"]
+
       ].map(([key, label]) => (
         <button
           key={key}
@@ -2405,6 +2438,15 @@ const reloadCampaignBlueprint = async () => {
       placeholder="Unpopulated master template..."
     />
   )}
+
+  {instructionSubTab === "subject_instructions" && (
+  <textarea
+    className="instruction-textarea"
+    value={subjectInstructions}
+    onChange={(e) => setSubjectInstructions(e.target.value)}
+    placeholder="Enter instructions for generating email subject..."
+  />
+)}
 
 </div>
 
