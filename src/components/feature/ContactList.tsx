@@ -44,6 +44,7 @@ interface DataFileItem {
   description: string;
   created_at: string;
   contacts: any[];
+  contactCount?: number;
 }
 
 interface Contact {
@@ -318,6 +319,102 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   const [segmentDescription, setSegmentDescription] = useState("");
   const [savingSegment, setSavingSegment] = useState(false);
 
+  // Delete contacts from Lists
+  const handleDeleteListContacts = async () => {
+    const contactsToDelete = viewMode === "detail"
+      ? Array.from(detailSelectedContacts)
+      : Array.from(selectedContacts);
+
+    if (contactsToDelete.length === 0) return;
+
+    try {
+      setIsLoading(true);
+      
+      for (const contactId of contactsToDelete) {
+        const response = await fetch(
+          `${API_BASE_URL}/api/Crm/delete-Datafile-contact?contactId=${contactId}`,
+          {
+            method: "POST",
+            headers: {
+              "accept": "*/*",
+            },
+          }
+        );
+        
+        if (!response.ok) {
+          throw new Error(`Failed to delete contact ${contactId}`);
+        }
+      }
+
+      appModal.showSuccess(`${contactsToDelete.length} contact(s) deleted successfully!`);
+      
+      if (viewMode === "detail") {
+        setDetailSelectedContacts(new Set());
+        if (selectedDataFileForView) {
+          fetchDetailContacts("list", selectedDataFileForView);
+        }
+      } else {
+        setSelectedContacts(new Set());
+        if (selectedDataFile) {
+          fetchContacts();
+        }
+      }
+      
+    } catch (error) {
+      console.error("Error deleting contacts:", error);
+      appModal.showError("Failed to delete contacts");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Delete contacts from Segments
+  const handleDeleteSegmentContacts = async () => {
+    const contactsToDelete = segmentViewMode === "detail"
+      ? Array.from(detailSelectedContacts)
+      : Array.from(selectedContacts);
+
+    if (contactsToDelete.length === 0) return;
+
+    try {
+      setIsLoading(true);
+      
+      for (const contactId of contactsToDelete) {
+        const response = await fetch(
+          `${API_BASE_URL}/api/Crm/delete-by-segment?contactId=${contactId}`,
+          {
+            method: "POST",
+            headers: {
+              "accept": "*/*",
+            },
+          }
+        );
+        
+        if (!response.ok) {
+          throw new Error(`Failed to delete contact ${contactId}`);
+        }
+      }
+
+      appModal.showSuccess(`${contactsToDelete.length} contact(s) deleted successfully!`);
+      
+      if (segmentViewMode === "detail") {
+        setDetailSelectedContacts(new Set());
+        if (selectedSegmentForView) {
+          fetchDetailContacts("segment", selectedSegmentForView);
+        }
+      } else {
+        setSelectedContacts(new Set());
+        fetchSegments();
+      }
+      
+    } catch (error) {
+      console.error("Error deleting contacts:", error);
+      appModal.showError("Failed to delete contacts");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Find this function in your DataCampaigns.tsx and replace it
   const handleSaveSegment = async () => {
     if (!segmentName) return;
@@ -367,7 +464,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
       setSegmentDescription("");
 
       // Clear selections after saving
-      if (viewMode === "detail") {
+      if (viewMode === "detail" || segmentViewMode === "detail") {
         setDetailSelectedContacts(new Set());
       } else {
         setSelectedContacts(new Set());
@@ -384,8 +481,21 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     }
   };
 
+  // Segment interface
+  interface Segment {
+    id: number;
+    name: string;
+    description?: string;
+    dataFileId: number;
+    clientId: number;
+    createdAt: string;
+    updatedAt?: string;
+    contactCount?: number;
+    contacts?: any[];
+  }
+
   //segments
-  const [segments, setSegments] = useState<any[]>([]);
+  const [segments, setSegments] = useState<Segment[]>([]);
   const [selectedSegment, setSelectedSegment] = useState<string>("");
   const [segmentContacts, setSegmentContacts] = useState<Contact[]>([]);
   const [segmentSearchQuery, setSegmentSearchQuery] = useState("");
@@ -1129,7 +1239,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                         </td>
                         <td>#{file.id}</td>
                         <td>Your First Folder</td>
-                        <td>{file.contacts?.length || 0}</td>
+                        <td>{file.contactCount || file.contacts?.length || 0}</td>
                         <td>
                           {file.created_at
                             ? formatDate(file.created_at) // Use formatDate instead of toLocaleString
@@ -1465,13 +1575,26 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                         {detailSelectedContacts.size} contact
                         {detailSelectedContacts.size > 1 ? "s" : ""} selected
                       </span>
-                      <button
-                        className="button primary"
-                        onClick={() => setShowSaveSegmentModal(true)}
-                        style={{ marginLeft: "auto" }}
-                      >
-                        Create segment
-                      </button>
+                      <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+                        <button
+                          className="button secondary"
+                          onClick={handleDeleteListContacts}
+                          disabled={isLoading}
+                          style={{
+                            background: "#dc3545",
+                            color: "#fff",
+                            border: "none",
+                          }}
+                        >
+                          {isLoading ? "Deleting..." : "Delete contacts"}
+                        </button>
+                        <button
+                          className="button primary"
+                          onClick={() => setShowSaveSegmentModal(true)}
+                        >
+                          Create segment
+                        </button>
+                      </div>
                     </div>
                   )
                 }
@@ -2106,13 +2229,26 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                         {detailSelectedContacts.size} contact
                         {detailSelectedContacts.size > 1 ? "s" : ""} selected
                       </span>
-                      <button
-                        className="button primary"
-                        onClick={() => setShowSaveSegmentModal(true)}
-                        style={{ marginLeft: "auto" }}
-                      >
-                        Create segment
-                      </button>
+                      <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+                        <button
+                          className="button secondary"
+                          onClick={handleDeleteSegmentContacts}
+                          disabled={isLoading}
+                          style={{
+                            background: "#dc3545",
+                            color: "#fff",
+                            border: "none",
+                          }}
+                        >
+                          {isLoading ? "Deleting..." : "Delete contacts"}
+                        </button>
+                        <button
+                          className="button primary"
+                          onClick={() => setShowSaveSegmentModal(true)}
+                        >
+                          Create segment
+                        </button>
+                      </div>
                     </div>
                   )
                 }
