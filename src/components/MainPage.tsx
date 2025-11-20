@@ -28,7 +28,6 @@ import "react-quill-new/dist/quill.snow.css";
 import { RootState } from "../Redux/store";
 import { systemPrompt, Languages } from "../utils/label";
 import Output from "./feature/Output";
-import Settings from "./feature/Settings";
 import DataFile from "./feature/datafile";
 import axios from "axios";
 import Header from "./common/Header";
@@ -361,6 +360,7 @@ const MainPage: React.FC = () => {
 
 // Load Campaign Blueprint when a campaign is selected
 // 🧠 Define this function above goToTab (not inside useEffect)
+// Load Campaign Blueprint when a campaign is selected
 const loadCampaignBlueprint = async (selectedCampaign: string) => {
   console.log("Fetching campaign details for selected campaign:", selectedCampaign);
 
@@ -376,19 +376,52 @@ const loadCampaignBlueprint = async (selectedCampaign: string) => {
   let blueprint = "";
   let matchedTemplate: any = null;
 
-  // 🔹 1. Fetch blueprint from specific campaign endpoint
+  // 🔹 1. Fetch blueprint + placeholderValues from template
   const bpResp = await fetch(`${API_BASE_URL}/api/CampaignPrompt/campaign/${templateId}`);
+  let bpJson: any = {};
   if (bpResp.ok) {
-    const bpJson = await bpResp.json();
+    bpJson = await bpResp.json();
+
     blueprint =
       (bpJson.campaignBlueprint ||
         bpJson.aiInstructions ||
         bpJson.masterBlueprint ||
         bpJson.templateBlueprint ||
         "").toString();
+
+    // ---------------------------------------------------------
+    // ⭐⭐⭐ ADD YOUR REQUIRED LOGIC HERE
+    // ---------------------------------------------------------
+
+    const pv = bpJson.placeholderValues || {};
+
+    setSearchTermForm({
+      searchTerm: pv.hook_search_terms || "",
+      instructions: pv.search_objective || "",
+      searchCount: bpJson.searchURLCount?.toString() || "1",
+      output: ""
+    });
+
+    // Set selected GPT Model
+    setSelectedModelName(bpJson.selectedModel || "gpt-5");
+
+    if (bpJson.subjectInstructions) {
+      setSettingsForm((prev: any) => ({
+        ...prev,
+        subjectInstructions: bpJson.subjectInstructions
+      }));
+    }
+    console.log("🎯 Loaded from DB:", {
+      searchTerm: pv.hook_search_terms,
+      instructions: pv.search_objective,
+      searchCount: bpJson.searchURLCount,
+      model: bpJson.selectedModel
+    });
+
+    // ---------------------------------------------------------
   }
 
-  // 🔹 2. Fallback: check in client templates
+  // 🔹 2. Fallback: fetch from client templates
   if (!blueprint.trim()) {
     const templatesResp = await fetch(`${API_BASE_URL}/api/CampaignPrompt/templates/${clientId}`);
     if (templatesResp.ok) {
@@ -404,7 +437,7 @@ const loadCampaignBlueprint = async (selectedCampaign: string) => {
 
   if (!blueprint.trim()) throw new Error(`No blueprint found for templateId: ${templateId}`);
 
-  // ✅ Prepare the prompt object
+  // Prepare prompt
   const campaignBlueprintPrompt = {
     id: templateId,
     name: matchedTemplate?.templateName || campaignData.templateName || `Template ${templateId}`,
@@ -412,7 +445,7 @@ const loadCampaignBlueprint = async (selectedCampaign: string) => {
     model: matchedTemplate?.selectedModel || "gpt-5",
   };
 
-  // ✅ Store in React + session storage
+  // Save to React + sessionStorage
   setSelectedPrompt(campaignBlueprintPrompt);
   sessionStorage.setItem("selectedPrompt", JSON.stringify(campaignBlueprintPrompt));
 
@@ -424,6 +457,9 @@ const loadCampaignBlueprint = async (selectedCampaign: string) => {
 
   return campaignBlueprintPrompt;
 };
+
+
+
 useEffect(() => {
   if (selectedCampaign) {
     loadCampaignBlueprint(selectedCampaign).catch((err) =>
@@ -563,17 +599,7 @@ useEffect(() => {
     }
   };
 
-  useEffect(() => {
-    const fetchSettings = async () => {
-      if (selectedClient) {
-        const settings = await fetchClientSettings(Number(selectedClient));
-        // do something with the settings here
-        console.log(settings);
-      }
-    };
 
-    fetchSettings();
-  }, [selectedClient]);
 
   const handleNewDataFileSelection = () => {
     // Call the clear function when a new data file is selected
@@ -692,94 +718,41 @@ useEffect(() => {
     fetchPromptsList();
   }, [selectedClient, fetchPromptsList]);
 
-  const handleClientChange = async (
-    event: React.ChangeEvent<HTMLSelectElement>
-  ) => {
-    const newClientId = event.target.value;
-    setSelectedClient(newClientId);
+const handleClientChange = async (
+  event: React.ChangeEvent<HTMLSelectElement>
+) => {
+  const newClientId = event.target.value;
+  setSelectedClient(newClientId);
 
-    // Clear existing selections when client changes
-    setSelectedPrompt(null);
-    setSelectedZohoviewId("");
-    setSelectedCampaign("");
-    setSelectionMode("manual");
-    setPromptList([]);
+  // Reset everything when switching clients
+  setSelectedPrompt(null);
+  setSelectedZohoviewId("");
+  setSelectedCampaign("");
+  setSelectionMode("manual");
+  setPromptList([]);
+  setClientSettings(null);
 
-    if (newClientId) {
-      setIsLoadingClientSettings(true);
-      try {
-        console.log("Loading settings for client:", newClientId);
-        const settings = await fetchClientSettings(Number(newClientId));
-        console.log("Settings loaded:", settings);
+  // Clear all local form states (they will later be overwritten
+  // automatically by loadCampaignBlueprint() when user selects a campaign)
+  setSearchTermForm({
+    searchCount: "",
+    searchTerm: "",
+    instructions: "",
+    output: "",
+  });
 
-        // Store settings in context
-        setClientSettings(settings);
+  setSettingsForm({
+    systemInstructions: "",
+    subjectInstructions: "",
+    emailTemplate: "",
+  });
 
-        // IMPORTANT: Apply settings to form states immediately
-        if (settings && Object.keys(settings).length > 0) {
-          // Update searchTermForm state
-          setSearchTermForm({
-            searchCount: settings.searchCount?.toString() || "",
-            searchTerm: settings.searchTerm || "",
-            instructions: settings.instructions || "",
-            output: "", // or whatever default value you use
-          });
+  setSelectedModelName("gpt-5"); // default model, will be overwritten by campaign
 
-          // Update settingsForm state
-          setSettingsForm({
-            systemInstructions: settings.systemInstructions || "",
-            subjectInstructions: settings.subjectInstructions || "",
-            emailTemplate: settings.emailTemplate || "",
-          });
+  // Trigger refresh for dependent UI
+  triggerRefresh();
+};
 
-          // Update selected model
-          if (settings.modelName) {
-            setSelectedModelName(settings.modelName);
-            localStorage.setItem("selectedModel", settings.modelName);
-          }
-        }
-
-        // Trigger refresh for all components
-        triggerRefresh();
-      } catch (error) {
-        console.error("Error loading client settings:", error);
-        setClientSettings(null);
-
-        // Clear form states on error
-        setSearchTermForm({
-          searchCount: "",
-          searchTerm: "",
-          instructions: "",
-          output: "",
-        });
-
-        setSettingsForm({
-          systemInstructions: "",
-          subjectInstructions: "",
-          emailTemplate: "",
-        });
-      } finally {
-        setIsLoadingClientSettings(false);
-      }
-    } else {
-      // Clear everything when no client is selected
-      setClientSettings(null);
-      setSearchTermForm({
-        searchCount: "",
-        searchTerm: "",
-        instructions: "",
-        output: "",
-      });
-
-      setSettingsForm({
-        systemInstructions: "",
-        subjectInstructions: "",
-        emailTemplate: "",
-      });
-
-      triggerRefresh();
-    }
-  };
 
   useEffect(() => {
     const isAdminString = sessionStorage.getItem("isAdmin");
@@ -1487,38 +1460,7 @@ useEffect(() => {
     return `${day}.${month}.${year} ${hours}:${minutes}:${seconds}`;
   }
 
-  const fetchClientSettings = async (clientID: number): Promise<any> => {
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/auth/clientSettings/${clientID}`
-      );
-      if (!response.ok) {
-        throw new Error("Failed to fetch client settings");
-      }
-      const settings = await response.json();
 
-      if (!settings || settings.length === 0) {
-        console.warn("No settings found for the given Client ID");
-        return {};
-      }
-
-      // The API returns an array, so get the first element
-      const clientSettings = settings[0];
-
-      // Map snake_case API properties to camelCase for React components
-      return {
-        modelName: clientSettings.model_name,
-        searchCount: clientSettings.search_URL_count,
-        searchTerm: clientSettings.search_term,
-        instructions: clientSettings.instruction,
-        systemInstructions: clientSettings.system_instruction,
-        subjectInstructions: clientSettings.subject_instruction,
-      };
-    } catch (error) {
-      console.error("Error fetching client settings:", error);
-      return {};
-    }
-  };
 
   const analyzeScrapedData = (
     scrapedData: string
@@ -1623,18 +1565,12 @@ if (tab === "Output" && selectedCampaign) {
       return;
     }
 
-    // Fetch default values from API
-    const defaultValues = await fetchClientSettings(Number(clientID));
-    // Determine which values to use
-    const selectedModelNameA = selectedModelName || defaultValues.modelName;
-    const searchterm = searchTermForm.searchTerm || defaultValues.searchTerm;
-    const searchCount = searchTermForm.searchCount || defaultValues.searchCount;
-    const instructionsParamA =
-      searchTermForm.instructions || defaultValues.instructions;
-    const systemInstructionsA =
-      settingsForm.systemInstructions || defaultValues.systemInstructions;
-    const subject_instruction =
-      settingsForm.subjectInstructions || defaultValues.subjectInstructions;
+    const selectedModelNameA = selectedModelName;
+    const searchterm = searchTermForm.searchTerm;
+    const searchCount = searchTermForm.searchCount;
+    const instructionsParamA = searchTermForm.instructions;
+    const systemInstructionsA = settingsForm.systemInstructions;
+    const subject_instruction = settingsForm.subjectInstructions;
 
     const startTime = new Date();
 
@@ -4074,44 +4010,27 @@ if (tab === "Output" && selectedCampaign) {
                     </li>
                   
 
-                    <li className={tab === "Settings" ? "active" : ""}>
-                      <button
-                        onClick={() => {
-                          setTab("Settings");
-                          setShowMailSubmenu(false);
-                          setShowContactsSubmenu(false);
-                        }}
-                        className="side-menu-button"
-                      >
-                        <span className="menu-icon">
-                          <FontAwesomeIcon
-                            icon={faGear}
-                            className=" text-[#333333] text-lg"
-                          />
-                        </span>
-                        <span className="menu-text">Settings</span>
-                      </button>
-                    </li>
+
                    <li className="relative">
         {/* Button */}
-        <button
-          ref={buttonRef}
-          onClick={() => setShowSupportPopup((prev) => !prev)}
-          className="side-menu-button w-full flex items-center gap-3 px-3 py-2 hover:bg-gray-100 rounded-md"
-        >
-          <span className="menu-icon">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="20px"
-              height="20px"
-              viewBox="0 0 24 24"
-              fill="#111111"
-            >
-              <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-2h2v2zm1.07-7.75-.9.92C12.45 10.9 12 11.5 12 13h-2v-.5c0-.83.45-1.54 1.17-2.11l1.24-1.23a2 2 0 1 0-3.41-1.41H7a4 4 0 1 1 6.07 3.41z" />
-            </svg>
-          </span>
-          <span className="menu-text">Support Details</span>
-        </button>
+                    <button
+                      ref={buttonRef}
+                      onClick={() => setShowSupportPopup((prev) => !prev)}
+                      className="side-menu-button w-full flex items-center gap-3 px-3 py-2 hover:bg-gray-100 rounded-md"
+                    >
+                      <span className="menu-icon">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="20px"
+                          height="20px"
+                          viewBox="0 0 24 24"
+                          fill="#111111"
+                        >
+                          <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-2h2v2zm1.07-7.75-.9.92C12.45 10.9 12 11.5 12 13h-2v-.5c0-.83.45-1.54 1.17-2.11l1.24-1.23a2 2 0 1 0-3.41-1.41H7a4 4 0 1 1 6.07 3.41z" />
+                        </svg>
+                      </span>
+                      <span className="menu-text">Support Details</span>
+                    </button>
 
         {/* Popup */}
         {showSupportPopup && (
@@ -4143,30 +4062,6 @@ if (tab === "Output" && selectedCampaign) {
       </li>
 
 
-
-
-
-                    {/* {userRole === "ADMIN" && (
-                      <li className={tab === "TestTemplate" ? "active" : ""}>
-                        <button
-                          onClick={() => {
-                            setTab("TestTemplate");
-                            setShowMailSubmenu(false);
-                            setShowContactsSubmenu(false);
-                          }}
-                          className="side-menu-button"
-                          title="Manage test templates"
-                        >
-                          <span className="menu-icon">
-                            <FontAwesomeIcon
-                              icon={faFileAlt}
-                              className=" text-[#333333] text-lg"
-                            />
-                          </span>
-                          <span className="menu-text">Test Templates</span>
-                        </button>
-                      </li>
-                    )} */}
                   </ul>
                 </div>
               </div>
@@ -4353,22 +4248,7 @@ if (tab === "Output" && selectedCampaign) {
               />
             )}
 
-            {tab === "Settings" && (
-              <Settings
-                selectedClient={selectedClient}
-                fetchClientSettings={fetchClientSettings}
-                settingsForm={settingsForm}
-                settingsFormHandler={settingsFormHandler}
-                settingsFormOnSubmit={settingsFormOnSubmit}
-                searchTermForm={searchTermForm}
-                searchTermFormHandler={searchTermFormHandler}
-                searchTermFormOnSubmit={searchTermFormOnSubmit}
-                preloadedSettings={clientSettings} // ADD THIS LINE
-                isLoadingSettings={isLoadingClientSettings} // ADD THIS LINE
-                lastLoadedClientId={lastLoadedClientId}
-                setLastLoadedClientId={setLastLoadedClientId}
-              />
-            )}
+
 
             {tab === "Mail" && (
               <Mail
