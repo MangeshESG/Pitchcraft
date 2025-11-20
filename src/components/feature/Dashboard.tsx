@@ -250,7 +250,7 @@ export const Dashboard: React.FC = () => {
                     Generate emails
 
                   </div>
-                  <span className=" text-gray-400">Video coming sooon</span>
+                  <span className=" text-gray-400">Video coming soon</span>
                   {/* <button className=" green flex gap-2 items-center">
                     <FontAwesomeIcon
                       icon={faPlayCircle}
@@ -288,7 +288,7 @@ export const Dashboard: React.FC = () => {
                     Schedule and review campaigns
                   </div>
 
-                  <span className=" text-gray-400">Video coming sooon</span>
+                  <span className=" text-gray-400">Video coming soon</span>
 
                 </div>
                 <div className="flex justify-between h-[calc(100%-30px)]">

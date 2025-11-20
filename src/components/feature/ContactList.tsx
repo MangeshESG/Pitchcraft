@@ -113,6 +113,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [totalContacts, setTotalContacts] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
+  const [currentPageLists, setCurrentPageLists] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedContacts, setSelectedContacts] = useState<Set<string>>(
@@ -1106,9 +1107,9 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     }
   };
   const totalPages1 = Math.ceil(filteredDatafiles.length / pageSize);
-  const startIndex1 = (currentPage - 1) * pageSize;
-  const endIndex1 = startIndex1 + pageSize;
-  const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
+ const startIndex1 = (currentPageLists - 1) * pageSize;  // ✅ CORRECT - uses currentPageLists
+const endIndex1 = Math.min(currentPageLists * pageSize, filteredDatafiles.length);
+const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
   //const currentData = filteredDatafiles.slice(currentPage, currentPage + pageSize);
   const columnNameMap: Record<string, string> = {
     id: "ID",
@@ -1209,7 +1210,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredDatafiles.length === 0 && (
+                    {currentData.length === 0 && (
                       <tr>
                         <td colSpan={7} style={{ textAlign: "center" }}>
                           No lists found.
@@ -1437,11 +1438,11 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                   </tbody>
                 </table>
                 <PaginationControls
-                  currentPage={currentPage}
-                  totalPages={totalPages}
+                  currentPage={currentPageLists}
+                  totalPages={totalPages1}
                   pageSize={pageSize}
                   totalRecords={filteredDatafiles.length}
-                  setCurrentPage={setCurrentPage}
+                  setCurrentPage={setCurrentPageLists}
                 />
 
               </>
@@ -2100,7 +2101,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                   currentPage={currentPage}
                   totalPages={totalPages}
                   pageSize={pageSize}
-                  totalRecords={filteredDatafiles.length}
+                  totalRecords={contacts.length}
                   setCurrentPage={setCurrentPage}
                 />
 
