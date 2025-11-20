@@ -136,7 +136,7 @@ const LoginPage: React.FC = () => {
             <div class="container">
                 <p class="header">Hello,</p>
                 
-                  <p>Below are the login activity details on pitch generator (<a href="https://pitch.dataji.co/">https://pitch.dataji.co/</a>) site:</p>
+                  <p>Below are the login activity details on pitch generator (<a href="https://app.pitchkraft.ai/">https://app.pitchkraft.ai/</a>) site:</p>
 
                 <ul>
                     <li> Client name: ${clientName}</li>
