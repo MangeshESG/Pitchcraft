@@ -915,7 +915,6 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   const handleDownloadList = async (file: DataFileItem) => {
     try {
       setIsLoading(true);
-
       // Fetch all contacts for this list
       const response = await fetch(
         `${API_BASE_URL}/api/Crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${file.id}`
@@ -935,6 +934,25 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
       const filename = `${file.name.replace(/[^a-z0-9]/gi, "_")}_${new Date().toISOString().split("T")[0]
         }`;
       downloadCSV(contacts, filename);
+
+      // Send email notification only for non-admin users
+      const isAdmin = sessionStorage.getItem("isAdmin") === "true";
+      if (!isAdmin) {
+        try {
+          await fetch(
+            `${API_BASE_URL}/api/Crm/send-file-download-mail?clientId=${effectiveUserId}&fileName=${encodeURIComponent(filename)}`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+            }
+          );
+        } catch (emailError) {
+          console.error("Failed to send download notification email:", emailError);
+          // Don't show error to user as download was successful
+        }
+      }
     } catch (error) {
       console.error("Error downloading list:", error);
       appModal.showError("Failed to download list data");

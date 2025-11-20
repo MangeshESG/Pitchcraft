@@ -489,7 +489,7 @@ useEffect(() => {
   const [isExporting, setIsExporting] = useState(false);
 
   // Add this function inside your component
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     if (!combinedResponses || combinedResponses.length === 0) {
       alert("No data available to export");
       return;
@@ -553,6 +553,25 @@ useEffect(() => {
         const blob = new Blob([wbout], { type: "application/octet-stream" });
         FileSaver.saveAs(blob, filename);
         console.log("Excel file exported with FileSaver");
+      }
+
+      // Send email notification only for non-admin users
+      const isAdmin = sessionStorage.getItem("isAdmin") === "true";
+      if (!isAdmin) {
+        try {
+          await fetch(
+            `${API_BASE_URL}/api/Crm/send-file-download-mail?clientId=${effectiveUserId}&fileName=${encodeURIComponent(filename)}`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+            }
+          );
+        } catch (emailError) {
+          console.error("Failed to send download notification email:", emailError);
+          // Don't show error to user as download was successful
+        }
       }
     } catch (error) {
       console.error("Error exporting to Excel:", error);
