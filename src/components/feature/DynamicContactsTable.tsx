@@ -518,6 +518,26 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
             )}
             {detailTitle && <h2 style={{ margin: 0 }}>{detailTitle}</h2>}
             <div style={{ marginLeft: "auto", display: "flex", gap: 12 }}>
+              {onAddItem && (
+                <button
+                  className="button primary"
+                  onClick={onAddItem}
+                  style={{
+                    background: "#3f9f42",
+                    color: "#fff",
+                    border: "none",
+                    padding: "8px 16px",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px"
+                  }}
+                >
+                  <span style={{ fontSize: "18px" }}>+</span>
+                  Add Contact
+                </button>
+              )}
               <button
                 className="button secondary"
                 onClick={() => setShowColumnPanel(!showColumnPanel)}

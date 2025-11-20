@@ -3,6 +3,7 @@ import API_BASE_URL from "../../config";
 import "./ContactList.css";
 import DynamicContactsTable from "./DynamicContactsTable";
 import AppModal from "../common/AppModal";
+import AddContactModal from "./AddContactModal";
 import { useAppModal } from "../../hooks/useAppModal";
 import { useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
@@ -1557,7 +1558,7 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
                   setViewMode("list");
                   setSelectedDataFileForView(null);
                 }}
-                onAddItem={onAddContactClick}
+                onAddItem={() => setShowAddContactModal(true)}
                 columnNameMap={columnNameMap}
                 customHeader={
                   detailSelectedContacts.size > 0 && (
@@ -2212,7 +2213,7 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
                   setSegmentViewMode("list");
                   setSelectedSegmentForView(null);
                 }}
-                onAddItem={onAddContactClick}
+                onAddItem={() => setShowAddContactModal(true)}
                 customHeader={
                   detailSelectedContacts.size > 0 && (
                     <div
@@ -2519,6 +2520,27 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
           </div>
         </div>
       )}
+      <AddContactModal
+        isOpen={showAddContactModal}
+        onClose={() => setShowAddContactModal(false)}
+        dataFileId={selectedDataFileForView?.id?.toString() || selectedDataFile}
+        onContactAdded={() => {
+          if (viewMode === "detail" && selectedDataFileForView) {
+            fetchDetailContacts("list", selectedDataFileForView);
+          } else if (segmentViewMode === "detail" && selectedSegmentForView) {
+            fetchDetailContacts("segment", selectedSegmentForView);
+          } else if (selectedDataFile) {
+            fetchContacts();
+          }
+        }}
+        onShowMessage={(message, type) => {
+          if (type === 'success') {
+            appModal.showSuccess(message);
+          } else {
+            appModal.showError(message);
+          }
+        }}
+      />
       <AppModal
         isOpen={appModal.isOpen}
         onClose={appModal.hideModal}
