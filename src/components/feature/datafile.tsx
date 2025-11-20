@@ -36,13 +36,13 @@ interface ProcessedContact {
 }
 
 const REQUIRED_FIELDS = [
-  { key: "name", label: "Name", required: true },
-  { key: "email", label: "Email", required: true },
-  { key: "job_title", label: "Job title", required: false },
-  { key: "company", label: "Company", required: false },
-  { key: "location", label: "Location", required: false },
+  { key: "name", label: "Full name (First name and Surname)", required: true },
+  { key: "email", label: "Email address", required: true },
+  { key: "job_title", label: <>Job title <span style={{ color: "blue" }}>*</span></>, required: false },
+  { key: "company", label: <>Company <span style={{ color: "blue" }}>*</span></>, required: false },
+  { key: "location", label: <>Location <span style={{ color: "blue" }}>*</span></>, required: false },
   { key: "linkedin", label: "LinkedIn URL", required: false },
-  { key: "company_website", label: "Company website", required: false },
+  { key: "company_website", label: <>Company Website <span style={{ color: "blue" }}>*</span></>, required: false },
   { key: "email_body", label: "Email body", required: false },
   { key: "email_subject", label: "Email subject", required: false },
   { key: "company_telephone", label: "Company telephone", required: false },
@@ -51,7 +51,7 @@ const REQUIRED_FIELDS = [
     label: "Company employee count",
     required: false,
   },
-  { key: "company_industry", label: "Company industry", required: false },
+  { key: "company_industry", label: <>Company Industry <span style={{ color: "blue" }}>*</span></>, required: false },
   {
     key: "company_linkedin_url",
     label: "Company LinkedIn URL",
@@ -720,7 +720,9 @@ console.log("processingStats.valid:", processingStats.valid);
                 Map your contacts data file columns
               </h4>
               <p className="text-muted mb-20">
-                Please map your contacts data file to the required fields below:
+                Please map your contacts data file to the required fields below.<br />
+                Mandatory fields are marked with a red asterisk (<span style={{color: 'red'}}>*</span>). 
+                For best results, also include those fields with a blue asterisk (<span style={{color: 'blue'}}>*</span>).
               </p>
 
               <div className="mapping-container">

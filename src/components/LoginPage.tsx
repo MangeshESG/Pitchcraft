@@ -146,7 +146,9 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
         sessionStorage.setItem("isAdmin", data.isAdmin || "false");
         sessionStorage.setItem("isDemoAccount", data.isDemoAccount || "false");
 
-        if (data.firstName || firstName) dispatch(saveFirstName(data.firstName || firstName));
+        // Fix: Ensure firstName from token is dispatched
+        if (firstName) dispatch(saveFirstName(firstName));
+        if (data.firstName) dispatch(saveFirstName(data.firstName));
         if (data.lastName) dispatch(saveLastName(data.lastName));
 
         try {
@@ -544,6 +546,18 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
     }
   };
 
+  const getFirstNameFromToken = (token: string) => {
+    try {
+      const payloadBase64 = token.split(".")[1];
+      const payloadJson = atob(payloadBase64);
+      const payload = JSON.parse(payloadJson);
+      return payload.firstname;
+    } catch (error) {
+      console.error("Error decoding token:", error);
+      return null;
+    }
+  };
+
   const handleVerify = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setMsg("");
@@ -619,6 +633,7 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
 
           const userId = getUserIdFromToken(data.token);
           const userRole = getUserRoleFromToken(data.token);
+          const firstName = getFirstNameFromToken(data.token);
 
           dispatch(saveUserName(loginUser));
           if (userId) dispatch(saveUserId(userId));
@@ -629,6 +644,7 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
           sessionStorage.setItem("isAdmin", data.isAdmin || "false");
           sessionStorage.setItem("isDemoAccount", data.isDemoAccount || "false");
 
+          if (firstName) dispatch(saveFirstName(firstName));
           if (data.firstName) dispatch(saveFirstName(data.firstName));
           if (data.lastName) dispatch(saveLastName(data.lastName));
 
