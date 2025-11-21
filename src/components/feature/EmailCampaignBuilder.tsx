@@ -630,7 +630,7 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
                     <div className={`message-bubble ${message.type}`}>
                       {renderMessageContent(message.content)}
                       <div className={`message-time ${message.type}`}>
-                        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </div>
                     </div>
                   </div>
@@ -807,13 +807,36 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
               })()}
 
               {/* Generate Button BESIDE contact details */}
-              <button
-                className="generate-btn"
-                onClick={() => applyContactPlaceholders(contacts.find(c => c.id === selectedContactId)!)}
-                style={{ padding: "6px 12px", backgroundColor: "#3f9f42", color: "#fff", border: "none", borderRadius: "4px", cursor: "pointer" }}
-              >
-                Generate
-              </button>
+<button
+  className="regenerate-btn"
+  onClick={async () => {
+    if (!selectedContactId) {
+      alert("Please select a contact before generating.");
+      return;
+    }
+
+    const contact = contacts.find(c => c.id === selectedContactId);
+    if (!contact) {
+      alert("Invalid contact selection.");
+      return;
+    }
+
+    // Step 1: Apply contact placeholders
+    await applyContactPlaceholders(contact);
+
+    // Step 2: Run example generation, but only if defined
+    if (regenerateExampleOutput) {
+      await regenerateExampleOutput();
+    } else {
+      console.error("❌ regenerateExampleOutput is undefined");
+      alert("Example generation function missing!");
+    }
+  }}
+  disabled={!conversationStarted}
+>
+  Generate
+</button>
+
             </div>
           )}
 
@@ -927,7 +950,7 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
 // ====================================================================
 const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ selectedClient }) => {
   // --- State Management ---
-  const [activeTab, setActiveTab] = useState<TabType>('template');
+const [activeTab, setActiveTab] = useState<TabType>('build');
   const [currentAnswer, setCurrentAnswer] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -989,6 +1012,9 @@ const [subjectInstructions, setSubjectInstructions] = useState<string>("");
       .then(res => setDataFiles(res.data || []))
       .catch(err => console.error("Failed to load datafiles", err));
   }, [effectiveUserId]);
+
+
+
 
   // ====================================================================
   // AUTO-START CONVERSATION (Robust version)
@@ -2279,7 +2305,43 @@ function AutoResizeTextarea({
 }
 
 const reloadCampaignBlueprint = async () => {
+  try {
+    const storedId = sessionStorage.getItem("newCampaignId");
+    const id = editTemplateId ?? (storedId ? Number(storedId) : null);
+
+    if (!id) return;
+
+    const res = await axios.get(`${API_BASE_URL}/api/CampaignPrompt/campaign/${id}`);
+    const data = res.data;
+
+    // Update example output
+    if (data.exampleOutput) {
+      setExampleOutput(data.exampleOutput);
+    } else if (data.campaignBlueprint) {
+      setExampleOutput(data.campaignBlueprint);
+    }
+
+    // Update placeholders
+    if (data.placeholderValues) {
+      const conversationOnly = getConversationPlaceholders(data.placeholderValues);
+      const contactOnly = getContactPlaceholders(placeholderValues);
+
+      setPlaceholderValues({
+        ...conversationOnly,
+        ...contactOnly
+      });
+    }
+
+    // Update blueprint
+    if (data.campaignBlueprint) {
+      setCampaignBlueprint(data.campaignBlueprint);
+    }
+
+  } catch (err) {
+    console.error("Failed to reload blueprint:", err);
+  }
 };
+
 
   // ====================================================================
   // RENDER
