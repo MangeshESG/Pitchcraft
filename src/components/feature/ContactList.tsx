@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect,useMemo } from "react";
 import API_BASE_URL from "../../config";
 import "./ContactList.css";
 import DynamicContactsTable from "./DynamicContactsTable";
@@ -117,7 +117,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   const [totalContacts, setTotalContacts] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [currentPageLists, setCurrentPageLists] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(10);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedContacts, setSelectedContacts] = useState<Set<string>>(
     new Set()
@@ -291,8 +291,9 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
 
   // Calculate pagination
   const totalPages = Math.ceil(filteredContacts.length / pageSize);
-  const startIndex =
-    filteredContacts.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+ // const startIndex =
+   // filteredContacts.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+   const startIndex = (currentPage - 1) * pageSize;  
   const endIndex = Math.min(currentPage * pageSize, filteredContacts.length)
   // const endIndex = startIndex + pageSize;
   //const currentData = filteredContacts.slice(startIndex, endIndex);
@@ -513,6 +514,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   //segments
   const [segments, setSegments] = useState<Segment[]>([]);
   const [selectedSegment, setSelectedSegment] = useState<string>("");
+  const [segmentCurrentPage, setSegmentCurrentPage] = useState(1)
   const [segmentContacts, setSegmentContacts] = useState<Contact[]>([]);
   const [segmentSearchQuery, setSegmentSearchQuery] = useState("");
   const [isLoadingSegments, setIsLoadingSegments] = useState(false);
@@ -529,6 +531,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
       if (!response.ok) throw new Error("Failed to fetch segments");
       const data = await response.json();
       setSegments(data);
+      setSegmentCurrentPage(1)
     } catch (err) {
       setSegments([]);
     } finally {
@@ -632,7 +635,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   const [detailContacts, setDetailContacts] = useState<Contact[]>([]);
   const [detailTotalContacts, setDetailTotalContacts] = useState(0);
   const [detailCurrentPage, setDetailCurrentPage] = useState(1);
-  const [detailPageSize] = useState(20);
+  const [detailPageSize] = useState(10);
   const [detailSearchQuery, setDetailSearchQuery] = useState("");
   const [detailSelectedContacts, setDetailSelectedContacts] = useState<
     Set<string>
@@ -1126,6 +1129,50 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
 const endIndex1 = Math.min(currentPageLists * pageSize, filteredDatafiles.length);
 const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
   //const currentData = filteredDatafiles.slice(currentPage, currentPage + pageSize);
+
+//for segments
+
+// const filteredSegments = segments.filter(
+//     (seg) =>
+//       seg.name?.toLowerCase().includes(segmentSearchQuery.toLowerCase()) ||
+//       seg.description?.toLowerCase().includes(segmentSearchQuery.toLowerCase()),
+//   )
+ const { filteredSegments, paginatedSegments, segmentTotalPages } = useMemo(() => {
+    const filtered = segments.filter(
+      (seg) =>
+        seg.name?.toLowerCase().includes(segmentSearchQuery.toLowerCase()) ||
+        seg.description?.toLowerCase().includes(segmentSearchQuery.toLowerCase()),
+    )
+
+    const totalPages = Math.ceil(filtered.length / pageSize)
+    const startIndex = (segmentCurrentPage - 1) * pageSize
+    const endIndex = startIndex + pageSize
+    const paginated = filtered.slice(startIndex, endIndex)
+
+    console.log("[v0] Segment Pagination Debug:", {
+      totalSegments: segments.length,
+      filteredLength: filtered.length,
+      segmentCurrentPage,
+      pageSize,
+      totalPages,
+      startIndex,
+      endIndex,
+      paginatedLength: paginated.length,
+      segmentSearchQuery,
+    })
+
+    return {
+      filteredSegments: filtered,
+      paginatedSegments: paginated,
+      segmentTotalPages: totalPages,
+    }
+  }, [segments, segmentSearchQuery, segmentCurrentPage, pageSize])
+
+  // const segmentTotalPages = Math.ceil(filteredSegments.length / pageSize)
+  // const segmentStartIndex = (segmentCurrentPage - 1) * pageSize
+  // const segmentEndIndex = segmentStartIndex + pageSize
+  // const paginatedSegments = filteredSegments.slice(segmentStartIndex, segmentEndIndex)
+
   const columnNameMap: Record<string, string> = {
     id: "ID",
     full_name: "Full name",
@@ -1189,7 +1236,7 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    marginBottom: 16,
+                    marginBottom: -5,
                     gap: 16,
                   }}
                 >
@@ -1263,6 +1310,14 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
                     )}
                   </div>
                 </div>
+                 <PaginationControls
+                  currentPage={currentPageLists}
+                  totalPages={totalPages1}
+                  pageSize={pageSize}
+                  totalRecords={filteredDatafiles.length}
+                  setCurrentPage={setCurrentPageLists}
+                />
+                <div style={{marginBottom:"10px"}}></div>
                 <table
                   className="contacts-table"
                   style={{ background: "#fff" }}
@@ -1913,6 +1968,15 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
                   />
                 </div>
                 {/* ✅ Pagination on top right */}
+                <div style={{marginBottom:"10px"}}>
+                <PaginationControls
+                  currentPage={segmentCurrentPage}
+                  totalPages={segmentTotalPages}
+                  pageSize={pageSize}
+                  totalRecords={filteredSegments.length}
+                  setCurrentPage={setSegmentCurrentPage}
+                />
+                </div>
                 <table
                   className="contacts-table"
                   style={{ background: "#fff" }}
@@ -1933,14 +1997,14 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
                           Loading segments...
                         </td>
                       </tr>
-                    ) : segments.length === 0 ? (
+                    ) : filteredSegments.length === 0 ? (
                       <tr>
                         <td colSpan={5} style={{ textAlign: "center" }}>
                           No segments found.
                         </td>
                       </tr>
                     ) : (
-                      segments
+                      paginatedSegments
                         .filter(
                           (seg) =>
                             seg.name
@@ -2167,11 +2231,11 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
                 </div> */}
                 {/* ✅ Pagination on top right */}
                 <PaginationControls
-                  currentPage={currentPage}
-                  totalPages={totalPages}
+                  currentPage={segmentCurrentPage}
+                  totalPages={segmentTotalPages}
                   pageSize={pageSize}
-                  totalRecords={contacts.length}
-                  setCurrentPage={setCurrentPage}
+                  totalRecords={filteredSegments.length}
+                  setCurrentPage={setSegmentCurrentPage}
                 />
 
               </>

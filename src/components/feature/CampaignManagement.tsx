@@ -354,6 +354,15 @@ const createCampaign = async () => {
             + Create campaign
           </button>
         </div>
+        <div style={{marginBottom:"10px"}}>
+        <PaginationControls
+          currentPage={currentPage}
+          totalPages={totalPages}
+          pageSize={pageSize}
+          totalRecords={filteredCampaigns.length}
+          setCurrentPage={setCurrentPage}
+        />
+        </div>
 
         <table className="contacts-table" style={{ background: "#fff" }}>
           <thead>
