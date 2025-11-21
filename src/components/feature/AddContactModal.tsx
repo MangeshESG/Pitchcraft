@@ -128,7 +128,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
             <div>
               <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
-                Full Name <span style={{ color: 'red' }}>*</span>
+                Full name <span style={{ color: 'red' }}>*</span>
               </label>
               <input
                 type="text"
@@ -168,7 +168,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
             <div>
               <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
-                Company Name
+                Company name
               </label>
               <input
                 type="text"
@@ -186,7 +186,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
             
             <div>
               <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
-                Job Title
+                Job title
               </label>
               <input
                 type="text"
@@ -244,7 +244,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
             <div>
               <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
-                Country/Address
+                Country/address
               </label>
               <input
                 type="text"
@@ -262,7 +262,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
             
             <div>
               <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
-                Company Telephone
+                Company telephone
               </label>
               <input
                 type="text"
@@ -282,7 +282,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
             <div>
               <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
-                Company Employee Count
+                Company employee count
               </label>
               <input
                 type="text"
@@ -300,7 +300,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
             
             <div>
               <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
-                Company Industry
+                Company industry
               </label>
               <input
                 type="text"
@@ -320,7 +320,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
             <div>
               <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
-                Company LinkedIn URL
+                Company linkedin URL
               </label>
               <input
                 type="text"
@@ -338,7 +338,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
             
             <div>
               <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
-                Company Event Link
+                Company event link
               </label>
               <input
                 type="text"
@@ -357,7 +357,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
 
           <div style={{ marginBottom: 16 }}>
             <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
-              Email Subject
+              Email subject
             </label>
             <input
               type="text"
@@ -375,7 +375,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
 
           <div style={{ marginBottom: 20 }}>
             <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
-              Email Body
+              Email body
             </label>
             <textarea
               name="emailBody"

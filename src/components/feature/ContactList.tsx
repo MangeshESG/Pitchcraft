@@ -4,6 +4,8 @@ import "./ContactList.css";
 import DynamicContactsTable from "./DynamicContactsTable";
 import AppModal from "../common/AppModal";
 import AddContactModal from "./AddContactModal";
+import CreateListModal from "./CreateListModal";
+
 import { useAppModal } from "../../hooks/useAppModal";
 import { useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
@@ -122,6 +124,9 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   );
   const [showColumnSettings, setShowColumnSettings] = useState(false);
   const [showAddContactModal, setShowAddContactModal] = useState(false);
+  const [showCreateListModal, setShowCreateListModal] = useState(false);
+  const [showCreateListOptions, setShowCreateListOptions] = useState(false);
+
   const isDemoAccount = sessionStorage.getItem("isDemoAccount") === "true";
 
 
@@ -298,6 +303,15 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
       fetchDataFiles();
     }
   }, [effectiveUserId]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => setShowCreateListOptions(false);
+    if (showCreateListOptions) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [showCreateListOptions]);
 
   // Fetch contacts when data file changes
   useEffect(() => {
@@ -1187,13 +1201,67 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
                     value={listSearch}
                     onChange={(e) => setListSearch(e.target.value)}
                   />
-                  <button
-                    className="ml-10 save-button button auto-width small d-flex justify-between align-center"
-                    style={{ marginLeft: "auto" }}
-                    onClick={onAddContactClick}
-                  >
-                    <span className="text-[20px] mr-1">+</span> Create a list
-                  </button>
+                  <div style={{ marginLeft: "auto", position: "relative" }}>
+                    <button
+                      className="ml-10 save-button button auto-width small d-flex justify-between align-center"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowCreateListOptions(!showCreateListOptions);
+                      }}
+                    >
+                      <span className="text-[20px] mr-1">+</span> Create a list
+                    </button>
+                    {showCreateListOptions && (
+                      <div style={{
+                        position: "absolute",
+                        right: 0,
+                        top: 40,
+                        background: "#fff",
+                        border: "1px solid #eee",
+                        borderRadius: 6,
+                        boxShadow: "0 2px 16px rgba(0,0,0,0.12)",
+                        zIndex: 101,
+                        minWidth: 160
+                      }}>
+                        <button
+                          onClick={() => {
+                            if (onAddContactClick) onAddContactClick();
+                            setShowCreateListOptions(false);
+                          }}
+                          style={{
+                            width: "100%",
+                            padding: "8px 18px",
+                            textAlign: "left",
+                            background: "none",
+                            border: "none",
+                            color: "#222",
+                            fontSize: "15px",
+                            cursor: "pointer"
+                          }}
+                        >
+                          📁 Upload File
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowCreateListModal(true);
+                            setShowCreateListOptions(false);
+                          }}
+                          style={{
+                            width: "100%",
+                            padding: "8px 18px",
+                            textAlign: "left",
+                            background: "none",
+                            border: "none",
+                            color: "#222",
+                            fontSize: "15px",
+                            cursor: "pointer"
+                          }}
+                        >
+                          ✏️ Add Manually
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <table
                   className="contacts-table"
@@ -2213,7 +2281,6 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
                   setSegmentViewMode("list");
                   setSelectedSegmentForView(null);
                 }}
-                onAddItem={() => setShowAddContactModal(true)}
                 customHeader={
                   detailSelectedContacts.size > 0 && (
                     <div
@@ -2520,6 +2587,22 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
           </div>
         </div>
       )}
+
+      <CreateListModal
+        isOpen={showCreateListModal}
+        onClose={() => setShowCreateListModal(false)}
+        selectedClient={selectedClient}
+        onListCreated={() => {
+          fetchDataFiles();
+        }}
+        onShowMessage={(message, type) => {
+          if (type === 'success') {
+            appModal.showSuccess(message);
+          } else {
+            appModal.showError(message);
+          }
+        }}
+      />
       <AddContactModal
         isOpen={showAddContactModal}
         onClose={() => setShowAddContactModal(false)}
