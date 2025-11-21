@@ -350,7 +350,8 @@ const Planes: React.FC = () => {
           const isExactSamePlan = !!currentPlan && currentPlan.toLowerCase() === plan.title.toLowerCase() && currentInterval?.toLowerCase() === currentBillingType.toLowerCase();
           const canUpgrade = !!currentPlan && (currentPlan.toLowerCase() === 'standard' && plan.title.toLowerCase() === 'premium');
           const canSwitchInterval = !!currentPlan && currentPlan.toLowerCase() === plan.title.toLowerCase() && currentInterval?.toLowerCase() === 'monthly' && currentBillingType.toLowerCase() === 'yearly';
-          const cannotBuy = !!currentPlan && plan.title.toLowerCase() !== 'pay-as-you-go' && ((currentPlan.toLowerCase() === 'premium' && plan.title.toLowerCase() === 'standard') || (currentInterval?.toLowerCase() === 'yearly' && !isYearly));
+          const cannotBuyAgain = !!currentPlan && currentPlan.toLowerCase() === plan.title.toLowerCase() && plan.title.toLowerCase() !== 'pay-as-you-go';
+          const cannotBuy = !!currentPlan && plan.title.toLowerCase() !== 'pay-as-you-go' && ((currentPlan.toLowerCase() === 'premium' && plan.title.toLowerCase() === 'standard') || (currentInterval?.toLowerCase() === 'yearly' && !isYearly) || cannotBuyAgain);
           
           return (
           <div className="card" key={index} title={isExactSamePlan ? 'You already have this plan with same billing' : cannotBuy ? 'Cannot downgrade to lower plan' : canSwitchInterval ? 'Switch billing interval' : ''}>
@@ -388,7 +389,7 @@ const Planes: React.FC = () => {
               disabled={isExactSamePlan || cannotBuy}
             >
               <FontAwesomeIcon icon={faCloudDownloadAlt} /> 
-              {isExactSamePlan ? 'Current plan' : cannotBuy ? 'Cannot downgrade' : canSwitchInterval ? `Switch to ${currentBillingType}` : canUpgrade ? 'Upgrade' : plan.buttonText}
+              {isExactSamePlan ? 'Current plan' : cannotBuyAgain ? 'Already purchased this month' : cannotBuy ? 'Cannot downgrade' : canSwitchInterval ? `Switch to ${currentBillingType}` : canUpgrade ? 'Upgrade' : plan.buttonText}
             </button>
           </div>
         )})}
