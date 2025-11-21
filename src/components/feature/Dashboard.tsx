@@ -11,10 +11,13 @@ import { useNavigate } from "react-router-dom";
 export const Dashboard: React.FC = () => {
   const [mode, setMode] = useState<"new" | "existing">("new");
   const navigate = useNavigate();
-  const [showModal, setShowModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+const [showCampaignModal, setShowCampaignModal] = useState(false);
 
-  const handleOpen = () => setShowModal(true);
-  const handleClose = () => setShowModal(false);
+  const handleClose = () => {
+  setShowImportModal(false);
+  setShowCampaignModal(false);
+};
 
   return (
     <div className="mx-auto">
@@ -94,7 +97,7 @@ export const Dashboard: React.FC = () => {
                     </span>
                     Import contacts
                   </div>
-                  <button onClick={handleOpen} className=" green flex gap-2 items-center">
+                  <button onClick={() => setShowImportModal(true)} className=" green flex gap-2 items-center">
                     <FontAwesomeIcon
                       icon={faPlayCircle}
                       className=" text-[#3f9f42] text-[14px]"
@@ -103,7 +106,7 @@ export const Dashboard: React.FC = () => {
                       Watch quick intro
                     </span>
                   </button>
-                  {showModal && (
+                  {showImportModal  && (
                     <div
                       style={{
                         position: "fixed",
@@ -115,7 +118,7 @@ export const Dashboard: React.FC = () => {
                         display: "flex",
                         justifyContent: "center",
                         alignItems: "center",
-                        zIndex: 1000,
+                        //zIndex: 1000,
                       }}
                     >
                       <div
@@ -125,6 +128,7 @@ export const Dashboard: React.FC = () => {
                           borderRadius: "10px",
                           maxWidth: "800px",
                           width: "90%",
+                          zIndex: 2000,
                         }}
                       >
                         <button
@@ -133,13 +137,9 @@ export const Dashboard: React.FC = () => {
                         >
                           Close
                         </button>
-                        <video
-                          width="100%"
-                          height="auto"
-                          controls
-                          autoPlay
-                          src="/video/Import contacts into PitchKraft.mp4"
-                        />
+                         <video width="100%" height="auto" controls autoPlay>
+  <source src="/video/ImportContacts.mp4" type="video/mp4" />
+</video>
                       </div>
                     </div>
                   )}
@@ -171,7 +171,7 @@ export const Dashboard: React.FC = () => {
                     </span>
                     Create a campaign
                   </div>
-                  <button onClick={handleOpen} className=" green flex gap-2 items-center">
+                  <button onClick={() => setShowCampaignModal(true)} className=" green flex gap-2 items-center">
                     <FontAwesomeIcon
                       icon={faPlayCircle}
                       className=" text-[#3f9f42] text-[14px]"
@@ -180,7 +180,7 @@ export const Dashboard: React.FC = () => {
                       Watch quick intro
                     </span>
                   </button>
-                  {showModal && (
+                  {showCampaignModal  && (
                     <div
                       style={{
                         position: "fixed",
@@ -192,7 +192,7 @@ export const Dashboard: React.FC = () => {
                         display: "flex",
                         justifyContent: "center",
                         alignItems: "center",
-                        zIndex: 1000,
+                        //zIndex: 1000,
                       }}
                     >
                       <div
@@ -202,6 +202,7 @@ export const Dashboard: React.FC = () => {
                           borderRadius: "10px",
                           maxWidth: "800px",
                           width: "90%",
+                          zIndex: 2000,
                         }}
                       >
                         <button
@@ -210,12 +211,15 @@ export const Dashboard: React.FC = () => {
                         >
                           Close
                         </button>
-                        <video
+                         {/* <video width="100%" height="auto" controls autoPlay muted={false}>
+  <source src="/video/CreateCampaign.mp4" type="video/mp4" />
+</video> */}
+<video
                           width="100%"
                           height="auto"
                           controls
                           autoPlay
-                          src="/video/Create a campaign.mp4"
+                          src="/video/CreateCampaign1.mp4"
                         />
                       </div>
                     </div>

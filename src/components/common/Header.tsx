@@ -65,15 +65,19 @@ const Header: React.FC<HeaderProps> = React.memo(
     return (
       <div className="main-head d-flex justify-between align-center w-[100%]">
         <div
-          className={`menu-section flex items-center justify-end w-[100%] ${isMenuOpen ? "show" : ""}`}
+          className={`menu-section flex items-center justify-between w-[100%] ${isMenuOpen ? "show" : ""}`}
         >
           {/* CLIENT DROPDOWN */}
           {userRole === "ADMIN" && handleClientChange && (
-            <div className="client-selector-wrapper">
+            <div className="client-selector-wrapper" style={{ padding: "8px 12px", border: "1px solid #ddd", borderRadius: "4px" }}>
               <select
                 value={selectedClient || ""}
                 onChange={handleClientChange}
                 className="header-client-select"
+                style={{
+                  outline: "none",
+                  boxShadow: "none"
+                }}
               >
                 <option value="">Select a client</option>
                 {clientNames.map((client) => (
