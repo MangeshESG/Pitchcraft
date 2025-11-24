@@ -23,7 +23,7 @@ interface DynamicContactsTableProps {
   paginated?: boolean;
   currentPage?: number;
   pageSize?: number;
-  onPageChange?: (pg: number) => void;
+  onPageChange: (pg: number) => void;
   selectedItems?: Set<string>;
   onSelectItem?: (id: string) => void;
   totalItems?: number;
@@ -91,7 +91,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   const [showColumnPanel, setShowColumnPanel] = useState(false);
   const columnPanelRef = useRef<HTMLDivElement>(null);
   const isInitializedRef = useRef(false); // ADD THIS LINE
-  const [currentPage1, setCurrentPage] = useState(1);
+  //const [currentPage, setCurrentPage] = useState(1);
 
   // Auto-generate columns from data
   const generateColumnsFromData = useCallback(
@@ -584,6 +584,15 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
           {totalItems !== undefined && (
             <span style={{ fontWeight: 500 }}>Total: {totalItems} items</span>
           )}
+          <div style={{marginLeft:"auto",display:"-moz-initial"}}>
+          <PaginationControls
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalRecords={filteredData.length}
+            setCurrentPage={onPageChange}
+          />
+          </div>
           {showCheckboxes && selectedItems && selectedItems.size > 0 && (
             <span style={{ color: "#186bf3" }}>
               {filteredData.every((item) =>
@@ -794,7 +803,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
             totalPages={totalPages}
             pageSize={pageSize}
             totalRecords={filteredData.length}
-            setCurrentPage={setCurrentPage}
+            setCurrentPage={onPageChange}
           />
         </div>
 
