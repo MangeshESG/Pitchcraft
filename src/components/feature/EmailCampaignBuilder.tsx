@@ -1008,8 +1008,8 @@ const [activeTab, setActiveTab] = useState<TabType>('build');
 
   const [campaignBlueprint, setCampaignBlueprint] = useState<string>('');
   // NEW
-const [searchURLCount, setSearchURLCount] = useState<number>(1);
-const [subjectInstructions, setSubjectInstructions] = useState<string>("");
+  const [searchURLCount, setSearchURLCount] = useState<number>(1);
+  const [subjectInstructions, setSubjectInstructions] = useState<string>("");
 
 
 
@@ -1473,7 +1473,9 @@ const [subjectInstructions, setSubjectInstructions] = useState<string>("");
         masterBlueprintUnpopulated: previewText,
         createdBy: effectiveUserId,
         searchURLCount,
-        subjectInstructions
+        subjectInstructions,
+        selectedModel: selectedModel
+
       });
 
       if (response.data.success) {
@@ -1517,7 +1519,9 @@ const [subjectInstructions, setSubjectInstructions] = useState<string>("");
       placeholderListExtensive: masterPromptExtensive,
       masterBlueprintUnpopulated: previewText,
       searchURLCount,
-      subjectInstructions
+      subjectInstructions,
+      selectedModel: selectedModel
+
     });
 
       alert("Template updated successfully.");
@@ -1546,6 +1550,8 @@ const [subjectInstructions, setSubjectInstructions] = useState<string>("");
     setPreviewText(def.masterBlueprintUnpopulated || "");
     setSearchURLCount(def.searchURLCount || 1);
     setSubjectInstructions(def.subjectInstructions || "");
+    setSelectedModel(def.selectedModel );
+
 
       // ✅ REQUIRED!!!
       setSelectedTemplateDefinitionId(def.id);

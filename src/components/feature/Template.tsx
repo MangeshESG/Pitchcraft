@@ -211,7 +211,6 @@ const handleTemplateNameSubmit = async () => {
         clientId: effectiveUserId,
         templateDefinitionId: selectedTemplateDefinitionId,
         templateName: templateNameInput,
-        model: "gpt-5",
       }),
     });
 
