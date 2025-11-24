@@ -13,6 +13,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBars } from '@fortawesome/free-solid-svg-icons';
 import downArrow from "../../assets/images/down.png";
 
+
 // --- Type Definitions ---
 interface Message {
   type: 'user' | 'bot';
@@ -2269,56 +2270,6 @@ const [instructionSubTab, setInstructionSubTab] = useState<
   };
   // ensure you import useEffect at top
 
-  type AutoResizeTextareaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement> & {
-    value: string;
-    className?: string;
-  };
-
-  function AutoResizeTextarea({
-    value,
-    className = "instruction-textarea",
-    ...props
-  }: AutoResizeTextareaProps) {
-    const ref = useRef<HTMLTextAreaElement | null>(null);
-
-    // Resize on value change (including tab switch, data load, etc.)
-    useLayoutEffect(() => {
-      const el = ref.current;
-      if (!el) return;
-      el.style.height = "auto";        // reset height to let scrollHeight be accurate
-      el.style.height = `${el.scrollHeight}px`;
-    }, [value]);
-
-  // Also resize on user input
-  const handleInput: React.FormEventHandler<HTMLTextAreaElement> = (e) => {
-    const el = e.currentTarget;
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
-    props.onInput?.(e);
-  }; return (
-    <textarea
-      ref={ref}
-      value={value}
-      onInput={handleInput}
-      className={className}
-      style={{
-        width: "100%",
-        minHeight: 40,
-        overflow: "hidden",
-        resize: "none",
-        fontSize: 14,
-        lineHeight: 1.5,
-        padding: "10px",
-        border: "1px solid #ccc",
-        borderRadius: "6px",
-        boxSizing: "border-box",
-        whiteSpace: "pre-wrap",
-        wordBreak: "break-word",
-      }}
-      {...props}
-    />
-  );
-}
 
 const reloadCampaignBlueprint = async () => {
   try {
@@ -2358,6 +2309,33 @@ const reloadCampaignBlueprint = async () => {
   }
 };
 
+function SimpleTextarea({
+  value,
+  onChange,
+  className = "instruction-textarea",
+  ...props
+}: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return (
+    <textarea
+      defaultValue={value}
+      onBlur={(e) => onChange && onChange(e)}
+      className={className}
+      style={{
+        width: "100%",
+        minHeight: "50000px",
+        maxHeight: "1000px",
+        overflowY: "auto",
+        resize: "vertical",
+        padding: "10px",
+        fontSize: "14px",
+        border: "1px solid #ccc",
+        borderRadius: "6px",
+        background: "#fff",
+      }}
+      {...props}
+    />
+  );
+}
 
   // ====================================================================
   // RENDER
@@ -2427,7 +2405,7 @@ const reloadCampaignBlueprint = async () => {
                     className={`button !pt-0 ${activeTab === "ct" ? "active" : ""
                       }`}
                   >
-                    CT (unpopulated)
+                    VT (unpopulated)
                   </button>
                 </li>
               </ul>
@@ -2644,65 +2622,62 @@ const reloadCampaignBlueprint = async () => {
       ))}
     </div>
 
+
                 {/* =======================================================
-       INTERNAL TAB CONTENT
-    ======================================================== */}
-                <div className="instruction-subtab-content">
+    INTERNAL TAB CONTENT
+======================================================= */}
+<div className="instruction-subtab-content">
 
-                  {instructionSubTab === "ai_new" && (
-                    <AutoResizeTextarea
-                      // className="instruction-textarea"
-                      value={systemPrompt}
-                      onChange={(e) => setSystemPrompt(e.target.value)}
-                      placeholder="AI instructions (new blueprint)..."
-                    />
-                  )}
+  {instructionSubTab === "ai_new" && (
+    <SimpleTextarea
+      value={systemPrompt}
+      onChange={(e: any) => setSystemPrompt(e.target.value)}
+      placeholder="AI instructions (new blueprint)..."
+    />
+  )}
 
-                  {instructionSubTab === "ai_edit" && (
-                    <AutoResizeTextarea
-                      //className="instruction-textarea"
-                      value={systemPromptForEdit}
-                      onChange={(e) => setSystemPromptForEdit(e.target.value)}
-                      placeholder="AI instructions (edit blueprint)..."
-                    />
-                  )}
+  {instructionSubTab === "ai_edit" && (
+    <SimpleTextarea
+      value={systemPromptForEdit}
+      onChange={(e: any) => setSystemPromptForEdit(e.target.value)}
+      placeholder="AI instructions (edit blueprint)..."
+    />
+  )}
 
-                  {instructionSubTab === "placeholder_short" && (
-                    <AutoResizeTextarea
-                      //className="instruction-textarea"
-                      value={masterPrompt}
-                      onChange={(e) => setMasterPrompt(e.target.value)}
-                      placeholder="Short placeholder list..."
-                    />
-                  )}
+  {instructionSubTab === "placeholder_short" && (
+    <SimpleTextarea
+      value={masterPrompt}
+      onChange={(e: any) => setMasterPrompt(e.target.value)}
+      placeholder="Short placeholder list..."
+    />
+  )}
 
-                  {instructionSubTab === "placeholder_long" && (
-                    <AutoResizeTextarea
-                      //className="instruction-textarea"
-                      value={masterPromptExtensive}
-                      onChange={(e) => setMasterPromptExtensive(e.target.value)}
-                      placeholder="Extended placeholder list..."
-                    />
-                  )}
+  {instructionSubTab === "placeholder_long" && (
+    <SimpleTextarea
+      value={masterPromptExtensive}
+      onChange={(e: any) => setMasterPromptExtensive(e.target.value)}
+      placeholder="Extended placeholder list..."
+    />
+  )}
 
-        {instructionSubTab === "ct" && (
-                      <AutoResizeTextarea
-                       // className="instruction-textarea"
-                        value={previewText}
-                        onChange={(e) => setPreviewText(e.target.value)}
-                        placeholder="Unpopulated master template..."
-                      />
-                    )}
+  {instructionSubTab === "ct" && (
+    <SimpleTextarea
+      value={previewText}
+      onChange={(e: any) => setPreviewText(e.target.value)}
+      placeholder="Unpopulated master template..."
+    />
+  )}
+
   {instructionSubTab === "subject_instructions" && (
-                      <AutoResizeTextarea
-    className="instruction-textarea"
-    value={subjectInstructions}
-    onChange={(e) => setSubjectInstructions(e.target.value)}
-    placeholder="Enter instructions for generating email subject..."
-  />
-)}
+    <SimpleTextarea
+      value={subjectInstructions}
+      onChange={(e: any) => setSubjectInstructions(e.target.value)}
+      placeholder="Enter instructions for generating email subject..."
+    />
+  )}
 
-                </div>
+</div>
+
 
 
               </div>
@@ -2711,19 +2686,21 @@ const reloadCampaignBlueprint = async () => {
 
 
             {/* 4️⃣ CT UNPOPULATED */}
-            {activeTab === "ct" && (
-             
-              <div className="ct-tab-container">
-                <h3>Master Campaign Template (Unpopulated)</h3>
-                   <div className="instruction-subtab-content">
-                 <AutoResizeTextarea
-                 // className="instruction-textarea"
-                  value={previewText}
-                  onChange={(e) => setPreviewText(e.target.value)}
-                />
-              </div>
-               </div>
-            )}
+{/* 4️⃣ CT UNPOPULATED */}
+{activeTab === "ct" && (
+  <div className="ct-tab-container">
+    <h3>Master Campaign Template (Unpopulated)</h3>
+
+    <div className="instruction-subtab-content">
+      <SimpleTextarea
+        value={previewText}
+        onChange={(e: any) => setPreviewText(e.target.value)}
+        placeholder="Unpopulated master template..."
+      />
+    </div>
+  </div>
+)}
+
 
           </div>
 
