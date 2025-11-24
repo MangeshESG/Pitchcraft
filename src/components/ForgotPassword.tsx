@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useOtpTimer } from "../hooks/useOtpTimer";
 import "./LoginPage.css"; // Reuse login page styles
 
 const ForgotPasswordPage: React.FC = () => {
@@ -8,6 +9,7 @@ const ForgotPasswordPage: React.FC = () => {
   const [step, setStep] = useState<"enterEmail" | "verifyOtp">("enterEmail");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const { timeLeft, isExpired, startTimer, formatTime } = useOtpTimer();
 
   // Step 1: Send OTP
   const handleSendOtp = async (e: React.FormEvent) => {
@@ -30,6 +32,7 @@ const ForgotPasswordPage: React.FC = () => {
       if (response.ok) {
         setMessage("OTP sent successfully. Please check your email.");
         setStep("verifyOtp"); // ✅ move to next step
+        startTimer();
       } else {
         const errorText = await response.text();
         setError("Failed to send OTP: " + errorText);
@@ -103,38 +106,56 @@ const ForgotPasswordPage: React.FC = () => {
             </div>
           </form>
         ) : (
-          <form onSubmit={handleResetPassword}>
-            <div className="form-group">
-              <label>OTP</label>
-              <input
-                type="text"
-                placeholder="Enter OTP"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                required
-              />
-            </div>
+          <>
+            <form onSubmit={handleResetPassword}>
+              <div className="form-group">
+                <label>OTP</label>
+                <input
+                  type="text"
+                  placeholder="Enter OTP"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  required
+                  disabled={isExpired}
+                />
+              </div>
 
-            <div className="form-group">
-              <label>New Password</label>
-              <input
-                type="password"
-                placeholder="Enter new password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
-              />
-            </div>
+              <div className="form-group">
+                <label>New Password</label>
+                <input
+                  type="password"
+                  placeholder="Enter new password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                />
+              </div>
 
-            <div className="form-group mb-0">
-              <button
-                type="submit"
-                className="button save-button d-flex justify-center"
-              >
-                Reset Password
-              </button>
+              <div className="form-group mb-0">
+                <button
+                  type="submit"
+                  className="button save-button d-flex justify-center"
+                  disabled={isExpired}
+                >
+                  {isExpired ? 'OTP Expired' : 'Reset Password'}
+                </button>
+              </div>
+            </form>
+            
+            <div style={{ 
+              marginTop: '15px', 
+              padding: '12px 20px', 
+              backgroundColor: '#f8f4e6', 
+              borderRadius: '8px', 
+              textAlign: 'center', 
+              fontSize: '16px', 
+              fontWeight: '500',
+              color: isExpired ? '#dc3545' : '#8b6914',
+              border: '1px solid #e6d7a3'
+            }}>
+              {isExpired ? 'OTP Expired' : `Time Remaining: ${formatTime}`}
             </div>
-          </form>
+          </>
         )}
       </div>
 

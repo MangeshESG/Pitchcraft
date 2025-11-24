@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useOtpTimer } from "../hooks/useOtpTimer";
 import "./LoginPage.css";
 
 const RegistrationPage: React.FC = () => {
@@ -18,6 +19,7 @@ const RegistrationPage: React.FC = () => {
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [emailForOtp, setEmailForOtp] = useState("");
+  const { timeLeft, isExpired, startTimer, formatTime } = useOtpTimer();
 
   const navigate = useNavigate();
 // Auto-hide success message after 3 seconds
@@ -56,6 +58,7 @@ React.useEffect(() => {
       if (response.ok) {
   setSuccess("Registration successful! Please verify OTP.");
   setEmailForOtp(formData.email);
+  startTimer();
 
   // ⏳ Show OTP form after 1 second (without delaying the success message)
   setTimeout(() => {
@@ -130,13 +133,28 @@ React.useEffect(() => {
     required
     placeholder="Enter OTP"
     title="Please enter the OTP sent to your email"
+    disabled={isExpired}
   />
 </div>
 
             <div className="form-group mb-0">
-              <button type="submit" className="button save-button d-flex justify-center">
-                Verify OTP
+              <button type="submit" className="button save-button d-flex justify-center" disabled={isExpired}>
+                {isExpired ? 'OTP Expired' : 'Verify OTP'}
               </button>
+            </div>
+            
+            <div style={{ 
+              marginTop: '15px', 
+              padding: '12px 20px', 
+              backgroundColor: '#f8f4e6', 
+              borderRadius: '8px', 
+              textAlign: 'center', 
+              fontSize: '16px', 
+              fontWeight: '500',
+              color: isExpired ? '#dc3545' : '#8b6914',
+              border: '1px solid #e6d7a3'
+            }}>
+              {isExpired ? 'OTP Expired' : `Time Remaining: ${formatTime}`}
             </div>
           </form>
         </div>
