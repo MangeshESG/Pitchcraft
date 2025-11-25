@@ -3781,18 +3781,25 @@ if (tab === "Output" && selectedCampaign) {
                       {showBlueprintSubmenu && (
                         <ul className="submenu">
                           {/* Normal Blueprint list */}
-                          <li className={blueprintSubTab === "List" ? "active" : ""}>
-                            <button
-                              onClick={() => {
-                                setBlueprintSubTab("List");
-                                setTab("TestTemplate");
-                                navigate("/main?tab=TestTemplate");
-                              }}
-                              className="submenu-button"
-                            >
-                              Blueprints
-                            </button>
-                          </li>
+<li className={blueprintSubTab === "List" ? "active" : ""}>
+  <button
+    onClick={() => {
+      setBlueprintSubTab("List");
+      setTab("TestTemplate");
+
+      // FIX: Delay writing to session to avoid breaking navigation
+      setTimeout(() => {
+        sessionStorage.setItem("campaign_activeTab", "build");
+      }, 0);
+
+      navigate("/main?tab=TestTemplate");
+    }}
+    className="submenu-button"
+  >
+    Blueprints
+  </button>
+</li>
+
 
                           {/* ADMIN only Playground */}
                           {userRole === "ADMIN" && (

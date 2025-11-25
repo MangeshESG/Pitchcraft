@@ -1014,6 +1014,20 @@ const [activeTab, setActiveTab] = useState<TabType>('build');
 
 
 
+
+
+useEffect(() => {
+  const saved = sessionStorage.getItem("campaign_activeTab") as TabType | null;
+  if (saved) {
+    setActiveTab(saved);
+  } else {
+    setActiveTab("build");
+    sessionStorage.setItem("campaign_activeTab", "build");
+  }
+}, []);
+useEffect(() => {
+  if (activeTab) sessionStorage.setItem("campaign_activeTab", activeTab);
+}, [activeTab]);
   // ====================================================================
   // LOAD DATA FILES
   // ====================================================================
@@ -1085,7 +1099,7 @@ const [activeTab, setActiveTab] = useState<TabType>('build');
       sessionStorage.removeItem("autoStartConversation");
       sessionStorage.removeItem("openConversationTab");
 
-      setActiveTab("conversation");
+      setActiveTab("build");
       startConversation();
     }
   }, [systemPrompt, masterPrompt, selectedTemplateDefinitionId]);
@@ -1634,7 +1648,7 @@ const [activeTab, setActiveTab] = useState<TabType>('build');
         setExampleOutput(template.campaignBlueprint);
       }
 
-      setActiveTab("conversation");
+      setActiveTab("build");
       setConversationStarted(false);
       setIsTyping(false);
       setIsEditMode(true);
@@ -1892,7 +1906,7 @@ const [activeTab, setActiveTab] = useState<TabType>('build');
     setPlaceholderValues({});
     setIsComplete(false);
     setConversationStarted(true);
-    setActiveTab("conversation");
+    setActiveTab("build");
     setIsTyping(true);
     setExampleOutput("");
 
@@ -2366,50 +2380,68 @@ function SimpleTextarea({
 
           <div className="data-campaigns-container">
             {/* Sub-tabs Navigation */}
-            <div className="tabs secondary mb-20">
-              <ul className="d-flex" style={{ padding: "12px" }}>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('build')}
-                    className={`button !pt-0 ${activeTab === "build" ? "active" : ""
-                      }`}
-                  >
-                    Build
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('elements')}
-                    className={`button !pt-0 ${activeTab === "elements" ? "active" : ""
-                      }`}
-                  >
-                    Elements
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('instructions')}
-                    className={`button !pt-0 ${activeTab === "instructions" ? "active" : ""
-                      }`}
-                  >
-                    Instructions set
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('ct')}
-                    className={`button !pt-0 ${activeTab === "ct" ? "active" : ""
-                      }`}
-                  >
-                    VT (unpopulated)
-                  </button>
-                </li>
-              </ul>
-            </div>
+<div className="tabs secondary mb-20">
+  <ul className="d-flex" style={{ padding: "12px" }}>
+
+    {/* BUILD TAB */}
+    <li>
+      <button
+        type="button"
+        onClick={() => {
+          setActiveTab("build");
+          sessionStorage.setItem("campaign_activeTab", "build");
+        }}
+        className={`button !pt-0 ${activeTab === "build" ? "active" : ""}`}
+      >
+        Build
+      </button>
+    </li>
+
+    {/* ELEMENTS TAB */}
+    <li>
+      <button
+        type="button"
+        onClick={() => {
+          setActiveTab("elements");
+          sessionStorage.setItem("campaign_activeTab", "elements");
+        }}
+        className={`button !pt-0 ${activeTab === "elements" ? "active" : ""}`}
+      >
+        Elements
+      </button>
+    </li>
+
+    {/* INSTRUCTIONS TAB */}
+    <li>
+      <button
+        type="button"
+        onClick={() => {
+          setActiveTab("instructions");
+          sessionStorage.setItem("campaign_activeTab", "instructions");
+        }}
+        className={`button !pt-0 ${activeTab === "instructions" ? "active" : ""}`}
+      >
+        Instructions set
+      </button>
+    </li>
+
+    {/* VT TAB */}
+    <li>
+      <button
+        type="button"
+        onClick={() => {
+          setActiveTab("ct");
+          sessionStorage.setItem("campaign_activeTab", "ct");
+        }}
+        className={`button !pt-0 ${activeTab === "ct" ? "active" : ""}`}
+      >
+        VT (unpopulated)
+      </button>
+    </li>
+
+  </ul>
+</div>
+
           </div>
 
           <div className="tab-content">
