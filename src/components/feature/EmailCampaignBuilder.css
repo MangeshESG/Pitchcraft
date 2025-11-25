@@ -2516,3 +2516,49 @@
   height: auto !important;     /* ✅ remove fixed height */
   overflow: visible !important; /* ✅ prevent clipping */
 }
+/* Elements Tab Container */
+.elements-tab-container {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 10px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+/* Title */
+.elements-tab-container h3 {
+  margin-bottom: 16px;
+  font-size: 17px;
+  font-weight: 600;
+  color: #374151;
+}
+
+/* Code-style pretty box */
+.elements-tab-container pre {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #1f2937;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  box-shadow: inset 0 0 0 1px #eef0f3;
+}
+
+/* Scrollbar (Chrome only) */
+.elements-tab-container pre::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.elements-tab-container pre::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.elements-tab-container pre::-webkit-scrollbar-track {
+  background: transparent;
+}

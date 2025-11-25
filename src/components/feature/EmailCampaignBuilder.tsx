@@ -853,7 +853,7 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
 
             {/* === Tabs for Example Output === */}
             <div className="example-tabs">
-              {["Output", "Stages", "Elements"].map(tab => (
+              {["Output", "Stages"].map(tab => (
                 <button
                   key={tab}
                   className={`stage-tab-btn ${activeMainTab === tab.toLowerCase() ? "active" : ""}`}
@@ -880,25 +880,7 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
               </div>
             )}
 
-            {activeMainTab === "elements" && (
-              <div className="elements-container">
-                <h3 className="elements-title">🧩 Placeholder Values</h3>
-
-                {Object.keys(placeholderValues).length === 0 ? (
-                  <p className="no-elements">No placeholder values yet.</p>
-                ) : (
-                  <div className="elements-list">
-                    {Object.entries(placeholderValues).map(([key, value]) => (
-                      <div className="element-item" key={key}>
-                        <div className="element-placeholder">{`{${key}}`}</div>
-                        <div className="element-value">{value || "—"}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
+          
 
             {activeMainTab === "stages" && (
               <div className="stages-container">
@@ -1644,9 +1626,7 @@ useEffect(() => {
 
       if (template.exampleOutput) {
         setExampleOutput(template.exampleOutput);
-      } else if (template.campaignBlueprint) {
-        setExampleOutput(template.campaignBlueprint);
-      }
+      } 
 
       setActiveTab("build");
       setConversationStarted(false);
@@ -2298,9 +2278,7 @@ const reloadCampaignBlueprint = async () => {
     // Update example output
     if (data.exampleOutput) {
       setExampleOutput(data.exampleOutput);
-    } else if (data.campaignBlueprint) {
-      setExampleOutput(data.campaignBlueprint);
-    }
+    } 
 
     // Update placeholders
     if (data.placeholderValues) {
