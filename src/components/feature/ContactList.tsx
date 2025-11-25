@@ -1196,7 +1196,7 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
     <div className="data-campaigns-container">
       {/* Sub-tabs Navigation */}
       <div className="tabs secondary mb-20">
-        <ul className="d-flex">
+        <ul className="d-flex" style={{marginTop: "-56px"}}>
           <li>
             <button
               type="button"

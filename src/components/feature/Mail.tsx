@@ -1469,7 +1469,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
 
       {tab === "Configuration" && (
         <>
-          <div className="data-campaigns-container">
+          <div className="data-campaigns-container" style={{marginTop:"-61px"}}>
             {/* Mailboxes Section */}
             <div className="section-wrapper">
               <h2 style={{ color: "black", textAlign: "left" }} className="section-title">Mailboxes</h2>
@@ -1932,7 +1932,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       {/* Schedule Tab */}
       {tab === "Schedule" && (
         <>
-          <div className="data-campaigns-container">
+          <div className="data-campaigns-container" style={{marginTop:"-60px"}}>
             <div className="section-wrapper">
               <h2 className="section-title" style={{color:"black",textAlign:"left"}}>Email schedules</h2>
               <div style={{ marginBottom: 4, color: "#555" }}>
