@@ -105,6 +105,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   const [allEventData, setAllEventData] = useState<EventItem[]>([]);
   const [allEmailLogs, setAllEmailLogs] = useState<any[]>([]);
   const [emailLogs, setEmailLogs] = useState<EmailLog[]>([]);
+  const [missingLogs, setMissingLogs] = useState<any[]>([]);
   const [filteredEventData, setFilteredEventData] = useState<EventItem[]>([]);
   const [dailyStats, setDailyStats] = useState<DailyStats[]>([]);
   const [totalStats, setTotalStats] = useState({
@@ -120,6 +121,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     | "opens-no-clicks"
     | "opens-and-clicks"
     | "email-logs"
+    | "missing-logs"
   >("all");
   const [detailSelectedContacts, setDetailSelectedContacts] = useState<
     Set<string>
@@ -127,9 +129,14 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   const [selectedEmailLogs, setSelectedEmailLogs] = useState<Set<string>>(
     new Set()
   );
+  const [selectedMissingLogs, setSelectedMissingLogs] = useState<Set<string>>(
+    new Set()
+  );
   const [detailSearchQuery, setDetailSearchQuery] = useState("");
   const [emailLogsSearch, setEmailLogsSearch] = useState("");
+  const [missingLogsSearch, setMissingLogsSearch] = useState("");
   const [emailLogsCurrentPage, setEmailLogsCurrentPage] = useState(1);
+  const [missingLogsCurrentPage, setMissingLogsCurrentPage] = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
   const [showSaveSegmentModal, setShowSaveSegmentModal] = useState(false);
   const [segmentName, setSegmentName] = useState("");
@@ -168,6 +175,18 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     { key: "linkedIn", label: "LinkedIn", visible: true },
     { key: "website", label: "Website", visible: true },
     { key: "errorMessage", label: "Error Message", visible: false },
+  ]);
+
+  const [missingLogsColumns, setMissingLogsColumns] = useState([
+    { key: "checkbox", label: "", visible: true, width: "40px" },
+    { key: "full_name", label: "Full Name", visible: true },
+    { key: "email", label: "Email Address", visible: true },
+    { key: "company_name", label: "Company", visible: true },
+    { key: "job_title", label: "Job Title", visible: true },
+    { key: "country_or_address", label: "Location", visible: true },
+    { key: "email_subject", label: "Subject", visible: true },
+    { key: "linkedin_url", label: "LinkedIn", visible: true },
+    { key: "website", label: "Website", visible: true },
   ]);
 
   const appModal = useAppModal();
@@ -398,12 +417,84 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
       };
       loadEmailLogs();
     }
+
+    // Load missing logs
+    if (
+      selectedCampaign &&
+      emailFilterType === "missing-logs" &&
+      effectiveUserId &&
+      startDate &&
+      endDate
+    ) {
+      const loadMissingLogs = async () => {
+        await withLoader("Loading missing logs...", async () => {
+          try {
+            const campaign = availableCampaigns.find(
+              (c) => c.id.toString() === selectedCampaign
+            );
+
+            if (campaign?.dataSource === "DataFile" && campaign.zohoViewId) {
+              const dataFileId = Number(campaign.zohoViewId);
+              const response = await axios.get(
+                `${API_BASE_URL}/track/missing-log-contacts`,
+                {
+                  params: {
+                    startDate,
+                    endDate,
+                    dataFileId,
+                  },
+                  headers: {
+                    ...(token && { Authorization: `Bearer ${token}` }),
+                  },
+                }
+              );
+              
+              console.log('Missing logs API response:', response.data);
+              
+              // Handle different response structures
+              let missingContactsData = [];
+              if (response.data.missingContacts) {
+                missingContactsData = response.data.missingContacts;
+              } else if (Array.isArray(response.data)) {
+                missingContactsData = response.data;
+              } else {
+                console.warn('Unexpected API response structure:', response.data);
+                missingContactsData = [];
+              }
+              
+              const transformedData = missingContactsData.map((contact: any, index: number) => ({
+                id: index + 1,
+                full_name: contact.full_name || contact.fullName || contact.name || "-",
+                email: contact.email || contact.emailAddress || "-",
+                company_name: contact.company_name || contact.companyName || contact.company || "-",
+                job_title: contact.job_title || contact.jobTitle || contact.title || "-",
+                country_or_address: contact.country_or_address || contact.address || contact.location || "-",
+                email_subject: contact.email_subject || contact.subject || "-",
+                linkedin_url: contact.linkedin_url || contact.linkedinUrl || contact.linkedin || "-",
+                website: contact.website || contact.websiteUrl || "-"
+              }));
+              
+              console.log('Transformed missing logs data:', transformedData);
+              setMissingLogs(transformedData);
+            } else {
+              setMissingLogs([]);
+            }
+          } catch (error) {
+            console.error("Error loading missing logs:", error);
+            setMissingLogs([]);
+          }
+        });
+      };
+      loadMissingLogs();
+    }
   }, [
     selectedCampaign,
     emailFilterType,
     effectiveUserId,
     isVisible,
     availableCampaigns,
+    startDate,
+    endDate,
   ]);
 
   // 7. Clear cache when user changes
@@ -938,6 +1029,26 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     }));
   };
 
+  // Get filtered missing logs
+  const getFilteredMissingLogs = () => {
+    let filteredLogs = missingLogs;
+
+    // Apply search filter
+    if (missingLogsSearch) {
+      const searchLower = missingLogsSearch.toLowerCase();
+      filteredLogs = filteredLogs.filter(
+        (log) =>
+          log.full_name?.toLowerCase().includes(searchLower) ||
+          log.email?.toLowerCase().includes(searchLower) ||
+          log.company_name?.toLowerCase().includes(searchLower) ||
+          log.job_title?.toLowerCase().includes(searchLower) ||
+          log.email_subject?.toLowerCase().includes(searchLower)
+      );
+    }
+
+    return filteredLogs;
+  };
+
   // Get filtered email logs
   const getFilteredEmailLogs = () => {
     let filteredLogs = emailLogs;
@@ -1179,6 +1290,37 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     });
   };
 
+  const handleSelectMissingLog = (logId: string) => {
+    setSelectedMissingLogs((prev) => {
+      const newSelection = new Set(prev);
+      if (newSelection.has(logId)) {
+        newSelection.delete(logId);
+      } else {
+        newSelection.add(logId);
+      }
+      return newSelection;
+    });
+  };
+
+  const handleSelectAllMissingLogs = () => {
+    const currentPageLogs = getFilteredMissingLogs().slice(
+      (missingLogsCurrentPage - 1) * 20,
+      missingLogsCurrentPage * 20
+    );
+
+    setSelectedMissingLogs((prev) => {
+      const newSelection = new Set(prev);
+      if (prev.size === currentPageLogs.length && currentPageLogs.length > 0) {
+        return new Set();
+      } else {
+        currentPageLogs.forEach((log) => {
+          newSelection.add(log.id.toString());
+        });
+        return newSelection;
+      }
+    });
+  };
+
   // Segment Creation - Updated for campaigns
   const handleSaveEmailSegment = async () => {
     if (!segmentName.trim()) {
@@ -1209,6 +1351,28 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
           if (contactIds.length === 0) {
             appModal.showWarning(
               "No valid contacts selected. Please select contacts with valid contact IDs."
+            );
+            setSavingSegment(false);
+            return;
+          }
+        } else if (emailFilterType === "missing-logs") {
+          const selectedLogs = getFilteredMissingLogs().filter((log) =>
+            selectedMissingLogs.has(log.id.toString())
+          );
+
+          // For missing logs, we need to get contactIds from the original data
+          // Since missing logs might not have contactId, we'll use email to match
+          const selectedEmails = selectedLogs.map(log => log.email);
+          
+          // Try to find contactIds from allEmailLogs based on email
+          contactIds = allEmailLogs
+            .filter(log => selectedEmails.includes(log.toEmail || log.email))
+            .map(log => log.contactId)
+            .filter((id): id is number => id !== null && id !== undefined && id > 0);
+
+          if (contactIds.length === 0) {
+            appModal.showWarning(
+              "No valid contacts selected. Missing logs contacts may not have valid contact IDs for segment creation."
             );
             setSavingSegment(false);
             return;
@@ -1276,6 +1440,8 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
 
           if (emailFilterType === "email-logs") {
             setSelectedEmailLogs(new Set());
+          } else if (emailFilterType === "missing-logs") {
+            setSelectedMissingLogs(new Set());
           } else {
             setDetailSelectedContacts(new Set());
           }
@@ -1326,6 +1492,43 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
           <button
             className="button secondary"
             onClick={() => setSelectedEmailLogs(new Set())}
+          >
+            Clear Selection
+          </button>
+          <button
+            className="button primary"
+            onClick={() => setShowSaveSegmentModal(true)}
+          >
+            Create Segment
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const getMissingLogsHeader = () => {
+    if (selectedMissingLogs.size === 0) return null;
+
+    return (
+      <div
+        style={{
+          marginBottom: 16,
+          padding: "12px 16px",
+          background: "#f0f7ff",
+          borderRadius: 6,
+          display: "flex",
+          alignItems: "center",
+          gap: 16,
+        }}
+      >
+        <span style={{ fontWeight: 500 }}>
+          {selectedMissingLogs.size} contact
+          {selectedMissingLogs.size > 1 ? "s" : ""} selected
+        </span>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+          <button
+            className="button secondary"
+            onClick={() => setSelectedMissingLogs(new Set())}
           >
             Clear Selection
           </button>
@@ -1684,6 +1887,16 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
             >
               Sent
             </button>
+            <button
+              onClick={() => handleEmailFilterTypeChange("missing-logs")}
+              className={`btn-filter ${emailFilterType === "missing-logs" ? "active" : ""}`}
+              style={{
+                background:
+                  emailFilterType === "missing-logs" ? "#dc3545" : undefined,
+              }}
+            >
+              Not Sent
+            </button>
             {/* <button
               onClick={handleRefresh}
               className="btn-refresh"
@@ -1694,22 +1907,42 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
             </button> */}
           </div>
 
+          {/* Missing Logs Date Warning */}
+          {emailFilterType === "missing-logs" && (!startDate || !endDate) && (
+            <div style={{
+              padding: "12px 16px",
+              background: "#fff3e0",
+              border: "1px solid #ff9800",
+              borderRadius: 6,
+              marginBottom: 16,
+              color: "#e65100"
+            }}>
+              <strong>Date Range Required:</strong> Please select both start and end dates to view missing logs.
+            </div>
+          )}
+
           {/* ContactsTable Component */}
           <DynamicContactsTable
             data={
               emailFilterType === "email-logs"
                 ? transformEmailLogsForTable(getFilteredEmailLogs())
+                : emailFilterType === "missing-logs"
+                ? getFilteredMissingLogs()
                 : getFilteredEmailContacts()
             }
             isLoading={isRefreshing || loading}
             search={
               emailFilterType === "email-logs"
                 ? emailLogsSearch
+                : emailFilterType === "missing-logs"
+                ? missingLogsSearch
                 : detailSearchQuery
             }
             setSearch={
               emailFilterType === "email-logs"
                 ? setEmailLogsSearch
+                : emailFilterType === "missing-logs"
+                ? setMissingLogsSearch
                 : setDetailSearchQuery
             }
             showCheckboxes={true}
@@ -1717,22 +1950,30 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
             currentPage={
               emailFilterType === "email-logs"
                 ? emailLogsCurrentPage
+                : emailFilterType === "missing-logs"
+                ? missingLogsCurrentPage
                 : currentPage
             }
             pageSize={20}
             onPageChange={
               emailFilterType === "email-logs"
                 ? setEmailLogsCurrentPage
+                : emailFilterType === "missing-logs"
+                ? setMissingLogsCurrentPage
                 : setCurrentPage
             }
             selectedItems={
               emailFilterType === "email-logs"
                 ? selectedEmailLogs
+                : emailFilterType === "missing-logs"
+                ? selectedMissingLogs
                 : detailSelectedContacts
             }
             onSelectItem={
               emailFilterType === "email-logs"
                 ? handleSelectEmailLog
+                : emailFilterType === "missing-logs"
+                ? handleSelectMissingLog
                 : (id: string) => {
                   setDetailSelectedContacts((prev) => {
                     const newSelection = new Set(prev);
@@ -1748,12 +1989,18 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
             totalItems={
               emailFilterType === "email-logs"
                 ? getFilteredEmailLogs().length
+                : emailFilterType === "missing-logs"
+                ? getFilteredMissingLogs().length
                 : getFilteredEmailContacts().length
             }
             // Configuration settings
             autoGenerateColumns={false}
             customColumns={
-              emailFilterType === "email-logs" ? emailLogsColumns : emailColumns
+              emailFilterType === "email-logs" 
+                ? emailLogsColumns 
+                : emailFilterType === "missing-logs"
+                ? missingLogsColumns
+                : emailColumns
             }
             customFormatters={{
               // Date formatting
@@ -1831,6 +2078,21 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
                 return (
                   <a
                     href={cleanUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: "#3f9f42", textDecoration: "underline" }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    LinkedIn Profile
+                  </a>
+                );
+              },
+              linkedin_url: (value: any) => {
+                if (!value || value === "-") return "-";
+                const url = value.startsWith("http") ? value : `https://${value}`;
+                return (
+                  <a
+                    href={url}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{ color: "#3f9f42", textDecoration: "underline" }}
@@ -1927,6 +2189,15 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
                   "process_name",
                   "address",
                 ]
+                : emailFilterType === "missing-logs"
+                ? [
+                  "full_name",
+                  "email",
+                  "company_name",
+                  "job_title",
+                  "country_or_address",
+                  "email_subject",
+                ]
                 : ["full_name", "email", "company", "jobTitle", "location"]
             }
             primaryKey="id"
@@ -1934,11 +2205,15 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
             customHeader={
               emailFilterType === "email-logs"
                 ? getEmailLogsHeader()
+                : emailFilterType === "missing-logs"
+                ? getMissingLogsHeader()
                 : getEngagementHeader()
             }
             onColumnsChange={
               emailFilterType === "email-logs"
                 ? setEmailLogsColumns
+                : emailFilterType === "missing-logs"
+                ? setMissingLogsColumns
                 : setEmailColumns
             }
           />
@@ -2016,10 +2291,14 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
                     <strong>Selected:</strong>{" "}
                     {emailFilterType === "email-logs"
                       ? selectedEmailLogs.size
+                      : emailFilterType === "missing-logs"
+                      ? selectedMissingLogs.size
                       : detailSelectedContacts.size}{" "}
                     contact
                     {(emailFilterType === "email-logs"
                       ? selectedEmailLogs.size
+                      : emailFilterType === "missing-logs"
+                      ? selectedMissingLogs.size
                       : detailSelectedContacts.size) > 1
                       ? "s"
                       : ""}
@@ -2085,6 +2364,8 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
                       !selectedCampaign ||
                       (emailFilterType === "email-logs"
                         ? selectedEmailLogs.size === 0
+                        : emailFilterType === "missing-logs"
+                        ? selectedMissingLogs.size === 0
                         : detailSelectedContacts.size === 0)
                     }
                   >

@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from "react";
 import * as XLSX from "xlsx";
 import { Tooltip as ReactTooltip } from "react-tooltip";
 import Modal from "../common/Modal";
+import ValidationErrorModal from "../common/ValidationErrorModal";
 import "./datafile.css";
 import API_BASE_URL from "../../config";
 import { useAppData } from "../../contexts/AppDataContext";
@@ -75,6 +76,8 @@ const DataFile: React.FC<DataFileProps> = ({
   const [previewData, setPreviewData] = useState<ProcessedContact[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [errors, setErrors] = useState<string[]>([]);
+  const [validationErrors, setValidationErrors] = useState<Array<{row: number, field: string, value: string, message: string}>>([]);
+  const [showValidationModal, setShowValidationModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [processingStats, setProcessingStats] = useState({
     total: 0,
@@ -341,7 +344,7 @@ useEffect(() => {
   const generatePreview = () => {
     const allValidData: ProcessedContact[] = [];
     const preview: ProcessedContact[] = [];
-    const validationErrors: string[] = [];
+    const detailedErrors: Array<{row: number, field: string, value: string, message: string}> = [];
     let validCount = 0;
     let invalidCount = 0;
 
@@ -359,23 +362,39 @@ useEffect(() => {
       });
 
       // Validate required fields
-      if (!mappedRow.name || !mappedRow.email) {
-        if (rowIndex < 5) {
-          validationErrors.push(
-            `Row ${rowIndex + 2}: Missing required fields (name or email)`
-          );
-        }
+      if (!mappedRow.name) {
+        detailedErrors.push({
+          row: rowIndex + 2,
+          field: 'name',
+          value: mappedRow.name || '',
+          message: 'Missing required field: Full name'
+        });
         isValid = false;
-        invalidCount++;
+      }
+      
+      if (!mappedRow.email) {
+        detailedErrors.push({
+          row: rowIndex + 2,
+          field: 'email',
+          value: mappedRow.email || '',
+          message: 'Missing required field: Email address'
+        });
+        isValid = false;
       } else if (!isValidEmail(mappedRow.email)) {
-        if (rowIndex < 5) {
-          validationErrors.push(`Row ${rowIndex + 2}: Invalid email format`);
-        }
+        detailedErrors.push({
+          row: rowIndex + 2,
+          field: 'email',
+          value: mappedRow.email,
+          message: 'Invalid email format'
+        });
         isValid = false;
-        invalidCount++;
-      } else {
+      }
+
+      if (isValid) {
         validCount++;
         allValidData.push(mappedRow);
+      } else {
+        invalidCount++;
       }
 
       if (rowIndex < 5) {
@@ -383,7 +402,7 @@ useEffect(() => {
       }
     });
 
-    setErrors(validationErrors);
+    setValidationErrors(detailedErrors);
     setPreviewData(preview);
     setProcessingStats({
       total: totalRows,
@@ -391,7 +410,13 @@ useEffect(() => {
       invalid: invalidCount,
     });
     setValidatedData(allValidData);
-    setCurrentStep(3);
+    
+    // Show validation modal if there are errors, otherwise proceed to step 3
+    if (detailedErrors.length > 0) {
+      setShowValidationModal(true);
+    } else {
+      setCurrentStep(3);
+    }
   };
 
   // Process and save data
@@ -828,15 +853,26 @@ console.log("processingStats.valid:", processingStats.valid);
                 </table>
               </div>
 
-              {errors.length > 0 && (
+              {validationErrors.length > 0 && (
                 <div className="alert alert-warning mt-20">
-                  <h5>Validation Warnings:</h5>
-                  {errors.slice(0, 5).map((error, index) => (
-                    <p key={index}>{error}</p>
-                  ))}
-                  {errors.length > 5 && (
-                    <p>... and {errors.length - 5} more warnings</p>
-                  )}
+                  <h5>Data Quality Summary:</h5>
+                  <p>{validationErrors.length} issue{validationErrors.length > 1 ? 's' : ''} found in your data. 
+                     Only valid rows will be processed during import.</p>
+                  <button 
+                    onClick={() => setShowValidationModal(true)}
+                    style={{
+                      background: '#ffc107',
+                      color: '#000',
+                      border: 'none',
+                      padding: '6px 12px',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      marginTop: '8px'
+                    }}
+                  >
+                    View Details
+                  </button>
                 </div>
               )}
 
@@ -1018,6 +1054,21 @@ console.log("processingStats.valid:", processingStats.valid);
           </div>
         </div>
       </Modal>
+
+      {/* Validation Error Modal */}
+      <ValidationErrorModal
+        isOpen={showValidationModal}
+        onClose={() => setShowValidationModal(false)}
+        errors={validationErrors}
+        onContinue={() => {
+          setShowValidationModal(false);
+          setCurrentStep(3);
+        }}
+        onFixErrors={() => {
+          setShowValidationModal(false);
+          setCurrentStep(2);
+        }}
+      />
     </div>
   );
 };

@@ -1320,7 +1320,7 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
                 <div style={{marginBottom:"10px"}}></div>
                 <table
                   className="contacts-table"
-                  style={{ background: "#fff" }}
+                  style={{ background: "#fff", width: "100%", tableLayout: "auto" }}
                 >
                   <thead>
                     <tr>
@@ -1979,7 +1979,7 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
                 </div>
                 <table
                   className="contacts-table"
-                  style={{ background: "#fff" }}
+                  style={{ background: "#fff", width: "100%", tableLayout: "auto" }}
                 >
                   <thead>
                     <tr>

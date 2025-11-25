@@ -379,11 +379,10 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   };
 
   // Get value with formatting
-  // REPLACE the getFormattedValue function with:
-  // REPLACE the getFormattedValue function with:
   const getFormattedValue = (
     item: any,
-    column: ColumnConfig
+    column: ColumnConfig,
+    index?: number
   ): React.ReactNode => {
     if (column.key === "checkbox") {
       return (
@@ -396,6 +395,11 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
     }
 
     const rawValue = item[column.key];
+
+    // Show index-based numbering for ID column
+    if (column.key === "id" && typeof index === "number") {
+      return (currentPage - 1) * pageSize + index + 1;
+    }
 
     // First try custom formatters from props
     if (customFormatters[column.key]) {
@@ -722,7 +726,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                     </td>
                   </tr>
                 ) : (
-                  displayData.map((item) => (
+                  displayData.map((item, index) => (
                     <tr
                       key={item[primaryKey]}
                       className={
@@ -733,7 +737,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                     >
                       {visibleColumns.map((column) => (
                         <td key={column.key}>
-                          {getFormattedValue(item, column)}
+                          {getFormattedValue(item, column, index)}
                         </td>
                       ))}
                     </tr>

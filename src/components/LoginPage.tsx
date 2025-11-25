@@ -12,6 +12,8 @@ import {
   saveLoginDeviceInfo,
   saveUserCredit
 } from "../slices/authSLice";
+import { useOtpTimer } from "../hooks/useOtpTimer";
+import { usePageTitle } from "../hooks/usePageTitle";
 import API_BASE_URL from "../config";
 import "./LoginPage.css";
 import { RootState } from "../Redux/store";
@@ -515,6 +517,11 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
   const [error, setError] = useState("");
   const [trustThisDevice, setTrustThisDevice] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const { timeLeft, isExpired, startTimer, formatTime } = useOtpTimer();
+
+  React.useEffect(() => {
+    startTimer();
+  }, []);
 
   const registerEmail = localStorage.getItem("registerEmail");
   const registerUsername = localStorage.getItem("registerUsername");
@@ -715,6 +722,7 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
           required
           onChange={(e) => setOtp(e.target.value)}
           maxLength={6}
+          disabled={isExpired}
         />
 
         {/* {loginUser && (
@@ -768,17 +776,33 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
           />
         )}
 
-        <button type="submit" className="login-button" disabled={isLoading}>
+        <button type="submit" className="login-button" disabled={isLoading || isExpired}>
           {isLoading ? (
             <>
               <div className="spinner"></div>
               Verifying...
             </>
+          ) : isExpired ? (
+            "OTP Expired"
           ) : (
             "Verify OTP"
           )}
         </button>
       </form>
+      
+      <div style={{ 
+        marginTop: '15px', 
+        padding: '12px 20px', 
+        backgroundColor: '#f8f4e6', 
+        borderRadius: '8px', 
+        textAlign: 'center', 
+        fontSize: '16px', 
+        fontWeight: '500',
+        color: isExpired ? '#dc3545' : '#8b6914',
+        border: '1px solid #e6d7a3'
+      }}>
+        {isExpired ? 'OTP Expired' : `Time Remaining: ${formatTime}`}
+      </div>
 
       {msg && <div className="success-message">{msg}</div>}
       {error && <div className="error-message">{error}</div>}
@@ -805,6 +829,8 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
 /* ---------------- MAIN LOGIN PAGE COMPONENT ---------------- */
 const LoginPage: React.FC = () => {
   const [view, setView] = useState<ViewMode>("login");
+  
+  usePageTitle(view === "login" ? "Login" : view === "register" ? "Register" : view === "forgot" ? "Forgot Password" : "OTP Verification");
 
   return (
     <div className="page login-container">
