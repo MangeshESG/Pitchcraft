@@ -1644,7 +1644,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   return (
     <div
       className="dashboard-section"
-      style={{ display: isVisible ? "block" : "none" }}
+      style={{ display: isVisible ? "block" : "none",marginTop:"-60px" }}
     >
       {/* Dashboard Sub-tabs */}
       <div className="dashboard-tabs">

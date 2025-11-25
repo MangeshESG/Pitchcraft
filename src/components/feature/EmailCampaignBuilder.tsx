@@ -2333,7 +2333,7 @@ function SimpleTextarea({
   // RENDER
   // ====================================================================
   return (
-    <div className="email-campaign-builder" style={{marginTop:"65px"}}>
+    <div className="email-campaign-builder">
       {isLoadingTemplate && (
         <div className="loading-overlay">
           <div className="loading-content">
@@ -2352,7 +2352,7 @@ function SimpleTextarea({
         </div>
       )}
 
-      <div className="campaign-builder-container">
+      <div className="campaign-builder-container" style={{marginTop: "auto"}}>
         <div className="campaign-builder-main">
 
 

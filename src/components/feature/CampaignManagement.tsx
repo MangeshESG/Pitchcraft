@@ -65,7 +65,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
   const [showCreateCampaignModal, setShowCreateCampaignModal] = useState(false);
   const [campaignSearch, setCampaignSearch] = useState("");
-  const [campaignActionsAnchor, setCampaignActionsAnchor] = useState<string | null>(null);
+  const [campaignActionsAnchor, setCampaignActionsAnchor] = useState<number  | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
 
   const appModal = useAppModal();
@@ -249,6 +249,7 @@ const createCampaign = async () => {
     });
 
     const resBody = await res.json();
+    console.log("resBody",resBody);
     if (!res.ok) throw new Error(resBody.message || JSON.stringify(resBody));
 
     // ✅ Store the blueprint (prompt) returned by backend
@@ -319,11 +320,19 @@ const createCampaign = async () => {
   );
   const totalPages = Math.ceil(filteredCampaigns.length / pageSize);
   const paginatedCampaigns = filteredCampaigns.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-
+const menuBtnStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "8px 12px",
+  background: "transparent",
+  border: "none",
+  textAlign: "left",
+  fontSize: "14px",
+  cursor: "pointer",
+};
   return (
     <div className="data-campaigns-container">
       <div className="section-wrapper">
-        <h2 className="section-title">Campaigns</h2>
+        <h2 className="section-title" style={{marginTop:"-65px"}}>Campaigns</h2>
         <p style={{marginBottom:'10px'}}>Create and manage campaigns quickly and efficiently.</p>
 
         <div style={{ display: "flex", alignItems: "center", marginBottom: 16, gap: 16 }}>
@@ -386,10 +395,80 @@ const createCampaign = async () => {
                   <td>{c.templateId ? `Blueprint #${c.templateId}` : "-"}</td>
                   <td>{c.zohoViewId ? "List" : c.segmentId ? "Segment" : "-"}</td>
                   <td>{c.description || "-"}</td>
-                  <td>
+                  <td style={{ position: "relative" }}>
+  <button
+    onClick={() =>
+      setCampaignActionsAnchor(
+        campaignActionsAnchor === c.id ? null : c.id
+      )
+    }
+    style={{
+      padding: "4px 10px",
+      borderRadius: "5px",
+      fontSize: "20px",
+    fontWeight: "600",
+      cursor: "pointer",
+    }}
+  >
+    ⋮
+  </button>
+
+  {campaignActionsAnchor === c.id && (
+    <div
+      style={{
+        position: "absolute",
+        top: "30px",
+        right: 0,
+       // background: "#fff",
+        //border: "1px solid #ddd",
+        borderRadius: "6px",
+        boxShadow: "0px 4px 12px rgba(0,0,0,0.15)",
+        zIndex: 100,
+        padding: "8px 0",
+        width: "140px",
+      }}
+    >
+      {/* <button
+        onClick={() => {
+          handleCampaignSelect(c.id.toString());
+          setCampaignActionsAnchor(null);
+        }}
+        style={menuBtnStyle}
+        className="flex gap-2 items-center"
+      >
+        👁 View
+      </button> */}
+
+      <button
+        onClick={() => {
+          handleCampaignSelect(c.id.toString());
+           setShowCreateCampaignModal(true);
+          setCampaignActionsAnchor(null);
+        }}
+        style={menuBtnStyle}
+        className="flex gap-2 items-center"
+      >
+        ✏️ Edit
+      </button>
+
+      <button
+        onClick={() => {
+          deleteCampaign(c);
+          setCampaignActionsAnchor(null);
+        }}
+        style={menuBtnStyle}
+        className="flex gap-2 items-center"
+      >
+        🗑️ Delete
+      </button>
+    </div>
+  )}
+</td>
+
+                  {/* <td>
                     <button onClick={() => handleCampaignSelect(c.id.toString())}>Edit</button>
                     <button onClick={() => deleteCampaign(c)}>Delete</button>
-                  </td>
+                  </td> */}
                 </tr>
               ))
             )}

@@ -1529,7 +1529,7 @@ useEffect(() => {
     <div className="login-box gap-down">
       {/* Add the selection dropdowns and subject line section */}
       {/* Add the selection dropdowns and subject line section */}
-      <div className="d-flex justify-between align-center mb-0">
+      <div className="d-flex justify-between align-center mb-0" style={{marginTop: "-60px"}}>
         <div className="input-section edit-section w-[100%]">
           {/* Dropdowns Row */}
           <div className="flex items-start justify-between gap-4 w-full">

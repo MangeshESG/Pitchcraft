@@ -6,6 +6,7 @@ import API_BASE_URL from "../../config";
 import "./Template.css";
 import { useAppModal } from "../../hooks/useAppModal";
 import EmailCampaignBuilder from "./EmailCampaignBuilder";
+import PaginationControls from "./PaginationControls";
 
 const menuBtnStyle = {
   width: "100%",
@@ -315,7 +316,16 @@ const handleTemplateNameSubmit = async () => {
       template.id.toString().includes(searchLower)
     );
   });
+  //pagination
+const [currentPage, setCurrentPage] = useState(1);
+const pageSize = 10;
+const totalPages = Math.ceil(filteredCampaignTemplates.length / pageSize);
 
+const startIndex = (currentPage - 1) * pageSize;
+const paginatedTemplates = filteredCampaignTemplates.slice(
+  startIndex,
+  startIndex + pageSize
+);
   // Effects
   useEffect(() => {
     if (effectiveUserId) {
@@ -404,7 +414,6 @@ const generateExampleEmail = (template: CampaignTemplate) => {
       setIsLoading(false);
     }
   };
-
  return (
   <div className="template-container">
     {!showCampaignBuilder ? (
@@ -428,6 +437,15 @@ const generateExampleEmail = (template: CampaignTemplate) => {
               <span className="text-[20px] mr-1">+</span> Create campaign blueprint
             </button>
           </div>
+          <div style={{marginBottom:"10px"}}>
+           <PaginationControls
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalRecords={paginatedTemplates.length}
+              setCurrentPage={setCurrentPage}
+            />
+            </div>
 
           {/* Campaign Templates Table */}
           <table className="contacts-table">
@@ -446,14 +464,14 @@ const generateExampleEmail = (template: CampaignTemplate) => {
                     Loading...
                   </td>
                 </tr>
-              ) : filteredCampaignTemplates.length === 0 ? (
+              ) : paginatedTemplates.length === 0 ? (
                 <tr>
                   <td colSpan={6} style={{ textAlign: "center" }}>
                     No campaign blueprint found.
                   </td>
                 </tr>
               ) : (
-                filteredCampaignTemplates.map((template) => (
+                paginatedTemplates.map((template) => (
                   <tr key={template.id}>
                     <td>
                       <span
@@ -537,6 +555,13 @@ const generateExampleEmail = (template: CampaignTemplate) => {
               )}
             </tbody>
           </table>
+           <PaginationControls
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalRecords={paginatedTemplates.length}
+            setCurrentPage={setCurrentPage}
+            />
         </div>
 
       {/* ✅ NEW: Template Name Modal */}
@@ -968,7 +993,7 @@ const generateExampleEmail = (template: CampaignTemplate) => {
         className="campaign-builder-container"
         style={{
           width: "100%",
-          marginTop: "16px",
+          marginTop: "-65px",
           background: "#fff",
           borderRadius: "8px",
           boxShadow: "0 2px 12px rgba(0, 0, 0, 0.05)",
