@@ -359,13 +359,13 @@ const MainPage: React.FC = () => {
   useEffect(() => {
     const getPageTitle = () => {
       switch (tab) {
-        case "Dashboard": return "Dashboard";
-        case "TestTemplate": return "Blueprints";
-        case "Playground": return "Playground";
-        case "DataCampaigns": return contactsSubTab === "List" ? "Contact Lists" : "Contact Segments";
-        case "Campaigns": return "Campaigns";
-        case "Output": return "Kraft Emails";
-        case "Mail": return mailSubTab === "Dashboard" ? "Mail Dashboard" : mailSubTab === "Configuration" ? "Mail Configuration" : "Mail Schedules";
+        case "Dashboard": return "Dashboard-View progress and help videos";
+        case "TestTemplate": return "Blueprints-Create and manage email blueprints";
+        case "Playground": return "Playground-Experiment with email generation";
+        case "DataCampaigns": return contactsSubTab === "List" ? "Contact Lists- Create and manage contacts and segments" : "Contact Segments- Create and manage contacts and segments";
+        case "Campaigns": return "Campaigns-Create and manage email campaigns";
+        case "Output": return "Kraft Emails-Generate hyper-personalized emails";
+        case "Mail": return mailSubTab === "Dashboard" ? "Mail Dashboard-Configure email, schedule sends and review analytics " : mailSubTab === "Configuration" ? "Mail Configuration-Configure email, schedule sends and review analytics " : "Mail Schedules-Configure email, schedule sends and review analytics ";
         case "MyPlan": return "My Plan";
         default: return "Dashboard";
       }
@@ -3748,7 +3748,7 @@ if (tab === "Output" && selectedCampaign) {
                           navigate("/main");
                         }}
                         className="side-menu-button"
-                        title="Click to view the original non-personalized email template"
+                        title="View progress and help videos"
                       >
                         <span className="menu-icon">
                           {/* <FontAwesomeIcon
@@ -3783,7 +3783,7 @@ if (tab === "Output" && selectedCampaign) {
                           }
                         }}
                         className="side-menu-button"
-                        title="Manage test templates and playground"
+                        title="Create and manage email blueprints"
                       >
                         <span className="menu-icon">
                           <FontAwesomeIcon icon={faFileAlt} className="text-[#333333] text-lg" />
@@ -3851,7 +3851,7 @@ if (tab === "Output" && selectedCampaign) {
                           }
                         }}
                         className="side-menu-button"
-                        title="Manage contacts and segments"
+                        title="Create and manage contacts and segments"
                       >
                         <span className="menu-icon">
                           <FontAwesomeIcon
@@ -3914,7 +3914,7 @@ if (tab === "Output" && selectedCampaign) {
                           navigate("/main?tab=Campaigns");
                         }}
                         className="side-menu-button"
-                        title="Manage campaigns"
+                        title="Create and manage email campaigns"
                       >
                         <span className="menu-icon">
                           <FontAwesomeIcon
@@ -3935,7 +3935,7 @@ if (tab === "Output" && selectedCampaign) {
                           navigate("/main?tab=Output");
                         }}
                         className="side-menu-button"
-                        title="Click to view the hyper-personalized emails being generated"
+                        title="Generate hyper-personalized emails"
                       >
                         <span className="menu-icon">
                           <FontAwesomeIcon
@@ -3963,6 +3963,8 @@ if (tab === "Output" && selectedCampaign) {
                           }
                         }}
                         className="side-menu-button"
+                        title="Configure email, schedule sends and review analytics+6"
+
                       >
                         <span className="menu-icon">
                           <FontAwesomeIcon
