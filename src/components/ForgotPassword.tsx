@@ -1,8 +1,11 @@
 import React, { useState } from "react";
 import { useOtpTimer } from "../hooks/useOtpTimer";
+import { usePageTitle } from "../hooks/usePageTitle";
 import "./LoginPage.css"; // Reuse login page styles
 
 const ForgotPasswordPage: React.FC = () => {
+  usePageTitle("Forgot Password");
+  
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");

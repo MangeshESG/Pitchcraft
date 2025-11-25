@@ -13,6 +13,7 @@ import {
   saveUserCredit
 } from "../slices/authSLice";
 import { useOtpTimer } from "../hooks/useOtpTimer";
+import { usePageTitle } from "../hooks/usePageTitle";
 import API_BASE_URL from "../config";
 import "./LoginPage.css";
 import { RootState } from "../Redux/store";
@@ -828,6 +829,8 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
 /* ---------------- MAIN LOGIN PAGE COMPONENT ---------------- */
 const LoginPage: React.FC = () => {
   const [view, setView] = useState<ViewMode>("login");
+  
+  usePageTitle(view === "login" ? "Login" : view === "register" ? "Register" : view === "forgot" ? "Forgot Password" : "OTP Verification");
 
   return (
     <div className="page login-container">

@@ -1,9 +1,12 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useOtpTimer } from "../hooks/useOtpTimer";
+import { usePageTitle } from "../hooks/usePageTitle";
 import "./LoginPage.css";
 
 const RegistrationPage: React.FC = () => {
+  usePageTitle("Register");
+  
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",

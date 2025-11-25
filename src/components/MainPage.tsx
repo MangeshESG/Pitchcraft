@@ -13,6 +13,7 @@ import {
 
 } from "@fortawesome/free-solid-svg-icons";
 import { faEnvelope, faFileAlt } from "@fortawesome/free-regular-svg-icons";
+import { usePageTitle } from "../hooks/usePageTitle";
 import "./MainPage.css";
 import Modal from "./common/Modal";
 import AppModal from "../components/common/AppModal";
@@ -353,6 +354,25 @@ const MainPage: React.FC = () => {
   const [tab, setTab] = useState<string>(initialTab);
   const [mailSubTab, setMailSubTab] = useState<string>(initialMailSubTab);
   const [contactsSubTab, setContactsSubTab] = useState<string>(initialContactsSubTab);
+  
+  // Update page title when tab changes
+  useEffect(() => {
+    const getPageTitle = () => {
+      switch (tab) {
+        case "Dashboard": return "Dashboard";
+        case "TestTemplate": return "Blueprints";
+        case "Playground": return "Playground";
+        case "DataCampaigns": return contactsSubTab === "List" ? "Contact Lists" : "Contact Segments";
+        case "Campaigns": return "Campaigns";
+        case "Output": return "Kraft Emails";
+        case "Mail": return mailSubTab === "Dashboard" ? "Mail Dashboard" : mailSubTab === "Configuration" ? "Mail Configuration" : "Mail Schedules";
+        case "MyPlan": return "My Plan";
+        default: return "Dashboard";
+      }
+    };
+    
+    document.title = `${getPageTitle()} - PitchKraft`;
+  }, [tab, contactsSubTab, mailSubTab]);
 
   const [showMailSubmenu, setShowMailSubmenu] = useState(initialTab === "Mail");
   const [showContactsSubmenu, setShowContactsSubmenu] = useState(false);
