@@ -660,7 +660,7 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
           </div>
 
           {/* Input field */}
-          {conversationStarted && !isComplete && (
+          {conversationStarted  && (
             <div className="input-area">
               <div className="input-container">
                 <textarea
@@ -1907,16 +1907,25 @@ useEffect(() => {
       });
 
       const data = response.data.response;
-      if (data && data.assistantText) {
-        const cleanText = cleanAssistantMessage(data.assistantText);
-        const botMessage: Message = {
-          type: "bot",
-          content: cleanText,
-          timestamp: new Date(),
-        };
-        setMessages([botMessage]);
-        playNotificationSound();
+      if (data) {
+        // if it's already marked complete, only push completion message
+        if (data.isComplete) {
+          const completionMessage: Message = {
+            type: "bot",
+            content:
+              "🎉 Great! I've filled in all placeholders. Select a contact and click 'Regenerate' to see the personalized email.",
+            timestamp: new Date(),
+          };
+          setMessages([completionMessage]);
+          setIsComplete(true);
+          playNotificationSound();
+        } else if (data.assistantText) {
+          const cleanText = cleanAssistantMessage(data.assistantText);
+          setMessages([{ type: "bot", content: cleanText, timestamp: new Date() }]);
+          playNotificationSound();
+        }
       }
+
     } catch (error) {
       console.error("❌ Error starting conversation:", error);
       const errorMessage: Message = {
@@ -1932,129 +1941,142 @@ useEffect(() => {
   };
 
 
-  const handleSendMessage = async () => {
-    if (currentAnswer.trim() === '' || isTyping || !effectiveUserId) return;
+const handleSendMessage = async () => {
+  if (currentAnswer.trim() === '' || isTyping || !effectiveUserId) return;
 
-    const userMessage: Message = {
-      type: 'user',
-      content: currentAnswer,
-      timestamp: new Date(),
-    };
+  // capture the user's text before we clear it
+  const answerText = currentAnswer.trim();
 
-    setMessages((prev) => [...prev, userMessage]);
-    setCurrentAnswer('');
-    setIsTyping(true);
+  const userMessage: Message = {
+    type: 'user',
+    content: answerText,
+    timestamp: new Date(),
+  };
 
-    try {
-      const endpoint = isEditMode
-        ? `${API_BASE_URL}/api/CampaignPrompt/edit/chat`
-        : `${API_BASE_URL}/api/CampaignPrompt/chat`;
+  // add user message to UI immediately
+  setMessages((prev) => [...prev, userMessage]);
 
-      const requestBody = isEditMode
-        ? {
+  // clear input AFTER capturing content
+  setCurrentAnswer('');
+  setIsTyping(true);
+
+  try {
+    const endpoint = isEditMode
+      ? `${API_BASE_URL}/api/CampaignPrompt/edit/chat`
+      : `${API_BASE_URL}/api/CampaignPrompt/chat`;
+
+    const requestBody = isEditMode
+      ? {
           userId: effectiveUserId,
           campaignTemplateId: editTemplateId,
-          message: userMessage.content,
+          message: answerText,
           model: selectedModel,
         }
-        : {
+      : {
           userId: effectiveUserId,
-          message: userMessage.content,
+          message: answerText,
           systemPrompt: '',
           model: selectedModel,
         };
 
-      const response = await axios.post(endpoint, requestBody);
-      const data = response.data.response;
+    const response = await axios.post(endpoint, requestBody);
+    const data = response.data.response;
 
-      const cleanAssistantMessage = (text: string): string => {
-        if (!text) return '';
-        return text
-          .replace(/==PLACEHOLDER_VALUES_START==[\s\S]*?==PLACEHOLDER_VALUES_END==/g, '')
-          .replace(/{\s*"status"[\s\S]*?}/g, '')
-          .trim();
-      };
+    const cleanAssistantMessage = (text: string): string => {
+      if (!text) return '';
+      return text
+        .replace(/==PLACEHOLDER_VALUES_START==[\s\S]*?==PLACEHOLDER_VALUES_END==/g, '')
+        .replace(/{\s*"status"[\s\S]*?}/g, '')
+        .trim();
+    };
 
-      // ====================================================================
-      // ✅ EXTRACT AND UPDATE PLACEHOLDERS FROM AI RESPONSE
-      // ====================================================================
-      if (data?.assistantText) {
-        const cleanText = cleanAssistantMessage(data.assistantText);
-        const match = data.assistantText.match(
-          /==PLACEHOLDER_VALUES_START==([\s\S]*?)==PLACEHOLDER_VALUES_END==/
-        );
+    // If the response contains assistantText, parse placeholders first
+    let cleanText = '';
+    if (data?.assistantText) {
+      cleanText = cleanAssistantMessage(data.assistantText);
 
-        if (match) {
-          const placeholderBlock = match[1] || "";
+      // extract placeholder block if present
+      const match = data.assistantText.match(
+        /==PLACEHOLDER_VALUES_START==([\s\S]*?)==PLACEHOLDER_VALUES_END==/
+      );
 
-          // Prepare storage for parsed placeholders
-          const parsedPlaceholders: Record<string, string> = {};
+      if (match) {
+        const placeholderBlock = match[1] || '';
+        const parsedPlaceholders: Record<string, string> = {};
+        const kvRegex = /\{([^}]+)\}\s*=\s*([\s\S]*?)(?=\r?\n\{[^}]+\}\s*=|\r?\n==PLACEHOLDER_VALUES_END==|$)/g;
+        let m: RegExpExecArray | null;
+        while ((m = kvRegex.exec(placeholderBlock)) !== null) {
+          const key = m[1].trim();
+          let value = m[2] ?? '';
+          value = value.replace(/^\r?\n/, '').replace(/\s+$/, '');
+          parsedPlaceholders[key] = value;
+        }
 
-          // This global regex finds each "{key} = value" pair where value can be multiline.
-          // It uses a non-greedy ([\s\S]*?) capture and looks ahead for either the next "{key} =" or the end marker.
-          const kvRegex = /\{([^}]+)\}\s*=\s*([\s\S]*?)(?=\r?\n\{[^}]+\}\s*=|\r?\n==PLACEHOLDER_VALUES_END==|$)/g;
+        // split current placeholders into conversation/contact
+        const currentConversationValues = getConversationPlaceholders(placeholderValues);
+        const currentContactValues = getContactPlaceholders(placeholderValues);
+        const updatedConversationValues = { ...currentConversationValues };
 
-          let m: RegExpExecArray | null;
-          while ((m = kvRegex.exec(placeholderBlock)) !== null) {
-            const key = m[1].trim();
-            let value = m[2] ?? "";
-            // Trim only a single trailing newline and surrounding whitespace; preserve intentional newlines in the body
-            value = value.replace(/^\r?\n/, '').replace(/\s+$/, '');
-            parsedPlaceholders[key] = value;
-            console.log(`🔎 Parsed placeholder: ${key} -> ${value.slice(0, 80)}${value.length > 80 ? '…' : ''}`);
+        Object.entries(parsedPlaceholders).forEach(([key, value]) => {
+          if (!CONTACT_PLACEHOLDERS.includes(key)) {
+            updatedConversationValues[key] = value;
           }
+        });
 
-          // Now separate conversation vs contact placeholders
-          const currentConversationValues = getConversationPlaceholders(placeholderValues);
-          const currentContactValues = getContactPlaceholders(placeholderValues);
-          const updatedConversationValues = { ...currentConversationValues };
+        // merge for display once (removed duplicate call)
+        const mergedForDisplay = getMergedPlaceholdersForDisplay(updatedConversationValues, currentContactValues);
+        setPlaceholderValues(mergedForDisplay);
+        console.log('📦 Updated conversation placeholders:', Object.keys(updatedConversationValues));
 
-          // Update conversation placeholders only
-          Object.entries(parsedPlaceholders).forEach(([key, value]) => {
-            if (!CONTACT_PLACEHOLDERS.includes(key)) {
-              updatedConversationValues[key] = value;
-              console.log(`✅ Updated conversation placeholder: ${key}`);
-            } else {
-              console.log(`⏭️ Skipped contact placeholder: ${key}`);
-            }
-          });
-
-          // Merge for display and set state
-          const mergedForDisplay = getMergedPlaceholdersForDisplay(updatedConversationValues, currentContactValues);
-          setPlaceholderValues(mergedForDisplay);
-          console.log('📦 Updated conversation placeholders:', Object.keys(updatedConversationValues));
-
-
-          setPlaceholderValues(mergedForDisplay);
-          console.log('📦 Updated conversation placeholders:', Object.keys(updatedConversationValues));
-
-          // ====================================================================
-          // ❌ REMOVED: Search API auto-call
-          // ❌ REMOVED: Example generation auto-call
-          // User must click "Regenerate" button manually
-          // ====================================================================
-
-          // ====================================================================
-          // 💾 SAVE ONLY CONVERSATION PLACEHOLDERS TO DATABASE
-          // ====================================================================
-          const storedId = sessionStorage.getItem('newCampaignId');
-          const activeCampaignId = editTemplateId ?? (storedId ? Number(storedId) : null);
+        // Save conversation placeholders to DB (if campaign exists)
+        const storedId = sessionStorage.getItem('newCampaignId');
+        const activeCampaignId = editTemplateId ?? (storedId ? Number(storedId) : null);
 
         if (activeCampaignId) {
           try {
             await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
               id: activeCampaignId,
-              placeholderValues: updatedConversationValues, // ✅ Only conversation placeholders
+              placeholderValues: updatedConversationValues, // only conversation placeholders
             });
             await reloadCampaignBlueprint();
-
             console.log('💾 Saved conversation placeholders to DB (no auto-generation)');
           } catch (err) {
             console.warn('⚠️ Failed to save placeholders:', err);
           }
         }
       }
+    }
 
+    // ----------------------------
+    // Completion handling: IMPORTANT
+    // ----------------------------
+    if (data?.isComplete) {
+      // push only the friendly completion message (do not push the raw assistantText)
+      const completionMessage: Message = {
+        type: 'bot',
+        content: "🎉 Great! I've filled in all placeholders. Select a contact and click 'Regenerate' to see the personalized email.",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, completionMessage]);
+      setIsComplete(true);
+      await reloadCampaignBlueprint();
+      playNotificationSound();
+
+      // If edit-mode finalization is required, run it (use answerText)
+      if (isEditMode && selectedPlaceholder && answerText) {
+        try {
+          await finalizeEditPlaceholder(selectedPlaceholder, answerText);
+        } catch (err) {
+          console.warn('⚠️ finalizeEditPlaceholder failed:', err);
+        }
+      }
+
+      setIsTyping(false);
+      return; // stop here (no further bot message)
+    }
+
+    // Normal (non-complete) flow: append clean assistant message if present
+    if (cleanText) {
       const botMessage: Message = {
         type: 'bot',
         content: cleanText,
@@ -2062,46 +2084,31 @@ useEffect(() => {
       };
       setMessages((prev) => [...prev, botMessage]);
       await reloadCampaignBlueprint();
-
       playNotificationSound();
     }
 
-      // ====================================================================
-      // HANDLE COMPLETION
-      // ====================================================================
-      if (data.isComplete) {
-        const completionMessage: Message = {
-          type: 'bot',
-          content: "🎉 Great! I've filled in all placeholders. Select a contact and click 'Regenerate' to see the personalized email.",
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, completionMessage]);
-        setIsComplete(true);
-        return;
+    // If not complete and in edit mode, finalize placeholder using the captured answerText
+    if (isEditMode && selectedPlaceholder && answerText) {
+      try {
+        await finalizeEditPlaceholder(selectedPlaceholder, answerText);
+      } catch (err) {
+        console.warn('⚠️ finalizeEditPlaceholder failed:', err);
       }
-
-      // ====================================================================
-      // EDIT MODE FINALIZATION
-      // ====================================================================
-      if (isEditMode && selectedPlaceholder && currentAnswer.trim()) {
-        try {
-          await finalizeEditPlaceholder(selectedPlaceholder, currentAnswer.trim());
-        } catch (err) {
-          console.warn('⚠️ finalizeEditPlaceholder failed:', err);
-        }
-      }
-    } catch (error) {
-      console.error('❌ Error sending message:', error);
-      const errorMessage: Message = {
-        type: 'bot',
-        content: 'Sorry, there was an error. Please try again.',
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setIsTyping(false);
     }
-  };
+
+  } catch (error) {
+    console.error('❌ Error sending message:', error);
+    const errorMessage: Message = {
+      type: 'bot',
+      content: 'Sorry, there was an error. Please try again.',
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, errorMessage]);
+  } finally {
+    setIsTyping(false);
+  }
+};
+
 
   // ====================================================================
   // UPDATE TEMPLATE IN DATABASE (UNUSED - Can be removed if not needed)
@@ -2489,8 +2496,8 @@ function SimpleTextarea({
               <div className="instructions-wrapper">
 
                 {/* =======================================================
-       TOP HEADER SECTION (Picklist + Inputs + Buttons)
-    ======================================================== */}
+                    TOP HEADER SECTION (Picklist + Inputs + Buttons)
+                 ======================================================== */}
                 <div className="instructions-header" style={{ marginTop: "-43px" }}>
 
                   {/* Load Template Definition */}
