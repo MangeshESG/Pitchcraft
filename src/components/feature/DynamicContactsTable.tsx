@@ -48,10 +48,10 @@ interface DynamicContactsTableProps {
   hideSearch?: boolean;
   customHeader?: React.ReactNode;
   onColumnsChange?: (columns: ColumnConfig[]) => void;
-}
-interface DynamicContactsTableProps {
-  // ... existing props
-  columnNameMap?: Record<string, string>; // 👈 Add this line
+  columnNameMap?: Record<string, string>;
+  
+  // Column persistence
+  persistedColumnSelection?: string[];
 }
 const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   data,
@@ -86,6 +86,9 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   customHeader,
   onColumnsChange,
   columnNameMap,
+  
+  // Persistence props
+  persistedColumnSelection = [],
 }) => {
   const [columns, setColumns] = useState<ColumnConfig[]>([]);
   const [showColumnPanel, setShowColumnPanel] = useState(false);
@@ -219,7 +222,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
       .trim();
   };
 
-  // Determine default visibility
+  // Determine default visibility with persistence support
   const getDefaultVisibility = (
     key: string,
     type: ColumnConfig["type"]
@@ -235,7 +238,12 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
       return false;
     }
 
-    // Always show these important fields
+    // If we have persisted selection, use it
+    if (persistedColumnSelection.length > 0) {
+      return persistedColumnSelection.includes(key);
+    }
+
+    // Always show these important fields by default
     if (
       ["name", "email", "company", "title", "type", "status", "date"].some(
         (show) => keyLower.includes(show)
@@ -323,12 +331,20 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
     }
   };
 
-  // Initialize columns
+  // Initialize columns with persistence support
   useEffect(() => {
     // Only initialize once when data is available
     if (!isInitializedRef.current && data.length > 0) {
       if (customColumns) {
-        setColumns(customColumns);
+        // Apply persisted selection to custom columns
+        const columnsWithPersistence = customColumns.map(col => {
+          if (col.key === 'checkbox') return col;
+          if (persistedColumnSelection.length > 0) {
+            return { ...col, visible: persistedColumnSelection.includes(col.key) };
+          }
+          return col;
+        });
+        setColumns(columnsWithPersistence);
       } else if (autoGenerateColumns) {
         const generatedColumns = generateColumnsFromData(data);
         setColumns(generatedColumns);
@@ -337,17 +353,33 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
     }
     // Update columns when customColumns prop changes
     else if (customColumns && isInitializedRef.current) {
-      setColumns(customColumns);
+      const columnsWithPersistence = customColumns.map(col => {
+        if (col.key === 'checkbox') return col;
+        if (persistedColumnSelection.length > 0) {
+          return { ...col, visible: persistedColumnSelection.includes(col.key) };
+        }
+        return col;
+      });
+      setColumns(columnsWithPersistence);
     }
-  }, [data.length, customColumns, autoGenerateColumns]); // Simplified dependencies
+  }, [data.length, customColumns, autoGenerateColumns, persistedColumnSelection]); // Added persistedColumnSelection
 
-  // ADD this useEffect after the column initialization one:
+  // Reset initialization when switching between different data types
   useEffect(() => {
-    // Reset initialization when switching between different data types
     if (data.length === 0) {
       isInitializedRef.current = false;
     }
   }, [data.length]);
+
+  // Apply persisted column selection when it changes
+  useEffect(() => {
+    if (persistedColumnSelection.length > 0 && columns.length > 0) {
+      setColumns(prev => prev.map(col => {
+        if (col.key === 'checkbox') return col;
+        return { ...col, visible: persistedColumnSelection.includes(col.key) };
+      }));
+    }
+  }, [persistedColumnSelection]);
 
   // Dynamic filtering
   const getFilteredData = () => {
@@ -423,7 +455,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   const visibleColumns = columns.filter((col) => col.visible);
   const totalPages = Math.ceil(filteredData.length / pageSize);
 
-  // Toggle column visibility
+  // Toggle column visibility with persistence support
   const toggleColumnVisibility = (columnKey: string) => {
     const updatedColumns = columns.map((col) =>
       col.key === columnKey ? { ...col, visible: !col.visible } : col

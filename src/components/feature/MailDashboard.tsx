@@ -112,6 +112,8 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     sent: 0,
     opens: 0,
     clicks: 0,
+    totalClicks: 0,
+    errors: 0,
   });
   const [requestCount, setRequestCount] = useState(0);
   const [emailFilterType, setEmailFilterType] = useState<
@@ -678,7 +680,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
         setFilteredEventData([]);
         setRequestCount(0);
         setDailyStats([]);
-        setTotalStats({ sent: 0, opens: 0, clicks: 0 });
+        setTotalStats({ sent: 0, opens: 0, clicks: 0, totalClicks: 0, errors: 0 });
         setDataFetchedForCampaign(campaignId);
       } finally {
         setLoading(false);
@@ -781,11 +783,16 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     const totalSentCount = filteredEmailLogs.filter(
       (log: any) => log.isSuccess
     ).length;
+    const totalClickCount = filteredTrackingData.filter(item => item.eventType === 'Click').length;
+    const errorCount = filteredEmailLogs.filter((log: any) => !log.isSuccess).length;
+    
     setRequestCount(totalSentCount);
     setTotalStats({
       sent: totalSentCount,
       opens: uniqueOpensInDateRange.size,
       clicks: uniqueClicksInDateRange.size,
+      totalClicks: totalClickCount,
+      errors: errorCount,
     });
 
     // Update filtered event data
@@ -830,7 +837,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
       setAllEventData([]);
       setEmailLogs([]);
       setDailyStats([]);
-      setTotalStats({ sent: 0, opens: 0, clicks: 0 });
+      setTotalStats({ sent: 0, opens: 0, clicks: 0, totalClicks: 0, errors: 0 });
       setRequestCount(0);
       setDataFetchedForCampaign("");
     }
@@ -1778,6 +1785,17 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
           )}
         </div>
 
+        <div className="stats-card purple">
+          <h3>Click</h3>
+          {loading ? (
+            <p className="value">Loading...</p>
+          ) : !selectedCampaign ? (
+            <p className="value">-</p>
+          ) : (
+            <p className="value">{totalStats.totalClicks}</p>
+          )}
+        </div>
+
         <div className="stats-card blue">
           <h3>Unique clicks</h3>
           {loading ? (
@@ -1788,6 +1806,20 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
             <>
               <p className="value">{totalStats.clicks}</p>
               <p className="percentage">({clickRate}%)</p>
+            </>
+          )}
+        </div>
+
+        <div className="stats-card red">
+          <h3>Error</h3>
+          {loading ? (
+            <p className="value">Loading...</p>
+          ) : !selectedCampaign ? (
+            <p className="value">-</p>
+          ) : (
+            <>
+              <p className="value">{totalStats.errors}</p>
+              <p className="percentage">({requestCount > 0 ? ((totalStats.errors / (requestCount + totalStats.errors)) * 100).toFixed(1) : '0.0'}%)</p>
             </>
           )}
         </div>

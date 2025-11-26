@@ -751,32 +751,83 @@ console.log("processingStats.valid:", processingStats.valid);
               </p>
 
               <div className="mapping-container">
-                {REQUIRED_FIELDS.map((field) => (
-                  <div key={field.key} className="form-group">
-                    <label>
-                      {field.label}
-                      {field.required && <span className="required"> *</span>}
-                    </label>
-                    <select
-                      value={columnMappings[field.key] || ""}
-                      onChange={(e) =>
-                        handleMappingChange(field.key, e.target.value)
-                      }
-                      className={`${
-                        field.required && !columnMappings[field.key]
-                          ? "highlight-required"
-                          : ""
-                      }`}
-                    >
-                      <option value="">--Do not include--</option>
-                      {columnHeaders.map((header, index) => (
-                        <option key={index} value={header}>
-                          {header}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ))}
+                {REQUIRED_FIELDS.map((field) => {
+                  // Define helper text for each field
+                  const getFieldDescription = (fieldKey: string) => {
+                    switch (fieldKey) {
+                      case 'name':
+                        return 'Required – mapping the full name lets you address each recipient personally in your messages.';
+                      case 'email':
+                        return 'Required – mapping the email address is necessary for sending messages to each recipient.';
+                      case 'company':
+                        return 'Optional: mapping the company name lets you personalise messages and refer to each recipient\'s organisation.';
+                      case 'company_website':
+                        return 'Optional – mapping the company website lets you link directly to each organisation\'s site or include it in personalised emails.';
+                      case 'location':
+                        return 'Optional – mapping the location lets you tailor messages by region and reference each recipient\'s area.';
+                      case 'email_body':
+                        return 'Optional – map if you keep notes such as last contact details and want them handy when personalising future messages.';
+                      case 'linkedin':
+                        return 'Optional – mapping the LinkedIn profile lets you add personal touches or include a direct profile link in your message.';
+                      case 'email_subject':
+                        return 'Optional – map if you store custom subject lines and wish to reuse them when sending follow-up emails.';
+                      case 'job_title':
+                        return 'Optional – mapping the job title lets you personalise your message by referencing the recipient\'s role and responsibilities.';
+                      case 'company_industry':
+                        return 'Optional – mapping the industry helps you tailor your messaging to the recipient\'s business sector and add relevant context.';
+                      case 'company_event_link':
+                        return 'Optional – mapping the company event link lets you reference or share their events directly in personalised messages.';
+                      case 'company_linkedin_url':
+                        return 'Optional – mapping the company\'s LinkedIn page helps you add relevant context or include a direct link to their organisation profile.';
+                      case 'company_employee_count':
+                        return 'Optional – mapping the employee count helps you tailor messaging based on the organisation\'s size and structure.';
+                      case 'company_telephone':
+                        return 'Optional – mapping the company telephone number lets you include direct contact details when needed in personalised outreach.';
+                      default:
+                        return null;
+                    }
+                  };
+
+                  const description = getFieldDescription(field.key);
+
+                  return (
+                    <div key={field.key} className="form-group">
+                      <label>
+                        {field.label}
+                        {field.required && <span className="required"> *</span>}
+                      </label>
+                      <select
+                        value={columnMappings[field.key] || ""}
+                        onChange={(e) =>
+                          handleMappingChange(field.key, e.target.value)
+                        }
+                        className={`${
+                          field.required && !columnMappings[field.key]
+                            ? "highlight-required"
+                            : ""
+                        }`}
+                      >
+                        <option value="">--Do not include--</option>
+                        {columnHeaders.map((header, index) => (
+                          <option key={index} value={header}>
+                            {header}
+                          </option>
+                        ))}
+                      </select>
+                      {description && (
+                        <p style={{
+                          fontSize: '13px',
+                          color: '#666',
+                          marginTop: '4px',
+                          marginBottom: '0',
+                          lineHeight: '1.4'
+                        }}>
+                          {description}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
 
               <div

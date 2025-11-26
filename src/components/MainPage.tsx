@@ -359,13 +359,13 @@ const MainPage: React.FC = () => {
   useEffect(() => {
     const getPageTitle = () => {
       switch (tab) {
-        case "Dashboard": return "Dashboard-View progress and help videos";
-        case "TestTemplate": return "Blueprints-Create and manage email blueprints";
-        case "Playground": return "Playground-Experiment with email generation";
-        case "DataCampaigns": return contactsSubTab === "List" ? "Contact Lists- Create and manage contacts and segments" : "Contact Segments- Create and manage contacts and segments";
-        case "Campaigns": return "Campaigns-Create and manage email campaigns";
-        case "Output": return "Kraft Emails-Generate hyper-personalized emails";
-        case "Mail": return mailSubTab === "Dashboard" ? "Mail Dashboard-Configure email, schedule sends and review analytics " : mailSubTab === "Configuration" ? "Mail Configuration-Configure email, schedule sends and review analytics " : "Mail Schedules-Configure email, schedule sends and review analytics ";
+        case "Dashboard": return "Dashboard - View progress and help videos";
+        case "TestTemplate": return "Blueprints - Create and manage email blueprints";
+        case "Playground": return "Playground - Experiment with email generation";
+        case "DataCampaigns": return contactsSubTab === "List" ? "Contact Lists - Create and manage contacts and segments" : "Contact Segments - Create and manage contacts and segments";
+        case "Campaigns": return "Campaigns - Create and manage email campaigns";
+        case "Output": return "Kraft Emails - Generate hyper-personalized emails";
+        case "Mail": return mailSubTab === "Dashboard" ? "Mail Dashboard - Configure email, schedule sends and review analytics" : mailSubTab === "Configuration" ? "Mail Configuration - Configure email, schedule sends and review analytics" : "Mail Schedules - Configure email, schedule sends and review analytics";
         case "MyPlan": return "My Plan";
         default: return "Dashboard";
       }
@@ -3970,7 +3970,7 @@ if (tab === "Output" && selectedCampaign) {
                           }
                         }}
                         className="side-menu-button"
-                        title="Configure email, schedule sends and review analytics+6"
+                        title="Configure email, schedule sends and review analytics"
 
                       >
                         <span className="menu-icon">
