@@ -161,6 +161,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     { key: "website", label: "Website", visible: false },
     { key: "hasOpened", label: "Opened", visible: true },
     { key: "hasClicked", label: "Clicked", visible: true },
+    { key: "ipAddress", label: "IP Address", visible: true },
   ]);
 
   const [emailLogsColumns, setEmailLogsColumns] = useState([
@@ -924,6 +925,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
         targetUrl: item.targetUrl || undefined,
         hasOpened: false,
         hasClicked: false,
+        ipAddress: (item as any).ipAddress || "-",
       }));
 
     // Calculate hasOpened and hasClicked for each unique email
@@ -2230,7 +2232,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
                   "country_or_address",
                   "email_subject",
                 ]
-                : ["full_name", "email", "company", "jobTitle", "location"]
+                : ["full_name", "email", "company", "jobTitle", "location", "ipAddress"]
             }
             primaryKey="id"
             viewMode="table"
