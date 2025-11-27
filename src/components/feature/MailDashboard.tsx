@@ -146,6 +146,9 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   const [savingSegment, setSavingSegment] = useState(false);
   const [dataFetchedForCampaign, setDataFetchedForCampaign] =
     useState<string>("");
+  const [deletingContacts, setDeletingContacts] = useState(false);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [contactsToDelete, setContactsToDelete] = useState<number[]>([]);
 
   const [emailColumns, setEmailColumns] = useState<ColumnConfig[]>([
     { key: "checkbox", label: "", visible: true, width: "40px" },
@@ -1477,6 +1480,85 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     }).length;
   };
 
+  // Delete contacts function
+  const handleDeleteContacts = async () => {
+    if (detailSelectedContacts.size === 0) {
+      appModal.showWarning("Please select contacts to delete");
+      return;
+    }
+
+    const selectedContacts = getFilteredEmailContacts().filter((contact) =>
+      detailSelectedContacts.has(contact.id.toString())
+    );
+
+    const validContactIds = selectedContacts
+      .map((contact) => contact.contactId)
+      .filter((id): id is number => id !== null && id !== undefined && id > 0);
+
+    if (validContactIds.length === 0) {
+      appModal.showWarning("No valid contacts selected for deletion");
+      return;
+    }
+
+    setContactsToDelete(validContactIds);
+    setShowDeleteConfirmModal(true);
+  };
+
+  const performDelete = async (validContactIds: number[]) => {
+    await withLoader("Deleting contacts...", async () => {
+      setDeletingContacts(true);
+      let successCount = 0;
+      let errorCount = 0;
+
+      try {
+        for (const contactId of validContactIds) {
+          try {
+            const response = await axios.post(
+              `${API_BASE_URL}/track/delete-tracking-contact?contactId=${contactId}`,
+              {},
+              {
+                headers: {
+                  'accept': '*/*',
+                  ...(token && { Authorization: `Bearer ${token}` }),
+                },
+              }
+            );
+            
+            if (response.status === 200) {
+              successCount++;
+            } else {
+              errorCount++;
+            }
+          } catch (error) {
+            console.error(`Error deleting contact ${contactId}:`, error);
+            errorCount++;
+          }
+        }
+
+        if (successCount > 0) {
+          appModal.showSuccess(
+            `Successfully deleted ${successCount} contact${successCount > 1 ? 's' : ''}${errorCount > 0 ? `. ${errorCount} failed.` : ''}`,
+            "Contacts Deleted"
+          );
+          
+          // Clear selection and refresh data
+          setDetailSelectedContacts(new Set());
+          if (selectedCampaign) {
+            setDataFetchedForCampaign("");
+            await fetchLogsByCampaign(selectedCampaign);
+          }
+        } else {
+          appModal.showError("Failed to delete contacts. Please try again.");
+        }
+      } catch (error) {
+        console.error("Error in delete operation:", error);
+        appModal.showError("Error deleting contacts. Please try again.");
+      } finally {
+        setDeletingContacts(false);
+      }
+    });
+  };
+
   // Header Components
   const getEmailLogsHeader = () => {
     if (selectedEmailLogs.size === 0) return null;
@@ -1590,6 +1672,18 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
             onClick={() => setShowSaveSegmentModal(true)}
           >
             Create Segment
+          </button>
+          <button
+            className="button"
+            onClick={handleDeleteContacts}
+            disabled={deletingContacts}
+            style={{
+              backgroundColor: "#dc3545",
+              color: "white",
+              border: "1px solid #dc3545"
+            }}
+          >
+            {deletingContacts ? "Deleting..." : "Delete Contact"}
           </button>
         </div>
       </div>
@@ -2409,6 +2503,71 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
               </div>
             </div>
           )}
+
+          {/* Delete Confirmation Modal */}
+          {showDeleteConfirmModal && (
+            <div
+              style={{
+                position: "fixed",
+                zIndex: 99999,
+                inset: 0,
+                background: "rgba(0,0,0,0.6)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <div
+                style={{
+                  background: "#fff",
+                  padding: 40,
+                  borderRadius: 12,
+                  minWidth: 400,
+                  maxWidth: 500,
+                  boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+                }}
+              >
+                <h2 style={{ marginTop: 0, color: "#dc3545" }}>Warning</h2>
+                <p style={{ marginBottom: 24, fontSize: 16 }}>
+                  Deleting this contact will also remove it from all contact lists and segments. This action cannot be undone. Do you want to proceed?
+                </p>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 12,
+                    justifyContent: "flex-end",
+                  }}
+                >
+                  <button
+                    onClick={() => {
+                      setShowDeleteConfirmModal(false);
+                      setContactsToDelete([]);
+                    }}
+                    className="button secondary"
+                    disabled={deletingContacts}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setShowDeleteConfirmModal(false);
+                      await performDelete(contactsToDelete);
+                      setContactsToDelete([]);
+                    }}
+                    className="button"
+                    disabled={deletingContacts}
+                    style={{
+                      backgroundColor: "#dc3545",
+                      color: "white",
+                      border: "1px solid #dc3545"
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
       <AppModal
@@ -2417,7 +2576,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
         {...appModal.config}
       />
       <AppModal
-        isOpen={isLoading || loading || isRefreshing || savingSegment}
+        isOpen={isLoading || loading || isRefreshing || savingSegment || deletingContacts}
         onClose={() => { }}
         type="loader"
         loaderMessage={loadingMessage}
