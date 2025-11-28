@@ -2388,7 +2388,7 @@ function SimpleTextarea({
         </div>
       )}
 
-      <div className="campaign-builder-container" style={{marginTop: "auto"}}>
+      <div className="campaign-builder-container" style={{marginTop: "-30px"}}>
         <div className="campaign-builder-main">
 
 

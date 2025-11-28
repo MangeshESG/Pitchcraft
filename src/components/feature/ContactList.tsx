@@ -11,6 +11,37 @@ import { useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
 import PaginationControls from "./PaginationControls";
 
+// Persistent column selection utilities
+const CONTACTLIST_COLUMNS_KEY = 'contactlist_selected_columns';
+
+const saveSelectedColumns = (columns: string[]) => {
+  try {
+    localStorage.setItem(CONTACTLIST_COLUMNS_KEY, JSON.stringify(columns));
+  } catch (error) {
+    console.warn('Failed to save column selection:', error);
+  }
+};
+
+const loadSelectedColumns = (): string[] => {
+  try {
+    const saved = localStorage.getItem(CONTACTLIST_COLUMNS_KEY);
+    return saved ? JSON.parse(saved) : [];
+  } catch (error) {
+    console.warn('Failed to load column selection:', error);
+    return [];
+  }
+};
+
+const getDefaultVisibleColumns = (): string[] => {
+  return [
+    'full_name',
+    'email', 
+    'company_name',
+    'job_title',
+    'country_or_address'
+  ];
+};
+
 const menuBtnStyle = {
   width: "100%",
   padding: "8px 18px",
@@ -129,6 +160,12 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
 
   const isDemoAccount = sessionStorage.getItem("isDemoAccount") === "true";
 
+
+  // Persistent column selection state
+  const [savedColumnSelection, setSavedColumnSelection] = useState<string[]>(() => {
+    const saved = loadSelectedColumns();
+    return saved.length > 0 ? saved : getDefaultVisibleColumns();
+  });
 
   // Column configuration - excluding email_subject and email_body
   const [columns, setColumns] = useState<ColumnConfig[]>([
@@ -280,13 +317,38 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     });
   };
 
-  // Toggle column visibility
+  // Apply saved column selection to current columns
+  const applyColumnSelection = (currentColumns: ColumnConfig[], savedSelection: string[]) => {
+    return currentColumns.map(col => {
+      if (col.key === 'checkbox') return col;
+      
+      // If no saved selection, use default visibility
+      if (savedSelection.length === 0) {
+        return { ...col, visible: getDefaultVisibleColumns().includes(col.key) };
+      }
+      
+      // Apply saved selection, defaulting to false for columns not in selection
+      return { ...col, visible: savedSelection.includes(col.key) };
+    });
+  };
+
+  // Toggle column visibility with persistence
   const toggleColumnVisibility = (columnKey: string) => {
-    setColumns((prev) =>
-      prev.map((col) =>
+    setColumns((prev) => {
+      const updated = prev.map((col) =>
         col.key === columnKey ? { ...col, visible: !col.visible } : col
-      )
-    );
+      );
+      
+      // Save the new selection to localStorage
+      const visibleColumns = updated
+        .filter(col => col.visible && col.key !== 'checkbox')
+        .map(col => col.key);
+      
+      setSavedColumnSelection(visibleColumns);
+      saveSelectedColumns(visibleColumns);
+      
+      return updated;
+    });
   };
 
   // Calculate pagination
@@ -297,6 +359,11 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   const endIndex = Math.min(currentPage * pageSize, filteredContacts.length)
   // const endIndex = startIndex + pageSize;
   //const currentData = filteredContacts.slice(startIndex, endIndex);
+
+  // Apply saved column selection when columns change
+  useEffect(() => {
+    setColumns(prev => applyColumnSelection(prev, savedColumnSelection));
+  }, [savedColumnSelection]);
 
   // Load data when client changes
   useEffect(() => {
@@ -1180,7 +1247,7 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
     website: "Website",
     company_name: "Company name",
     job_title: "Job title",
-    linkedin_url: "LinkedIn url",
+    linkedin_url: "LinkedIn URL",
     country_or_address: "Country or address",
     created_at: "Created at",
     updated_at: "Updated at",
@@ -1188,7 +1255,7 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
     companyTelephone: "Company telephone",
     companyEmployeeCount: "Company employee count",
     companyIndustry: "Company industry",
-    companyLinkedInURL: "Company linked in url",
+    companyLinkedInURL: "Company linked in URL",
     companyEventLink: "Company event link",
   };
 
@@ -1593,6 +1660,15 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
                   "dataFileId",
                   "data_file",
                 ]} // Hide large/unwanted fields
+                onColumnsChange={(updatedColumns) => {
+                  // Handle column changes from DynamicContactsTable
+                  const visibleColumns = updatedColumns
+                    .filter(col => col.visible && col.key !== 'checkbox')
+                    .map(col => col.key);
+                  setSavedColumnSelection(visibleColumns);
+                  saveSelectedColumns(visibleColumns);
+                }}
+                persistedColumnSelection={savedColumnSelection}
                 customFormatters={{
                   // Date formatting
                   created_at: (value: any) => formatDate(value),
@@ -2262,6 +2338,15 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
                   "dataFileId",
                   "data_file",
                 ]}
+                onColumnsChange={(updatedColumns) => {
+                  // Handle column changes from DynamicContactsTable
+                  const visibleColumns = updatedColumns
+                    .filter(col => col.visible && col.key !== 'checkbox')
+                    .map(col => col.key);
+                  setSavedColumnSelection(visibleColumns);
+                  saveSelectedColumns(visibleColumns);
+                }}
+                persistedColumnSelection={savedColumnSelection}
                 customFormatters={{
                   created_at: (value: any) => formatDate(value),
                   updated_at: (value: any) => formatDate(value),
@@ -2592,9 +2677,11 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
           <div
             style={{
               background: "#fff",
-              padding: 40,
+              padding: 24,
               borderRadius: 12,
-              minWidth: 340,
+              maxWidth: 800,
+              width:"45%",
+              //minWidth: 340,
               boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
             }}
           >
@@ -2645,7 +2732,7 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
                 className="button primary"
                 disabled={!segmentName || savingSegment}
               >
-                {savingSegment ? "Saving..." : "Save Segment"}
+                {savingSegment ? "Saving..." : "Save segment"}
               </button>
             </div>
           </div>
