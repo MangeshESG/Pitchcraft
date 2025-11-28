@@ -449,7 +449,6 @@ const TemplateTab: React.FC<TemplateTabProps> = ({
 
 
 
-// ✅ UPDATED ConversationTab Component
 const ConversationTab: React.FC<ConversationTabProps> = ({
   conversationStarted,
   messages,
@@ -468,7 +467,7 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   placeholderValues = {},
   onPlaceholderSelect,
   selectedPlaceholder,
-  previewText,  // ✅ <-- add this line
+  previewText,
   exampleOutput,
   regenerateExampleOutput,
 
@@ -478,42 +477,46 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   selectedContactId,
   handleSelectDataFile,
   setSelectedContactId,
-  applyContactPlaceholders,  // 👈 add this
+  applyContactPlaceholders,
 
   searchResults,
   allSourcedData,
   sourcedSummary,
-
-
 }) => {
-
-
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const renderMessageContent = (content: string) => {
     const isHtml = /<[a-z][\s\S]*>/i.test(content);
     if (isHtml) {
-      return <div className="rendered-html-content" dangerouslySetInnerHTML={{ __html: content }} />;
+      return (
+        <div
+          className="rendered-html-content"
+          dangerouslySetInnerHTML={{ __html: content }}
+        />
+      );
     } else {
       return <p className="message-content">{content}</p>;
     }
   };
 
   useEffect(() => {
-    // Focus input when conversation starts or after a new bot message
     if (!isTyping && conversationStarted && inputRef.current) {
       inputRef.current.focus();
     }
   }, [isTyping, messages, conversationStarted]);
 
-  const [activeMainTab, setActiveMainTab] = useState<'output' | 'stages' | 'elements'>('output');
-  const [activeSubStageTab, setActiveSubStageTab] = useState<'search' | 'data' | 'summary'>('search');
+  const [activeMainTab, setActiveMainTab] = useState<
+    "output" | "stages" | "elements"
+  >("output");
+  const [activeSubStageTab, setActiveSubStageTab] = useState<
+    "search" | "data" | "summary"
+  >("search");
 
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 1;
   const totalPages = Math.ceil(contacts.length / rowsPerPage);
-  const paginatedContact = contacts[(currentPage - 1) * rowsPerPage];
+
   useEffect(() => {
     if (contacts.length > 0) {
       const contact = contacts[(currentPage - 1) * rowsPerPage];
@@ -527,140 +530,113 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   return (
     <div className="conversation-container">
       <div className="chat-layout">
+
         {/* ===================== CHAT SECTION ===================== */}
         <div className="chat-section">
+          
+          {/* ------------------ EDIT MODE: SELECT PLACEHOLDER ------------------ */}
           {isEditMode && !conversationStarted && (
-            <div className="placeholder-selector-section" style={{
-              padding: '20px',
-              backgroundColor: '#f9fafb',
-              borderRadius: '8px',
-              marginBottom: '20px'
+            <div style={{
+              padding: "20px",
+              backgroundColor: "#f9fafb",
+              borderRadius: "8px",
+              marginBottom: "20px",
             }}>
-              <div className="placeholder-selector-header" style={{ marginBottom: '15px' }}>
-                <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '8px' }}>
-                  Select Placeholder to Edit
-                </h3>
-                <p style={{ color: '#6b7280', fontSize: '14px' }}>
-                  Choose which placeholder value you want to modify
-                </p>
-              </div>
+              <h3 style={{ fontSize: "18px", fontWeight: "bold", marginBottom: "8px" }}>
+                Select Placeholder to Edit
+              </h3>
 
-              <div className="placeholder-selector-content">
-                <select
-                  className="placeholder-dropdown"
-                  value={selectedPlaceholder || ''}
-                  onChange={(e) => {
-                    if (e.target.value && onPlaceholderSelect) {
-                      onPlaceholderSelect(e.target.value);
-                    }
-                  }}
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    fontSize: '15px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '8px',
-                    backgroundColor: 'white',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <option value="">-- Select a placeholder to edit --</option>
-                  {availablePlaceholders.map((placeholder) => (
-                    <option key={placeholder} value={placeholder}>
-                      {`{${placeholder}}`} - Current: {placeholderValues[placeholder] || "Not set"}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <select
+                value={selectedPlaceholder || ""}
+                onChange={(e) => {
+                  if (e.target.value && onPlaceholderSelect) {
+                    onPlaceholderSelect(e.target.value);
+                  }
+                }}
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "8px",
+                }}
+              >
+                <option value="">-- Select a placeholder --</option>
+                {availablePlaceholders.map((p) => (
+                  <option key={p} value={p}>
+                    {`{${p}}`} — Current: {placeholderValues[p] || "Not set"}
+                  </option>
+                ))}
+              </select>
 
-              <div className="placeholder-actions" style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
-                <button
-                  onClick={() => {
-                    window.location.reload();
-                  }}
-                  className="button secondary"
-                  style={{
-                    padding: '10px 20px',
-                    backgroundColor: '#6b7280',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Cancel Edit Mode
-                </button>
-              </div>
+              <button
+                onClick={() => window.location.reload()}
+                style={{
+                  marginTop: "15px",
+                  padding: "10px 20px",
+                  background: "#6b7280",
+                  color: "white",
+                  borderRadius: "6px",
+                }}
+              >
+                Cancel Edit Mode
+              </button>
             </div>
           )}
 
-          {/* Messages Area */}
+          {/* ------------------ CHAT MESSAGES ------------------ */}
           <div className="messages-area">
-            {/* {conversationStarted && (
-              <button
-                onClick={resetAll}
-                className="clear-history-button"
-                title="Clear history and start fresh"
-              >
-                <XCircle size={16} />
-                Clear History
-              </button>
-            )} */}
-
             {!conversationStarted && !isEditMode ? (
               <div className="empty-conversation">
-                <div className="empty-conversation-content">
-                  <MessageSquare size={48} className="empty-conversation-icon" />
-                  <p className="empty-conversation-text">
-                    Start by entering your template in the 'Template' tab.
-                  </p>
-                </div>
+                
               </div>
             ) : conversationStarted ? (
               <div className="messages-list">
+                
+                {/* EDIT MODE: Indicate which placeholder is being edited */}
                 {isEditMode && selectedPlaceholder && (
-                  <div className="edit-mode-indicator" style={{
-                    backgroundColor: '#fef3c7',
-                    border: '1px solid #fbbf24',
-                    padding: '12px',
-                    borderRadius: '8px',
-                    marginBottom: '15px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
+                  <div style={{
+                    background: "#fef3c7",
+                    border: "1px solid #fbbf24",
+                    padding: "12px",
+                    borderRadius: "8px",
+                    marginBottom: "12px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
                   }}>
                     <AlertCircle size={16} color="#f59e0b" />
-                    <span>Editing: <strong>{`{${selectedPlaceholder}}`}</strong></span>
+                    Editing: <strong>{`{${selectedPlaceholder}}`}</strong>
                   </div>
                 )}
 
-                {messages.map((message, index) => (
-                  <div key={index} className={`message-wrapper ${message.type}`}>
-                    <div className={`message-bubble ${message.type}`}>
-                      {renderMessageContent(message.content)}
-                      <div className={`message-time ${message.type}`}>
-                        {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {messages.map((msg, idx) => (
+                  <div key={idx} className={`message-wrapper ${msg.type}`}>
+                    <div className={`message-bubble ${msg.type}`}>
+                      {renderMessageContent(msg.content)}
+                      <div className={`message-time ${msg.type}`}>
+                        {new Date(msg.timestamp).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </div>
                     </div>
                   </div>
                 ))}
+
                 {isTyping && (
                   <div className="typing-indicator">
-                    <div className="typing-bubble">
-                      <div className="typing-content">
-                        <Loader2 className="typing-spinner" />
-                        <span className="typing-text">Blueprint builder is thinking...</span>
-                      </div>
-                    </div>
+                    <Loader2 className="typing-spinner" />
+                    <span>Blueprint builder is thinking...</span>
                   </div>
                 )}
+
                 <div ref={chatEndRef} />
               </div>
             ) : null}
           </div>
 
-          {/* Input field */}
-          {conversationStarted  && (
+          {/* ------------------ INPUT BAR ------------------ */}
+          {conversationStarted && (
             <div className="input-area">
               <div className="input-container">
                 <textarea
@@ -686,7 +662,7 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
           )}
         </div>
 
-        {/* ===================== EXAMPLE SECTION ===================== */}
+        {/* ===================== EXAMPLE OUTPUT SECTION ===================== */}
         {isSectionOpen && (
           <div className="example-section">
             <div className="example-header">
@@ -936,6 +912,7 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
     </div>
   );
 };
+
 
 // ====================================================================
 // MAIN COMPONENT
@@ -1614,7 +1591,24 @@ useEffect(() => {
       setSelectedTemplateDefinitionId(template.templateDefinitionId || null);
       setTemplateName(template.templateName || "");
       setIsComplete(false);
-      setMessages([]);
+
+      // --------------------------------------------
+      // LOAD PREVIOUS CONVERSATION MESSAGES
+      // --------------------------------------------
+      if (template.conversation && template.conversation.messages) {
+        console.log("📨 Loading past conversation messages:", template.conversation.messages.length);
+
+        const loadedMessages = template.conversation.messages.map((m: any) => ({
+          type: m.role === "assistant" ? "bot" : "user",
+          content: m.content,
+          timestamp: new Date()
+        }));
+
+        setMessages(loadedMessages);
+      } else {
+        console.log("ℹ️ No stored messages found for this campaign.");
+        setMessages([]);
+      }
 
       // ✅ Load ONLY conversation placeholders from DB
       if (template.placeholderValues) {
@@ -1644,44 +1638,86 @@ useEffect(() => {
   // ====================================================================
   // START EDIT CONVERSATION
   // ====================================================================
-  const startEditConversation = async (placeholder: string) => {
-    if (!effectiveUserId || !placeholder) return;
+// Robust startEditConversation: reads editTemplateId from state OR session storage (both keys),
+// validates numeric campaignTemplateId, and optionally wraps payload in { req } if needed.
+const startEditConversation = async (placeholder: string) => {
+  if (!effectiveUserId || !placeholder) {
+    console.warn("startEditConversation: missing effectiveUserId or placeholder");
+    return;
+  }
 
-    setSelectedPlaceholder(placeholder);
-    setMessages([]);
-    setConversationStarted(true);
-    setIsComplete(false);
-    setIsTyping(true);
+  // Prefer in-memory editTemplateId, fall back to session keys (newCampaignId or editTemplateId)
+  const storedNewCampaignId = sessionStorage.getItem('newCampaignId');
+  const storedEditTemplateId = sessionStorage.getItem('editTemplateId');
 
-    const currentValue = placeholderValues[placeholder] || "not set";
+  const campaignTemplateIdCandidate = editTemplateId
+    ?? (storedNewCampaignId ? Number(storedNewCampaignId) : null)
+    ?? (storedEditTemplateId ? Number(storedEditTemplateId) : null);
 
-    try {
-      const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/edit/start`, {
-        userId: effectiveUserId,
-        campaignTemplateId: editTemplateId,
-        placeholder,
-        currentValue,
-        model: selectedModel,
-      });
+  const campaignTemplateId = Number(campaignTemplateIdCandidate);
 
-      const data = response.data.response;
-      if (data && data.assistantText) {
-        setMessages([{ type: "bot", content: data.assistantText, timestamp: new Date() }]);
-        playNotificationSound();
-      }
-    } catch (error) {
-      console.error("Error starting edit conversation:", error);
-      setMessages([
-        {
-          type: "bot",
-          content: "Sorry, I couldn't start the edit conversation. Please try again.",
-          timestamp: new Date(),
-        },
-      ]);
-    } finally {
-      setIsTyping(false);
+  // Validate campaignTemplateId
+  if (!campaignTemplateId || Number.isNaN(campaignTemplateId) || campaignTemplateId <= 0) {
+    alert("No campaign ID found. Please open the campaign in edit mode first (wait until it finishes loading).");
+    console.error("startEditConversation: campaignTemplateId is missing/invalid:", {
+      editTemplateId,
+      storedNewCampaignId,
+      storedEditTemplateId,
+      campaignTemplateIdCandidate,
+    });
+    return;
+  }
+
+  // Good to set UI state after validation (prevents sending requests when id missing)
+  setSelectedPlaceholder(placeholder);
+  setMessages([]);
+  setConversationStarted(true);
+  setIsComplete(false);
+  setIsTyping(true);
+
+  const currentValue = placeholderValues[placeholder] || "not set";
+
+  try {
+    const payload = {
+      userId: String(effectiveUserId),    // ✅ STRING
+      campaignTemplateId: campaignTemplateId,      // numeric
+      placeholder,
+      currentValue,
+      model: selectedModel,
+
+    };
+
+    // DEBUG: inspect outgoing payload in console/network tab
+    console.log("startEditConversation -> payload:", payload);
+
+    // If your backend expects { req: { ... } } wrap the payload:
+    // const bodyToSend = { req: payload }; // <-- uncomment if API requires req wrapper
+    const bodyToSend = payload;
+
+    const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/edit/start`, bodyToSend);
+
+    const data = response.data?.response ?? response.data;
+    if (data && data.assistantText) {
+      setMessages([{ type: "bot", content: data.assistantText, timestamp: new Date() }]);
+      playNotificationSound();
+    } else {
+      // If API returns a different shape, log it for debugging and show friendly message
+      console.warn("startEditConversation: unexpected response:", response.data);
+      setMessages([{ type: "bot", content: "Received unexpected response from server.", timestamp: new Date() }]);
     }
-  };
+  } catch (err: any) {
+    console.error("Error starting edit conversation:", err, err?.response?.data);
+    setMessages([
+      {
+        type: "bot",
+        content: "Sorry, I couldn't start the edit conversation. Please try again.",
+        timestamp: new Date(),
+      },
+    ]);
+  } finally {
+    setIsTyping(false);
+  }
+};
 
   // ====================================================================
   // ✅ UPDATED: Finalize Edit Placeholder (Save Only Conversation)
@@ -1708,7 +1744,7 @@ useEffect(() => {
       placeholderValues: conversationValues, // ✅ Only conversation placeholders
       selectedModel,
     });
-    await reloadCampaignBlueprint();
+    //await reloadCampaignBlueprint();
     console.log("✅ Conversation placeholder saved in DB:", updatedPlaceholder);
     console.log("ℹ️ Click 'Regenerate' to see the updated email");
 
@@ -1971,6 +2007,7 @@ const handleSendMessage = async () => {
           campaignTemplateId: editTemplateId,
           message: answerText,
           model: selectedModel,
+
         }
       : {
           userId: effectiveUserId,
@@ -2038,7 +2075,7 @@ const handleSendMessage = async () => {
               id: activeCampaignId,
               placeholderValues: updatedConversationValues, // only conversation placeholders
             });
-            await reloadCampaignBlueprint();
+            //await reloadCampaignBlueprint();
             console.log('💾 Saved conversation placeholders to DB (no auto-generation)');
           } catch (err) {
             console.warn('⚠️ Failed to save placeholders:', err);
@@ -2083,18 +2120,10 @@ const handleSendMessage = async () => {
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, botMessage]);
-      await reloadCampaignBlueprint();
+      //await reloadCampaignBlueprint();
       playNotificationSound();
     }
 
-    // If not complete and in edit mode, finalize placeholder using the captured answerText
-    if (isEditMode && selectedPlaceholder && answerText) {
-      try {
-        await finalizeEditPlaceholder(selectedPlaceholder, answerText);
-      } catch (err) {
-        console.warn('⚠️ finalizeEditPlaceholder failed:', err);
-      }
-    }
 
   } catch (error) {
     console.error('❌ Error sending message:', error);
