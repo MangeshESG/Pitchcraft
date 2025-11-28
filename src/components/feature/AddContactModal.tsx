@@ -116,13 +116,13 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
         background: '#fff',
         padding: 24,
         borderRadius: 8,
-        width: '90%',
-        maxWidth: 600,
+        width: '45%',
+        maxWidth: 800,
         maxHeight: '90vh',
         overflow: 'auto',
         boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
       }}>
-        <h3 style={{ marginTop: 0, marginBottom: 20 }}>Add New Contact</h3>
+        <h3 style={{ marginTop: 0, marginBottom: 20 }}>Add new contact</h3>
         
         <form onSubmit={handleSubmit}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
@@ -418,7 +418,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
                 cursor: isSubmitting || !formData.fullName.trim() || !formData.email.trim() ? 'not-allowed' : 'pointer'
               }}
             >
-              {isSubmitting ? 'Adding...' : 'Add Contact'}
+              {isSubmitting ? 'Adding...' : 'Add contact'}
             </button>
           </div>
         </form>

@@ -1937,7 +1937,7 @@ useEffect(() => {
             min="1"
             max={combinedResponses.length}
             className="form-control text-center !mx-2"
-            style={{ width: "70px", padding: "8px" }}
+            style={{ width: "70px", padding: "8px",border: "1px solid #ddd",borderRadius: "4px" }}
           />
           <span className="flex items-center">
             of{" "}
