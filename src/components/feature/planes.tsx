@@ -84,6 +84,7 @@ function PaymentForm({ clientSecret, selectedPlan, onGoBack }: { clientSecret: s
   const [message, setMessage] = useState("");
   const [paymentMethod, setPaymentMethod] = useState('credit-card');
 
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!stripe || !elements) return;
@@ -222,7 +223,8 @@ const Planes: React.FC = () => {
   const [isYearly, setIsYearly] = useState(false);
   const [currentPlan, setCurrentPlan] = useState<string | null>(null);
   const [currentInterval, setCurrentInterval] = useState<string | null>(null);
-
+   const [loadingPlanCode, setLoadingPlanCode] = useState<string | null>(null);
+const [errorPopup, setErrorPopup] = useState<string | null>(null);
   const fetchCurrentPlan = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/stripe/active/${effectiveUserId}`);
@@ -253,7 +255,7 @@ const Planes: React.FC = () => {
       setShowCreditsModal(true);
       return;
     }
-
+   setLoadingPlanCode(plan.planCode);
     try {
       setSelectedPlan(plan);
       const priceId = isYearly ? (plan.title.toLowerCase() === 'standard' ? 'price_1SPgOFHDCkj9hBmZxSnUTzAT' : plan.title.toLowerCase() === 'premium' ? 'price_1SPh0hHDCkj9hBmZXtVBJ1QG' : plan.planCode) : plan.planCode;
@@ -272,8 +274,9 @@ const Planes: React.FC = () => {
       const data = await response.json();
       setClientSecret(data.clientSecret);
     } catch (error) {
-      console.error("Subscription error:", error);
-      alert("Error starting subscription. Please try again.");
+       console.error("Subscription error:", error);
+  setErrorPopup("Error starting subscription. Please try again.");
+  setLoadingPlanCode(null); // optional: reset loading spinner
     }
   };
 
@@ -384,16 +387,37 @@ const Planes: React.FC = () => {
               className={`try-button ${(isExactSamePlan || cannotBuy) ? 'disabled' : ''}`}
               onClick={() => {
                 if (isExactSamePlan || cannotBuy) return;
+                 setLoadingPlanCode(plan.planCode);
                 handleTryItNowClick({...plan, price: displayPrice, period: displayPeriod});
               }}
-              disabled={isExactSamePlan || cannotBuy}
+              disabled={isExactSamePlan || cannotBuy ||loadingPlanCode === plan.planCode}
             >
               <FontAwesomeIcon icon={faCloudDownloadAlt} /> 
-              {isExactSamePlan ? 'Current plan' : cannotBuyAgain ? 'Already purchased this month' : cannotBuy ? 'Cannot downgrade' : canSwitchInterval ? `Switch to ${currentBillingType}` : canUpgrade ? 'Upgrade' : plan.buttonText}
+              {loadingPlanCode === plan.planCode?"Processing...":isExactSamePlan ? 'Current plan' : cannotBuyAgain ? 'Already purchased this month' : cannotBuy ? 'Cannot downgrade' : canSwitchInterval ? `Switch to ${currentBillingType}` : canUpgrade ? 'Upgrade' : plan.buttonText}
             </button>
           </div>
         )})}
       </div>
+               {errorPopup && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+      <h3 className="text-xl font-bold mb-4 text-red-600">Error</h3>
+
+      <p className="text-gray-700 mb-6">
+        {errorPopup}
+      </p>
+
+      <div className="flex justify-end">
+        <button
+          onClick={() => setErrorPopup(null)}
+          className="px-4 py-2 bg-green-600 text-white rounded-md"
+        >
+          OK
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
       {/* Credits Selection Modal */}
       {showCreditsModal && (

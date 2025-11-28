@@ -994,7 +994,7 @@ const generateExampleEmail = (template: CampaignTemplate) => {
         className="campaign-builder-container"
         style={{
           width: "100%",
-          marginTop: "-65px",
+          marginTop: "-85px",
           background: "#fff",
           borderRadius: "8px",
           boxShadow: "0 2px 12px rgba(0, 0, 0, 0.05)",

@@ -182,18 +182,18 @@ const CreateListModal: React.FC<CreateListModalProps> = ({
         background: '#fff',
         padding: 24,
         borderRadius: 8,
-        width: '95%',
+        width: '45%',
         maxWidth: 800,
         maxHeight: '90vh',
         overflow: 'auto',
         boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
       }}>
-        <h3 style={{ marginTop: 0, marginBottom: 20 }}>Create New List</h3>
+        <h3 style={{ marginTop: 0, marginBottom: 20 }}>Create new list</h3>
         
         <form onSubmit={handleSubmit}>
           {/* List Details */}
           <div style={{ marginBottom: 24, padding: 16, background: '#f8f9fa', borderRadius: 6 }}>
-            <h4 style={{ marginTop: 0, marginBottom: 16 }}>List Details</h4>
+            <h4 style={{ marginTop: 0, marginBottom: 16 }}>List details</h4>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
               <div>
                 <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
@@ -248,7 +248,7 @@ const CreateListModal: React.FC<CreateListModalProps> = ({
                   fontSize: '14px'
                 }}
               >
-                + Add Contact
+                + Add contact
               </button>
             </div>
 
@@ -395,7 +395,7 @@ const CreateListModal: React.FC<CreateListModalProps> = ({
                 cursor: isSubmitting || !listName.trim() ? 'not-allowed' : 'pointer'
               }}
             >
-              {isSubmitting ? 'Creating...' : 'Create List'}
+              {isSubmitting ? 'Creating...' : 'Create list'}
             </button>
           </div>
         </form>

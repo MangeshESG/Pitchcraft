@@ -2592,9 +2592,11 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
           <div
             style={{
               background: "#fff",
-              padding: 40,
+              padding: 24,
               borderRadius: 12,
-              minWidth: 340,
+              maxWidth: 800,
+              width:"45%",
+              //minWidth: 340,
               boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
             }}
           >
@@ -2645,7 +2647,7 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
                 className="button primary"
                 disabled={!segmentName || savingSegment}
               >
-                {savingSegment ? "Saving..." : "Save Segment"}
+                {savingSegment ? "Saving..." : "Save segment"}
               </button>
             </div>
           </div>

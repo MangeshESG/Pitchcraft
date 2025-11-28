@@ -53,6 +53,12 @@ interface DynamicContactsTableProps {
   // ... existing props
   columnNameMap?: Record<string, string>; // 👈 Add this line
 }
+type SortDirection = "asc" | "desc";
+
+interface SortConfig {
+  key: string | null;
+  direction: SortDirection;
+}
 const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   data,
   isLoading,
@@ -412,10 +418,43 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
 
   // Filter and paginate data
   const filteredData = getFilteredData();
-  const displayData = paginated
-    ? filteredData.slice((currentPage - 1) * pageSize, currentPage * pageSize)
-    : filteredData;
+  // const displayData = paginated
+  //   ? filteredData.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  //   : filteredData;
+    //for grid sorting cloumns
+const [sortConfig, setSortConfig] = useState<SortConfig>({
+  key: null,
+  direction: "asc",
+});
+const handleSort = (columnKey: string) => {
+  let direction: SortDirection = "asc";
 
+  if (sortConfig.key === columnKey && sortConfig.direction === "asc") {
+    direction = "desc";
+  }
+
+  setSortConfig({ key: columnKey, direction });
+};
+const sortedData = [...filteredData].sort((a, b) => {
+  if (!sortConfig.key) return 0;
+
+  const key = sortConfig.key as string;
+  const valA = a[key];
+  const valB = b[key];
+
+  // Handle null/undefined
+  if (valA == null) return 1;
+  if (valB == null) return -1;
+
+  if (valA < valB) return sortConfig.direction === "asc" ? -1 : 1;
+  if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
+  return 0;
+});
+const pagedData = paginated
+  ? sortedData.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  : sortedData;
+
+const displayData = pagedData;
   const visibleColumns = columns.filter((col) => col.visible);
   const totalPages = Math.ceil(filteredData.length / pageSize);
 
@@ -686,7 +725,8 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
               <thead>
                 <tr>
                   {visibleColumns.map((column) => (
-                    <th key={column.key} style={{ width: column.width }}>
+                    <th key={column.key}  onClick={() => column.key !== "checkbox" && handleSort(column.key)}
+    style={{ cursor: column.key !== "checkbox" ? "pointer" : "default", width: column.width }}>
                       {column.key === "checkbox" ? (
                         <input
                           type="checkbox"
@@ -702,6 +742,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                         columnNameMap?.[column.key] || column.label
                         //column.label
                       )}
+                      {sortConfig.key === column.key ? (sortConfig.direction === "asc" ? " ▲" : " ▼") : ""}
                     </th>
                   ))}
                 </tr>

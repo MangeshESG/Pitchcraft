@@ -1038,6 +1038,8 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   const [showPopup, setShowPopup] = useState(false);
   const [newBccEmail, setNewBccEmail] = useState<string>("");
   const [bccLoading, setBccLoading] = useState(false);
+  const [configTab, setConfigTab] = useState("mailboxes");
+
 
   type BccEmail = { id: number; bccEmailAddress: string; clinteId: number };
 
@@ -1454,6 +1456,32 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     // UTC+14:00
     { value: "Line Islands Standard Time", label: "(UTC+14:00) Kiritimati Island", iana: "Pacific/Kiritimati" }
   ];
+  //pagination for mail box
+  const pageSize = 10; // items per page
+
+  const [currentPageMailbox, setCurrentPageMailbox] = useState(1);
+
+  const filteredMailboxes = smtpList.filter(
+    (item) =>
+      item.server?.toLowerCase().includes(mailboxSearch.toLowerCase()) ||
+      item.username?.toLowerCase().includes(mailboxSearch.toLowerCase())
+  );
+
+  const totalPagesMailbox = Math.ceil(filteredMailboxes.length / pageSize);
+
+  const startIndex = (currentPageMailbox - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+
+  const currentMailboxes = filteredMailboxes.slice(startIndex, endIndex);
+  //pagination for bcc
+  const [bccPage, setBccPage] = useState(1);
+  const bccPageSize = 10;
+  const totalPagesBCC = Math.ceil(bccEmails.length / bccPageSize);
+
+  const paginatedBccEmails = bccEmails.slice(
+    (bccPage - 1) * bccPageSize,
+    bccPage * bccPageSize
+  );
 
   return (
     <div className="login-box gap-down">
@@ -1469,68 +1497,79 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
 
       {tab === "Configuration" && (
         <>
-          <div className="data-campaigns-container" style={{marginTop:"-61px"}}>
-            {/* Mailboxes Section */}
-            <div className="section-wrapper">
-              <h2 style={{ color: "black", textAlign: "left" }} className="section-title">Mailboxes</h2>
-              <p style={{marginBottom:'20px'}}>The Mailboxes section lets you add and manage email accounts for sending campaigns securely.</p>
+          {/* --- SUB TABS --- */}
+          <div className="config-tab-container" style={{ display: "flex", gap: "20px", marginBottom: "20px",marginTop:"-68px" }}>
+            <button
+              onClick={() => setConfigTab("mailboxes")}
+              className={configTab === "mailboxes" ? "active-config-tab" : "config-tab"}
+            >
+              Mailboxes
+            </button>
 
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  marginBottom: 16,
-                  gap: 16,
-                }}
-              >
-                <input
-                  type="text"
-                  className="search-input"
-                  style={{ width: 340 }}
-                  placeholder="Search mailbox by server or username"
-                  value={mailboxSearch}
-                  onChange={(e) => setMailboxSearch(e.target.value)}
-                />
-                {!isDemoAccount && (
-                  <button
-                    className="save-button button auto-width small d-flex justify-between align-center"
-                    style={{ marginLeft: "auto" }}
-                    onClick={() => handleModalOpen("modal-add-mailbox")}
-                  >
-                    + Add mailbox
-                  </button>
-                )}
-              </div>
-              <table className="contacts-table" style={{ background: "#fff" }}>
-                <thead>
-                  <tr>
-                    <th>Server</th>
-                    <th>Port</th>
-                    <th>Username</th>
-                    <th>From email</th>
-                    <th>SSL</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {smtpList.length === 0 ? (
+            <button
+              onClick={() => setConfigTab("bcc")}
+              className={configTab === "bcc" ? "active-config-tab" : "config-tab"}
+            >
+              BCC email management
+            </button>
+          </div>
+          <div className="data-campaigns-container" style={{ marginTop: "-61px" }}>
+            {/* Mailboxes Section */}
+            {configTab === "mailboxes" && (
+              <div className="section-wrapper">
+                {/* <h2 style={{ color: "black", textAlign: "left" }} className="section-title">
+                  Mailboxes
+                </h2> */}
+                <p style={{ marginBottom: "20px", marginTop: "80px" }}>
+                  The Mailboxes section lets you add and manage email accounts for sending campaigns securely.
+                </p>
+
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    marginBottom: 16,
+                    gap: 16,
+                  }}
+                >
+                  <input
+                    type="text"
+                    className="search-input"
+                    style={{ width: 340 }}
+                    placeholder="Search mailbox by server or username"
+                    value={mailboxSearch}
+                    onChange={(e) => setMailboxSearch(e.target.value)}
+                  />
+                  {!isDemoAccount && (
+                    <button
+                      className="save-button button auto-width small d-flex justify-between align-center"
+                      style={{ marginLeft: "auto" }}
+                      onClick={() => handleModalOpen("modal-add-mailbox")}
+                    >
+                      + Add mailbox
+                    </button>
+                  )}
+                </div>
+                <table className="contacts-table" style={{ background: "#fff" }}>
+                  <thead>
                     <tr>
-                      <td colSpan={6} style={{ textAlign: "center" }}>
-                        No mailboxes configured.
-                      </td>
+                      <th>Server</th>
+                      <th>Port</th>
+                      <th>Username</th>
+                      <th>From email</th>
+                      <th>SSL</th>
+                      <th>Actions</th>
                     </tr>
-                  ) : (
-                    smtpList
-                      .filter(
-                        (item) =>
-                          item.server
-                            ?.toLowerCase()
-                            .includes(mailboxSearch.toLowerCase()) ||
-                          item.username
-                            ?.toLowerCase()
-                            .includes(mailboxSearch.toLowerCase())
-                      )
-                      .map((item, index) => (
+                  </thead>
+                  <tbody>
+                    {currentMailboxes.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} style={{ textAlign: "center" }}>
+                          No mailboxes configured.
+                        </td>
+                      </tr>
+                    ) : (
+                      currentMailboxes.map((item, index) => (
                         <tr key={item.id || index}>
                           <td>{item.server}</td>
                           <td>{item.port}</td>
@@ -1549,9 +1588,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                               }}
                               onClick={() =>
                                 setMailboxActionsAnchor(
-                                  item.id?.toString() === mailboxActionsAnchor
-                                    ? null
-                                    : item.id?.toString() ?? null // Convert undefined to null
+                                  item.id?.toString() === mailboxActionsAnchor ? null : (item.id?.toString() ?? null), // Convert undefined to null
                                 )
                               }
                             >
@@ -1575,8 +1612,8 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                                 {!isDemoAccount && (
                                   <button
                                     onClick={() => {
-                                      handleEdit(item);
-                                      setMailboxActionsAnchor(null);
+                                      handleEdit(item)
+                                      setMailboxActionsAnchor(null)
                                     }}
                                     style={menuBtnStyle}
                                     className="flex gap-2 items-center"
@@ -1593,8 +1630,8 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                                           d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
                                           stroke="#000000"
                                           strokeWidth="2"
-                                          stroke-linecap="round"
-                                          stroke-linejoin="round"
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
                                         ></path>
                                       </svg>
                                     </span>
@@ -1604,8 +1641,8 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                                 {!isDemoAccount && (
                                   <button
                                     onClick={() => {
-                                      handleDelete(item.id);
-                                      setMailboxActionsAnchor(null);
+                                      handleDelete(item.id)
+                                      setMailboxActionsAnchor(null)
                                     }}
                                     style={{ ...menuBtnStyle }}
                                     className="flex gap-2 items-center"
@@ -1628,313 +1665,335 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                           </td>
                         </tr>
                       ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* BCC Email Management Section */}
-            <div className="section-wrapper" style={{ marginTop: 40 }}>
-              <h2 style={{ color: "black", textAlign: "left" }} className="section-title">BCC email management</h2>
-              <div style={{ marginBottom: 4, color: "#555" }}>
-                Add BCC email addresses to receive copies of all sent emails.
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  marginBottom: 16,
-                  gap: 16,
-                }}
-              >
-                {/* <input
-                  type="email"
-                  className="search-input"
-                  style={{ width: 340 }}
-                  placeholder="Enter BCC email address"
-                  value={newBccEmail}
-                  onChange={(e) => setNewBccEmail(e.target.value)}
-                /> */}
-                <button
-                  className="save-button button auto-width small d-flex justify-between align-center"
-                  style={{ marginLeft: "auto" }}
-                  // onClick={handleAddBcc}
-                  onClick={() => setShowPopup(true)}
-                  //disabled={bccLoading || !newBccEmail}
-                  disabled={bccLoading} // disable only during API call
-
-                >
-                  {bccLoading ? "Adding..." : "+ Add BCC"}
-                </button>
-              </div>
-
-              {bccError && (
-                <div style={{ color: "#c00", marginBottom: 16 }}>
-                  {bccError}
-                </div>
-              )}
-
-              <table className="contacts-table" style={{ background: "#fff" }}>
-                <thead>
-                  <tr>
-                    <th>BCC email address</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bccLoading && bccEmails.length === 0 ? (
-                    <tr>
-                      <td colSpan={2} style={{ textAlign: "center" }}>
-                        Loading BCC emails...
-                      </td>
-                    </tr>
-                  ) : bccEmails.length === 0 ? (
-                    <tr>
-                      <td colSpan={2} style={{ textAlign: "center" }}>
-                        No BCC emails configured.
-                      </td>
-                    </tr>
-                  ) : (
-                    bccEmails.map((email) => (
-                      <tr key={email.id}>
-                        <td>{email.bccEmailAddress}</td>
-                        <td>
-                          {!isDemoAccount && (
-                            <button
-                              className="button secondary small"
-                              onClick={() => handleDeleteBcc(email.id)}
-                              disabled={bccLoading}
-                              style={{
-                                padding: "6px 12px",
-                                fontSize: "14px",
-                                background: "#dc3545",
-                                color: "#fff",
-                                border: "none",
-                                borderRadius: "4px",
-                                cursor: bccLoading ? "not-allowed" : "pointer",
-                              }}
-                            >
-                              Delete
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-              {/* Popup Modal */}
-              {showPopup && (
-                <div
-                  onClick={() => setShowPopup(false)}
-                  style={{
-                    position: "fixed",
-                    top: 0,
-                    left: 0,
-                    width: "100%",
-                    height: "100%",
-                    background: "rgba(0,0,0,0.5)",
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    zIndex: 1000,
-                  }}
-                >
+                    )}
+                  </tbody>
+                </table>
+                <PaginationControls
+                  currentPage={currentPageMailbox}
+                  totalPages={totalPagesMailbox}
+                  totalRecords={filteredMailboxes.length} // Use filteredMailboxes for totalRecords if filtering is applied before pagination
+                  pageSize={pageSize}
+                  setCurrentPage={setCurrentPageMailbox}
+                />
+                {/* Add/Edit Mailbox Modal */}
+                {/* Replace your Modal component with this custom modal */}
+                {(openModals["modal-add-mailbox"] || editingId !== null) && (
                   <div
-                    onClick={(e) => e.stopPropagation()}
                     style={{
-                      background: "#fff",
-                      padding: 24,
-                      borderRadius: 8,
-                      width: 400,
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+                      position: "fixed",
+                      zIndex: 99999,
+                      inset: 0,
+                      background: "rgba(0,0,0,0.6)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                    onClick={() => {
+                      // Close modal when clicking backdrop
+                      handleModalClose("modal-add-mailbox")
+                      setEditingId(null)
+                      setForm({
+                        server: "",
+                        port: "",
+                        username: "",
+                        password: "",
+                        fromEmail: "",
+                        usessl: false,
+                      })
                     }}
                   >
-                    <h3 style={{ marginBottom: 16 }}>Add BCC email</h3>
-
-                    <input
-                      type="email"
-                      className="search-input"
+                    <div
                       style={{
-                        width: "100%",
-                        padding: "8px",
-                        marginBottom: "16px",
-                        border: "1px solid #ccc",
-                        borderRadius: "4px",
+                        background: "#fff",
+                        padding: "24px",
+                        borderRadius: "8px",
+                        width: "45%",
+                        maxWidth:800,
+                        maxHeight: "90vh",
+                        overflow: "auto",
+                        boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
                       }}
-                      placeholder="Enter BCC email address"
-                      value={newBccEmail}
-                      onChange={(e) => setNewBccEmail(e.target.value)}
-                    />
-
-                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-                      <button
-                        className="button secondary small"
-                        onClick={() => setShowPopup(false)}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        className="save-button button small"
-                        onClick={handleSave}
-                        disabled={bccLoading || !newBccEmail}
-                      >
-                        {bccLoading ? "Adding..." : "ADD"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Add/Edit Mailbox Modal */}
-          {/* Replace your Modal component with this custom modal */}
-          {(openModals["modal-add-mailbox"] || editingId !== null) && (
-            <div
-              style={{
-                position: "fixed",
-                zIndex: 99999,
-                inset: 0,
-                background: "rgba(0,0,0,0.6)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-              onClick={() => {
-                // Close modal when clicking backdrop
-                handleModalClose("modal-add-mailbox");
-                setEditingId(null);
-                setForm({
-                  server: "",
-                  port: "",
-                  username: "",
-                  password: "",
-                  fromEmail: "",
-                  usessl: false,
-                });
-              }}
-            >
-              <div
-                style={{
-                  background: "#fff",
-                  padding: "24px",
-                  borderRadius: "8px",
-                  width: "500px",
-                  maxHeight: "90vh",
-                  overflow: "auto",
-                  boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
-                }}
-                onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
-              >
-                <form onSubmit={handleSubmitSMTP}>
-                  <h2 className="!text-left">
-                    {editingId ? "Edit mailbox" : "Add mailbox"}
-                  </h2>
-                  <div className="flex gap-4">
-                    <div className="form-group flex-1">
-                      <label>
-                        Host <span style={{ color: "red" }}>*</span>
-                      </label>
-                      <input
-                        name="server"
-                        placeholder="smtp.example.com"
-                        value={form.server}
-                        onChange={handleChangeSMTP}
-                        required
-                      />
-                    </div>
-                    <div className="form-group flex-1">
-                      <label>
-                        Port <span style={{ color: "red" }}>*</span>
-                      </label>
-                      <input
-                        name="port"
-                        type="number"
-                        placeholder="587"
-                        value={form.port}
-                        onChange={handleChangeSMTP}
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div className="flex gap-4">
-                    <div className="form-group flex-1">
-                      <label>
-                        Username <span style={{ color: "red" }}>*</span>
-                      </label>
-                      <input
-                        name="username"
-                        placeholder="user@example.com"
-                        value={form.username}
-                        onChange={handleChangeSMTP}
-                        required
-                      />
-                    </div>
-                    <div className="form-group flex-1">
-                      <label>
-                        Password <span style={{ color: "red" }}>*</span>
-                      </label>
-                      <input
-                        name="password"
-                        type="password"
-                        placeholder="••••••••"
-                        value={form.password}
-                        onChange={handleChangeSMTP}
-                        required
-                      />
-                    </div>
-                  </div>
-                  <div className="form-group">
-                    <label>
-                      From email <span style={{ color: "red" }}>*</span>
-                    </label>
-                    <input
-                      name="fromEmail"
-                      type="email"
-                      placeholder="sender@example.com"
-                      value={form.fromEmail}
-                      onChange={handleChangeSMTP}
-                      required
-                    />
-                  </div>
-                  <div className="d-flex justify-end" style={{ marginTop: 16 }}>
-                    <span className="flex items-center">
-                      <input
-                        type="checkbox"
-                        name="usessl"
-                        checked={form.usessl}
-                        onChange={handleChangeSMTP}
-                        id="use-ssl"
-                      />
-                      <label
-                        className="ml-5 !mb-[0] font-size-12 nowrap mr-10 font-[600]"
-                        htmlFor="use-ssl"
-                      >
-                        Use SSL
-                      </label>
-                    </span>
-                    <button
-                      className="save-button button min-w-[150px]"
-                      type="submit"
+                      onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
                     >
-                      {editingId ? "Update" : "Add"}
-                    </button>
+                      <form onSubmit={handleSubmitSMTP}>
+                        <h2 className="!text-left" style={{color:"#333",fontSize:"400"}}>{editingId ? "Edit mailbox" : "Add mailbox"}</h2>
+                        <div className="flex gap-4">
+                          <div className="form-group flex-1">
+                            <label>
+                              Host <span style={{ color: "red" }}>*</span>
+                            </label>
+                            <input
+                              name="server"
+                              placeholder="smtp.example.com"
+                              value={form.server}
+                              onChange={handleChangeSMTP}
+                              required
+                            />
+                          </div>
+                          <div className="form-group flex-1">
+                            <label>
+                              Port <span style={{ color: "red" }}>*</span>
+                            </label>
+                            <input
+                              name="port"
+                              type="number"
+                              placeholder="587"
+                              value={form.port}
+                              onChange={handleChangeSMTP}
+                              required
+                            />
+                          </div>
+                        </div>
+                        <div className="flex gap-4">
+                          <div className="form-group flex-1">
+                            <label>
+                              Username <span style={{ color: "red" }}>*</span>
+                            </label>
+                            <input
+                              name="username"
+                              placeholder="user@example.com"
+                              value={form.username}
+                              onChange={handleChangeSMTP}
+                              required
+                            />
+                          </div>
+                          <div className="form-group flex-1">
+                            <label>
+                              Password <span style={{ color: "red" }}>*</span>
+                            </label>
+                            <input
+                              name="password"
+                              type="password"
+                              placeholder="••••••••"
+                              value={form.password}
+                              onChange={handleChangeSMTP}
+                              required
+                            />
+                          </div>
+                        </div>
+                        <div className="form-group">
+                          <label>
+                            From email <span style={{ color: "red" }}>*</span>
+                          </label>
+                          <input
+                            name="fromEmail"
+                            type="email"
+                            placeholder="sender@example.com"
+                            value={form.fromEmail}
+                            onChange={handleChangeSMTP}
+                            required
+                          />
+                        </div>
+                        <div className="d-flex justify-end" style={{ marginTop: 16 }}>
+                          <span className="flex items-center">
+                            <input
+                              type="checkbox"
+                              name="usessl"
+                              checked={form.usessl}
+                              onChange={handleChangeSMTP}
+                              id="use-ssl"
+                            />
+                            <label className="ml-5 !mb-[0] font-size-12 nowrap mr-10 font-[600]" htmlFor="use-ssl">
+                              Use SSL
+                            </label>
+                          </span>
+                          <button
+                            type="button"
+                            className="button secondary min-w-[120px] mr-10"
+                            onClick={() => {
+                              handleModalClose("modal-add-mailbox")
+                              setEditingId(null)
+                              setForm({
+                                server: "",
+                                port: "",
+                                username: "",
+                                password: "",
+                                fromEmail: "",
+                                usessl: false,
+                              })
+                            }}
+                          >
+                            Cancel
+                          </button>
+                          <button className="save-button button min-w-[120px]" type="submit">
+                            {editingId ? "Update" : "Add"}
+                          </button>
+                        </div>
+                      </form>
+                    </div>
                   </div>
-                </form>
+                )}
               </div>
-            </div>
-          )}
+            )}
+
+            {/* BCC Email Management Section */}
+            {configTab === "bcc" && (
+              <div className="section-wrapper" style={{ marginTop: 40 }}>
+                {/* <h2 style={{ color: "black", textAlign: "left" }} className="section-title">
+                  BCC email management
+                </h2> */}
+                <div style={{ marginBottom: "-40px", color: "#555", marginTop: "80px" }}>
+                  Add BCC email addresses to receive copies of all sent emails.
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    marginBottom: 16,
+                    gap: 16,
+                  }}
+                >
+                  {/* <input
+                    type="email"
+                    className="search-input"
+                    style={{ width: 340 }}
+                    placeholder="Enter BCC email address"
+                    value={newBccEmail}
+                    onChange={(e) => setNewBccEmail(e.target.value)}
+                  /> */}
+                  <button
+                    className="save-button button auto-width small d-flex justify-between align-center mt-10"
+                    style={{ marginLeft: "auto"}}
+                    // onClick={handleAddBcc}
+                    onClick={() => setShowPopup(true)}
+                    //disabled={bccLoading || !newBccEmail}
+                    disabled={bccLoading} // disable only during API call
+                  >
+                    {bccLoading ? "Adding..." : "+ Add BCC"}
+                  </button>
+                </div>
+
+                {/* {bccError && <div style={{ color: "#c00", marginBottom: 16 }}>{bccError}</div>} */}
+
+                <table className="contacts-table" style={{ background: "#fff" }}>
+                  <thead>
+                    <tr>
+                      <th>BCC email address</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {bccLoading && bccEmails.length === 0 ? (
+                      <tr>
+                        <td colSpan={2} style={{ textAlign: "center" }}>
+                          Loading BCC emails...
+                        </td>
+                      </tr>
+                    ) : paginatedBccEmails.length === 0 ? (
+                      <tr>
+                        <td colSpan={2} style={{ textAlign: "center" }}>
+                          No BCC emails configured.
+                        </td>
+                      </tr>
+                    ) : (
+                      paginatedBccEmails.map((email) => (
+                        <tr key={email.id}>
+                          <td>{email.bccEmailAddress}</td>
+                          <td>
+                            {!isDemoAccount && (
+                              <button
+                                className="button secondary small"
+                                onClick={() => handleDeleteBcc(email.id)}
+                                disabled={bccLoading}
+                                style={{
+                                  padding: "6px 12px",
+                                  fontSize: "14px",
+                                  background: "#dc3545",
+                                  color: "#fff",
+                                  border: "none",
+                                  borderRadius: "4px",
+                                  cursor: bccLoading ? "not-allowed" : "pointer",
+                                }}
+                              >
+                                Delete
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+                <PaginationControls
+                  currentPage={bccPage}
+                  totalPages={totalPagesBCC}
+                  totalRecords={bccEmails.length}
+                  pageSize={pageSize}
+                  setCurrentPage={setBccPage}
+                />
+                {/* Popup Modal */}
+                {showPopup && (
+                  <div
+                    onClick={() => setShowPopup(false)}
+                    style={{
+                      position: "fixed",
+                      top: 0,
+                      left: 0,
+                      width: "100%",
+                      height: "100%",
+                      background: "rgba(0,0,0,0.5)",
+                      display: "flex",
+                      justifyContent: "center",
+                      alignItems: "center",
+                      zIndex: 1000,
+                    }}
+                  >
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        background: "#fff",
+                        padding: 24,
+                        borderRadius: 8,
+                        width: "45%",
+                        maxWidth:800,
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+                      }}
+                    >
+                      <h3 style={{ marginBottom: 16 }}>Add BCC email</h3>
+
+                      <input
+                        type="email"
+                        className="search-input"
+                        style={{
+                          width: "100%",
+                          padding: "8px",
+                          marginBottom: "16px",
+                          border: "1px solid #ccc",
+                          borderRadius: "4px",
+                        }}
+                        placeholder="Enter BCC email address"
+                        value={newBccEmail}
+                        onChange={(e) => setNewBccEmail(e.target.value)}
+                      />
+
+                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                        <button className="button secondary small" onClick={() => setShowPopup(false)}>
+                          Cancel
+                        </button>
+                        <button
+                          className="save-button button small"
+                          onClick={handleSave}
+                          disabled={bccLoading || !newBccEmail}
+                        >
+                          {bccLoading ? "Adding..." : "ADD"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </>
       )}
 
       {/* Schedule Tab */}
       {tab === "Schedule" && (
         <>
-          <div className="data-campaigns-container" style={{marginTop:"-60px"}}>
+          <div className="data-campaigns-container" style={{ marginTop: "-60px" }}>
             <div className="section-wrapper">
-              <h2 className="section-title" style={{color:"black",textAlign:"left"}}>Email schedules</h2>
+              <h2 className="section-title" style={{ color: "black", textAlign: "left" }}>Email schedules</h2>
               <div style={{ marginBottom: 4, color: "#555" }}>
                 Create and manage email delivery schedules for your campaigns.
               </div>
@@ -2249,13 +2308,13 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                   background: "#fff",
                   padding: "32px",
                   borderRadius: "8px",
-                  width: "90%",
-                  maxWidth: "720px",
+                  width: "45%",
+                  maxWidth: "800px",
                   boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
                 }}
                 onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
               >
-                <h2 style={{ marginTop: 0, marginBottom: 24 }}>
+                <h2 style={{ marginTop: 0, marginBottom: 24 ,color:"#333",textAlign:"left"}}>
                   {editingId ? "Edit schedule" : "Create schedule"}
                 </h2>
 
