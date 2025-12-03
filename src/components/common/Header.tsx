@@ -104,7 +104,7 @@ const Header: React.FC<HeaderProps> = React.memo(
                 </div>
 
                 <div className="user-credit text-sm text-gray-600">
-                  Credit:{" "}
+                  Credits:{" "}
                   <span
                     className="font-semibold text-green-600 cursor-pointer hover:underline"
                     onClick={onCreditClick ? () => onCreditClick() : onUpgradeClick}
@@ -117,7 +117,7 @@ const Header: React.FC<HeaderProps> = React.memo(
                 {/* UPGRADE BUTTON */}
                 <button
                   onClick={onUpgradeClick}
-                  className="ml-2 px-3 py-1 rounded text-white text-sm font-medium transition"
+                  className="ml-2 save-button button auto-width small d-flex justify-between align-center"
                   style={{ backgroundColor: "#3f9f42" }}
                   onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#37a137")}
                   onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#3f9f42")}

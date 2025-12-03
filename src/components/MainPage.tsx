@@ -354,7 +354,7 @@ const MainPage: React.FC = () => {
   const [tab, setTab] = useState<string>(initialTab);
   const [mailSubTab, setMailSubTab] = useState<string>(initialMailSubTab);
   const [contactsSubTab, setContactsSubTab] = useState<string>(initialContactsSubTab);
-  
+
   // Update page title when tab changes
   useEffect(() => {
     const getPageTitle = () => {
@@ -370,7 +370,7 @@ const MainPage: React.FC = () => {
         default: return "Dashboard";
       }
     };
-    
+
     document.title = `${getPageTitle()} - PitchKraft`;
   }, [tab, contactsSubTab, mailSubTab]);
 
@@ -378,126 +378,126 @@ const MainPage: React.FC = () => {
   const [showContactsSubmenu, setShowContactsSubmenu] = useState(false);
 
 
-// Load Campaign Blueprint when a campaign is selected
-// 🧠 Define this function above goToTab (not inside useEffect)
-// Load Campaign Blueprint when a campaign is selected
-const loadCampaignBlueprint = async (selectedCampaign: string) => {
-  console.log("Fetching campaign details for selected campaign:", selectedCampaign);
+  // Load Campaign Blueprint when a campaign is selected
+  // 🧠 Define this function above goToTab (not inside useEffect)
+  // Load Campaign Blueprint when a campaign is selected
+  const loadCampaignBlueprint = async (selectedCampaign: string) => {
+    console.log("Fetching campaign details for selected campaign:", selectedCampaign);
 
-  const campaignResponse = await fetch(`${API_BASE_URL}/api/auth/campaigns/${selectedCampaign}`);
-  if (!campaignResponse.ok) throw new Error("Failed to fetch campaign details");
-  const campaignData = await campaignResponse.json();
+    const campaignResponse = await fetch(`${API_BASE_URL}/api/auth/campaigns/${selectedCampaign}`);
+    if (!campaignResponse.ok) throw new Error("Failed to fetch campaign details");
+    const campaignData = await campaignResponse.json();
 
-  const clientId = campaignData.clientId;
-  const templateId = campaignData.templateId;
+    const clientId = campaignData.clientId;
+    const templateId = campaignData.templateId;
 
-  if (!templateId || !clientId) throw new Error("Missing templateId or clientId");
+    if (!templateId || !clientId) throw new Error("Missing templateId or clientId");
 
-  let blueprint = "";
-  let matchedTemplate: any = null;
+    let blueprint = "";
+    let matchedTemplate: any = null;
 
-  // 🔹 1. Fetch blueprint + placeholderValues from template
-  const bpResp = await fetch(`${API_BASE_URL}/api/CampaignPrompt/campaign/${templateId}`);
-  let bpJson: any = {};
-  if (bpResp.ok) {
-    bpJson = await bpResp.json();
+    // 🔹 1. Fetch blueprint + placeholderValues from template
+    const bpResp = await fetch(`${API_BASE_URL}/api/CampaignPrompt/campaign/${templateId}`);
+    let bpJson: any = {};
+    if (bpResp.ok) {
+      bpJson = await bpResp.json();
 
-    blueprint =
-      (bpJson.campaignBlueprint ||
-        bpJson.aiInstructions ||
-        bpJson.masterBlueprint ||
-        bpJson.templateBlueprint ||
-        "").toString();
-
-    // ---------------------------------------------------------
-    // ⭐⭐⭐ ADD YOUR REQUIRED LOGIC HERE
-    // ---------------------------------------------------------
-
-    const pv = bpJson.placeholderValues || {};
-
-    setSearchTermForm({
-      searchTerm: pv.hook_search_terms || "",
-      instructions: pv.search_objective || "",
-      searchCount: bpJson.searchURLCount?.toString() || "1",
-      output: ""
-    });
-
-    // Set selected GPT Model
-    setSelectedModelName(bpJson.selectedModel || "gpt-5");
-
-    if (bpJson.subjectInstructions) {
-      setSettingsForm((prev: any) => ({
-        ...prev,
-        subjectInstructions: bpJson.subjectInstructions
-      }));
-    }
-    console.log("🎯 Loaded from DB:", {
-      searchTerm: pv.hook_search_terms,
-      instructions: pv.search_objective,
-      searchCount: bpJson.searchURLCount,
-      model: bpJson.selectedModel
-    });
-
-    // ---------------------------------------------------------
-  }
-
-  // 🔹 2. Fallback: fetch from client templates
-  if (!blueprint.trim()) {
-    const templatesResp = await fetch(`${API_BASE_URL}/api/CampaignPrompt/templates/${clientId}`);
-    if (templatesResp.ok) {
-      const templatesJson = await templatesResp.json();
-      matchedTemplate = (templatesJson.templates || []).find((t: any) => t.id === templateId);
       blueprint =
-        (matchedTemplate?.campaignBlueprint ||
-          matchedTemplate?.aiInstructions ||
-          matchedTemplate?.masterBlueprint ||
+        (bpJson.campaignBlueprint ||
+          bpJson.aiInstructions ||
+          bpJson.masterBlueprint ||
+          bpJson.templateBlueprint ||
           "").toString();
+
+      // ---------------------------------------------------------
+      // ⭐⭐⭐ ADD YOUR REQUIRED LOGIC HERE
+      // ---------------------------------------------------------
+
+      const pv = bpJson.placeholderValues || {};
+
+      setSearchTermForm({
+        searchTerm: pv.hook_search_terms || "",
+        instructions: pv.search_objective || "",
+        searchCount: bpJson.searchURLCount?.toString() || "1",
+        output: ""
+      });
+
+      // Set selected GPT Model
+      setSelectedModelName(bpJson.selectedModel || "gpt-5");
+
+      if (bpJson.subjectInstructions) {
+        setSettingsForm((prev: any) => ({
+          ...prev,
+          subjectInstructions: bpJson.subjectInstructions
+        }));
+      }
+      console.log("🎯 Loaded from DB:", {
+        searchTerm: pv.hook_search_terms,
+        instructions: pv.search_objective,
+        searchCount: bpJson.searchURLCount,
+        model: bpJson.selectedModel
+      });
+
+      // ---------------------------------------------------------
     }
-  }
 
-  if (!blueprint.trim()) throw new Error(`No blueprint found for templateId: ${templateId}`);
+    // 🔹 2. Fallback: fetch from client templates
+    if (!blueprint.trim()) {
+      const templatesResp = await fetch(`${API_BASE_URL}/api/CampaignPrompt/templates/${clientId}`);
+      if (templatesResp.ok) {
+        const templatesJson = await templatesResp.json();
+        matchedTemplate = (templatesJson.templates || []).find((t: any) => t.id === templateId);
+        blueprint =
+          (matchedTemplate?.campaignBlueprint ||
+            matchedTemplate?.aiInstructions ||
+            matchedTemplate?.masterBlueprint ||
+            "").toString();
+      }
+    }
 
-  // Prepare prompt
-  const campaignBlueprintPrompt = {
-    id: templateId,
-    name: matchedTemplate?.templateName || campaignData.templateName || `Template ${templateId}`,
-    text: blueprint,
-    model: matchedTemplate?.selectedModel || "gpt-5",
+    if (!blueprint.trim()) throw new Error(`No blueprint found for templateId: ${templateId}`);
+
+    // Prepare prompt
+    const campaignBlueprintPrompt = {
+      id: templateId,
+      name: matchedTemplate?.templateName || campaignData.templateName || `Template ${templateId}`,
+      text: blueprint,
+      model: matchedTemplate?.selectedModel || "gpt-5",
+    };
+
+    // Save to React + sessionStorage
+    setSelectedPrompt(campaignBlueprintPrompt);
+    sessionStorage.setItem("selectedPrompt", JSON.stringify(campaignBlueprintPrompt));
+
+    console.log(
+      "✅ Blueprint set:",
+      campaignBlueprintPrompt.name,
+      campaignBlueprintPrompt.text.substring(0, 120)
+    );
+
+    return campaignBlueprintPrompt;
   };
 
-  // Save to React + sessionStorage
-  setSelectedPrompt(campaignBlueprintPrompt);
-  sessionStorage.setItem("selectedPrompt", JSON.stringify(campaignBlueprintPrompt));
 
-  console.log(
-    "✅ Blueprint set:",
-    campaignBlueprintPrompt.name,
-    campaignBlueprintPrompt.text.substring(0, 120)
-  );
 
-  return campaignBlueprintPrompt;
-};
+  useEffect(() => {
+    if (selectedCampaign) {
+      loadCampaignBlueprint(selectedCampaign).catch((err) =>
+        console.error("❌ Blueprint load failed in useEffect:", err)
+      );
+    }
+  }, [selectedCampaign]);
 
 
 
-useEffect(() => {
-  if (selectedCampaign) {
-    loadCampaignBlueprint(selectedCampaign).catch((err) =>
-      console.error("❌ Blueprint load failed in useEffect:", err)
-    );
-  }
-}, [selectedCampaign]);
-
-
-
-useEffect(() => {
-  // Safety reset for stuck loader after login
-  const timer = setTimeout(() => {
-    setIsFetchingContacts?.(false);
-    setIsLoadingClientSettings?.(false);
-  }, 2000); // 2s fallback in case fetch fails silently
-  return () => clearTimeout(timer);
-}, []);
+  useEffect(() => {
+    // Safety reset for stuck loader after login
+    const timer = setTimeout(() => {
+      setIsFetchingContacts?.(false);
+      setIsLoadingClientSettings?.(false);
+    }, 2000); // 2s fallback in case fetch fails silently
+    return () => clearTimeout(timer);
+  }, []);
 
 
   // update states when query changes
@@ -738,40 +738,40 @@ useEffect(() => {
     fetchPromptsList();
   }, [selectedClient, fetchPromptsList]);
 
-const handleClientChange = async (
-  event: React.ChangeEvent<HTMLSelectElement>
-) => {
-  const newClientId = event.target.value;
-  setSelectedClient(newClientId);
+  const handleClientChange = async (
+    event: React.ChangeEvent<HTMLSelectElement>
+  ) => {
+    const newClientId = event.target.value;
+    setSelectedClient(newClientId);
 
-  // Reset everything when switching clients
-  setSelectedPrompt(null);
-  setSelectedZohoviewId("");
-  setSelectedCampaign("");
-  setSelectionMode("manual");
-  setPromptList([]);
-  setClientSettings(null);
+    // Reset everything when switching clients
+    setSelectedPrompt(null);
+    setSelectedZohoviewId("");
+    setSelectedCampaign("");
+    setSelectionMode("manual");
+    setPromptList([]);
+    setClientSettings(null);
 
-  // Clear all local form states (they will later be overwritten
-  // automatically by loadCampaignBlueprint() when user selects a campaign)
-  setSearchTermForm({
-    searchCount: "",
-    searchTerm: "",
-    instructions: "",
-    output: "",
-  });
+    // Clear all local form states (they will later be overwritten
+    // automatically by loadCampaignBlueprint() when user selects a campaign)
+    setSearchTermForm({
+      searchCount: "",
+      searchTerm: "",
+      instructions: "",
+      output: "",
+    });
 
-  setSettingsForm({
-    systemInstructions: "",
-    subjectInstructions: "",
-    emailTemplate: "",
-  });
+    setSettingsForm({
+      systemInstructions: "",
+      subjectInstructions: "",
+      emailTemplate: "",
+    });
 
-  setSelectedModelName("gpt-5"); // default model, will be overwritten by campaign
+    setSelectedModelName("gpt-5"); // default model, will be overwritten by campaign
 
-  // Trigger refresh for dependent UI
-  triggerRefresh();
-};
+    // Trigger refresh for dependent UI
+    triggerRefresh();
+  };
 
 
   useEffect(() => {
@@ -1063,7 +1063,7 @@ const handleClientChange = async (
       [name]: value,
     }));
   };
-   //  Close popup when clicking outside for support details
+  //  Close popup when clicking outside for support details
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -1516,14 +1516,14 @@ const handleClientChange = async (
       }
     }
 
-if (tab === "Output" && selectedCampaign) {
-  try {
-    await loadCampaignBlueprint(selectedCampaign);
-  } catch (error) {
-    console.error("❌ Failed to load campaign blueprint:", error);
-    return;
-  }
-}
+    if (tab === "Output" && selectedCampaign) {
+      try {
+        await loadCampaignBlueprint(selectedCampaign);
+      } catch (error) {
+        console.error("❌ Failed to load campaign blueprint:", error);
+        return;
+      }
+    }
 
 
 
@@ -2980,10 +2980,10 @@ if (tab === "Output" && selectedCampaign) {
                       prevOutputForm.generatedContent,
                   }));
                   try {
-                  const userCreditResponse = await fetch(
-                    `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`
-                  );
-                  if (!userCreditResponse.ok) throw new Error("Failed to fetch user credit");
+                    const userCreditResponse = await fetch(
+                      `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`
+                    );
+                    if (!userCreditResponse.ok) throw new Error("Failed to fetch user credit");
 
                     const userCreditData = await userCreditResponse.json();
                     console.log("User credit data:", userCreditData);
@@ -3164,7 +3164,7 @@ if (tab === "Output" && selectedCampaign) {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(requestBody), 
+          body: JSON.stringify(requestBody),
         }
       );
 
@@ -3179,7 +3179,7 @@ if (tab === "Output" && selectedCampaign) {
       } else {
         setSearchTermForm((prevForm: any) => ({
           ...prevForm,
-          output: data.response.content, 
+          output: data.response.content,
         }));
       }
     } catch (error) {
@@ -3762,13 +3762,12 @@ if (tab === "Output" && selectedCampaign) {
                         <span className="menu-text">Dashboard</span>
                       </button>
                     </li>
-                    
+
 
 
                     <li
-                      className={`${tab === "TestTemplate" ? "active" : ""} ${
-                        showBlueprintSubmenu ? "has-submenu submenu-open" : "has-submenu"
-                      }`}
+                      className={`${tab === "TestTemplate" ? "active" : ""} ${showBlueprintSubmenu ? "has-submenu submenu-open" : "has-submenu"
+                        }`}
                     >
                       <button
                         onClick={() => {
@@ -3777,7 +3776,7 @@ if (tab === "Output" && selectedCampaign) {
                             setShowBlueprintSubmenu(true);
                             setShowMailSubmenu(false);
                             setShowContactsSubmenu(false);
-                            navigate("/main?tab=TestTemplate");   
+                            navigate("/main?tab=TestTemplate");
                           } else {
                             setShowBlueprintSubmenu((prev: boolean) => !prev);
                           }
@@ -4037,60 +4036,6 @@ if (tab === "Output" && selectedCampaign) {
                         </ul>
                       )}
                     </li>
-                  
-
-
-                   <li className="relative">
-        {/* Button */}
-                    <button
-                      ref={buttonRef}
-                      onClick={() => setShowSupportPopup((prev) => !prev)}
-                      className="side-menu-button w-full flex items-center gap-3 px-3 py-2 hover:bg-gray-100 rounded-md"
-                    >
-                      <span className="menu-icon">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="20px"
-                          height="20px"
-                          viewBox="0 0 24 24"
-                          fill="#111111"
-                        >
-                          <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-2h2v2zm1.07-7.75-.9.92C12.45 10.9 12 11.5 12 13h-2v-.5c0-.83.45-1.54 1.17-2.11l1.24-1.23a2 2 0 1 0-3.41-1.41H7a4 4 0 1 1 6.07 3.41z" />
-                        </svg>
-                      </span>
-                      <span className="menu-text">Support Details</span>
-                    </button>
-
-        {/* Popup */}
-        {showSupportPopup && (
-          <div
-            ref={popupRef}
-            className="absolute left-0 top-full mt-2 bg-white border border-gray-300 rounded-md shadow-lg p-3 w-50 z-50"
-          >
-            <h4 className="font-semibold mb-2 text-sm text-gray-800">
-              Need support?
-            </h4>
-            <div className="text-sm text-gray-700 space-y-1">
-              <p>
-                <strong>London:</strong> +44 (0) 207 660 4243
-              </p>
-              <p>
-                <strong>New York:</strong> +1 (0) 315 400 2402
-              </p>
-              <p>
-                <a
-                  href="mailto:support@pitchkraft.co"
-                  className="text-blue-600 hover:underline"
-                >
-                  support@pitchkraft.co
-                </a>
-              </p>
-            </div>
-          </div>
-        )}
-      </li>
-
-
                   </ul>
                 </div>
               </div>
@@ -4115,6 +4060,30 @@ if (tab === "Output" && selectedCampaign) {
                     >
                       Clear Usage
                     </button>
+                    <div
+                      ref={popupRef}
+                      className="absolute left-0 top-full mt-2 bg-white border border-gray-300 rounded-md shadow-lg p-3 w-50 z-50"
+                    >
+                      <h4 className="font-semibold mb-2 text-sm text-gray-800">
+                        Need support?
+                      </h4>
+                      <div className="text-sm text-gray-700 space-y-1">
+                        <p>
+                          <strong>London:</strong> +44 (0) 207 660 4243
+                        </p>
+                        <p>
+                          <strong>New York:</strong> +1 (0) 315 400 2402
+                        </p>
+                        <p>
+                          <a
+                            href="mailto:support@pitchkraft.co"
+                            className="text-blue-600 hover:underline"
+                          >
+                            support@pitchkraft.co
+                          </a>
+                        </p>
+                      </div>
+                    </div>
                   </span>
                 </div>
               </div>
@@ -4165,7 +4134,7 @@ if (tab === "Output" && selectedCampaign) {
 
             {/* Tab Content */}
             <div className="tab-content">
-           
+
             </div>
 
             {tab === "DataCampaigns" && !showDataFileUpload && (
@@ -4321,7 +4290,7 @@ if (tab === "Output" && selectedCampaign) {
               <EmailCampaignBuilder selectedClient={selectedClient} />
             )}
 
-            {tab === "TestTemplate" &&  (
+            {tab === "TestTemplate" && (
               <Template
                 selectedClient={selectedClient}
                 userRole={userRole}

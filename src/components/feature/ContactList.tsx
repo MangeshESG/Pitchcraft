@@ -117,7 +117,10 @@ interface ColumnConfig {
   visible: boolean;
   width?: string;
 }
-
+interface SortConfig {
+  key: string;
+  direction: "asc" | "desc";
+}
 const DataCampaigns: React.FC<DataCampaignsProps> = ({
   selectedClient,
   onDataProcessed,
@@ -145,6 +148,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
 
   // Contact list states
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
   const [totalContacts, setTotalContacts] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [currentPageLists, setCurrentPageLists] = useState(1);
@@ -271,23 +275,84 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     return date.toLocaleDateString("en-GB", options);
   };
   // Filter contacts based on search query
-  const filteredContacts = contacts.filter((contact) => {
-    const searchLower = searchQuery.toLowerCase();
-    return (
-      contact.full_name?.toLowerCase().includes(searchLower) ||
-      contact.email?.toLowerCase().includes(searchLower) ||
-      contact.company_name?.toLowerCase().includes(searchLower) ||
-      contact.job_title?.toLowerCase().includes(searchLower) ||
-      contact.country_or_address?.toLowerCase().includes(searchLower)
-    );
-  });
+  const filteredContacts = useMemo(() => {
+    return contacts.filter((contact) => {
+      const searchLower = searchQuery.toLowerCase()
+      return (
+        contact.full_name?.toLowerCase().includes(searchLower) ||
+        contact.email?.toLowerCase().includes(searchLower) ||
+        contact.company_name?.toLowerCase().includes(searchLower) ||
+        contact.job_title?.toLowerCase().includes(searchLower) ||
+        contact.country_or_address?.toLowerCase().includes(searchLower)
+      )
+    })
+  }, [contacts, searchQuery])
+   const compareContactValues = (valA: any, valB: any, direction: "asc" | "desc"): number => {
+    if (valA == null && valB == null) return 0
+    if (valA == null) return direction === "asc" ? 1 : -1
+    if (valB == null) return direction === "asc" ? -1 : 1
 
-  // Paginate filtered contacts
-  const paginatedContacts = filteredContacts.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
-  );
+    // Date sorting
+    const dateA = new Date(valA)
+    const dateB = new Date(valB)
+    if (!isNaN(dateA.getTime()) && !isNaN(dateB.getTime())) {
+      return direction === "asc" ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime()
+    }
 
+    // Number sorting
+    const numA = Number(valA)
+    const numB = Number(valB)
+    if (!isNaN(numA) && !isNaN(numB) && valA !== "" && valB !== "") {
+      return direction === "asc" ? numA - numB : numB - numA
+    }
+
+    // String sorting
+    return direction === "asc"
+      ? String(valA).toLowerCase().localeCompare(String(valB).toLowerCase())
+      : String(valB).toLowerCase().localeCompare(String(valA).toLowerCase())
+  }
+
+
+  const sortedContacts = useMemo(() => {
+    if (!sortConfig?.key) return filteredContacts
+
+    return [...filteredContacts].sort((a, b) => {
+      const valA = (a as any)[sortConfig.key]
+      const valB = (b as any)[sortConfig.key]
+      return compareContactValues(valA, valB, sortConfig.direction)
+    })
+  }, [filteredContacts, sortConfig])
+
+  const paginatedContacts = useMemo(() => {
+    return sortedContacts.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  }, [sortedContacts, currentPage, pageSize])
+  
+  const totalPages = useMemo(() => {
+    return Math.ceil(sortedContacts.length / pageSize)
+  }, [sortedContacts.length, pageSize])
+
+   const handleListSort = (columnKey: string) => {
+    if (listSortKey === columnKey) {
+      // Same column - toggle direction
+      setListSortDirection((prev) => (prev === "asc" ? "desc" : "asc"))
+    } else {
+      // Different column - set new sort with asc
+      setListSortKey(columnKey)
+      setListSortDirection("asc")
+    }
+    setCurrentPageLists(1)
+  }
+   const handleSegmentSort = (columnKey: string) => {
+    if (segmentSortKey === columnKey) {
+      // Same column - toggle direction
+      setSegmentSortDirection((prev) => (prev === "asc" ? "desc" : "asc"))
+    } else {
+      // Different column - set new sort with asc
+      setSegmentSortKey(columnKey)
+      setSegmentSortDirection("asc")
+    }
+    setSegmentCurrentPage(1)
+  }
   // Handle contact selection
   const handleSelectContact = (contactId: string) => {
     setSelectedContacts((prev) => {
@@ -352,7 +417,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   };
 
   // Calculate pagination
-  const totalPages = Math.ceil(filteredContacts.length / pageSize);
+  //const totalPages = Math.ceil(filteredContacts.length / pageSize);
  // const startIndex =
    // filteredContacts.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
    const startIndex = (currentPage - 1) * pageSize;  
@@ -581,6 +646,8 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   //segments
   const [segments, setSegments] = useState<Segment[]>([]);
   const [selectedSegment, setSelectedSegment] = useState<string>("");
+   const [segmentSortKey, setSegmentSortKey] = useState("")
+   const [segmentSortDirection, setSegmentSortDirection] = useState("asc")
   const [segmentCurrentPage, setSegmentCurrentPage] = useState(1)
   const [segmentContacts, setSegmentContacts] = useState<Contact[]>([]);
   const [segmentSearchQuery, setSegmentSearchQuery] = useState("");
@@ -643,18 +710,20 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     }
   }, [selectedSegment]);
 
-  const segmentFilteredContacts = segmentContacts.filter((contact) => {
-    const searchLower = segmentSearchQuery.toLowerCase();
-    return (
-      contact.full_name?.toLowerCase().includes(searchLower) ||
-      contact.email?.toLowerCase().includes(searchLower) ||
-      contact.company_name?.toLowerCase().includes(searchLower) ||
-      contact.job_title?.toLowerCase().includes(searchLower) ||
-      contact.country_or_address?.toLowerCase().includes(searchLower)
-    );
-  });
+  // const segmentFilteredContacts = segmentContacts.filter((contact) => {
+  //   const searchLower = segmentSearchQuery.toLowerCase();
+  //   return (
+  //     contact.full_name?.toLowerCase().includes(searchLower) ||
+  //     contact.email?.toLowerCase().includes(searchLower) ||
+  //     contact.company_name?.toLowerCase().includes(searchLower) ||
+  //     contact.job_title?.toLowerCase().includes(searchLower) ||
+  //     contact.country_or_address?.toLowerCase().includes(searchLower)
+  //   );
+  // });
 
   const [listSearch, setListSearch] = useState("");
+   const [listSortKey, setListSortKey] = useState("")
+   const [listSortDirection, setListSortDirection] = useState("asc")
   const [listActionsAnchor, setListActionsAnchor] = useState<string | null>(
     null
   ); // Which datafile ID's menu open
@@ -663,12 +732,56 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   const [showConfirmListDelete, setShowConfirmListDelete] = useState(false);
   const [viewingListId, setViewingListId] = useState<string | null>(null); // for modal of viewing contacts
 
+  
+  const toggleListSort = (key: string) => {
+    if (listSortKey === key) {
+      // Same column - toggle direction
+      setListSortDirection((prev) => (prev === "asc" ? "desc" : "asc"))
+    } else {
+      // Different column - set new sort with asc
+      setListSortKey(key)
+      setListSortDirection("asc")
+    }
+  }
   // Filter datafiles per search
-  const filteredDatafiles = dataFiles.filter(
-    (df) =>
-      df.name.toLowerCase().includes(listSearch.toLowerCase()) ||
-      df.id.toString().includes(listSearch)
-  );
+  // const filteredDatafiles = dataFiles.filter(
+  //   (df) =>
+  //     df.name.toLowerCase().includes(listSearch.toLowerCase()) ||
+  //     df.id.toString().includes(listSearch)
+  // );
+   const filteredDatafiles = useMemo(() => {
+    //const searchLower = listSearch.toLowerCase()
+    let filtered = dataFiles.filter((file) => file.name.toLowerCase().includes(listSearch.toLowerCase()))
+
+    // Apply sorting
+    if (listSortKey) {
+      filtered = [...filtered].sort((a, b) => {
+        const aVal = (a as any)[listSortKey] ?? ""
+        const bVal = (b as any)[listSortKey] ?? ""
+
+        // Date sorting
+        const dateA = new Date(aVal)
+        const dateB = new Date(bVal)
+        if (!isNaN(dateA.getTime()) && !isNaN(dateB.getTime())) {
+          return listSortDirection === "asc" ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime()
+        }
+
+        // Number sorting
+        const numA = Number(aVal)
+        const numB = Number(bVal)
+        if (!isNaN(numA) && !isNaN(numB)) {
+          return listSortDirection === "asc" ? numA - numB : numB - numA
+        }
+
+        // String sorting
+        return listSortDirection === "asc"
+          ? String(aVal).toLowerCase().localeCompare(String(bVal).toLowerCase())
+          : String(bVal).toLowerCase().localeCompare(String(aVal).toLowerCase())
+      })
+    }
+
+    return filtered
+  }, [dataFiles, listSearch, listSortKey, listSortDirection])
 
 
   const handleDeleteList = async (file: DataFileItem) => {
@@ -1202,38 +1315,58 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
 // const filteredSegments = segments.filter(
 //     (seg) =>
 //       seg.name?.toLowerCase().includes(segmentSearchQuery.toLowerCase()) ||
-//       seg.description?.toLowerCase().includes(segmentSearchQuery.toLowerCase()),
+//       seg.description?.toLowerCase().includes(segmentSearchQuery.t oLowerCase()),
 //   )
- const { filteredSegments, paginatedSegments, segmentTotalPages } = useMemo(() => {
-    const filtered = segments.filter(
+ // Helper function to render sort arrow
+  const renderSortArrow = (columnKey: string, currentSortKey: string, sortDirection: string) => {
+    debugger
+    if (columnKey === currentSortKey) {
+      return sortDirection === "asc" ? " ▲" : " ▼"
+    }
+    return ""
+  }
+const { filteredSegments, paginatedSegments, segmentTotalPages } = useMemo(() => {
+    let filtered = segments.filter(
       (seg) =>
         seg.name?.toLowerCase().includes(segmentSearchQuery.toLowerCase()) ||
         seg.description?.toLowerCase().includes(segmentSearchQuery.toLowerCase()),
     )
+
+    // Apply sorting to filtered segments
+    if (segmentSortKey) {
+      filtered = [...filtered].sort((a, b) => {
+        const aVal = (a as any)[segmentSortKey] ?? ""
+        const bVal = (b as any)[segmentSortKey] ?? ""
+
+        const dateA = new Date(aVal)
+        const dateB = new Date(bVal)
+        if (!isNaN(dateA.getTime()) && !isNaN(dateB.getTime())) {
+          return segmentSortDirection === "asc" ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime()
+        }
+
+        const numA = Number(aVal)
+        const numB = Number(bVal)
+        if (!isNaN(numA) && !isNaN(numB)) {
+          return segmentSortDirection === "asc" ? numA - numB : numB - numA
+        }
+
+        return segmentSortDirection === "asc"
+          ? String(aVal).toLowerCase().localeCompare(String(bVal).toLowerCase())
+          : String(bVal).toLowerCase().localeCompare(String(aVal).toLowerCase())
+      })
+    }
 
     const totalPages = Math.ceil(filtered.length / pageSize)
     const startIndex = (segmentCurrentPage - 1) * pageSize
     const endIndex = startIndex + pageSize
     const paginated = filtered.slice(startIndex, endIndex)
 
-    console.log("[v0] Segment Pagination Debug:", {
-      totalSegments: segments.length,
-      filteredLength: filtered.length,
-      segmentCurrentPage,
-      pageSize,
-      totalPages,
-      startIndex,
-      endIndex,
-      paginatedLength: paginated.length,
-      segmentSearchQuery,
-    })
-
     return {
       filteredSegments: filtered,
       paginatedSegments: paginated,
       segmentTotalPages: totalPages,
     }
-  }, [segments, segmentSearchQuery, segmentCurrentPage, pageSize])
+  }, [segments, segmentSearchQuery, segmentSortKey, segmentSortDirection, segmentCurrentPage, pageSize])
 
   // const segmentTotalPages = Math.ceil(filteredSegments.length / pageSize)
   // const segmentStartIndex = (segmentCurrentPage - 1) * pageSize
@@ -1258,7 +1391,49 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
     companyLinkedInURL: "Company linked in URL",
     companyEventLink: "Company event link",
   };
+ const segmentFilteredContacts = useMemo(() => {
+    let filtered = segmentContacts.filter((contact) => {
+      const searchLower = segmentSearchQuery.toLowerCase()
+      return (
+        contact.full_name?.toLowerCase().includes(searchLower) ||
+        contact.email?.toLowerCase().includes(searchLower) ||
+        contact.company_name?.toLowerCase().includes(searchLower) ||
+        contact.job_title?.toLowerCase().includes(searchLower) ||
+        contact.country_or_address?.toLowerCase().includes(searchLower)
+      )
+    })
 
+    // Apply sorting if segmentSortKey exists
+    if (segmentSortKey) {
+      filtered = [...filtered].sort((a, b) => {
+        const aVal = (a as any)[segmentSortKey] ?? ""
+        const bVal = (b as any)[segmentSortKey] ?? ""
+
+        const dateA = new Date(aVal)
+        const dateB = new Date(bVal)
+        if (!isNaN(dateA.getTime()) && !isNaN(dateB.getTime())) {
+          return segmentSortDirection === "asc" ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime()
+        }
+
+        const numA = Number(aVal)
+        const numB = Number(bVal)
+        if (!isNaN(numA) && !isNaN(numB)) {
+          return segmentSortDirection === "asc" ? numA - numB : numB - numA
+        }
+
+        return segmentSortDirection === "asc"
+          ? String(aVal).toLowerCase().localeCompare(String(bVal).toLowerCase())
+          : String(bVal).toLowerCase().localeCompare(String(aVal).toLowerCase())
+      })
+    }
+
+    const totalPages = Math.ceil(filtered.length / pageSize)
+    const startIndex = (segmentCurrentPage - 1) * pageSize
+    const endIndex = startIndex + pageSize
+    const paginated = filtered.slice(startIndex, endIndex)
+
+    return { filtered, paginated, totalPages }
+  }, [segmentContacts, segmentSearchQuery, segmentSortKey, segmentSortDirection, segmentCurrentPage, pageSize])
   return (
     <div className="data-campaigns-container">
       {/* Sub-tabs Navigation */}
@@ -1391,12 +1566,12 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
                 >
                   <thead>
                     <tr>
-                      <th>Lists</th>
-                      <th>ID</th>
-                      <th>Folder</th>
-                      <th>Contacts</th>
-                      <th>Creation date</th>
-                      <th>Description</th>
+                      <th onClick={() => handleListSort("name")} style={{ cursor: "pointer" }}>Lists{renderSortArrow("name", listSortKey, listSortDirection)}</th>
+                      <th onClick={() => handleListSort("id")} style={{ cursor: "pointer" }}>ID{renderSortArrow("id", listSortKey, listSortDirection)}</th>
+                      <th onClick={() => handleListSort("folder")} style={{ cursor: "pointer" }}>Folder{renderSortArrow("folder", listSortKey, listSortDirection)}</th>
+                      <th onClick={() => handleListSort("contactCount")} style={{ cursor: "pointer" }}>Contacts{renderSortArrow("contactCount", listSortKey, listSortDirection)}</th>
+                      <th onClick={() => handleListSort("created_at")} style={{ cursor: "pointer" }}>Creation date{renderSortArrow("created_at", listSortKey, listSortDirection)}</th>
+                      <th onClick={() => handleListSort("description")} style={{ cursor: "pointer" }}>Description{renderSortArrow("description", listSortKey, listSortDirection)}</th>
                       <th style={{ minWidth: 48 }}>Actions</th>
                     </tr>
                   </thead>
@@ -2059,10 +2234,10 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
                 >
                   <thead>
                     <tr>
-                      <th>Segment name</th>
-                      <th>Contacts</th>
-                      <th>Created date</th>
-                      <th>Description</th>
+                      <th onClick={() => handleSegmentSort("name")} style={{ cursor: "pointer" }}>Segment name{renderSortArrow("name", segmentSortKey, segmentSortDirection)}</th>
+                      <th onClick={() => handleSegmentSort("contactCount")} style={{ cursor: "pointer" }}>Contacts{renderSortArrow("contactCount", segmentSortKey, segmentSortDirection)}</th>
+                      <th onClick={() => handleSegmentSort("createdAt")} style={{ cursor: "pointer" }}>Created date{renderSortArrow("createdAt", segmentSortKey, segmentSortDirection)}</th>
+                      <th onClick={() => handleSegmentSort("description")} style={{ cursor: "pointer" }}>Description{renderSortArrow("description", segmentSortKey, segmentSortDirection)}</th>
                       <th style={{ minWidth: 48 }}>Actions</th>
                     </tr>
                   </thead>

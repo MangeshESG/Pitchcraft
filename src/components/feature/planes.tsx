@@ -248,6 +248,7 @@ const [errorPopup, setErrorPopup] = useState<string | null>(null);
     setClientSecret(null);
     setSelectedPlan(null);
     setShowCreditsModal(false);
+    setLoadingPlanCode(null); 
   };
 
   const handleTryItNowClick = async (plan: Plan) => {
@@ -366,7 +367,7 @@ const [errorPopup, setErrorPopup] = useState<string | null>(null);
               )}
               <div className="yz">
                 <h3 className="y">{plan.title}</h3>
-                <div className="z">${displayPrice.toFixed(2)}</div>
+                <div className="z"> ${Number.isInteger(displayPrice) ? displayPrice : displayPrice.toFixed(2)}</div>
                 {isYearly && plan.planCode !== 'credits' && (
                   <div style={{fontSize: '14px', opacity: 0.75, textDecoration: 'line-through'}}>
                     ${(plan.price * 12).toFixed(2)}
