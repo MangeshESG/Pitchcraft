@@ -100,6 +100,7 @@ interface Contact {
   companyIndustry?: string;
   companyLinkedInURL?: string;
   companyEventLink?: string;
+  unsubscribe?: string;
 }
 
 const getContactValue = (contact: Contact, key: string): any => {
@@ -227,7 +228,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     setIsLoadingContacts(true);
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/Crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${selectedDataFile}`
+        `${API_BASE_URL}/api/Crm/contacts/List-by-CleinteId?clientId=${effectiveUserId}&dataFileId=${selectedDataFile}`
       );
 
       if (!response.ok) {
@@ -499,6 +500,73 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     }
   };
 
+  // Unsubscribe contacts
+  const handleUnsubscribeContacts = async () => {
+    const contactsToUnsubscribe = viewMode === "detail" || segmentViewMode === "detail"
+      ? Array.from(detailSelectedContacts)
+      : Array.from(selectedContacts);
+
+    if (contactsToUnsubscribe.length === 0) return;
+
+    try {
+      setIsLoading(true);
+      let successCount = 0;
+      let errorCount = 0;
+      
+      for (const contactId of contactsToUnsubscribe) {
+        // Find the contact to get email
+        const contactData = viewMode === "detail" || segmentViewMode === "detail" 
+          ? detailContacts 
+          : contacts;
+        const contact = contactData.find(c => c.id.toString() === contactId);
+        
+        if (!contact?.email) {
+          errorCount++;
+          continue;
+        }
+
+        const response = await fetch(
+          `${API_BASE_URL}/api/Crm/UnsubscribeContacts?ClientId=${effectiveUserId}&email=${encodeURIComponent(contact.email)}`,
+          {
+            method: "GET",
+            headers: {
+              "accept": "*/*",
+            },
+          }
+        );
+        
+        if (response.ok) {
+          const responseText = await response.text();
+          if (responseText === "Unsubscribed Added Successfully") {
+            appModal.showSuccess(`${contact.email} has been unsubscribed successfully.`);
+          } else if (responseText === "Already Unsubscribed") {
+            appModal.showInfo(`${contact.email} is already unsubscribed.`);
+          }
+          successCount++;
+        } else {
+          errorCount++;
+        }
+      }
+
+      if (errorCount > 0) {
+        appModal.showError(`${errorCount} contact(s) failed to unsubscribe.`);
+      }
+      
+      // Clear selections
+      if (viewMode === "detail" || segmentViewMode === "detail") {
+        setDetailSelectedContacts(new Set());
+      } else {
+        setSelectedContacts(new Set());
+      }
+      
+    } catch (error) {
+      console.error("Error unsubscribing contacts:", error);
+      appModal.showError("Failed to unsubscribe contacts");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Find this function in your DataCampaigns.tsx and replace it
   const handleSaveSegment = async () => {
     if (!segmentName) return;
@@ -726,7 +794,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     try {
       let url = "";
       if (type === "list") {
-        url = `${API_BASE_URL}/api/Crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${item.id}`;
+        url = `${API_BASE_URL}/api/Crm/contacts/List-by-CleinteId?clientId=${effectiveUserId}&dataFileId=${item.id}`;
       } else {
         url = `${API_BASE_URL}/api/Crm/segment/${item.id}/contacts`;
       }
@@ -1038,6 +1106,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
       { key: "companyIndustry", header: "Company industry" },
       { key: "companyLinkedInURL", header: "Company LinkedIn URL" },
       { key: "companyEventLink", header: "Company Event Link" },
+      { key: "unsubscribe", header: "Unsubscribe" },
       { key: "created_at", header: "Created date" },
       { key: "updated_at", header: "Updated date" },
       { key: "email_sent_at", header: "Email Sent Date" },
@@ -1134,7 +1203,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
 
       // Fetch all contacts for this list
       const response = await fetch(
-        `${API_BASE_URL}/api/Crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${file.id}`
+        `${API_BASE_URL}/api/Crm/contacts/List-by-CleinteId?clientId=${effectiveUserId}&dataFileId=${file.id}`
       );
 
       if (!response.ok) throw new Error("Failed to fetch contacts");
@@ -1257,6 +1326,7 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
     companyIndustry: "Company industry",
     companyLinkedInURL: "Company linked in URL",
     companyEventLink: "Company event link",
+    unsubscribe: "Unsubscribe",
   };
 
   return (
@@ -1790,6 +1860,18 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
                           {isLoading ? "Deleting..." : "Delete contacts"}
                         </button>
                         <button
+                          className="button secondary"
+                          onClick={handleUnsubscribeContacts}
+                          disabled={isLoading}
+                          style={{
+                            background: "#ff9800",
+                            color: "#fff",
+                            border: "none",
+                          }}
+                        >
+                          {isLoading ? "Processing..." : "Unsubscribe"}
+                        </button>
+                        <button
                           className="button primary"
                           onClick={() => setShowSaveSegmentModal(true)}
                         >
@@ -2227,6 +2309,63 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
                                       </span>
                                       <span className="font-[600]">View</span>
                                     </button>
+                                    <button
+                                      onClick={() => handleDownloadSegment(segment)}
+                                      style={menuBtnStyle}
+                                      className="flex gap-2 items-center"
+                                    >
+                                      <span className="ml-[2px]">
+                                        <svg
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          width="22px"
+                                          height="22px"
+                                          viewBox="0 0 24 24"
+                                        >
+                                          <title />
+
+                                          <g id="Complete">
+                                            <g id="download">
+                                              <g>
+                                                <path
+                                                  d="M3,12.3v7a2,2,0,0,0,2,2H19a2,2,0,0,0,2-2v-7"
+                                                  fill="none"
+                                                  stroke="#000000"
+                                                  stroke-linecap="round"
+                                                  stroke-linejoin="round"
+                                                  stroke-width="2"
+                                                />
+
+                                                <g>
+                                                  <polyline
+                                                    data-name="Right"
+                                                    fill="none"
+                                                    id="Right-2"
+                                                    points="7.9 12.3 12 16.3 16.1 12.3"
+                                                    stroke="#000000"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    stroke-width="2"
+                                                  />
+
+                                                  <line
+                                                    fill="none"
+                                                    stroke="#000000"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    stroke-width="2"
+                                                    x1="12"
+                                                    x2="12"
+                                                    y1="2.7"
+                                                    y2="14.2"
+                                                  />
+                                                </g>
+                                              </g>
+                                            </g>
+                                          </g>
+                                        </svg>
+                                      </span>
+                                      <span className="font-[600]">Download</span>
+                                    </button>
                                     {!isDemoAccount && (
                                       <button
                                         onClick={() => {
@@ -2459,6 +2598,18 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
                           }}
                         >
                           {isLoading ? "Deleting..." : "Delete contacts"}
+                        </button>
+                        <button
+                          className="button secondary"
+                          onClick={handleUnsubscribeContacts}
+                          disabled={isLoading}
+                          style={{
+                            background: "#ff9800",
+                            color: "#fff",
+                            border: "none",
+                          }}
+                        >
+                          {isLoading ? "Processing..." : "Unsubscribe"}
                         </button>
                         <button
                           className="button primary"
