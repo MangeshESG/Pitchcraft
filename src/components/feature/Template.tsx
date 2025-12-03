@@ -515,16 +515,20 @@ const generateExampleEmail = (template: CampaignTemplate) => {
                             <>
                               <button
                                 onClick={() => {
-                                  sessionStorage.setItem(
-                                    "editTemplateId",
-                                    template.id.toString()
-                                  );
-                                  sessionStorage.setItem(
-                                    "editTemplateMode",
-                                    "true"
-                                  );
+                                sessionStorage.setItem("editTemplateId", template.id.toString());
+                                sessionStorage.setItem("editTemplateMode", "true");
+
+                                // REQUIRED FIX 🔥 (builder reads this!)
+                                sessionStorage.setItem("newCampaignId", template.id.toString());
+                                sessionStorage.setItem("newCampaignName", template.templateName);
+
+
+                                // Safe delay
+                                setTimeout(() => {
                                   setShowCampaignBuilder(true);
-                                  setTemplateActionsAnchor(null);
+                                }, 0);
+
+                                setTemplateActionsAnchor(null);
                                 }}
                                 style={menuBtnStyle}
                                 className="flex gap-2 items-center"

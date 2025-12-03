@@ -1744,7 +1744,7 @@ const startEditConversation = async (placeholder: string) => {
       placeholderValues: conversationValues, // ✅ Only conversation placeholders
       selectedModel,
     });
-    //await reloadCampaignBlueprint();
+    reloadCampaignBlueprint();
     console.log("✅ Conversation placeholder saved in DB:", updatedPlaceholder);
     console.log("ℹ️ Click 'Regenerate' to see the updated email");
 
@@ -1989,6 +1989,16 @@ const handleSendMessage = async () => {
     timestamp: new Date(),
   };
 
+
+    // Prefer in-memory editTemplateId, fall back to session keys (newCampaignId or editTemplateId)
+  const storedNewCampaignId = sessionStorage.getItem('newCampaignId');
+  const storedEditTemplateId = sessionStorage.getItem('editTemplateId');
+
+  const campaignTemplateIdCandidate = editTemplateId
+    ?? (storedNewCampaignId ? Number(storedNewCampaignId) : null)
+    ?? (storedEditTemplateId ? Number(storedEditTemplateId) : null);
+
+  const campaignTemplateId = Number(campaignTemplateIdCandidate);
   // add user message to UI immediately
   setMessages((prev) => [...prev, userMessage]);
 
@@ -2004,7 +2014,7 @@ const handleSendMessage = async () => {
     const requestBody = isEditMode
       ? {
           userId: effectiveUserId,
-          campaignTemplateId: editTemplateId,
+          campaignTemplateId: campaignTemplateId,
           message: answerText,
           model: selectedModel,
 
@@ -2075,7 +2085,7 @@ const handleSendMessage = async () => {
               id: activeCampaignId,
               placeholderValues: updatedConversationValues, // only conversation placeholders
             });
-            //await reloadCampaignBlueprint();
+             reloadCampaignBlueprint();
             console.log('💾 Saved conversation placeholders to DB (no auto-generation)');
           } catch (err) {
             console.warn('⚠️ Failed to save placeholders:', err);
@@ -2120,7 +2130,7 @@ const handleSendMessage = async () => {
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, botMessage]);
-      //await reloadCampaignBlueprint();
+      await reloadCampaignBlueprint();
       playNotificationSound();
     }
 
