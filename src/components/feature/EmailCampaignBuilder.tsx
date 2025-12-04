@@ -2741,21 +2741,22 @@ function SimpleTextarea({
 
 
 
-            {/* 4️⃣ CT UNPOPULATED */}
-{/* 4️⃣ CT UNPOPULATED */}
+
+{/* 4️⃣ VT (Live Blueprint with applied placeholders) */}
 {activeTab === "ct" && (
   <div className="ct-tab-container">
-    <h3>Master Campaign Template (Unpopulated)</h3>
+    <h3>Live vendor blueprint (Auto updated)</h3>
 
     <div className="instruction-subtab-content">
       <SimpleTextarea
-        value={previewText}
-        onChange={(e: any) => setPreviewText(e.target.value)}
-        placeholder="Unpopulated master template..."
+        value={campaignBlueprint}
+        onChange={(e: any) => setCampaignBlueprint(e.target.value)}
+        placeholder="Live campaign blueprint will appear here..."
       />
     </div>
   </div>
 )}
+
 
 
           </div>
