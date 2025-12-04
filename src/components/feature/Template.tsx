@@ -599,7 +599,7 @@ const generateExampleEmail = (template: CampaignTemplate) => {
         {/* ✅ Template Definition Selector */}
         <div className="form-group" style={{ marginBottom: "20px" }}>
           <label htmlFor="templateDefinition" style={{ display: "block", marginBottom: "8px", fontWeight: "500" }}>
-            Select Base Template <span style={{ color: "red" }}>*</span>
+            Select base template <span style={{ color: "red" }}>*</span>
           </label>
           <select
             id="templateDefinition"
@@ -633,7 +633,7 @@ const generateExampleEmail = (template: CampaignTemplate) => {
         {/* Template Name Input */}
         <div className="form-group" style={{ marginBottom: "20px" }}>
           <label htmlFor="templateName" style={{ display: "block", marginBottom: "8px", fontWeight: "500" }}>
-            Campaign Name <span style={{ color: "red" }}>*</span>
+            Campaign name <span style={{ color: "red" }}>*</span>
           </label>
           <input
             id="templateName"

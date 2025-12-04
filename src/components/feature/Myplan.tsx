@@ -24,9 +24,6 @@ const MyPlan: React.FC = () => {
 
   return (
     <div className="p-2" style={{marginTop:"-70px"}}>
-      {/* Title */}
-      <h2 style={{fontSize: '20px',fontWeight: '600', marginBottom: '20px',color: '#333'}}> My plan</h2>
-
       {/* Tabs */}
       <div className="flex space-x-8 border-b border-gray-200">
         {tabs.map((tab) => (
