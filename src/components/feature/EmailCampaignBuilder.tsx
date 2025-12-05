@@ -131,6 +131,7 @@ interface ConversationTabProps {
   allSourcedData: string;
   sourcedSummary: string;
 
+  filledTemplate: string;   // <-- ADD THIS
 
 }
 
@@ -365,7 +366,7 @@ const TemplateTab: React.FC<TemplateTabProps> = ({
 
       <div className="additional-text-section">
         <div className="template-section">
-          <h2>3. Master campaign template (unpopulated)</h2>
+          <h2>3. Master campaign template </h2>
           <p className="warning-text">⚠️ This text is NOT sent to the AI. Placeholders here will be filled with values from the conversation.</p>
         </div>
         <textarea
@@ -482,6 +483,8 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   searchResults,
   allSourcedData,
   sourcedSummary,
+  filledTemplate,             // 👈 ADD THIS
+
 }) => {
 const [isGenerating, setIsGenerating] = useState(false);
 
@@ -535,9 +538,11 @@ const renderMessageContent = (rawContent: string) => {
     }
   }, [isTyping, messages, conversationStarted]);
 
-  const [activeMainTab, setActiveMainTab] = useState<
-    "output" | "stages" | "elements"
-  >("output");
+const [activeMainTab, setActiveMainTab] = useState<
+  "output" | "pt" | "stages"
+>("output");
+
+
   const [activeSubStageTab, setActiveSubStageTab] = useState<
     "search" | "data" | "summary"
   >("search");
@@ -849,15 +854,22 @@ const renderMessageContent = (rawContent: string) => {
 
             {/* === Tabs for Example Output === */}
             <div className="example-tabs">
-              {["Output", "Stages"].map(tab => (
-                <button
-                  key={tab}
-                  className={`stage-tab-btn ${activeMainTab === tab.toLowerCase() ? "active" : ""}`}
-                  onClick={() => setActiveMainTab(tab.toLowerCase() as 'output' | 'stages')}
-                >
-                  {tab}
-                </button>
-              ))}
+{["Output", "PT", "Stages"].map(tab => (
+  <button
+    key={tab}
+    className={`stage-tab-btn ${activeMainTab === tab.toLowerCase() ? "active" : ""}`}
+    onClick={() =>
+      setActiveMainTab(
+        tab.toLowerCase() as "output" | "pt" | "stages"
+      )
+    }
+  >
+    {tab}
+  </button>
+))}
+
+
+             
             </div>
 
             {/* === Main Tab Content === */}
@@ -875,6 +887,31 @@ const renderMessageContent = (rawContent: string) => {
                 )}
               </div>
             )}
+
+            {/* ⭐ FILLED TEMPLATE TAB */}
+          {activeMainTab === "pt" && (
+            <div className="example-body">
+              {filledTemplate ? (
+                <pre
+                  className="filled-template-box"
+                  style={{
+                    background: "#f8f9fa",
+                    padding: "15px",
+                    borderRadius: "8px",
+                    maxHeight: "70vh",
+                    overflowY: "auto",
+                    whiteSpace: "pre-wrap",
+                    fontSize: "14px"
+                  }}
+                >
+                  {filledTemplate}
+                </pre>
+              ) : (
+                <p className="example-placeholder">🔧 Filled Template will appear here</p>
+              )}
+            </div>
+          )}
+
 
           
 
@@ -959,6 +996,7 @@ const [activeTab, setActiveTab] = useState<TabType>('build');
   const [finalPrompt, setFinalPrompt] = useSessionState<string>("campaign_final_prompt", "");
   const [finalPreviewText, setFinalPreviewText] = useSessionState<string>("campaign_final_preview", "");
   const [exampleOutput, setExampleOutput] = useState<string>('');
+  const [filledTemplate, setFilledTemplate] = useState<string>('');
 
   const [placeholderValues, setPlaceholderValues] = useSessionState<Record<string, string>>("campaign_placeholder_values", {});
   const [isComplete, setIsComplete] = useSessionState<boolean>("campaign_is_complete", false);
@@ -1396,13 +1434,19 @@ useEffect(() => {
 
         console.log('📥 Example generation response received');
 
-        if ((response.data.success || response.data.Success) &&
-          (response.data.exampleOutput || response.data.ExampleOutput)) {
-          const generatedOutput = response.data.exampleOutput || response.data.ExampleOutput;
-          setExampleOutput(generatedOutput);
-          console.log('✅ Example output set successfully');
-          console.log('📧 Output length:', generatedOutput.length);
-        } else {
+          if (response.data.success || response.data.Success) {
+            
+            // HTML result
+            const html = response.data.exampleOutput || response.data.ExampleOutput || "";
+            setExampleOutput(html);
+
+            // Filled template result (new)
+            const filled = response.data.filledTemplate || "";
+            setFilledTemplate(filled);
+
+            console.log("📌 Filled Template stored:", filled);
+          }
+          else {
           console.warn('⚠️ No example output returned from API');
           alert('Example generation completed but no output was returned. Please try again.');
         }
@@ -2424,7 +2468,7 @@ function SimpleTextarea({
 
           <div className="data-campaigns-container">
             {/* Sub-tabs Navigation */}
-<div className="tabs secondary mb-20">
+<div className="sticky-tabs">
   <ul className="d-flex" style={{ padding: "12px" }}>
 
     {/* BUILD TAB */}
@@ -2479,7 +2523,7 @@ function SimpleTextarea({
         }}
         className={`button !pt-0 ${activeTab === "ct" ? "active" : ""}`}
       >
-        VT (unpopulated)
+        VT 
       </button>
     </li>
 
@@ -2562,6 +2606,8 @@ function SimpleTextarea({
                 sourcedSummary={sourcedSummary}
                 isSectionOpen={isSectionOpen}
                 setIsSectionOpen={setIsSectionOpen}
+                filledTemplate={filledTemplate}     // <-- ADD THIS
+
               />
             )}
 
@@ -2707,7 +2753,7 @@ function SimpleTextarea({
         ["ai_edit", "AI Instructions (edit blueprint)"],
         ["placeholder_short", "Placeholders list (essential)"],
         ["placeholder_long", "Placeholders list (extended)"],
-        ["ct", "CT (unpopulated)"],
+        ["ct", "UT "],
         ["subject_instructions", "Email Subject Instructions"]
 
       ].map(([key, label]) => (
