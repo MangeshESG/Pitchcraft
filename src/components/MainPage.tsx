@@ -1221,6 +1221,7 @@ const MainPage: React.FC = () => {
   };
 
   const [isFetchingContacts, setIsFetchingContacts] = useState(false);
+  const [followupEnabled, setFollowupEnabled] = useState(false);
 
   const fetchAndDisplayEmailBodies = useCallback(
     async (
@@ -1270,7 +1271,7 @@ const MainPage: React.FC = () => {
           dataFileId = extractedDataFileId;
 
           // Use effectiveUserId instead of selectedClient in URL
-          const url = `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${dataFileId}`;
+          const url = `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${dataFileId}&isFollowUp=${followupEnabled}`;
           const response = await fetch(url);
 
           if (!response.ok) {
@@ -1343,8 +1344,21 @@ const MainPage: React.FC = () => {
 
       }
     },
-    [selectedClient, userId]
+    [selectedClient, userId, followupEnabled]
   );
+debugger;
+  // Refetch data when followup checkbox changes
+  useEffect(() => {
+    if (selectedZohoviewId) {
+      console.log('Followup checkbox changed, refetching data:', followupEnabled);
+      fetchAndDisplayEmailBodies(selectedZohoviewId);
+    }
+  }, [followupEnabled]);
+
+  // Handle followup checkbox change
+  const handleFollowupChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setFollowupEnabled(event.target.checked);
+  };
 
   const sendEmail = async (
     cost: number,
@@ -4243,6 +4257,8 @@ const MainPage: React.FC = () => {
                 showCreditModal={showCreditModal}
                 checkUserCredits={checkUserCredits}
                 userId={userId}
+                followupEnabled={followupEnabled}
+                setFollowupEnabled={setFollowupEnabled}
               />
             )}
 
