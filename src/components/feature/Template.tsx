@@ -515,16 +515,20 @@ const generateExampleEmail = (template: CampaignTemplate) => {
                             <>
                               <button
                                 onClick={() => {
-                                  sessionStorage.setItem(
-                                    "editTemplateId",
-                                    template.id.toString()
-                                  );
-                                  sessionStorage.setItem(
-                                    "editTemplateMode",
-                                    "true"
-                                  );
+                                sessionStorage.setItem("editTemplateId", template.id.toString());
+                                sessionStorage.setItem("editTemplateMode", "true");
+
+                                // REQUIRED FIX 🔥 (builder reads this!)
+                                sessionStorage.setItem("newCampaignId", template.id.toString());
+                                sessionStorage.setItem("newCampaignName", template.templateName);
+
+
+                                // Safe delay
+                                setTimeout(() => {
                                   setShowCampaignBuilder(true);
-                                  setTemplateActionsAnchor(null);
+                                }, 0);
+
+                                setTemplateActionsAnchor(null);
                                 }}
                                 style={menuBtnStyle}
                                 className="flex gap-2 items-center"
@@ -740,163 +744,45 @@ const generateExampleEmail = (template: CampaignTemplate) => {
       )}
 
       {/* View Campaign Template Modal */}
-      {showViewCampaignModal && selectedCampaignTemplate && (
-        <div className="modal-backdrop">
-          <div className="modal-content modal-large">
-            <h2>View Campaign Template: {selectedCampaignTemplate.templateName}</h2>
-            
-            {/* Tab Navigation */}
-            <div className="tabs secondary">
-              <ul className="d-flex">
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => setViewCampaignTab("example")}
-                    className={`button ${viewCampaignTab === "example" ? "active" : ""}`}
-                  >
-                    Example Email
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => setViewCampaignTab("template")}
-                    className={`button ${viewCampaignTab === "template" ? "active" : ""}`}
-                  >
-                    Campaign Template
-                  </button>
-                </li>
-              </ul>
-            </div>
+{showViewCampaignModal && selectedCampaignTemplate && (
+  <div className="modal-backdrop">
+    <div className="modal-content modal-large">
 
-            {/* Example Email Tab */}
-            {viewCampaignTab === "example" && (
-              <div className="form-group">
-                <label>Example Email Output</label>
-                {userRole === "ADMIN" && !isDemoAccount ? (
-                  <ReactQuill
-                    theme="snow"
-                    value={exampleEmail}
-                    onChange={(value) => {
-                      setExampleEmail(value);
-                      setCurrentPlaceholderValues({
-                        ...currentPlaceholderValues,
-                        example_output: value
-                      });
-                    }}
-                    modules={modules}
-                    className="template-editor"
-                    style={{ minHeight: "300px" }}
-                  />
-                  ) : (
-                  <div 
-                    className="template-preview example-email-preview"
-                    dangerouslySetInnerHTML={{ __html: exampleEmail }}
-                    style={{ 
-                      minHeight: "300px",
-                      backgroundColor: "#f9f9f9",
-                      padding: "1rem",
-                      borderRadius: "4px"
-                    }}
-                  />
-                )}
-                
-                {/* Display Placeholder Values */}
-                {currentPlaceholderValues && Object.keys(currentPlaceholderValues).length > 0 && (
-                  <div className="placeholder-values-section" style={{ marginTop: "1rem" }}>
-                    <h4>Placeholder Values:</h4>
-                    <div className="placeholder-values-grid">
-                      {Object.entries(currentPlaceholderValues).map(([key, value]) => (
-                        key !== 'example_output' && (
-                          <div key={key} className="placeholder-value-item">
-                            <strong>{`{${key}}`}:</strong>
-                            <span>{value}</span>
-                          </div>
-                        )
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+      <h2>Example Email Preview</h2>
 
-            {/* Campaign Template Tab */}
-            {viewCampaignTab === "template" && (
-              <div className="form-group">
-                <label>Campaign Template (Final Result)</label>
-                  <>
-                    <textarea
-                      value={editableCampaignTemplate}
-                      onChange={(e) => setEditableCampaignTemplate(e.target.value)}
-                      className="campaign-template-textarea"
-                      rows={15}
-                      style={{ 
-                        width: "100%",
-                        fontFamily: "monospace",
-                        fontSize: "0.9rem"
-                      }}
-                    />
-                    <div className="template-metadata" style={{ marginTop: "1rem" }}>
-                      <p><strong>Model:</strong> {selectedCampaignTemplate.selectedModel}</p>
-                      <p><strong>Created:</strong> {formatDate(selectedCampaignTemplate.createdAt)}</p>
-                      {selectedCampaignTemplate.updatedAt && (
-                        <p><strong>Last Updated:</strong> {formatDate(selectedCampaignTemplate.updatedAt)}</p>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <div className="template-preview">
-                    <pre style={{ whiteSpace: "pre-wrap", wordWrap: "break-word" }}>
-                      {selectedCampaignTemplate.campaignBlueprint || "No template content"}
-                    </pre>
-                  </div>
-               
-              </div>
-            )}
+      {/* Render ONLY Example Output */}
+      <div
+        className="example-output-preview"
+        style={{
+          background: "#ffffff",
+          padding: "20px",
+          borderRadius: "8px",
+          border: "1px solid #e5e7eb",
+          maxHeight: "70vh",
+          overflowY: "auto"
+        }}
+        dangerouslySetInnerHTML={{
+          __html: exampleEmail || "<p>No example email available</p>"
+        }}
+      />
 
-            <div className="modal-footer">
-              <button
-                className="button secondary"
-                onClick={() => {
-                  setShowViewCampaignModal(false);
-                  setSelectedCampaignTemplate(null);
-                  setExampleEmail("");
-                  setEditableCampaignTemplate("");
-                  setCurrentPlaceholderValues({});
-                }}
-              >
-                Close
-              </button>
-                <>
-                  <button
-                    className="button save-button"
-                    onClick={handleSaveCampaignTemplateChanges}
-                    disabled={isLoading}
-                  >
-                    {isLoading ? "Saving..." : "Save Changes"}
-                  </button>
-                  <button
-                    className="button primary"
-                    onClick={() => {
-                      setEditCampaignForm({
-                        templateName: selectedCampaignTemplate.templateName,
-                        aiInstructions: selectedCampaignTemplate.aiInstructions,
-                        placeholderListInfo: selectedCampaignTemplate.placeholderListInfo,
-                        masterBlueprintUnpopulated: selectedCampaignTemplate.masterBlueprintUnpopulated,
-                        selectedModel: selectedCampaignTemplate.selectedModel,
-                      });
-                      setShowViewCampaignModal(false);
-                      setShowEditCampaignModal(true);
-                    }}
-                  >
-                    Advanced Edit
-                  </button>
-                </>
-             
-            </div>
-          </div>
-        </div>
-      )}
+      <div className="modal-footer">
+        <button
+          className="button secondary"
+          onClick={() => {
+            setShowViewCampaignModal(false);
+            setSelectedCampaignTemplate(null);
+            setExampleEmail("");
+          }}
+        >
+          Close
+        </button>
+      </div>
+
+    </div>
+  </div>
+)}
+
 
       {/* Edit Campaign Modal */}
       {showEditCampaignModal && selectedCampaignTemplate && (

@@ -483,22 +483,51 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   allSourcedData,
   sourcedSummary,
 }) => {
+const [isGenerating, setIsGenerating] = useState(false);
+
+const [placeholderConfirmed, setPlaceholderConfirmed] = useState(false);
+useEffect(() => {
+  if (!messages.length) return;
+
+  const last = messages[messages.length - 1].content;
+
+  const isComplete =
+    last.includes("==PLACEHOLDER_VALUES_START==") &&
+    last.includes("==PLACEHOLDER_VALUES_END==") &&
+    last.includes('"complete"');
+
+  if (isComplete) {
+    setPlaceholderConfirmed(true);  // Enable dropdown again
+  }
+}, [messages]);
+
+  
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
-  const renderMessageContent = (content: string) => {
-    const isHtml = /<[a-z][\s\S]*>/i.test(content);
-    if (isHtml) {
-      return (
-        <div
-          className="rendered-html-content"
-          dangerouslySetInnerHTML={{ __html: content }}
-        />
-      );
-    } else {
-      return <p className="message-content">{content}</p>;
-    }
-  };
+const renderMessageContent = (rawContent: string) => {
+  if (!rawContent) return null;
+
+  // 🧹 CLEAN PLACEHOLDER BLOCK EVERY TIME
+  let content = rawContent
+    .replace(/==PLACEHOLDER_VALUES_START==[\s\S]*?==PLACEHOLDER_VALUES_END==/g, "")
+    .replace(/\{\s*"status"[\s\S]*?}/g, "")
+    .trim();
+
+  const isHtml = /<[a-z][\s\S]*>/i.test(content);
+
+  if (isHtml) {
+    return (
+      <div
+        className="rendered-html-content"
+        dangerouslySetInnerHTML={{ __html: content }}
+      />
+    );
+  }
+
+  return <p className="message-content">{content}</p>;
+};
+
 
   useEffect(() => {
     if (!isTyping && conversationStarted && inputRef.current) {
@@ -530,110 +559,88 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   return (
     <div className="conversation-container">
       <div className="chat-layout">
+        
 
         {/* ===================== CHAT SECTION ===================== */}
         <div className="chat-section">
           
-          {/* ------------------ EDIT MODE: SELECT PLACEHOLDER ------------------ */}
-          {isEditMode && !conversationStarted && (
-            <div style={{
-              padding: "20px",
-              backgroundColor: "#f9fafb",
-              borderRadius: "8px",
-              marginBottom: "20px",
-            }}>
-              <h3 style={{ fontSize: "18px", fontWeight: "bold", marginBottom: "8px" }}>
-                Select Placeholder to Edit
-              </h3>
 
-              <select
-                value={selectedPlaceholder || ""}
-                onChange={(e) => {
-                  if (e.target.value && onPlaceholderSelect) {
-                    onPlaceholderSelect(e.target.value);
-                  }
-                }}
-                style={{
-                  width: "100%",
-                  padding: "12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "8px",
-                }}
-              >
-                <option value="">-- Select a placeholder --</option>
-                {availablePlaceholders.map((p) => (
-                  <option key={p} value={p}>
-                    {`{${p}}`} — Current: {placeholderValues[p] || "Not set"}
-                  </option>
-                ))}
-              </select>
-
-              <button
-                onClick={() => window.location.reload()}
-                style={{
-                  marginTop: "15px",
-                  padding: "10px 20px",
-                  background: "#6b7280",
-                  color: "white",
-                  borderRadius: "6px",
-                }}
-              >
-                Cancel Edit Mode
-              </button>
-            </div>
-          )}
 
           {/* ------------------ CHAT MESSAGES ------------------ */}
-          <div className="messages-area">
-            {!conversationStarted && !isEditMode ? (
-              <div className="empty-conversation">
-                
-              </div>
-            ) : conversationStarted ? (
-              <div className="messages-list">
-                
-                {/* EDIT MODE: Indicate which placeholder is being edited */}
-                {isEditMode && selectedPlaceholder && (
-                  <div style={{
-                    background: "#fef3c7",
-                    border: "1px solid #fbbf24",
-                    padding: "12px",
-                    borderRadius: "8px",
-                    marginBottom: "12px",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                  }}>
-                    <AlertCircle size={16} color="#f59e0b" />
-                    Editing: <strong>{`{${selectedPlaceholder}}`}</strong>
-                  </div>
-                )}
+{/* ------------------ CHAT MESSAGES ------------------ */}
+<div className="messages-area">
 
-                {messages.map((msg, idx) => (
-                  <div key={idx} className={`message-wrapper ${msg.type}`}>
-                    <div className={`message-bubble ${msg.type}`}>
-                      {renderMessageContent(msg.content)}
-                      <div className={`message-time ${msg.type}`}>
-                        {new Date(msg.timestamp).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+  {/* 1️⃣ EDIT MODE → No placeholder selected yet */}
+  {isEditMode && !conversationStarted && !selectedPlaceholder && (
+    <div className="empty-conversation">
+      <p
+        style={{
+          padding: "20px",
+          textAlign: "center",
+          color: "#6b7280",
+          fontSize: "16px",
+          fontStyle: "italic",
+        }}
+      >
+        Please select a placeholder to edit.
+      </p>
+    </div>
+  )}
 
-                {isTyping && (
-                  <div className="typing-indicator">
-                    <Loader2 className="typing-spinner" />
-                    <span>Blueprint builder is thinking...</span>
-                  </div>
-                )}
+  {/* 2️⃣ EDIT MODE → Placeholder selected but chat not started yet */}
+  {isEditMode && !conversationStarted && selectedPlaceholder && (
+    <div className="empty-conversation">
+      <p
+        style={{
+          padding: "20px",
+          textAlign: "center",
+          color: "#6b7280",
+        }}
+      >
+        Preparing conversation…
+      </p>
+    </div>
+  )}
 
-                <div ref={chatEndRef} />
-              </div>
-            ) : null}
+  {/* 3️⃣ NORMAL MODE → No conversation started */}
+  {!conversationStarted && !isEditMode && (
+    <div className="empty-conversation"></div>
+  )}
+
+  {/* 4️⃣ ACTIVE CHAT */}
+  {conversationStarted && (
+    <div className="messages-list">
+
+
+
+      {/* Render messages */}
+      {messages.map((msg, idx) => (
+        <div key={idx} className={`message-wrapper ${msg.type}`}>
+          <div className={`message-bubble ${msg.type}`}>
+            {renderMessageContent(msg.content)}
+            <div className={`message-time ${msg.type}`}>
+              {new Date(msg.timestamp).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </div>
           </div>
+        </div>
+      ))}
+
+      {isTyping && (
+        <div className="typing-indicator">
+          <Loader2 className="typing-spinner" />
+          <span>Blueprint builder is thinking...</span>
+        </div>
+      )}
+
+      <div ref={chatEndRef} />
+    </div>
+  )}
+
+</div>
+
 
           {/* ------------------ INPUT BAR ------------------ */}
           {conversationStarted && (
@@ -793,35 +800,48 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
                 })()}
 
               {/* Generate Button BESIDE contact details */}
-<button
-  className="regenerate-btn"
-  onClick={async () => {
-    if (!selectedContactId) {
-      alert("Please select a contact before generating.");
-      return;
-    }
+          <button
+            className="regenerate-btn"
+            disabled={!conversationStarted || isGenerating}
+            onClick={async () => {
+              if (!selectedContactId) {
+                alert("Please select a contact before generating.");
+                return;
+              }
 
-    const contact = contacts.find(c => c.id === selectedContactId);
-    if (!contact) {
-      alert("Invalid contact selection.");
-      return;
-    }
+              const contact = contacts.find(c => c.id === selectedContactId);
+              if (!contact) {
+                alert("Invalid contact selection.");
+                return;
+              }
 
-    // Step 1: Apply contact placeholders
-    await applyContactPlaceholders(contact);
+              try {
+                setIsGenerating(true); // 🔥 Start loader
 
-    // Step 2: Run example generation, but only if defined
-    if (regenerateExampleOutput) {
-      await regenerateExampleOutput();
-    } else {
-      console.error("❌ regenerateExampleOutput is undefined");
-      alert("Example generation function missing!");
-    }
-  }}
-  disabled={!conversationStarted}
->
-  Generate
-</button>
+                await applyContactPlaceholders(contact);
+
+                if (regenerateExampleOutput) {
+                  await regenerateExampleOutput();
+                }
+
+              } catch (error) {
+                console.error("Generate failed:", error);
+                alert("Failed to generate output. Please try again.");
+              } finally {
+                setIsGenerating(false); // 🔥 Stop loader
+              }
+            }}
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 size={18} className="spinning" />
+                &nbsp; Generating...
+              </>
+            ) : (
+              "Generate"
+            )}
+          </button>
+
 
             </div>
           )}
@@ -1744,7 +1764,7 @@ const startEditConversation = async (placeholder: string) => {
       placeholderValues: conversationValues, // ✅ Only conversation placeholders
       selectedModel,
     });
-    //await reloadCampaignBlueprint();
+    reloadCampaignBlueprint();
     console.log("✅ Conversation placeholder saved in DB:", updatedPlaceholder);
     console.log("ℹ️ Click 'Regenerate' to see the updated email");
 
@@ -1989,6 +2009,16 @@ const handleSendMessage = async () => {
     timestamp: new Date(),
   };
 
+
+    // Prefer in-memory editTemplateId, fall back to session keys (newCampaignId or editTemplateId)
+  const storedNewCampaignId = sessionStorage.getItem('newCampaignId');
+  const storedEditTemplateId = sessionStorage.getItem('editTemplateId');
+
+  const campaignTemplateIdCandidate = editTemplateId
+    ?? (storedNewCampaignId ? Number(storedNewCampaignId) : null)
+    ?? (storedEditTemplateId ? Number(storedEditTemplateId) : null);
+
+  const campaignTemplateId = Number(campaignTemplateIdCandidate);
   // add user message to UI immediately
   setMessages((prev) => [...prev, userMessage]);
 
@@ -2004,7 +2034,7 @@ const handleSendMessage = async () => {
     const requestBody = isEditMode
       ? {
           userId: effectiveUserId,
-          campaignTemplateId: editTemplateId,
+          campaignTemplateId: campaignTemplateId,
           message: answerText,
           model: selectedModel,
 
@@ -2075,7 +2105,7 @@ const handleSendMessage = async () => {
               id: activeCampaignId,
               placeholderValues: updatedConversationValues, // only conversation placeholders
             });
-            //await reloadCampaignBlueprint();
+             reloadCampaignBlueprint();
             console.log('💾 Saved conversation placeholders to DB (no auto-generation)');
           } catch (err) {
             console.warn('⚠️ Failed to save placeholders:', err);
@@ -2120,7 +2150,7 @@ const handleSendMessage = async () => {
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, botMessage]);
-      //await reloadCampaignBlueprint();
+      await reloadCampaignBlueprint();
       playNotificationSound();
     }
 
@@ -2459,22 +2489,45 @@ function SimpleTextarea({
           </div>
 
           <div className="tab-content">
-            {activeTab === "build" && (
-              <button
-                onClick={() => setIsSectionOpen(!isSectionOpen)}
-                className="w-[40px] h-[40px] flex items-center justify-center rounded-md bg-gray-200 hover:bg-gray-300 ml-auto mb-[10px] mt-[-24px]"
-              >
-                {/* <FontAwesomeIcon
-                  icon={faBars}
-                  className=" text-[#333333] text-2xl"
-                /> */}
-                 <img
-    src={downArrow}
-    alt="toggle"
-    className="w-[24px] h-[24px] object-contain"
-  />
-              </button>
-            )}
+{activeTab === "build" && (
+  <div className="flex items-center justify-between w-full mb-[10px] mt-[-24px]">
+
+    {/* LEFT SIDE — Placeholder Dropdown */}
+    <div className="flex-1">
+      {isEditMode && (
+        <select
+          className="w-full h-[48px] border border-gray-300 rounded-md px-3 text-[15px]"
+          value={selectedPlaceholder || ""}
+          disabled={isTyping}
+          onChange={(e) => {
+            if (e.target.value) {
+              startEditConversation(e.target.value);
+            }
+          }}
+
+        >
+          <option value="">-- Select Placeholder --</option>
+
+          {extractPlaceholders(masterPrompt).map((p) => (
+            <option key={p} value={p}>
+              {`{${p}}`} — Current: {placeholderValues[p] || "Not set"}
+            </option>
+          ))}
+        </select>
+      )}
+    </div>
+
+    {/* RIGHT SIDE → Toggle button */}
+    <button
+      onClick={() => setIsSectionOpen(!isSectionOpen)}
+      className="ml-3 w-[40px] h-[40px] flex items-center justify-center rounded-md bg-gray-200 hover:bg-gray-300"
+    >
+      <img src={downArrow} alt="toggle" className="w-[24px] h-[24px]" />
+    </button>
+  </div>
+)}
+
+
 
             {/* 1️⃣ BUILD TAB (CHAT) */}
             {activeTab === "build" && (
@@ -2731,21 +2784,22 @@ function SimpleTextarea({
 
 
 
-            {/* 4️⃣ CT UNPOPULATED */}
-{/* 4️⃣ CT UNPOPULATED */}
+
+{/* 4️⃣ VT (Live Blueprint with applied placeholders) */}
 {activeTab === "ct" && (
   <div className="ct-tab-container">
-    <h3>Master Campaign Template (Unpopulated)</h3>
+    <h3>Live vendor blueprint (Auto updated)</h3>
 
     <div className="instruction-subtab-content">
       <SimpleTextarea
-        value={previewText}
-        onChange={(e: any) => setPreviewText(e.target.value)}
-        placeholder="Unpopulated master template..."
+        value={campaignBlueprint}
+        onChange={(e: any) => setCampaignBlueprint(e.target.value)}
+        placeholder="Live campaign blueprint will appear here..."
       />
     </div>
   </div>
 )}
+
 
 
           </div>
