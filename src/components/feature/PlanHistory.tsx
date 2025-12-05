@@ -284,7 +284,7 @@ const PlanHistory: React.FC = () => {
           <div className="bg-white p-4 shadow-md rounded-md p-6">
             <div className="data-campaigns-container">
               <div className="section-wrapper">
-                <h2 className="section-title">Plan history</h2>
+                <h2 className="section-title" style={{marginTop:"-30px"}}>Plan history</h2>
                 <p style={{marginBottom:'20px'}}>The Plan History section displays details of your subscription plans, including plan name, amount, status, and duration.</p>
 
                 {!isLoading && (

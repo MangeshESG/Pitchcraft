@@ -621,6 +621,7 @@ useEffect(() => {
         Pitch: item.pitch || item.sample_email_body || "N/A",
         Timestamp: item.timestamp || new Date().toISOString(),
         Generated: item.generated ? "Yes" : "No",
+        Subject: item.subject || "N/A", 
       }));
 
       // Create worksheet with the data
@@ -637,6 +638,7 @@ useEffect(() => {
         { wch: 60 }, // Pitch
         { wch: 20 }, // Timestamp
         { wch: 10 }, // Generated
+        { wch: 25 }, //Subject
       ];
       ws["!cols"] = wscols;
 
@@ -4077,7 +4079,7 @@ useEffect(() => {
                     className="btn btn-primary"
                     style={{
                       padding: "10px 30px",
-                      backgroundColor: "#007bff",
+                      backgroundColor: "#3f9f42",
                       color: "white",
                       border: "none",
                       borderRadius: "4px",
