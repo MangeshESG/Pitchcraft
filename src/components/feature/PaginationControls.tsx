@@ -139,7 +139,7 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
 
         {/* Page Input Field */}
         <div className="d-flex align-items-center font-size-medium h-[35px]">
-          <strong className="flex items-center">Contact:</strong>
+          <strong className="flex items-center">Page:</strong>
 
           <input
             type="number"

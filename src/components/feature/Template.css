@@ -87,15 +87,28 @@
 
 .template-actions-menu {
   position: absolute;
-  top: 32px;
   right: 0;
+  top: 32px;
   background: #fff;
   border: 1px solid #eee;
   border-radius: 6px;
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 2px 16px rgba(0,0,0,0.12);
   z-index: 101;
-  min-width: 160px;
+  min-width: 180px;
   padding: 10px 0;
+}
+.template-actions-menu button {
+  width: 100%;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+}.template-actions-menu button:hover {
+  background-color: #f8f9fa;
 }
 
 /* ------------------------ */

@@ -1933,7 +1933,7 @@
 /* Left Chat Area */
 .chat-section {
   flex: 1.2;
-  border-right: 1px solid #e5e7eb;
+  border: 1px solid #e5e7eb;
   padding-right: 16px;
   display: flex;
   flex-direction: column;
@@ -2561,4 +2561,13 @@
 
 .elements-tab-container pre::-webkit-scrollbar-track {
   background: transparent;
+}
+.right-side-panel {
+  transition: width 0.28s ease, opacity 0.25s ease;
+}
+
+.right-side-panel.closed {
+  width: 0 !important;
+  opacity: 0;
+  overflow: hidden;
 }
