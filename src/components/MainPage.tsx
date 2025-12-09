@@ -1227,7 +1227,8 @@ const MainPage: React.FC = () => {
     async (
       zohoviewId: string, // Format: "clientId,dataFileId" OR "segment_segmentId"
       pageToken: string | null = null,
-      direction: "next" | "previous" | null = null
+      direction: "next" | "previous" | null = null,
+      forceFollowup?: boolean
     ) => {
       try {
 
@@ -1254,7 +1255,7 @@ const MainPage: React.FC = () => {
           console.log("Fetching segment contacts for segmentId:", segmentId);
 
           // ✅ Fetch from segment API
-          const url = `${API_BASE_URL}/api/Crm/segment/${segmentId}/contacts`;
+          const url = `${API_BASE_URL}/api/Crm/contacts/by-client-segment?clientId=${effectiveUserId}&segmentId=${segmentId}&isFollowUp=${forceFollowup ?? followupEnabled}`;
           const response = await fetch(url);
 
           if (!response.ok) {
@@ -1262,7 +1263,7 @@ const MainPage: React.FC = () => {
           }
 
           const fetchedSegmentData = await response.json();
-          contactsData = fetchedSegmentData || [];
+          contactsData = fetchedSegmentData.contacts || [];
           console.log("Fetched segment contacts:", contactsData);
         } else {
           // ✅ Original datafile logic (unchanged)
@@ -1271,7 +1272,7 @@ const MainPage: React.FC = () => {
           dataFileId = extractedDataFileId;
 
           // Use effectiveUserId instead of selectedClient in URL
-          const url = `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${dataFileId}&isFollowUp=${followupEnabled}`;
+          const url = `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${dataFileId}&isFollowUp=${forceFollowup ?? followupEnabled}`;
           const response = await fetch(url);
 
           if (!response.ok) {
@@ -1346,7 +1347,6 @@ const MainPage: React.FC = () => {
     },
     [selectedClient, userId, followupEnabled]
   );
-debugger;
   // Refetch data when followup checkbox changes
   useEffect(() => {
     if (selectedZohoviewId) {
