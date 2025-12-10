@@ -43,7 +43,7 @@ const REQUIRED_FIELDS = [
   { key: "company", label: <>Company <span style={{ color: "blue" }}>*</span></>, required: false },
   { key: "location", label: <>Location <span style={{ color: "blue" }}>*</span></>, required: false },
   { key: "linkedin", label: "LinkedIn URL", required: false },
-  { key: "company_website", label: <>Company Website <span style={{ color: "blue" }}>*</span></>, required: false },
+  { key: "company_website", label: <>Company website <span style={{ color: "blue" }}>*</span></>, required: false },
   { key: "email_body", label: "Email body", required: false },
   { key: "email_subject", label: "Email subject", required: false },
   { key: "company_telephone", label: "Company telephone", required: false },
@@ -52,7 +52,7 @@ const REQUIRED_FIELDS = [
     label: "Company employee count",
     required: false,
   },
-  { key: "company_industry", label: <>Company Industry <span style={{ color: "blue" }}>*</span></>, required: false },
+  { key: "company_industry", label: <>Company industry <span style={{ color: "blue" }}>*</span></>, required: false },
   {
     key: "company_linkedin_url",
     label: "Company LinkedIn URL",
@@ -762,15 +762,15 @@ console.log("processingStats.valid:", processingStats.valid);
                       case 'company':
                         return 'Optional: mapping the company name lets you personalise messages and refer to each recipient\'s organisation.';
                       case 'company_website':
-                        return 'Optional – mapping the company website lets you link directly to each organisation\'s site or include it in personalised emails.';
+                        return 'Optional but very useful – mapping the company website lets PitchKraft personalize the emails based on your prospect\'s company.';
                       case 'location':
-                        return 'Optional – mapping the location lets you tailor messages by region and reference each recipient\'s area.';
+                        return 'Optional – mapping the location lets you tailor messages according to the prospect\'s region.';
                       case 'email_body':
-                        return 'Optional – map if you keep notes such as last contact details and want them handy when personalising future messages.';
+                        return 'Optional – map if you want existing email body to be imported.';
                       case 'linkedin':
-                        return 'Optional – mapping the LinkedIn profile lets you add personal touches or include a direct profile link in your message.';
+                        return 'Optional – mapping the contact\'s personal LinkedIn profile lets you add personal touches or include a direct profile link in your message.';
                       case 'email_subject':
-                        return 'Optional – map if you store custom subject lines and wish to reuse them when sending follow-up emails.';
+                        return 'Optional – map if you want existing email subject to be imported.';
                       case 'job_title':
                         return 'Optional – mapping the job title lets you personalise your message by referencing the recipient\'s role and responsibilities.';
                       case 'company_industry':

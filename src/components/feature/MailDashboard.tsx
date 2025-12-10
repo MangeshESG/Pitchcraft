@@ -1882,7 +1882,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
         </div>
 
         <div className="stats-card purple">
-          <h3>Click</h3>
+          <h3>Clicks</h3>
           {loading ? (
             <p className="value">Loading...</p>
           ) : !selectedCampaign ? (
@@ -1907,7 +1907,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
         </div>
 
         <div className="stats-card red">
-          <h3>Error</h3>
+          <h3>Errors</h3>
           {loading ? (
             <p className="value">Loading...</p>
           ) : !selectedCampaign ? (

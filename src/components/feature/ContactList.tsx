@@ -743,16 +743,17 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
 
   // Fetch contacts for selected segment
   const fetchSegmentContacts = async (segmentId: string) => {
-    if (!segmentId) return;
+    if (!segmentId || !effectiveUserId) return;
     setIsLoadingSegmentContacts(true);
     try {
-      // Use the correct endpoint!
+      // Use the new endpoint with clientId and segmentId parameters
       const response = await fetch(
-        `${API_BASE_URL}/api/Crm/segment/${segmentId}/contacts`
+        `${API_BASE_URL}/api/Crm/segment-contacts?clientId=${effectiveUserId}&segmentId=${segmentId}`
       );
       if (!response.ok) throw new Error("Failed to fetch segment contacts");
       const data = await response.json();
-      setSegmentContacts(data || []);
+      // Extract contacts from the response structure
+      setSegmentContacts(data.contacts || []);
     } catch (err) {
       setSegmentContacts([]);
     } finally {
@@ -909,7 +910,8 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
       if (type === "list") {
         url = `${API_BASE_URL}/api/Crm/contacts/List-by-CleinteId?clientId=${effectiveUserId}&dataFileId=${item.id}`;
       } else {
-        url = `${API_BASE_URL}/api/Crm/segment/${item.id}/contacts`;
+        // Use the new segment-contacts endpoint
+        url = `${API_BASE_URL}/api/Crm/segment-contacts?clientId=${effectiveUserId}&segmentId=${item.id}`;
       }
 
       const response = await fetch(url);
@@ -920,8 +922,9 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
         setDetailContacts(data.contacts || []);
         setDetailTotalContacts(data.contactCount || 0);
       } else {
-        setDetailContacts(data || []);
-        setDetailTotalContacts(data.length || 0);
+        // Extract contacts from the new response structure
+        setDetailContacts(data.contacts || []);
+        setDetailTotalContacts(data.contactCount || 0);
       }
     } catch (error) {
       console.error("Error fetching contacts:", error);
@@ -1347,14 +1350,15 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     try {
       setIsLoadingSegments(true);
 
-      // Fetch all contacts for this segment
+      // Fetch all contacts for this segment using the new endpoint
       const response = await fetch(
-        `${API_BASE_URL}/api/Crm/segment/${segment.id}/contacts`
+        `${API_BASE_URL}/api/Crm/segment-contacts?clientId=${effectiveUserId}&segmentId=${segment.id}`
       );
 
       if (!response.ok) throw new Error("Failed to fetch segment contacts");
 
-      const contacts = await response.json();
+      const data = await response.json();
+      const contacts = data.contacts || [];
 
       if (!contacts || contacts.length === 0) {
         appModal.showWarning("No contacts to download");
