@@ -132,6 +132,8 @@ interface ConversationTabProps {
   sourcedSummary: string;
 
   filledTemplate: string;   // <-- ADD THIS
+  editTemplateId?: number | null;
+
 
 }
 
@@ -483,7 +485,9 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   searchResults,
   allSourcedData,
   sourcedSummary,
-  filledTemplate,             // 👈 ADD THIS
+  filledTemplate,
+  editTemplateId,   // ⭐ ADD THIS
+     
 
 }) => {
 const [isGenerating, setIsGenerating] = useState(false);
@@ -560,6 +564,51 @@ const [activeMainTab, setActiveMainTab] = useState<
       }
     }
   }, [currentPage, contacts]);
+
+
+const saveExampleEmail = async () => {
+  try {
+    const storedId = sessionStorage.getItem("newCampaignId");
+    const activeCampaignId =
+      editTemplateId ?? (storedId ? Number(storedId) : null);
+
+    if (!activeCampaignId) {
+      alert("No campaign instance found.");
+      return;
+    }
+
+    if (!exampleOutput) {
+      alert("No generated email to save.");
+      return;
+    }
+
+    // 1️⃣ clone current placeholder values
+    const updatedPlaceholders = {
+      ...placeholderValues,
+      example_output: exampleOutput
+    };
+
+    // 2️⃣ build PlaceholderListWithValue string
+    const placeholderListWithValue = Object.entries(updatedPlaceholders)
+      .map(([key, value]) => `{${key}}} = ${value}`)
+      .join(" ");
+
+    // 3️⃣ save ONLY these two fields
+    await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
+      id: activeCampaignId,
+      placeholderValues: updatedPlaceholders,
+      placeholderListWithValue: placeholderListWithValue
+    });
+
+    alert("✅ Example email saved into placeholders successfully!");
+  } catch (err) {
+    console.error("Failed to save example email:", err);
+    alert("❌ Failed to save example email.");
+  }
+};
+
+
+
 
   return (
     <div className="conversation-container">
@@ -853,24 +902,51 @@ const [activeMainTab, setActiveMainTab] = useState<
 
 
             {/* === Tabs for Example Output === */}
-            <div className="example-tabs">
-{["Output", "PT", "Stages"].map(tab => (
-  <button
-    key={tab}
-    className={`stage-tab-btn ${activeMainTab === tab.toLowerCase() ? "active" : ""}`}
-    onClick={() =>
-      setActiveMainTab(
-        tab.toLowerCase() as "output" | "pt" | "stages"
-      )
-    }
-  >
-    {tab}
-  </button>
-))}
+<div
+  className="example-tabs"
+  style={{
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "10px"
+  }}
+>
+  {/* LEFT: Tabs */}
+  <div style={{ display: "flex", gap: "12px" }}>
+    {["Output", "PT", "Stages"].map(tab => (
+      <button
+        key={tab}
+        className={`stage-tab-btn ${activeMainTab === tab.toLowerCase() ? "active" : ""}`}
+        onClick={() =>
+          setActiveMainTab(
+            tab.toLowerCase() as "output" | "pt" | "stages"
+          )
+        }
+      >
+        {tab}
+      </button>
+    ))}
+  </div>
 
+  {/* RIGHT: Save Button (Only for Output tab & only when output exists) */}
+  {activeMainTab === "output" && exampleOutput && (
+    <button
+      onClick={saveExampleEmail}
+      style={{
+        padding: "6px 14px",
+        background: "#2563eb",
+        color: "white",
+        borderRadius: "6px",
+        fontSize: "14px",
+        fontWeight: 600,
+        cursor: "pointer"
+      }}
+    >
+      Save Email
+    </button>
+  )}
+</div>
 
-             
-            </div>
 
             {/* === Main Tab Content === */}
             {activeMainTab === "output" && (
@@ -1028,8 +1104,11 @@ const [activeTab, setActiveTab] = useState<TabType>('build');
   // NEW
   const [searchURLCount, setSearchURLCount] = useState<number>(1);
   const [subjectInstructions, setSubjectInstructions] = useState<string>("");
+ const [formValues, setFormValues] = useState<Record<string, string>>({});
 
-
+useEffect(() => {
+  setFormValues(placeholderValues);
+}, [placeholderValues]);
 
 
 
@@ -1122,6 +1201,35 @@ useEffect(() => {
   }, [systemPrompt, masterPrompt, selectedTemplateDefinitionId]);
 
 
+const saveAllPlaceholders = async () => {
+  try {
+    const storedId = sessionStorage.getItem("newCampaignId");
+    const activeCampaignId = editTemplateId ?? (storedId ? Number(storedId) : null);
+
+    if (!activeCampaignId) {
+      alert("No campaign instance found.");
+      return;
+    }
+
+    // separate conversation placeholders from contact placeholders
+    const conversationOnly = getConversationPlaceholders(formValues);
+
+    await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
+      id: activeCampaignId,
+      placeholderValues: conversationOnly
+    });
+
+    // also update UI
+    setPlaceholderValues(formValues);
+
+    await reloadCampaignBlueprint();
+
+    alert("All placeholder values updated successfully!");
+  } catch (err) {
+    console.error("Error saving all placeholders:", err);
+    alert("Failed to save placeholder changes.");
+  }
+};
 
 
   // ====================================================================
@@ -2612,12 +2720,75 @@ function SimpleTextarea({
             )}
 
             {/* 2️⃣ ELEMENTS TAB */}
-            {activeTab === "elements" && (
-              <div className="elements-tab-container">
-                <h3>Detected Placeholder Values</h3>
-                <pre>{JSON.stringify(placeholderValues, null, 2)}</pre>
-              </div>
-            )}
+{activeTab === "elements" && (
+  <div className="elements-tab-container" style={{ padding: "20px" }}>
+
+    <h2 style={{ fontSize: "22px", fontWeight: 600, marginBottom: "15px" }}>
+      Edit Placeholder Values
+    </h2>
+
+    <div 
+      className="placeholder-form-grid"
+      style={{
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: "20px",
+        background: "#fff",
+        padding: "20px",
+        borderRadius: "8px",
+        border: "1px solid #e5e7eb"
+      }}
+    >
+      {Object.entries(placeholderValues).map(([key, value]) => (
+        <div key={key} style={{ display: "flex", flexDirection: "column" }}>
+          <label
+            style={{
+              fontWeight: 600,
+              marginBottom: "6px",
+              fontSize: "14px",
+            }}
+          >
+            {`{${key}}`}
+          </label>
+
+          <input
+            type="text"
+            value={formValues[key] ?? ""}
+            onChange={(e) =>
+              setFormValues((prev) => ({ ...prev, [key]: e.target.value }))
+            }
+            className="placeholder-input"
+            style={{
+              padding: "8px 10px",
+              borderRadius: "6px",
+              border: "1px solid #d1d5db",
+              fontSize: "14px",
+            }}
+          />
+        </div>
+      ))}
+    </div>
+
+    <div style={{ marginTop: "20px", textAlign: "right" }}>
+      <button
+        onClick={saveAllPlaceholders}
+        className="save-all-btn"
+        style={{
+          padding: "10px 18px",
+          background: "#16a34a",
+          color: "white",
+          borderRadius: "6px",
+          fontSize: "15px",
+          fontWeight: 600
+        }}
+      >
+        Save All Changes
+      </button>
+    </div>
+
+  </div>
+)}
+
 
             {/* 3️⃣ INSTRUCTIONS SET TAB */}
             {activeTab === "instructions" && (

@@ -1388,7 +1388,6 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
 //   )
  // Helper function to render sort arrow
   const renderSortArrow = (columnKey: string, currentSortKey: string, sortDirection: string) => {
-    debugger
     if (columnKey === currentSortKey) {
       return sortDirection === "asc" ? " ▲" : " ▼"
     }
