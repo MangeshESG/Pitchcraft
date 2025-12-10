@@ -1933,7 +1933,7 @@
 /* Left Chat Area */
 .chat-section {
   flex: 1.2;
-  border-right: 1px solid #e5e7eb;
+  border: 1px solid #e5e7eb;
   padding-right: 16px;
   display: flex;
   flex-direction: column;

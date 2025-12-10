@@ -10,6 +10,7 @@ interface PaginationControlsProps {
   totalRecords: number;
   pageSize: number;
   setCurrentPage: (page: number) => void;
+  setPageSize: (size: number) => void;
 
   //setCurrentPage: React.Dispatch<React.SetStateAction<number>>;
 }
@@ -20,6 +21,7 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
   totalRecords,
   pageSize,
   setCurrentPage,
+  setPageSize,
 }) => {
   const handlePrevPage = () => {
     if (currentPage > 1) setCurrentPage(currentPage - 1);
@@ -116,7 +118,7 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
               }}
             />
           </button>
-
+       
           {/* LAST PAGE BUTTON */}
           <button
             onClick={() => handlePageChange(totalPages)}
@@ -136,10 +138,26 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
             />
           </button>
         </div>
+           <select
+  value={pageSize}
+  onChange={(e) => {
+    const newSize = Number(e.target.value);
+    setPageSize(newSize);
+    setCurrentPage(1); // reset to first page
+  }}
+  className="form-control ml-2 h-[35px]"
+  style={{ width: "80px", padding: "5px",border:"1px solid #ddd" }}
+>
+  {[10, 20, 30, 40, 50].map((size) => (
+    <option key={size} value={size}>
+      {size}
+    </option>
+  ))}
+</select>
 
         {/* Page Input Field */}
         <div className="d-flex align-items-center font-size-medium h-[35px]">
-          <strong className="flex items-center">Contact:</strong>
+          <strong className="flex items-center">Page:</strong>
 
           <input
             type="number"

@@ -370,7 +370,7 @@ const [errorPopup, setErrorPopup] = useState<string | null>(null);
                 <div className="z"> ${Number.isInteger(displayPrice) ? displayPrice : displayPrice.toFixed(2)}</div>
                 {isYearly && plan.planCode !== 'credits' && (
                   <div style={{fontSize: '14px', opacity: 0.75, textDecoration: 'line-through'}}>
-                    ${(plan.price * 12).toFixed(2)}
+                    ${Math.round(plan.price * 12)}
                   </div>
                 )}
                 <div className="A">{displayPeriod}</div>

@@ -552,6 +552,7 @@ const [activeMainTab, setActiveMainTab] = useState<
   >("search");
 
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const rowsPerPage = 1;
   const totalPages = Math.ceil(contacts.length / rowsPerPage);
 
@@ -727,7 +728,7 @@ const saveExampleEmail = async () => {
         {isSectionOpen && (
           <div className="example-section">
             <div className="example-header">
-              <div className="example-datafile-section">
+              <div className="example-datafile-section" style={{marginTop:"10px"}}>
                 <label>Contact list</label>
                 <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "-20px" }}>
                   <select
@@ -756,6 +757,7 @@ const saveExampleEmail = async () => {
                       pageSize={rowsPerPage}
                       totalRecords={contacts.length}
                       setCurrentPage={setCurrentPage}
+                      setPageSize={setPageSize}
                     /></div>
                 </div>
               </div>
@@ -2674,7 +2676,11 @@ function SimpleTextarea({
       onClick={() => setIsSectionOpen(!isSectionOpen)}
       className="ml-3 w-[40px] h-[40px] flex items-center justify-center rounded-md bg-gray-200 hover:bg-gray-300"
     >
-      <img src={downArrow} alt="toggle" className="w-[24px] h-[24px]" />
+       <img
+        src={isSectionOpen ? "/arrow-right.svg" : "/arrow-left.svg"}
+        alt="toggle"
+        className="w-[22px] h-[22px] text-green-500"
+      />
     </button>
   </div>
 )}
@@ -3017,7 +3023,7 @@ function SimpleTextarea({
   </div>
 )}
 
-
+``
 
           </div>
 
