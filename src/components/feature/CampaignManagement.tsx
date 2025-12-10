@@ -315,7 +315,8 @@ const createCampaign = async () => {
 
   // ================== UI RENDER ==================
 
-  const pageSize = 5;
+  //const pageSize = 5;
+  const [pageSize, setPageSize] = useState(10);
   const filteredCampaigns = campaigns.filter((c) =>
     c.campaignName.toLowerCase().includes(campaignSearch.toLowerCase())
   );
@@ -371,6 +372,7 @@ const menuBtnStyle: React.CSSProperties = {
           pageSize={pageSize}
           totalRecords={filteredCampaigns.length}
           setCurrentPage={setCurrentPage}
+           setPageSize={setPageSize}
         />
         </div>
 
@@ -482,6 +484,7 @@ const menuBtnStyle: React.CSSProperties = {
           pageSize={pageSize}
           totalRecords={filteredCampaigns.length}
           setCurrentPage={setCurrentPage}
+           setPageSize={setPageSize}
         />
       </div>
 

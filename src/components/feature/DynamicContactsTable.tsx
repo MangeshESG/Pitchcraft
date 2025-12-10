@@ -52,6 +52,7 @@ interface DynamicContactsTableProps {
   
   // Column persistence
   persistedColumnSelection?: string[];
+   onPageSizeChange?: (size: number) => void;
 }
 type SortDirection = "asc" | "desc";
 
@@ -67,8 +68,9 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   showCheckboxes = false,
   paginated = false,
   currentPage = 1,
-  pageSize = 20,
+  //pageSize = 20,
   onPageChange,
+  onPageSizeChange,
   selectedItems,
   onSelectItem,
   totalItems,
@@ -99,6 +101,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   const [columns, setColumns] = useState<ColumnConfig[]>([]);
   const [showColumnPanel, setShowColumnPanel] = useState(false);
   const columnPanelRef = useRef<HTMLDivElement>(null);
+   const [pageSize, setPageSize] = useState(10);
   const isInitializedRef = useRef(false); // ADD THIS LINE
   //const [currentPage, setCurrentPage] = useState(1);
 
@@ -662,6 +665,7 @@ const displayData = pagedData;
             pageSize={pageSize}
             totalRecords={filteredData.length}
             setCurrentPage={onPageChange}
+             setPageSize={setPageSize}
           />
           </div>
           {showCheckboxes && selectedItems && selectedItems.size > 0 && (
@@ -877,6 +881,7 @@ const displayData = pagedData;
             pageSize={pageSize}
             totalRecords={filteredData.length}
             setCurrentPage={onPageChange}
+             setPageSize={setPageSize}
           />
         </div>
 

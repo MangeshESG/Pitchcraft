@@ -1462,7 +1462,8 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     { value: "Line Islands Standard Time", label: "(UTC+14:00) Kiritimati Island", iana: "Pacific/Kiritimati" }
   ];
   //pagination for mail box
-  const pageSize = 10; // items per page
+  //const pageSize = 10; // items per page
+  const [pageSize, setPageSize] = useState(10);
 
   const [currentPageMailbox, setCurrentPageMailbox] = useState(1);
 
@@ -1679,6 +1680,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                   totalRecords={filteredMailboxes.length} // Use filteredMailboxes for totalRecords if filtering is applied before pagination
                   pageSize={pageSize}
                   setCurrentPage={setCurrentPageMailbox}
+                   setPageSize={setPageSize}
                 />
                 {/* Add/Edit Mailbox Modal */}
                 {/* Replace your Modal component with this custom modal */}
@@ -1926,6 +1928,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                   totalRecords={bccEmails.length}
                   pageSize={pageSize}
                   setCurrentPage={setBccPage}
+                   setPageSize={setPageSize}
                 />
                 {/* Popup Modal */}
                 {showPopup && (
@@ -2206,6 +2209,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                 pageSize={rowsPerPage}               // ✅ use same variable
                 totalRecords={totalPages} // ✅ use filtered length
                 setCurrentPage={setCurrentPage}
+                 setPageSize={setPageSize}
               />
               {/* <div
                 className="d-flex align-center justify-end"

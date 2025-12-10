@@ -65,18 +65,18 @@ const [showCampaignModal, setShowCampaignModal] = useState(false);
                     <span className="min-w-[30px] h-[30px] font-[600] rounded-full bg-[#cfecd6] green flex items-center justify-center text-[16px] font-extrabold mr-2">
                       1
                     </span>
-                    Create a template
+                    Create a blueprint
                   </div>
                   <span className=" text-gray-400">Video coming soon</span>
                 </div>
                 <div className="flex justify-between h-[calc(100%-30px)]">
                   <div className="flex-1 flex flex-col">
                     <div className="text-gray-500 my-6">
-                      <p>Contact your account manager for new pitch templates. Soon you'll
+                      <p>Contact your account manager for new pitch blueprints. Soon you'll
                         be able to build them right in PitchKraft.</p>
                     </div>
                     <button onClick={() => navigate("/main?tab=TestTemplate")} className="border-[#3f9f42] border  w-[fit-content] mt-[auto] text-[#3f9f42]  rounded-md px-3 py-1.5  font-semibold ">
-                      Create template
+                      Create blueprint
                     </button>
                   </div>
                   <div className="min-w-[180px] d-flex justify-center items-center">

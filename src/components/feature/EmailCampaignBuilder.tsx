@@ -131,6 +131,9 @@ interface ConversationTabProps {
   allSourcedData: string;
   sourcedSummary: string;
 
+  filledTemplate: string;   // <-- ADD THIS
+  editTemplateId?: number | null;
+
 
 }
 
@@ -365,7 +368,7 @@ const TemplateTab: React.FC<TemplateTabProps> = ({
 
       <div className="additional-text-section">
         <div className="template-section">
-          <h2>3. Master campaign template (unpopulated)</h2>
+          <h2>3. Master campaign template </h2>
           <p className="warning-text">⚠️ This text is NOT sent to the AI. Placeholders here will be filled with values from the conversation.</p>
         </div>
         <textarea
@@ -482,23 +485,56 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   searchResults,
   allSourcedData,
   sourcedSummary,
+  filledTemplate,
+  editTemplateId,   // ⭐ ADD THIS
+     
+
 }) => {
+const [isGenerating, setIsGenerating] = useState(false);
+
+const [placeholderConfirmed, setPlaceholderConfirmed] = useState(false);
+useEffect(() => {
+  if (!messages.length) return;
+
+  const last = messages[messages.length - 1].content;
+
+  const isComplete =
+    last.includes("==PLACEHOLDER_VALUES_START==") &&
+    last.includes("==PLACEHOLDER_VALUES_END==") &&
+    last.includes('"complete"');
+
+  if (isComplete) {
+    setPlaceholderConfirmed(true);  // Enable dropdown again
+  }
+}, [messages]);
+
+  
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
-  const renderMessageContent = (content: string) => {
-    const isHtml = /<[a-z][\s\S]*>/i.test(content);
-    if (isHtml) {
-      return (
-        <div
-          className="rendered-html-content"
-          dangerouslySetInnerHTML={{ __html: content }}
-        />
-      );
-    } else {
-      return <p className="message-content">{content}</p>;
-    }
-  };
+const renderMessageContent = (rawContent: string) => {
+  if (!rawContent) return null;
+
+  // 🧹 CLEAN PLACEHOLDER BLOCK EVERY TIME
+  let content = rawContent
+    .replace(/==PLACEHOLDER_VALUES_START==[\s\S]*?==PLACEHOLDER_VALUES_END==/g, "")
+    .replace(/\{\s*"status"[\s\S]*?}/g, "")
+    .trim();
+
+  const isHtml = /<[a-z][\s\S]*>/i.test(content);
+
+  if (isHtml) {
+    return (
+      <div
+        className="rendered-html-content"
+        dangerouslySetInnerHTML={{ __html: content }}
+      />
+    );
+  }
+
+  return <p className="message-content">{content}</p>;
+};
+
 
   useEffect(() => {
     if (!isTyping && conversationStarted && inputRef.current) {
@@ -506,14 +542,17 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
     }
   }, [isTyping, messages, conversationStarted]);
 
-  const [activeMainTab, setActiveMainTab] = useState<
-    "output" | "stages" | "elements"
-  >("output");
+const [activeMainTab, setActiveMainTab] = useState<
+  "output" | "pt" | "stages"
+>("output");
+
+
   const [activeSubStageTab, setActiveSubStageTab] = useState<
     "search" | "data" | "summary"
   >("search");
 
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const rowsPerPage = 1;
   const totalPages = Math.ceil(contacts.length / rowsPerPage);
 
@@ -527,88 +566,108 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
     }
   }, [currentPage, contacts]);
 
+
+    const saveExampleEmail = async () => {
+      try {
+        const storedId = sessionStorage.getItem("newCampaignId");
+        const activeCampaignId =
+          editTemplateId ?? (storedId ? Number(storedId) : null);
+
+        if (!activeCampaignId) {
+          alert("No campaign instance found.");
+          return;
+        }
+
+        if (!exampleOutput) {
+          alert("No generated email to save.");
+          return;
+        }
+
+        // 1️⃣ clone current placeholder values
+        const updatedPlaceholders = {
+          ...placeholderValues,
+          example_output: exampleOutput
+        };
+
+        // 2️⃣ build PlaceholderListWithValue string
+        const placeholderListWithValue = Object.entries(updatedPlaceholders)
+          .map(([key, value]) => `{${key}}} = ${value}`)
+          .join(" ");
+
+        // 3️⃣ save ONLY these two fields
+        await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
+          id: activeCampaignId,
+          placeholderValues: updatedPlaceholders,
+          placeholderListWithValue: placeholderListWithValue
+        });
+
+        alert("✅ Example email saved into placeholders successfully!");
+      } catch (err) {
+        console.error("Failed to save example email:", err);
+        alert("❌ Failed to save example email.");
+      }
+    };
+
+
+
+
   return (
     <div className="conversation-container">
       <div className="chat-layout">
+        
 
         {/* ===================== CHAT SECTION ===================== */}
         <div className="chat-section">
           
-          {/* ------------------ EDIT MODE: SELECT PLACEHOLDER ------------------ */}
-          {isEditMode && !conversationStarted && (
-            <div style={{
-              padding: "20px",
-              backgroundColor: "#f9fafb",
-              borderRadius: "8px",
-              marginBottom: "20px",
-            }}>
-              <h3 style={{ fontSize: "18px", fontWeight: "bold", marginBottom: "8px" }}>
-                Select Placeholder to Edit
-              </h3>
 
-              <select
-                value={selectedPlaceholder || ""}
-                onChange={(e) => {
-                  if (e.target.value && onPlaceholderSelect) {
-                    onPlaceholderSelect(e.target.value);
-                  }
-                }}
-                style={{
-                  width: "100%",
-                  padding: "12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "8px",
-                }}
-              >
-                <option value="">-- Select a placeholder --</option>
-                {availablePlaceholders.map((p) => (
-                  <option key={p} value={p}>
-                    {`{${p}}`} — Current: {placeholderValues[p] || "Not set"}
-                  </option>
-                ))}
-              </select>
-
-              <button
-                onClick={() => window.location.reload()}
-                style={{
-                  marginTop: "15px",
-                  padding: "10px 20px",
-                  background: "#6b7280",
-                  color: "white",
-                  borderRadius: "6px",
-                }}
-              >
-                Cancel Edit Mode
-              </button>
-            </div>
-          )}
 
           {/* ------------------ CHAT MESSAGES ------------------ */}
           <div className="messages-area">
-            {!conversationStarted && !isEditMode ? (
-              <div className="empty-conversation">
-                
-              </div>
-            ) : conversationStarted ? (
-              <div className="messages-list">
-                
-                {/* EDIT MODE: Indicate which placeholder is being edited */}
-                {isEditMode && selectedPlaceholder && (
-                  <div style={{
-                    background: "#fef3c7",
-                    border: "1px solid #fbbf24",
-                    padding: "12px",
-                    borderRadius: "8px",
-                    marginBottom: "12px",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                  }}>
-                    <AlertCircle size={16} color="#f59e0b" />
-                    Editing: <strong>{`{${selectedPlaceholder}}`}</strong>
-                  </div>
-                )}
 
+            {/* 1️⃣ EDIT MODE → No placeholder selected yet */}
+            {isEditMode && !conversationStarted && !selectedPlaceholder && (
+              <div className="empty-conversation">
+                <p
+                  style={{
+                    padding: "20px",
+                    textAlign: "center",
+                    color: "#6b7280",
+                    fontSize: "16px",
+                    fontStyle: "italic",
+                  }}
+                >
+                  Please select a placeholder to edit.
+                </p>
+              </div>
+            )}
+
+            {/* 2️⃣ EDIT MODE → Placeholder selected but chat not started yet */}
+            {isEditMode && !conversationStarted && selectedPlaceholder && (
+              <div className="empty-conversation">
+                <p
+                  style={{
+                    padding: "20px",
+                    textAlign: "center",
+                    color: "#6b7280",
+                  }}
+                >
+                  Preparing conversation…
+                </p>
+              </div>
+            )}
+
+            {/* 3️⃣ NORMAL MODE → No conversation started */}
+            {!conversationStarted && !isEditMode && (
+              <div className="empty-conversation"></div>
+            )}
+
+            {/* 4️⃣ ACTIVE CHAT */}
+            {conversationStarted && (
+              <div className="messages-list">
+
+
+
+                {/* Render messages */}
                 {messages.map((msg, idx) => (
                   <div key={idx} className={`message-wrapper ${msg.type}`}>
                     <div className={`message-bubble ${msg.type}`}>
@@ -632,8 +691,10 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
 
                 <div ref={chatEndRef} />
               </div>
-            ) : null}
+            )}
+
           </div>
+
 
           {/* ------------------ INPUT BAR ------------------ */}
           {conversationStarted && (
@@ -666,7 +727,7 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
         {isSectionOpen && (
           <div className="example-section">
             <div className="example-header">
-              <div className="example-datafile-section">
+              <div className="example-datafile-section" style={{marginTop:"10px"}}>
                 <label>Contact list</label>
                 <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "-20px" }}>
                   <select
@@ -695,6 +756,7 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
                       pageSize={rowsPerPage}
                       totalRecords={contacts.length}
                       setCurrentPage={setCurrentPage}
+                      setPageSize={setPageSize}
                     /></div>
                 </div>
               </div>
@@ -793,52 +855,99 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
                 })()}
 
               {/* Generate Button BESIDE contact details */}
-<button
-  className="regenerate-btn"
-  onClick={async () => {
-    if (!selectedContactId) {
-      alert("Please select a contact before generating.");
-      return;
-    }
+          <button
+            className="regenerate-btn"
+            disabled={!conversationStarted || isGenerating}
+            onClick={async () => {
+              if (!selectedContactId) {
+                alert("Please select a contact before generating.");
+                return;
+              }
 
-    const contact = contacts.find(c => c.id === selectedContactId);
-    if (!contact) {
-      alert("Invalid contact selection.");
-      return;
-    }
+              const contact = contacts.find(c => c.id === selectedContactId);
+              if (!contact) {
+                alert("Invalid contact selection.");
+                return;
+              }
 
-    // Step 1: Apply contact placeholders
-    await applyContactPlaceholders(contact);
+              try {
+                setIsGenerating(true); // 🔥 Start loader
 
-    // Step 2: Run example generation, but only if defined
-    if (regenerateExampleOutput) {
-      await regenerateExampleOutput();
-    } else {
-      console.error("❌ regenerateExampleOutput is undefined");
-      alert("Example generation function missing!");
-    }
-  }}
-  disabled={!conversationStarted}
->
-  Generate
-</button>
+                await applyContactPlaceholders(contact);
+
+                if (regenerateExampleOutput) {
+                  await regenerateExampleOutput();
+                }
+
+              } catch (error) {
+                console.error("Generate failed:", error);
+                alert("Failed to generate output. Please try again.");
+              } finally {
+                setIsGenerating(false); // 🔥 Stop loader
+              }
+            }}
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 size={18} className="spinning" />
+                &nbsp; Generating...
+              </>
+            ) : (
+              "Generate"
+            )}
+          </button>
+
 
             </div>
           )}
 
 
             {/* === Tabs for Example Output === */}
-            <div className="example-tabs">
-              {["Output", "Stages"].map(tab => (
-                <button
-                  key={tab}
-                  className={`stage-tab-btn ${activeMainTab === tab.toLowerCase() ? "active" : ""}`}
-                  onClick={() => setActiveMainTab(tab.toLowerCase() as 'output' | 'stages')}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
+<div
+  className="example-tabs"
+  style={{
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "10px"
+  }}
+>
+  {/* LEFT: Tabs */}
+  <div style={{ display: "flex", gap: "12px" }}>
+    {["Output", "PT", "Stages"].map(tab => (
+      <button
+        key={tab}
+        className={`stage-tab-btn ${activeMainTab === tab.toLowerCase() ? "active" : ""}`}
+        onClick={() =>
+          setActiveMainTab(
+            tab.toLowerCase() as "output" | "pt" | "stages"
+          )
+        }
+      >
+        {tab}
+      </button>
+    ))}
+  </div>
+
+  {/* RIGHT: Save Button (Only for Output tab & only when output exists) */}
+  {activeMainTab === "output" && exampleOutput && (
+    <button
+      onClick={saveExampleEmail}
+      style={{
+        padding: "6px 14px",
+        background: "#2563eb",
+        color: "white",
+        borderRadius: "6px",
+        fontSize: "14px",
+        fontWeight: 600,
+        cursor: "pointer"
+      }}
+    >
+      Save Email
+    </button>
+  )}
+</div>
+
 
             {/* === Main Tab Content === */}
             {activeMainTab === "output" && (
@@ -855,6 +964,31 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
                 )}
               </div>
             )}
+
+            {/* ⭐ FILLED TEMPLATE TAB */}
+          {activeMainTab === "pt" && (
+            <div className="example-body">
+              {filledTemplate ? (
+                <pre
+                  className="filled-template-box"
+                  style={{
+                    background: "#f8f9fa",
+                    padding: "15px",
+                    borderRadius: "8px",
+                    maxHeight: "70vh",
+                    overflowY: "auto",
+                    whiteSpace: "pre-wrap",
+                    fontSize: "14px"
+                  }}
+                >
+                  {filledTemplate}
+                </pre>
+              ) : (
+                <p className="example-placeholder">🔧 Filled Template will appear here</p>
+              )}
+            </div>
+          )}
+
 
           
 
@@ -939,6 +1073,7 @@ const [activeTab, setActiveTab] = useState<TabType>('build');
   const [finalPrompt, setFinalPrompt] = useSessionState<string>("campaign_final_prompt", "");
   const [finalPreviewText, setFinalPreviewText] = useSessionState<string>("campaign_final_preview", "");
   const [exampleOutput, setExampleOutput] = useState<string>('');
+  const [filledTemplate, setFilledTemplate] = useState<string>('');
 
   const [placeholderValues, setPlaceholderValues] = useSessionState<Record<string, string>>("campaign_placeholder_values", {});
   const [isComplete, setIsComplete] = useSessionState<boolean>("campaign_is_complete", false);
@@ -970,8 +1105,11 @@ const [activeTab, setActiveTab] = useState<TabType>('build');
   // NEW
   const [searchURLCount, setSearchURLCount] = useState<number>(1);
   const [subjectInstructions, setSubjectInstructions] = useState<string>("");
+ const [formValues, setFormValues] = useState<Record<string, string>>({});
 
-
+useEffect(() => {
+  setFormValues(placeholderValues);
+}, [placeholderValues]);
 
 
 
@@ -1064,6 +1202,35 @@ useEffect(() => {
   }, [systemPrompt, masterPrompt, selectedTemplateDefinitionId]);
 
 
+const saveAllPlaceholders = async () => {
+  try {
+    const storedId = sessionStorage.getItem("newCampaignId");
+    const activeCampaignId = editTemplateId ?? (storedId ? Number(storedId) : null);
+
+    if (!activeCampaignId) {
+      alert("No campaign instance found.");
+      return;
+    }
+
+    // separate conversation placeholders from contact placeholders
+    const conversationOnly = getConversationPlaceholders(formValues);
+
+    await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
+      id: activeCampaignId,
+      placeholderValues: conversationOnly
+    });
+
+    // also update UI
+    setPlaceholderValues(formValues);
+
+    await reloadCampaignBlueprint();
+
+    alert("All placeholder values updated successfully!");
+  } catch (err) {
+    console.error("Error saving all placeholders:", err);
+    alert("Failed to save placeholder changes.");
+  }
+};
 
 
   // ====================================================================
@@ -1376,13 +1543,19 @@ useEffect(() => {
 
         console.log('📥 Example generation response received');
 
-        if ((response.data.success || response.data.Success) &&
-          (response.data.exampleOutput || response.data.ExampleOutput)) {
-          const generatedOutput = response.data.exampleOutput || response.data.ExampleOutput;
-          setExampleOutput(generatedOutput);
-          console.log('✅ Example output set successfully');
-          console.log('📧 Output length:', generatedOutput.length);
-        } else {
+          if (response.data.success || response.data.Success) {
+            
+            // HTML result
+            const html = response.data.exampleOutput || response.data.ExampleOutput || "";
+            setExampleOutput(html);
+
+            // Filled template result (new)
+            const filled = response.data.filledTemplate || "";
+            setFilledTemplate(filled);
+
+            console.log("📌 Filled Template stored:", filled);
+          }
+          else {
           console.warn('⚠️ No example output returned from API');
           alert('Example generation completed but no output was returned. Please try again.');
         }
@@ -2404,7 +2577,7 @@ function SimpleTextarea({
 
           <div className="data-campaigns-container">
             {/* Sub-tabs Navigation */}
-<div className="tabs secondary mb-20">
+<div className="sticky-tabs">
   <ul className="d-flex" style={{ padding: "12px" }}>
 
     {/* BUILD TAB */}
@@ -2459,7 +2632,7 @@ function SimpleTextarea({
         }}
         className={`button !pt-0 ${activeTab === "ct" ? "active" : ""}`}
       >
-        VT (unpopulated)
+        VT 
       </button>
     </li>
 
@@ -2469,22 +2642,49 @@ function SimpleTextarea({
           </div>
 
           <div className="tab-content">
-            {activeTab === "build" && (
-              <button
-                onClick={() => setIsSectionOpen(!isSectionOpen)}
-                className="w-[40px] h-[40px] flex items-center justify-center rounded-md bg-gray-200 hover:bg-gray-300 ml-auto mb-[10px] mt-[-24px]"
-              >
-                {/* <FontAwesomeIcon
-                  icon={faBars}
-                  className=" text-[#333333] text-2xl"
-                /> */}
-                 <img
-    src={downArrow}
-    alt="toggle"
-    className="w-[24px] h-[24px] object-contain"
-  />
-              </button>
-            )}
+{activeTab === "build" && (
+  <div className="flex items-center justify-between w-full mb-[10px] mt-[-24px]">
+
+    {/* LEFT SIDE — Placeholder Dropdown */}
+    <div className="flex-1">
+      {isEditMode && (
+        <select
+          className="w-full h-[48px] border border-gray-300 rounded-md px-3 text-[15px]"
+          value={selectedPlaceholder || ""}
+          disabled={isTyping}
+          onChange={(e) => {
+            if (e.target.value) {
+              startEditConversation(e.target.value);
+            }
+          }}
+
+        >
+          <option value="">-- Select Placeholder --</option>
+
+          {extractPlaceholders(masterPrompt).map((p) => (
+            <option key={p} value={p}>
+              {`{${p}}`} — Current: {placeholderValues[p] || "Not set"}
+            </option>
+          ))}
+        </select>
+      )}
+    </div>
+
+    {/* RIGHT SIDE → Toggle button */}
+    <button
+      onClick={() => setIsSectionOpen(!isSectionOpen)}
+      className="ml-3 w-[40px] h-[40px] flex items-center justify-center rounded-md bg-gray-200 hover:bg-gray-300"
+    >
+       <img
+        src={isSectionOpen ? "/arrow-right.svg" : "/arrow-left.svg"}
+        alt="toggle"
+        className="w-[22px] h-[22px] text-green-500"
+      />
+    </button>
+  </div>
+)}
+
+
 
             {/* 1️⃣ BUILD TAB (CHAT) */}
             {activeTab === "build" && (
@@ -2519,16 +2719,81 @@ function SimpleTextarea({
                 sourcedSummary={sourcedSummary}
                 isSectionOpen={isSectionOpen}
                 setIsSectionOpen={setIsSectionOpen}
+                filledTemplate={filledTemplate}     // <-- ADD THIS
+
               />
             )}
 
             {/* 2️⃣ ELEMENTS TAB */}
-            {activeTab === "elements" && (
-              <div className="elements-tab-container">
-                <h3>Detected Placeholder Values</h3>
-                <pre>{JSON.stringify(placeholderValues, null, 2)}</pre>
-              </div>
-            )}
+{activeTab === "elements" && (
+  <div className="elements-tab-container" style={{ padding: "20px" }}>
+
+    <h2 style={{ fontSize: "22px", fontWeight: 600, marginBottom: "15px" }}>
+      Edit Placeholder Values
+    </h2>
+
+    <div 
+      className="placeholder-form-grid"
+      style={{
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: "20px",
+        background: "#fff",
+        padding: "20px",
+        borderRadius: "8px",
+        border: "1px solid #e5e7eb"
+      }}
+    >
+      {Object.entries(placeholderValues).map(([key, value]) => (
+        <div key={key} style={{ display: "flex", flexDirection: "column" }}>
+          <label
+            style={{
+              fontWeight: 600,
+              marginBottom: "6px",
+              fontSize: "14px",
+            }}
+          >
+            {`{${key}}`}
+          </label>
+
+          <input
+            type="text"
+            value={formValues[key] ?? ""}
+            onChange={(e) =>
+              setFormValues((prev) => ({ ...prev, [key]: e.target.value }))
+            }
+            className="placeholder-input"
+            style={{
+              padding: "8px 10px",
+              borderRadius: "6px",
+              border: "1px solid #d1d5db",
+              fontSize: "14px",
+            }}
+          />
+        </div>
+      ))}
+    </div>
+
+    <div style={{ marginTop: "20px", textAlign: "right" }}>
+      <button
+        onClick={saveAllPlaceholders}
+        className="save-all-btn"
+        style={{
+          padding: "10px 18px",
+          background: "#16a34a",
+          color: "white",
+          borderRadius: "6px",
+          fontSize: "15px",
+          fontWeight: 600
+        }}
+      >
+        Save All Changes
+      </button>
+    </div>
+
+  </div>
+)}
+
 
             {/* 3️⃣ INSTRUCTIONS SET TAB */}
             {activeTab === "instructions" && (
@@ -2664,7 +2929,7 @@ function SimpleTextarea({
         ["ai_edit", "AI Instructions (edit blueprint)"],
         ["placeholder_short", "Placeholders list (essential)"],
         ["placeholder_long", "Placeholders list (extended)"],
-        ["ct", "CT (unpopulated)"],
+        ["ct", "UT "],
         ["subject_instructions", "Email Subject Instructions"]
 
       ].map(([key, label]) => (
@@ -2757,7 +3022,7 @@ function SimpleTextarea({
   </div>
 )}
 
-
+``
 
           </div>
 

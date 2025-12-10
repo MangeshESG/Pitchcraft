@@ -1392,7 +1392,6 @@ const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
 //   )
  // Helper function to render sort arrow
   const renderSortArrow = (columnKey: string, currentSortKey: string, sortDirection: string) => {
-    debugger
     if (columnKey === currentSortKey) {
       return sortDirection === "asc" ? " ▲" : " ▼"
     }
@@ -1632,6 +1631,7 @@ const { filteredSegments, paginatedSegments, segmentTotalPages } = useMemo(() =>
                   pageSize={pageSize}
                   totalRecords={filteredDatafiles.length}
                   setCurrentPage={setCurrentPageLists}
+                  setPageSize={setPageSize}
                 />
                 <div style={{marginBottom:"10px"}}></div>
                 <table
@@ -1883,6 +1883,7 @@ const { filteredSegments, paginatedSegments, segmentTotalPages } = useMemo(() =>
                   pageSize={pageSize}
                   totalRecords={filteredDatafiles.length}
                   setCurrentPage={setCurrentPageLists}
+                   setPageSize={setPageSize}
                 />
 
               </>
@@ -2312,6 +2313,7 @@ const { filteredSegments, paginatedSegments, segmentTotalPages } = useMemo(() =>
                   pageSize={pageSize}
                   totalRecords={filteredSegments.length}
                   setCurrentPage={setSegmentCurrentPage}
+                   setPageSize={setPageSize}
                 />
                 </div>
                 <table
@@ -2630,6 +2632,7 @@ const { filteredSegments, paginatedSegments, segmentTotalPages } = useMemo(() =>
                   pageSize={pageSize}
                   totalRecords={filteredSegments.length}
                   setCurrentPage={setSegmentCurrentPage}
+                   setPageSize={setPageSize}
                 />
 
               </>
