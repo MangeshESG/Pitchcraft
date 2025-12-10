@@ -543,6 +543,7 @@ const renderMessageContent = (rawContent: string) => {
   >("search");
 
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const rowsPerPage = 1;
   const totalPages = Math.ceil(contacts.length / rowsPerPage);
 
@@ -702,6 +703,7 @@ const renderMessageContent = (rawContent: string) => {
                       pageSize={rowsPerPage}
                       totalRecords={contacts.length}
                       setCurrentPage={setCurrentPage}
+                      setPageSize={setPageSize}
                     /></div>
                 </div>
               </div>

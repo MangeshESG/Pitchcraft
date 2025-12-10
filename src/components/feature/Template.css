@@ -134,7 +134,7 @@
   width: 600px;
   max-width: 90%;
   max-height: 90vh;
-  overflow-y: auto;
+  overflow-y: hidden;
   display: flex;
   flex-direction: column;
   animation: scaleIn 0.25s ease;
@@ -162,6 +162,7 @@
 .modal-content.modal-large {
   width: 800px;
   max-width: 95%;
+  max-height: 90vh;
 }
 
 .modal-header {
@@ -375,3 +376,30 @@ select:focus {
     display: none !important;
   }
 }
+/* Keep backdrop centered */
+.modal-backdrop {
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Modal should never exceed screen height */
+.modal-content,
+.modal-content.modal-large {
+  max-height: 90vh !important; /* keep modal inside screen */
+  overflow: auto !important;  /* prevent outer scrolling */
+  display: flex;
+  flex-direction: column;
+}
+
+/* The email area scrolls when necessary */
+.modal-body {
+  flex: 1;                     /* take full remaining height */
+  overflow-y: visible  !important; /* ONLY this part scrolls */
+  padding: 24px;
+}
+
+/* Email preview box adjusts naturally */
+/* .example-output-preview {
+  height: auto;
+  overflow: visible;
+} */

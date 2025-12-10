@@ -318,7 +318,8 @@ const handleTemplateNameSubmit = async () => {
   });
   //pagination
 const [currentPage, setCurrentPage] = useState(1);
-const pageSize = 10;
+const [pageSize, setPageSize] = useState(10);
+//const pageSize = 10;
 const totalPages = Math.ceil(filteredCampaignTemplates.length / pageSize);
 
 const startIndex = (currentPage - 1) * pageSize;
@@ -444,6 +445,7 @@ const generateExampleEmail = (template: CampaignTemplate) => {
               pageSize={pageSize}
               totalRecords={paginatedTemplates.length}
               setCurrentPage={setCurrentPage}
+              setPageSize={setPageSize}
             />
             </div>
 
@@ -610,6 +612,7 @@ const generateExampleEmail = (template: CampaignTemplate) => {
             pageSize={pageSize}
             totalRecords={paginatedTemplates.length}
             setCurrentPage={setCurrentPage}
+            setPageSize={setPageSize}
             />
         </div>
 
@@ -793,9 +796,10 @@ const generateExampleEmail = (template: CampaignTemplate) => {
   <div className="modal-backdrop">
     <div className="modal-content modal-large">
 
-      <h2>Example Email Preview</h2>
+      {/* <h2>Example Email Preview</h2> */}
 
       {/* Render ONLY Example Output */}
+       <div className="modal-body">
       <div
         className="example-output-preview"
         style={{
@@ -803,8 +807,8 @@ const generateExampleEmail = (template: CampaignTemplate) => {
           padding: "20px",
           borderRadius: "8px",
           border: "1px solid #e5e7eb",
-          maxHeight: "70vh",
-          overflowY: "auto"
+          height: "auto",
+          overflowY: "hidden"
         }}
         dangerouslySetInnerHTML={{
           __html: exampleEmail || "<p>No example email available</p>"
@@ -825,6 +829,7 @@ const generateExampleEmail = (template: CampaignTemplate) => {
       </div>
 
     </div>
+  </div>
   </div>
 )}
 

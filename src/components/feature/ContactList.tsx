@@ -1628,6 +1628,7 @@ const { filteredSegments, paginatedSegments, segmentTotalPages } = useMemo(() =>
                   pageSize={pageSize}
                   totalRecords={filteredDatafiles.length}
                   setCurrentPage={setCurrentPageLists}
+                  setPageSize={setPageSize}
                 />
                 <div style={{marginBottom:"10px"}}></div>
                 <table
@@ -1879,6 +1880,7 @@ const { filteredSegments, paginatedSegments, segmentTotalPages } = useMemo(() =>
                   pageSize={pageSize}
                   totalRecords={filteredDatafiles.length}
                   setCurrentPage={setCurrentPageLists}
+                   setPageSize={setPageSize}
                 />
 
               </>
@@ -2308,6 +2310,7 @@ const { filteredSegments, paginatedSegments, segmentTotalPages } = useMemo(() =>
                   pageSize={pageSize}
                   totalRecords={filteredSegments.length}
                   setCurrentPage={setSegmentCurrentPage}
+                   setPageSize={setPageSize}
                 />
                 </div>
                 <table
@@ -2626,6 +2629,7 @@ const { filteredSegments, paginatedSegments, segmentTotalPages } = useMemo(() =>
                   pageSize={pageSize}
                   totalRecords={filteredSegments.length}
                   setCurrentPage={setSegmentCurrentPage}
+                   setPageSize={setPageSize}
                 />
 
               </>
