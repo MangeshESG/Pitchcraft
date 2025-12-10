@@ -3018,11 +3018,11 @@ const { filteredSegments, paginatedSegments, segmentTotalPages } = useMemo(() =>
             <h2 style={{ marginTop: 0 }}>Save as segment</h2>
             <p style={{ marginBottom: 16, color: "#666" }}>
               Creating segment with{" "}
-              {viewMode === "detail"
+              {viewMode === "detail" || segmentViewMode === "detail"
                 ? detailSelectedContacts.size
                 : selectedContacts.size}{" "}
               selected contact
-              {(viewMode === "detail"
+              {(viewMode === "detail" || segmentViewMode === "detail"
                 ? detailSelectedContacts.size
                 : selectedContacts.size) > 1
                 ? "s"
@@ -3030,7 +3030,7 @@ const { filteredSegments, paginatedSegments, segmentTotalPages } = useMemo(() =>
             </p>
             <input
               type="text"
-              placeholder="Segment Name"
+              placeholder="Segment name"
               value={segmentName}
               onChange={(e) => setSegmentName(e.target.value)}
               autoFocus
