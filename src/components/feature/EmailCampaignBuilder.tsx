@@ -567,46 +567,46 @@ const [activeMainTab, setActiveMainTab] = useState<
   }, [currentPage, contacts]);
 
 
-const saveExampleEmail = async () => {
-  try {
-    const storedId = sessionStorage.getItem("newCampaignId");
-    const activeCampaignId =
-      editTemplateId ?? (storedId ? Number(storedId) : null);
+    const saveExampleEmail = async () => {
+      try {
+        const storedId = sessionStorage.getItem("newCampaignId");
+        const activeCampaignId =
+          editTemplateId ?? (storedId ? Number(storedId) : null);
 
-    if (!activeCampaignId) {
-      alert("No campaign instance found.");
-      return;
-    }
+        if (!activeCampaignId) {
+          alert("No campaign instance found.");
+          return;
+        }
 
-    if (!exampleOutput) {
-      alert("No generated email to save.");
-      return;
-    }
+        if (!exampleOutput) {
+          alert("No generated email to save.");
+          return;
+        }
 
-    // 1️⃣ clone current placeholder values
-    const updatedPlaceholders = {
-      ...placeholderValues,
-      example_output: exampleOutput
+        // 1️⃣ clone current placeholder values
+        const updatedPlaceholders = {
+          ...placeholderValues,
+          example_output: exampleOutput
+        };
+
+        // 2️⃣ build PlaceholderListWithValue string
+        const placeholderListWithValue = Object.entries(updatedPlaceholders)
+          .map(([key, value]) => `{${key}}} = ${value}`)
+          .join(" ");
+
+        // 3️⃣ save ONLY these two fields
+        await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
+          id: activeCampaignId,
+          placeholderValues: updatedPlaceholders,
+          placeholderListWithValue: placeholderListWithValue
+        });
+
+        alert("✅ Example email saved into placeholders successfully!");
+      } catch (err) {
+        console.error("Failed to save example email:", err);
+        alert("❌ Failed to save example email.");
+      }
     };
-
-    // 2️⃣ build PlaceholderListWithValue string
-    const placeholderListWithValue = Object.entries(updatedPlaceholders)
-      .map(([key, value]) => `{${key}}} = ${value}`)
-      .join(" ");
-
-    // 3️⃣ save ONLY these two fields
-    await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
-      id: activeCampaignId,
-      placeholderValues: updatedPlaceholders,
-      placeholderListWithValue: placeholderListWithValue
-    });
-
-    alert("✅ Example email saved into placeholders successfully!");
-  } catch (err) {
-    console.error("Failed to save example email:", err);
-    alert("❌ Failed to save example email.");
-  }
-};
 
 
 
@@ -622,79 +622,78 @@ const saveExampleEmail = async () => {
 
 
           {/* ------------------ CHAT MESSAGES ------------------ */}
-{/* ------------------ CHAT MESSAGES ------------------ */}
-<div className="messages-area">
+          <div className="messages-area">
 
-  {/* 1️⃣ EDIT MODE → No placeholder selected yet */}
-  {isEditMode && !conversationStarted && !selectedPlaceholder && (
-    <div className="empty-conversation">
-      <p
-        style={{
-          padding: "20px",
-          textAlign: "center",
-          color: "#6b7280",
-          fontSize: "16px",
-          fontStyle: "italic",
-        }}
-      >
-        Please select a placeholder to edit.
-      </p>
-    </div>
-  )}
+            {/* 1️⃣ EDIT MODE → No placeholder selected yet */}
+            {isEditMode && !conversationStarted && !selectedPlaceholder && (
+              <div className="empty-conversation">
+                <p
+                  style={{
+                    padding: "20px",
+                    textAlign: "center",
+                    color: "#6b7280",
+                    fontSize: "16px",
+                    fontStyle: "italic",
+                  }}
+                >
+                  Please select a placeholder to edit.
+                </p>
+              </div>
+            )}
 
-  {/* 2️⃣ EDIT MODE → Placeholder selected but chat not started yet */}
-  {isEditMode && !conversationStarted && selectedPlaceholder && (
-    <div className="empty-conversation">
-      <p
-        style={{
-          padding: "20px",
-          textAlign: "center",
-          color: "#6b7280",
-        }}
-      >
-        Preparing conversation…
-      </p>
-    </div>
-  )}
+            {/* 2️⃣ EDIT MODE → Placeholder selected but chat not started yet */}
+            {isEditMode && !conversationStarted && selectedPlaceholder && (
+              <div className="empty-conversation">
+                <p
+                  style={{
+                    padding: "20px",
+                    textAlign: "center",
+                    color: "#6b7280",
+                  }}
+                >
+                  Preparing conversation…
+                </p>
+              </div>
+            )}
 
-  {/* 3️⃣ NORMAL MODE → No conversation started */}
-  {!conversationStarted && !isEditMode && (
-    <div className="empty-conversation"></div>
-  )}
+            {/* 3️⃣ NORMAL MODE → No conversation started */}
+            {!conversationStarted && !isEditMode && (
+              <div className="empty-conversation"></div>
+            )}
 
-  {/* 4️⃣ ACTIVE CHAT */}
-  {conversationStarted && (
-    <div className="messages-list">
-
+            {/* 4️⃣ ACTIVE CHAT */}
+            {conversationStarted && (
+              <div className="messages-list">
 
 
-      {/* Render messages */}
-      {messages.map((msg, idx) => (
-        <div key={idx} className={`message-wrapper ${msg.type}`}>
-          <div className={`message-bubble ${msg.type}`}>
-            {renderMessageContent(msg.content)}
-            <div className={`message-time ${msg.type}`}>
-              {new Date(msg.timestamp).toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </div>
+
+                {/* Render messages */}
+                {messages.map((msg, idx) => (
+                  <div key={idx} className={`message-wrapper ${msg.type}`}>
+                    <div className={`message-bubble ${msg.type}`}>
+                      {renderMessageContent(msg.content)}
+                      <div className={`message-time ${msg.type}`}>
+                        {new Date(msg.timestamp).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {isTyping && (
+                  <div className="typing-indicator">
+                    <Loader2 className="typing-spinner" />
+                    <span>Blueprint builder is thinking...</span>
+                  </div>
+                )}
+
+                <div ref={chatEndRef} />
+              </div>
+            )}
+
           </div>
-        </div>
-      ))}
-
-      {isTyping && (
-        <div className="typing-indicator">
-          <Loader2 className="typing-spinner" />
-          <span>Blueprint builder is thinking...</span>
-        </div>
-      )}
-
-      <div ref={chatEndRef} />
-    </div>
-  )}
-
-</div>
 
 
           {/* ------------------ INPUT BAR ------------------ */}
