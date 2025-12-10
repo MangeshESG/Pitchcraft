@@ -1346,7 +1346,6 @@ const MainPage: React.FC = () => {
     },
     [selectedClient, userId, followupEnabled]
   );
-debugger;
   // Refetch data when followup checkbox changes
   useEffect(() => {
     if (selectedZohoviewId) {

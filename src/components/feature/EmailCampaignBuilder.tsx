@@ -491,8 +491,18 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
 
 }) => {
 const [isGenerating, setIsGenerating] = useState(false);
+const [editableExampleOutput, setEditableExampleOutput] = useState<string>("");
 
 const [placeholderConfirmed, setPlaceholderConfirmed] = useState(false);
+
+
+useEffect(() => {
+  if (exampleOutput) {
+    setEditableExampleOutput(exampleOutput);
+  }
+}, [exampleOutput]);
+
+
 useEffect(() => {
   if (!messages.length) return;
 
@@ -508,7 +518,51 @@ useEffect(() => {
   }
 }, [messages]);
 
-  
+  const ExampleEmailEditor = ({
+  value,
+  onChange
+}: {
+  value: string;
+  onChange: (val: string) => void;
+}) => {
+  const editorRef = React.useRef<HTMLDivElement | null>(null);
+  const localDraft = React.useRef<string>("");
+
+  // Load value ONLY when backend/regenerate changes
+  React.useEffect(() => {
+    if (!editorRef.current) return;
+    editorRef.current.innerHTML = value || "";
+    localDraft.current = value || "";
+  }, [value]);
+
+  return (
+    <div
+      ref={editorRef}
+      contentEditable
+      suppressContentEditableWarning
+      className="example-content"
+      style={{
+        minHeight: "320px",
+        padding: "16px",
+        border: "1px solid #e5e7eb",
+        borderRadius: "8px",
+        background: "#ffffff",
+        outline: "none",
+        lineHeight: "1.6",
+        fontFamily: "Calibri, Arial, sans-serif"
+      }}
+      onInput={() => {
+        if (editorRef.current) {
+          localDraft.current = editorRef.current.innerHTML;
+        }
+      }}
+      onBlur={() => {
+        onChange(localDraft.current); // ✅ Save text to state only on blur
+      }}
+    />
+  );
+};
+
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -567,46 +621,41 @@ const [activeMainTab, setActiveMainTab] = useState<
   }, [currentPage, contacts]);
 
 
-    const saveExampleEmail = async () => {
-      try {
-        const storedId = sessionStorage.getItem("newCampaignId");
-        const activeCampaignId =
-          editTemplateId ?? (storedId ? Number(storedId) : null);
+const saveExampleEmail = async () => {
+  try {
+    const storedId = sessionStorage.getItem("newCampaignId");
+    const activeCampaignId =
+      editTemplateId ?? (storedId ? Number(storedId) : null);
 
-        if (!activeCampaignId) {
-          alert("No campaign instance found.");
-          return;
+    if (!activeCampaignId) {
+      alert("No campaign instance found.");
+      return;
+    }
+
+    if (!editableExampleOutput.trim()) {
+      alert("Example email is empty.");
+      return;
+    }
+
+    // ✅ Send example_output as a placeholder
+    await axios.post(
+      `${API_BASE_URL}/api/CampaignPrompt/template/update-placeholders`,
+      {
+        templateId: activeCampaignId,
+        placeholderValues: {
+          example_output: editableExampleOutput
         }
-
-        if (!exampleOutput) {
-          alert("No generated email to save.");
-          return;
-        }
-
-        // 1️⃣ clone current placeholder values
-        const updatedPlaceholders = {
-          ...placeholderValues,
-          example_output: exampleOutput
-        };
-
-        // 2️⃣ build PlaceholderListWithValue string
-        const placeholderListWithValue = Object.entries(updatedPlaceholders)
-          .map(([key, value]) => `{${key}}} = ${value}`)
-          .join(" ");
-
-        // 3️⃣ save ONLY these two fields
-        await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
-          id: activeCampaignId,
-          placeholderValues: updatedPlaceholders,
-          placeholderListWithValue: placeholderListWithValue
-        });
-
-        alert("✅ Example email saved into placeholders successfully!");
-      } catch (err) {
-        console.error("Failed to save example email:", err);
-        alert("❌ Failed to save example email.");
       }
-    };
+    );
+
+    alert("✅ Example email saved successfully!");
+  } catch (error) {
+    console.error("❌ Save example output failed:", error);
+    alert("Failed to save example email.");
+  }
+};
+
+
 
 
 
@@ -903,6 +952,12 @@ const [activeMainTab, setActiveMainTab] = useState<
 
 
             {/* === Tabs for Example Output === */}
+
+
+
+            {/* === Main Tab Content === */}
+{/* === Tabs Header (Save Button on RIGHT) === */}
+{/* === Tabs Header === */}
 <div
   className="example-tabs"
   style={{
@@ -912,16 +967,13 @@ const [activeMainTab, setActiveMainTab] = useState<
     marginBottom: "10px"
   }}
 >
-  {/* LEFT: Tabs */}
   <div style={{ display: "flex", gap: "12px" }}>
     {["Output", "PT", "Stages"].map(tab => (
       <button
         key={tab}
         className={`stage-tab-btn ${activeMainTab === tab.toLowerCase() ? "active" : ""}`}
         onClick={() =>
-          setActiveMainTab(
-            tab.toLowerCase() as "output" | "pt" | "stages"
-          )
+          setActiveMainTab(tab.toLowerCase() as "output" | "pt" | "stages")
         }
       >
         {tab}
@@ -929,8 +981,7 @@ const [activeMainTab, setActiveMainTab] = useState<
     ))}
   </div>
 
-  {/* RIGHT: Save Button (Only for Output tab & only when output exists) */}
-  {activeMainTab === "output" && exampleOutput && (
+  {activeMainTab === "output" && editableExampleOutput && (
     <button
       onClick={saveExampleEmail}
       style={{
@@ -939,31 +990,35 @@ const [activeMainTab, setActiveMainTab] = useState<
         color: "white",
         borderRadius: "6px",
         fontSize: "14px",
-        fontWeight: 600,
-        cursor: "pointer"
+        fontWeight: 600
       }}
     >
-      Save Email
+      💾 Save Email
     </button>
   )}
 </div>
 
 
-            {/* === Main Tab Content === */}
-            {activeMainTab === "output" && (
-              <div className="example-body">
-                {exampleOutput ? (
-                  <div
-                    className="example-content"
-                    dangerouslySetInnerHTML={{ __html: exampleOutput }}
-                  />
-                ) : (
-                  <div className="example-placeholder">
-                    <p>📧 Example output will appear here</p>
-                  </div>
-                )}
-              </div>
-            )}
+{/* === OUTPUT TAB BODY === */}
+{activeMainTab === "output" && (
+  <div className="example-body">
+    {editableExampleOutput ? (
+      <ExampleEmailEditor
+        value={editableExampleOutput}
+        onChange={setEditableExampleOutput}
+      />
+    ) : (
+      <div className="example-placeholder">
+        <p>📧 Example output will appear here</p>
+      </div>
+    )}
+  </div>
+)}
+
+
+
+
+
 
             {/* ⭐ FILLED TEMPLATE TAB */}
           {activeMainTab === "pt" && (
@@ -1205,32 +1260,40 @@ useEffect(() => {
 const saveAllPlaceholders = async () => {
   try {
     const storedId = sessionStorage.getItem("newCampaignId");
-    const activeCampaignId = editTemplateId ?? (storedId ? Number(storedId) : null);
+    const activeTemplateId =
+      editTemplateId ?? (storedId ? Number(storedId) : null);
 
-    if (!activeCampaignId) {
-      alert("No campaign instance found.");
+    if (!activeTemplateId) {
+      alert("No campaign template found.");
       return;
     }
 
-    // separate conversation placeholders from contact placeholders
+    // ✅ only conversation placeholders (exclude contact placeholders)
     const conversationOnly = getConversationPlaceholders(formValues);
 
-    await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
-      id: activeCampaignId,
-      placeholderValues: conversationOnly
-    });
+    await axios.post(
+      `${API_BASE_URL}/api/CampaignPrompt/template/update-placeholders`,
+      {
+        templateId: activeTemplateId,
+        placeholderValues: conversationOnly
+      }
+    );
 
-    // also update UI
-    setPlaceholderValues(formValues);
+    // ✅ update local UI
+    setPlaceholderValues(prev => ({
+      ...prev,
+      ...conversationOnly
+    }));
 
     await reloadCampaignBlueprint();
 
-    alert("All placeholder values updated successfully!");
-  } catch (err) {
-    console.error("Error saving all placeholders:", err);
-    alert("Failed to save placeholder changes.");
+    alert("✅ Placeholder values updated successfully!");
+  } catch (error) {
+    console.error("❌ Failed to update placeholders:", error);
+    alert("Failed to update placeholder values.");
   }
 };
+
 
 
   // ====================================================================
@@ -2520,6 +2583,25 @@ const reloadCampaignBlueprint = async () => {
   }
 };
 
+
+
+
+const [expandedKey, setExpandedKey] = useState<string | null>(null);
+const editorRef = useRef<HTMLDivElement | null>(null);
+const saveExpandedContent = () => {
+  if (!expandedKey || !editorRef.current) return;
+
+  setFormValues((prev) => ({
+    ...prev,
+    [expandedKey]: editorRef.current!.innerHTML
+  }));
+};
+
+
+
+
+
+
 function SimpleTextarea({
   value,
   onChange,
@@ -2745,32 +2827,50 @@ function SimpleTextarea({
       }}
     >
       {Object.entries(placeholderValues).map(([key, value]) => (
-        <div key={key} style={{ display: "flex", flexDirection: "column" }}>
-          <label
-            style={{
-              fontWeight: 600,
-              marginBottom: "6px",
-              fontSize: "14px",
-            }}
-          >
-            {`{${key}}`}
-          </label>
+<div key={key} style={{ display: "flex", flexDirection: "column" }}>
+  <label
+    style={{
+      fontWeight: 600,
+      marginBottom: "6px",
+      fontSize: "14px",
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center"
+    }}
+  >
+    {`{${key}}`}
 
-          <input
-            type="text"
-            value={formValues[key] ?? ""}
-            onChange={(e) =>
-              setFormValues((prev) => ({ ...prev, [key]: e.target.value }))
-            }
-            className="placeholder-input"
-            style={{
-              padding: "8px 10px",
-              borderRadius: "6px",
-              border: "1px solid #d1d5db",
-              fontSize: "14px",
-            }}
-          />
-        </div>
+    <button
+      type="button"
+      onClick={() => setExpandedKey(key)}
+      style={{
+        fontSize: "12px",
+        padding: "4px 8px",
+        borderRadius: "4px",
+        border: "1px solid #d1d5db",
+        background: "#f9fafb",
+        cursor: "pointer"
+      }}
+    >
+      Expand
+    </button>
+  </label>
+
+  <input
+    type="text"
+    value={formValues[key] ?? ""}
+    onChange={(e) =>
+      setFormValues((prev) => ({ ...prev, [key]: e.target.value }))
+    }
+    style={{
+      padding: "8px 10px",
+      borderRadius: "6px",
+      border: "1px solid #d1d5db",
+      fontSize: "14px",
+    }}
+  />
+</div>
+
       ))}
     </div>
 
@@ -3027,6 +3127,96 @@ function SimpleTextarea({
           </div>
 
         </div>
+
+
+{expandedKey && (
+  <div
+    style={{
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.6)",
+      zIndex: 9999,
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center"
+    }}
+  >
+    <div
+      style={{
+        width: "90%",
+        height: "90%",
+        background: "#fff",
+        borderRadius: "10px",
+        display: "flex",
+        flexDirection: "column"
+      }}
+    >
+      {/* Header */}
+      <div
+        style={{
+          padding: "14px 18px",
+          borderBottom: "1px solid #e5e7eb",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center"
+        }}
+      >
+        <h3 style={{ fontSize: "16px", fontWeight: 600 }}>
+          {`{${expandedKey}}`} – Expanded View
+        </h3>
+
+        <button
+          onClick={() => {
+            saveExpandedContent();
+            setExpandedKey(null);
+          }}
+          style={{
+            background: "transparent",
+            border: "none",
+            fontSize: "20px",
+            cursor: "pointer",
+            fontWeight: 700
+          }}
+        >
+          ✕
+        </button>
+      </div>
+
+      {/* Editable Body */}
+      <div
+        style={{
+          flex: 1,
+          padding: "24px",
+          overflowY: "auto",
+          background: "#f9fafb"
+        }}
+      >
+        <div
+          ref={editorRef}
+          contentEditable
+          suppressContentEditableWarning
+          style={{
+            minHeight: "100%",
+            background: "#ffffff",
+            border: "1px solid #e5e7eb",
+            borderRadius: "8px",
+            padding: "20px",
+            fontFamily: "Calibri, Arial, sans-serif",
+            fontSize: "15px",
+            lineHeight: "1.6",
+            outline: "none"
+          }}
+          dangerouslySetInnerHTML={{
+            __html:
+              formValues[expandedKey] ||
+              "<em style='color:#9ca3af'>Empty</em>"
+          }}
+        />
+      </div>
+    </div>
+  </div>
+)}
+
 
 
       </div>
