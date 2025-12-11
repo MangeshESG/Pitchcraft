@@ -34,6 +34,7 @@ interface ProcessedContact {
   company_industry?: string;
   company_linkedin_url?: string;
   company_event_link?: string;
+    notes?: string;
 }
 
 const REQUIRED_FIELDS = [
@@ -59,6 +60,7 @@ const REQUIRED_FIELDS = [
     required: false,
   },
   { key: "company_event_link", label: "Company event link", required: false },
+    { key: "notes", label: "Notes", required: false },
 ];
 
 const DataFile: React.FC<DataFileProps> = ({
@@ -190,6 +192,13 @@ const DataFile: React.FC<DataFileProps> = ({
         "event url",
         "conference link",
         "meeting link",
+      ],
+       notes: [
+        "notes",
+        "note",
+        "comments",
+        "remarks",
+        "additional info",
       ],
     };
 
@@ -453,6 +462,7 @@ useEffect(() => {
           companyIndustry: contact.company_industry || "",
           companyLinkedInURL: contact.company_linkedin_url || "",
           companyEventLink: contact.company_event_link || "",
+                    notes: contact.notes || "",
         })),
       };
 
@@ -532,6 +542,7 @@ useEffect(() => {
         "Company Industry",
         "Company LinkedIn URL",
         "Company Event Link",
+        "Notes",
       ],
       [
         "John Doe",
@@ -548,6 +559,7 @@ useEffect(() => {
         "Technology",
         "https://linkedin.com/company/techcorp",
         "https://techcorp.com/events/annual-conference",
+        "Prospect is actively researching solutions and open to further discussion.",
       ],
     ];
 
@@ -783,6 +795,8 @@ console.log("processingStats.valid:", processingStats.valid);
                         return 'Optional – mapping the employee count helps you tailor messaging based on the organisation\'s size and structure.';
                       case 'company_telephone':
                         return 'Optional – mapping the company telephone number lets you include direct contact details when needed in personalised outreach.';
+                        case 'notes':
+                        return 'Optional - mapping notes is a useful way of including any communications, emails, notes etc related to the contact and company.';
                       default:
                         return null;
                     }

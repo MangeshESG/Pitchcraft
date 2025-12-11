@@ -30,7 +30,8 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
     companyEmployeeCount: '',
     companyIndustry: '',
     companyLinkedInURL: '',
-    companyEventLink: ''
+    companyEventLink: '',
+    notes: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -95,7 +96,8 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
       companyEmployeeCount: '',
       companyIndustry: '',
       companyLinkedInURL: '',
-      companyEventLink: ''
+      companyEventLink: '',
+      notes: ''
     });
     onClose();
   };
@@ -373,7 +375,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
             />
           </div>
 
-          <div style={{ marginBottom: 20 }}>
+          <div style={{ marginBottom: 16 }}>
             <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
               Email body
             </label>
@@ -382,6 +384,25 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
               value={formData.emailBody}
               onChange={handleInputChange}
               rows={4}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                resize: 'vertical'
+              }}
+            />
+          </div>
+
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+              Notes
+            </label>
+            <textarea
+              name="notes"
+              value={formData.notes}
+              onChange={handleInputChange}
+              rows={3}
               style={{
                 width: '100%',
                 padding: '8px 12px',

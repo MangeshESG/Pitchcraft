@@ -101,6 +101,7 @@ interface Contact {
   companyLinkedInURL?: string;
   companyEventLink?: string;
   unsubscribe?: string;
+  notes?: string;
 }
 
 const getContactValue = (contact: Contact, key: string): any => {
@@ -185,6 +186,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     { key: "created_at", label: "Created date", visible: false },
     { key: "updated_at", label: "Last updated", visible: false },
     { key: "email_sent_at", label: "Email Sent Date", visible: false },
+    { key: "notes", label: "Notes", visible: false },
   ]);
 
   const appModal = useAppModal();
@@ -1223,6 +1225,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
       { key: "companyLinkedInURL", header: "Company LinkedIn URL" },
       { key: "companyEventLink", header: "Company Event Link" },
       { key: "unsubscribe", header: "Unsubscribe" },
+      { key: "notes", header: "Notes" },
       { key: "created_at", header: "Created date" },
       { key: "updated_at", header: "Updated date" },
       { key: "email_sent_at", header: "Email Sent Date" },
@@ -1463,6 +1466,7 @@ const { filteredSegments, paginatedSegments, segmentTotalPages } = useMemo(() =>
     companyLinkedInURL: "Company linked in URL",
     companyEventLink: "Company event link",
     unsubscribe: "Unsubscribe",
+    notes: "Notes",
   };
  const segmentFilteredContacts = useMemo(() => {
     let filtered = segmentContacts.filter((contact) => {

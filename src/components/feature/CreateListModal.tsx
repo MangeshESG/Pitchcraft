@@ -26,6 +26,7 @@ interface Contact {
   companyIndustry: string;
   companyLinkedInURL: string;
   companyEventLink: string;
+  notes?: string;
 }
 
 const CreateListModal: React.FC<CreateListModalProps> = ({
@@ -54,7 +55,8 @@ const CreateListModal: React.FC<CreateListModalProps> = ({
     companyEmployeeCount: '',
     companyIndustry: '',
     companyLinkedInURL: '',
-    companyEventLink: ''
+    companyEventLink: '',
+    notes: ''
   }]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -79,7 +81,8 @@ const CreateListModal: React.FC<CreateListModalProps> = ({
       companyEmployeeCount: '',
       companyIndustry: '',
       companyLinkedInURL: '',
-      companyEventLink: ''
+      companyEventLink: '',
+      notes: ''
     }]);
   };
 
@@ -161,7 +164,8 @@ const CreateListModal: React.FC<CreateListModalProps> = ({
       companyEmployeeCount: '',
       companyIndustry: '',
       companyLinkedInURL: '',
-      companyEventLink: ''
+      companyEventLink: '',
+      notes: ''
     }]);
     onClose();
   };
@@ -361,9 +365,13 @@ const CreateListModal: React.FC<CreateListModalProps> = ({
                   <label style={{ display: 'block', marginBottom: 4, fontWeight: 500, fontSize: '14px' }}>Email subject</label>
                   <input type="text" value={contact.emailSubject} onChange={(e) => handleContactChange(index, 'emailSubject', e.target.value)} style={{ width: '100%', padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px' }} />
                 </div>
-                <div>
+                <div style={{ marginBottom: 12 }}>
                   <label style={{ display: 'block', marginBottom: 4, fontWeight: 500, fontSize: '14px' }}>Email body</label>
                   <textarea value={contact.emailBody} onChange={(e) => handleContactChange(index, 'emailBody', e.target.value)} rows={3} style={{ width: '100%', padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px', resize: 'vertical' }} />
+                </div>
+                 <div>
+                  <label style={{ display: 'block', marginBottom: 4, fontWeight: 500, fontSize: '14px' }}>Notes</label>
+                  <textarea value={contact.notes} onChange={(e) => handleContactChange(index, 'notes', e.target.value)} rows={2} style={{ width: '100%', padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px', resize: 'vertical' }} />
                 </div>
               </div>
             ))}
