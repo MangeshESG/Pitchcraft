@@ -772,168 +772,225 @@ const saveExampleEmail = async () => {
           )}
         </div>
 
-        {/* ===================== EXAMPLE OUTPUT SECTION ===================== */}
-        {isSectionOpen && (
-          <div className="example-section">
-            <div className="example-header">
-              <div className="example-datafile-section" style={{marginTop:"10px"}}>
-                <label>Contact list</label>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "-20px" }}>
-                  <select
-                    className="datafile-dropdown"
-                    value={selectedDataFileId || ""}
-                    onChange={e => handleSelectDataFile(Number(e.target.value))}
-                    style={{
-                      width: "180px",
-                      height: "35px",
-                      fontSize: "14px",
-                      padding: "6px 10px",
-                      borderRadius: "6px",
-                      border: "1px solid #ccc",
-                      appearance: "none"
-                    }}
-                  >
-                    <option value="">-- Select contact file --</option>
-                    {dataFiles.map(df => (
-                      <option key={df.id} value={df.id}>{df.name}</option>
-                    ))}
-                  </select>
-                  <div className="pagination-wrapper example-pagination" style={{ marginTop: "-20px" }} >
-                    <PaginationControls
-                      currentPage={currentPage}
-                      totalPages={totalPages}
-                      pageSize={rowsPerPage}
-                      totalRecords={contacts.length}
-                      setCurrentPage={setCurrentPage}
-                      setPageSize={setPageSize}
-                    /></div>
-                </div>
-              </div>
+              {/* ===================== EXAMPLE OUTPUT SECTION ===================== */}
+      <ExampleOutputPanel
+        isSectionOpen={isSectionOpen}
+        setIsSectionOpen={setIsSectionOpen}
 
+        dataFiles={dataFiles}
+        contacts={contacts}
+        selectedDataFileId={selectedDataFileId}
+        selectedContactId={selectedContactId}
+        handleSelectDataFile={handleSelectDataFile}
+        setSelectedContactId={setSelectedContactId}
+        applyContactPlaceholders={applyContactPlaceholders}
+
+        exampleOutput={exampleOutput}
+        editableExampleOutput={editableExampleOutput}
+        setEditableExampleOutput={setEditableExampleOutput}
+        saveExampleEmail={saveExampleEmail}
+
+        regenerateExampleOutput={regenerateExampleOutput}
+        isGenerating={isGenerating}
+
+        currentPage={currentPage}
+        totalPages={totalPages}
+        setCurrentPage={setCurrentPage}
+
+        rowsPerPage={rowsPerPage}              // ⭐ FIX
+        setPageSize={setPageSize}              // ⭐ FIX
+
+        activeMainTab={activeMainTab}
+        setActiveMainTab={setActiveMainTab}
+
+        activeSubStageTab={activeSubStageTab}  // ⭐ FIX
+        setActiveSubStageTab={setActiveSubStageTab} // ⭐ FIX
+
+        filledTemplate={filledTemplate}
+        searchResults={searchResults}
+        allSourcedData={allSourcedData}
+        sourcedSummary={sourcedSummary}
+
+        ExampleEmailEditor={ExampleEmailEditor} // ⭐ FIX
+      />
+
+
+      </div>
+    </div>
+  );
+};
+
+// ====================================================================
+// REUSABLE EXAMPLE OUTPUT PANEL COMPONENT
+// ====================================================================
+interface ExampleOutputPanelProps {
+  // panel visibility
+  isSectionOpen: boolean;
+  setIsSectionOpen: (value: boolean) => void;
+
+  // generation state
+  isGenerating: boolean;                      // ✅ FIXED
+  regenerateExampleOutput?: () => Promise<void> | void;
+
+  // output fields
+  exampleOutput?: string;
+  editableExampleOutput: string;
+  setEditableExampleOutput: (v: string) => void;
+  saveExampleEmail: () => Promise<void>;
+
+  // contact + data file
+  dataFiles: any[];
+  contacts: any[];
+  selectedDataFileId: number | null;
+  selectedContactId: number | null;
+  handleSelectDataFile: (id: number) => void;
+  setSelectedContactId: React.Dispatch<React.SetStateAction<number | null>>;
+  applyContactPlaceholders: (c: any) => void;
+
+  // pagination
+  currentPage: number;
+  totalPages: number;
+  rowsPerPage: number;
+  setCurrentPage: (v: number) => void;
+  setPageSize: (v: number) => void;
+
+  // tabs
+  activeMainTab: "output" | "pt" | "stages";
+  setActiveMainTab: (t: "output" | "pt" | "stages") => void;
+
+  activeSubStageTab: "search" | "data" | "summary";
+  setActiveSubStageTab: (t: "search" | "data" | "summary") => void;
+
+  // PT tab
+  filledTemplate: string;
+
+  // Stages tab
+  searchResults: string[];
+  allSourcedData: string;
+  sourcedSummary: string;
+
+  // Editor component
+  ExampleEmailEditor: any;
+}
+
+
+
+const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
+  isSectionOpen,
+  dataFiles,
+  contacts,
+  selectedDataFileId,
+  selectedContactId,
+  handleSelectDataFile,
+  setSelectedContactId,
+  applyContactPlaceholders,
+  currentPage,
+  totalPages,
+  rowsPerPage,
+  setCurrentPage,
+  setPageSize,
+  editableExampleOutput,
+  setEditableExampleOutput,
+  saveExampleEmail,
+  isGenerating,
+  regenerateExampleOutput,
+  activeMainTab,
+  setActiveMainTab,
+  activeSubStageTab,
+  setActiveSubStageTab,
+  filledTemplate,
+  searchResults,
+  allSourcedData,
+  sourcedSummary,
+  ExampleEmailEditor
+}) => {
+  if (!isSectionOpen) return null;
+
+  const safe = (v: any) => (v?.trim ? v.trim() : v) || "NA";
+  const selectedContact = contacts.find(c => c.id === selectedContactId);
+
+  return (
+    <div className="example-section">
+
+      {/* ===================== HEADER ===================== */}
+      <div className="example-header">
+        <div className="example-datafile-section" style={{ marginTop: "10px" }}>
+          <label>Contact list</label>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "-20px" }}>
+            <select
+              className="datafile-dropdown"
+              value={selectedDataFileId || ""}
+              onChange={(e) => handleSelectDataFile(Number(e.target.value))}
+              style={{
+                width: "180px",
+                height: "35px",
+                fontSize: "14px",
+                padding: "6px 10px",
+                borderRadius: "6px",
+                border: "1px solid #ccc",
+                appearance: "none"
+              }}
+            >
+              <option value="">-- Select contact file --</option>
+              {dataFiles.map(df => (
+                <option key={df.id} value={df.id}>{df.name}</option>
+              ))}
+            </select>
+
+            <div className="pagination-wrapper example-pagination" style={{ marginTop: "-20px" }}>
+              <PaginationControls
+                currentPage={currentPage}
+                totalPages={totalPages}
+                pageSize={rowsPerPage}
+                totalRecords={contacts.length}
+                setCurrentPage={setCurrentPage}
+                setPageSize={setPageSize}
+              />
             </div>
-            {selectedContactId && (
-              <div className="contact-row-wrapper" style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "-15px", backgroundColor: " #f5f6fa" }}>
-                {/* Contact Details */}
-                {(() => {
-                  const contact = contacts.find(c => c.id === selectedContactId);
-                  if (!contact) return null;
+          </div>
+        </div>
+      </div>
 
-                  const safe = (val: string | null | undefined) => val?.trim() || "NA";
+      {/* ===================== CONTACT DETAILS ROW ===================== */}
+      {selectedContact && (
+        <div className="contact-row-wrapper"
+             style={{
+               display: "flex",
+               alignItems: "center",
+               gap: "12px",
+               marginTop: "-15px",
+               backgroundColor: " #f5f6fa"
+             }}>
 
-                  return (
-                    <div className="contact-details" style={{ display: "flex", gap: "8px", flexWrap: "wrap", border: "1px solid #d1d5db", padding: "10px 10px", borderRadius: "8px", backgroundColor: "#f9fafb", alignItems: "inherit" }}>
-                      <span>{safe(contact.full_name)}</span> •
-                      <span>{safe(contact.job_title)}</span> •
-                      <span>{safe(contact.company_name)}</span> •
-                      <span>{safe(contact.country_or_address)}</span>
-                      <ReactTooltip
-                        anchorSelect="#website-icon-tooltip"
-                        place="top"
-                      >
-                        Open company website
-                      </ReactTooltip>
-                      <span className="inline-block relative  mr-[3px]">
-                        <svg
-                          id="website-icon-tooltip"
-                          width="26px"
-                          height="26px"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            fill-rule="evenodd"
-                            clip-rule="evenodd"
-                            d="M9.83824 18.4467C10.0103 18.7692 10.1826 19.0598 10.3473 19.3173C8.59745 18.9238 7.07906 17.9187 6.02838 16.5383C6.72181 16.1478 7.60995 15.743 8.67766 15.4468C8.98112 16.637 9.40924 17.6423 9.83824 18.4467ZM11.1618 17.7408C10.7891 17.0421 10.4156 16.1695 10.1465 15.1356C10.7258 15.0496 11.3442 15 12.0001 15C12.6559 15 13.2743 15.0496 13.8535 15.1355C13.5844 16.1695 13.2109 17.0421 12.8382 17.7408C12.5394 18.3011 12.2417 18.7484 12 19.0757C11.7583 18.7484 11.4606 18.3011 11.1618 17.7408ZM9.75 12C9.75 12.5841 9.7893 13.1385 9.8586 13.6619C10.5269 13.5594 11.2414 13.5 12.0001 13.5C12.7587 13.5 13.4732 13.5593 14.1414 13.6619C14.2107 13.1384 14.25 12.5841 14.25 12C14.25 11.4159 14.2107 10.8616 14.1414 10.3381C13.4732 10.4406 12.7587 10.5 12.0001 10.5C11.2414 10.5 10.5269 10.4406 9.8586 10.3381C9.7893 10.8615 9.75 11.4159 9.75 12ZM8.38688 10.0288C8.29977 10.6478 8.25 11.3054 8.25 12C8.25 12.6946 8.29977 13.3522 8.38688 13.9712C7.11338 14.3131 6.05882 14.7952 5.24324 15.2591C4.76698 14.2736 4.5 13.168 4.5 12C4.5 10.832 4.76698 9.72644 5.24323 8.74088C6.05872 9.20472 7.1133 9.68686 8.38688 10.0288ZM10.1465 8.86445C10.7258 8.95042 11.3442 9 12.0001 9C12.6559 9 13.2743 8.95043 13.8535 8.86447C13.5844 7.83055 13.2109 6.95793 12.8382 6.2592C12.5394 5.69894 12.2417 5.25156 12 4.92432C11.7583 5.25156 11.4606 5.69894 11.1618 6.25918C10.7891 6.95791 10.4156 7.83053 10.1465 8.86445ZM15.6131 10.0289C15.7002 10.6479 15.75 11.3055 15.75 12C15.75 12.6946 15.7002 13.3521 15.6131 13.9711C16.8866 14.3131 17.9412 14.7952 18.7568 15.2591C19.233 14.2735 19.5 13.1679 19.5 12C19.5 10.8321 19.233 9.72647 18.7568 8.74093C17.9413 9.20477 16.8867 9.6869 15.6131 10.0289ZM17.9716 7.46178C17.2781 7.85231 16.39 8.25705 15.3224 8.55328C15.0189 7.36304 14.5908 6.35769 14.1618 5.55332C13.9897 5.23077 13.8174 4.94025 13.6527 4.6827C15.4026 5.07623 16.921 6.08136 17.9716 7.46178ZM8.67765 8.55325C7.61001 8.25701 6.7219 7.85227 6.02839 7.46173C7.07906 6.08134 8.59745 5.07623 10.3472 4.6827C10.1826 4.94025 10.0103 5.23076 9.83823 5.5533C9.40924 6.35767 8.98112 7.36301 8.67765 8.55325ZM15.3224 15.4467C15.0189 16.637 14.5908 17.6423 14.1618 18.4467C13.9897 18.7692 13.8174 19.0598 13.6527 19.3173C15.4026 18.9238 16.921 17.9186 17.9717 16.5382C17.2782 16.1477 16.3901 15.743 15.3224 15.4467ZM12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21Z"
-                            fill="#3f9f42"
-                          />
-                        </svg>
-                      </span>
-                      <ReactTooltip anchorSelect="#li-icon-tooltip" place="top">
-                        Open this contact in LinkedIn
-                      </ReactTooltip>
-                      <svg
-                        id="li-icon-tooltip"
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="20px"
-                        height="22px"
-                        viewBox="0 0 24 24"
-                        fill="#333333"
-                        style={{ marginTop: "3px" }}
-                      >
-                        <path
-                          d="M6.5 8C7.32843 8 8 7.32843 8 6.5C8 5.67157 7.32843 5 6.5 5C5.67157 5 5 5.67157 5 6.5C5 7.32843 5.67157 8 6.5 8Z"
-                          fill="#3f9f42"
-                        ></path>
-                        <path
-                          d="M5 10C5 9.44772 5.44772 9 6 9H7C7.55228 9 8 9.44771 8 10V18C8 18.5523 7.55228 19 7 19H6C5.44772 19 5 18.5523 5 18V10Z"
-                          fill="#3f9f42"
-                        ></path>
-                        <path
-                          d="M11 19H12C12.5523 19 13 18.5523 13 18V13.5C13 12 16 11 16 13V18.0004C16 18.5527 16.4477 19 17 19H18C18.5523 19 19 18.5523 19 18V12C19 10 17.5 9 15.5 9C13.5 9 13 10.5 13 10.5V10C13 9.44771 12.5523 9 12 9H11C10.4477 9 10 9.44772 10 10V18C10 18.5523 10.4477 19 11 19Z"
-                          fill="#3f9f42"
-                        ></path>
-                        <path
-                          fillRule="evenodd"
-                          clipRule="evenodd"
-                          d="M20 1C21.6569 1 23 2.34315 23 4V20C23 21.6569 21.6569 23 20 23H4C2.34315 23 1 21.6569 1 20V4C1 2.34315 2.34315 1 4 1H20ZM20 3C20.5523 3 21 3.44772 21 4V20C21 20.5523 20.5523 21 20 21H4C3.44772 21 3 20.5523 3 20V4C3 3.44772 3.44772 3 4 3H20Z"
-                          fill="#3f9f42"
-                        ></path>
-                      </svg>
-                      <ReactTooltip
-                        anchorSelect="#email-icon-tooltip"
-                        place="top"
-                      >
-                        Open this email in your local email client
-                      </ReactTooltip>  <svg
-                        id="email-icon-tooltip"
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="33px"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          clipRule="evenodd"
-                          d="M3.75 5.25L3 6V18L3.75 18.75H20.25L21 18V6L20.25 5.25H3.75ZM4.5 7.6955V17.25H19.5V7.69525L11.9999 14.5136L4.5 7.6955ZM18.3099 6.75H5.68986L11.9999 12.4864L18.3099 6.75Z"
-                          fill="#3f9f42"
-                        ></path>
-                      </svg>
-                    </div>
-                  );
-                })()}
+          <div
+            className="contact-details"
+            style={{
+              display: "flex",
+              gap: "8px",
+              flexWrap: "wrap",
+              border: "1px solid #d1d5db",
+              padding: "10px 10px",
+              borderRadius: "8px",
+              backgroundColor: "#f9fafb",
+            }}
+          >
+            <span>{safe(selectedContact.full_name)}</span> •
+            <span>{safe(selectedContact.job_title)}</span> •
+            <span>{safe(selectedContact.company_name)}</span> •
+            <span>{safe(selectedContact.country_or_address)}</span>
+          </div>
 
-              {/* Generate Button BESIDE contact details */}
+          {/* GENERATE BUTTON */}
           <button
             className="regenerate-btn"
-            disabled={!conversationStarted || isGenerating}
+            disabled={isGenerating}
             onClick={async () => {
-              if (!selectedContactId) {
-                alert("Please select a contact before generating.");
-                return;
+              await applyContactPlaceholders(selectedContact);
+              if (regenerateExampleOutput) {
+                await regenerateExampleOutput();
               }
 
-              const contact = contacts.find(c => c.id === selectedContactId);
-              if (!contact) {
-                alert("Invalid contact selection.");
-                return;
-              }
-
-              try {
-                setIsGenerating(true); // 🔥 Start loader
-
-                await applyContactPlaceholders(contact);
-
-                if (regenerateExampleOutput) {
-                  await regenerateExampleOutput();
-                }
-
-              } catch (error) {
-                console.error("Generate failed:", error);
-                alert("Failed to generate output. Please try again.");
-              } finally {
-                setIsGenerating(false); // 🔥 Stop loader
-              }
             }}
           >
             {isGenerating ? (
@@ -945,162 +1002,124 @@ const saveExampleEmail = async () => {
               "Generate"
             )}
           </button>
+        </div>
+      )}
 
-
-            </div>
-          )}
-
-
-            {/* === Tabs for Example Output === */}
-
-
-
-            {/* === Main Tab Content === */}
-{/* === Tabs Header (Save Button on RIGHT) === */}
-{/* === Tabs Header === */}
-<div
-  className="example-tabs"
-  style={{
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "10px"
-  }}
->
-  <div style={{ display: "flex", gap: "12px" }}>
-    {["Output", "PT", "Stages"].map(tab => (
-      <button
-        key={tab}
-        className={`stage-tab-btn ${activeMainTab === tab.toLowerCase() ? "active" : ""}`}
-        onClick={() =>
-          setActiveMainTab(tab.toLowerCase() as "output" | "pt" | "stages")
-        }
+      {/* ===================== TABS HEADER ===================== */}
+      <div
+        className="example-tabs"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "10px"
+        }}
       >
-        {tab}
-      </button>
-    ))}
-  </div>
+        <div style={{ display: "flex", gap: "12px" }}>
+          {["output", "pt", "stages"].map((t) => (
+            <button
+              key={t}
+              className={`stage-tab-btn ${activeMainTab === t ? "active" : ""}`}
+              onClick={() => setActiveMainTab(t as any)}
+            >
+              {t.toUpperCase()}
+            </button>
+          ))}
+        </div>
 
-  {activeMainTab === "output" && editableExampleOutput && (
-    <button
-      onClick={saveExampleEmail}
-      style={{
-        padding: "6px 14px",
-        background: "#2563eb",
-        color: "white",
-        borderRadius: "6px",
-        fontSize: "14px",
-        fontWeight: 600
-      }}
-    >
-      💾 Save Email
-    </button>
-  )}
-</div>
-
-
-{/* === OUTPUT TAB BODY === */}
-{activeMainTab === "output" && (
-  <div className="example-body">
-    {editableExampleOutput ? (
-      <ExampleEmailEditor
-        value={editableExampleOutput}
-        onChange={setEditableExampleOutput}
-      />
-    ) : (
-      <div className="example-placeholder">
-        <p>📧 Example output will appear here</p>
+        {activeMainTab === "output" && editableExampleOutput && (
+          <button
+            onClick={saveExampleEmail}
+            style={{
+              padding: "6px 14px",
+              background: "#2563eb",
+              color: "white",
+              borderRadius: "6px",
+              fontSize: "14px",
+              fontWeight: 600
+            }}
+          >
+            💾 Save Email
+          </button>
+        )}
       </div>
-    )}
-  </div>
-)}
 
-
-
-
-
-
-            {/* ⭐ FILLED TEMPLATE TAB */}
-          {activeMainTab === "pt" && (
-            <div className="example-body">
-              {filledTemplate ? (
-                <pre
-                  className="filled-template-box"
-                  style={{
-                    background: "#f8f9fa",
-                    padding: "15px",
-                    borderRadius: "8px",
-                    maxHeight: "70vh",
-                    overflowY: "auto",
-                    whiteSpace: "pre-wrap",
-                    fontSize: "14px"
-                  }}
-                >
-                  {filledTemplate}
-                </pre>
-              ) : (
-                <p className="example-placeholder">🔧 Filled Template will appear here</p>
-              )}
+      {/* ===================== OUTPUT TAB ===================== */}
+      {activeMainTab === "output" && (
+        <div className="example-body">
+          {editableExampleOutput ? (
+            <ExampleEmailEditor value={editableExampleOutput} onChange={setEditableExampleOutput} />
+          ) : (
+            <div className="example-placeholder">
+              <p>📧 Example output will appear here</p>
             </div>
           )}
+        </div>
+      )}
 
+      {/* ===================== PT TAB ===================== */}
+      {activeMainTab === "pt" && (
+        <div className="example-body">
+          {filledTemplate ? (
+            <pre className="filled-template-box">{filledTemplate}</pre>
+          ) : (
+            <p className="example-placeholder">🔧 Filled Template will appear here</p>
+          )}
+        </div>
+      )}
 
-          
+      {/* ===================== STAGES TAB ===================== */}
+      {activeMainTab === "stages" && (
+        <div className="stages-container">
+          <div className="stage-tabs">
+            {["search", "data", "summary"].map((t) => (
+              <button
+                key={t}
+                className={`stage-tab ${activeSubStageTab === t ? "active" : ""}`}
+                onClick={() => setActiveSubStageTab(t as any)}
+              >
+                {t === "search"
+                  ? "Search Results"
+                  : t === "data"
+                  ? "All Sourced Data"
+                  : "Sourced Data Summary"}
+              </button>
+            ))}
+          </div>
 
-            {activeMainTab === "stages" && (
-              <div className="stages-container">
-                <div className="stage-tabs">
-                  {["search", "data", "summary"].map(tab => (
-                    <button
-                      key={tab}
-                      className={`stage-tab ${activeSubStageTab === tab ? "active" : ""}`}
-                      onClick={() => setActiveSubStageTab(tab as 'search' | 'data' | 'summary')}
-                    >
-                      {tab === "search" ? "Search Results" :
-                        tab === "data" ? "All Sourced Data" :
-                          "Sourced Data Summary"}
-                    </button>
-                  ))}
-                </div>
+          <div className="stage-content">
+            {activeSubStageTab === "search" && (
+              <ul className="search-results-list">
+                {searchResults.length > 0 ? (
+                  searchResults.map((url, idx) => (
+                    <li key={idx}>
+                      <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                        {url}
+                      </a>
+                    </li>
+                  ))
+                ) : (
+                  <p>No search results available.</p>
+                )}
+              </ul>
+            )}
 
-                <div className="stage-content">
-                  {activeSubStageTab === "search" && (
-                    <ul className="search-results-list">
-                      {searchResults.length > 0 ? (
-                        searchResults.map((url: string, idx: number) => (
-                          <li key={idx}>
-                            <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                              {url}
-                            </a>
-                          </li>
-                        ))
-                      ) : (
-                        <p>No search results available.</p>
-                      )}
-                    </ul>
-                  )}
+            {activeSubStageTab === "data" && (
+              <pre className="all-sourced-data">{allSourcedData}</pre>
+            )}
 
-                  {activeSubStageTab === "data" && (
-                    <pre className="all-sourced-data bg-gray-50 p-3 rounded-lg max-h-[400px] overflow-auto text-sm whitespace-pre-wrap">
-                      {allSourcedData || "No sourced data available."}
-                    </pre>
-                  )}
-
-                  {activeSubStageTab === "summary" && (
-                    <div className="sourced-summary bg-gray-50 p-4 rounded-lg leading-relaxed text-gray-800">
-                      {sourcedSummary || "No summary available."}
-                    </div>
-                  )}
-                </div>
+            {activeSubStageTab === "summary" && (
+              <div className="sourced-summary">
+                {sourcedSummary || "No summary available."}
               </div>
             )}
           </div>
-
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
+
 
 
 // ====================================================================
@@ -2890,7 +2909,9 @@ function SimpleTextarea({
         Save All Changes
       </button>
     </div>
+    
 
+  
   </div>
 )}
 
