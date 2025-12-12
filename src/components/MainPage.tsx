@@ -983,6 +983,7 @@ const MainPage: React.FC = () => {
       linkedin_url: entry.linkedin_url || entry.linkedin || "",
       website: entry.website || "",
       date: currentDate,
+      notes: entry.notes || "",
 
       // ✅ Add here, with optional default
       search_output_summary: scrappedData || "",
@@ -1070,6 +1071,7 @@ const MainPage: React.FC = () => {
           console.error("Invalid data format");
           return;
         }
+        debugger;
         const emailResponses = contactsData.map((entry: any) => ({
           id: entry.id,
           dataFileId: dataFileId || entry.dataFileId || "null", // Add dataFileId to response
@@ -1089,6 +1091,7 @@ const MainPage: React.FC = () => {
           email: entry.email || "N/A",
           lastemailupdateddate: entry.updated_at || "N/A",
           emailsentdate: entry.email_sent_at || "N/A",
+          notes: entry.notes || "",
         }));
 
         const newItemsCount = emailResponses.length;
@@ -1126,6 +1129,8 @@ const MainPage: React.FC = () => {
     },
     [selectedClient, userId, followupEnabled]
   );
+
+
   // Refetch data when followup checkbox changes
   useEffect(() => {
     if (selectedZohoviewId) {
@@ -1332,7 +1337,7 @@ const MainPage: React.FC = () => {
 
     const replaceAllPlaceholders = (
       text: string,
-      replacements: Record<string, string>
+      replacements: { [key: string]: any }
     ) => {
       if (!text) return "";
 
@@ -1498,6 +1503,9 @@ const MainPage: React.FC = () => {
         });
         // --- Generate new pitch as per your normal contact process ---
         let replacements = buildReplacements(entry, currentDate, toneSettings);
+
+        replacements.notes = entry.notes || "";
+
 
         const searchTermBody = replaceAllPlaceholders(searchterm, replacements);
 
@@ -2202,6 +2210,8 @@ const MainPage: React.FC = () => {
             currentDate,
             toneSettings
           );
+          replacements.notes = entry.notes || "";
+
 
           const searchTermBody = replaceAllPlaceholders(
             searchterm,
