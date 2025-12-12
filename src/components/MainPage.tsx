@@ -3931,8 +3931,7 @@ const MainPage: React.FC = () => {
                 showCreditModal={showCreditModal}
                 checkUserCredits={checkUserCredits}
                 userId={userId}
-                followupEnabled={followupEnabled}
-                setFollowupEnabled={setFollowupEnabled}
+                
               />
             )}
 

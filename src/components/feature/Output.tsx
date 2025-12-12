@@ -161,8 +161,6 @@ interface OutputInterface {
   showCreditModal?: boolean; // Add this
   checkUserCredits?: (clientId?: string | number | null) => Promise<{total: number, canGenerate: boolean, monthlyLimitExceeded: boolean} | number | null>; // Add this
   userId?: string | null; // Add this
-  followupEnabled?: boolean;
-  setFollowupEnabled?: (value: boolean) => void;
 }
 
 const Output: React.FC<OutputInterface> = ({
@@ -243,8 +241,6 @@ const Output: React.FC<OutputInterface> = ({
   showCreditModal,
   checkUserCredits,
   userId,
-  followupEnabled,
-  setFollowupEnabled,
 }) => {
   const appModal = useAppModal();
   const [loading, setLoading] = useState(true);
@@ -625,7 +621,6 @@ useEffect(() => {
         Pitch: item.pitch || item.sample_email_body || "N/A",
         Timestamp: item.timestamp || new Date().toISOString(),
         Generated: item.generated ? "Yes" : "No",
-        Subject: item.subject || "N/A", 
       }));
 
       // Create worksheet with the data
@@ -642,7 +637,6 @@ useEffect(() => {
         { wch: 60 }, // Pitch
         { wch: 20 }, // Timestamp
         { wch: 10 }, // Generated
-        { wch: 25 }, //Subject
       ];
       ws["!cols"] = wscols;
 
@@ -1009,7 +1003,7 @@ useEffect(() => {
 
         toEmail: currentContact.email,
         subject: subjectToUse,
-        isFollowUp: followupEnabled || false,
+        body: currentContact.pitch || "",
         bccEmail: emailFormData.BccEmail || "",
         smtpId: selectedSmtpUser,
         fullName: currentContact.name,
@@ -1389,7 +1383,7 @@ useEffect(() => {
 
           toEmail: contact.email,
           subject: subjectToUse,
-          isFollowUp: followupEnabled || false,
+          body: contact.pitch || "",
           bccEmail: emailFormData.BccEmail || "",
           smtpId: selectedSmtpUser,
           fullName: contact.name,
@@ -1619,52 +1613,49 @@ useEffect(() => {
                 )}
 
                 {!isDemoAccount && (
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center">
-                      <label className="checkbox-label !mb-[0px] mr-[5px] flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={settingsForm?.overwriteDatabase}
-                          name="overwriteDatabase"
-                          id="overwriteDatabase"
-                          onChange={settingsFormHandler}
-                          className="!mr-0"
+                  <div className="flex items-center">
+                    <label className="checkbox-label !mb-[0px] mr-[5px] flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={settingsForm?.overwriteDatabase}
+                        name="overwriteDatabase"
+                        id="overwriteDatabase"
+                        onChange={settingsFormHandler}
+                        className="!mr-0"
+                      />
+                      <span className="text-[14px]">Overwrite</span>
+                    </label>
+                    <span>
+                      <ReactTooltip
+                        anchorSelect="#overwrite-checkbox"
+                        place="top"
+                      >
+                        Reset all company level intel
+                      </ReactTooltip>
+                      <svg
+                        id="overwrite-checkbox"
+                        width="14px"
+                        height="14px"
+                        viewBox="0 0 24 24"
+                        fill="#555555"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M12 17.75C12.4142 17.75 12.75 17.4142 12.75 17V11C12.75 10.5858 12.4142 10.25 12 10.25C11.5858 10.25 11.25 10.5858 11.25 11V17C11.25 17.4142 11.5858 17.75 12 17.75Z"
+                          fill="#1C274C"
                         />
-                        <span className="text-[14px]">Overwrite</span>
-                      </label>
-                      <span>
-                        <ReactTooltip
-                          anchorSelect="#overwrite-checkbox"
-                          place="top"
-                        >
-                          Reset all company level intel
-                        </ReactTooltip>
-                        <svg
-                          id="overwrite-checkbox"
-                          width="14px"
-                          height="14px"
-                          viewBox="0 0 24 24"
-                          fill="#555555"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            d="M12 17.75C12.4142 17.75 12.75 17.4142 12.75 17V11C12.75 10.5858 12.4142 10.25 12 10.25C11.5858 10.25 11.25 10.5858 11.25 11V17C11.25 17.4142 11.5858 17.75 12 17.75Z"
-                            fill="#1C274C"
-                          />
-                          <path
-                            d="M12 7C12.5523 7 13 7.44772 13 8C13 8.55228 12.5523 9 12 9C11.4477 9 11 8.55228 11 8C11 7.44772 11.4477 7 12 7Z"
-                            fill="#1C274C"
-                          />
-                          <path
-                            fill-rule="evenodd"
-                            clip-rule="evenodd"
-                            d="M1.25 12C1.25 6.06294 6.06294 1.25 12 1.25C17.9371 1.25 22.75 6.06294 22.75 12C22.75 17.9371 17.9371 22.75 12 22.75C6.06294 22.75 1.25 17.9371 1.25 12ZM12 2.75C6.89137 2.75 2.75 6.89137 2.75 12C2.75 17.1086 6.89137 21.25 12 21.25C17.1086 21.25 21.25 17.1086 21.25 12C21.25 6.89137 17.1086 2.75 12 2.75Z"
-                            fill="#1C274C"
-                          />
-                        </svg>
-                      </span>
-                    </div>
-
+                        <path
+                          d="M12 7C12.5523 7 13 7.44772 13 8C13 8.55228 12.5523 9 12 9C11.4477 9 11 8.55228 11 8C11 7.44772 11.4477 7 12 7Z"
+                          fill="#1C274C"
+                        />
+                        <path
+                          fill-rule="evenodd"
+                          clip-rule="evenodd"
+                          d="M1.25 12C1.25 6.06294 6.06294 1.25 12 1.25C17.9371 1.25 22.75 6.06294 22.75 12C22.75 17.9371 17.9371 22.75 12 22.75C6.06294 22.75 1.25 17.9371 1.25 12ZM12 2.75C6.89137 2.75 2.75 6.89137 2.75 12C2.75 17.1086 6.89137 21.25 12 21.25C17.1086 21.25 21.25 17.1086 21.25 12C21.25 6.89137 17.1086 2.75 12 2.75Z"
+                          fill="#1C274C"
+                        />
+                      </svg>
+                    </span>
                   </div>
                 )}
               </div>
@@ -2002,24 +1993,6 @@ useEffect(() => {
                 </button>
               </li>
             </ul>
-            {!isDemoAccount && (
-              <div className="flex items-center" style={{marginRight:'890px'}}>
-                <label className="checkbox-label !mb-[0px] mr-[5px] flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={followupEnabled || false}
-                    onChange={(e) => {
-                      console.log('Checkbox clicked, new value:', e.target.checked);
-                      setFollowupEnabled?.(e.target.checked);
-                    }}
-                    className="!mr-0"
-                  />
-                      <span style={{ fontSize: "14px", whiteSpace: "nowrap" }}>
-                        Include email trail
-                      </span>
-                </label>
-              </div>
-            )}
           </div>
           {tab2 === "Output" && (
             <>
@@ -4104,7 +4077,7 @@ useEffect(() => {
                     className="btn btn-primary"
                     style={{
                       padding: "10px 30px",
-                      backgroundColor: "#3f9f42",
+                      backgroundColor: "#007bff",
                       color: "white",
                       border: "none",
                       borderRadius: "4px",
