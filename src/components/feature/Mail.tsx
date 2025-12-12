@@ -593,6 +593,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     bccEmail: "",
     smtpID: "",
   });
+  const [isFollowUp, setIsFollowUp] = useState(false);
 
   const [steps, setSteps] = useState([{ datetime: new Date() }]);
 
@@ -716,6 +717,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       dataFileId: dataFileId,
       segmentId: segmentId,
       testIsSent: false,
+      isFollowUp: isFollowUp,
     };
 
     try {
@@ -744,6 +746,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
           bccEmail: "",
           smtpID: "",
         });
+        setIsFollowUp(false);
         setSelectedZohoviewId1(""); // Clear selection
         setSelectedUser(""); // Clear SMTP selection
       } else {
@@ -900,6 +903,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       dataFileId: dataFileId,
       segmentId: segmentId,
       testIsSent: false,
+      isFollowUp: isFollowUp,
     };
 
     try {
@@ -938,6 +942,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
         bccEmail: "",
         smtpID: "",
       });
+      setIsFollowUp(false);
       setEditingId(null);
       setSelectedZohoviewId1("");
       setSelectedUser("");
@@ -2303,6 +2308,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                   bccEmail: "",
                   smtpID: "",
                 });
+                setIsFollowUp(false);
                 setSelectedZohoviewId1("");
                 setSelectedUser("");
               }}
@@ -2479,9 +2485,23 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                     style={{
                       display: "flex",
                       gap: 12,
-                      justifyContent: "flex-end",
+                      justifyContent: "space-between",
+                      alignItems: "center",
                     }}
                   >
+                    <div style={{ display: "flex", alignItems: "center" }}>
+                      <input
+                        type="checkbox"
+                        id="isFollowUp"
+                        checked={isFollowUp}
+                        onChange={(e) => setIsFollowUp(e.target.checked)}
+                        style={{ marginRight: "8px" }}
+                      />
+                      <label htmlFor="isFollowUp" style={{ marginBottom: 0, cursor: "pointer" }}>
+                        Is follow up
+                      </label>
+                    </div>
+                    <div style={{ display: "flex", gap: 12 }}>
                     <button
                       type="button"
                       onClick={() => {
@@ -2496,6 +2516,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                           bccEmail: "",
                           smtpID: "",
                         });
+                        setIsFollowUp(false);
                         setSelectedZohoviewId1("");
                         setSelectedUser("");
                       }}
@@ -2525,6 +2546,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                     >
                       {editingId ? "Update schedule" : "Create schedule"}
                     </button>
+                    </div>
                   </div>
                 </form>
               </div>

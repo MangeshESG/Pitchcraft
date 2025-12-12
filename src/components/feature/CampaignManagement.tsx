@@ -280,7 +280,8 @@ const createCampaign = async () => {
       id: selectedCampaign.id,
       campaignName: campaignForm.campaignName,
       promptId: parseInt(campaignForm.promptId),
-      templateId: campaignForm.templateId ? parseInt(campaignForm.templateId) : null,
+      zohoViewId: campaignForm.zohoViewId || null,
+      segmentId: campaignForm.segmentId ? parseInt(campaignForm.segmentId) : null,
       description: campaignForm.description,
     };
     try {
