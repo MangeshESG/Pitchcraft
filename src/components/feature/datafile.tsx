@@ -33,7 +33,7 @@ interface ProcessedContact {
   company_employee_count?: string;
   company_industry?: string;
   company_linkedin_url?: string;
-  company_event_link?: string;
+  // company_event_link?: string;
     notes?: string;
 }
 
@@ -59,7 +59,7 @@ const REQUIRED_FIELDS = [
     label: "Company LinkedIn URL",
     required: false,
   },
-  { key: "company_event_link", label: "Company event link", required: false },
+  // { key: "company_event_link", label: "Company event link", required: false },
     { key: "notes", label: "Notes", required: false },
 ];
 
@@ -186,13 +186,13 @@ const DataFile: React.FC<DataFileProps> = ({
         "business linkedin",
         "organization linkedin",
       ],
-      company_event_link: [
-        "company event link",
-        "event link",
-        "event url",
-        "conference link",
-        "meeting link",
-      ],
+      // company_event_link: [
+      //   "company event link",
+      //   "event link",
+      //   "event url",
+      //   "conference link",
+      //   "meeting link",
+      // ],
        notes: [
         "notes",
         "note",
@@ -461,7 +461,7 @@ useEffect(() => {
           companyEmployeeCount: contact.company_employee_count || "",
           companyIndustry: contact.company_industry || "",
           companyLinkedInURL: contact.company_linkedin_url || "",
-          companyEventLink: contact.company_event_link || "",
+          // companyEventLink: contact.company_event_link || "",
                     notes: contact.notes || "",
         })),
       };
@@ -541,7 +541,7 @@ useEffect(() => {
         "Company Employee Count",
         "Company Industry",
         "Company LinkedIn URL",
-        "Company Event Link",
+        // "Company Event Link",
         "Notes",
       ],
       [
@@ -558,7 +558,7 @@ useEffect(() => {
         "100-500",
         "Technology",
         "https://linkedin.com/company/techcorp",
-        "https://techcorp.com/events/annual-conference",
+        // "https://techcorp.com/events/annual-conference",
         "Prospect is actively researching solutions and open to further discussion.",
       ],
     ];
@@ -787,9 +787,9 @@ console.log("processingStats.valid:", processingStats.valid);
                         return 'Optional – mapping the job title lets you personalise your message by referencing the recipient\'s role and responsibilities.';
                       case 'company_industry':
                         return 'Optional – mapping the industry helps you tailor your messaging to the recipient\'s business sector and add relevant context.';
-                      case 'company_event_link':
-                        return 'Optional – mapping the company event link lets you reference or share their events directly in personalised messages.';
-                      case 'company_linkedin_url':
+                      // case 'company_event_link':
+                      //   return 'Optional – mapping the company event link lets you reference or share their events directly in personalised messages.';
+                       case 'company_linkedin_url':
                         return 'Optional – mapping the company\'s LinkedIn page helps you add relevant context or include a direct link to their organisation profile.';
                       case 'company_employee_count':
                         return 'Optional – mapping the employee count helps you tailor messaging based on the organisation\'s size and structure.';

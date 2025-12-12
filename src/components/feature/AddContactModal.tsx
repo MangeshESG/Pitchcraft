@@ -338,7 +338,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
               />
             </div>
             
-            <div>
+            {/* <div>
               <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
                 Company event link
               </label>
@@ -354,7 +354,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
                   borderRadius: '4px'
                 }}
               />
-            </div>
+            </div> */}
           </div>
 
           <div style={{ marginBottom: 16 }}>

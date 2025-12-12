@@ -99,7 +99,7 @@ interface Contact {
   companyEmployeeCount?: string;
   companyIndustry?: string;
   companyLinkedInURL?: string;
-  companyEventLink?: string;
+  // companyEventLink?: string;
   unsubscribe?: string;
   notes?: string;
 }
@@ -1223,7 +1223,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
       { key: "companyEmployeeCount", header: "Company Employee Count" },
       { key: "companyIndustry", header: "Company industry" },
       { key: "companyLinkedInURL", header: "Company LinkedIn URL" },
-      { key: "companyEventLink", header: "Company Event Link" },
+      // { key: "companyEventLink", header: "Company Event Link" },
       { key: "unsubscribe", header: "Unsubscribe" },
       { key: "notes", header: "Notes" },
       { key: "created_at", header: "Created date" },
