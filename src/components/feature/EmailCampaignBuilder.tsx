@@ -776,7 +776,7 @@ const saveExampleEmail = async () => {
       <ExampleOutputPanel
         isSectionOpen={isSectionOpen}
         setIsSectionOpen={setIsSectionOpen}
-
+        
         dataFiles={dataFiles}
         contacts={contacts}
         selectedDataFileId={selectedDataFileId}
@@ -860,6 +860,7 @@ interface ExampleOutputPanelProps {
 
   activeSubStageTab: "search" | "data" | "summary";
   setActiveSubStageTab: (t: "search" | "data" | "summary") => void;
+
 
   // PT tab
   filledTemplate: string;
@@ -1181,10 +1182,131 @@ const [activeTab, setActiveTab] = useState<TabType>('build');
   const [subjectInstructions, setSubjectInstructions] = useState<string>("");
  const [formValues, setFormValues] = useState<Record<string, string>>({});
 
+ const [currentPage, setCurrentPage] = useState(1);
+const rowsPerPage = 1;
+const setPageSize = () => {};
+
+
+const totalPages = Math.max(1, Math.ceil((contacts.length || 1) / rowsPerPage));
+const [editableExampleOutput, setEditableExampleOutput] = useState("");
+const [isGenerating, setIsGenerating] = useState(false);
+const [activeMainTab, setActiveMainTab] = useState<"output" | "pt" | "stages">("output");
+
+const [activeSubStageTab, setActiveSubStageTab] =
+  useState<"search" | "data" | "summary">("summary");
+
+const saveExampleEmail = async () => {
+  try {
+    const storedId = sessionStorage.getItem("newCampaignId");
+    const activeCampaignId =
+      editTemplateId ?? (storedId ? Number(storedId) : null);
+
+    if (!activeCampaignId) {
+      alert("No campaign instance found.");
+      return;
+    }
+
+    if (!editableExampleOutput.trim()) {
+      alert("Example email is empty.");
+      return;
+    }
+
+    // ✅ Send example_output as a placeholder
+    await axios.post(
+      `${API_BASE_URL}/api/CampaignPrompt/template/update-placeholders`,
+      {
+        templateId: activeCampaignId,
+        placeholderValues: {
+          example_output: editableExampleOutput
+        }
+      }
+    );
+
+    alert("✅ Example email saved successfully!");
+  } catch (error) {
+    console.error("❌ Save example output failed:", error);
+    alert("Failed to save example email.");
+  }
+};
+
+interface ExampleEmailEditorProps {
+  value: string;
+  onChange: (value: string) => void;
+}
+
+
+const ExampleEmailEditor = ({
+  value,
+  onChange
+}: {
+  value: string;
+  onChange: (val: string) => void;
+}) => {
+  const editorRef = React.useRef<HTMLDivElement | null>(null);
+  const localDraft = React.useRef<string>("");
+
+  React.useEffect(() => {
+    if (editorRef.current) {
+      editorRef.current.innerHTML = value || "";
+      localDraft.current = value || "";
+    }
+  }, [value]);
+
+  return (
+    <div
+      ref={editorRef}
+      contentEditable
+      suppressContentEditableWarning
+      className="example-content"
+      style={{
+        minHeight: "320px",
+        padding: "16px",
+        border: "1px solid #e5e7eb",
+        borderRadius: "8px",
+        background: "#ffffff",
+        outline: "none",
+        lineHeight: "1.6"
+      }}
+      onInput={() => {
+        if (editorRef.current) {
+          localDraft.current = editorRef.current.innerHTML;
+        }
+      }}
+      onBlur={() => {
+        onChange(localDraft.current);
+      }}
+    />
+  );
+};
+
+useEffect(() => {
+  if (currentPage > totalPages) {
+    setCurrentPage(totalPages);
+  }
+}, [totalPages]);
+
+useEffect(() => {
+  setEditableExampleOutput(exampleOutput || "");
+}, [exampleOutput]);
+
+
 useEffect(() => {
   setFormValues(placeholderValues);
 }, [placeholderValues]);
 
+
+// ⭐ Ensure contact switching works inside Elements tab also
+useEffect(() => {
+  if (activeTab !== "elements") return;
+
+  if (contacts.length > 0) {
+    const contact = contacts[(currentPage - 1) * rowsPerPage];
+    if (contact) {
+      setSelectedContactId(contact.id);
+      applyContactPlaceholders(contact);
+    }
+  }
+}, [currentPage, contacts, activeTab]);
 
 
 useEffect(() => {
@@ -2829,91 +2951,168 @@ function SimpleTextarea({
 {activeTab === "elements" && (
   <div className="elements-tab-container" style={{ padding: "20px" }}>
 
-    <h2 style={{ fontSize: "22px", fontWeight: 600, marginBottom: "15px" }}>
-      Edit Placeholder Values
-    </h2>
+    <div style={{ display: "flex", gap: "20px" }}>
 
-    <div 
-      className="placeholder-form-grid"
-      style={{
-        display: "grid",
-        gridTemplateColumns: "1fr 1fr",
-        gap: "20px",
-        background: "#fff",
-        padding: "20px",
-        borderRadius: "8px",
-        border: "1px solid #e5e7eb"
-      }}
-    >
-      {Object.entries(placeholderValues).map(([key, value]) => (
-<div key={key} style={{ display: "flex", flexDirection: "column" }}>
-  <label
-    style={{
-      fontWeight: 600,
-      marginBottom: "6px",
-      fontSize: "14px",
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center"
-    }}
-  >
-    {`{${key}}`}
+      {/* -------------------------------------------------
+          LEFT SIDE — PLACEHOLDER EDITOR
+      -------------------------------------------------- */}
+      <div style={{ flex: 1 }}>
 
-    <button
-      type="button"
-      onClick={() => setExpandedKey(key)}
-      style={{
-        fontSize: "12px",
-        padding: "4px 8px",
-        borderRadius: "4px",
-        border: "1px solid #d1d5db",
-        background: "#f9fafb",
-        cursor: "pointer"
-      }}
-    >
-      Expand
-    </button>
-  </label>
+        <h2 style={{ fontSize: "22px", fontWeight: 600, marginBottom: "15px" }}>
+          Edit Placeholder Values
+        </h2>
 
-  <input
-    type="text"
-    value={formValues[key] ?? ""}
-    onChange={(e) =>
-      setFormValues((prev) => ({ ...prev, [key]: e.target.value }))
-    }
-    style={{
-      padding: "8px 10px",
-      borderRadius: "6px",
-      border: "1px solid #d1d5db",
-      fontSize: "14px",
-    }}
-  />
-</div>
+        <div 
+          className="placeholder-form-grid"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "20px",
+            background: "#fff",
+            padding: "20px",
+            borderRadius: "8px",
+            border: "1px solid #e5e7eb"
+          }}
+        >
+          {Object.entries(placeholderValues).map(([key, value]) => (
+            <div key={key} style={{ display: "flex", flexDirection: "column" }}>
+              <label
+                style={{
+                  fontWeight: 600,
+                  marginBottom: "6px",
+                  fontSize: "14px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center"
+                }}
+              >
+                {`{${key}}`}
+                <button
+                  type="button"
+                  onClick={() => setExpandedKey(key)}
+                  style={{
+                    fontSize: "12px",
+                    padding: "4px 8px",
+                    borderRadius: "4px",
+                    border: "1px solid #d1d5db",
+                    background: "#f9fafb",
+                    cursor: "pointer"
+                  }}
+                >
+                  Expand
+                </button>
+              </label>
 
-      ))}
+              <input
+                type="text"
+                value={formValues[key] ?? ""}
+                onChange={(e) =>
+                  setFormValues((prev) => ({ ...prev, [key]: e.target.value }))
+                }
+                style={{
+                  padding: "8px 10px",
+                  borderRadius: "6px",
+                  border: "1px solid #d1d5db",
+                  fontSize: "14px",
+                }}
+              />
+            </div>
+          ))}
+        </div>
+
+        <div style={{ marginTop: "20px", textAlign: "right" }}>
+          <button
+            onClick={saveAllPlaceholders}
+            className="save-all-btn"
+            style={{
+              padding: "10px 18px",
+              background: "#16a34a",
+              color: "white",
+              borderRadius: "6px",
+              fontSize: "15px",
+              fontWeight: 600
+            }}
+          >
+            Save All Changes
+          </button>
+        </div>
+
+      </div>
+
+      {/* -------------------------------------------------
+          RIGHT SIDE — EXAMPLE OUTPUT PANEL (COLLAPSIBLE)
+      -------------------------------------------------- */}
+      <div style={{ flex: 1, minWidth: "450px" }}>
+
+        {/* Collapse Button */}
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "10px" }}>
+          <button
+            onClick={() => setIsSectionOpen(!isSectionOpen)}
+            style={{
+              width: "40px",
+              height: "40px",
+              background: "#f3f4f6",
+              borderRadius: "6px",
+              border: "1px solid #d1d5db",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              cursor: "pointer",
+            }}
+          >
+            <img
+              src={isSectionOpen ? "/arrow-right.svg" : "/arrow-left.svg"}
+              alt="toggle"
+              style={{ width: "22px", height: "22px" }}
+            />
+          </button>
+        </div>
+
+        {/* PANEL */}
+        <ExampleOutputPanel
+          isSectionOpen={isSectionOpen}
+          setIsSectionOpen={setIsSectionOpen}
+          dataFiles={dataFiles}
+          contacts={contacts}
+          selectedDataFileId={selectedDataFileId}
+          selectedContactId={selectedContactId}
+          handleSelectDataFile={handleSelectDataFile}
+          setSelectedContactId={setSelectedContactId}
+          applyContactPlaceholders={applyContactPlaceholders}
+          exampleOutput={exampleOutput}
+
+          currentPage={currentPage}
+          totalPages={totalPages}
+          rowsPerPage={rowsPerPage}
+          setCurrentPage={setCurrentPage}
+          setPageSize={setPageSize}
+
+          editableExampleOutput={editableExampleOutput}
+          setEditableExampleOutput={setEditableExampleOutput}
+          saveExampleEmail={saveExampleEmail}
+
+          isGenerating={isGenerating}
+          regenerateExampleOutput={regenerateExampleOutput}
+
+          activeMainTab={activeMainTab}
+          setActiveMainTab={setActiveMainTab}
+
+          activeSubStageTab={activeSubStageTab}
+          setActiveSubStageTab={setActiveSubStageTab}
+
+          filledTemplate={filledTemplate}
+          searchResults={searchResults}
+          allSourcedData={allSourcedData}
+          sourcedSummary={sourcedSummary}
+          ExampleEmailEditor={ExampleEmailEditor}
+        />
+
+      </div>
+
     </div>
-
-    <div style={{ marginTop: "20px", textAlign: "right" }}>
-      <button
-        onClick={saveAllPlaceholders}
-        className="save-all-btn"
-        style={{
-          padding: "10px 18px",
-          background: "#16a34a",
-          color: "white",
-          borderRadius: "6px",
-          fontSize: "15px",
-          fontWeight: 600
-        }}
-      >
-        Save All Changes
-      </button>
-    </div>
-    
-
-  
   </div>
 )}
+
 
 
             {/* 3️⃣ INSTRUCTIONS SET TAB */}
