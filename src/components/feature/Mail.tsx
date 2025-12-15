@@ -1681,6 +1681,8 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                   pageSize={pageSize}
                   setCurrentPage={setCurrentPageMailbox}
                    setPageSize={setPageSize}
+                   showPageSizeDropdown={true}
+                   pageLabel="Page:"
                 />
                 {/* Add/Edit Mailbox Modal */}
                 {/* Replace your Modal component with this custom modal */}
@@ -1929,6 +1931,8 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                   pageSize={pageSize}
                   setCurrentPage={setBccPage}
                    setPageSize={setPageSize}
+                   showPageSizeDropdown={true}
+                   pageLabel="Page:"
                 />
                 {/* Popup Modal */}
                 {showPopup && (
@@ -2210,6 +2214,8 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                 totalRecords={totalPages} // ✅ use filtered length
                 setCurrentPage={setCurrentPage}
                  setPageSize={setPageSize}
+                 showPageSizeDropdown={true}
+                 pageLabel="Page:"
               />
               {/* <div
                 className="d-flex align-center justify-end"

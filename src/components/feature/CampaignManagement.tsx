@@ -373,6 +373,8 @@ const menuBtnStyle: React.CSSProperties = {
           totalRecords={filteredCampaigns.length}
           setCurrentPage={setCurrentPage}
            setPageSize={setPageSize}
+           showPageSizeDropdown={true}
+           pageLabel="Page:"
         />
         </div>
 
@@ -485,6 +487,8 @@ const menuBtnStyle: React.CSSProperties = {
           totalRecords={filteredCampaigns.length}
           setCurrentPage={setCurrentPage}
            setPageSize={setPageSize}
+           showPageSizeDropdown={true}
+           pageLabel="Page:"
         />
       </div>
 

@@ -12,6 +12,7 @@ import { Tooltip as ReactTooltip } from "react-tooltip";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBars } from '@fortawesome/free-solid-svg-icons';
 import downArrow from "../../assets/images/down.png";
+import PopupModal from '../common/PopupModal';
 
 
 // --- Type Definitions ---
@@ -609,7 +610,18 @@ const [activeMainTab, setActiveMainTab] = useState<
   const [pageSize, setPageSize] = useState(10);
   const rowsPerPage = 1;
   const totalPages = Math.ceil(contacts.length / rowsPerPage);
+const [popupmodalInfo, setPopupModalInfo] = useState({
+  open: false,
+  title: "",
+  message: ""
+});
+const showModal = (title: string, message: string) => {
+  setPopupModalInfo({ open: true, title, message });
+};
 
+const closeModal = () => {
+  setPopupModalInfo(prev => ({ ...prev, open: false }));
+};
   useEffect(() => {
     if (contacts.length > 0) {
       const contact = contacts[(currentPage - 1) * rowsPerPage];
@@ -627,11 +639,19 @@ const saveExampleEmail = async () => {
     const activeCampaignId =
       editTemplateId ?? (storedId ? Number(storedId) : null);
 
+        if (!activeCampaignId) {
+          showModal("Warning", "No campaign instance found.");
+          return;
+        }
     if (!activeCampaignId) {
       alert("No campaign instance found.");
       return;
     }
 
+        if (!exampleOutput) {
+          showModal("Warning", "No generated email to save.");
+          return;
+        }
     if (!editableExampleOutput.trim()) {
       alert("Example email is empty.");
       return;
@@ -771,6 +791,12 @@ const saveExampleEmail = async () => {
             </div>
           )}
         </div>
+        <PopupModal
+      open={popupmodalInfo.open}
+      title={popupmodalInfo.title}
+      message={popupmodalInfo.message}
+      onClose={closeModal}
+    />
 
               {/* ===================== EXAMPLE OUTPUT SECTION ===================== */}
       <ExampleOutputPanel
