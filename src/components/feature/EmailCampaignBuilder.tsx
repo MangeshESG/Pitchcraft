@@ -12,6 +12,7 @@ import { Tooltip as ReactTooltip } from "react-tooltip";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBars } from '@fortawesome/free-solid-svg-icons';
 import downArrow from "../../assets/images/down.png";
+import PopupModal from '../common/PopupModal';
 
 
 // --- Type Definitions ---
@@ -555,7 +556,18 @@ const [activeMainTab, setActiveMainTab] = useState<
   const [pageSize, setPageSize] = useState(10);
   const rowsPerPage = 1;
   const totalPages = Math.ceil(contacts.length / rowsPerPage);
+const [popupmodalInfo, setPopupModalInfo] = useState({
+  open: false,
+  title: "",
+  message: ""
+});
+const showModal = (title: string, message: string) => {
+  setPopupModalInfo({ open: true, title, message });
+};
 
+const closeModal = () => {
+  setPopupModalInfo(prev => ({ ...prev, open: false }));
+};
   useEffect(() => {
     if (contacts.length > 0) {
       const contact = contacts[(currentPage - 1) * rowsPerPage];
@@ -574,12 +586,12 @@ const [activeMainTab, setActiveMainTab] = useState<
           editTemplateId ?? (storedId ? Number(storedId) : null);
 
         if (!activeCampaignId) {
-          alert("No campaign instance found.");
+          showModal("Warning", "No campaign instance found.");
           return;
         }
 
         if (!exampleOutput) {
-          alert("No generated email to save.");
+          showModal("Warning", "No generated email to save.");
           return;
         }
 
@@ -601,10 +613,10 @@ const [activeMainTab, setActiveMainTab] = useState<
           placeholderListWithValue: placeholderListWithValue
         });
 
-        alert("✅ Example email saved into placeholders successfully!");
+         showModal("Success", "✅ Example email saved into placeholders successfully!");
       } catch (err) {
         console.error("Failed to save example email:", err);
-        alert("❌ Failed to save example email.");
+         showModal("Error", "❌ Failed to save example email.");
       }
     };
 
@@ -722,6 +734,12 @@ const [activeMainTab, setActiveMainTab] = useState<
             </div>
           )}
         </div>
+        <PopupModal
+      open={popupmodalInfo.open}
+      title={popupmodalInfo.title}
+      message={popupmodalInfo.message}
+      onClose={closeModal}
+    />
 
         {/* ===================== EXAMPLE OUTPUT SECTION ===================== */}
         {isSectionOpen && (
@@ -757,6 +775,8 @@ const [activeMainTab, setActiveMainTab] = useState<
                       totalRecords={contacts.length}
                       setCurrentPage={setCurrentPage}
                       setPageSize={setPageSize}
+                      showPageSizeDropdown={false}
+                      pageLabel="Contact:"
                     /></div>
                 </div>
               </div>
@@ -935,7 +955,7 @@ const [activeMainTab, setActiveMainTab] = useState<
       onClick={saveExampleEmail}
       style={{
         padding: "6px 14px",
-        background: "#2563eb",
+        background: "#3f9f42",
         color: "white",
         borderRadius: "6px",
         fontSize: "14px",

@@ -666,6 +666,8 @@ const displayData = pagedData;
             totalRecords={filteredData.length}
             setCurrentPage={onPageChange}
              setPageSize={setPageSize}
+             showPageSizeDropdown={true}
+             pageLabel="Page:"
           />
           </div>
           {showCheckboxes && selectedItems && selectedItems.size > 0 && (
@@ -882,6 +884,8 @@ const displayData = pagedData;
             totalRecords={filteredData.length}
             setCurrentPage={onPageChange}
              setPageSize={setPageSize}
+             showPageSizeDropdown={true}
+             pageLabel="Page:"
           />
         </div>
 
@@ -986,7 +990,7 @@ const displayData = pagedData;
                           textTransform: "capitalize",
                         }}
                       >
-                        {column.type} • {column.key}
+                        {/* {column.type} • {column.key} */}
                       </span>
                     </div>
                     {column.visible && (

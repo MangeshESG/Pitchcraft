@@ -11,6 +11,8 @@ interface PaginationControlsProps {
   pageSize: number;
   setCurrentPage: (page: number) => void;
   setPageSize: (size: number) => void;
+  showPageSizeDropdown?: boolean;
+ pageLabel?: string;
 
   //setCurrentPage: React.Dispatch<React.SetStateAction<number>>;
 }
@@ -22,6 +24,8 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
   pageSize,
   setCurrentPage,
   setPageSize,
+  showPageSizeDropdown,
+  pageLabel,
 }) => {
   const handlePrevPage = () => {
     if (currentPage > 1) setCurrentPage(currentPage - 1);
@@ -138,6 +142,7 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
             />
           </button>
         </div>
+        {showPageSizeDropdown && (
            <select
   value={pageSize}
   onChange={(e) => {
@@ -154,10 +159,10 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
     </option>
   ))}
 </select>
-
+        )}
         {/* Page Input Field */}
         <div className="d-flex align-items-center font-size-medium h-[35px]">
-          <strong className="flex items-center">Page:</strong>
+          <strong className="flex items-center">{pageLabel ?? "Page:"}</strong>
 
           <input
             type="number"

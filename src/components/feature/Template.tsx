@@ -443,9 +443,11 @@ const generateExampleEmail = (template: CampaignTemplate) => {
               currentPage={currentPage}
               totalPages={totalPages}
               pageSize={pageSize}
-              totalRecords={paginatedTemplates.length}
+              totalRecords={filteredCampaignTemplates.length}
               setCurrentPage={setCurrentPage}
               setPageSize={setPageSize}
+              showPageSizeDropdown={true}
+              pageLabel="Page:"
             />
             </div>
 
@@ -613,6 +615,8 @@ const generateExampleEmail = (template: CampaignTemplate) => {
             totalRecords={paginatedTemplates.length}
             setCurrentPage={setCurrentPage}
             setPageSize={setPageSize}
+            showPageSizeDropdown={true}
+            pageLabel="Page:"
             />
         </div>
 
@@ -655,7 +659,7 @@ const generateExampleEmail = (template: CampaignTemplate) => {
             onChange={(e) => setSelectedTemplateDefinitionId(parseInt(e.target.value))}
             style={{
               width: "100%",
-              padding: "12px 16px",
+             // padding: "12px 16px",
               border: "2px solid #e5e7eb",
               borderRadius: "8px",
               fontSize: "15px",
@@ -764,9 +768,6 @@ const generateExampleEmail = (template: CampaignTemplate) => {
               Are you sure you want to delete the campaign template{" "}
               <strong>"{selectedCampaignTemplate.templateName}"</strong>?
             </p>
-            <p style={{ color: "#dc3545", fontSize: "14px" }}>
-              ⚠️ This action cannot be undone. All associated conversation data will also be deleted.
-            </p>
             <div className="modal-footer">
               <button
                 className="button secondary"
@@ -780,7 +781,7 @@ const generateExampleEmail = (template: CampaignTemplate) => {
               </button>
               <button
                 className="button"
-                style={{ backgroundColor: "#dc3545", color: "white" }}
+                style={{ backgroundColor: "#3f9f42", color: "white" }}
                 onClick={handleDeleteCampaignTemplate}
                 disabled={isLoading}
               >
@@ -796,7 +797,35 @@ const generateExampleEmail = (template: CampaignTemplate) => {
   <div className="modal-backdrop">
     <div className="modal-content modal-large">
 
-      {/* <h2>Example Email Preview</h2> */}
+       {/* ✅ Header with close (✕) icon */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+        marginTop:"-22px",
+          borderBottom: "1px solid #e5e7eb"
+        }}
+      >
+        <button
+          onClick={() => {
+            setShowViewCampaignModal(false);
+            setSelectedCampaignTemplate(null);
+            setExampleEmail("");
+          }}
+          style={{
+            background: "none",
+            border: "none",
+            fontSize: "22px",
+            cursor: "pointer",
+            color: "#6b7280",
+            fontWeight: "bold"
+          }}
+          aria-label="Close"
+        >
+          ✕
+        </button>
+      </div>
+
 
       {/* Render ONLY Example Output */}
        <div className="modal-body">
@@ -814,20 +843,6 @@ const generateExampleEmail = (template: CampaignTemplate) => {
           __html: exampleEmail || "<p>No example email available</p>"
         }}
       />
-
-      <div className="modal-footer">
-        <button
-          className="button secondary"
-          onClick={() => {
-            setShowViewCampaignModal(false);
-            setSelectedCampaignTemplate(null);
-            setExampleEmail("");
-          }}
-        >
-          Close
-        </button>
-      </div>
-
     </div>
   </div>
   </div>
@@ -925,25 +940,16 @@ const generateExampleEmail = (template: CampaignTemplate) => {
  </>
     ) : (
       /* ✅ Show Campaign Builder Inline */
-      <div
-        className="campaign-builder-container"
-        style={{
-          width: "100%",
-          marginTop: "-85px",
-          background: "#fff",
-          borderRadius: "8px",
-          boxShadow: "0 2px 12px rgba(0, 0, 0, 0.05)",
-          padding: "0",
-          overflow: "hidden"
-        }}
-      >
+      <div>
 <div
   style={{
     display: "flex",
-    justifyContent: "flex-start", // ⬅️ Move to left side
-    padding: "12px 16px",
-    borderBottom: "1px solid #e5e7eb",
-    background: "#f9fafb"
+    gap:"16px" ,
+    alignItems:"center",
+    marginBottom:"20px",
+    marginTop:"-60px"
+    // borderBottom: "1px solid #e5e7eb",
+    // background: "#f9fafb"
   }}
 >
   <button
@@ -966,22 +972,25 @@ const generateExampleEmail = (template: CampaignTemplate) => {
       }, 300);
     }}
     style={{
-      background: "#3f9f42", // ✅ Match PitchKraft green
-      color: "#fff",
+      background: "#eaeaea", // ✅ Match PitchKraft green
+      color: "#222",
       border: "none",
-      borderRadius: "8px",
+      borderRadius: "4px",
       padding: "8px 16px",
       cursor: "pointer",
       fontSize: "14px",
-      fontWeight: "bold"
+      fontWeight: "600"
     }}
   >
-    ← Back to blueprints
+    ← Back
   </button>
+   
+    <h2>{sessionStorage.getItem("newCampaignName") || "Blueprint"}</h2>
+  
 </div>
 
 
-        <div style={{ padding: "20px" }}>
+        <div style={{ marginTop: "46px" }}>
           <EmailCampaignBuilder selectedClient={selectedClient} />
         </div>
       </div>
