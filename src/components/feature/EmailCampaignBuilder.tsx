@@ -663,7 +663,7 @@ const saveExampleEmail = async () => {
       {
         templateId: activeCampaignId,
         placeholderValues: {
-          example_output: editableExampleOutput
+          example_output_email: editableExampleOutput
         }
       }
     );
@@ -1255,6 +1255,7 @@ const saveExampleEmail = async () => {
   }
 };
 
+
 interface ExampleEmailEditorProps {
   value: string;
   onChange: (value: string) => void;
@@ -1532,40 +1533,7 @@ const saveAllPlaceholders = async () => {
   // ====================================================================
   // ✅ HELPER: Regenerate with Specific Values (Used by regenerateExampleOutput)
   // ====================================================================
-  const regenerateExampleOutputWithValues = async (placeholders: Record<string, string>) => {
-    try {
-      console.log('🔄 Regenerating example output with provided placeholders...');
 
-      const storedId = sessionStorage.getItem('newCampaignId');
-      const activeCampaignId = editTemplateId ?? (storedId ? Number(storedId) : null);
-
-      if (!activeCampaignId) {
-        console.warn("⚠️ No campaign instance found");
-        return;
-      }
-
-      console.log('📧 Calling example/generate API with:', Object.keys(placeholders));
-
-      const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/example/generate`, {
-        userId: effectiveUserId,
-        campaignTemplateId: activeCampaignId,
-        model: selectedModel,
-        placeholderValues: placeholders
-      });
-
-      if ((response.data.success || response.data.Success) &&
-        (response.data.exampleOutput || response.data.ExampleOutput)) {
-        setExampleOutput(response.data.exampleOutput || response.data.ExampleOutput);
-        console.log('✅ Example output generated successfully');
-      } else {
-        console.warn('⚠️ No example output returned from API');
-      }
-
-    } catch (error: any) {
-      console.error('❌ Error regenerating example output:', error);
-      throw error; // Propagate error to caller
-    }
-  };
 
   // 🧭 Stages tab state
 
@@ -1573,237 +1541,215 @@ const saveAllPlaceholders = async () => {
   const [searchResults, setSearchResults] = useState<string[]>([]);
   const [allSourcedData, setAllSourcedData] = useState<string>('');
   const [sourcedSummary, setSourcedSummary] = useState<string>('');
+// ===============================
+// RUNTIME-ONLY PLACEHOLDERS
+// ===============================
+const RUNTIME_ONLY_PLACEHOLDERS = [
+  "full_name",
+  "first_name",
+  "last_name",
+  "job_title",
+  "location",
+  "linkedin_url",
+  "company_name",
+  "company_name_friendly",
+  "website"
+];
 
+// Split placeholders into:
+// 1️⃣ persisted (DB-safe)
+// 2️⃣ runtime-only (contact-based)
+const splitPlaceholders = (all: Record<string, string>) => {
+  const persisted: Record<string, string> = {};
+  const runtime: Record<string, string> = {};
+
+  Object.entries(all).forEach(([key, value]) => {
+    if (RUNTIME_ONLY_PLACEHOLDERS.includes(key)) {
+      runtime[key] = value;
+    } else {
+      persisted[key] = value;
+    }
+  });
+
+  return { persisted, runtime };
+};
   // ====================================================================
   // ✅ COMPLETE: Regenerate Example Output (MANUAL ONLY)
   // ====================================================================
-  const regenerateExampleOutput = async () => {
-    try {
-      console.log('🚀 Manual regenerate button clicked');
+const regenerateExampleOutput = async () => {
+  try {
+    console.log("🚀 Manual regenerate button clicked");
 
-      if (!editTemplateId && !selectedTemplateDefinitionId) {
-        alert('Please save the template first before regenerating example output.');
+    if (!editTemplateId && !selectedTemplateDefinitionId) {
+      alert("Please save the template first before regenerating example output.");
+      return;
+    }
+
+    // --------------------------------------------------
+    // 1️⃣ Collect placeholders
+    // --------------------------------------------------
+    const conversationValues = getConversationPlaceholders(placeholderValues);
+    const contactValues = getContactPlaceholders(placeholderValues);
+
+    // Used for SEARCH + replacement checks
+    const mergedForSearch = getMergedPlaceholdersForDisplay(
+      conversationValues,
+      contactValues
+    );
+
+    console.log("📦 Conversation placeholders:", Object.keys(conversationValues));
+    console.log("📇 Contact placeholders:", Object.keys(contactValues));
+
+    // --------------------------------------------------
+    // 2️⃣ SEARCH FLOW (optional)
+    // --------------------------------------------------
+    const hasSearchTermsPlaceholder = masterPrompt.includes("{hook_search_terms}");
+    let searchResultSummary = "";
+
+    if (hasSearchTermsPlaceholder && conversationValues["hook_search_terms"]) {
+      console.log("🔍 Search terms detected, preparing search API call...");
+
+      if (!conversationValues["vendor_company_email_main_theme"]) {
+        alert(
+          '❌ Missing "vendor_company_email_main_theme" value. Please complete the conversation first.'
+        );
         return;
       }
 
-      // Get conversation and contact placeholders
-      const conversationValues = getConversationPlaceholders(placeholderValues);
-      const contactValues = getContactPlaceholders(placeholderValues);
-      const mergedForSearch = getMergedPlaceholdersForDisplay(conversationValues, contactValues);
+      const processedSearchTerm = replacePlaceholdersInString(
+        conversationValues["hook_search_terms"],
+        mergedForSearch
+      );
 
-      console.log('📦 Conversation placeholders:', Object.keys(conversationValues));
-      console.log('📇 Contact placeholders:', Object.keys(contactValues));
+      const unreplaced = processedSearchTerm.match(/\{[^}]+\}/g);
+      if (unreplaced) {
+        const missing = unreplaced.map(p => p.replace(/[{}]/g, ""));
+        alert(`⚠️ Missing values: ${missing.join(", ")}`);
+        return;
+      }
 
-      // ====================================================================
-      // 🔍 STEP 1: CHECK IF SEARCH IS NEEDED
-      // ====================================================================
-      const hasSearchTermsPlaceholder = masterPrompt.includes('{hook_search_terms}');
-      let searchResultSummary = '';
+      if (!conversationValues["search_objective"]?.trim()) {
+        alert("❌ Missing search_objective value.");
+        return;
+      }
 
-      if (hasSearchTermsPlaceholder && conversationValues['hook_search_terms']) {
-        console.log('🔍 Search terms detected, preparing search API call...');
+      const processedInstructions = replacePlaceholdersInString(
+        conversationValues["search_objective"],
+        mergedForSearch
+      );
 
-        // ✅ Validate required conversation placeholders
-        if (!conversationValues['vendor_company_email_main_theme']) {
-          alert('❌ Missing "vendor_company_email_main_theme" value. Please complete the conversation first.');
-          return;
-        }
-
-        let searchTerm = conversationValues['hook_search_terms'];
-
-        // ✅ Replace placeholders in search term
-        const processedSearchTerm = replacePlaceholdersInString(searchTerm, mergedForSearch);
-
-        // ✅ Check for unreplaced placeholders in search term
-        const unreplacedInSearchTerm = processedSearchTerm.match(/\{[^}]+\}/g);
-        if (unreplacedInSearchTerm) {
-          const placeholderNames = unreplacedInSearchTerm.map(p => p.replace(/[{}]/g, ''));
-          const missingContactPlaceholders = placeholderNames.filter(p => CONTACT_PLACEHOLDERS.includes(p));
-
-          if (missingContactPlaceholders.length > 0) {
-            alert(`⚠️ Search query requires contact information: ${missingContactPlaceholders.join(', ')}.\n\nPlease select a contact from the dropdown first.`);
-            return;
-          } else {
-            alert(`⚠️ Missing required values: ${placeholderNames.join(', ')}`);
-            return;
-          }
-        }
-
-        console.log('🔍 Processed search term:', processedSearchTerm);
-
-        // ✅ Build instructions template
-        // ✅ Use search_objective from conversation placeholders ONLY
-        if (!conversationValues['search_objective'] || !conversationValues['search_objective'].trim()) {
-          alert("❌ Missing 'search_objective' value in placeholders. Please ensure it is set before regenerating.");
-          console.error("❌ No search_objective found in conversationValues");
-          return;
-        }
-
-        console.log("📋 Using search_objective for Process API instructions...");
-        const rawInstructions = conversationValues['search_objective'].trim();
-
-        // ✅ Replace placeholders inside the search_objective text
-        const processedInstructions = replacePlaceholdersInString(rawInstructions, mergedForSearch);
-
-        // ✅ Check for any unreplaced placeholders
-        const unreplacedInInstructions = processedInstructions.match(/\{[^}]+\}/g);
-        if (unreplacedInInstructions) {
-          console.warn('⚠️ Unreplaced placeholders in search_objective:', unreplacedInInstructions);
-          alert(`⚠️ Missing values for search instructions: ${unreplacedInInstructions.join(', ')}`);
-          return;
-        }
-
-        console.log("✅ Final processed instructions ready for Process API:");
-        console.log(processedInstructions);
-
-
-
-
-        // ✅ Call Search API
-        try {
-          console.log('📤 Calling Search API (process)...');
-          console.log('📤 Payload:', {
-            searchTerm: processedSearchTerm,
-            modelName: selectedModel,
-            searchCount: 5
-          });
-
-          const searchResponse = await axios.post(`${API_BASE_URL}/api/auth/process`, {
+      try {
+        console.log("📤 Calling Search API...");
+        const searchResponse = await axios.post(
+          `${API_BASE_URL}/api/auth/process`,
+          {
             searchTerm: processedSearchTerm,
             instructions: processedInstructions,
             modelName: selectedModel,
             searchCount: 5
-          });
-
-          console.log('📥 Search API response received');
-
-          // Extract result
-          const pitchResponse = searchResponse.data?.pitchResponse || searchResponse.data?.PitchResponse;
-
-          if (pitchResponse) {
-            searchResultSummary = pitchResponse.content ||
-              pitchResponse.Content ||
-              pitchResponse.result ||
-              pitchResponse.Result ||
-              '';
           }
+        );
 
-          if (!searchResultSummary) {
-            searchResultSummary = searchResponse.data?.content ||
-              searchResponse.data?.Content ||
-              searchResponse.data?.result ||
-              searchResponse.data?.Result ||
-              '';
-          }
+        const pitch =
+          searchResponse.data?.pitchResponse ||
+          searchResponse.data?.PitchResponse;
 
-          console.log('✅ Search summary length:', searchResultSummary?.length || 0);
-          if (searchResponse.data.searchResults) {
-            setSearchResults(searchResponse.data.searchResults);
-          }
-          if (searchResponse.data.allScrapedData) {
-            setAllSourcedData(searchResponse.data.allScrapedData);
-          }
-          if (searchResponse.data.pitchResponse?.content) {
-            setSourcedSummary(searchResponse.data.pitchResponse.content);
-          }
+        searchResultSummary =
+          pitch?.content ||
+          pitch?.Content ||
+          "";
 
-          if (!searchResultSummary) {
-            console.warn('⚠️ No content found in search response');
-            alert('Search completed but no results were found. Proceeding with example generation...');
-          } else {
-            // ✅ Update conversation placeholders with search result
-            conversationValues['search_output_summary'] = searchResultSummary;
+        if (searchResultSummary) {
+          conversationValues["search_output_summary"] = searchResultSummary;
 
-            // Update merged values
-            const updatedMerged = getMergedPlaceholdersForDisplay(conversationValues, contactValues);
-            setPlaceholderValues(updatedMerged);
-            console.log('📦 Added search_output_summary to conversation placeholders');
+          // Update UI (merged, runtime-safe)
+          const updatedMerged = getMergedPlaceholdersForDisplay(
+            conversationValues,
+            contactValues
+          );
+          setPlaceholderValues(updatedMerged);
 
-            // ✅ Save updated conversation placeholders to database
-            const storedId = sessionStorage.getItem('newCampaignId');
-            const activeCampaignId = editTemplateId ?? (storedId ? Number(storedId) : null);
+          // Save ONLY conversation placeholders
+          const storedId = sessionStorage.getItem("newCampaignId");
+          const activeCampaignId =
+            editTemplateId ?? (storedId ? Number(storedId) : null);
 
           if (activeCampaignId) {
-            await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
-              id: activeCampaignId,
-              placeholderValues: conversationValues // ✅ Only conversation placeholders
-            });
+            await axios.post(
+              `${API_BASE_URL}/api/CampaignPrompt/template/update`,
+              {
+                id: activeCampaignId,
+                placeholderValues: conversationValues
+              }
+            );
             await reloadCampaignBlueprint();
-
-            console.log('💾 Saved conversation placeholders with search result to DB');
           }
         }
-
-        } catch (searchError: any) {
-          console.error('❌ Search API error:', searchError);
-          console.error('❌ Error response:', searchError.response?.data);
-          alert(`Search API failed: ${searchError.response?.data?.message || searchError.message}\n\nProceeding with example generation without search results...`);
-        }
-      } else {
-        console.log('ℹ️ No search terms placeholder or value not set - skipping search');
+      } catch (err: any) {
+        console.error("❌ Search API failed:", err);
+        alert("Search failed. Continuing without search data.");
       }
-
-      // ====================================================================
-      // 📧 STEP 2: GENERATE EXAMPLE OUTPUT
-      // ====================================================================
-      const storedId = sessionStorage.getItem('newCampaignId');
-      const activeCampaignId = editTemplateId ?? (storedId ? Number(storedId) : null);
-
-      if (!activeCampaignId) {
-        alert("❌ No campaign instance found. Please start a campaign first.");
-        return;
-      }
-
-      // ✅ Use merged values (conversation + contact) for example generation
-      const finalMergedValues = getMergedPlaceholdersForDisplay(conversationValues, contactValues);
-
-      console.log('📧 Generating example output...');
-      console.log('📦 Using placeholders:', Object.keys(finalMergedValues));
-
-      // ✅ Call Example Generation API
-      try {
-        console.log('📤 Calling Example Generation API...');
-
-        const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/example/generate`, {
-          userId: effectiveUserId,
-          campaignTemplateId: activeCampaignId,
-          model: selectedModel,
-          placeholderValues: finalMergedValues // ✅ Merged values (conversation + contact)
-        });
-
-        console.log('📥 Example generation response received');
-
-          if (response.data.success || response.data.Success) {
-            
-            // HTML result
-            const html = response.data.exampleOutput || response.data.ExampleOutput || "";
-            setExampleOutput(html);
-
-            // Filled template result (new)
-            const filled = response.data.filledTemplate || "";
-            setFilledTemplate(filled);
-
-            console.log("📌 Filled Template stored:", filled);
-          }
-          else {
-          console.warn('⚠️ No example output returned from API');
-          alert('Example generation completed but no output was returned. Please try again.');
-        }
-
-      } catch (error: any) {
-        console.error('❌ Example generation error:', error);
-        console.error('❌ Error response:', error.response?.data);
-        alert(`Failed to generate example output: ${error.response?.data?.message || error.message}`);
-      }
-
-      console.log('✅ regenerateExampleOutput completed');
-
-    } catch (error: any) {
-      console.error('❌ Fatal error in regenerateExampleOutput:', error);
-      console.error('❌ Error stack:', error.stack);
-      alert(`Failed to regenerate: ${error.message}`);
     }
-  };
+
+    // --------------------------------------------------
+    // 3️⃣ GENERATE EXAMPLE OUTPUT (IMPORTANT PART)
+    // --------------------------------------------------
+    const storedId = sessionStorage.getItem("newCampaignId");
+    const activeCampaignId =
+      editTemplateId ?? (storedId ? Number(storedId) : null);
+
+    if (!activeCampaignId) {
+      alert("❌ No campaign instance found.");
+      return;
+    }
+
+    // Merge placeholders (conversation + contact)
+    const mergedAll = getMergedPlaceholdersForDisplay(
+      conversationValues,
+      contactValues
+    );
+
+    // 🔥 SPLIT PLACEHOLDERS
+    const { persisted } = splitPlaceholders(mergedAll);
+
+    console.log("📧 Generating example output...");
+    console.log("📦 Persisted placeholders only:", Object.keys(persisted));
+
+    const response = await axios.post(
+      `${API_BASE_URL}/api/CampaignPrompt/example/generate`,
+      {
+        userId: effectiveUserId,
+        campaignTemplateId: activeCampaignId,
+        model: selectedModel,
+        placeholderValues: mergedAll // ✅ SEND EVERYTHING
+      }
+    );
+
+    if (response.data?.success || response.data?.Success) {
+      const html =
+        response.data.exampleOutput ||
+        response.data.ExampleOutput ||
+        "";
+
+      const filled =
+        response.data.filledTemplate ||
+        response.data.FilledTemplate ||
+        "";
+
+      setExampleOutput(html);
+      setFilledTemplate(filled);
+
+      console.log("✅ Example output generated");
+    } else {
+      alert("⚠️ Example generation returned no output.");
+    }
+
+  } catch (error: any) {
+    console.error("❌ regenerateExampleOutput failed:", error);
+    alert(`Failed to regenerate: ${error.message}`);
+  }
+};
+
   // ====================================================================
   // LOAD TEMPLATE DEFINITIONS
   // ====================================================================
@@ -3367,8 +3313,6 @@ function SimpleTextarea({
     </div>
   </div>
 )}
-
-``
 
           </div>
 
