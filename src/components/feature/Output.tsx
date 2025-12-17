@@ -10,8 +10,7 @@ import { useAppData } from "../../contexts/AppDataContext";
 import * as XLSX from "xlsx";
 import FileSaver from "file-saver";
 import { toast } from "react-toastify";
-import ReactQuill from "react-quill";
-import "react-quill/dist/quill.snow.css"; // Import styles
+import 'quill/dist/quill.snow.css'; // Import styles
 import API_BASE_URL from "../../config";
 import axios from "axios";
 import AppModal from "../common/AppModal";

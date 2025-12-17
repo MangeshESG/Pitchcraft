@@ -13,11 +13,11 @@ const PopupModal: React.FC<PopupModalProps> = ({ open, title, message, onClose, 
 
   return (
     <div className="modal-overlay">
-      <div className="modal-content">
+      <div className="modal-content" style={{alignItems:" center"}}>
         {/* {title && <h2>{title}</h2>} */}
         {message && <p>{message}</p>}
         {children}
-        <button style={{background:"#218838",padding:"5px",color:"#fff",marginLeft:"225px",borderRadius: "4px",width: "60px",border: "2px solid #218838"}} onClick={onClose}>OK</button>
+        <button style={{background:"#218838",padding:"5px",color:"#fff",borderRadius: "4px",width: "60px",border: "2px solid #218838"}} onClick={onClose}>OK</button>
       </div>
     </div>
   );

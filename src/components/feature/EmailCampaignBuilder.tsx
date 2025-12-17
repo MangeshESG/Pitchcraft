@@ -880,13 +880,13 @@ const closeModal = () => {
             disabled={!conversationStarted || isGenerating}
             onClick={async () => {
               if (!selectedContactId) {
-                alert("Please select a contact before generating.");
+                showModal("Warning","Please select a contact before generating.");
                 return;
               }
 
               const contact = contacts.find(c => c.id === selectedContactId);
               if (!contact) {
-                alert("Invalid contact selection.");
+                showModal("Error","Invalid contact selection.");
                 return;
               }
 
@@ -901,7 +901,7 @@ const closeModal = () => {
 
               } catch (error) {
                 console.error("Generate failed:", error);
-                alert("Failed to generate output. Please try again.");
+                showModal("Error","Failed to generate output. Please try again.");
               } finally {
                 setIsGenerating(false); // 🔥 Stop loader
               }
@@ -910,10 +910,10 @@ const closeModal = () => {
             {isGenerating ? (
               <>
                 <Loader2 size={18} className="spinning" />
-                &nbsp; Generating...
+                &nbsp; Preview email
               </>
             ) : (
-              "Generate"
+              "Preview email"
             )}
           </button>
 
@@ -953,6 +953,7 @@ const closeModal = () => {
   {activeMainTab === "output" && exampleOutput && (
     <button
       onClick={saveExampleEmail}
+       title="If this preview looks good then save it as the new 'Example output email'"
       style={{
         padding: "6px 14px",
         background: "#3f9f42",
@@ -963,7 +964,7 @@ const closeModal = () => {
         cursor: "pointer"
       }}
     >
-      Save Email
+      Save email
     </button>
   )}
 </div>
@@ -1126,6 +1127,18 @@ const [activeTab, setActiveTab] = useState<TabType>('build');
   const [searchURLCount, setSearchURLCount] = useState<number>(1);
   const [subjectInstructions, setSubjectInstructions] = useState<string>("");
  const [formValues, setFormValues] = useState<Record<string, string>>({});
+ const [popupmodalInfo, setPopupmodalInfo] = useState({
+  open: false,
+  title: "",
+  message: "",
+});
+const showModal = (title: string, message: string) => {
+  setPopupmodalInfo({ open: true, title, message });
+};
+
+const closeModal = () => {
+  setPopupmodalInfo(prev => ({ ...prev, open: false }));
+};
 
 useEffect(() => {
   setFormValues(placeholderValues);
@@ -1228,7 +1241,7 @@ const saveAllPlaceholders = async () => {
     const activeCampaignId = editTemplateId ?? (storedId ? Number(storedId) : null);
 
     if (!activeCampaignId) {
-      alert("No campaign instance found.");
+      showModal("Error","No campaign instance found.");
       return;
     }
 
@@ -1245,10 +1258,10 @@ const saveAllPlaceholders = async () => {
 
     await reloadCampaignBlueprint();
 
-    alert("All placeholder values updated successfully!");
+    showModal("Success", "All placeholder values updated successfully!");
   } catch (err) {
     console.error("Error saving all placeholders:", err);
-    alert("Failed to save placeholder changes.");
+    showModal("Error", "Failed to save placeholder changes.");
   }
 };
 
@@ -1372,7 +1385,7 @@ const saveAllPlaceholders = async () => {
       console.log('🚀 Manual regenerate button clicked');
 
       if (!editTemplateId && !selectedTemplateDefinitionId) {
-        alert('Please save the template first before regenerating example output.');
+        showModal( "Warning",'Please save the template first before regenerating example output.');
         return;
       }
 
@@ -1395,7 +1408,7 @@ const saveAllPlaceholders = async () => {
 
         // ✅ Validate required conversation placeholders
         if (!conversationValues['vendor_company_email_main_theme']) {
-          alert('❌ Missing "vendor_company_email_main_theme" value. Please complete the conversation first.');
+          showModal("Missing Data",'❌ Missing "vendor_company_email_main_theme" value. Please complete the conversation first.');
           return;
         }
 
@@ -1411,10 +1424,10 @@ const saveAllPlaceholders = async () => {
           const missingContactPlaceholders = placeholderNames.filter(p => CONTACT_PLACEHOLDERS.includes(p));
 
           if (missingContactPlaceholders.length > 0) {
-            alert(`⚠️ Search query requires contact information: ${missingContactPlaceholders.join(', ')}.\n\nPlease select a contact from the dropdown first.`);
+            showModal( "Missing Values",`⚠️ Search query requires contact information: ${missingContactPlaceholders.join(', ')}.\n\nPlease select a contact from the dropdown first.`);
             return;
           } else {
-            alert(`⚠️ Missing required values: ${placeholderNames.join(', ')}`);
+            showModal ( "Missing Values",`⚠️ Missing required values: ${placeholderNames.join(', ')}`);
             return;
           }
         }
@@ -1424,7 +1437,7 @@ const saveAllPlaceholders = async () => {
         // ✅ Build instructions template
         // ✅ Use search_objective from conversation placeholders ONLY
         if (!conversationValues['search_objective'] || !conversationValues['search_objective'].trim()) {
-          alert("❌ Missing 'search_objective' value in placeholders. Please ensure it is set before regenerating.");
+          showModal(  "Missing Search Objective","❌ Missing 'search_objective' value in placeholders. Please ensure it is set before regenerating.");
           console.error("❌ No search_objective found in conversationValues");
           return;
         }
@@ -1439,7 +1452,7 @@ const saveAllPlaceholders = async () => {
         const unreplacedInInstructions = processedInstructions.match(/\{[^}]+\}/g);
         if (unreplacedInInstructions) {
           console.warn('⚠️ Unreplaced placeholders in search_objective:', unreplacedInInstructions);
-          alert(`⚠️ Missing values for search instructions: ${unreplacedInInstructions.join(', ')}`);
+          showModal( "Error",`⚠️ Missing values for search instructions: ${unreplacedInInstructions.join(', ')}`);
           return;
         }
 
@@ -1499,7 +1512,7 @@ const saveAllPlaceholders = async () => {
 
           if (!searchResultSummary) {
             console.warn('⚠️ No content found in search response');
-            alert('Search completed but no results were found. Proceeding with example generation...');
+            showModal(  "Generation Failed",'Search completed but no results were found. Proceeding with example generation...');
           } else {
             // ✅ Update conversation placeholders with search result
             conversationValues['search_output_summary'] = searchResultSummary;
@@ -1527,7 +1540,7 @@ const saveAllPlaceholders = async () => {
         } catch (searchError: any) {
           console.error('❌ Search API error:', searchError);
           console.error('❌ Error response:', searchError.response?.data);
-          alert(`Search API failed: ${searchError.response?.data?.message || searchError.message}\n\nProceeding with example generation without search results...`);
+          showModal( "Search Failed",`Search API failed: ${searchError.response?.data?.message || searchError.message}\n\nProceeding with example generation without search results...`);
         }
       } else {
         console.log('ℹ️ No search terms placeholder or value not set - skipping search');
@@ -1540,7 +1553,7 @@ const saveAllPlaceholders = async () => {
       const activeCampaignId = editTemplateId ?? (storedId ? Number(storedId) : null);
 
       if (!activeCampaignId) {
-        alert("❌ No campaign instance found. Please start a campaign first.");
+        showModal("error","❌ No campaign instance found. Please start a campaign first.");
         return;
       }
 
@@ -1577,13 +1590,13 @@ const saveAllPlaceholders = async () => {
           }
           else {
           console.warn('⚠️ No example output returned from API');
-          alert('Example generation completed but no output was returned. Please try again.');
+          showModal('try again','Example generation completed but no output was returned. Please try again.');
         }
 
       } catch (error: any) {
         console.error('❌ Example generation error:', error);
         console.error('❌ Error response:', error.response?.data);
-        alert(`Failed to generate example output: ${error.response?.data?.message || error.message}`);
+        showModal('error',`Failed to generate example output: ${error.response?.data?.message || error.message}`);
       }
 
       console.log('✅ regenerateExampleOutput completed');
@@ -1591,7 +1604,7 @@ const saveAllPlaceholders = async () => {
     } catch (error: any) {
       console.error('❌ Fatal error in regenerateExampleOutput:', error);
       console.error('❌ Error stack:', error.stack);
-      alert(`Failed to regenerate: ${error.message}`);
+      showModal('error',`Failed to regenerate: ${error.message}`);
     }
   };
   // ====================================================================
@@ -1618,12 +1631,12 @@ const saveAllPlaceholders = async () => {
   // ====================================================================
   const saveTemplateDefinition = async () => {
     if (!templateName.trim()) {
-      alert("Please enter a template name");
+      showModal("reason","Please enter a template name");
       return;
     }
 
     if (!systemPrompt.trim() || !masterPrompt.trim()) {
-      alert("Please fill in AI Instructions and Placeholders List");
+      showModal("missing parameters","Please fill in AI Instructions and Placeholders List");
       return;
     }
 
@@ -1657,7 +1670,7 @@ const saveAllPlaceholders = async () => {
       console.error('Error saving template definition:', error);
 
       if (error.response?.data?.message?.includes('already exists')) {
-        alert('A template with this name already exists. Please use a different name.');
+        showModal("Instruction",'A template with this name already exists. Please use a different name.');
       } else {
         setSaveDefinitionStatus('error');
         setTimeout(() => setSaveDefinitionStatus('idle'), 3000);
@@ -1670,7 +1683,7 @@ const saveAllPlaceholders = async () => {
 
   const updateTemplateDefinition = async () => {
     if (!selectedTemplateDefinitionId) {
-      alert("No template selected to update.");
+      showModal("Instruction","No template selected to update.");
       return;
     }
 
@@ -1691,11 +1704,11 @@ const saveAllPlaceholders = async () => {
 
     });
 
-      alert("Template updated successfully.");
+      showModal("Succuess","Template updated successfully.");
       await loadTemplateDefinitions();
     } catch (err) {
       console.error("Update failed:", err);
-      alert("Failed to update template definition.");
+      showModal("error","Failed to update template definition.");
     } finally {
       setIsSavingDefinition(false);
     }
@@ -1851,7 +1864,7 @@ const startEditConversation = async (placeholder: string) => {
 
   // Validate campaignTemplateId
   if (!campaignTemplateId || Number.isNaN(campaignTemplateId) || campaignTemplateId <= 0) {
-    alert("No campaign ID found. Please open the campaign in edit mode first (wait until it finishes loading).");
+    showModal("Invalid","No campaign ID found. Please open the campaign in edit mode first (wait until it finishes loading).");
     console.error("startEditConversation: campaignTemplateId is missing/invalid:", {
       editTemplateId,
       storedNewCampaignId,
@@ -2482,7 +2495,7 @@ const [instructionSubTab, setInstructionSubTab] = useState<
         `${API_BASE_URL}/api/CampaignPrompt/template-definition/${selectedTemplateDefinitionId}/deactivate`
       );
 
-      alert("Template deleted successfully.");
+      showModal("Success","Template deleted successfully.");
 
       // Reset UI state
       setSelectedTemplateDefinitionId(null);
@@ -2498,7 +2511,7 @@ const [instructionSubTab, setInstructionSubTab] = useState<
 
     } catch (error) {
       console.error("Delete failed:", error);
-      alert("Failed to delete template definition.");
+      showModal("error","Failed to delete template definition.");
     }
   };
   // ensure you import useEffect at top
@@ -2660,7 +2673,12 @@ function SimpleTextarea({
 </div>
 
           </div>
-
+<PopupModal
+  open={popupmodalInfo.open}
+  title={popupmodalInfo.title}
+  message={popupmodalInfo.message}
+  onClose={closeModal}
+/>
           <div className="tab-content">
 {activeTab === "build" && (
   <div className="flex items-center justify-between w-full mb-[10px] mt-[-24px]">
@@ -2679,7 +2697,7 @@ function SimpleTextarea({
           }}
 
         >
-          <option value="">-- Select Placeholder --</option>
+          <option value="">-- Select placeholder --</option>
 
           {extractPlaceholders(masterPrompt).map((p) => (
             <option key={p} value={p}>
@@ -2807,7 +2825,7 @@ function SimpleTextarea({
           fontWeight: 600
         }}
       >
-        Save All Changes
+        Save all changes
       </button>
     </div>
 
@@ -3042,7 +3060,6 @@ function SimpleTextarea({
   </div>
 )}
 
-``
 
           </div>
 
