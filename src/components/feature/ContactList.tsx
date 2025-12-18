@@ -2058,6 +2058,7 @@ const { filteredSegments, paginatedSegments, segmentTotalPages } = useMemo(() =>
                         <button
                           className="button primary"
                           onClick={() => setShowSaveSegmentModal(true)}
+                          style={{backgroundColor:"#3f9f42"}}
                         >
                           Create segment
                         </button>
