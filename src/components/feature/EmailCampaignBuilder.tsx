@@ -13,6 +13,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBars } from '@fortawesome/free-solid-svg-icons';
 import downArrow from "../../assets/images/down.png";
 import PopupModal from '../common/PopupModal';
+import PlaceholderManager from "./PlaceholderManager";
 
 
 // --- Type Definitions ---
@@ -56,6 +57,21 @@ interface TemplateDefinition {
   isActive: boolean;
   usageCount: number;
 }
+
+// ===============================
+// UI-ONLY PLACEHOLDER DEFINITION
+// ===============================
+interface PlaceholderDefinitionUI {
+  placeholderKey: string;
+  friendlyName: string;
+  category: string;
+  inputType: "text" | "textarea" | "richtext";
+  uiSize: "sm" | "md" | "lg" | "xl";
+  isRuntimeOnly: boolean;
+  isExpandable: boolean;
+  isRichText: boolean;
+}
+
 
 
 interface TemplateTabProps {
@@ -2594,7 +2610,7 @@ const [instructionSubTab, setInstructionSubTab] = useState<
   "ai_new" 
   | "ai_edit" 
   | "placeholder_short" 
-  | "placeholder_long" 
+  | "placeholders" 
   | "ct"
   | "subject_instructions"   // ⭐ NEW
 >("ai_new");
@@ -3220,7 +3236,7 @@ function SimpleTextarea({
         ["ai_new", "AI Instructions (new blueprint)"],
         ["ai_edit", "AI Instructions (edit blueprint)"],
         ["placeholder_short", "Placeholders list (essential)"],
-        ["placeholder_long", "Placeholders list (extended)"],
+        ["placeholders", "Placeholder Manager"],
         ["ct", "UT "],
         ["subject_instructions", "Email Subject Instructions"]
 
@@ -3265,13 +3281,12 @@ function SimpleTextarea({
     />
   )}
 
-  {instructionSubTab === "placeholder_long" && (
-    <SimpleTextarea
-      value={masterPromptExtensive}
-      onChange={(e: any) => setMasterPromptExtensive(e.target.value)}
-      placeholder="Extended placeholder list..."
-    />
-  )}
+{instructionSubTab === "placeholders" && (
+  <PlaceholderManager
+    templateDefinitionId={selectedTemplateDefinitionId}
+  />
+)}
+
 
   {instructionSubTab === "ct" && (
     <SimpleTextarea
