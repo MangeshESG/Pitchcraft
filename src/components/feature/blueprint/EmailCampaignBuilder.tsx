@@ -1,19 +1,21 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { Send, Copy, Check, Loader2, RefreshCw, Globe, Eye, FileText, MessageSquare, CheckCircle, XCircle, ChevronDown, Volume2, VolumeX } from 'lucide-react';
 import axios from 'axios';
-import API_BASE_URL from "../../config";
+import API_BASE_URL from "../../../config";
 import './EmailCampaignBuilder.css';
-import notificationSound from '../../assets/sound/notification.mp3';
+import notificationSound from '../../../assets/sound/notification.mp3';
 import { AlertCircle } from 'lucide-react';
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import PaginationControls from './PaginationControls';
+import PaginationControls from '../PaginationControls';
 import { Tooltip as ReactTooltip } from "react-tooltip";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBars } from '@fortawesome/free-solid-svg-icons';
 import downArrow from "../../assets/images/down.png";
-import PopupModal from '../common/PopupModal';
+import PopupModal from '../../common/PopupModal';
 import PlaceholderManager from "./PlaceholderManager";
+import ElementsTab from "./ElementsTab";
+
 
 
 // --- Type Definitions ---
@@ -65,12 +67,17 @@ interface PlaceholderDefinitionUI {
   placeholderKey: string;
   friendlyName: string;
   category: string;
-  inputType: "text" | "textarea" | "richtext";
+
+  inputType: "text" | "textarea" | "richtext" | "select"; // ⭐ add select
   uiSize: "sm" | "md" | "lg" | "xl";
+
   isRuntimeOnly: boolean;
   isExpandable: boolean;
   isRichText: boolean;
+
+  options?: string[]; // ⭐ dropdown options
 }
+
 
 
 
@@ -1228,6 +1235,11 @@ const [activeTab, setActiveTab] = useState<TabType>('build');
 const rowsPerPage = 1;
 const setPageSize = () => {};
 
+// ========================================
+// UI-ONLY PLACEHOLDER METADATA STATE
+// ========================================
+const [uiPlaceholders, setUiPlaceholders] =
+  useState<PlaceholderDefinitionUI[]>([]);
 
 const totalPages = Math.max(1, Math.ceil((contacts.length || 1) / rowsPerPage));
 const [editableExampleOutput, setEditableExampleOutput] = useState("");
@@ -2220,6 +2232,7 @@ const startEditConversation = async (placeholder: string) => {
     return placeholders;
   };
 
+
   // ====================================================================
   // REPLACE PLACEHOLDERS IN STRING
   // ====================================================================
@@ -2266,6 +2279,134 @@ const startEditConversation = async (placeholder: string) => {
       resetAll();
     }
   }, [selectedClient]);
+
+
+  // ========================================
+// BUILD UI PLACEHOLDERS FROM { } LIST
+// ========================================
+useEffect(() => {
+  const keys = extractPlaceholders(masterPrompt);
+
+  setUiPlaceholders(prev => {
+    const prevMap = new Map(
+      prev.map(p => [p.placeholderKey, p])
+    );
+
+    return keys.map(key => {
+      const existing = prevMap.get(key);
+
+    return (
+      existing || {
+        placeholderKey: key,
+        friendlyName: key.replace(/_/g, " "),
+        category: key.includes("search")
+          ? "Search"
+          : key.includes("example") || key.includes("output")
+          ? "Output"
+          : "General",
+
+        inputType:
+          key === "tone"
+            ? "select"
+            : key.includes("example") || key.includes("output")
+            ? "richtext"
+            : "text",
+
+        options:
+          key === "tone"
+            ? ["Professional", "Friendly", "Casual", "Direct"]
+            : undefined,
+
+        uiSize:
+          key.includes("example") || key.includes("output")
+            ? "xl"
+            : "md",
+
+        isRuntimeOnly: RUNTIME_ONLY_PLACEHOLDERS.includes(key),
+        isExpandable: key.includes("example") || key.includes("output"),
+        isRichText: key.includes("example") || key.includes("output")
+      }
+    );
+
+
+    });
+  });
+}, [masterPrompt]);
+
+const groupedPlaceholders = uiPlaceholders
+  .filter(p => !p.isRuntimeOnly)
+  .reduce<Record<string, PlaceholderDefinitionUI[]>>((acc, p) => {
+    acc[p.category] = acc[p.category] || [];
+    acc[p.category].push(p);
+    return acc;
+  }, {});
+
+
+  const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
+  const key = p.placeholderKey;
+  const value = formValues[key] ?? "";
+
+  switch (p.inputType) {
+    case "select":
+      return (
+        <select
+          value={value}
+          onChange={e =>
+            setFormValues(prev => ({ ...prev, [key]: e.target.value }))
+          }
+          className="text-input"
+        >
+          <option value="">-- Select --</option>
+          {p.options?.map(opt => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+        </select>
+      );
+
+    case "textarea":
+      return (
+        <textarea
+          value={value}
+          onChange={e =>
+            setFormValues(prev => ({ ...prev, [key]: e.target.value }))
+          }
+          style={{ minHeight: "80px" }}
+        />
+      );
+
+    case "richtext":
+      return (
+        <div
+          onClick={() => setExpandedKey(key)}
+          dangerouslySetInnerHTML={{
+            __html:
+              value ||
+              "<span style='color:#9ca3af'>Click Expand to edit</span>"
+          }}
+          style={{
+            border: "1px solid #d1d5db",
+            padding: "10px",
+            minHeight: "120px",
+            cursor: "pointer"
+          }}
+        />
+      );
+
+    default:
+      return (
+        <input
+          type="text"
+          value={value}
+          onChange={e =>
+            setFormValues(prev => ({ ...prev, [key]: e.target.value }))
+          }
+        />
+      );
+  }
+};
+
 
   // ====================================================================
   // START CONVERSATION
@@ -2937,169 +3078,48 @@ function SimpleTextarea({
 
             {/* 2️⃣ ELEMENTS TAB */}
 {activeTab === "elements" && (
-  <div className="elements-tab-container" style={{ padding: "20px" }}>
+  <ElementsTab
+    groupedPlaceholders={groupedPlaceholders}
+    formValues={formValues}
+    setFormValues={setFormValues}
+    setExpandedKey={setExpandedKey}
+    saveAllPlaceholders={saveAllPlaceholders}
 
-    <div style={{ display: "flex", gap: "20px" }}>
-
-      {/* -------------------------------------------------
-          LEFT SIDE — PLACEHOLDER EDITOR
-      -------------------------------------------------- */}
-      <div style={{ flex: 1 }}>
-
-        <h2 style={{ fontSize: "22px", fontWeight: 600, marginBottom: "15px" }}>
-          Edit Placeholder Values
-        </h2>
-
-        <div 
-          className="placeholder-form-grid"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: "20px",
-            background: "#fff",
-            padding: "20px",
-            borderRadius: "8px",
-            border: "1px solid #e5e7eb"
-          }}
-        >
-          {Object.entries(placeholderValues).map(([key, value]) => (
-            <div key={key} style={{ display: "flex", flexDirection: "column" }}>
-              <label
-                style={{
-                  fontWeight: 600,
-                  marginBottom: "6px",
-                  fontSize: "14px",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center"
-                }}
-              >
-                {`{${key}}`}
-                <button
-                  type="button"
-                  onClick={() => setExpandedKey(key)}
-                  style={{
-                    fontSize: "12px",
-                    padding: "4px 8px",
-                    borderRadius: "4px",
-                    border: "1px solid #d1d5db",
-                    background: "#f9fafb",
-                    cursor: "pointer"
-                  }}
-                >
-                  Expand
-                </button>
-              </label>
-
-              <input
-                type="text"
-                value={formValues[key] ?? ""}
-                onChange={(e) =>
-                  setFormValues((prev) => ({ ...prev, [key]: e.target.value }))
-                }
-                style={{
-                  padding: "8px 10px",
-                  borderRadius: "6px",
-                  border: "1px solid #d1d5db",
-                  fontSize: "14px",
-                }}
-              />
-            </div>
-          ))}
-        </div>
-
-        <div style={{ marginTop: "20px", textAlign: "right" }}>
-          <button
-            onClick={saveAllPlaceholders}
-            className="save-all-btn"
-            style={{
-              padding: "10px 18px",
-              background: "#16a34a",
-              color: "white",
-              borderRadius: "6px",
-              fontSize: "15px",
-              fontWeight: 600
-            }}
-          >
-            Save All Changes
-          </button>
-        </div>
-
-      </div>
-
-      {/* -------------------------------------------------
-          RIGHT SIDE — EXAMPLE OUTPUT PANEL (COLLAPSIBLE)
-      -------------------------------------------------- */}
-      <div style={{ flex: 1, minWidth: "450px" }}>
-
-        {/* Collapse Button */}
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "10px" }}>
-          <button
-            onClick={() => setIsSectionOpen(!isSectionOpen)}
-            style={{
-              width: "40px",
-              height: "40px",
-              background: "#f3f4f6",
-              borderRadius: "6px",
-              border: "1px solid #d1d5db",
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              cursor: "pointer",
-            }}
-          >
-            <img
-              src={isSectionOpen ? "/arrow-right.svg" : "/arrow-left.svg"}
-              alt="toggle"
-              style={{ width: "22px", height: "22px" }}
-            />
-          </button>
-        </div>
-
-        {/* PANEL */}
-        <ExampleOutputPanel
-          isSectionOpen={isSectionOpen}
-          setIsSectionOpen={setIsSectionOpen}
-          dataFiles={dataFiles}
-          contacts={contacts}
-          selectedDataFileId={selectedDataFileId}
-          selectedContactId={selectedContactId}
-          handleSelectDataFile={handleSelectDataFile}
-          setSelectedContactId={setSelectedContactId}
-          applyContactPlaceholders={applyContactPlaceholders}
-          exampleOutput={exampleOutput}
-
-          currentPage={currentPage}
-          totalPages={totalPages}
-          rowsPerPage={rowsPerPage}
-          setCurrentPage={setCurrentPage}
-          setPageSize={setPageSize}
-
-          editableExampleOutput={editableExampleOutput}
-          setEditableExampleOutput={setEditableExampleOutput}
-          saveExampleEmail={saveExampleEmail}
-
-          isGenerating={isGenerating}
-          regenerateExampleOutput={regenerateExampleOutput}
-
-          activeMainTab={activeMainTab}
-          setActiveMainTab={setActiveMainTab}
-
-          activeSubStageTab={activeSubStageTab}
-          setActiveSubStageTab={setActiveSubStageTab}
-
-          filledTemplate={filledTemplate}
-          searchResults={searchResults}
-          allSourcedData={allSourcedData}
-          sourcedSummary={sourcedSummary}
-          ExampleEmailEditor={ExampleEmailEditor}
-        />
-
-      </div>
-
-    </div>
-  </div>
+    isSectionOpen={isSectionOpen}
+    setIsSectionOpen={setIsSectionOpen}
+    dataFiles={dataFiles}
+    contacts={contacts}
+    selectedDataFileId={selectedDataFileId}
+    selectedContactId={selectedContactId}
+    handleSelectDataFile={handleSelectDataFile}
+    setSelectedContactId={setSelectedContactId}
+    applyContactPlaceholders={applyContactPlaceholders}
+    exampleOutput={exampleOutput}
+    currentPage={currentPage}
+    totalPages={totalPages}
+    rowsPerPage={rowsPerPage}
+    setCurrentPage={setCurrentPage}
+    setPageSize={setPageSize}
+    editableExampleOutput={editableExampleOutput}
+    setEditableExampleOutput={setEditableExampleOutput}
+    saveExampleEmail={saveExampleEmail}
+    isGenerating={isGenerating}
+    regenerateExampleOutput={regenerateExampleOutput}
+    activeMainTab={activeMainTab}
+    setActiveMainTab={setActiveMainTab}
+    activeSubStageTab={activeSubStageTab}
+    setActiveSubStageTab={setActiveSubStageTab}
+    filledTemplate={filledTemplate}
+    searchResults={searchResults}
+    allSourcedData={allSourcedData}
+    sourcedSummary={sourcedSummary}
+    ExampleEmailEditor={ExampleEmailEditor}
+    ExampleOutputPanel={ExampleOutputPanel}
+    renderPlaceholderInput={renderPlaceholderInput}
+  />
 )}
+
+
 
 
 
@@ -3282,10 +3302,105 @@ function SimpleTextarea({
   )}
 
 {instructionSubTab === "placeholders" && (
-  <PlaceholderManager
-    templateDefinitionId={selectedTemplateDefinitionId}
-  />
+  <div
+    style={{
+      background: "#fff",
+      border: "1px solid #e5e7eb",
+      borderRadius: "8px",
+      padding: "20px"
+    }}
+  >
+    <h3 style={{ fontSize: "18px", fontWeight: 600, marginBottom: "16px" }}>
+      Placeholder Manager
+    </h3>
+
+    {uiPlaceholders.map((p, idx) => (
+      <div
+        key={p.placeholderKey}
+        style={{
+          display: "grid",
+          gridTemplateColumns: "2fr 2fr 1fr 1fr 1fr",
+          gap: "10px",
+          alignItems: "center",
+          marginBottom: "10px"
+        }}
+      >
+        <strong>{`{${p.placeholderKey}}`}</strong>
+
+        <input
+          value={p.friendlyName}
+          onChange={e => {
+            const v = e.target.value;
+            setUiPlaceholders(prev =>
+              prev.map(x =>
+                x.placeholderKey === p.placeholderKey
+                  ? { ...x, friendlyName: v }
+                  : x
+              )
+            );
+          }}
+        />
+
+        <select
+          value={p.category}
+          onChange={e => {
+            const v = e.target.value;
+            setUiPlaceholders(prev =>
+              prev.map(x =>
+                x.placeholderKey === p.placeholderKey
+                  ? { ...x, category: v }
+                  : x
+              )
+            );
+          }}
+        >
+          <option>General</option>
+          <option>Company</option>
+          <option>Search</option>
+          <option>Output</option>
+        </select>
+
+        <select
+          value={p.inputType}
+          onChange={e => {
+            const v = e.target.value as any;
+            setUiPlaceholders(prev =>
+              prev.map(x =>
+                x.placeholderKey === p.placeholderKey
+                  ? { ...x, inputType: v }
+                  : x
+              )
+            );
+          }}
+        >
+          <option value="text">Text</option>
+          <option value="textarea">Textarea</option>
+          <option value="richtext">Rich Text</option>
+        </select>
+
+        <select
+          value={p.uiSize}
+          onChange={e => {
+            const v = e.target.value as any;
+            setUiPlaceholders(prev =>
+              prev.map(x =>
+                x.placeholderKey === p.placeholderKey
+                  ? { ...x, uiSize: v }
+                  : x
+              )
+            );
+          }}
+        >
+          <option value="sm">SM</option>
+          <option value="md">MD</option>
+          <option value="lg">LG</option>
+          <option value="xl">XL</option>
+        </select>
+      </div>
+    ))}
+  </div>
 )}
+
 
 
   {instructionSubTab === "ct" && (

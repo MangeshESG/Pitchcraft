@@ -18,7 +18,7 @@ import "./MainPage.css";
 import Modal from "./common/Modal";
 import AppModal from "../components/common/AppModal";
 import pitchLogo from '../assets/images/pitch_logo.png';
-import Template from "./feature/Template"; // Add this import
+import Template from "./feature/blueprint/Template"; // Add this import
 
 import { useAppModal } from "../hooks/useAppModal";
 import { useSelector } from "react-redux";
@@ -40,7 +40,7 @@ import DataCampaigns from "./feature/ContactList"; // Adjust the path based on y
 import CampaignManagement from "./feature/CampaignManagement";
 import { useAppData } from "../contexts/AppDataContext";
 import { Dashboard } from "./feature/Dashboard";
-import EmailCampaignBuilder from "./feature/EmailCampaignBuilder";
+import EmailCampaignBuilder from "./feature/blueprint/EmailCampaignBuilder";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { saveUserCredit } from "../slices/authSLice";
 import { useCreditCheck } from "../hooks/useCreditCheck";
