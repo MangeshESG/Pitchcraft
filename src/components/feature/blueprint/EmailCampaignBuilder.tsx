@@ -1940,7 +1940,7 @@ const regenerateExampleOutput = async () => {
 
     });
 
-     showModal("Succuess","Template updated successfully.");
+      alert("Template updated successfully.");
       await loadTemplateDefinitions();
     } catch (err) {
       console.error("Update failed:", err);
