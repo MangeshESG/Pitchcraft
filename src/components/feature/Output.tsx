@@ -1986,6 +1986,24 @@ useEffect(() => {
                 </button>
               </li>
             </ul>
+            {!isDemoAccount && (
+              <div className="flex items-center" style={{marginRight:'890px'}}>
+                <label className="checkbox-label !mb-[0px] mr-[5px] flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={followupEnabled || false}
+                    onChange={(e) => {
+                      console.log('Checkbox clicked, new value:', e.target.checked);
+                      setFollowupEnabled?.(e.target.checked);
+                    }}
+                    className="!mr-0"
+                  />
+                      <span style={{ fontSize: "14px", whiteSpace: "nowrap" }}>
+                        Include email trail
+                      </span>
+                </label>
+              </div>
+            )}
           </div>
           {tab2 === "Output" && (
             <>

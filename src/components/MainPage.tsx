@@ -780,234 +780,13 @@ const MainPage: React.FC = () => {
     setUserRole(isAdmin ? "ADMIN" : "USER");
   }, []);
 
-  // Add a prompt
-  const [addPrompt, setAddPrompt] = useState({
-    promptName: "",
-    promptInput: "",
-    promptTemplate: "",
-  });
-  const [editPrompt, setEditPrompt] = useState({
-    promptName: "",
-    promptInput: "",
-    promptTemplate: "",
-  }) as any;
 
-  const addPromptHandler = (
-    e:
-      | React.ChangeEvent<HTMLInputElement>
-      | React.ChangeEvent<HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target;
 
-    setAddPrompt({
-      ...addPrompt,
-      [name]: value,
-    });
-  };
-  const editPromptHandler = (
-    e:
-      | React.ChangeEvent<HTMLInputElement>
-      | React.ChangeEvent<HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target;
 
-    setEditPrompt({
-      ...editPrompt,
-      [name]: value,
-    });
-  };
-  const addPromptSubmitHandler = (e: any) => {
-    e.preventDefault();
-    createPromptList();
-  };
-  const setEditHandler = () => {
-    setEditPrompt({
-      promptName: selectedPrompt?.name,
-      promptInput: selectedPrompt?.text,
-      promptTemplate: selectedPrompt?.template,
-    });
-  };
-  const editPromptSubmitHandler = (e: any) => {
-    e.preventDefault();
-    editPromptList();
-  };
 
-  const [editPromptAlert, setEditPromptAlert] = useState(false);
 
-  const editPromptList = useCallback(async () => {
-    if (
-      !editPrompt?.promptName ||
-      !editPrompt?.promptInput ||
-      !editPrompt?.promptTemplate
-    )
-      return;
 
-    // Determine which ID to use for the update
-    //  const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
-
-    if (!effectiveUserId || Number(effectiveUserId) <= 0) {
-      console.error("Invalid userId or clientID:", effectiveUserId);
-      return;
-    }
-
-    const id = selectedPrompt?.id; // Get the ID from selectedPrompt
-
-    if (!id || Number(id) <= 0) {
-      console.error("Invalid prompt ID:", id);
-      return;
-    }
-
-    const dataToSend = {
-      id: id, // Include the ID for the update
-      name: editPrompt?.promptName,
-      text: editPrompt?.promptInput,
-      userId: effectiveUserId, // Use the determined ID
-      createdAt: "2025-02-12T15:15:53.666Z", // This should be updated or removed based on your backend requirements
-      template: editPrompt?.promptTemplate,
-    };
-
-    try {
-      const res = await axios.post(
-        `${API_BASE_URL}/api/auth/updateprompt`,
-        dataToSend,
-        { headers: { "Content-Type": "application/json" } }
-      );
-
-      console.log("Prompt updated successfully:", res);
-      setEditPrompt({ promptName: "", promptInput: "", promptTemplate: "" }); // Reset the form
-      setEditPromptAlert((prev) => !prev);
-      setTimeout(() => {
-        setEditPromptAlert((prev) => !prev);
-      }, 3000);
-      await fetchPromptsList(); // Refresh the prompt list
-    } catch (error: any) {
-      console.error(
-        "Error updating prompt:",
-        error.response?.data || error.message
-      );
-      // Handle error, display message to user, etc.
-    }
-  }, [
-    editPrompt?.promptInput,
-    editPrompt?.promptName,
-    editPrompt?.promptTemplate,
-    selectedPrompt?.id,
-    userId,
-    selectedClient,
-    fetchPromptsList,
-    setEditPrompt,
-    setEditPromptAlert,
-  ]);
-
-  const [addPromptAlert, setAddPromptAlert] = useState(false);
-
-  const createPromptList = useCallback(async () => {
-    if (!addPrompt?.promptName || !addPrompt?.promptInput) return;
-
-    // Determine which ID to use for the creation
-    const effectiveUserId =
-      selectedClient !== "" ? Number(selectedClient) : Number(userId);
-
-    if (!effectiveUserId || effectiveUserId <= 0) {
-      console.error("Invalid userId or clientID:", effectiveUserId);
-      return;
-    }
-
-    const dataToSend = {
-      name: addPrompt.promptName,
-      text: addPrompt.promptInput,
-      userId: effectiveUserId, // Use the determined ID
-      createdAt: new Date().toISOString(),
-      template: addPrompt.promptTemplate,
-    };
-
-    try {
-      const res = await axios.post(
-        `${API_BASE_URL}/api/auth/addprompt`,
-        dataToSend,
-        { headers: { "Content-Type": "application/json" } }
-      );
-
-      console.log("Prompt created successfully:", res);
-      setAddPrompt({ promptName: "", promptInput: "", promptTemplate: "" });
-      setAddPromptAlert((prev) => !prev);
-      setTimeout(() => {
-        setAddPromptAlert((prev) => !prev);
-      }, 3000);
-      await fetchPromptsList();
-    } catch (error) {
-      console.error("Error creating prompt:", error);
-    }
-  }, [
-    addPrompt,
-    userId,
-    selectedClient,
-    fetchPromptsList,
-    setAddPrompt,
-    setAddPromptAlert,
-  ]);
-
-  const deletePromptHandler = async () => {
-    if (!selectedPrompt) {
-      console.error("No prompt selected to delete.");
-      return;
-    }
-
-    // Determine which ID to use for the deletion
-    const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
-
-    if (!effectiveUserId || Number(effectiveUserId) <= 0) {
-      console.error("Invalid userId or clientID:", effectiveUserId);
-      return;
-    }
-
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/auth/deleteprompt/${selectedPrompt.id}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ userId: Number(effectiveUserId) }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `HTTP error! status: ${response.status}, message: ${errorText}`
-        );
-      }
-
-      // Get the updated prompt list from the API
-      let updatedPromptsResponse;
-      if (selectedClient !== "") {
-        updatedPromptsResponse = await fetch(
-          `${API_BASE_URL}/api/auth/getprompts/${selectedClient}`
-        );
-      } else {
-        updatedPromptsResponse = await fetch(apiUrl);
-      }
-
-      if (!updatedPromptsResponse.ok) {
-        const errorText = await updatedPromptsResponse.text();
-        throw new Error(
-          `HTTP error fetching prompts: ${updatedPromptsResponse.status}, message: ${errorText}`
-        );
-      }
-
-      const updatedPromptList = await updatedPromptsResponse.json();
-      setPromptList(updatedPromptList); // Update the promptList state
-      handleModalClose("modal-confirm-delete");
-
-      console.log("Prompt deleted and prompt list updated:", updatedPromptList);
-      setSelectedPrompt(null); // Clear the selected prompt
-    } catch (error) {
-      console.error("Error deleting prompt or fetching updated list:", error);
-      // Handle error, e.g., show message to user
-    }
-  };
+ 
 
   const tabHandler = (e: React.MouseEvent<HTMLButtonElement>) => {
     const { innerText } = e.currentTarget;
@@ -1204,6 +983,7 @@ const MainPage: React.FC = () => {
       linkedin_url: entry.linkedin_url || entry.linkedin || "",
       website: entry.website || "",
       date: currentDate,
+      notes: entry.notes || "",
 
       // ✅ Add here, with optional default
       search_output_summary: scrappedData || "",
@@ -1227,7 +1007,8 @@ const MainPage: React.FC = () => {
     async (
       zohoviewId: string, // Format: "clientId,dataFileId" OR "segment_segmentId"
       pageToken: string | null = null,
-      direction: "next" | "previous" | null = null
+      direction: "next" | "previous" | null = null,
+      forceFollowup?: boolean
     ) => {
       try {
 
@@ -1254,7 +1035,7 @@ const MainPage: React.FC = () => {
           console.log("Fetching segment contacts for segmentId:", segmentId);
 
           // ✅ Fetch from segment API
-          const url = `${API_BASE_URL}/api/Crm/segment/${segmentId}/contacts`;
+          const url = `${API_BASE_URL}/api/Crm/contacts/by-client-segment?clientId=${effectiveUserId}&segmentId=${segmentId}&isFollowUp=${forceFollowup ?? followupEnabled}`;
           const response = await fetch(url);
 
           if (!response.ok) {
@@ -1262,7 +1043,7 @@ const MainPage: React.FC = () => {
           }
 
           const fetchedSegmentData = await response.json();
-          contactsData = fetchedSegmentData || [];
+          contactsData = fetchedSegmentData.contacts || [];
           console.log("Fetched segment contacts:", contactsData);
         } else {
           // ✅ Original datafile logic (unchanged)
@@ -1271,7 +1052,7 @@ const MainPage: React.FC = () => {
           dataFileId = extractedDataFileId;
 
           // Use effectiveUserId instead of selectedClient in URL
-          const url = `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${dataFileId}&isFollowUp=${followupEnabled}`;
+          const url = `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${dataFileId}&isFollowUp=${forceFollowup ?? followupEnabled}`;
           const response = await fetch(url);
 
           if (!response.ok) {
@@ -1290,6 +1071,7 @@ const MainPage: React.FC = () => {
           console.error("Invalid data format");
           return;
         }
+        debugger;
         const emailResponses = contactsData.map((entry: any) => ({
           id: entry.id,
           dataFileId: dataFileId || entry.dataFileId || "null", // Add dataFileId to response
@@ -1309,6 +1091,7 @@ const MainPage: React.FC = () => {
           email: entry.email || "N/A",
           lastemailupdateddate: entry.updated_at || "N/A",
           emailsentdate: entry.email_sent_at || "N/A",
+          notes: entry.notes || "",
         }));
 
         const newItemsCount = emailResponses.length;
@@ -1346,7 +1129,8 @@ const MainPage: React.FC = () => {
     },
     [selectedClient, userId, followupEnabled]
   );
-debugger;
+
+
   // Refetch data when followup checkbox changes
   useEffect(() => {
     if (selectedZohoviewId) {
@@ -1553,7 +1337,7 @@ debugger;
 
     const replaceAllPlaceholders = (
       text: string,
-      replacements: Record<string, string>
+      replacements: { [key: string]: any }
     ) => {
       if (!text) return "";
 
@@ -1719,6 +1503,9 @@ debugger;
         });
         // --- Generate new pitch as per your normal contact process ---
         let replacements = buildReplacements(entry, currentDate, toneSettings);
+
+        replacements.notes = entry.notes || "";
+
 
         const searchTermBody = replaceAllPlaceholders(searchterm, replacements);
 
@@ -2423,6 +2210,8 @@ debugger;
             currentDate,
             toneSettings
           );
+          replacements.notes = entry.notes || "";
+
 
           const searchTermBody = replaceAllPlaceholders(
             searchterm,
@@ -3162,48 +2951,7 @@ debugger;
     output: "",
   });
 
-  const searchTermFormOnSubmit = async (e: any) => {
-    e.preventDefault();
-    try {
-      const requestBody = searchTermForm.searchTerm; // Send only the search term in the body
 
-      const instructionsParam = encodeURIComponent(searchTermForm.instructions); // Encode to prevent URL issues
-      const modelNameParam = encodeURIComponent(selectedModelName);
-      const searchCountParam = encodeURIComponent(searchTermForm.searchCount);
-
-      const response = await fetch(
-        `${API_BASE_URL}/api/auth/process?instructions=${instructionsParam}&modelName=${modelNameParam}&searchCount=${searchCountParam}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(requestBody),
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        console.error("API Error:", data);
-        setSearchTermForm((prevForm: any) => ({
-          ...prevForm,
-          output: "Error processing request",
-        }));
-      } else {
-        setSearchTermForm((prevForm: any) => ({
-          ...prevForm,
-          output: data.response.content,
-        }));
-      }
-    } catch (error) {
-      console.error("Error:", error);
-      setSearchTermForm((prevForm: any) => ({
-        ...prevForm,
-        output: "Error processing request",
-      }));
-    }
-  };
 
   const [settingsForm, setSettingsForm] = useState({
     emailTemplate: "",
@@ -3233,71 +2981,7 @@ debugger;
         [name]: newValue,
       }));
     },
-    [] // Empty dependency array
-  );
-
-  const settingsFormOnSubmit = (e: any) => {
-    e.preventDefault();
-    console.log(outputForm, "outputForm");
-    console.log(settingsForm, "settingForm");
-  };
-
-  // To handle RTE change
-  const handleViewPromptRTE = useCallback(
-    (value: string) => {
-      if (selectedPrompt) {
-        setSelectedPrompt((prev) => ({
-          ...prev!,
-          text: value,
-        }));
-      }
-    },
-    [selectedPrompt]
-  );
-
-  const handleEditPromptInputRTE = useCallback(
-    (value: string) => {
-      if (editPrompt) {
-        setEditPrompt((prev: any) => ({
-          ...prev!,
-          promptInput: value,
-        }));
-      }
-    },
-    [editPrompt]
-  );
-  const handleEditPromptTemplateRTE = useCallback(
-    (value: string) => {
-      if (editPrompt) {
-        setEditPrompt((prev: any) => ({
-          ...prev!,
-          promptTemplate: value,
-        }));
-      }
-    },
-    [editPrompt]
-  );
-  const handleAddPromptInPutRTE = useCallback(
-    (value: string) => {
-      if (addPrompt) {
-        setAddPrompt((prev) => ({
-          ...prev!,
-          promptInput: value,
-        }));
-      }
-    },
-    [addPrompt]
-  );
-  const handleAddPromptTemplateRTE = useCallback(
-    (value: string) => {
-      if (addPrompt) {
-        setAddPrompt((prev) => ({
-          ...prev!,
-          promptTemplate: value,
-        }));
-      }
-    },
-    [addPrompt]
+    [] 
   );
 
   // Convert line break to br

@@ -492,8 +492,18 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
 
 }) => {
 const [isGenerating, setIsGenerating] = useState(false);
+const [editableExampleOutput, setEditableExampleOutput] = useState<string>("");
 
 const [placeholderConfirmed, setPlaceholderConfirmed] = useState(false);
+
+
+useEffect(() => {
+  if (exampleOutput) {
+    setEditableExampleOutput(exampleOutput);
+  }
+}, [exampleOutput]);
+
+
 useEffect(() => {
   if (!messages.length) return;
 
@@ -509,7 +519,51 @@ useEffect(() => {
   }
 }, [messages]);
 
-  
+  const ExampleEmailEditor = ({
+  value,
+  onChange
+}: {
+  value: string;
+  onChange: (val: string) => void;
+}) => {
+  const editorRef = React.useRef<HTMLDivElement | null>(null);
+  const localDraft = React.useRef<string>("");
+
+  // Load value ONLY when backend/regenerate changes
+  React.useEffect(() => {
+    if (!editorRef.current) return;
+    editorRef.current.innerHTML = value || "";
+    localDraft.current = value || "";
+  }, [value]);
+
+  return (
+    <div
+      ref={editorRef}
+      contentEditable
+      suppressContentEditableWarning
+      className="example-content"
+      style={{
+        minHeight: "320px",
+        padding: "16px",
+        border: "1px solid #e5e7eb",
+        borderRadius: "8px",
+        background: "#ffffff",
+        outline: "none",
+        lineHeight: "1.6",
+        fontFamily: "Calibri, Arial, sans-serif"
+      }}
+      onInput={() => {
+        if (editorRef.current) {
+          localDraft.current = editorRef.current.innerHTML;
+        }
+      }}
+      onBlur={() => {
+        onChange(localDraft.current); // ✅ Save text to state only on blur
+      }}
+    />
+  );
+};
+
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -579,46 +633,49 @@ const closeModal = () => {
   }, [currentPage, contacts]);
 
 
-    const saveExampleEmail = async () => {
-      try {
-        const storedId = sessionStorage.getItem("newCampaignId");
-        const activeCampaignId =
-          editTemplateId ?? (storedId ? Number(storedId) : null);
+const saveExampleEmail = async () => {
+  try {
+    const storedId = sessionStorage.getItem("newCampaignId");
+    const activeCampaignId =
+      editTemplateId ?? (storedId ? Number(storedId) : null);
 
         if (!activeCampaignId) {
           showModal("Warning", "No campaign instance found.");
           return;
         }
+    if (!activeCampaignId) {
+      alert("No campaign instance found.");
+      return;
+    }
 
         if (!exampleOutput) {
           showModal("Warning", "No generated email to save.");
           return;
         }
+    if (!editableExampleOutput.trim()) {
+      alert("Example email is empty.");
+      return;
+    }
 
-        // 1️⃣ clone current placeholder values
-        const updatedPlaceholders = {
-          ...placeholderValues,
-          example_output: exampleOutput
-        };
-
-        // 2️⃣ build PlaceholderListWithValue string
-        const placeholderListWithValue = Object.entries(updatedPlaceholders)
-          .map(([key, value]) => `{${key}}} = ${value}`)
-          .join(" ");
-
-        // 3️⃣ save ONLY these two fields
-        await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
-          id: activeCampaignId,
-          placeholderValues: updatedPlaceholders,
-          placeholderListWithValue: placeholderListWithValue
-        });
-
-         showModal("Success", "✅ Example email saved into placeholders successfully!");
-      } catch (err) {
-        console.error("Failed to save example email:", err);
-         showModal("Error", "❌ Failed to save example email.");
+    // ✅ Send example_output as a placeholder
+    await axios.post(
+      `${API_BASE_URL}/api/CampaignPrompt/template/update-placeholders`,
+      {
+        templateId: activeCampaignId,
+        placeholderValues: {
+          example_output_email: editableExampleOutput
+        }
       }
-    };
+    );
+
+    alert("✅ Example email saved successfully!");
+  } catch (error) {
+    console.error("❌ Save example output failed:", error);
+    alert("Failed to save example email.");
+  }
+};
+
+
 
 
 
@@ -741,170 +798,226 @@ const closeModal = () => {
       onClose={closeModal}
     />
 
-        {/* ===================== EXAMPLE OUTPUT SECTION ===================== */}
-        {isSectionOpen && (
-          <div className="example-section">
-            <div className="example-header">
-              <div className="example-datafile-section" style={{marginTop:"10px"}}>
-                <label>Contact list</label>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "-20px" }}>
-                  <select
-                    className="datafile-dropdown"
-                    value={selectedDataFileId || ""}
-                    onChange={e => handleSelectDataFile(Number(e.target.value))}
-                    style={{
-                      width: "180px",
-                      height: "35px",
-                      fontSize: "14px",
-                      padding: "6px 10px",
-                      borderRadius: "6px",
-                      border: "1px solid #ccc",
-                      appearance: "none"
-                    }}
-                  >
-                    <option value="">-- Select contact file --</option>
-                    {dataFiles.map(df => (
-                      <option key={df.id} value={df.id}>{df.name}</option>
-                    ))}
-                  </select>
-                  <div className="pagination-wrapper example-pagination" style={{ marginTop: "-20px" }} >
-                    <PaginationControls
-                      currentPage={currentPage}
-                      totalPages={totalPages}
-                      pageSize={rowsPerPage}
-                      totalRecords={contacts.length}
-                      setCurrentPage={setCurrentPage}
-                      setPageSize={setPageSize}
-                      showPageSizeDropdown={false}
-                      pageLabel="Contact:"
-                    /></div>
-                </div>
-              </div>
+              {/* ===================== EXAMPLE OUTPUT SECTION ===================== */}
+      <ExampleOutputPanel
+        isSectionOpen={isSectionOpen}
+        setIsSectionOpen={setIsSectionOpen}
+        
+        dataFiles={dataFiles}
+        contacts={contacts}
+        selectedDataFileId={selectedDataFileId}
+        selectedContactId={selectedContactId}
+        handleSelectDataFile={handleSelectDataFile}
+        setSelectedContactId={setSelectedContactId}
+        applyContactPlaceholders={applyContactPlaceholders}
 
+        exampleOutput={exampleOutput}
+        editableExampleOutput={editableExampleOutput}
+        setEditableExampleOutput={setEditableExampleOutput}
+        saveExampleEmail={saveExampleEmail}
+
+        regenerateExampleOutput={regenerateExampleOutput}
+        isGenerating={isGenerating}
+
+        currentPage={currentPage}
+        totalPages={totalPages}
+        setCurrentPage={setCurrentPage}
+
+        rowsPerPage={rowsPerPage}              // ⭐ FIX
+        setPageSize={setPageSize}              // ⭐ FIX
+
+        activeMainTab={activeMainTab}
+        setActiveMainTab={setActiveMainTab}
+
+        activeSubStageTab={activeSubStageTab}  // ⭐ FIX
+        setActiveSubStageTab={setActiveSubStageTab} // ⭐ FIX
+
+        filledTemplate={filledTemplate}
+        searchResults={searchResults}
+        allSourcedData={allSourcedData}
+        sourcedSummary={sourcedSummary}
+
+        ExampleEmailEditor={ExampleEmailEditor} // ⭐ FIX
+      />
+
+
+      </div>
+    </div>
+  );
+};
+
+// ====================================================================
+// REUSABLE EXAMPLE OUTPUT PANEL COMPONENT
+// ====================================================================
+interface ExampleOutputPanelProps {
+  // panel visibility
+  isSectionOpen: boolean;
+  setIsSectionOpen: (value: boolean) => void;
+
+  // generation state
+  isGenerating: boolean;                      // ✅ FIXED
+  regenerateExampleOutput?: () => Promise<void> | void;
+
+  // output fields
+  exampleOutput?: string;
+  editableExampleOutput: string;
+  setEditableExampleOutput: (v: string) => void;
+  saveExampleEmail: () => Promise<void>;
+
+  // contact + data file
+  dataFiles: any[];
+  contacts: any[];
+  selectedDataFileId: number | null;
+  selectedContactId: number | null;
+  handleSelectDataFile: (id: number) => void;
+  setSelectedContactId: React.Dispatch<React.SetStateAction<number | null>>;
+  applyContactPlaceholders: (c: any) => void;
+
+  // pagination
+  currentPage: number;
+  totalPages: number;
+  rowsPerPage: number;
+  setCurrentPage: (v: number) => void;
+  setPageSize: (v: number) => void;
+
+  // tabs
+  activeMainTab: "output" | "pt" | "stages";
+  setActiveMainTab: (t: "output" | "pt" | "stages") => void;
+
+  activeSubStageTab: "search" | "data" | "summary";
+  setActiveSubStageTab: (t: "search" | "data" | "summary") => void;
+
+
+  // PT tab
+  filledTemplate: string;
+
+  // Stages tab
+  searchResults: string[];
+  allSourcedData: string;
+  sourcedSummary: string;
+
+  // Editor component
+  ExampleEmailEditor: any;
+}
+
+
+
+const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
+  isSectionOpen,
+  dataFiles,
+  contacts,
+  selectedDataFileId,
+  selectedContactId,
+  handleSelectDataFile,
+  setSelectedContactId,
+  applyContactPlaceholders,
+  currentPage,
+  totalPages,
+  rowsPerPage,
+  setCurrentPage,
+  setPageSize,
+  editableExampleOutput,
+  setEditableExampleOutput,
+  saveExampleEmail,
+  isGenerating,
+  regenerateExampleOutput,
+  activeMainTab,
+  setActiveMainTab,
+  activeSubStageTab,
+  setActiveSubStageTab,
+  filledTemplate,
+  searchResults,
+  allSourcedData,
+  sourcedSummary,
+  ExampleEmailEditor
+}) => {
+  if (!isSectionOpen) return null;
+
+  const safe = (v: any) => (v?.trim ? v.trim() : v) || "NA";
+  const selectedContact = contacts.find(c => c.id === selectedContactId);
+
+  return (
+    <div className="example-section">
+
+      {/* ===================== HEADER ===================== */}
+      <div className="example-header">
+        <div className="example-datafile-section" style={{ marginTop: "10px" }}>
+          <label>Contact list</label>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "-20px" }}>
+            <select
+              className="datafile-dropdown"
+              value={selectedDataFileId || ""}
+              onChange={(e) => handleSelectDataFile(Number(e.target.value))}
+              style={{
+                width: "180px",
+                height: "35px",
+                fontSize: "14px",
+                padding: "6px 10px",
+                borderRadius: "6px",
+                border: "1px solid #ccc",
+                appearance: "none"
+              }}
+            >
+              <option value="">-- Select contact file --</option>
+              {dataFiles.map(df => (
+                <option key={df.id} value={df.id}>{df.name}</option>
+              ))}
+            </select>
+
+            <div className="pagination-wrapper example-pagination" style={{ marginTop: "-20px" }}>
+              <PaginationControls
+                currentPage={currentPage}
+                totalPages={totalPages}
+                pageSize={rowsPerPage}
+                totalRecords={contacts.length}
+                setCurrentPage={setCurrentPage}
+                setPageSize={setPageSize}
+              />
             </div>
-            {selectedContactId && (
-              <div className="contact-row-wrapper" style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "-15px", backgroundColor: " #f5f6fa" }}>
-                {/* Contact Details */}
-                {(() => {
-                  const contact = contacts.find(c => c.id === selectedContactId);
-                  if (!contact) return null;
+          </div>
+        </div>
+      </div>
 
-                  const safe = (val: string | null | undefined) => val?.trim() || "NA";
+      {/* ===================== CONTACT DETAILS ROW ===================== */}
+      {selectedContact && (
+        <div className="contact-row-wrapper"
+             style={{
+               display: "flex",
+               alignItems: "center",
+               gap: "12px",
+               marginTop: "-15px",
+               backgroundColor: " #f5f6fa"
+             }}>
 
-                  return (
-                    <div className="contact-details" style={{ display: "flex", gap: "8px", flexWrap: "wrap", border: "1px solid #d1d5db", padding: "10px 10px", borderRadius: "8px", backgroundColor: "#f9fafb", alignItems: "inherit" }}>
-                      <span>{safe(contact.full_name)}</span> •
-                      <span>{safe(contact.job_title)}</span> •
-                      <span>{safe(contact.company_name)}</span> •
-                      <span>{safe(contact.country_or_address)}</span>
-                      <ReactTooltip
-                        anchorSelect="#website-icon-tooltip"
-                        place="top"
-                      >
-                        Open company website
-                      </ReactTooltip>
-                      <span className="inline-block relative  mr-[3px]">
-                        <svg
-                          id="website-icon-tooltip"
-                          width="26px"
-                          height="26px"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            fill-rule="evenodd"
-                            clip-rule="evenodd"
-                            d="M9.83824 18.4467C10.0103 18.7692 10.1826 19.0598 10.3473 19.3173C8.59745 18.9238 7.07906 17.9187 6.02838 16.5383C6.72181 16.1478 7.60995 15.743 8.67766 15.4468C8.98112 16.637 9.40924 17.6423 9.83824 18.4467ZM11.1618 17.7408C10.7891 17.0421 10.4156 16.1695 10.1465 15.1356C10.7258 15.0496 11.3442 15 12.0001 15C12.6559 15 13.2743 15.0496 13.8535 15.1355C13.5844 16.1695 13.2109 17.0421 12.8382 17.7408C12.5394 18.3011 12.2417 18.7484 12 19.0757C11.7583 18.7484 11.4606 18.3011 11.1618 17.7408ZM9.75 12C9.75 12.5841 9.7893 13.1385 9.8586 13.6619C10.5269 13.5594 11.2414 13.5 12.0001 13.5C12.7587 13.5 13.4732 13.5593 14.1414 13.6619C14.2107 13.1384 14.25 12.5841 14.25 12C14.25 11.4159 14.2107 10.8616 14.1414 10.3381C13.4732 10.4406 12.7587 10.5 12.0001 10.5C11.2414 10.5 10.5269 10.4406 9.8586 10.3381C9.7893 10.8615 9.75 11.4159 9.75 12ZM8.38688 10.0288C8.29977 10.6478 8.25 11.3054 8.25 12C8.25 12.6946 8.29977 13.3522 8.38688 13.9712C7.11338 14.3131 6.05882 14.7952 5.24324 15.2591C4.76698 14.2736 4.5 13.168 4.5 12C4.5 10.832 4.76698 9.72644 5.24323 8.74088C6.05872 9.20472 7.1133 9.68686 8.38688 10.0288ZM10.1465 8.86445C10.7258 8.95042 11.3442 9 12.0001 9C12.6559 9 13.2743 8.95043 13.8535 8.86447C13.5844 7.83055 13.2109 6.95793 12.8382 6.2592C12.5394 5.69894 12.2417 5.25156 12 4.92432C11.7583 5.25156 11.4606 5.69894 11.1618 6.25918C10.7891 6.95791 10.4156 7.83053 10.1465 8.86445ZM15.6131 10.0289C15.7002 10.6479 15.75 11.3055 15.75 12C15.75 12.6946 15.7002 13.3521 15.6131 13.9711C16.8866 14.3131 17.9412 14.7952 18.7568 15.2591C19.233 14.2735 19.5 13.1679 19.5 12C19.5 10.8321 19.233 9.72647 18.7568 8.74093C17.9413 9.20477 16.8867 9.6869 15.6131 10.0289ZM17.9716 7.46178C17.2781 7.85231 16.39 8.25705 15.3224 8.55328C15.0189 7.36304 14.5908 6.35769 14.1618 5.55332C13.9897 5.23077 13.8174 4.94025 13.6527 4.6827C15.4026 5.07623 16.921 6.08136 17.9716 7.46178ZM8.67765 8.55325C7.61001 8.25701 6.7219 7.85227 6.02839 7.46173C7.07906 6.08134 8.59745 5.07623 10.3472 4.6827C10.1826 4.94025 10.0103 5.23076 9.83823 5.5533C9.40924 6.35767 8.98112 7.36301 8.67765 8.55325ZM15.3224 15.4467C15.0189 16.637 14.5908 17.6423 14.1618 18.4467C13.9897 18.7692 13.8174 19.0598 13.6527 19.3173C15.4026 18.9238 16.921 17.9186 17.9717 16.5382C17.2782 16.1477 16.3901 15.743 15.3224 15.4467ZM12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21Z"
-                            fill="#3f9f42"
-                          />
-                        </svg>
-                      </span>
-                      <ReactTooltip anchorSelect="#li-icon-tooltip" place="top">
-                        Open this contact in LinkedIn
-                      </ReactTooltip>
-                      <svg
-                        id="li-icon-tooltip"
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="20px"
-                        height="22px"
-                        viewBox="0 0 24 24"
-                        fill="#333333"
-                        style={{ marginTop: "3px" }}
-                      >
-                        <path
-                          d="M6.5 8C7.32843 8 8 7.32843 8 6.5C8 5.67157 7.32843 5 6.5 5C5.67157 5 5 5.67157 5 6.5C5 7.32843 5.67157 8 6.5 8Z"
-                          fill="#3f9f42"
-                        ></path>
-                        <path
-                          d="M5 10C5 9.44772 5.44772 9 6 9H7C7.55228 9 8 9.44771 8 10V18C8 18.5523 7.55228 19 7 19H6C5.44772 19 5 18.5523 5 18V10Z"
-                          fill="#3f9f42"
-                        ></path>
-                        <path
-                          d="M11 19H12C12.5523 19 13 18.5523 13 18V13.5C13 12 16 11 16 13V18.0004C16 18.5527 16.4477 19 17 19H18C18.5523 19 19 18.5523 19 18V12C19 10 17.5 9 15.5 9C13.5 9 13 10.5 13 10.5V10C13 9.44771 12.5523 9 12 9H11C10.4477 9 10 9.44772 10 10V18C10 18.5523 10.4477 19 11 19Z"
-                          fill="#3f9f42"
-                        ></path>
-                        <path
-                          fillRule="evenodd"
-                          clipRule="evenodd"
-                          d="M20 1C21.6569 1 23 2.34315 23 4V20C23 21.6569 21.6569 23 20 23H4C2.34315 23 1 21.6569 1 20V4C1 2.34315 2.34315 1 4 1H20ZM20 3C20.5523 3 21 3.44772 21 4V20C21 20.5523 20.5523 21 20 21H4C3.44772 21 3 20.5523 3 20V4C3 3.44772 3.44772 3 4 3H20Z"
-                          fill="#3f9f42"
-                        ></path>
-                      </svg>
-                      <ReactTooltip
-                        anchorSelect="#email-icon-tooltip"
-                        place="top"
-                      >
-                        Open this email in your local email client
-                      </ReactTooltip>  <svg
-                        id="email-icon-tooltip"
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="33px"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          clipRule="evenodd"
-                          d="M3.75 5.25L3 6V18L3.75 18.75H20.25L21 18V6L20.25 5.25H3.75ZM4.5 7.6955V17.25H19.5V7.69525L11.9999 14.5136L4.5 7.6955ZM18.3099 6.75H5.68986L11.9999 12.4864L18.3099 6.75Z"
-                          fill="#3f9f42"
-                        ></path>
-                      </svg>
-                    </div>
-                  );
-                })()}
+          <div
+            className="contact-details"
+            style={{
+              display: "flex",
+              gap: "8px",
+              flexWrap: "wrap",
+              border: "1px solid #d1d5db",
+              padding: "10px 10px",
+              borderRadius: "8px",
+              backgroundColor: "#f9fafb",
+            }}
+          >
+            <span>{safe(selectedContact.full_name)}</span> •
+            <span>{safe(selectedContact.job_title)}</span> •
+            <span>{safe(selectedContact.company_name)}</span> •
+            <span>{safe(selectedContact.country_or_address)}</span>
+          </div>
 
-              {/* Generate Button BESIDE contact details */}
+          {/* GENERATE BUTTON */}
           <button
             className="regenerate-btn"
-            disabled={!conversationStarted || isGenerating}
+            disabled={isGenerating}
             onClick={async () => {
-              if (!selectedContactId) {
-                showModal("Warning","Please select a contact before generating.");
-                return;
+              await applyContactPlaceholders(selectedContact);
+              if (regenerateExampleOutput) {
+                await regenerateExampleOutput();
               }
 
-              const contact = contacts.find(c => c.id === selectedContactId);
-              if (!contact) {
-                showModal("Error","Invalid contact selection.");
-                return;
-              }
-
-              try {
-                setIsGenerating(true); // 🔥 Start loader
-
-                await applyContactPlaceholders(contact);
-
-                if (regenerateExampleOutput) {
-                  await regenerateExampleOutput();
-                }
-
-              } catch (error) {
-                console.error("Generate failed:", error);
-                showModal("Error","Failed to generate output. Please try again.");
-              } finally {
-                setIsGenerating(false); // 🔥 Stop loader
-              }
             }}
           >
             {isGenerating ? (
@@ -916,157 +1029,124 @@ const closeModal = () => {
               "Preview email"
             )}
           </button>
+        </div>
+      )}
 
+      {/* ===================== TABS HEADER ===================== */}
+      <div
+        className="example-tabs"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "10px"
+        }}
+      >
+        <div style={{ display: "flex", gap: "12px" }}>
+          {["output", "pt", "stages"].map((t) => (
+            <button
+              key={t}
+              className={`stage-tab-btn ${activeMainTab === t ? "active" : ""}`}
+              onClick={() => setActiveMainTab(t as any)}
+            >
+              {t.toUpperCase()}
+            </button>
+          ))}
+        </div>
 
+        {activeMainTab === "output" && editableExampleOutput && (
+          <button
+            onClick={saveExampleEmail}
+            style={{
+              padding: "6px 14px",
+              background: "#2563eb",
+              color: "white",
+              borderRadius: "6px",
+              fontSize: "14px",
+              fontWeight: 600
+            }}
+          >
+            💾 Save Email
+          </button>
+        )}
+      </div>
+
+      {/* ===================== OUTPUT TAB ===================== */}
+      {activeMainTab === "output" && (
+        <div className="example-body">
+          {editableExampleOutput ? (
+            <ExampleEmailEditor value={editableExampleOutput} onChange={setEditableExampleOutput} />
+          ) : (
+            <div className="example-placeholder">
+              <p>📧 Example output will appear here</p>
             </div>
           )}
+        </div>
+      )}
 
+      {/* ===================== PT TAB ===================== */}
+      {activeMainTab === "pt" && (
+        <div className="example-body">
+          {filledTemplate ? (
+            <pre className="filled-template-box">{filledTemplate}</pre>
+          ) : (
+            <p className="example-placeholder">🔧 Filled Template will appear here</p>
+          )}
+        </div>
+      )}
 
-            {/* === Tabs for Example Output === */}
-<div
-  className="example-tabs"
-  style={{
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "10px"
-  }}
->
-  {/* LEFT: Tabs */}
-  <div style={{ display: "flex", gap: "12px" }}>
-    {["Output", "PT", "Stages"].map(tab => (
-      <button
-        key={tab}
-        className={`stage-tab-btn ${activeMainTab === tab.toLowerCase() ? "active" : ""}`}
-        onClick={() =>
-          setActiveMainTab(
-            tab.toLowerCase() as "output" | "pt" | "stages"
-          )
-        }
-      >
-        {tab}
-      </button>
-    ))}
-  </div>
+      {/* ===================== STAGES TAB ===================== */}
+      {activeMainTab === "stages" && (
+        <div className="stages-container">
+          <div className="stage-tabs">
+            {["search", "data", "summary"].map((t) => (
+              <button
+                key={t}
+                className={`stage-tab ${activeSubStageTab === t ? "active" : ""}`}
+                onClick={() => setActiveSubStageTab(t as any)}
+              >
+                {t === "search"
+                  ? "Search Results"
+                  : t === "data"
+                  ? "All Sourced Data"
+                  : "Sourced Data Summary"}
+              </button>
+            ))}
+          </div>
 
-  {/* RIGHT: Save Button (Only for Output tab & only when output exists) */}
-  {activeMainTab === "output" && exampleOutput && (
-    <button
-      onClick={saveExampleEmail}
-       title="If this preview looks good then save it as the new 'Example output email'"
-      style={{
-        padding: "6px 14px",
-        background: "#3f9f42",
-        color: "white",
-        borderRadius: "6px",
-        fontSize: "14px",
-        fontWeight: 600,
-        cursor: "pointer"
-      }}
-    >
-      Save email
-    </button>
-  )}
-</div>
-
-
-            {/* === Main Tab Content === */}
-            {activeMainTab === "output" && (
-              <div className="example-body">
-                {exampleOutput ? (
-                  <div
-                    className="example-content"
-                    dangerouslySetInnerHTML={{ __html: exampleOutput }}
-                  />
+          <div className="stage-content">
+            {activeSubStageTab === "search" && (
+              <ul className="search-results-list">
+                {searchResults.length > 0 ? (
+                  searchResults.map((url, idx) => (
+                    <li key={idx}>
+                      <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                        {url}
+                      </a>
+                    </li>
+                  ))
                 ) : (
-                  <div className="example-placeholder">
-                    <p>📧 Example output will appear here</p>
-                  </div>
+                  <p>No search results available.</p>
                 )}
-              </div>
+              </ul>
             )}
 
-            {/* ⭐ FILLED TEMPLATE TAB */}
-          {activeMainTab === "pt" && (
-            <div className="example-body">
-              {filledTemplate ? (
-                <pre
-                  className="filled-template-box"
-                  style={{
-                    background: "#f8f9fa",
-                    padding: "15px",
-                    borderRadius: "8px",
-                    maxHeight: "70vh",
-                    overflowY: "auto",
-                    whiteSpace: "pre-wrap",
-                    fontSize: "14px"
-                  }}
-                >
-                  {filledTemplate}
-                </pre>
-              ) : (
-                <p className="example-placeholder">🔧 Filled Template will appear here</p>
-              )}
-            </div>
-          )}
+            {activeSubStageTab === "data" && (
+              <pre className="all-sourced-data">{allSourcedData}</pre>
+            )}
 
-
-          
-
-            {activeMainTab === "stages" && (
-              <div className="stages-container">
-                <div className="stage-tabs">
-                  {["search", "data", "summary"].map(tab => (
-                    <button
-                      key={tab}
-                      className={`stage-tab ${activeSubStageTab === tab ? "active" : ""}`}
-                      onClick={() => setActiveSubStageTab(tab as 'search' | 'data' | 'summary')}
-                    >
-                      {tab === "search" ? "Search Results" :
-                        tab === "data" ? "All Sourced Data" :
-                          "Sourced Data Summary"}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="stage-content">
-                  {activeSubStageTab === "search" && (
-                    <ul className="search-results-list">
-                      {searchResults.length > 0 ? (
-                        searchResults.map((url: string, idx: number) => (
-                          <li key={idx}>
-                            <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                              {url}
-                            </a>
-                          </li>
-                        ))
-                      ) : (
-                        <p>No search results available.</p>
-                      )}
-                    </ul>
-                  )}
-
-                  {activeSubStageTab === "data" && (
-                    <pre className="all-sourced-data bg-gray-50 p-3 rounded-lg max-h-[400px] overflow-auto text-sm whitespace-pre-wrap">
-                      {allSourcedData || "No sourced data available."}
-                    </pre>
-                  )}
-
-                  {activeSubStageTab === "summary" && (
-                    <div className="sourced-summary bg-gray-50 p-4 rounded-lg leading-relaxed text-gray-800">
-                      {sourcedSummary || "No summary available."}
-                    </div>
-                  )}
-                </div>
+            {activeSubStageTab === "summary" && (
+              <div className="sourced-summary">
+                {sourcedSummary || "No summary available."}
               </div>
             )}
           </div>
-
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
+
 
 
 // ====================================================================
@@ -1127,23 +1207,133 @@ const [activeTab, setActiveTab] = useState<TabType>('build');
   const [searchURLCount, setSearchURLCount] = useState<number>(1);
   const [subjectInstructions, setSubjectInstructions] = useState<string>("");
  const [formValues, setFormValues] = useState<Record<string, string>>({});
- const [popupmodalInfo, setPopupmodalInfo] = useState({
-  open: false,
-  title: "",
-  message: "",
-});
-const showModal = (title: string, message: string) => {
-  setPopupmodalInfo({ open: true, title, message });
+
+ const [currentPage, setCurrentPage] = useState(1);
+const rowsPerPage = 1;
+const setPageSize = () => {};
+
+
+const totalPages = Math.max(1, Math.ceil((contacts.length || 1) / rowsPerPage));
+const [editableExampleOutput, setEditableExampleOutput] = useState("");
+const [isGenerating, setIsGenerating] = useState(false);
+const [activeMainTab, setActiveMainTab] = useState<"output" | "pt" | "stages">("output");
+
+const [activeSubStageTab, setActiveSubStageTab] =
+  useState<"search" | "data" | "summary">("summary");
+
+const saveExampleEmail = async () => {
+  try {
+    const storedId = sessionStorage.getItem("newCampaignId");
+    const activeCampaignId =
+      editTemplateId ?? (storedId ? Number(storedId) : null);
+
+    if (!activeCampaignId) {
+      alert("No campaign instance found.");
+      return;
+    }
+
+    if (!editableExampleOutput.trim()) {
+      alert("Example email is empty.");
+      return;
+    }
+
+    // ✅ Send example_output as a placeholder
+    await axios.post(
+      `${API_BASE_URL}/api/CampaignPrompt/template/update-placeholders`,
+      {
+        templateId: activeCampaignId,
+        placeholderValues: {
+          example_output: editableExampleOutput
+        }
+      }
+    );
+
+    alert("✅ Example email saved successfully!");
+  } catch (error) {
+    console.error("❌ Save example output failed:", error);
+    alert("Failed to save example email.");
+  }
 };
 
-const closeModal = () => {
-  setPopupmodalInfo(prev => ({ ...prev, open: false }));
+
+interface ExampleEmailEditorProps {
+  value: string;
+  onChange: (value: string) => void;
+}
+
+
+const ExampleEmailEditor = ({
+  value,
+  onChange
+}: {
+  value: string;
+  onChange: (val: string) => void;
+}) => {
+  const editorRef = React.useRef<HTMLDivElement | null>(null);
+  const localDraft = React.useRef<string>("");
+
+  React.useEffect(() => {
+    if (editorRef.current) {
+      editorRef.current.innerHTML = value || "";
+      localDraft.current = value || "";
+    }
+  }, [value]);
+
+  return (
+    <div
+      ref={editorRef}
+      contentEditable
+      suppressContentEditableWarning
+      className="example-content"
+      style={{
+        minHeight: "320px",
+        padding: "16px",
+        border: "1px solid #e5e7eb",
+        borderRadius: "8px",
+        background: "#ffffff",
+        outline: "none",
+        lineHeight: "1.6"
+      }}
+      onInput={() => {
+        if (editorRef.current) {
+          localDraft.current = editorRef.current.innerHTML;
+        }
+      }}
+      onBlur={() => {
+        onChange(localDraft.current);
+      }}
+    />
+  );
 };
+
+useEffect(() => {
+  if (currentPage > totalPages) {
+    setCurrentPage(totalPages);
+  }
+}, [totalPages]);
+
+useEffect(() => {
+  setEditableExampleOutput(exampleOutput || "");
+}, [exampleOutput]);
+
 
 useEffect(() => {
   setFormValues(placeholderValues);
 }, [placeholderValues]);
 
+
+// ⭐ Ensure contact switching works inside Elements tab also
+useEffect(() => {
+  if (activeTab !== "elements") return;
+
+  if (contacts.length > 0) {
+    const contact = contacts[(currentPage - 1) * rowsPerPage];
+    if (contact) {
+      setSelectedContactId(contact.id);
+      applyContactPlaceholders(contact);
+    }
+  }
+}, [currentPage, contacts, activeTab]);
 
 
 useEffect(() => {
@@ -1238,32 +1428,40 @@ useEffect(() => {
 const saveAllPlaceholders = async () => {
   try {
     const storedId = sessionStorage.getItem("newCampaignId");
-    const activeCampaignId = editTemplateId ?? (storedId ? Number(storedId) : null);
+    const activeTemplateId =
+      editTemplateId ?? (storedId ? Number(storedId) : null);
 
-    if (!activeCampaignId) {
-      showModal("Error","No campaign instance found.");
+    if (!activeTemplateId) {
+      alert("No campaign template found.");
       return;
     }
 
-    // separate conversation placeholders from contact placeholders
+    // ✅ only conversation placeholders (exclude contact placeholders)
     const conversationOnly = getConversationPlaceholders(formValues);
 
-    await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
-      id: activeCampaignId,
-      placeholderValues: conversationOnly
-    });
+    await axios.post(
+      `${API_BASE_URL}/api/CampaignPrompt/template/update-placeholders`,
+      {
+        templateId: activeTemplateId,
+        placeholderValues: conversationOnly
+      }
+    );
 
-    // also update UI
-    setPlaceholderValues(formValues);
+    // ✅ update local UI
+    setPlaceholderValues(prev => ({
+      ...prev,
+      ...conversationOnly
+    }));
 
     await reloadCampaignBlueprint();
 
-    showModal("Success", "All placeholder values updated successfully!");
-  } catch (err) {
-    console.error("Error saving all placeholders:", err);
-    showModal("Error", "Failed to save placeholder changes.");
+    alert("✅ Placeholder values updated successfully!");
+  } catch (error) {
+    console.error("❌ Failed to update placeholders:", error);
+    alert("Failed to update placeholder values.");
   }
 };
+
 
 
   // ====================================================================
@@ -1335,40 +1533,7 @@ const saveAllPlaceholders = async () => {
   // ====================================================================
   // ✅ HELPER: Regenerate with Specific Values (Used by regenerateExampleOutput)
   // ====================================================================
-  const regenerateExampleOutputWithValues = async (placeholders: Record<string, string>) => {
-    try {
-      console.log('🔄 Regenerating example output with provided placeholders...');
 
-      const storedId = sessionStorage.getItem('newCampaignId');
-      const activeCampaignId = editTemplateId ?? (storedId ? Number(storedId) : null);
-
-      if (!activeCampaignId) {
-        console.warn("⚠️ No campaign instance found");
-        return;
-      }
-
-      console.log('📧 Calling example/generate API with:', Object.keys(placeholders));
-
-      const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/example/generate`, {
-        userId: effectiveUserId,
-        campaignTemplateId: activeCampaignId,
-        model: selectedModel,
-        placeholderValues: placeholders
-      });
-
-      if ((response.data.success || response.data.Success) &&
-        (response.data.exampleOutput || response.data.ExampleOutput)) {
-        setExampleOutput(response.data.exampleOutput || response.data.ExampleOutput);
-        console.log('✅ Example output generated successfully');
-      } else {
-        console.warn('⚠️ No example output returned from API');
-      }
-
-    } catch (error: any) {
-      console.error('❌ Error regenerating example output:', error);
-      throw error; // Propagate error to caller
-    }
-  };
 
   // 🧭 Stages tab state
 
@@ -1376,237 +1541,215 @@ const saveAllPlaceholders = async () => {
   const [searchResults, setSearchResults] = useState<string[]>([]);
   const [allSourcedData, setAllSourcedData] = useState<string>('');
   const [sourcedSummary, setSourcedSummary] = useState<string>('');
+// ===============================
+// RUNTIME-ONLY PLACEHOLDERS
+// ===============================
+const RUNTIME_ONLY_PLACEHOLDERS = [
+  "full_name",
+  "first_name",
+  "last_name",
+  "job_title",
+  "location",
+  "linkedin_url",
+  "company_name",
+  "company_name_friendly",
+  "website"
+];
 
+// Split placeholders into:
+// 1️⃣ persisted (DB-safe)
+// 2️⃣ runtime-only (contact-based)
+const splitPlaceholders = (all: Record<string, string>) => {
+  const persisted: Record<string, string> = {};
+  const runtime: Record<string, string> = {};
+
+  Object.entries(all).forEach(([key, value]) => {
+    if (RUNTIME_ONLY_PLACEHOLDERS.includes(key)) {
+      runtime[key] = value;
+    } else {
+      persisted[key] = value;
+    }
+  });
+
+  return { persisted, runtime };
+};
   // ====================================================================
   // ✅ COMPLETE: Regenerate Example Output (MANUAL ONLY)
   // ====================================================================
-  const regenerateExampleOutput = async () => {
-    try {
-      console.log('🚀 Manual regenerate button clicked');
+const regenerateExampleOutput = async () => {
+  try {
+    console.log("🚀 Manual regenerate button clicked");
 
-      if (!editTemplateId && !selectedTemplateDefinitionId) {
-        showModal( "Warning",'Please save the template first before regenerating example output.');
+    if (!editTemplateId && !selectedTemplateDefinitionId) {
+      alert("Please save the template first before regenerating example output.");
+      return;
+    }
+
+    // --------------------------------------------------
+    // 1️⃣ Collect placeholders
+    // --------------------------------------------------
+    const conversationValues = getConversationPlaceholders(placeholderValues);
+    const contactValues = getContactPlaceholders(placeholderValues);
+
+    // Used for SEARCH + replacement checks
+    const mergedForSearch = getMergedPlaceholdersForDisplay(
+      conversationValues,
+      contactValues
+    );
+
+    console.log("📦 Conversation placeholders:", Object.keys(conversationValues));
+    console.log("📇 Contact placeholders:", Object.keys(contactValues));
+
+    // --------------------------------------------------
+    // 2️⃣ SEARCH FLOW (optional)
+    // --------------------------------------------------
+    const hasSearchTermsPlaceholder = masterPrompt.includes("{hook_search_terms}");
+    let searchResultSummary = "";
+
+    if (hasSearchTermsPlaceholder && conversationValues["hook_search_terms"]) {
+      console.log("🔍 Search terms detected, preparing search API call...");
+
+      if (!conversationValues["vendor_company_email_main_theme"]) {
+        alert(
+          '❌ Missing "vendor_company_email_main_theme" value. Please complete the conversation first.'
+        );
         return;
       }
 
-      // Get conversation and contact placeholders
-      const conversationValues = getConversationPlaceholders(placeholderValues);
-      const contactValues = getContactPlaceholders(placeholderValues);
-      const mergedForSearch = getMergedPlaceholdersForDisplay(conversationValues, contactValues);
+      const processedSearchTerm = replacePlaceholdersInString(
+        conversationValues["hook_search_terms"],
+        mergedForSearch
+      );
 
-      console.log('📦 Conversation placeholders:', Object.keys(conversationValues));
-      console.log('📇 Contact placeholders:', Object.keys(contactValues));
+      const unreplaced = processedSearchTerm.match(/\{[^}]+\}/g);
+      if (unreplaced) {
+        const missing = unreplaced.map(p => p.replace(/[{}]/g, ""));
+        alert(`⚠️ Missing values: ${missing.join(", ")}`);
+        return;
+      }
 
-      // ====================================================================
-      // 🔍 STEP 1: CHECK IF SEARCH IS NEEDED
-      // ====================================================================
-      const hasSearchTermsPlaceholder = masterPrompt.includes('{hook_search_terms}');
-      let searchResultSummary = '';
+      if (!conversationValues["search_objective"]?.trim()) {
+        alert("❌ Missing search_objective value.");
+        return;
+      }
 
-      if (hasSearchTermsPlaceholder && conversationValues['hook_search_terms']) {
-        console.log('🔍 Search terms detected, preparing search API call...');
+      const processedInstructions = replacePlaceholdersInString(
+        conversationValues["search_objective"],
+        mergedForSearch
+      );
 
-        // ✅ Validate required conversation placeholders
-        if (!conversationValues['vendor_company_email_main_theme']) {
-          showModal("Missing Data",'❌ Missing "vendor_company_email_main_theme" value. Please complete the conversation first.');
-          return;
-        }
-
-        let searchTerm = conversationValues['hook_search_terms'];
-
-        // ✅ Replace placeholders in search term
-        const processedSearchTerm = replacePlaceholdersInString(searchTerm, mergedForSearch);
-
-        // ✅ Check for unreplaced placeholders in search term
-        const unreplacedInSearchTerm = processedSearchTerm.match(/\{[^}]+\}/g);
-        if (unreplacedInSearchTerm) {
-          const placeholderNames = unreplacedInSearchTerm.map(p => p.replace(/[{}]/g, ''));
-          const missingContactPlaceholders = placeholderNames.filter(p => CONTACT_PLACEHOLDERS.includes(p));
-
-          if (missingContactPlaceholders.length > 0) {
-            showModal( "Missing Values",`⚠️ Search query requires contact information: ${missingContactPlaceholders.join(', ')}.\n\nPlease select a contact from the dropdown first.`);
-            return;
-          } else {
-            showModal ( "Missing Values",`⚠️ Missing required values: ${placeholderNames.join(', ')}`);
-            return;
-          }
-        }
-
-        console.log('🔍 Processed search term:', processedSearchTerm);
-
-        // ✅ Build instructions template
-        // ✅ Use search_objective from conversation placeholders ONLY
-        if (!conversationValues['search_objective'] || !conversationValues['search_objective'].trim()) {
-          showModal(  "Missing Search Objective","❌ Missing 'search_objective' value in placeholders. Please ensure it is set before regenerating.");
-          console.error("❌ No search_objective found in conversationValues");
-          return;
-        }
-
-        console.log("📋 Using search_objective for Process API instructions...");
-        const rawInstructions = conversationValues['search_objective'].trim();
-
-        // ✅ Replace placeholders inside the search_objective text
-        const processedInstructions = replacePlaceholdersInString(rawInstructions, mergedForSearch);
-
-        // ✅ Check for any unreplaced placeholders
-        const unreplacedInInstructions = processedInstructions.match(/\{[^}]+\}/g);
-        if (unreplacedInInstructions) {
-          console.warn('⚠️ Unreplaced placeholders in search_objective:', unreplacedInInstructions);
-          showModal( "Error",`⚠️ Missing values for search instructions: ${unreplacedInInstructions.join(', ')}`);
-          return;
-        }
-
-        console.log("✅ Final processed instructions ready for Process API:");
-        console.log(processedInstructions);
-
-
-
-
-        // ✅ Call Search API
-        try {
-          console.log('📤 Calling Search API (process)...');
-          console.log('📤 Payload:', {
-            searchTerm: processedSearchTerm,
-            modelName: selectedModel,
-            searchCount: 5
-          });
-
-          const searchResponse = await axios.post(`${API_BASE_URL}/api/auth/process`, {
+      try {
+        console.log("📤 Calling Search API...");
+        const searchResponse = await axios.post(
+          `${API_BASE_URL}/api/auth/process`,
+          {
             searchTerm: processedSearchTerm,
             instructions: processedInstructions,
             modelName: selectedModel,
             searchCount: 5
-          });
-
-          console.log('📥 Search API response received');
-
-          // Extract result
-          const pitchResponse = searchResponse.data?.pitchResponse || searchResponse.data?.PitchResponse;
-
-          if (pitchResponse) {
-            searchResultSummary = pitchResponse.content ||
-              pitchResponse.Content ||
-              pitchResponse.result ||
-              pitchResponse.Result ||
-              '';
           }
+        );
 
-          if (!searchResultSummary) {
-            searchResultSummary = searchResponse.data?.content ||
-              searchResponse.data?.Content ||
-              searchResponse.data?.result ||
-              searchResponse.data?.Result ||
-              '';
-          }
+        const pitch =
+          searchResponse.data?.pitchResponse ||
+          searchResponse.data?.PitchResponse;
 
-          console.log('✅ Search summary length:', searchResultSummary?.length || 0);
-          if (searchResponse.data.searchResults) {
-            setSearchResults(searchResponse.data.searchResults);
-          }
-          if (searchResponse.data.allScrapedData) {
-            setAllSourcedData(searchResponse.data.allScrapedData);
-          }
-          if (searchResponse.data.pitchResponse?.content) {
-            setSourcedSummary(searchResponse.data.pitchResponse.content);
-          }
+        searchResultSummary =
+          pitch?.content ||
+          pitch?.Content ||
+          "";
 
-          if (!searchResultSummary) {
-            console.warn('⚠️ No content found in search response');
-            showModal(  "Generation Failed",'Search completed but no results were found. Proceeding with example generation...');
-          } else {
-            // ✅ Update conversation placeholders with search result
-            conversationValues['search_output_summary'] = searchResultSummary;
+        if (searchResultSummary) {
+          conversationValues["search_output_summary"] = searchResultSummary;
 
-            // Update merged values
-            const updatedMerged = getMergedPlaceholdersForDisplay(conversationValues, contactValues);
-            setPlaceholderValues(updatedMerged);
-            console.log('📦 Added search_output_summary to conversation placeholders');
+          // Update UI (merged, runtime-safe)
+          const updatedMerged = getMergedPlaceholdersForDisplay(
+            conversationValues,
+            contactValues
+          );
+          setPlaceholderValues(updatedMerged);
 
-            // ✅ Save updated conversation placeholders to database
-            const storedId = sessionStorage.getItem('newCampaignId');
-            const activeCampaignId = editTemplateId ?? (storedId ? Number(storedId) : null);
+          // Save ONLY conversation placeholders
+          const storedId = sessionStorage.getItem("newCampaignId");
+          const activeCampaignId =
+            editTemplateId ?? (storedId ? Number(storedId) : null);
 
           if (activeCampaignId) {
-            await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
-              id: activeCampaignId,
-              placeholderValues: conversationValues // ✅ Only conversation placeholders
-            });
+            await axios.post(
+              `${API_BASE_URL}/api/CampaignPrompt/template/update`,
+              {
+                id: activeCampaignId,
+                placeholderValues: conversationValues
+              }
+            );
             await reloadCampaignBlueprint();
-
-            console.log('💾 Saved conversation placeholders with search result to DB');
           }
         }
-
-        } catch (searchError: any) {
-          console.error('❌ Search API error:', searchError);
-          console.error('❌ Error response:', searchError.response?.data);
-          showModal( "Search Failed",`Search API failed: ${searchError.response?.data?.message || searchError.message}\n\nProceeding with example generation without search results...`);
-        }
-      } else {
-        console.log('ℹ️ No search terms placeholder or value not set - skipping search');
+      } catch (err: any) {
+        console.error("❌ Search API failed:", err);
+        alert("Search failed. Continuing without search data.");
       }
-
-      // ====================================================================
-      // 📧 STEP 2: GENERATE EXAMPLE OUTPUT
-      // ====================================================================
-      const storedId = sessionStorage.getItem('newCampaignId');
-      const activeCampaignId = editTemplateId ?? (storedId ? Number(storedId) : null);
-
-      if (!activeCampaignId) {
-        showModal("error","❌ No campaign instance found. Please start a campaign first.");
-        return;
-      }
-
-      // ✅ Use merged values (conversation + contact) for example generation
-      const finalMergedValues = getMergedPlaceholdersForDisplay(conversationValues, contactValues);
-
-      console.log('📧 Generating example output...');
-      console.log('📦 Using placeholders:', Object.keys(finalMergedValues));
-
-      // ✅ Call Example Generation API
-      try {
-        console.log('📤 Calling Example Generation API...');
-
-        const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/example/generate`, {
-          userId: effectiveUserId,
-          campaignTemplateId: activeCampaignId,
-          model: selectedModel,
-          placeholderValues: finalMergedValues // ✅ Merged values (conversation + contact)
-        });
-
-        console.log('📥 Example generation response received');
-
-          if (response.data.success || response.data.Success) {
-            
-            // HTML result
-            const html = response.data.exampleOutput || response.data.ExampleOutput || "";
-            setExampleOutput(html);
-
-            // Filled template result (new)
-            const filled = response.data.filledTemplate || "";
-            setFilledTemplate(filled);
-
-            console.log("📌 Filled Template stored:", filled);
-          }
-          else {
-          console.warn('⚠️ No example output returned from API');
-          showModal('try again','Example generation completed but no output was returned. Please try again.');
-        }
-
-      } catch (error: any) {
-        console.error('❌ Example generation error:', error);
-        console.error('❌ Error response:', error.response?.data);
-        showModal('error',`Failed to generate example output: ${error.response?.data?.message || error.message}`);
-      }
-
-      console.log('✅ regenerateExampleOutput completed');
-
-    } catch (error: any) {
-      console.error('❌ Fatal error in regenerateExampleOutput:', error);
-      console.error('❌ Error stack:', error.stack);
-      showModal('error',`Failed to regenerate: ${error.message}`);
     }
-  };
+
+    // --------------------------------------------------
+    // 3️⃣ GENERATE EXAMPLE OUTPUT (IMPORTANT PART)
+    // --------------------------------------------------
+    const storedId = sessionStorage.getItem("newCampaignId");
+    const activeCampaignId =
+      editTemplateId ?? (storedId ? Number(storedId) : null);
+
+    if (!activeCampaignId) {
+      alert("❌ No campaign instance found.");
+      return;
+    }
+
+    // Merge placeholders (conversation + contact)
+    const mergedAll = getMergedPlaceholdersForDisplay(
+      conversationValues,
+      contactValues
+    );
+
+    // 🔥 SPLIT PLACEHOLDERS
+    const { persisted } = splitPlaceholders(mergedAll);
+
+    console.log("📧 Generating example output...");
+    console.log("📦 Persisted placeholders only:", Object.keys(persisted));
+
+    const response = await axios.post(
+      `${API_BASE_URL}/api/CampaignPrompt/example/generate`,
+      {
+        userId: effectiveUserId,
+        campaignTemplateId: activeCampaignId,
+        model: selectedModel,
+        placeholderValues: mergedAll // ✅ SEND EVERYTHING
+      }
+    );
+
+    if (response.data?.success || response.data?.Success) {
+      const html =
+        response.data.exampleOutput ||
+        response.data.ExampleOutput ||
+        "";
+
+      const filled =
+        response.data.filledTemplate ||
+        response.data.FilledTemplate ||
+        "";
+
+      setExampleOutput(html);
+      setFilledTemplate(filled);
+
+      console.log("✅ Example output generated");
+    } else {
+      alert("⚠️ Example generation returned no output.");
+    }
+
+  } catch (error: any) {
+    console.error("❌ regenerateExampleOutput failed:", error);
+    alert(`Failed to regenerate: ${error.message}`);
+  }
+};
+
   // ====================================================================
   // LOAD TEMPLATE DEFINITIONS
   // ====================================================================
@@ -1631,12 +1774,12 @@ const saveAllPlaceholders = async () => {
   // ====================================================================
   const saveTemplateDefinition = async () => {
     if (!templateName.trim()) {
-      showModal("reason","Please enter a template name");
+     // showModal("reason","Please enter a template name");
       return;
     }
 
     if (!systemPrompt.trim() || !masterPrompt.trim()) {
-      showModal("missing parameters","Please fill in AI Instructions and Placeholders List");
+     // showModal("missing parameters","Please fill in AI Instructions and Placeholders List");
       return;
     }
 
@@ -1670,7 +1813,7 @@ const saveAllPlaceholders = async () => {
       console.error('Error saving template definition:', error);
 
       if (error.response?.data?.message?.includes('already exists')) {
-        showModal("Instruction",'A template with this name already exists. Please use a different name.');
+      //  showModal("Instruction",'A template with this name already exists. Please use a different name.');
       } else {
         setSaveDefinitionStatus('error');
         setTimeout(() => setSaveDefinitionStatus('idle'), 3000);
@@ -1683,7 +1826,7 @@ const saveAllPlaceholders = async () => {
 
   const updateTemplateDefinition = async () => {
     if (!selectedTemplateDefinitionId) {
-      showModal("Instruction","No template selected to update.");
+    //  showModal("Instruction","No template selected to update.");
       return;
     }
 
@@ -1704,11 +1847,11 @@ const saveAllPlaceholders = async () => {
 
     });
 
-      showModal("Succuess","Template updated successfully.");
+    //  showModal("Succuess","Template updated successfully.");
       await loadTemplateDefinitions();
     } catch (err) {
       console.error("Update failed:", err);
-      showModal("error","Failed to update template definition.");
+    //  showModal("error","Failed to update template definition.");
     } finally {
       setIsSavingDefinition(false);
     }
@@ -1864,7 +2007,7 @@ const startEditConversation = async (placeholder: string) => {
 
   // Validate campaignTemplateId
   if (!campaignTemplateId || Number.isNaN(campaignTemplateId) || campaignTemplateId <= 0) {
-    showModal("Invalid","No campaign ID found. Please open the campaign in edit mode first (wait until it finishes loading).");
+    //showModal("Invalid","No campaign ID found. Please open the campaign in edit mode first (wait until it finishes loading).");
     console.error("startEditConversation: campaignTemplateId is missing/invalid:", {
       editTemplateId,
       storedNewCampaignId,
@@ -2495,7 +2638,7 @@ const [instructionSubTab, setInstructionSubTab] = useState<
         `${API_BASE_URL}/api/CampaignPrompt/template-definition/${selectedTemplateDefinitionId}/deactivate`
       );
 
-      showModal("Success","Template deleted successfully.");
+     // showModal("Success","Template deleted successfully.");
 
       // Reset UI state
       setSelectedTemplateDefinitionId(null);
@@ -2511,7 +2654,7 @@ const [instructionSubTab, setInstructionSubTab] = useState<
 
     } catch (error) {
       console.error("Delete failed:", error);
-      showModal("error","Failed to delete template definition.");
+     // showModal("error","Failed to delete template definition.");
     }
   };
   // ensure you import useEffect at top
@@ -2552,6 +2695,25 @@ const reloadCampaignBlueprint = async () => {
     console.error("Failed to reload blueprint:", err);
   }
 };
+
+
+
+
+const [expandedKey, setExpandedKey] = useState<string | null>(null);
+const editorRef = useRef<HTMLDivElement | null>(null);
+const saveExpandedContent = () => {
+  if (!expandedKey || !editorRef.current) return;
+
+  setFormValues((prev) => ({
+    ...prev,
+    [expandedKey]: editorRef.current!.innerHTML
+  }));
+};
+
+
+
+
+
 
 function SimpleTextarea({
   value,
@@ -2673,12 +2835,12 @@ function SimpleTextarea({
 </div>
 
           </div>
-<PopupModal
+{/* <PopupModal
   open={popupmodalInfo.open}
   title={popupmodalInfo.title}
   message={popupmodalInfo.message}
   onClose={closeModal}
-/>
+/> */}
           <div className="tab-content">
 {activeTab === "build" && (
   <div className="flex items-center justify-between w-full mb-[10px] mt-[-24px]">
@@ -2766,71 +2928,168 @@ function SimpleTextarea({
 {activeTab === "elements" && (
   <div className="elements-tab-container" style={{ padding: "20px" }}>
 
-    <h2 style={{ fontSize: "22px", fontWeight: 600, marginBottom: "15px" }}>
-      Edit Placeholder Values
-    </h2>
+    <div style={{ display: "flex", gap: "20px" }}>
 
-    <div 
-      className="placeholder-form-grid"
-      style={{
-        display: "grid",
-        gridTemplateColumns: "1fr 1fr",
-        gap: "20px",
-        background: "#fff",
-        padding: "20px",
-        borderRadius: "8px",
-        border: "1px solid #e5e7eb"
-      }}
-    >
-      {Object.entries(placeholderValues).map(([key, value]) => (
-        <div key={key} style={{ display: "flex", flexDirection: "column" }}>
-          <label
+      {/* -------------------------------------------------
+          LEFT SIDE — PLACEHOLDER EDITOR
+      -------------------------------------------------- */}
+      <div style={{ flex: 1 }}>
+
+        <h2 style={{ fontSize: "22px", fontWeight: 600, marginBottom: "15px" }}>
+          Edit Placeholder Values
+        </h2>
+
+        <div 
+          className="placeholder-form-grid"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "20px",
+            background: "#fff",
+            padding: "20px",
+            borderRadius: "8px",
+            border: "1px solid #e5e7eb"
+          }}
+        >
+          {Object.entries(placeholderValues).map(([key, value]) => (
+            <div key={key} style={{ display: "flex", flexDirection: "column" }}>
+              <label
+                style={{
+                  fontWeight: 600,
+                  marginBottom: "6px",
+                  fontSize: "14px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center"
+                }}
+              >
+                {`{${key}}`}
+                <button
+                  type="button"
+                  onClick={() => setExpandedKey(key)}
+                  style={{
+                    fontSize: "12px",
+                    padding: "4px 8px",
+                    borderRadius: "4px",
+                    border: "1px solid #d1d5db",
+                    background: "#f9fafb",
+                    cursor: "pointer"
+                  }}
+                >
+                  Expand
+                </button>
+              </label>
+
+              <input
+                type="text"
+                value={formValues[key] ?? ""}
+                onChange={(e) =>
+                  setFormValues((prev) => ({ ...prev, [key]: e.target.value }))
+                }
+                style={{
+                  padding: "8px 10px",
+                  borderRadius: "6px",
+                  border: "1px solid #d1d5db",
+                  fontSize: "14px",
+                }}
+              />
+            </div>
+          ))}
+        </div>
+
+        <div style={{ marginTop: "20px", textAlign: "right" }}>
+          <button
+            onClick={saveAllPlaceholders}
+            className="save-all-btn"
             style={{
-              fontWeight: 600,
-              marginBottom: "6px",
-              fontSize: "14px",
+              padding: "10px 18px",
+              background: "#16a34a",
+              color: "white",
+              borderRadius: "6px",
+              fontSize: "15px",
+              fontWeight: 600
             }}
           >
-            {`{${key}}`}
-          </label>
+            Save All Changes
+          </button>
+        </div>
 
-          <input
-            type="text"
-            value={formValues[key] ?? ""}
-            onChange={(e) =>
-              setFormValues((prev) => ({ ...prev, [key]: e.target.value }))
-            }
-            className="placeholder-input"
+      </div>
+
+      {/* -------------------------------------------------
+          RIGHT SIDE — EXAMPLE OUTPUT PANEL (COLLAPSIBLE)
+      -------------------------------------------------- */}
+      <div style={{ flex: 1, minWidth: "450px" }}>
+
+        {/* Collapse Button */}
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "10px" }}>
+          <button
+            onClick={() => setIsSectionOpen(!isSectionOpen)}
             style={{
-              padding: "8px 10px",
+              width: "40px",
+              height: "40px",
+              background: "#f3f4f6",
               borderRadius: "6px",
               border: "1px solid #d1d5db",
-              fontSize: "14px",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              cursor: "pointer",
             }}
-          />
+          >
+            <img
+              src={isSectionOpen ? "/arrow-right.svg" : "/arrow-left.svg"}
+              alt="toggle"
+              style={{ width: "22px", height: "22px" }}
+            />
+          </button>
         </div>
-      ))}
-    </div>
 
-    <div style={{ marginTop: "20px", textAlign: "right" }}>
-      <button
-        onClick={saveAllPlaceholders}
-        className="save-all-btn"
-        style={{
-          padding: "10px 18px",
-          background: "#16a34a",
-          color: "white",
-          borderRadius: "6px",
-          fontSize: "15px",
-          fontWeight: 600
-        }}
-      >
-        Save all changes
-      </button>
-    </div>
+        {/* PANEL */}
+        <ExampleOutputPanel
+          isSectionOpen={isSectionOpen}
+          setIsSectionOpen={setIsSectionOpen}
+          dataFiles={dataFiles}
+          contacts={contacts}
+          selectedDataFileId={selectedDataFileId}
+          selectedContactId={selectedContactId}
+          handleSelectDataFile={handleSelectDataFile}
+          setSelectedContactId={setSelectedContactId}
+          applyContactPlaceholders={applyContactPlaceholders}
+          exampleOutput={exampleOutput}
 
+          currentPage={currentPage}
+          totalPages={totalPages}
+          rowsPerPage={rowsPerPage}
+          setCurrentPage={setCurrentPage}
+          setPageSize={setPageSize}
+
+          editableExampleOutput={editableExampleOutput}
+          setEditableExampleOutput={setEditableExampleOutput}
+          saveExampleEmail={saveExampleEmail}
+
+          isGenerating={isGenerating}
+          regenerateExampleOutput={regenerateExampleOutput}
+
+          activeMainTab={activeMainTab}
+          setActiveMainTab={setActiveMainTab}
+
+          activeSubStageTab={activeSubStageTab}
+          setActiveSubStageTab={setActiveSubStageTab}
+
+          filledTemplate={filledTemplate}
+          searchResults={searchResults}
+          allSourcedData={allSourcedData}
+          sourcedSummary={sourcedSummary}
+          ExampleEmailEditor={ExampleEmailEditor}
+        />
+
+      </div>
+
+    </div>
   </div>
 )}
+
 
 
             {/* 3️⃣ INSTRUCTIONS SET TAB */}
@@ -3060,10 +3319,99 @@ function SimpleTextarea({
   </div>
 )}
 
-
           </div>
 
         </div>
+
+
+{expandedKey && (
+  <div
+    style={{
+      position: "fixed",
+      inset: 0,
+      background: "rgba(0,0,0,0.6)",
+      zIndex: 9999,
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center"
+    }}
+  >
+    <div
+      style={{
+        width: "90%",
+        height: "90%",
+        background: "#fff",
+        borderRadius: "10px",
+        display: "flex",
+        flexDirection: "column"
+      }}
+    >
+      {/* Header */}
+      <div
+        style={{
+          padding: "14px 18px",
+          borderBottom: "1px solid #e5e7eb",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center"
+        }}
+      >
+        <h3 style={{ fontSize: "16px", fontWeight: 600 }}>
+          {`{${expandedKey}}`} – Expanded View
+        </h3>
+
+        <button
+          onClick={() => {
+            saveExpandedContent();
+            setExpandedKey(null);
+          }}
+          style={{
+            background: "transparent",
+            border: "none",
+            fontSize: "20px",
+            cursor: "pointer",
+            fontWeight: 700
+          }}
+        >
+          ✕
+        </button>
+      </div>
+
+      {/* Editable Body */}
+      <div
+        style={{
+          flex: 1,
+          padding: "24px",
+          overflowY: "auto",
+          background: "#f9fafb"
+        }}
+      >
+        <div
+          ref={editorRef}
+          contentEditable
+          suppressContentEditableWarning
+          style={{
+            minHeight: "100%",
+            background: "#ffffff",
+            border: "1px solid #e5e7eb",
+            borderRadius: "8px",
+            padding: "20px",
+            fontFamily: "Calibri, Arial, sans-serif",
+            fontSize: "15px",
+            lineHeight: "1.6",
+            outline: "none"
+          }}
+          dangerouslySetInnerHTML={{
+            __html:
+              formValues[expandedKey] ||
+              "<em style='color:#9ca3af'>Empty</em>"
+          }}
+        />
+      </div>
+    </div>
+  </div>
+)}
+
 
 
       </div>
