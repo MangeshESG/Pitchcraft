@@ -2009,7 +2009,8 @@ useEffect(() => {
                     type="checkbox"
                     checked={followupEnabled || false}
                     onChange={(e) => {
-                      console.log('Checkbox clicked, new value:', e.target.checked);
+                      console.log('Followup checkbox clicked, new value:', e.target.checked);
+                      console.log('Current selectedZohoviewId:', selectedZohoviewId);
                       setFollowupEnabled?.(e.target.checked);
                     }}
                     className="!mr-0"
