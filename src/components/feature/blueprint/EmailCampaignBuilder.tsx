@@ -671,7 +671,7 @@ const saveExampleEmail = async () => {
           return;
         }
     if (!activeCampaignId) {
-      alert("No campaign instance found.");
+      showModal("Error","No campaign instance found.");
       return;
     }
 
@@ -680,7 +680,7 @@ const saveExampleEmail = async () => {
           return;
         }
     if (!editableExampleOutput.trim()) {
-      alert("Example email is empty.");
+      showModal("Warning","Example email is empty.");
       return;
     }
 
@@ -695,10 +695,10 @@ const saveExampleEmail = async () => {
       }
     );
 
-    alert("✅ Example email saved successfully!");
+    showModal("Success","✅ Example email saved successfully");
   } catch (error) {
     console.error("❌ Save example output failed:", error);
-    alert("Failed to save example email.");
+    showModal("Error","Failed to save example email.");
   }
 };
 
@@ -1050,10 +1050,10 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
             {isGenerating ? (
               <>
                 <Loader2 size={18} className="spinning" />
-                &nbsp; Generating...
+                &nbsp; Preview email
               </>
             ) : (
-              "Generate"
+              "Preview email"
             )}
           </button>
         </div>
@@ -1084,16 +1084,17 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
         {activeMainTab === "output" && editableExampleOutput && (
           <button
             onClick={saveExampleEmail}
+            title='If this preview looks good then save it as the new "Example output email"'
             style={{
               padding: "6px 14px",
-              background: "#2563eb",
+              background: "#3f9f42",
               color: "white",
               borderRadius: "6px",
               fontSize: "14px",
               fontWeight: 600
             }}
           >
-            💾 Save Email
+             Save email
           </button>
         )}
       </div>
@@ -1254,6 +1255,18 @@ const [activeMainTab, setActiveMainTab] = useState<"output" | "pt" | "stages">("
 
 const [activeSubStageTab, setActiveSubStageTab] =
   useState<"search" | "data" | "summary">("summary");
+  const [popupmodalInfo, setPopupModalInfo] = useState({
+  open: false,
+  title: "",
+  message: ""
+});
+const showModal = (title: string, message: string) => {
+  setPopupModalInfo({ open: true, title, message });
+};
+
+const closeModal = () => {
+  setPopupModalInfo(prev => ({ ...prev, open: false }));
+};
 
 const saveExampleEmail = async () => {
   try {
@@ -1262,12 +1275,12 @@ const saveExampleEmail = async () => {
       editTemplateId ?? (storedId ? Number(storedId) : null);
 
     if (!activeCampaignId) {
-      alert("No campaign instance found.");
+      showModal("Error","No campaign instance found.");
       return;
     }
 
     if (!editableExampleOutput.trim()) {
-      alert("Example email is empty.");
+      showModal("Warning","Example email is empty.");
       return;
     }
 
@@ -1282,10 +1295,10 @@ const saveExampleEmail = async () => {
       }
     );
 
-    alert("✅ Example email saved successfully!");
+    showModal("Success","✅ Example email saved successfully!");
   } catch (error) {
     console.error("❌ Save example output failed:", error);
-    alert("Failed to save example email.");
+    showModal("Error","Failed to save example email.");
   }
 };
 
@@ -1485,7 +1498,7 @@ const saveAllPlaceholders = async () => {
       editTemplateId ?? (storedId ? Number(storedId) : null);
 
     if (!activeTemplateId) {
-      alert("No campaign template found.");
+      showModal("Error","No campaign template found.");
       return;
     }
 
@@ -1508,10 +1521,10 @@ const saveAllPlaceholders = async () => {
 
     await reloadCampaignBlueprint();
 
-    alert("✅ Placeholder values updated successfully!");
+    showModal("Success","✅ Placeholder values updated successfully!");
   } catch (error) {
     console.error("❌ Failed to update placeholders:", error);
-    alert("Failed to update placeholder values.");
+    showModal("Warning","Failed to update placeholder values.");
   }
 };
 
@@ -1634,7 +1647,7 @@ const regenerateExampleOutput = async () => {
     console.log("🚀 Manual regenerate button clicked");
 
     if (!editTemplateId && !selectedTemplateDefinitionId) {
-      alert("Please save the template first before regenerating example output.");
+      showModal("Warning","Please save the template first before regenerating example output.");
       return;
     }
 
@@ -1663,7 +1676,7 @@ const regenerateExampleOutput = async () => {
       console.log("🔍 Search terms detected, preparing search API call...");
 
       if (!conversationValues["vendor_company_email_main_theme"]) {
-        alert(
+        showModal("Error",
           '❌ Missing "vendor_company_email_main_theme" value. Please complete the conversation first.'
         );
         return;
@@ -1677,12 +1690,12 @@ const regenerateExampleOutput = async () => {
       const unreplaced = processedSearchTerm.match(/\{[^}]+\}/g);
       if (unreplaced) {
         const missing = unreplaced.map(p => p.replace(/[{}]/g, ""));
-        alert(`⚠️ Missing values: ${missing.join(", ")}`);
+        showModal("Error",`⚠️ Missing values: ${missing.join(", ")}`);
         return;
       }
 
       if (!conversationValues["search_objective"]?.trim()) {
-        alert("❌ Missing search_objective value.");
+        showModal("Error","❌ Missing search_objective value.");
         return;
       }
 
@@ -1740,7 +1753,7 @@ const regenerateExampleOutput = async () => {
         }
       } catch (err: any) {
         console.error("❌ Search API failed:", err);
-        alert("Search failed. Continuing without search data.");
+        showModal("Error","Search failed. Continuing without search data.");
       }
     }
 
@@ -1752,7 +1765,7 @@ const regenerateExampleOutput = async () => {
       editTemplateId ?? (storedId ? Number(storedId) : null);
 
     if (!activeCampaignId) {
-      alert("❌ No campaign instance found.");
+      showModal("Error","❌ No campaign instance found.");
       return;
     }
 
@@ -1794,12 +1807,12 @@ const regenerateExampleOutput = async () => {
 
       console.log("✅ Example output generated");
     } else {
-      alert("⚠️ Example generation returned no output.");
+      showModal("Warning","⚠️ Example generation returned no output.");
     }
 
   } catch (error: any) {
     console.error("❌ regenerateExampleOutput failed:", error);
-    alert(`Failed to regenerate: ${error.message}`);
+    showModal("Error",`Failed to regenerate: ${error.message}`);
   }
 };
 
@@ -1827,12 +1840,12 @@ const regenerateExampleOutput = async () => {
   // ====================================================================
   const saveTemplateDefinition = async () => {
     if (!templateName.trim()) {
-      alert("Please enter a template name");
+      showModal("reason","Please enter a template name");
       return;
     }
 
     if (!systemPrompt.trim() || !masterPrompt.trim()) {
-      alert("Please fill in AI Instructions and Placeholders List");
+      showModal("missing parameters","Please fill in AI Instructions and Placeholders List");
       return;
     }
 
@@ -1879,7 +1892,7 @@ const regenerateExampleOutput = async () => {
       console.error('Error saving template definition:', error);
 
       if (error.response?.data?.message?.includes('already exists')) {
-        alert('A template with this name already exists. Please use a different name.');
+        showModal("Instruction",'A template with this name already exists. Please use a different name.');
       } else {
         setSaveDefinitionStatus('error');
         setTimeout(() => setSaveDefinitionStatus('idle'), 3000);
@@ -1906,7 +1919,7 @@ const regenerateExampleOutput = async () => {
 
   const updateTemplateDefinition = async () => {
     if (!selectedTemplateDefinitionId) {
-      alert("No template selected to update.");
+     showModal("Instruction","No template selected to update.");
       return;
     }
 
@@ -1927,12 +1940,11 @@ const regenerateExampleOutput = async () => {
 
     });
 
-      alert("Template updated successfully.");
-      await savePlaceholderDefinitions();
+     showModal("Succuess","Template updated successfully.");
       await loadTemplateDefinitions();
     } catch (err) {
       console.error("Update failed:", err);
-      alert("Failed to update template definition.");
+      showModal("error","Failed to update template definition.");
     } finally {
       setIsSavingDefinition(false);
     }
@@ -2088,7 +2100,7 @@ const startEditConversation = async (placeholder: string) => {
 
   // Validate campaignTemplateId
   if (!campaignTemplateId || Number.isNaN(campaignTemplateId) || campaignTemplateId <= 0) {
-    alert("No campaign ID found. Please open the campaign in edit mode first (wait until it finishes loading).");
+    showModal("Invalid","No campaign ID found. Please open the campaign in edit mode first (wait until it finishes loading).");
     console.error("startEditConversation: campaignTemplateId is missing/invalid:", {
       editTemplateId,
       storedNewCampaignId,
@@ -2933,7 +2945,7 @@ const [instructionSubTab, setInstructionSubTab] = useState<
         `${API_BASE_URL}/api/CampaignPrompt/template-definition/${selectedTemplateDefinitionId}/deactivate`
       );
 
-      alert("Template deleted successfully.");
+      showModal("Success","Template deleted successfully.");
 
       // Reset UI state
       setSelectedTemplateDefinitionId(null);
@@ -2949,7 +2961,7 @@ const [instructionSubTab, setInstructionSubTab] = useState<
 
     } catch (error) {
       console.error("Delete failed:", error);
-      alert("Failed to delete template definition.");
+      showModal("error","Failed to delete template definition.");
     }
   };
   // ensure you import useEffect at top
@@ -3130,7 +3142,12 @@ function SimpleTextarea({
 </div>
 
           </div>
-
+<PopupModal
+  open={popupmodalInfo.open}
+  title={popupmodalInfo.title}
+  message={popupmodalInfo.message}
+  onClose={closeModal}
+/>
           <div className="tab-content">
 {activeTab === "build" && (
   <div className="flex items-center justify-between w-full mb-[10px] mt-[-24px]">
@@ -3149,7 +3166,7 @@ function SimpleTextarea({
           }}
 
         >
-          <option value="">-- Select Placeholder --</option>
+          <option value="">-- Select placeholder --</option>
 
           {extractPlaceholders(masterPrompt).map((p) => (
             <option key={p} value={p}>
@@ -3753,12 +3770,14 @@ function SimpleTextarea({
   >
     <div
       style={{
-        width: "90%",
+        width: "70%",
         height: "90%",
         background: "#fff",
         borderRadius: "10px",
         display: "flex",
-        flexDirection: "column"
+        flexDirection: "column",
+        marginLeft:"170px",
+        //marginTop:"200px"
       }}
     >
       {/* Header */}

@@ -251,7 +251,7 @@ const [showCampaignModal, setShowCampaignModal] = useState(false);
                     <span className="min-w-[30px] h-[30px] font-[600] rounded-full bg-[#cfecd6] green flex items-center justify-center text-[16px] font-extrabold mr-2">
                       4
                     </span>
-                    Generate emails
+                    Kraft emails
 
                   </div>
                   <span className=" text-gray-400">Video coming soon</span>
@@ -269,7 +269,7 @@ const [showCampaignModal, setShowCampaignModal] = useState(false);
                       <p className="flex-1">Create hyper-personalized emails for your campaigns.</p>
                     </div>
                     <button onClick={() => navigate("/main?tab=Output")} className="border-[#3f9f42] border  w-[fit-content] mt-[auto] text-[#3f9f42]  rounded-md px-3 py-1.5  font-semibold">
-                      Generate emails
+                      Kraft emails
                     </button>
                   </div>
                   <div className="min-w-[180px] d-flex justify-center items-center">

@@ -856,7 +856,7 @@ console.log("processingStats.valid:", processingStats.valid);
                   className="button action-button"
                   disabled={!columnMappings.name || !columnMappings.email}
                 >
-                  Continue to Preview
+                  Continue to preview
                 </button>
               </div>
             </div>
@@ -946,7 +946,7 @@ console.log("processingStats.valid:", processingStats.valid);
                   onClick={() => setCurrentStep(2)}
                   className="button secondary"
                 >
-                  Back to Mapping
+                  Back to mapping
                 </button>
                 <button
                   //onClick={() => {console.log("Process & Save Data button clicked!");setShowDataFileModal(true)}}
@@ -954,7 +954,7 @@ console.log("processingStats.valid:", processingStats.valid);
                   className="button action-button"
                   disabled={isProcessing || processingStats.valid === 0}
                 >
-                  {isProcessing ? "Processing..." : "Process & Save Data"}
+                  {isProcessing ? "Processing..." : "Process & save data"}
                 </button>
               </div>
             </div>
@@ -1024,7 +1024,7 @@ console.log("processingStats.valid:", processingStats.valid);
                         resetUpload();
                       }}
                     >
-                      Continue to Email Generation
+                      Continue to email generation
                     </button>
                   </div>
                 </>
@@ -1073,11 +1073,16 @@ console.log("processingStats.valid:", processingStats.valid);
         buttonLabel=""
         size="auto-width"
       >
-        <div className="datafile-modal" >
-          <h3>Enter Data File Information</h3>
+        {/* <div className="datafile-modal" > */}
+          <h2  style={{
+          fontSize: "20px",
+          fontWeight: "600",
+          marginBottom: "24px",
+          color: "#222",
+        }}>Enter data file information</h2>
           <div className="form-group">
             <label>
-              Data File Name <span className="required">*</span>
+              Data file name <span className="required">*</span>
             </label>
             <input
               type="text"
@@ -1114,10 +1119,10 @@ console.log("processingStats.valid:", processingStats.valid);
               onClick={processData}
               disabled={!dataFileInfo.name.trim()}
             >
-              Save Data
+              Save data
             </button>
           </div>
-        </div>
+        {/* </div> */}
       </Modal>
 
       {/* Validation Error Modal */}
