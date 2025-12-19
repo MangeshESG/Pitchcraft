@@ -642,15 +642,18 @@ const MainPage: React.FC = () => {
       setSelectedCampaign(""); // Clear campaign selection
     }
 
-    setSelectedZohoviewId(selectedId); // Update the global state
+    // ✅ Fix: Set selectedZohoviewId in the correct format
+    const formattedZohoviewId = `${clientID || effectiveUserId},${selectedId}`;
+    setSelectedZohoviewId(formattedZohoviewId);
+    console.log('Setting selectedZohoviewId to:', formattedZohoviewId);
 
     // Call the clear function when a new data file is selected
     handleNewDataFileSelection();
 
-    if (selectedId && clientID) {
+    if (selectedId && (clientID || effectiveUserId)) {
       try {
-        // Pass the data file ID instead of zoho view ID
-        await fetchAndDisplayEmailBodies(`${clientID},${selectedId}`);
+        // Use the formatted zohoviewId
+        await fetchAndDisplayEmailBodies(formattedZohoviewId);
       } catch (error) {
         console.error("Error fetching email bodies:", error);
       }
@@ -1046,13 +1049,20 @@ const MainPage: React.FC = () => {
           contactsData = fetchedSegmentData.contacts || [];
           console.log("Fetched segment contacts:", contactsData);
         } else {
-          // ✅ Original datafile logic (unchanged)
+          // ✅ Original datafile logic - ensure dataFileId is valid
           // Parse zohoviewId to get clientId and dataFileId
           const [clientId, extractedDataFileId] = zohoviewId.split(",");
           dataFileId = extractedDataFileId;
 
+          // ✅ Validation: ensure dataFileId is not undefined
+          if (!dataFileId || dataFileId === "undefined") {
+            console.error("Invalid dataFileId:", dataFileId, "from zohoviewId:", zohoviewId);
+            throw new Error("Invalid dataFileId - cannot fetch contacts");
+          }
+
           // Use effectiveUserId instead of selectedClient in URL
           const url = `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${dataFileId}&isFollowUp=${forceFollowup ?? followupEnabled}`;
+          console.log("Fetching datafile contacts with URL:", url);
           const response = await fetch(url);
 
           if (!response.ok) {
@@ -1135,9 +1145,22 @@ const MainPage: React.FC = () => {
   useEffect(() => {
     if (selectedZohoviewId) {
       console.log('Followup checkbox changed, refetching data:', followupEnabled);
-      fetchAndDisplayEmailBodies(selectedZohoviewId);
+      console.log('Current selectedZohoviewId:', selectedZohoviewId);
+      
+      // ✅ Fix: Ensure selectedZohoviewId is in correct format
+      let correctedZohoviewId = selectedZohoviewId;
+      
+      // If it's just a number (dataFileId) and not segment format, fix it
+      if (!selectedZohoviewId.startsWith('segment_') && !selectedZohoviewId.includes(',')) {
+        correctedZohoviewId = `${effectiveUserId},${selectedZohoviewId}`;
+        console.log('Corrected selectedZohoviewId to:', correctedZohoviewId);
+        // Also update the state to prevent future issues
+        setSelectedZohoviewId(correctedZohoviewId);
+      }
+      
+      fetchAndDisplayEmailBodies(correctedZohoviewId);
     }
-  }, [followupEnabled]);
+  }, [followupEnabled, effectiveUserId]);
 
   // Handle followup checkbox change
   const handleFollowupChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1395,7 +1418,6 @@ const MainPage: React.FC = () => {
     let parsedClientId: number;
     let parsedDataFileId: number | null = null;
     let segmentId: string | null = null;
-
     if (selectedZohoviewId) {
       if (selectedZohoviewId.startsWith("segment_")) {
         // ✅ Handle segment-based campaign
@@ -1792,7 +1814,6 @@ const MainPage: React.FC = () => {
                     prevOutputForm.generatedContent,
                 }));
                 try {
-                  debugger
                   const userCreditResponse = await fetch(
                     `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`
                   );
@@ -3277,15 +3298,15 @@ const MainPage: React.FC = () => {
           if (segmentId) {
             // ✅ Campaign uses segment
             console.log("Using segment-based campaign");
-            setSelectedZohoviewId(`segment_${segmentId}`);
-            await fetchAndDisplayEmailBodies(`segment_${segmentId}`);
+            const segmentZohoviewId = `segment_${segmentId}`;
+            setSelectedZohoviewId(segmentZohoviewId);
+            await fetchAndDisplayEmailBodies(segmentZohoviewId);
           } else if (dataFileId) {
-            // ✅ Campaign uses datafile - existing logic
+            // ✅ Campaign uses datafile - Fix: set in correct format
             console.log("Using datafile-based campaign");
-            setSelectedZohoviewId(dataFileId);
-            await fetchAndDisplayEmailBodies(
-              `${effectiveUserId},${dataFileId}`
-            );
+            const datafileZohoviewId = `${effectiveUserId},${dataFileId}`;
+            setSelectedZohoviewId(datafileZohoviewId);
+            await fetchAndDisplayEmailBodies(datafileZohoviewId);
           } else {
             console.error("Campaign has neither segmentId nor dataFileId");
             return;

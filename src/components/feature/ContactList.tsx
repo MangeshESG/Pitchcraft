@@ -4,6 +4,7 @@ import "./ContactList.css";
 import DynamicContactsTable from "./DynamicContactsTable";
 import AppModal from "../common/AppModal";
 import AddContactModal from "./AddContactModal";
+import EditContactModal from "./EditContactModal";
 import CreateListModal from "./CreateListModal";
 
 import { useAppModal } from "../../hooks/useAppModal";
@@ -161,6 +162,8 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   );
   const [showColumnSettings, setShowColumnSettings] = useState(false);
   const [showAddContactModal, setShowAddContactModal] = useState(false);
+  const [showEditContactModal, setShowEditContactModal] = useState(false);
+  const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [showCreateListModal, setShowCreateListModal] = useState(false);
   const [showCreateListOptions, setShowCreateListOptions] = useState(false);
 
@@ -624,6 +627,17 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
         setDetailSelectedContacts(new Set());
       } else {
         setSelectedContacts(new Set());
+      }
+      
+      // Auto-refresh data after unsubscribe operation
+      if (viewMode === "detail" && selectedDataFileForView) {
+        fetchDetailContacts("list", selectedDataFileForView);
+      } else if (segmentViewMode === "detail" && selectedSegmentForView) {
+        fetchDetailContacts("segment", selectedSegmentForView);
+      } else if (selectedDataFile) {
+        fetchContacts();
+      } else if (activeSubTab === "Segment" && selectedSegment) {
+        fetchSegmentContacts(selectedSegment);
       }
       
     } catch (error) {
@@ -2059,6 +2073,26 @@ const { filteredSegments, paginatedSegments, segmentTotalPages } = useMemo(() =>
                         >
                           {isLoading ? "Processing..." : "Unsubscribe"}
                         </button>
+                        {detailSelectedContacts.size === 1 && (
+                          <button
+                            className="button secondary"
+                            onClick={() => {
+                              const contactId = Array.from(detailSelectedContacts)[0];
+                              const contact = detailContacts.find(c => c.id.toString() === contactId);
+                              if (contact) {
+                                setEditingContact(contact);
+                                setShowEditContactModal(true);
+                              }
+                            }}
+                            style={{
+                              background: "#17a2b8",
+                              color: "#fff",
+                              border: "none",
+                            }}
+                          >
+                            Edit contact
+                          </button>
+                        )}
                         <button
                           className="button primary"
                           onClick={() => setShowSaveSegmentModal(true)}
@@ -2805,6 +2839,26 @@ const { filteredSegments, paginatedSegments, segmentTotalPages } = useMemo(() =>
                         >
                           {isLoading ? "Processing..." : "Unsubscribe"}
                         </button>
+                        {detailSelectedContacts.size === 1 && (
+                          <button
+                            className="button secondary"
+                            onClick={() => {
+                              const contactId = Array.from(detailSelectedContacts)[0];
+                              const contact = detailContacts.find(c => c.id.toString() === contactId);
+                              if (contact) {
+                                setEditingContact(contact);
+                                setShowEditContactModal(true);
+                              }
+                            }}
+                            style={{
+                              background: "#17a2b8",
+                              color: "#fff",
+                              border: "none",
+                            }}
+                          >
+                            Edit contact
+                          </button>
+                        )}
                         <button
                           className="button primary"
                           onClick={() => setShowSaveSegmentModal(true)}
@@ -3111,6 +3165,31 @@ const { filteredSegments, paginatedSegments, segmentTotalPages } = useMemo(() =>
           } else if (selectedDataFile) {
             fetchContacts();
           }
+        }}
+        onShowMessage={(message, type) => {
+          if (type === 'success') {
+            appModal.showSuccess(message);
+          } else {
+            appModal.showError(message);
+          }
+        }}
+      />
+      <EditContactModal
+        isOpen={showEditContactModal}
+        onClose={() => {
+          setShowEditContactModal(false);
+          setEditingContact(null);
+        }}
+        contact={editingContact}
+        onContactUpdated={() => {
+          if (viewMode === "detail" && selectedDataFileForView) {
+            fetchDetailContacts("list", selectedDataFileForView);
+          } else if (segmentViewMode === "detail" && selectedSegmentForView) {
+            fetchDetailContacts("segment", selectedSegmentForView);
+          } else if (selectedDataFile) {
+            fetchContacts();
+          }
+          setDetailSelectedContacts(new Set());
         }}
         onShowMessage={(message, type) => {
           if (type === 'success') {
