@@ -3760,7 +3760,7 @@ const MainPage: React.FC = () => {
                     </button>
                     <div
                       ref={popupRef}
-                      className="absolute left-0 top-full mt-2 bg-white border border-gray-300 rounded-md shadow-lg p-3 w-50 z-50"
+                      className="absolute left-0 top-full mt-2 bg-white border border-gray-300 rounded-md shadow-lg p-3 w-50"
                     >
                       <h4 className="font-semibold mb-2 text-sm text-gray-800">
                         Need support?
