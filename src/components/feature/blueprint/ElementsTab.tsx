@@ -143,7 +143,25 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
                       )}
                     </label>
 
-                    {renderPlaceholderInput(p)}
+                        <div>
+                          {renderPlaceholderInput({
+                            ...p,
+                            options: p.options || []
+                          })}
+
+                          {p.inputType === "select" && (
+                            <div
+                              style={{
+                                marginTop: "4px",
+                                fontSize: "12px",
+                                color: "#6b7280"
+                              }}
+                            >
+                             
+                            </div>
+                          )}
+                        </div>
+
                   </div>
                 ))}
               </div>

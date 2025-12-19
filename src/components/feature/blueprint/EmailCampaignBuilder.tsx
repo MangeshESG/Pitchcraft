@@ -13,8 +13,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBars } from '@fortawesome/free-solid-svg-icons';
 import downArrow from "../../assets/images/down.png";
 import PopupModal from '../../common/PopupModal';
-import PlaceholderManager from "./PlaceholderManager";
-import ElementsTab from "./ElementsTab";
+import ElementsTab from "./ElementsTab"
+
 
 
 
@@ -68,15 +68,19 @@ interface PlaceholderDefinitionUI {
   friendlyName: string;
   category: string;
 
-  inputType: "text" | "textarea" | "richtext" | "select"; // ⭐ add select
+  inputType: "text" | "textarea" | "richtext" | "select";
   uiSize: "sm" | "md" | "lg" | "xl";
 
   isRuntimeOnly: boolean;
   isExpandable: boolean;
   isRichText: boolean;
 
-  options?: string[]; // ⭐ dropdown options
+  options?: string[];
+
+  // ✅ TEMP UI-only raw editor value (NOT saved to backend)
+  _rawOptions?: string;
 }
+
 
 
 
@@ -1241,6 +1245,8 @@ const setPageSize = () => {};
 const [uiPlaceholders, setUiPlaceholders] =
   useState<PlaceholderDefinitionUI[]>([]);
 
+  
+
 const totalPages = Math.max(1, Math.ceil((contacts.length || 1) / rowsPerPage));
 const [editableExampleOutput, setEditableExampleOutput] = useState("");
 const [isGenerating, setIsGenerating] = useState(false);
@@ -1333,6 +1339,25 @@ const ExampleEmailEditor = ({
     />
   );
 };
+
+useEffect(() => {
+  if (!selectedTemplateDefinitionId) return;
+
+  axios
+    .get(
+      `${API_BASE_URL}/api/CampaignPrompt/placeholders/by-template/${selectedTemplateDefinitionId}`
+    )
+    .then(res => {
+      if (Array.isArray(res.data) && res.data.length > 0) {
+        setUiPlaceholders(res.data);
+        console.log("✅ Loaded placeholder definitions from backend");
+      }
+    })
+    .catch(err =>
+      console.error("❌ Failed to load placeholder definitions", err)
+    );
+}, [selectedTemplateDefinitionId]);
+
 
 useEffect(() => {
   if (currentPage > totalPages) {
@@ -1832,6 +1857,19 @@ const regenerateExampleOutput = async () => {
       if (response.data.success) {
         setSaveDefinitionStatus('success');
         setSelectedTemplateDefinitionId(response.data.templateDefinitionId);
+          const savePlaceholderDefinitions = async () => {
+  if (!selectedTemplateDefinitionId) return;
+
+  await axios.post(
+    `${API_BASE_URL}/api/CampaignPrompt/placeholders/save`,
+    {
+      templateDefinitionId: selectedTemplateDefinitionId,
+      placeholders: uiPlaceholders
+    }
+  );
+
+  console.log("✅ Placeholder definitions saved");
+};
 
         await loadTemplateDefinitions();
 
@@ -1850,6 +1888,20 @@ const regenerateExampleOutput = async () => {
       setIsSavingDefinition(false);
     }
   };
+
+  const savePlaceholderDefinitions = async () => {
+  if (!selectedTemplateDefinitionId) return;
+
+  await axios.post(
+    `${API_BASE_URL}/api/CampaignPrompt/placeholders/save`,
+    {
+      templateDefinitionId: selectedTemplateDefinitionId,
+      placeholders: uiPlaceholders
+    }
+  );
+
+  console.log("✅ Placeholder definitions saved");
+};
 
 
   const updateTemplateDefinition = async () => {
@@ -1876,6 +1928,7 @@ const regenerateExampleOutput = async () => {
     });
 
       alert("Template updated successfully.");
+      await savePlaceholderDefinitions();
       await loadTemplateDefinitions();
     } catch (err) {
       console.error("Update failed:", err);
@@ -2284,7 +2337,13 @@ const startEditConversation = async (placeholder: string) => {
   // ========================================
 // BUILD UI PLACEHOLDERS FROM { } LIST
 // ========================================
+
 useEffect(() => {
+  // 🛑 IMPORTANT: do NOT rebuild while user is typing dropdown options
+  if (uiPlaceholders.some(p => (p as any)._rawOptions !== undefined)) {
+    return;
+  }
+
   const keys = extractPlaceholders(masterPrompt);
 
   setUiPlaceholders(prev => {
@@ -2295,8 +2354,22 @@ useEffect(() => {
     return keys.map(key => {
       const existing = prevMap.get(key);
 
-    return (
-      existing || {
+      // ✅ FULLY PRESERVE existing placeholder config
+      if (existing) {
+        return {
+          ...existing,
+          // ✅ preserve typing buffer
+          _rawOptions: (existing as any)._rawOptions,
+
+          // ensure runtime flag remains correct
+          isRuntimeOnly:
+            existing.isRuntimeOnly ??
+            RUNTIME_ONLY_PLACEHOLDERS.includes(key)
+        };
+      }
+
+      // ✅ ONLY for brand-new placeholders
+      return {
         placeholderKey: key,
         friendlyName: key.replace(/_/g, " "),
         category: key.includes("search")
@@ -2305,17 +2378,8 @@ useEffect(() => {
           ? "Output"
           : "General",
 
-        inputType:
-          key === "tone"
-            ? "select"
-            : key.includes("example") || key.includes("output")
-            ? "richtext"
-            : "text",
-
-        options:
-          key === "tone"
-            ? ["Professional", "Friendly", "Casual", "Direct"]
-            : undefined,
+        inputType: "text",
+        options: [],
 
         uiSize:
           key.includes("example") || key.includes("output")
@@ -2325,13 +2389,12 @@ useEffect(() => {
         isRuntimeOnly: RUNTIME_ONLY_PLACEHOLDERS.includes(key),
         isExpandable: key.includes("example") || key.includes("output"),
         isRichText: key.includes("example") || key.includes("output")
-      }
-    );
-
-
+      };
     });
   });
 }, [masterPrompt]);
+
+
 
 const groupedPlaceholders = uiPlaceholders
   .filter(p => !p.isRuntimeOnly)
@@ -2342,29 +2405,90 @@ const groupedPlaceholders = uiPlaceholders
   }, {});
 
 
-  const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
+const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
   const key = p.placeholderKey;
   const value = formValues[key] ?? "";
 
-  switch (p.inputType) {
-    case "select":
-      return (
-        <select
-          value={value}
-          onChange={e =>
-            setFormValues(prev => ({ ...prev, [key]: e.target.value }))
-          }
-          className="text-input"
-        >
-          <option value="">-- Select --</option>
-          {p.options?.map(opt => (
-            <option key={opt} value={opt}>
-              {opt}
-            </option>
-          ))}
-        </select>
-      );
+  // Common input style
+  const baseStyle: React.CSSProperties = {
+    width: "100%",
+    padding: "8px 10px",
+    borderRadius: "6px",
+    border: "1px solid #d1d5db",
+    fontSize: "14px",
+    background: "#fff"
+  };
 
+  switch (p.inputType) {
+    // ================================
+    // 🔽 DROPDOWN (SELECT)
+    // ================================
+case "select":
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+      {/* OPTIONS EDITOR */}
+      <input
+        type="text"
+        placeholder="Options (comma separated)"
+        value={p._rawOptions ?? p.options?.join(", ") ?? ""}
+        onChange={e => {
+          const raw = e.target.value;
+
+          // store raw typing ONLY
+          setUiPlaceholders(prev =>
+            prev.map(x =>
+              x.placeholderKey === p.placeholderKey
+                ? { ...x, _rawOptions: raw }
+                : x
+            )
+          );
+        }}
+        onBlur={() => {
+          // parse ONLY when user finishes typing
+          setUiPlaceholders(prev =>
+            prev.map(x =>
+              x.placeholderKey === p.placeholderKey
+                ? {
+                    ...x,
+                    options: (x._rawOptions ?? "")
+                      .split(",")
+                      .map((o: string) => o.trim())
+                      .filter(Boolean),
+                    _rawOptions: undefined
+                  }
+                : x
+            )
+          );
+        }}
+        style={{
+          ...baseStyle,
+          fontSize: "12px",
+          background: "#f9fafb"
+        }}
+      />
+
+      {/* ACTUAL DROPDOWN */}
+      <select
+        value={value}
+        onChange={e =>
+          setFormValues(prev => ({ ...prev, [key]: e.target.value }))
+        }
+        style={baseStyle}
+      >
+        <option value="">-- Select --</option>
+        {p.options?.map(opt => (
+          <option key={opt} value={opt}>
+            {opt}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+
+
+    // ================================
+    // 📝 TEXTAREA
+    // ================================
     case "textarea":
       return (
         <textarea
@@ -2372,10 +2496,17 @@ const groupedPlaceholders = uiPlaceholders
           onChange={e =>
             setFormValues(prev => ({ ...prev, [key]: e.target.value }))
           }
-          style={{ minHeight: "80px" }}
+          style={{
+            ...baseStyle,
+            minHeight: "90px",
+            resize: "vertical"
+          }}
         />
       );
 
+    // ================================
+    // 🧠 RICH TEXT (EXPANDABLE)
+    // ================================
     case "richtext":
       return (
         <div
@@ -2386,14 +2517,20 @@ const groupedPlaceholders = uiPlaceholders
               "<span style='color:#9ca3af'>Click Expand to edit</span>"
           }}
           style={{
-            border: "1px solid #d1d5db",
-            padding: "10px",
             minHeight: "120px",
-            cursor: "pointer"
+            border: "1px solid #d1d5db",
+            borderRadius: "6px",
+            padding: "10px",
+            background: "#ffffff",
+            cursor: "pointer",
+            lineHeight: "1.6"
           }}
         />
       );
 
+    // ================================
+    // ✏️ DEFAULT TEXT INPUT
+    // ================================
     default:
       return (
         <input
@@ -2402,6 +2539,7 @@ const groupedPlaceholders = uiPlaceholders
           onChange={e =>
             setFormValues(prev => ({ ...prev, [key]: e.target.value }))
           }
+          style={baseStyle}
         />
       );
   }
@@ -3314,22 +3452,44 @@ function SimpleTextarea({
       Placeholder Manager
     </h3>
 
-    {uiPlaceholders.map((p, idx) => (
+    {/* HEADER */}
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr",
+        gap: "10px",
+        fontWeight: 600,
+        fontSize: "13px",
+        color: "#374151",
+        marginBottom: "10px"
+      }}
+    >
+      <div>Placeholder</div>
+      <div>Friendly Name</div>
+      <div>Category</div>
+      <div>Input / Options</div>
+      <div>Size</div>
+    </div>
+
+    {/* ROWS */}
+    {uiPlaceholders.map((p) => (
       <div
         key={p.placeholderKey}
         style={{
           display: "grid",
-          gridTemplateColumns: "2fr 2fr 1fr 1fr 1fr",
+          gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr",
           gap: "10px",
           alignItems: "center",
           marginBottom: "10px"
         }}
       >
+        {/* Placeholder Key */}
         <strong>{`{${p.placeholderKey}}`}</strong>
 
+        {/* Friendly Name */}
         <input
           value={p.friendlyName}
-          onChange={e => {
+          onChange={(e) => {
             const v = e.target.value;
             setUiPlaceholders(prev =>
               prev.map(x =>
@@ -3339,11 +3499,13 @@ function SimpleTextarea({
               )
             );
           }}
+          className="text-input"
         />
 
+        {/* Category */}
         <select
           value={p.category}
-          onChange={e => {
+          onChange={(e) => {
             const v = e.target.value;
             setUiPlaceholders(prev =>
               prev.map(x =>
@@ -3353,34 +3515,144 @@ function SimpleTextarea({
               )
             );
           }}
+          className="definition-select"
         >
-          <option>General</option>
-          <option>Company</option>
-          <option>Search</option>
-          <option>Output</option>
+          <option>Your Company</option>
+          <option>Core Message Focus</option>
+          <option>Dos and Don'ts</option>
+          <option>Message Writing Style</option>
+          <option>Call-To-Action</option>
+          <option>Greetings & farewells</option>
+          <option>Subject Line</option>
+          <option>Images</option>
         </select>
 
-        <select
-          value={p.inputType}
-          onChange={e => {
-            const v = e.target.value as any;
+        {/* Input Type + Options */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          <select
+            value={p.inputType}
+            onChange={(e) => {
+              const v = e.target.value as any;
+              setUiPlaceholders(prev =>
+                prev.map(x =>
+                  x.placeholderKey === p.placeholderKey
+                    ? {
+                        ...x,
+                        inputType: v,
+                        options: v === "select" ? x.options || [] : []
+                      }
+                    : x
+                )
+              );
+            }}
+            className="definition-select"
+          >
+            <option value="text">Text</option>
+            <option value="textarea">Textarea</option>
+            <option value="richtext">Rich Text</option>
+            <option value="select">Dropdown</option>
+          </select>
+
+          {/* Options Editor (only for select) */}
+{p.inputType === "select" && (
+  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+    {(p.options || []).map((opt, idx) => (
+      <div
+        key={idx}
+        style={{
+          display: "flex",
+          gap: "6px",
+          alignItems: "center"
+        }}
+      >
+        <input
+          type="text"
+          value={opt}
+          onChange={(e) => {
+            const newVal = e.target.value;
             setUiPlaceholders(prev =>
               prev.map(x =>
                 x.placeholderKey === p.placeholderKey
-                  ? { ...x, inputType: v }
+                  ? {
+                      ...x,
+                      options: x.options?.map((o, i) =>
+                        i === idx ? newVal : o
+                      )
+                    }
                   : x
               )
             );
           }}
-        >
-          <option value="text">Text</option>
-          <option value="textarea">Textarea</option>
-          <option value="richtext">Rich Text</option>
-        </select>
+          className="text-input"
+          placeholder={`Option ${idx + 1}`}
+          style={{ fontSize: "12px" }}
+        />
 
+        <button
+          type="button"
+          onClick={() => {
+            setUiPlaceholders(prev =>
+              prev.map(x =>
+                x.placeholderKey === p.placeholderKey
+                  ? {
+                      ...x,
+                      options: x.options?.filter((_, i) => i !== idx)
+                    }
+                  : x
+              )
+            );
+          }}
+          style={{
+            background: "#ef4444",
+            color: "#fff",
+            borderRadius: "4px",
+            padding: "4px 8px",
+            fontSize: "12px",
+            border: "none",
+            cursor: "pointer"
+          }}
+        >
+          ✕
+        </button>
+      </div>
+    ))}
+
+    {/* ADD OPTION BUTTON */}
+    <button
+      type="button"
+      onClick={() => {
+        setUiPlaceholders(prev =>
+          prev.map(x =>
+            x.placeholderKey === p.placeholderKey
+              ? {
+                  ...x,
+                  options: [...(x.options || []), ""]
+                }
+              : x
+          )
+        );
+      }}
+      style={{
+        marginTop: "4px",
+        background: "#e5e7eb",
+        borderRadius: "6px",
+        padding: "6px",
+        fontSize: "13px",
+        cursor: "pointer",
+        border: "1px dashed #9ca3af"
+      }}
+    >
+      ➕ Add option
+    </button>
+  </div>
+)}
+
+        </div>
+
+        {/* UI Size */}
         <select
           value={p.uiSize}
-          onChange={e => {
+          onChange={(e) => {
             const v = e.target.value as any;
             setUiPlaceholders(prev =>
               prev.map(x =>
@@ -3390,6 +3662,7 @@ function SimpleTextarea({
               )
             );
           }}
+          className="definition-select"
         >
           <option value="sm">SM</option>
           <option value="md">MD</option>
@@ -3398,8 +3671,25 @@ function SimpleTextarea({
         </select>
       </div>
     ))}
+
+    {/* SAVE BUTTON */}
+    <div style={{ marginTop: "20px", textAlign: "right" }}>
+      <button
+        onClick={savePlaceholderDefinitions}
+        style={{
+          padding: "10px 18px",
+          background: "#2563eb",
+          color: "#fff",
+          borderRadius: "6px",
+          fontWeight: 600
+        }}
+      >
+        Save Placeholder Settings
+      </button>
+    </div>
   </div>
 )}
+
 
 
 
