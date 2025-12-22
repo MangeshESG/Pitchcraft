@@ -227,13 +227,13 @@
 }
 
 /* Tab Content */
-.email-campaign-builder .tab-content {
+/* .email-campaign-builder .tab-content {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
   padding: 20px;
   scroll-behavior: smooth;
-}
+} */
 
 .email-campaign-builder .tab-content::-webkit-scrollbar {
   width: 8px;
@@ -2308,11 +2308,11 @@
   border-color: #3f9f42;
 }
 
-.tab-content {
+/* .tab-content {
   width: 100%;
   min-height: auto;
   padding: 15px;
-}
+} */
 
 .instruction-subtabs {
   display: flex;
@@ -2572,5 +2572,76 @@
   top: 0;
   z-index: 50;
   background: white;
+  border-bottom: 1px solid #e5e7eb;
 }
+
+.email-campaign-builder .sticky-tabs ul {
+  display: flex;
+  gap: 28px;
+  padding: 14px 20px;
+  margin: 0;
+  list-style: none;
+}
+
+.email-campaign-builder .sticky-tabs button {
+  background: transparent;
+  border: none;
+  font-size: 15px;
+  font-weight: 600;
+  color: #6b7280;
+  padding-bottom: 8px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.email-campaign-builder .sticky-tabs button:hover {
+  color: #111827;
+}
+
+.email-campaign-builder .sticky-tabs button.active {
+  color: #3f9f42;
+  border-bottom-color: #3f9f42;
+}
+/* Build Sub Tabs (Chat / Elements) */
+.build-subtabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  width: fit-content;
+}
+
+.build-subtabs button {
+  padding: 6px 16px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.build-subtabs button:hover {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+.build-subtabs button.active {
+  background: #3f9f42;
+  color: white;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+}
+
  
+
+.chat-section,
+.elements-container {
+  background: #ffffff;
+  border-radius: 12px;
+}

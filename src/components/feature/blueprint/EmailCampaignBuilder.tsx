@@ -18,6 +18,9 @@ import ElementsTab from "./ElementsTab"
 
 
 
+
+
+
 // --- Type Definitions ---
 interface Message {
   type: 'user' | 'bot';
@@ -26,14 +29,8 @@ interface Message {
 }
 
 // include both old and new tab keys
-type TabType =
-  | 'template'
-  | 'conversation'
-  | 'result'
-  | 'build'
-  | 'elements'
-  | 'instructions'
-  | 'ct';
+type MainTab = 'build' | 'instructions' | 'ct';
+type BuildSubTab = 'chat' | 'elements';
 
 
 type GPTModel = {
@@ -161,6 +158,9 @@ interface ConversationTabProps {
 
   filledTemplate: string;   // <-- ADD THIS
   editTemplateId?: number | null;
+
+  groupedPlaceholders: Record<string, PlaceholderDefinitionUI[]>;
+
 
 
 }
@@ -515,6 +515,8 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   sourcedSummary,
   filledTemplate,
   editTemplateId,   // ⭐ ADD THIS
+  groupedPlaceholders,
+
      
 
 }) => {
@@ -706,171 +708,205 @@ const saveExampleEmail = async () => {
 
 
 
+// ===============================
+// TYPES
+// ===============================
+type PlaceholderDefinitionUI = {
+  placeholderKey: string;
+  friendlyName: string;
+  category: string;
+};
 
-  return (
-    <div className="conversation-container">
-      <div className="chat-layout">
-        
+// ===============================
+// SAFE TRUNCATE HELPER
+// ===============================
+const truncate = (val: string, max = 50) =>
+  val.length > max ? val.slice(0, max) + "…" : val;
 
-        {/* ===================== CHAT SECTION ===================== */}
-        <div className="chat-section">
-          
-
-
-          {/* ------------------ CHAT MESSAGES ------------------ */}
-          <div className="messages-area">
-
-            {/* 1️⃣ EDIT MODE → No placeholder selected yet */}
-            {isEditMode && !conversationStarted && !selectedPlaceholder && (
-              <div className="empty-conversation">
-                <p
-                  style={{
-                    padding: "20px",
-                    textAlign: "center",
-                    color: "#6b7280",
-                    fontSize: "16px",
-                    fontStyle: "italic",
-                  }}
-                >
-                  Please select a placeholder to edit.
-                </p>
-              </div>
-            )}
-
-            {/* 2️⃣ EDIT MODE → Placeholder selected but chat not started yet */}
-            {isEditMode && !conversationStarted && selectedPlaceholder && (
-              <div className="empty-conversation">
-                <p
-                  style={{
-                    padding: "20px",
-                    textAlign: "center",
-                    color: "#6b7280",
-                  }}
-                >
-                  Preparing conversation…
-                </p>
-              </div>
-            )}
-
-            {/* 3️⃣ NORMAL MODE → No conversation started */}
-            {!conversationStarted && !isEditMode && (
-              <div className="empty-conversation"></div>
-            )}
-
-            {/* 4️⃣ ACTIVE CHAT */}
-            {conversationStarted && (
-              <div className="messages-list">
+// ===============================
+// GROUP PLACEHOLDERS (CATEGORY WISE)
+// ===============================
 
 
+return (
+  <div className="conversation-container">
+    <div className="chat-layout">
 
-                {/* Render messages */}
-                {messages.map((msg, idx) => (
-                  <div key={idx} className={`message-wrapper ${msg.type}`}>
-                    <div className={`message-bubble ${msg.type}`}>
-                      {renderMessageContent(msg.content)}
-                      <div className={`message-time ${msg.type}`}>
-                        {new Date(msg.timestamp).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </div>
+      {/* ===================== LEFT : CHAT ===================== */}
+      <div className="chat-section">
+
+        {/* ===== CHAT HEADING ===== */}
+        <div className="chat-header">
+          <h2 className="chat-heading">Conversation</h2>
+        </div>
+
+        {/* ===== PLACEHOLDER DROPDOWN (INSIDE CHAT) ===== */}
+        {isEditMode && (
+          <div className="chat-placeholder-panel">
+            <label className="placeholder-label">
+              Select placeholder to edit
+            </label>
+
+            <select
+              className="placeholder-dropdown"
+              value={selectedPlaceholder || ""}
+              onChange={(e) => onPlaceholderSelect?.(e.target.value)}
+              disabled={isTyping}
+            >
+              <option value="">-- Select placeholder --</option>
+
+              {Object.entries(groupedPlaceholders).map(
+                ([category, placeholders]) => (
+                  <optgroup key={category} label={category}>
+                    {placeholders.map((p) => {
+                      const value =
+                        placeholderValues?.[p.placeholderKey] || "";
+
+                      return (
+                        <option
+                          key={p.placeholderKey}
+                          value={p.placeholderKey}
+                        >
+                          {p.friendlyName}
+                          {value
+                            ? ` — ${truncate(value)}`
+                            : " — Not set"}
+                        </option>
+                      );
+                    })}
+                  </optgroup>
+                )
+              )}
+            </select>
+          </div>
+        )}
+
+        {/* ===== CHAT BODY ===== */}
+        <div className="messages-area">
+
+          {/* EDIT MODE – no placeholder yet */}
+          {isEditMode && !conversationStarted && !selectedPlaceholder && (
+            <div className="empty-conversation">
+              <p>Please select a placeholder to edit.</p>
+            </div>
+          )}
+
+          {/* EDIT MODE – preparing */}
+          {isEditMode && !conversationStarted && selectedPlaceholder && (
+            <div className="empty-conversation">
+              <p>Preparing conversation…</p>
+            </div>
+          )}
+
+          {/* NORMAL MODE – idle */}
+          {!conversationStarted && !isEditMode && (
+            <div className="empty-conversation" />
+          )}
+
+          {/* ACTIVE CHAT */}
+          {conversationStarted && (
+            <div className="messages-list">
+              {messages.map((msg, idx) => (
+                <div key={idx} className={`message-wrapper ${msg.type}`}>
+                  <div className={`message-bubble ${msg.type}`}>
+                    {renderMessageContent(msg.content)}
+                    <div className={`message-time ${msg.type}`}>
+                      {new Date(msg.timestamp).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </div>
                   </div>
-                ))}
+                </div>
+              ))}
 
-                {isTyping && (
-                  <div className="typing-indicator">
-                    <Loader2 className="typing-spinner" />
-                    <span>Blueprint builder is thinking...</span>
-                  </div>
-                )}
+              {isTyping && (
+                <div className="typing-indicator">
+                  <Loader2 className="typing-spinner" />
+                  <span>Blueprint builder is thinking…</span>
+                </div>
+              )}
 
-                <div ref={chatEndRef} />
-              </div>
-            )}
-
-          </div>
-
-
-          {/* ------------------ INPUT BAR ------------------ */}
-          {conversationStarted && (
-            <div className="input-area">
-              <div className="input-container">
-                <textarea
-                  ref={inputRef}
-                  value={currentAnswer}
-                  onChange={(e) => setCurrentAnswer(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Type your answer..."
-                  className="message-input"
-                  rows={2}
-                  disabled={isTyping}
-                />
-
-                <button
-                  onClick={handleSendMessage}
-                  disabled={isTyping || !currentAnswer.trim()}
-                  className="send-button"
-                >
-                  <Send size={20} />
-                </button>
-              </div>
+              <div ref={chatEndRef} />
             </div>
           )}
         </div>
-        <PopupModal
-      open={popupmodalInfo.open}
-      title={popupmodalInfo.title}
-      message={popupmodalInfo.message}
-      onClose={closeModal}
-    />
 
-              {/* ===================== EXAMPLE OUTPUT SECTION ===================== */}
-      <ExampleOutputPanel
-        isSectionOpen={isSectionOpen}
-        setIsSectionOpen={setIsSectionOpen}
-        
-        dataFiles={dataFiles}
-        contacts={contacts}
-        selectedDataFileId={selectedDataFileId}
-        selectedContactId={selectedContactId}
-        handleSelectDataFile={handleSelectDataFile}
-        setSelectedContactId={setSelectedContactId}
-        applyContactPlaceholders={applyContactPlaceholders}
+        {/* ===== INPUT BAR ===== */}
+        {conversationStarted && (
+          <div className="input-area">
+            <div className="input-container">
+              <textarea
+                ref={inputRef}
+                value={currentAnswer}
+                onChange={(e) => setCurrentAnswer(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Type your answer…"
+                className="message-input"
+                rows={2}
+                disabled={isTyping}
+              />
 
-        exampleOutput={exampleOutput}
-        editableExampleOutput={editableExampleOutput}
-        setEditableExampleOutput={setEditableExampleOutput}
-        saveExampleEmail={saveExampleEmail}
-
-        regenerateExampleOutput={regenerateExampleOutput}
-        isGenerating={isGenerating}
-
-        currentPage={currentPage}
-        totalPages={totalPages}
-        setCurrentPage={setCurrentPage}
-
-        rowsPerPage={rowsPerPage}              // ⭐ FIX
-        setPageSize={setPageSize}              // ⭐ FIX
-
-        activeMainTab={activeMainTab}
-        setActiveMainTab={setActiveMainTab}
-
-        activeSubStageTab={activeSubStageTab}  // ⭐ FIX
-        setActiveSubStageTab={setActiveSubStageTab} // ⭐ FIX
-
-        filledTemplate={filledTemplate}
-        searchResults={searchResults}
-        allSourcedData={allSourcedData}
-        sourcedSummary={sourcedSummary}
-
-        ExampleEmailEditor={ExampleEmailEditor} // ⭐ FIX
-      />
-
-
+              <button
+                onClick={handleSendMessage}
+                disabled={isTyping || !currentAnswer.trim()}
+                className="send-button"
+              >
+                <Send size={18} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* ===================== RIGHT : EMAIL PREVIEW ===================== */}
+      <div className="preview-section">
+        <h2 className="chat-heading">Email Preview</h2>
+
+        <ExampleOutputPanel
+          isSectionOpen={isSectionOpen}
+          setIsSectionOpen={setIsSectionOpen}
+          dataFiles={dataFiles}
+          contacts={contacts}
+          selectedDataFileId={selectedDataFileId}
+          selectedContactId={selectedContactId}
+          handleSelectDataFile={handleSelectDataFile}
+          setSelectedContactId={setSelectedContactId}
+          applyContactPlaceholders={applyContactPlaceholders}
+          exampleOutput={exampleOutput}
+          editableExampleOutput={editableExampleOutput}
+          setEditableExampleOutput={setEditableExampleOutput}
+          saveExampleEmail={saveExampleEmail}
+          regenerateExampleOutput={regenerateExampleOutput}
+          isGenerating={isGenerating}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          setCurrentPage={setCurrentPage}
+          rowsPerPage={rowsPerPage}
+          setPageSize={setPageSize}
+          activeMainTab={activeMainTab}
+          setActiveMainTab={setActiveMainTab}
+          activeSubStageTab={activeSubStageTab}
+          setActiveSubStageTab={setActiveSubStageTab}
+          filledTemplate={filledTemplate}
+          searchResults={searchResults}
+          allSourcedData={allSourcedData}
+          sourcedSummary={sourcedSummary}
+          ExampleEmailEditor={ExampleEmailEditor}
+        />
+      </div>
+
+      {/* ===== MODAL ===== */}
+      <PopupModal
+        open={popupmodalInfo.open}
+        title={popupmodalInfo.title}
+        message={popupmodalInfo.message}
+        onClose={closeModal}
+      />
     </div>
-  );
+  </div>
+);
+
 };
 
 // ====================================================================
@@ -1182,7 +1218,7 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
 // ====================================================================
 const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ selectedClient }) => {
   // --- State Management ---
-const [activeTab, setActiveTab] = useState<TabType>('build');
+const [activeBuildTab, setActiveBuildTab] = useState<BuildSubTab>('chat');
   const [currentAnswer, setCurrentAnswer] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -1251,7 +1287,7 @@ const [uiPlaceholders, setUiPlaceholders] =
 const totalPages = Math.max(1, Math.ceil((contacts.length || 1) / rowsPerPage));
 const [editableExampleOutput, setEditableExampleOutput] = useState("");
 const [isGenerating, setIsGenerating] = useState(false);
-const [activeMainTab, setActiveMainTab] = useState<"output" | "pt" | "stages">("output");
+const [activeMainTab, setActiveMainTab] = useState<MainTab>('build');
 
 const [activeSubStageTab, setActiveSubStageTab] =
   useState<"search" | "data" | "summary">("summary");
@@ -1390,7 +1426,7 @@ useEffect(() => {
 
 // ⭐ Ensure contact switching works inside Elements tab also
 useEffect(() => {
-  if (activeTab !== "elements") return;
+  if (activeMainTab !== "build" || activeBuildTab !== "elements") return;
 
   if (contacts.length > 0) {
     const contact = contacts[(currentPage - 1) * rowsPerPage];
@@ -1399,21 +1435,23 @@ useEffect(() => {
       applyContactPlaceholders(contact);
     }
   }
-}, [currentPage, contacts, activeTab]);
+}, [currentPage, contacts, activeMainTab, activeBuildTab]);
+
 
 
 useEffect(() => {
-  const saved = sessionStorage.getItem("campaign_activeTab") as TabType | null;
-  if (saved) {
-    setActiveTab(saved);
-  } else {
-    setActiveTab("build");
-    sessionStorage.setItem("campaign_activeTab", "build");
-  }
+  const main = sessionStorage.getItem("campaign_activeMainTab") as MainTab | null;
+  const build = sessionStorage.getItem("campaign_activeBuildTab") as BuildSubTab | null;
+
+  if (main) setActiveMainTab(main);
+  if (build) setActiveBuildTab(build);
 }, []);
+
 useEffect(() => {
-  if (activeTab) sessionStorage.setItem("campaign_activeTab", activeTab);
-}, [activeTab]);
+  sessionStorage.setItem("campaign_activeMainTab", activeMainTab);
+  sessionStorage.setItem("campaign_activeBuildTab", activeBuildTab);
+}, [activeMainTab, activeBuildTab]);
+
   // ====================================================================
   // LOAD DATA FILES
   // ====================================================================
@@ -1485,7 +1523,7 @@ useEffect(() => {
       sessionStorage.removeItem("autoStartConversation");
       sessionStorage.removeItem("openConversationTab");
 
-      setActiveTab("build");
+      setActiveMainTab("build"); setActiveBuildTab("chat");      
       startConversation();
     }
   }, [systemPrompt, masterPrompt, selectedTemplateDefinitionId]);
@@ -1600,6 +1638,17 @@ const saveAllPlaceholders = async () => {
   // ✅ HELPER: Regenerate with Specific Values (Used by regenerateExampleOutput)
   // ====================================================================
 
+// =====================================================
+// UI helpers for placeholder dropdown (EDIT MODE)
+// =====================================================
+const truncate = (val: string, max = 60) => {
+  if (!val) return "";
+  return val.length > max ? val.slice(0, max) + "…" : val;
+};
+
+const getPlaceholderValue = (key: string) => {
+  return placeholderValues?.[key] || "";
+};
 
   // 🧭 Stages tab state
 
@@ -1990,7 +2039,7 @@ const regenerateExampleOutput = async () => {
 
       setEditTemplateId(parseInt(templateId));
       setIsEditMode(true);
-      setActiveTab('conversation');
+      setActiveMainTab("build"); setActiveBuildTab("chat");      
       loadTemplateForEdit(parseInt(templateId));
 
       sessionStorage.removeItem('editTemplateId');
@@ -2064,7 +2113,7 @@ const regenerateExampleOutput = async () => {
         setExampleOutput(template.exampleOutput);
       } 
 
-      setActiveTab("build");
+      setActiveMainTab("build"); setActiveBuildTab("chat");
       setConversationStarted(false);
       setIsTyping(false);
       setIsEditMode(true);
@@ -2407,6 +2456,20 @@ useEffect(() => {
 }, [masterPrompt]);
 
 
+useEffect(() => {
+  const main = sessionStorage.getItem("campaign_activeMainTab") as MainTab;
+  const sub = sessionStorage.getItem("campaign_activeBuildTab") as BuildSubTab;
+
+  if (main) setActiveMainTab(main);
+  if (sub) setActiveBuildTab(sub);
+}, []);
+
+useEffect(() => {
+  sessionStorage.setItem("campaign_activeMainTab", activeMainTab);
+  sessionStorage.setItem("campaign_activeBuildTab", activeBuildTab);
+}, [activeMainTab, activeBuildTab]);
+
+
 
 const groupedPlaceholders = uiPlaceholders
   .filter(p => !p.isRuntimeOnly)
@@ -2584,7 +2647,7 @@ case "select":
     setPlaceholderValues({});
     setIsComplete(false);
     setConversationStarted(true);
-    setActiveTab("build");
+    setActiveMainTab("build"); setActiveBuildTab("chat");
     setIsTyping(true);
     setExampleOutput("");
 
@@ -2888,7 +2951,8 @@ const handleSendMessage = async () => {
     setMasterPromptExtensive("");
     setPreviewText("");
     setSelectedModel("gpt-5");
-    setActiveTab('template');
+    setActiveMainTab("build");
+    setActiveBuildTab("chat");  
   };
   const [userRole, setUserRole] = useState<string>(""); // Store user role
 
@@ -3090,66 +3154,36 @@ function SimpleTextarea({
           <div className="data-campaigns-container">
             {/* Sub-tabs Navigation */}
 <div className="sticky-tabs">
-  <ul className="d-flex" style={{ padding: "12px" }}>
-
-    {/* BUILD TAB */}
+  <ul className="d-flex">
     <li>
       <button
-        type="button"
-        onClick={() => {
-          setActiveTab("build");
-          sessionStorage.setItem("campaign_activeTab", "build");
-        }}
-        className={`button !pt-0 ${activeTab === "build" ? "active" : ""}`}
+        onClick={() => setActiveMainTab("build")}
+        className={activeMainTab === "build" ? "active" : ""}
       >
         Build
       </button>
     </li>
 
-    {/* ELEMENTS TAB */}
     <li>
       <button
-        type="button"
-        onClick={() => {
-          setActiveTab("elements");
-          sessionStorage.setItem("campaign_activeTab", "elements");
-        }}
-        className={`button !pt-0 ${activeTab === "elements" ? "active" : ""}`}
-      >
-        Elements
-      </button>
-    </li>
-
-    {/* INSTRUCTIONS TAB */}
-    <li>
-      <button
-        type="button"
-        onClick={() => {
-          setActiveTab("instructions");
-          sessionStorage.setItem("campaign_activeTab", "instructions");
-        }}
-        className={`button !pt-0 ${activeTab === "instructions" ? "active" : ""}`}
+        onClick={() => setActiveMainTab("instructions")}
+        className={activeMainTab === "instructions" ? "active" : ""}
       >
         Instructions set
       </button>
     </li>
 
-    {/* VT TAB */}
     <li>
       <button
-        type="button"
-        onClick={() => {
-          setActiveTab("ct");
-          sessionStorage.setItem("campaign_activeTab", "ct");
-        }}
-        className={`button !pt-0 ${activeTab === "ct" ? "active" : ""}`}
+        onClick={() => setActiveMainTab("ct")}
+        className={activeMainTab === "ct" ? "active" : ""}
       >
-        VT 
+        VT
       </button>
     </li>
-
   </ul>
 </div>
+
 
           </div>
 <PopupModal
@@ -3159,52 +3193,31 @@ function SimpleTextarea({
   onClose={closeModal}
 />
           <div className="tab-content">
-{activeTab === "build" && (
-  <div className="flex items-center justify-between w-full mb-[10px] mt-[-24px]">
+              {activeMainTab === "build" && (
+    <div className="build-subtabs">
+      <button
+        className={activeBuildTab === "chat" ? "active" : ""}
+        onClick={() => setActiveBuildTab("chat")}
+      >
+        Chat
+      </button>
 
-    {/* LEFT SIDE — Placeholder Dropdown */}
-    <div className="flex-1">
-      {isEditMode && (
-        <select
-          className="w-full h-[48px] border border-gray-300 rounded-md px-3 text-[15px]"
-          value={selectedPlaceholder || ""}
-          disabled={isTyping}
-          onChange={(e) => {
-            if (e.target.value) {
-              startEditConversation(e.target.value);
-            }
-          }}
-
-        >
-          <option value="">-- Select placeholder --</option>
-
-          {extractPlaceholders(masterPrompt).map((p) => (
-            <option key={p} value={p}>
-              {`{${p}}`} — Current: {placeholderValues[p] || "Not set"}
-            </option>
-          ))}
-        </select>
-      )}
+      <button
+        className={activeBuildTab === "elements" ? "active" : ""}
+        onClick={() => setActiveBuildTab("elements")}
+      >
+        Elements
+      </button>
     </div>
+  )}
 
-    {/* RIGHT SIDE → Toggle button */}
-    <button
-      onClick={() => setIsSectionOpen(!isSectionOpen)}
-      className="ml-3 w-[40px] h-[40px] flex items-center justify-center rounded-md bg-gray-200 hover:bg-gray-300"
-    >
-       <img
-        src={isSectionOpen ? "/arrow-right.svg" : "/arrow-left.svg"}
-        alt="toggle"
-        className="w-[22px] h-[22px] text-green-500"
-      />
-    </button>
-  </div>
-)}
+
+
 
 
 
             {/* 1️⃣ BUILD TAB (CHAT) */}
-            {activeTab === "build" && (
+{activeMainTab === "build" && activeBuildTab === "chat" && (
               <ConversationTab
                 conversationStarted={conversationStarted}
                 messages={messages}
@@ -3237,12 +3250,14 @@ function SimpleTextarea({
                 isSectionOpen={isSectionOpen}
                 setIsSectionOpen={setIsSectionOpen}
                 filledTemplate={filledTemplate}     // <-- ADD THIS
+                groupedPlaceholders={groupedPlaceholders}
+
 
               />
             )}
 
             {/* 2️⃣ ELEMENTS TAB */}
-{activeTab === "elements" && (
+{activeMainTab === "build" && activeBuildTab === "elements" && (
   <ElementsTab
     groupedPlaceholders={groupedPlaceholders}
     formValues={formValues}
@@ -3291,7 +3306,7 @@ function SimpleTextarea({
 
 
             {/* 3️⃣ INSTRUCTIONS SET TAB */}
-            {activeTab === "instructions" && (
+            {activeMainTab === "instructions" && (
               <div className="instructions-wrapper">
 
                 {/* =======================================================
@@ -3749,7 +3764,7 @@ function SimpleTextarea({
 
 
 {/* 4️⃣ VT (Live Blueprint with applied placeholders) */}
-{activeTab === "ct" && (
+{activeMainTab === "ct" && (
   <div className="ct-tab-container">
     <h3>Live vendor blueprint (Auto updated)</h3>
 
