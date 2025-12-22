@@ -5,7 +5,7 @@ export interface ElementsTabProps {
   groupedPlaceholders: Record<string, any[]>;
   formValues: Record<string, string>;
   setFormValues: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  setExpandedKey: (key: string) => void;
+  setExpandedKey: (key: string, friendlyName: string) => void;
   saveAllPlaceholders: () => void;
 
   // Right panel props
@@ -128,9 +128,11 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
                       {p.friendlyName}
 
                       {p.isExpandable && (
-                        <button
-                          onClick={() => setExpandedKey(p.placeholderKey)}
-                          style={{
+                          <button
+                            onClick={() =>
+                              setExpandedKey(p.placeholderKey, p.friendlyName)
+                            }                          
+                            style={{
                             fontSize: "12px",
                             padding: "4px 8px",
                             borderRadius: "4px",

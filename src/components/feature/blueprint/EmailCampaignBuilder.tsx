@@ -2519,26 +2519,32 @@ case "select":
     // ================================
     // 🧠 RICH TEXT (EXPANDABLE)
     // ================================
-    case "richtext":
-      return (
-        <div
-          onClick={() => setExpandedKey(key)}
-          dangerouslySetInnerHTML={{
-            __html:
-              value ||
-              "<span style='color:#9ca3af'>Click Expand to edit</span>"
-          }}
-          style={{
-            minHeight: "120px",
-            border: "1px solid #d1d5db",
-            borderRadius: "6px",
-            padding: "10px",
-            background: "#ffffff",
-            cursor: "pointer",
-            lineHeight: "1.6"
-          }}
-        />
-      );
+      case "richtext":
+        return (
+          <div
+            onClick={() =>
+              setExpandedPlaceholder({
+                key,
+                friendlyName: p.friendlyName
+              })
+            }
+            dangerouslySetInnerHTML={{
+              __html:
+                value ||
+                "<span style='color:#9ca3af'>Click Expand to edit</span>"
+            }}
+            style={{
+              minHeight: "120px",
+              border: "1px solid #d1d5db",
+              borderRadius: "6px",
+              padding: "10px",
+              background: "#ffffff",
+              cursor: "pointer",
+              lineHeight: "1.6"
+            }}
+          />
+        );
+
 
     // ================================
     // ✏️ DEFAULT TEXT INPUT
@@ -3005,15 +3011,19 @@ const reloadCampaignBlueprint = async () => {
 
 
 
+const [expandedPlaceholder, setExpandedPlaceholder] = useState<{
+  key: string;
+  friendlyName: string;
+} | null>(null);
 
-const [expandedKey, setExpandedKey] = useState<string | null>(null);
 const editorRef = useRef<HTMLDivElement | null>(null);
-const saveExpandedContent = () => {
-  if (!expandedKey || !editorRef.current) return;
 
-  setFormValues((prev) => ({
+const saveExpandedContent = () => {
+  if (!expandedPlaceholder || !editorRef.current) return;
+
+  setFormValues(prev => ({
     ...prev,
-    [expandedKey]: editorRef.current!.innerHTML
+    [expandedPlaceholder.key]: editorRef.current?.innerHTML ?? ""
   }));
 };
 
@@ -3237,7 +3247,9 @@ function SimpleTextarea({
     groupedPlaceholders={groupedPlaceholders}
     formValues={formValues}
     setFormValues={setFormValues}
-    setExpandedKey={setExpandedKey}
+    setExpandedKey={(key: string, friendlyName: string) =>
+      setExpandedPlaceholder({ key, friendlyName })
+    }
     saveAllPlaceholders={saveAllPlaceholders}
 
     isSectionOpen={isSectionOpen}
@@ -3756,7 +3768,7 @@ function SimpleTextarea({
         </div>
 
 
-{expandedKey && (
+{expandedPlaceholder && (
   <div
     style={{
       position: "fixed",
@@ -3791,14 +3803,17 @@ function SimpleTextarea({
         }}
       >
         <h3 style={{ fontSize: "16px", fontWeight: 600 }}>
-          {`{${expandedKey}}`} – Expanded View
+        {expandedPlaceholder.friendlyName}
+        <span style={{ color: "#6b7280", marginLeft: 6 }}>
+        
+        </span>        
         </h3>
 
         <button
           onClick={() => {
             saveExpandedContent();
-            setExpandedKey(null);
-          }}
+            setExpandedPlaceholder(null);         
+        }}
           style={{
             background: "transparent",
             border: "none",
@@ -3837,7 +3852,7 @@ function SimpleTextarea({
           }}
           dangerouslySetInnerHTML={{
             __html:
-              formValues[expandedKey] ||
+            formValues[expandedPlaceholder.key] ||
               "<em style='color:#9ca3af'>Empty</em>"
           }}
         />
