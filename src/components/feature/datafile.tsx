@@ -822,7 +822,7 @@ console.log("processingStats.valid:", processingStats.valid);
                         }`}
                       >
                         <option value="">--Do not include--</option>
-                        {columnHeaders.map((header, index) => (
+                        {columnHeaders.sort().map((header, index) => (
                           <option key={index} value={header}>
                             {header}
                           </option>
