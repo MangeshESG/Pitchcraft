@@ -489,7 +489,8 @@ const Output: React.FC<OutputInterface> = ({
         Location: item.location || item.mailing_Country || "N/A",
         Website: item.website || "N/A",
         LinkedIn: item.linkedin || item.linkedIn_URL || "N/A",
-        Pitch: item.pitch || item.sample_email_body || "N/A",
+        "Email Subject": item.subject || "N/A",
+        "Email Body": item.pitch || item.sample_email_body || "N/A",
         Timestamp: item.timestamp || new Date().toISOString(),
         Generated: item.generated ? "Yes" : "No",
       }));
@@ -505,7 +506,8 @@ const Output: React.FC<OutputInterface> = ({
         { wch: 15 }, // Location
         { wch: 25 }, // Website
         { wch: 25 }, // LinkedIn
-        { wch: 60 }, // Pitch
+        { wch: 40 }, // Email Subject
+        { wch: 60 }, // Email Body
         { wch: 20 }, // Timestamp
         { wch: 10 }, // Generated
       ];

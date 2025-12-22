@@ -813,6 +813,8 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     const allColumns = [
       { key: "full_name", header: "Full Name" },
       { key: "email", header: "Email" },
+      { key: "email_subject", header: "Email Subject" },
+      { key: "email_body", header: "Email Body" },
       { key: "website", header: "Website" },
       { key: "company_name", header: "Company Name" },
       { key: "job_title", header: "Job Title" },
