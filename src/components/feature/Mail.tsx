@@ -1680,7 +1680,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                   totalRecords={filteredMailboxes.length} // Use filteredMailboxes for totalRecords if filtering is applied before pagination
                   pageSize={pageSize}
                   setCurrentPage={setCurrentPageMailbox}
-                   setPageSize={setPageSize}
+                  setPageSize={(size) => setPageSize(Number(size))}
                    showPageSizeDropdown={true}
                    pageLabel="Page:"
                 />
@@ -1930,7 +1930,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                   totalRecords={bccEmails.length}
                   pageSize={pageSize}
                   setCurrentPage={setBccPage}
-                   setPageSize={setPageSize}
+                   setPageSize={(size) => setPageSize(Number(size))}
                    showPageSizeDropdown={true}
                    pageLabel="Page:"
                 />
@@ -2213,7 +2213,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                 pageSize={rowsPerPage}               // ✅ use same variable
                 totalRecords={totalPages} // ✅ use filtered length
                 setCurrentPage={setCurrentPage}
-                 setPageSize={setPageSize}
+                 setPageSize={(size) => setPageSize(Number(size))}
                  showPageSizeDropdown={true}
                  pageLabel="Page:"
               />
