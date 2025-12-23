@@ -1,16 +1,15 @@
 import React from "react";
+import type { PlaceholderDefinitionUI } 
+  from "./EmailCampaignBuilder";
 
 
 export interface ElementsTabProps {
-  groupedPlaceholders: Record<string, any[]>;
+  groupedPlaceholders: Record<string, PlaceholderDefinitionUI[]>;
   formValues: Record<string, string>;
   setFormValues: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   setExpandedKey: (key: string, friendlyName: string) => void;
   saveAllPlaceholders: () => void;
 
-  // Right panel props
-  isSectionOpen: boolean;
-  setIsSectionOpen: (v: boolean) => void;
   dataFiles: any[];
   contacts: any[];
   selectedDataFileId: number | null;
@@ -18,67 +17,25 @@ export interface ElementsTabProps {
   handleSelectDataFile: (id: number) => void;
   setSelectedContactId: (id: number | null) => void;
   applyContactPlaceholders: (c: any) => void;
-  exampleOutput: string;
-  currentPage: number;
-  totalPages: number;
-  rowsPerPage: number;
-  setCurrentPage: (v: number) => void;
-  setPageSize: () => void;
-  editableExampleOutput: string;
-  setEditableExampleOutput: (v: string) => void;
-  saveExampleEmail: () => void;
-  isGenerating: boolean;
-  regenerateExampleOutput: () => void;
-  activeMainTab: any;
-  setActiveMainTab: any;
-  activeSubStageTab: any;
-  setActiveSubStageTab: any;
-  filledTemplate: string;
-  searchResults: string[];
-  allSourcedData: string;
-  sourcedSummary: string;
-  ExampleEmailEditor: React.FC<any>;
-  ExampleOutputPanel: React.FC<any>;
-  renderPlaceholderInput: (p: any) => JSX.Element;
+
+  renderPlaceholderInput: (p: PlaceholderDefinitionUI) => JSX.Element;
 }
+
 const ElementsTab: React.FC<ElementsTabProps> = ({
   groupedPlaceholders,
   setExpandedKey,
   saveAllPlaceholders,
   renderPlaceholderInput,
 
-  // Right panel
-  isSectionOpen,
-  setIsSectionOpen,
   dataFiles,
   contacts,
   selectedDataFileId,
   selectedContactId,
   handleSelectDataFile,
   setSelectedContactId,
-  applyContactPlaceholders,
-  exampleOutput,
-  currentPage,
-  totalPages,
-  rowsPerPage,
-  setCurrentPage,
-  setPageSize,
-  editableExampleOutput,
-  setEditableExampleOutput,
-  saveExampleEmail,
-  isGenerating,
-  regenerateExampleOutput,
-  activeMainTab,
-  setActiveMainTab,
-  activeSubStageTab,
-  setActiveSubStageTab,
-  filledTemplate,
-  searchResults,
-  allSourcedData,
-  sourcedSummary,
-  ExampleEmailEditor,
-  ExampleOutputPanel
+  applyContactPlaceholders
 }) => {
+
   return (
     <div className="elements-tab-container" style={{ padding: "20px" }}>
       <div style={{ display: "flex", gap: "20px" }}>
@@ -187,39 +144,7 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
         </div>
 
         {/* RIGHT */}
-        <div style={{ flex: 1, minWidth: "450px" }}>
-          <ExampleOutputPanel
-            isSectionOpen={isSectionOpen}
-            setIsSectionOpen={setIsSectionOpen}
-            dataFiles={dataFiles}
-            contacts={contacts}
-            selectedDataFileId={selectedDataFileId}
-            selectedContactId={selectedContactId}
-            handleSelectDataFile={handleSelectDataFile}
-            setSelectedContactId={setSelectedContactId}
-            applyContactPlaceholders={applyContactPlaceholders}
-            exampleOutput={exampleOutput}
-            currentPage={currentPage}
-            totalPages={totalPages}
-            rowsPerPage={rowsPerPage}
-            setCurrentPage={setCurrentPage}
-            setPageSize={setPageSize}
-            editableExampleOutput={editableExampleOutput}
-            setEditableExampleOutput={setEditableExampleOutput}
-            saveExampleEmail={saveExampleEmail}
-            isGenerating={isGenerating}
-            regenerateExampleOutput={regenerateExampleOutput}
-            activeMainTab={activeMainTab}
-            setActiveMainTab={setActiveMainTab}
-            activeSubStageTab={activeSubStageTab}
-            setActiveSubStageTab={setActiveSubStageTab}
-            filledTemplate={filledTemplate}
-            searchResults={searchResults}
-            allSourcedData={allSourcedData}
-            sourcedSummary={sourcedSummary}
-            ExampleEmailEditor={ExampleEmailEditor}
-          />
-        </div>
+
 
       </div>
     </div>
