@@ -2,11 +2,11 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Tooltip as ReactTooltip } from "react-tooltip";
 import ReactQuill from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
-import API_BASE_URL from "../../config";
+import API_BASE_URL from "../../../config";
 import "./Template.css";
-import { useAppModal } from "../../hooks/useAppModal";
+import { useAppModal } from "../../../hooks/useAppModal";
 import EmailCampaignBuilder from "./EmailCampaignBuilder";
-import PaginationControls from "./PaginationControls";
+import PaginationControls from "../PaginationControls";
 
 const menuBtnStyle = {
   width: "100%",
