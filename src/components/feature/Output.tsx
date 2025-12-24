@@ -1104,18 +1104,27 @@ useEffect(() => {
       }, 2000);
     } catch (err) {
       if (axios.isAxiosError(err)) {
-        setEmailError(
-          err.response?.data?.message ||
-          err.response?.data ||
-          "Failed to send email."
-        );
+        const errorMessage = err.response?.data?.message || err.response?.data || "Failed to send email.";
+        
+        // Check for specific error message
+        if (errorMessage === "Email body or subject is incorrect.") {
+          appModal.showModal({
+            type: "error",
+            title: "Email Error",
+            message: `Email body or subject is incorrect for ${combinedResponses[currentIndex]?.name || combinedResponses[currentIndex]?.email || 'this contact'}. Please check your email content and subject line.`,
+            confirmText: "OK"
+          });
+        } else {
+          setEmailError(errorMessage);
+          toast.error("Failed to send email");
+        }
       } else if (err instanceof Error) {
         setEmailError(err.message);
+        toast.error("Failed to send email");
       } else {
         setEmailError("An unknown error occurred.");
+        toast.error("Failed to send email");
       }
-
-      toast.error("Failed to send email");
     } finally {
       setSendingEmail(false);
     }
@@ -1477,6 +1486,26 @@ useEffect(() => {
 
         if (axios.isAxiosError(err)) {
           console.error("API Error:", err.response?.data);
+          
+          const errorMessage = err.response?.data?.message || err.response?.data || "Failed to send email.";
+          
+          // Check for specific error message and show popup
+          if (errorMessage === "Email body or subject is incorrect.") {
+            appModal.showModal({
+              type: "error",
+              title: "Email Error",
+              message: `Email body or subject is incorrect for ${contact.name || contact.email}. Please check your email content and subject line.`,
+              confirmText: "OK"
+            });
+            
+            // Wait 3 seconds before closing popup and continuing
+            await new Promise((resolve) => {
+              setTimeout(() => {
+                appModal.hideModal();
+                resolve(void 0);
+              }, 3000);
+            });
+          }
         }
 
         skippedCount++;
