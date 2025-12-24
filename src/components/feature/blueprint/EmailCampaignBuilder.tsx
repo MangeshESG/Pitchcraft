@@ -3081,6 +3081,7 @@ function SimpleTextarea({
   );
 }
 
+
   // ====================================================================
   // RENDER
   // ====================================================================
@@ -3300,11 +3301,462 @@ return (
 
 
         {/* ================= INSTRUCTIONS TAB ================= */}
-        {activeMainTab === "instructions" && (
-          <div className="instructions-wrapper">
-            {/* unchanged – keep your existing code */}
-          </div>
-        )}
+ {activeMainTab === "instructions" && (
+              <div className="instructions-wrapper">
+
+                {/* =======================================================
+                    TOP HEADER SECTION (Picklist + Inputs + Buttons)
+                 ======================================================== */}
+                <div className="instructions-header" style={{ marginTop: "-43px" }}>
+
+                  {/* Load Template Definition */}
+                  <div className="load-template-box">
+                    <label className="section-label">Load Existing Template Definition</label>
+                    <select
+                      className="definition-select"
+                      value={selectedTemplateDefinitionId || ""}
+                      onChange={(e) => {
+                        const id = Number(e.target.value);
+                        if (id) loadTemplateDefinitionById(id);
+
+                      }}
+                    >
+                      <option value="">-- Select a template definition --</option>
+                      {templateDefinitions.map((def) => (
+                        <option key={def.id} value={def.id}>
+                          {def.templateName} (Used {def.usageCount} times)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="input-row">
+                    {/* Template Name */}
+                    <div className="template-name-box">
+                      <label className="section-label">Template Name</label>
+                      <input
+                        type="text"
+                        value={templateName}
+                        onChange={(e) => setTemplateName(e.target.value)}
+                        placeholder="Enter template name"
+                        className="text-input"
+                      />
+                    </div>
+
+        {/* Model Picker */}
+        <div className="model-select-box">
+          <label className="section-label">Select GPT Model</label>
+          <select
+            className="definition-select"
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value)}
+          >
+            {availableModels.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="search-count-box">
+  <label className="section-label">Search URL Count</label>
+  <select
+    className="definition-select"
+    value={searchURLCount}
+    onChange={(e) => setSearchURLCount(Number(e.target.value))}
+  >
+    {Array.from({ length: 10 }, (_, i) => i + 1).map(n => (
+      <option key={n} value={n}>{n}</option>
+    ))}
+  </select>
+</div>
+
+                    {/* Save + Start Buttons */}
+                    <div className="button-row">
+                      {/* Save new definition */}
+                      {/* Save new template definition */}
+                      {selectedTemplateDefinitionId === null && (
+                        <button
+                          className="save-btn"
+                          onClick={saveTemplateDefinition}
+                          disabled={isSavingDefinition}
+                        >
+                          {isSavingDefinition ? "Saving..." : "Save Template Definition"}
+                        </button>
+                      )}
+
+                      {/* Update existing template */}
+                      {selectedTemplateDefinitionId !== null && (
+                        <button
+                          className="save-btn"
+                          style={{ background: "#2563eb" }}
+                          onClick={updateTemplateDefinition}
+                          disabled={isSavingDefinition}
+                        >
+                          {isSavingDefinition ? "Updating..." : "Update Template Definition"}
+                        </button>
+                      )}
+
+
+                      <button
+                        className="start-btn"
+                        onClick={startConversation}
+                        disabled={!selectedTemplateDefinitionId}
+                      >
+                        Start Filling Placeholders →
+                      </button>
+                      <button
+                        className="new-btn"
+                        onClick={createNewInstruction}
+                      >
+                        + New Instruction
+                      </button>
+                    </div>
+                    {selectedTemplateDefinitionId !== null && (
+                      <button
+                        className="delete-btn"
+                        style={{ background: "#dc2626", color: "white" }}
+                        onClick={deleteTemplateDefinition}
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* =======================================================
+       INTERNAL SUB-TABS
+    ======================================================== */}
+    <div className="instruction-subtabs">
+      {[
+        ["ai_new", "AI Instructions (new blueprint)"],
+        ["ai_edit", "AI Instructions (edit blueprint)"],
+        ["placeholder_short", "Placeholders list (essential)"],
+        ["placeholders", "Placeholder Manager"],
+        ["ct", "UT "],
+        ["subject_instructions", "Email Subject Instructions"]
+
+      ].map(([key, label]) => (
+        <button
+          key={key}
+          className={`subtab-btn ${instructionSubTab === key ? "active" : ""}`}
+          onClick={() => setInstructionSubTab(key as any)}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+
+
+                {/* =======================================================
+    INTERNAL TAB CONTENT
+======================================================= */}
+<div className="instruction-subtab-content">
+
+  {instructionSubTab === "ai_new" && (
+    <SimpleTextarea
+      value={systemPrompt}
+      onChange={(e: any) => setSystemPrompt(e.target.value)}
+      placeholder="AI instructions (new blueprint)..."
+    />
+  )}
+
+  {instructionSubTab === "ai_edit" && (
+    <SimpleTextarea
+      value={systemPromptForEdit}
+      onChange={(e: any) => setSystemPromptForEdit(e.target.value)}
+      placeholder="AI instructions (edit blueprint)..."
+    />
+  )}
+
+  {instructionSubTab === "placeholder_short" && (
+    <SimpleTextarea
+      value={masterPrompt}
+      onChange={(e: any) => setMasterPrompt(e.target.value)}
+      placeholder="Short placeholder list..."
+    />
+  )}
+
+{instructionSubTab === "placeholders" && (
+  <div
+    style={{
+      background: "#fff",
+      border: "1px solid #e5e7eb",
+      borderRadius: "8px",
+      padding: "20px"
+    }}
+  >
+    <h3 style={{ fontSize: "18px", fontWeight: 600, marginBottom: "16px" }}>
+      Placeholder Manager
+    </h3>
+
+    {/* HEADER */}
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr",
+        gap: "10px",
+        fontWeight: 600,
+        fontSize: "13px",
+        color: "#374151",
+        marginBottom: "10px"
+      }}
+    >
+      <div>Placeholder</div>
+      <div>Friendly Name</div>
+      <div>Category</div>
+      <div>Input / Options</div>
+      <div>Size</div>
+    </div>
+
+    {/* ROWS */}
+    {uiPlaceholders.map((p) => (
+      <div
+        key={p.placeholderKey}
+        style={{
+          display: "grid",
+          gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr",
+          gap: "10px",
+          alignItems: "center",
+          marginBottom: "10px"
+        }}
+      >
+        {/* Placeholder Key */}
+        <strong>{`{${p.placeholderKey}}`}</strong>
+
+        {/* Friendly Name */}
+        <input
+          value={p.friendlyName}
+          onChange={(e) => {
+            const v = e.target.value;
+            setUiPlaceholders(prev =>
+              prev.map(x =>
+                x.placeholderKey === p.placeholderKey
+                  ? { ...x, friendlyName: v }
+                  : x
+              )
+            );
+          }}
+          className="text-input"
+        />
+
+        {/* Category */}
+        <select
+          value={p.category}
+          onChange={(e) => {
+            const v = e.target.value;
+            setUiPlaceholders(prev =>
+              prev.map(x =>
+                x.placeholderKey === p.placeholderKey
+                  ? { ...x, category: v }
+                  : x
+              )
+            );
+          }}
+          className="definition-select"
+        >
+          <option>Your Company</option>
+          <option>Core Message Focus</option>
+          <option>Dos and Don'ts</option>
+          <option>Message Writing Style</option>
+          <option>Call-To-Action</option>
+          <option>Greetings & farewells</option>
+          <option>Subject Line</option>
+          <option>Images</option>
+        </select>
+
+        {/* Input Type + Options */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          <select
+            value={p.inputType}
+            onChange={(e) => {
+              const v = e.target.value as any;
+              setUiPlaceholders(prev =>
+                prev.map(x =>
+                  x.placeholderKey === p.placeholderKey
+                    ? {
+                        ...x,
+                        inputType: v,
+                        options: v === "select" ? x.options || [] : []
+                      }
+                    : x
+                )
+              );
+            }}
+            className="definition-select"
+          >
+            <option value="text">Text</option>
+            <option value="textarea">Textarea</option>
+            <option value="richtext">Rich Text</option>
+            <option value="select">Dropdown</option>
+          </select>
+
+          {/* Options Editor (only for select) */}
+{p.inputType === "select" && (
+  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+    {(p.options || []).map((opt, idx) => (
+      <div
+        key={idx}
+        style={{
+          display: "flex",
+          gap: "6px",
+          alignItems: "center"
+        }}
+      >
+        <input
+          type="text"
+          value={opt}
+          onChange={(e) => {
+            const newVal = e.target.value;
+            setUiPlaceholders(prev =>
+              prev.map(x =>
+                x.placeholderKey === p.placeholderKey
+                  ? {
+                      ...x,
+                      options: x.options?.map((o, i) =>
+                        i === idx ? newVal : o
+                      )
+                    }
+                  : x
+              )
+            );
+          }}
+          className="text-input"
+          placeholder={`Option ${idx + 1}`}
+          style={{ fontSize: "12px" }}
+        />
+
+        <button
+          type="button"
+          onClick={() => {
+            setUiPlaceholders(prev =>
+              prev.map(x =>
+                x.placeholderKey === p.placeholderKey
+                  ? {
+                      ...x,
+                      options: x.options?.filter((_, i) => i !== idx)
+                    }
+                  : x
+              )
+            );
+          }}
+          style={{
+            background: "#ef4444",
+            color: "#fff",
+            borderRadius: "4px",
+            padding: "4px 8px",
+            fontSize: "12px",
+            border: "none",
+            cursor: "pointer"
+          }}
+        >
+          ✕
+        </button>
+      </div>
+    ))}
+
+    {/* ADD OPTION BUTTON */}
+    <button
+      type="button"
+      onClick={() => {
+        setUiPlaceholders(prev =>
+          prev.map(x =>
+            x.placeholderKey === p.placeholderKey
+              ? {
+                  ...x,
+                  options: [...(x.options || []), ""]
+                }
+              : x
+          )
+        );
+      }}
+      style={{
+        marginTop: "4px",
+        background: "#e5e7eb",
+        borderRadius: "6px",
+        padding: "6px",
+        fontSize: "13px",
+        cursor: "pointer",
+        border: "1px dashed #9ca3af"
+      }}
+    >
+      ➕ Add option
+    </button>
+  </div>
+)}
+
+        </div>
+
+        {/* UI Size */}
+        <select
+          value={p.uiSize}
+          onChange={(e) => {
+            const v = e.target.value as any;
+            setUiPlaceholders(prev =>
+              prev.map(x =>
+                x.placeholderKey === p.placeholderKey
+                  ? { ...x, uiSize: v }
+                  : x
+              )
+            );
+          }}
+          className="definition-select"
+        >
+          <option value="sm">SM</option>
+          <option value="md">MD</option>
+          <option value="lg">LG</option>
+          <option value="xl">XL</option>
+        </select>
+      </div>
+    ))}
+
+    {/* SAVE BUTTON */}
+    <div style={{ marginTop: "20px", textAlign: "right" }}>
+      <button
+        onClick={savePlaceholderDefinitions}
+        style={{
+          padding: "10px 18px",
+          background: "#2563eb",
+          color: "#fff",
+          borderRadius: "6px",
+          fontWeight: 600
+        }}
+      >
+        Save Placeholder Settings
+      </button>
+    </div>
+  </div>
+)}
+
+
+
+
+  {instructionSubTab === "ct" && (
+    <SimpleTextarea
+      value={previewText}
+      onChange={(e: any) => setPreviewText(e.target.value)}
+      placeholder="Unpopulated master template..."
+    />
+  )}
+
+  {instructionSubTab === "subject_instructions" && (
+    <SimpleTextarea
+      value={subjectInstructions}
+      onChange={(e: any) => setSubjectInstructions(e.target.value)}
+      placeholder="Enter instructions for generating email subject..."
+    />
+  )}
+
+</div>
+
+
+
+              </div>
+            )}
+
+
+
 
         {/* ================= VT TAB ================= */}
         {activeMainTab === "ct" && (
