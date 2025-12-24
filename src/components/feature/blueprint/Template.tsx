@@ -95,6 +95,9 @@ const Template: React.FC<TemplateProps> = ({
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [showViewCampaignModal, setShowViewCampaignModal] = useState(false);
   const [showEditCampaignModal, setShowEditCampaignModal] = useState(false);
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [renameInput, setRenameInput] = useState("");
+  const [showCloneConfirmModal, setShowCloneConfirmModal] = useState(false);
   
   const [viewCampaignTab, setViewCampaignTab] = useState<"example" | "template">("example");
   const [exampleEmail, setExampleEmail] = useState("");
@@ -303,6 +306,71 @@ const handleTemplateNameSubmit = async () => {
       await fetchCampaignTemplates();
     } catch (error) {
       appModal.showError("Failed to delete campaign template");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Rename campaign template
+  const handleRenameCampaignTemplate = async () => {
+    if (!selectedCampaignTemplate || !renameInput.trim()) {
+      appModal.showError("Please enter a valid name");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/rename-Template`, {
+        method: "POST",
+        headers: { 
+          "accept": "*/*",
+          "Content-Type": "application/json" 
+        },
+        body: JSON.stringify({
+          clientId: effectiveUserId,
+          templateId: selectedCampaignTemplate.id,
+          templateName: renameInput.trim()
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to rename campaign template");
+      }
+
+      appModal.showSuccess("Campaign template renamed successfully!");
+      setShowRenameModal(false);
+      setSelectedCampaignTemplate(null);
+      setRenameInput("");
+      await fetchCampaignTemplates();
+    } catch (error) {
+      appModal.showError("Failed to rename campaign template");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Clone campaign template
+  const handleCloneCampaignTemplate = async () => {
+    if (!selectedCampaignTemplate) return;
+
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/clone-template?clientId=${effectiveUserId}&templateId=${selectedCampaignTemplate.id}`, {
+        method: "POST",
+        headers: { "accept": "*/*" },
+        body: ""
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to clone campaign template");
+      }
+
+      appModal.showSuccess("Campaign template cloned successfully!");
+      setShowCloneConfirmModal(false);
+      setSelectedCampaignTemplate(null);
+      await fetchCampaignTemplates();
+    } catch (error) {
+      appModal.showError("Failed to clone campaign template");
     } finally {
       setIsLoading(false);
     }
@@ -581,6 +649,33 @@ const generateExampleEmail = (template: CampaignTemplate) => {
                               <button
                                 onClick={() => {
                                   setSelectedCampaignTemplate(template);
+                                  setRenameInput(template.templateName);
+                                  setShowRenameModal(true);
+                                  setTemplateActionsAnchor(null);
+                                }}
+                                style={menuBtnStyle}
+                                className="flex gap-2 items-center"
+                              >
+                                <span>✏️</span>
+                                <span>Rename</span>
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setSelectedCampaignTemplate(template);
+                                  setShowCloneConfirmModal(true);
+                                  setTemplateActionsAnchor(null);
+                                }}
+                                style={menuBtnStyle}
+                                className="flex gap-2 items-center"
+                              >
+                                <span>📋</span>
+                                <span>Clone</span>
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setSelectedCampaignTemplate(template);
                                   setShowDeleteConfirmModal(true);
                                   setTemplateActionsAnchor(null);
                                 }}
@@ -760,6 +855,135 @@ const generateExampleEmail = (template: CampaignTemplate) => {
     </div>
   </div>
 )}
+      {/* Clone Confirmation Modal */}
+      {showCloneConfirmModal && selectedCampaignTemplate && (
+        <div className="modal-backdrop">
+          <div className="modal-content" style={{ maxWidth: "450px", padding: "24px" }}>
+            <h2 style={{ fontSize: "18px", fontWeight: "600", marginBottom: "16px", color: "#1f2937" }}>Clone blueprint</h2>
+            <p style={{ fontSize: "14px", color: "#6b7280", marginBottom: "24px" }}>
+              Are you sure you want to clone the blueprint{" "}
+              <strong>"{selectedCampaignTemplate.templateName}"</strong>?
+            </p>
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => {
+                  setShowCloneConfirmModal(false);
+                  setSelectedCampaignTemplate(null);
+                }}
+                disabled={isLoading}
+                style={{
+                  padding: "10px 20px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "8px",
+                  backgroundColor: "white",
+                  color: "#374151",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  cursor: "pointer"
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCloneCampaignTemplate}
+                disabled={isLoading}
+                style={{
+                  padding: "10px 20px",
+                  border: "none",
+                  borderRadius: "8px",
+                  backgroundColor: "#22c55e",
+                  color: "white",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  cursor: "pointer"
+                }}
+              >
+                {isLoading ? "Cloning..." : "Clone"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rename Modal */}
+      {showRenameModal && selectedCampaignTemplate && (
+        <div className="modal-backdrop">
+          <div className="modal-content" style={{ maxWidth: "500px", padding: "24px" }}>
+            <h2 style={{ fontSize: "18px", fontWeight: "600", marginBottom: "24px", color: "#1f2937" }}>Rename blueprint</h2>
+            
+            <div className="form-group" style={{ marginBottom: "16px" }}>
+              <label htmlFor="renameInput" style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px", color: "#374151" }}>
+                Blueprint name <span style={{ color: "#ef4444" }}>*</span>
+              </label>
+              <input
+                id="renameInput"
+                type="text"
+                value={renameInput}
+                onChange={(e) => setRenameInput(e.target.value)}
+                placeholder="Enter blueprint name"
+                autoFocus
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && renameInput.trim()) {
+                    handleRenameCampaignTemplate();
+                  }
+                }}
+                style={{
+                  width: "100%",
+                  padding: "12px 16px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                  outline: "none",
+                  transition: "border-color 0.2s"
+                }}
+                onFocus={(e) => e.target.style.borderColor = "#3b82f6"}
+                onBlur={(e) => e.target.style.borderColor = "#d1d5db"}
+              />
+            </div>
+            
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end", marginTop: "24px" }}>
+              <button
+                onClick={() => {
+                  setShowRenameModal(false);
+                  setSelectedCampaignTemplate(null);
+                  setRenameInput("");
+                }}
+                disabled={isLoading}
+                style={{
+                  padding: "10px 20px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "8px",
+                  backgroundColor: "white",
+                  color: "#374151",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  cursor: "pointer"
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRenameCampaignTemplate}
+                disabled={isLoading || !renameInput.trim()}
+                style={{
+                  padding: "10px 20px",
+                  border: "none",
+                  borderRadius: "8px",
+                  backgroundColor: "#22c55e",
+                  color: "white",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  cursor: renameInput.trim() ? "pointer" : "not-allowed",
+                  opacity: renameInput.trim() ? 1 : 0.6
+                }}
+              >
+                {isLoading ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirmation Modal */}
       {showDeleteConfirmModal && selectedCampaignTemplate && (
         <div className="modal-backdrop">
