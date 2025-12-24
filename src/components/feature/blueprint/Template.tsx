@@ -318,15 +318,16 @@ const handleTemplateNameSubmit = async () => {
   });
   //pagination
 const [currentPage, setCurrentPage] = useState(1);
-const [pageSize, setPageSize] = useState(10);
+const [pageSize, setPageSize] = useState<number | "All">(10);
 //const pageSize = 10;
-const totalPages = Math.ceil(filteredCampaignTemplates.length / pageSize);
+const effectivePageSize = pageSize === "All" ? filteredCampaignTemplates.length : pageSize;
+const totalPages =effectivePageSize === 0 ? 1 : Math.ceil(filteredCampaignTemplates.length / effectivePageSize);
 
-const startIndex = (currentPage - 1) * pageSize;
-const paginatedTemplates = filteredCampaignTemplates.slice(
-  startIndex,
-  startIndex + pageSize
-);
+const startIndex = pageSize === "All" ? 0 :(currentPage - 1) * effectivePageSize;
+const paginatedTemplates =
+  pageSize === "All"
+    ? filteredCampaignTemplates
+    : filteredCampaignTemplates.slice(startIndex, startIndex + (effectivePageSize || 0));
   // Effects
   useEffect(() => {
     if (effectiveUserId) {

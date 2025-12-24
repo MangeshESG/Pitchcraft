@@ -155,7 +155,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   const [totalContacts, setTotalContacts] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [currentPageLists, setCurrentPageLists] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState<number | "All">(10);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedContacts, setSelectedContacts] = useState<Set<string>>(
     new Set()
@@ -328,15 +328,24 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
       return compareContactValues(valA, valB, sortConfig.direction)
     })
   }, [filteredContacts, sortConfig])
-
-  const paginatedContacts = useMemo(() => {
-    return sortedContacts.slice((currentPage - 1) * pageSize, currentPage * pageSize)
-  }, [sortedContacts, currentPage, pageSize])
+const getNumericPageSize = (size: number | "All", totalItems: number) => {
+  return size === "All" ? totalItems : size;
+};
+const paginatedContacts = useMemo(() => {
+  const numericPageSize = getNumericPageSize(pageSize, sortedContacts.length);
+  return sortedContacts.slice((currentPage - 1) * numericPageSize, currentPage * numericPageSize);
+}, [sortedContacts, currentPage, pageSize]);
+  // const paginatedContacts = useMemo(() => {
+  //   return sortedContacts.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  // }, [sortedContacts, currentPage, pageSize])
   
-  const totalPages = useMemo(() => {
-    return Math.ceil(sortedContacts.length / pageSize)
-  }, [sortedContacts.length, pageSize])
-
+  // const totalPages = useMemo(() => {
+  //   return Math.ceil(sortedContacts.length / pageSize)
+  // }, [sortedContacts.length, pageSize])
+const totalPages = useMemo(() => {
+  const numericPageSize = getNumericPageSize(pageSize, sortedContacts.length);
+  return Math.ceil(sortedContacts.length / numericPageSize);
+}, [sortedContacts.length, pageSize]);
    const handleListSort = (columnKey: string) => {
     if (listSortKey === columnKey) {
       // Same column - toggle direction
@@ -421,17 +430,10 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
       return updated;
     });
   };
+   const numericPageSize = getNumericPageSize(pageSize, filteredContacts.length);
+   const startIndex = (currentPage - 1) * numericPageSize;  
+  const endIndex = Math.min(currentPage * numericPageSize, filteredContacts.length)
 
-  // Calculate pagination
-  //const totalPages = Math.ceil(filteredContacts.length / pageSize);
- // const startIndex =
-   // filteredContacts.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-   const startIndex = (currentPage - 1) * pageSize;  
-  const endIndex = Math.min(currentPage * pageSize, filteredContacts.length)
-  // const endIndex = startIndex + pageSize;
-  //const currentData = filteredContacts.slice(startIndex, endIndex);
-
-  // Apply saved column selection when columns change
   useEffect(() => {
     setColumns(prev => applyColumnSelection(prev, savedColumnSelection));
   }, [savedColumnSelection]);
@@ -1394,9 +1396,10 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
       setSegmentActionsAnchor(null);
     }
   };
-  const totalPages1 = Math.ceil(filteredDatafiles.length / pageSize);
- const startIndex1 = (currentPageLists - 1) * pageSize;  // ✅ CORRECT - uses currentPageLists
-const endIndex1 = Math.min(currentPageLists * pageSize, filteredDatafiles.length);
+  const numericPageSizeLists = getNumericPageSize(pageSize, filteredDatafiles.length);
+  const totalPages1 = Math.ceil(filteredDatafiles.length / numericPageSizeLists );
+ const startIndex1 = (currentPageLists - 1) * numericPageSizeLists ;  // ✅ CORRECT - uses currentPageLists
+const endIndex1 = Math.min(currentPageLists * numericPageSizeLists , filteredDatafiles.length);
 const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
   //const currentData = filteredDatafiles.slice(currentPage, currentPage + pageSize);
 
@@ -1444,10 +1447,10 @@ const { filteredSegments, paginatedSegments, segmentTotalPages } = useMemo(() =>
           : String(bVal).toLowerCase().localeCompare(String(aVal).toLowerCase())
       })
     }
-
-    const totalPages = Math.ceil(filtered.length / pageSize)
-    const startIndex = (segmentCurrentPage - 1) * pageSize
-    const endIndex = startIndex + pageSize
+const numericPageSizeSegments = getNumericPageSize(pageSize, filtered.length);
+    const totalPages = Math.ceil(filtered.length / numericPageSizeSegments)
+    const startIndex = (segmentCurrentPage - 1) * numericPageSizeSegments
+    const endIndex = Math.min(startIndex + numericPageSizeSegments, filtered.length);
     const paginated = filtered.slice(startIndex, endIndex)
 
     return {
@@ -1517,10 +1520,10 @@ const { filteredSegments, paginatedSegments, segmentTotalPages } = useMemo(() =>
           : String(bVal).toLowerCase().localeCompare(String(aVal).toLowerCase())
       })
     }
-
-    const totalPages = Math.ceil(filtered.length / pageSize)
-    const startIndex = (segmentCurrentPage - 1) * pageSize
-    const endIndex = startIndex + pageSize
+const numericPageSizeSegmentContacts = getNumericPageSize(pageSize, filtered.length);
+    const totalPages = Math.ceil(filtered.length / numericPageSizeSegmentContacts)
+    const startIndex = (segmentCurrentPage - 1) * numericPageSizeSegmentContacts
+    const endIndex = Math.min(startIndex + numericPageSizeSegmentContacts, filtered.length);
     const paginated = filtered.slice(startIndex, endIndex)
 
     return { filtered, paginated, totalPages }

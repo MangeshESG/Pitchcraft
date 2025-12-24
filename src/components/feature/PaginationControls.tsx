@@ -4,13 +4,15 @@ import previousIcon from "../../assets/images/previous.png";
 import singlenextIcon from "../../assets/images/SingleNext.png";
 import nextIcon from "../../assets/images/Next.png";
 
+type PageSize = number | "All";
+
 interface PaginationControlsProps {
   currentPage: number;
   totalPages: number;
   totalRecords: number;
-  pageSize: number;
+  pageSize: PageSize;
   setCurrentPage: (page: number) => void;
-  setPageSize: (size: number) => void;
+  setPageSize: (size: PageSize) => void;
   showPageSizeDropdown?: boolean;
  pageLabel?: string;
 
@@ -27,20 +29,26 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
   showPageSizeDropdown,
   pageLabel,
 }) => {
+  const isAll = pageSize === "All";
+  const effectiveTotalPages = isAll ? 1 : totalPages;
   const handlePrevPage = () => {
     if (currentPage > 1) setCurrentPage(currentPage - 1);
   };
 
   const handleNextPage = () => {
-    if (currentPage < totalPages) setCurrentPage(currentPage + 1);
+    if (currentPage < effectiveTotalPages) setCurrentPage(currentPage + 1);
   };
 
   const handlePageChange = (page: number) => {
-    if (page >= 1 && page <= totalPages) setCurrentPage(page);
+    if (page >= 1 && page <= effectiveTotalPages) setCurrentPage(page);
   };
+   const startRecord = totalRecords === 0 ? 0 :isAll?1: (currentPage - 1) * pageSize + 1
+  const endRecord = totalRecords === 0
+  ? 0
+  : isAll
+  ? totalRecords
+  : Math.min(currentPage * pageSize, totalRecords);
 
-   const startRecord = totalRecords === 0 ? 0 : (currentPage - 1) * pageSize + 1
-  const endRecord = Math.min(currentPage * pageSize, totalRecords)
   return (
     <div
       className="d-flex justify-between align-center"
@@ -51,7 +59,7 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
         alignItems: "center",
       }}
     >
-      <div className="pagination-info" style={{ marginTop: "17px" }}>
+      <div className="pagination-info" style={{ marginTop: "17px",marginRight:"20px" }}>
         Showing {startRecord} to {endRecord} of {totalRecords} items
       </div>
 
@@ -70,7 +78,7 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
           {/* FIRST PAGE BUTTON */}
           <button
             onClick={() => handlePageChange(1)}
-            disabled={currentPage === 1}
+            disabled={currentPage === 1|| isAll}
             title="Click to go to the first page"
             className="secondary-button h-[35px] w-[38px] !px-[5px] !py-[10px] flex justify-center items-center"
           >
@@ -84,7 +92,7 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
           {/* PREVIOUS PAGE BUTTON */}
           <button
             onClick={handlePrevPage}
-            disabled={currentPage === 1}
+            disabled={currentPage === 1 || isAll}
             className="secondary-button flex justify-center items-center !px-[10px] h-[35px]"
             title="Click to go to the previous page"
           >
@@ -105,7 +113,7 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
           {/* NEXT PAGE BUTTON */}
           <button
             className="secondary-button !h-[35px] !py-[10px] !px-[10px] flex justify-center items-center"
-            disabled={currentPage >= totalPages}
+            disabled={currentPage >= effectiveTotalPages || isAll}
             onClick={handleNextPage}
             title="Click to go to the next page"
           >
@@ -125,8 +133,8 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
        
           {/* LAST PAGE BUTTON */}
           <button
-            onClick={() => handlePageChange(totalPages)}
-            disabled={currentPage >= totalPages}
+            onClick={() => handlePageChange(effectiveTotalPages)}
+            disabled={currentPage >= effectiveTotalPages||isAll}
             className="secondary-button h-[35px] w-[38px] !px-[5px] !py-[10px] flex justify-center items-center"
             title="Click to go to the last page"
           >
@@ -146,14 +154,14 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
            <select
   value={pageSize}
   onChange={(e) => {
-    const newSize = Number(e.target.value);
-    setPageSize(newSize);
+    const value  = e.target.value;
+    setPageSize(value === "All" ? "All" : Number(value));
     setCurrentPage(1); // reset to first page
   }}
   className="form-control ml-2 h-[35px]"
   style={{ width: "80px", padding: "5px",border:"1px solid #ddd" }}
 >
-  {[10, 20, 30, 40, 50].map((size) => (
+  {[10, 20, 30, 40, 50,100,200,"All"].map((size) => (
     <option key={size} value={size}>
       {size}
     </option>

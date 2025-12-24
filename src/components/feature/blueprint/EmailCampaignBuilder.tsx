@@ -239,7 +239,7 @@ const getConversationPlaceholders = (allPlaceholders: Record<string, string>): R
   return filtered;
 };
 
-
+type PageSize = number | "All";
 // Get only contact placeholders from merged set
 const getContactPlaceholders = (allPlaceholders: Record<string, string>): Record<string, string> => {
   const contactOnly: Record<string, string> = {};
@@ -391,9 +391,10 @@ const renderMessageContent = (rawContent: string) => {
   >("search");
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const rowsPerPage = 1;
-  const totalPages = Math.ceil(contacts.length / rowsPerPage);
+  const [pageSize, setPageSize] = useState<PageSize>(10);
+
+  const rowsPerPage = pageSize === "All" ? contacts.length : pageSize;
+  const totalPages =  pageSize === "All" ? 1 : Math.ceil(contacts.length / rowsPerPage);
 const [popupmodalInfo, setPopupModalInfo] = useState({
   open: false,
   title: "",
@@ -648,7 +649,7 @@ interface ExampleOutputPanelProps {
   totalPages: number;
   rowsPerPage: number;
   setCurrentPage: (v: number) => void;
-  setPageSize: (v: number) => void;
+  setPageSize: (v: number | "All") => void;
 
   // tabs
   activeMainTab: "output" | "pt" | "stages";

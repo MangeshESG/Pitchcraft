@@ -2082,7 +2082,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
                 ? missingLogsCurrentPage
                 : currentPage
             }
-            pageSize={20}
+           // pageSize={20}
             onPageChange={
               emailFilterType === "email-logs"
                 ? setEmailLogsCurrentPage

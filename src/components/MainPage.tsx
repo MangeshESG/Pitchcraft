@@ -1081,7 +1081,6 @@ const MainPage: React.FC = () => {
           console.error("Invalid data format");
           return;
         }
-        debugger;
         const emailResponses = contactsData.map((entry: any) => ({
           id: entry.id,
           dataFileId: dataFileId || entry.dataFileId || "null", // Add dataFileId to response
