@@ -227,13 +227,13 @@
 }
 
 /* Tab Content */
-/* .email-campaign-builder .tab-content {
+.email-campaign-builder .tab-content {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
   padding: 20px;
   scroll-behavior: smooth;
-} */
+}
 
 .email-campaign-builder .tab-content::-webkit-scrollbar {
   width: 8px;
@@ -2308,11 +2308,11 @@
   border-color: #3f9f42;
 }
 
-/* .tab-content {
+.tab-content {
   width: 100%;
   min-height: auto;
   padding: 15px;
-} */
+}
 
 .instruction-subtabs {
   display: flex;
@@ -2572,25 +2572,32 @@
   top: 0;
   z-index: 50;
   background: white;
+}
+ 
+/* ===============================
+   MAIN TOP TABS (Build / Instructions / VT)
+   =============================== */
+.email-campaign-builder .sticky-tabs {
+  background: #ffffff;
   border-bottom: 1px solid #e5e7eb;
 }
 
 .email-campaign-builder .sticky-tabs ul {
   display: flex;
   gap: 28px;
-  padding: 14px 20px;
+  padding: 12px 20px;
   margin: 0;
   list-style: none;
 }
 
 .email-campaign-builder .sticky-tabs button {
-  background: transparent;
+  background: none;
   border: none;
   font-size: 15px;
   font-weight: 600;
   color: #6b7280;
-  padding-bottom: 8px;
   cursor: pointer;
+  padding-bottom: 6px;
   border-bottom: 2px solid transparent;
   transition: all 0.2s ease;
 }
@@ -2603,22 +2610,23 @@
   color: #3f9f42;
   border-bottom-color: #3f9f42;
 }
-/* Build Sub Tabs (Chat / Elements) */
+/* ===============================
+   BUILD SUB-TABS (Chat / Elements)
+   =============================== */
 .build-subtabs {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 16px;
-  padding: 8px 12px;
-  background: #f8fafc;
+  display: inline-flex;
+  gap: 6px;
+  padding: 4px;
+  background: #f3f4f6;
   border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  width: fit-content;
+  border-radius: 999px;
+  margin-bottom: 12px;
 }
 
 .build-subtabs button {
   padding: 6px 16px;
   border-radius: 999px;
-  border: 1px solid transparent;
+  border: none;
   background: transparent;
   font-size: 14px;
   font-weight: 500;
@@ -2634,14 +2642,38 @@
 
 .build-subtabs button.active {
   background: #3f9f42;
-  color: white;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(63, 159, 66, 0.35);
+}
+/* ================= BUILD SUBTAB HEADER ================= */
+.build-subtabs-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f9fafb;
+  padding: 10px 14px;
+  border-radius: 999px;
+  margin-bottom: 12px;
 }
 
- 
+.build-subtabs {
+  display: flex;
+  gap: 8px;
+}
 
-.chat-section,
-.elements-container {
-  background: #ffffff;
-  border-radius: 12px;
+/* Show preview button */
+.show-preview-btn {
+  background: #3f9f42;
+  color: #fff;
+  border: none;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.show-preview-btn:hover {
+  background: #368a3a;
 }

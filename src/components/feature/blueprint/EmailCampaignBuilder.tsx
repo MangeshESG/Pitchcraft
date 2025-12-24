@@ -60,7 +60,7 @@ interface TemplateDefinition {
 // ===============================
 // UI-ONLY PLACEHOLDER DEFINITION
 // ===============================
-interface PlaceholderDefinitionUI {
+export interface PlaceholderDefinitionUI {
   placeholderKey: string;
   friendlyName: string;
   category: string;
@@ -120,8 +120,7 @@ interface ConversationTabProps {
   messages: Message[];
   isTyping: boolean;
   isComplete: boolean;
-  isSectionOpen: boolean
-  setIsSectionOpen: (value: boolean) => void
+  
   currentAnswer: string;
   setCurrentAnswer: (value: string) => void;
   handleSendMessage: () => void;
@@ -196,6 +195,36 @@ const CONTACT_PLACEHOLDERS = [
 // ====================================================================
 // HELPER FUNCTIONS
 // ====================================================================
+const ExampleEmailEditor: React.FC<{
+  value: string;
+  onChange: (val: string) => void;
+}> = ({ value, onChange }) => {
+  const editorRef = useRef<HTMLDivElement | null>(null);
+  const localDraft = useRef<string>("");
+
+  useEffect(() => {
+    if (!editorRef.current) return;
+    editorRef.current.innerHTML = value || "";
+    localDraft.current = value || "";
+  }, [value]);
+
+  return (
+    <div
+      ref={editorRef}
+      contentEditable
+      suppressContentEditableWarning
+      className="example-content"
+      onInput={() => {
+        if (editorRef.current) {
+          localDraft.current = editorRef.current.innerHTML;
+        }
+      }}
+      onBlur={() => onChange(localDraft.current)}
+    />
+  );
+};
+
+
 
 // Filter out contact placeholders - keep only conversation placeholders
 const getConversationPlaceholders = (allPlaceholders: Record<string, string>): Record<string, string> => {
@@ -483,8 +512,7 @@ const TemplateTab: React.FC<TemplateTabProps> = ({
 const ConversationTab: React.FC<ConversationTabProps> = ({
   conversationStarted,
   messages,
-  isSectionOpen,
-  setIsSectionOpen,
+  
   isTyping,
   isComplete,
   currentAnswer,
@@ -548,50 +576,7 @@ useEffect(() => {
   }
 }, [messages]);
 
-  const ExampleEmailEditor = ({
-  value,
-  onChange
-}: {
-  value: string;
-  onChange: (val: string) => void;
-}) => {
-  const editorRef = React.useRef<HTMLDivElement | null>(null);
-  const localDraft = React.useRef<string>("");
 
-  // Load value ONLY when backend/regenerate changes
-  React.useEffect(() => {
-    if (!editorRef.current) return;
-    editorRef.current.innerHTML = value || "";
-    localDraft.current = value || "";
-  }, [value]);
-
-  return (
-    <div
-      ref={editorRef}
-      contentEditable
-      suppressContentEditableWarning
-      className="example-content"
-      style={{
-        minHeight: "320px",
-        padding: "16px",
-        border: "1px solid #e5e7eb",
-        borderRadius: "8px",
-        background: "#ffffff",
-        outline: "none",
-        lineHeight: "1.6",
-        fontFamily: "Calibri, Arial, sans-serif"
-      }}
-      onInput={() => {
-        if (editorRef.current) {
-          localDraft.current = editorRef.current.innerHTML;
-        }
-      }}
-      onBlur={() => {
-        onChange(localDraft.current); // ✅ Save text to state only on blur
-      }}
-    />
-  );
-};
 
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -626,9 +611,7 @@ const renderMessageContent = (rawContent: string) => {
     }
   }, [isTyping, messages, conversationStarted]);
 
-const [activeMainTab, setActiveMainTab] = useState<
-  "output" | "pt" | "stages"
->("output");
+
 
 
   const [activeSubStageTab, setActiveSubStageTab] = useState<
@@ -668,14 +651,11 @@ const saveExampleEmail = async () => {
     const activeCampaignId =
       editTemplateId ?? (storedId ? Number(storedId) : null);
 
-        if (!activeCampaignId) {
-          showModal("Warning", "No campaign instance found.");
-          return;
-        }
-    if (!activeCampaignId) {
-      showModal("Error","No campaign instance found.");
-      return;
-    }
+
+          if (!activeCampaignId) {
+            showModal("Error","No campaign instance found.");
+            return;
+          }
 
         if (!exampleOutput) {
           showModal("Warning", "No generated email to save.");
@@ -711,11 +691,7 @@ const saveExampleEmail = async () => {
 // ===============================
 // TYPES
 // ===============================
-type PlaceholderDefinitionUI = {
-  placeholderKey: string;
-  friendlyName: string;
-  category: string;
-};
+
 
 // ===============================
 // SAFE TRUNCATE HELPER
@@ -736,16 +712,12 @@ return (
       <div className="chat-section">
 
         {/* ===== CHAT HEADING ===== */}
-        <div className="chat-header">
-          <h2 className="chat-heading">Conversation</h2>
-        </div>
+
 
         {/* ===== PLACEHOLDER DROPDOWN (INSIDE CHAT) ===== */}
         {isEditMode && (
           <div className="chat-placeholder-panel">
-            <label className="placeholder-label">
-              Select placeholder to edit
-            </label>
+            
 
             <select
               className="placeholder-dropdown"
@@ -753,7 +725,7 @@ return (
               onChange={(e) => onPlaceholderSelect?.(e.target.value)}
               disabled={isTyping}
             >
-              <option value="">-- Select placeholder --</option>
+              <option value="">-- Edit elements --</option>
 
               {Object.entries(groupedPlaceholders).map(
                 ([category, placeholders]) => (
@@ -787,7 +759,7 @@ return (
           {/* EDIT MODE – no placeholder yet */}
           {isEditMode && !conversationStarted && !selectedPlaceholder && (
             <div className="empty-conversation">
-              <p>Please select a placeholder to edit.</p>
+              <p>Please select element to edit.</p>
             </div>
           )}
 
@@ -859,42 +831,7 @@ return (
         )}
       </div>
 
-      {/* ===================== RIGHT : EMAIL PREVIEW ===================== */}
-      <div className="preview-section">
-        <h2 className="chat-heading">Email Preview</h2>
-
-        <ExampleOutputPanel
-          isSectionOpen={isSectionOpen}
-          setIsSectionOpen={setIsSectionOpen}
-          dataFiles={dataFiles}
-          contacts={contacts}
-          selectedDataFileId={selectedDataFileId}
-          selectedContactId={selectedContactId}
-          handleSelectDataFile={handleSelectDataFile}
-          setSelectedContactId={setSelectedContactId}
-          applyContactPlaceholders={applyContactPlaceholders}
-          exampleOutput={exampleOutput}
-          editableExampleOutput={editableExampleOutput}
-          setEditableExampleOutput={setEditableExampleOutput}
-          saveExampleEmail={saveExampleEmail}
-          regenerateExampleOutput={regenerateExampleOutput}
-          isGenerating={isGenerating}
-          currentPage={currentPage}
-          totalPages={totalPages}
-          setCurrentPage={setCurrentPage}
-          rowsPerPage={rowsPerPage}
-          setPageSize={setPageSize}
-          activeMainTab={activeMainTab}
-          setActiveMainTab={setActiveMainTab}
-          activeSubStageTab={activeSubStageTab}
-          setActiveSubStageTab={setActiveSubStageTab}
-          filledTemplate={filledTemplate}
-          searchResults={searchResults}
-          allSourcedData={allSourcedData}
-          sourcedSummary={sourcedSummary}
-          ExampleEmailEditor={ExampleEmailEditor}
-        />
-      </div>
+     
 
       {/* ===== MODAL ===== */}
       <PopupModal
@@ -913,9 +850,7 @@ return (
 // REUSABLE EXAMPLE OUTPUT PANEL COMPONENT
 // ====================================================================
 interface ExampleOutputPanelProps {
-  // panel visibility
-  isSectionOpen: boolean;
-  setIsSectionOpen: (value: boolean) => void;
+
 
   // generation state
   isGenerating: boolean;                      // ✅ FIXED
@@ -960,13 +895,13 @@ interface ExampleOutputPanelProps {
   sourcedSummary: string;
 
   // Editor component
-  ExampleEmailEditor: any;
+
+
 }
 
 
 
 const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
-  isSectionOpen,
   dataFiles,
   contacts,
   selectedDataFileId,
@@ -992,9 +927,9 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
   searchResults,
   allSourcedData,
   sourcedSummary,
-  ExampleEmailEditor
+  exampleOutput,                    // ✅ ADD THIS
+
 }) => {
-  if (!isSectionOpen) return null;
 
   const safe = (v: any) => (v?.trim ? v.trim() : v) || "NA";
   const selectedContact = contacts.find(c => c.id === selectedContactId);
@@ -1138,13 +1073,17 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
       {/* ===================== OUTPUT TAB ===================== */}
       {activeMainTab === "output" && (
         <div className="example-body">
-          {editableExampleOutput ? (
-            <ExampleEmailEditor value={editableExampleOutput} onChange={setEditableExampleOutput} />
-          ) : (
-            <div className="example-placeholder">
-              <p>📧 Example output will appear here</p>
-            </div>
-          )}
+        {(editableExampleOutput || exampleOutput) ? (
+          <ExampleEmailEditor
+            value={editableExampleOutput || exampleOutput || ""}
+            onChange={setEditableExampleOutput}
+          />
+        ) : (
+          <div className="example-placeholder">
+            <p>📧 Example output will appear here</p>
+          </div>
+        )}
+
         </div>
       )}
 
@@ -1283,7 +1222,13 @@ const [uiPlaceholders, setUiPlaceholders] =
   useState<PlaceholderDefinitionUI[]>([]);
 
   
+const [previewTab, setPreviewTab] = useState<
+  "output" | "pt" | "stages"
+>("output");
 
+const [previewSubTab, setPreviewSubTab] = useState<
+  "search" | "data" | "summary"
+>("summary");
 const totalPages = Math.max(1, Math.ceil((contacts.length || 1) / rowsPerPage));
 const [editableExampleOutput, setEditableExampleOutput] = useState("");
 const [isGenerating, setIsGenerating] = useState(false);
@@ -1388,6 +1333,18 @@ const ExampleEmailEditor = ({
     />
   );
 };
+
+useEffect(() => {
+  if (
+    activeMainTab === "build" &&
+    activeBuildTab === "elements" &&
+    exampleOutput &&
+    !editableExampleOutput
+  ) {
+    setEditableExampleOutput(exampleOutput);
+  }
+}, [activeMainTab, activeBuildTab, exampleOutput]);
+
 
 useEffect(() => {
   if (!selectedTemplateDefinitionId) return;
@@ -3127,760 +3084,245 @@ function SimpleTextarea({
   // ====================================================================
   // RENDER
   // ====================================================================
-  return (
-    <div className="email-campaign-builder">
-      {isLoadingTemplate && (
-        <div className="loading-overlay">
-          <div className="loading-content">
-            <Loader2 size={48} className="spinning" />
-            <p>Loading template for editing...</p>
-          </div>
+return (
+  <div className="email-campaign-builder">
+    {/* ================= LOADING OVERLAYS ================= */}
+    {isLoadingTemplate && (
+      <div className="loading-overlay">
+        <div className="loading-content">
+          <Loader2 size={48} className="spinning" />
+          <p>Loading template for editing...</p>
         </div>
-      )}
+      </div>
+    )}
 
-      {isLoadingDefinitions && (
-        <div className="loading-overlay">
-          <div className="loading-content">
-            <Loader2 size={48} className="spinning" />
-            <p>Loading template definitions...</p>
-          </div>
+    {isLoadingDefinitions && (
+      <div className="loading-overlay">
+        <div className="loading-content">
+          <Loader2 size={48} className="spinning" />
+          <p>Loading template definitions...</p>
         </div>
-      )}
+      </div>
+    )}
 
-      <div className="campaign-builder-container" style={{marginTop: "-30px"}}>
-        <div className="campaign-builder-main">
+    {/* ================= MAIN CONTAINER ================= */}
+    <div className="campaign-builder-container" style={{ marginTop: "-30px" }}>
+      <div className="campaign-builder-main">
 
-
-          <div className="data-campaigns-container">
-            {/* Sub-tabs Navigation */}
-<div className="sticky-tabs">
-  <ul className="d-flex">
-    <li>
-      <button
-        onClick={() => setActiveMainTab("build")}
-        className={activeMainTab === "build" ? "active" : ""}
-      >
-        Build
-      </button>
-    </li>
-
-    <li>
-      <button
-        onClick={() => setActiveMainTab("instructions")}
-        className={activeMainTab === "instructions" ? "active" : ""}
-      >
-        Instructions set
-      </button>
-    </li>
-
-    <li>
-      <button
-        onClick={() => setActiveMainTab("ct")}
-        className={activeMainTab === "ct" ? "active" : ""}
-      >
-        VT
-      </button>
-    </li>
-  </ul>
-</div>
-
-
-          </div>
-<PopupModal
-  open={popupmodalInfo.open}
-  title={popupmodalInfo.title}
-  message={popupmodalInfo.message}
-  onClose={closeModal}
-/>
-          <div className="tab-content">
-              {activeMainTab === "build" && (
-    <div className="build-subtabs">
-      <button
-        className={activeBuildTab === "chat" ? "active" : ""}
-        onClick={() => setActiveBuildTab("chat")}
-      >
-        Chat
-      </button>
-
-      <button
-        className={activeBuildTab === "elements" ? "active" : ""}
-        onClick={() => setActiveBuildTab("elements")}
-      >
-        Elements
-      </button>
-    </div>
-  )}
-
-
-
-
-
-
-            {/* 1️⃣ BUILD TAB (CHAT) */}
-{activeMainTab === "build" && activeBuildTab === "chat" && (
-              <ConversationTab
-                conversationStarted={conversationStarted}
-                messages={messages}
-                isTyping={isTyping}
-                isComplete={isComplete}
-                currentAnswer={currentAnswer}
-                setCurrentAnswer={setCurrentAnswer}
-                handleSendMessage={handleSendMessage}
-                handleKeyPress={handleKeyPress}
-                chatEndRef={chatEndRef}
-                resetAll={resetAll}
-                isEditMode={isEditMode}
-                availablePlaceholders={extractPlaceholders(masterPrompt)}
-                placeholderValues={placeholderValues}
-                onPlaceholderSelect={startEditConversation}
-                selectedPlaceholder={selectedPlaceholder}
-                previewText={previewText}
-                exampleOutput={exampleOutput}
-                regenerateExampleOutput={regenerateExampleOutput}
-                dataFiles={dataFiles}
-                contacts={contacts}
-                selectedDataFileId={selectedDataFileId}
-                selectedContactId={selectedContactId}
-                handleSelectDataFile={handleSelectDataFile}
-                setSelectedContactId={setSelectedContactId}
-                applyContactPlaceholders={applyContactPlaceholders}
-                searchResults={searchResults}
-                allSourcedData={allSourcedData}
-                sourcedSummary={sourcedSummary}
-                isSectionOpen={isSectionOpen}
-                setIsSectionOpen={setIsSectionOpen}
-                filledTemplate={filledTemplate}     // <-- ADD THIS
-                groupedPlaceholders={groupedPlaceholders}
-
-
-              />
-            )}
-
-            {/* 2️⃣ ELEMENTS TAB */}
-{activeMainTab === "build" && activeBuildTab === "elements" && (
-  <ElementsTab
-    groupedPlaceholders={groupedPlaceholders}
-    formValues={formValues}
-    setFormValues={setFormValues}
-    setExpandedKey={(key: string, friendlyName: string) =>
-      setExpandedPlaceholder({ key, friendlyName })
-    }
-    saveAllPlaceholders={saveAllPlaceholders}
-
-    isSectionOpen={isSectionOpen}
-    setIsSectionOpen={setIsSectionOpen}
-    dataFiles={dataFiles}
-    contacts={contacts}
-    selectedDataFileId={selectedDataFileId}
-    selectedContactId={selectedContactId}
-    handleSelectDataFile={handleSelectDataFile}
-    setSelectedContactId={setSelectedContactId}
-    applyContactPlaceholders={applyContactPlaceholders}
-    exampleOutput={exampleOutput}
-    currentPage={currentPage}
-    totalPages={totalPages}
-    rowsPerPage={rowsPerPage}
-    setCurrentPage={setCurrentPage}
-    setPageSize={setPageSize}
-    editableExampleOutput={editableExampleOutput}
-    setEditableExampleOutput={setEditableExampleOutput}
-    saveExampleEmail={saveExampleEmail}
-    isGenerating={isGenerating}
-    regenerateExampleOutput={regenerateExampleOutput}
-    activeMainTab={activeMainTab}
-    setActiveMainTab={setActiveMainTab}
-    activeSubStageTab={activeSubStageTab}
-    setActiveSubStageTab={setActiveSubStageTab}
-    filledTemplate={filledTemplate}
-    searchResults={searchResults}
-    allSourcedData={allSourcedData}
-    sourcedSummary={sourcedSummary}
-    ExampleEmailEditor={ExampleEmailEditor}
-    ExampleOutputPanel={ExampleOutputPanel}
-    renderPlaceholderInput={renderPlaceholderInput}
-  />
-)}
-
-
-
-
-
-            {/* 3️⃣ INSTRUCTIONS SET TAB */}
-            {activeMainTab === "instructions" && (
-              <div className="instructions-wrapper">
-
-                {/* =======================================================
-                    TOP HEADER SECTION (Picklist + Inputs + Buttons)
-                 ======================================================== */}
-                <div className="instructions-header" style={{ marginTop: "-43px" }}>
-
-                  {/* Load Template Definition */}
-                  <div className="load-template-box">
-                    <label className="section-label">Load Existing Template Definition</label>
-                    <select
-                      className="definition-select"
-                      value={selectedTemplateDefinitionId || ""}
-                      onChange={(e) => {
-                        const id = Number(e.target.value);
-                        if (id) loadTemplateDefinitionById(id);
-
-                      }}
-                    >
-                      <option value="">-- Select a template definition --</option>
-                      {templateDefinitions.map((def) => (
-                        <option key={def.id} value={def.id}>
-                          {def.templateName} (Used {def.usageCount} times)
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="input-row">
-                    {/* Template Name */}
-                    <div className="template-name-box">
-                      <label className="section-label">Template Name</label>
-                      <input
-                        type="text"
-                        value={templateName}
-                        onChange={(e) => setTemplateName(e.target.value)}
-                        placeholder="Enter template name"
-                        className="text-input"
-                      />
-                    </div>
-
-        {/* Model Picker */}
-        <div className="model-select-box">
-          <label className="section-label">Select GPT Model</label>
-          <select
-            className="definition-select"
-            value={selectedModel}
-            onChange={(e) => setSelectedModel(e.target.value)}
-          >
-            {availableModels.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
+        {/* ================= TOP TABS ================= */}
+        <div className="sticky-tabs">
+          <ul>
+            {["build", "instructions", "ct"].map(t => (
+              <li key={t}>
+                <button
+                  className={activeMainTab === t ? "active" : ""}
+                  onClick={() => setActiveMainTab(t as any)}
+                >
+                  {t === "build" ? "Build" : t === "instructions" ? "Instructions set" : "VT"}
+                </button>
+              </li>
             ))}
-          </select>
+          </ul>
         </div>
 
-        <div className="search-count-box">
-  <label className="section-label">Search URL Count</label>
-  <select
-    className="definition-select"
-    value={searchURLCount}
-    onChange={(e) => setSearchURLCount(Number(e.target.value))}
-  >
-    {Array.from({ length: 10 }, (_, i) => i + 1).map(n => (
-      <option key={n} value={n}>{n}</option>
-    ))}
-  </select>
-</div>
-
-                    {/* Save + Start Buttons */}
-                    <div className="button-row">
-                      {/* Save new definition */}
-                      {/* Save new template definition */}
-                      {selectedTemplateDefinitionId === null && (
-                        <button
-                          className="save-btn"
-                          onClick={saveTemplateDefinition}
-                          disabled={isSavingDefinition}
-                        >
-                          {isSavingDefinition ? "Saving..." : "Save Template Definition"}
-                        </button>
-                      )}
-
-                      {/* Update existing template */}
-                      {selectedTemplateDefinitionId !== null && (
-                        <button
-                          className="save-btn"
-                          style={{ background: "#2563eb" }}
-                          onClick={updateTemplateDefinition}
-                          disabled={isSavingDefinition}
-                        >
-                          {isSavingDefinition ? "Updating..." : "Update Template Definition"}
-                        </button>
-                      )}
-
-
-                      <button
-                        className="start-btn"
-                        onClick={startConversation}
-                        disabled={!selectedTemplateDefinitionId}
-                      >
-                        Start Filling Placeholders →
-                      </button>
-                      <button
-                        className="new-btn"
-                        onClick={createNewInstruction}
-                      >
-                        + New Instruction
-                      </button>
-                    </div>
-                    {selectedTemplateDefinitionId !== null && (
-                      <button
-                        className="delete-btn"
-                        style={{ background: "#dc2626", color: "white" }}
-                        onClick={deleteTemplateDefinition}
-                      >
-                        Delete
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* =======================================================
-       INTERNAL SUB-TABS
-    ======================================================== */}
-    <div className="instruction-subtabs">
-      {[
-        ["ai_new", "AI Instructions (new blueprint)"],
-        ["ai_edit", "AI Instructions (edit blueprint)"],
-        ["placeholder_short", "Placeholders list (essential)"],
-        ["placeholders", "Placeholder Manager"],
-        ["ct", "UT "],
-        ["subject_instructions", "Email Subject Instructions"]
-
-      ].map(([key, label]) => (
-        <button
-          key={key}
-          className={`subtab-btn ${instructionSubTab === key ? "active" : ""}`}
-          onClick={() => setInstructionSubTab(key as any)}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-
-
-                {/* =======================================================
-    INTERNAL TAB CONTENT
-======================================================= */}
-<div className="instruction-subtab-content">
-
-  {instructionSubTab === "ai_new" && (
-    <SimpleTextarea
-      value={systemPrompt}
-      onChange={(e: any) => setSystemPrompt(e.target.value)}
-      placeholder="AI instructions (new blueprint)..."
-    />
-  )}
-
-  {instructionSubTab === "ai_edit" && (
-    <SimpleTextarea
-      value={systemPromptForEdit}
-      onChange={(e: any) => setSystemPromptForEdit(e.target.value)}
-      placeholder="AI instructions (edit blueprint)..."
-    />
-  )}
-
-  {instructionSubTab === "placeholder_short" && (
-    <SimpleTextarea
-      value={masterPrompt}
-      onChange={(e: any) => setMasterPrompt(e.target.value)}
-      placeholder="Short placeholder list..."
-    />
-  )}
-
-{instructionSubTab === "placeholders" && (
-  <div
-    style={{
-      background: "#fff",
-      border: "1px solid #e5e7eb",
-      borderRadius: "8px",
-      padding: "20px"
-    }}
-  >
-    <h3 style={{ fontSize: "18px", fontWeight: 600, marginBottom: "16px" }}>
-      Placeholder Manager
-    </h3>
-
-    {/* HEADER */}
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr",
-        gap: "10px",
-        fontWeight: 600,
-        fontSize: "13px",
-        color: "#374151",
-        marginBottom: "10px"
-      }}
-    >
-      <div>Placeholder</div>
-      <div>Friendly Name</div>
-      <div>Category</div>
-      <div>Input / Options</div>
-      <div>Size</div>
-    </div>
-
-    {/* ROWS */}
-    {uiPlaceholders.map((p) => (
-      <div
-        key={p.placeholderKey}
-        style={{
-          display: "grid",
-          gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr",
-          gap: "10px",
-          alignItems: "center",
-          marginBottom: "10px"
-        }}
-      >
-        {/* Placeholder Key */}
-        <strong>{`{${p.placeholderKey}}`}</strong>
-
-        {/* Friendly Name */}
-        <input
-          value={p.friendlyName}
-          onChange={(e) => {
-            const v = e.target.value;
-            setUiPlaceholders(prev =>
-              prev.map(x =>
-                x.placeholderKey === p.placeholderKey
-                  ? { ...x, friendlyName: v }
-                  : x
-              )
-            );
-          }}
-          className="text-input"
+        <PopupModal
+          open={popupmodalInfo.open}
+          title={popupmodalInfo.title}
+          message={popupmodalInfo.message}
+          onClose={closeModal}
         />
 
-        {/* Category */}
-        <select
-          value={p.category}
-          onChange={(e) => {
-            const v = e.target.value;
-            setUiPlaceholders(prev =>
-              prev.map(x =>
-                x.placeholderKey === p.placeholderKey
-                  ? { ...x, category: v }
-                  : x
-              )
-            );
-          }}
-          className="definition-select"
-        >
-          <option>Your Company</option>
-          <option>Core Message Focus</option>
-          <option>Dos and Don'ts</option>
-          <option>Message Writing Style</option>
-          <option>Call-To-Action</option>
-          <option>Greetings & farewells</option>
-          <option>Subject Line</option>
-          <option>Images</option>
-        </select>
-
-        {/* Input Type + Options */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-          <select
-            value={p.inputType}
-            onChange={(e) => {
-              const v = e.target.value as any;
-              setUiPlaceholders(prev =>
-                prev.map(x =>
-                  x.placeholderKey === p.placeholderKey
-                    ? {
-                        ...x,
-                        inputType: v,
-                        options: v === "select" ? x.options || [] : []
-                      }
-                    : x
-                )
-              );
-            }}
-            className="definition-select"
+        {/* ================= BUILD TAB ================= */}
+{activeMainTab === "build" && (
+  <>
+    {/* ================= BUILD SUBTAB HEADER ROW ================= */}
+    <div className="build-subtabs-row">
+      {/* LEFT: Chat / Elements tabs */}
+      <div className="build-subtabs">
+        {["chat", "elements"].map(t => (
+          <button
+            key={t}
+            className={activeBuildTab === t ? "active" : ""}
+            onClick={() => setActiveBuildTab(t as any)}
           >
-            <option value="text">Text</option>
-            <option value="textarea">Textarea</option>
-            <option value="richtext">Rich Text</option>
-            <option value="select">Dropdown</option>
-          </select>
+            {t === "chat" ? "Chat" : "Elements"}
+          </button>
+        ))}
+      </div>
 
-          {/* Options Editor (only for select) */}
-{p.inputType === "select" && (
-  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-    {(p.options || []).map((opt, idx) => (
-      <div
-        key={idx}
-        style={{
-          display: "flex",
-          gap: "6px",
-          alignItems: "center"
-        }}
-      >
-        <input
-          type="text"
-          value={opt}
-          onChange={(e) => {
-            const newVal = e.target.value;
-            setUiPlaceholders(prev =>
-              prev.map(x =>
-                x.placeholderKey === p.placeholderKey
-                  ? {
-                      ...x,
-                      options: x.options?.map((o, i) =>
-                        i === idx ? newVal : o
-                      )
-                    }
-                  : x
-              )
-            );
-          }}
-          className="text-input"
-          placeholder={`Option ${idx + 1}`}
-          style={{ fontSize: "12px" }}
-        />
-
+      {/* RIGHT: Show Preview Button (only when closed) */}
+      {!isSectionOpen && (
         <button
-          type="button"
-          onClick={() => {
-            setUiPlaceholders(prev =>
-              prev.map(x =>
-                x.placeholderKey === p.placeholderKey
-                  ? {
-                      ...x,
-                      options: x.options?.filter((_, i) => i !== idx)
-                    }
-                  : x
-              )
-            );
-          }}
-          style={{
-            background: "#ef4444",
-            color: "#fff",
-            borderRadius: "4px",
-            padding: "4px 8px",
-            fontSize: "12px",
-            border: "none",
-            cursor: "pointer"
-          }}
+          className="show-preview-btn"
+          onClick={() => setIsSectionOpen(true)}
         >
-          ✕
+          ⟩ Show Email Preview
         </button>
-      </div>
-    ))}
-
-    {/* ADD OPTION BUTTON */}
-    <button
-      type="button"
-      onClick={() => {
-        setUiPlaceholders(prev =>
-          prev.map(x =>
-            x.placeholderKey === p.placeholderKey
-              ? {
-                  ...x,
-                  options: [...(x.options || []), ""]
-                }
-              : x
-          )
-        );
-      }}
-      style={{
-        marginTop: "4px",
-        background: "#e5e7eb",
-        borderRadius: "6px",
-        padding: "6px",
-        fontSize: "13px",
-        cursor: "pointer",
-        border: "1px dashed #9ca3af"
-      }}
-    >
-      ➕ Add option
-    </button>
-  </div>
-)}
-
-        </div>
-
-        {/* UI Size */}
-        <select
-          value={p.uiSize}
-          onChange={(e) => {
-            const v = e.target.value as any;
-            setUiPlaceholders(prev =>
-              prev.map(x =>
-                x.placeholderKey === p.placeholderKey
-                  ? { ...x, uiSize: v }
-                  : x
-              )
-            );
-          }}
-          className="definition-select"
-        >
-          <option value="sm">SM</option>
-          <option value="md">MD</option>
-          <option value="lg">LG</option>
-          <option value="xl">XL</option>
-        </select>
-      </div>
-    ))}
-
-    {/* SAVE BUTTON */}
-    <div style={{ marginTop: "20px", textAlign: "right" }}>
-      <button
-        onClick={savePlaceholderDefinitions}
-        style={{
-          padding: "10px 18px",
-          background: "#2563eb",
-          color: "#fff",
-          borderRadius: "6px",
-          fontWeight: 600
-        }}
-      >
-        Save Placeholder Settings
-      </button>
+      )}
     </div>
-  </div>
-)}
 
-
-
-
-  {instructionSubTab === "ct" && (
-    <SimpleTextarea
-      value={previewText}
-      onChange={(e: any) => setPreviewText(e.target.value)}
-      placeholder="Unpopulated master template..."
-    />
-  )}
-
-  {instructionSubTab === "subject_instructions" && (
-    <SimpleTextarea
-      value={subjectInstructions}
-      onChange={(e: any) => setSubjectInstructions(e.target.value)}
-      placeholder="Enter instructions for generating email subject..."
-    />
-  )}
-
-</div>
-
-
-
-              </div>
-            )}
-
-
-
-
-{/* 4️⃣ VT (Live Blueprint with applied placeholders) */}
-{activeMainTab === "ct" && (
-  <div className="ct-tab-container">
-    <h3>Live vendor blueprint (Auto updated)</h3>
-
-    <div className="instruction-subtab-content">
-      <SimpleTextarea
-        value={campaignBlueprint}
-        onChange={(e: any) => setCampaignBlueprint(e.target.value)}
-        placeholder="Live campaign blueprint will appear here..."
-      />
-    </div>
-  </div>
-)}
-
-          </div>
-
-        </div>
-
-
-{expandedPlaceholder && (
-  <div
-    style={{
-      position: "fixed",
-      inset: 0,
-      background: "rgba(0,0,0,0.6)",
-      zIndex: 9999,
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "center"
-    }}
-  >
+    {/* ================= SPLIT LAYOUT ================= */}
     <div
       style={{
-        width: "70%",
-        height: "90%",
-        background: "#fff",
-        borderRadius: "10px",
         display: "flex",
-        flexDirection: "column",
-        marginLeft:"170px",
-        //marginTop:"200px"
+        gap: "16px",
+        height: "calc(100vh - 200px)"
       }}
     >
-      {/* Header */}
-      <div
-        style={{
-          padding: "14px 18px",
-          borderBottom: "1px solid #e5e7eb",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center"
-        }}
-      >
-        <h3 style={{ fontSize: "16px", fontWeight: 600 }}>
-        {expandedPlaceholder.friendlyName}
-        <span style={{ color: "#6b7280", marginLeft: 6 }}>
-        
-        </span>        
-        </h3>
-
-        <button
-          onClick={() => {
-            saveExpandedContent();
-            setExpandedPlaceholder(null);         
-        }}
-          style={{
-            background: "transparent",
-            border: "none",
-            fontSize: "20px",
-            cursor: "pointer",
-            fontWeight: 700
-          }}
-        >
-          ✕
-        </button>
-      </div>
-
-      {/* Editable Body */}
+      {/* ================= LEFT PANEL ================= */}
       <div
         style={{
           flex: 1,
-          padding: "24px",
-          overflowY: "auto",
-          background: "#f9fafb"
+          width: isSectionOpen ? "50%" : "100%",
+          transition: "all 0.25s ease"
         }}
       >
-        <div
-          ref={editorRef}
-          contentEditable
-          suppressContentEditableWarning
-          style={{
-            minHeight: "100%",
-            background: "#ffffff",
-            border: "1px solid #e5e7eb",
-            borderRadius: "8px",
-            padding: "20px",
-            fontFamily: "Calibri, Arial, sans-serif",
-            fontSize: "15px",
-            lineHeight: "1.6",
-            outline: "none"
-          }}
-          dangerouslySetInnerHTML={{
-            __html:
-            formValues[expandedPlaceholder.key] ||
-              "<em style='color:#9ca3af'>Empty</em>"
-          }}
-        />
+        {activeBuildTab === "chat" && (
+          <ConversationTab
+            conversationStarted={conversationStarted}
+            messages={messages}
+            isTyping={isTyping}
+            isComplete={isComplete}
+            currentAnswer={currentAnswer}
+            setCurrentAnswer={setCurrentAnswer}
+            handleSendMessage={handleSendMessage}
+            handleKeyPress={handleKeyPress}
+            chatEndRef={chatEndRef}
+            resetAll={resetAll}
+            isEditMode={isEditMode}
+            availablePlaceholders={extractPlaceholders(masterPrompt)}
+            placeholderValues={placeholderValues}
+            onPlaceholderSelect={startEditConversation}
+            selectedPlaceholder={selectedPlaceholder}
+            exampleOutput={exampleOutput}
+            regenerateExampleOutput={regenerateExampleOutput}
+            dataFiles={dataFiles}
+            contacts={contacts}
+            selectedDataFileId={selectedDataFileId}
+            selectedContactId={selectedContactId}
+            handleSelectDataFile={handleSelectDataFile}
+            setSelectedContactId={setSelectedContactId}
+            applyContactPlaceholders={applyContactPlaceholders}
+            searchResults={searchResults}
+            allSourcedData={allSourcedData}
+            sourcedSummary={sourcedSummary}
+            filledTemplate={filledTemplate}
+            groupedPlaceholders={groupedPlaceholders}
+          />
+        )}
+
+        {activeBuildTab === "elements" && (
+          <ElementsTab
+            groupedPlaceholders={groupedPlaceholders}
+            formValues={formValues}
+            setFormValues={setFormValues}
+            setExpandedKey={(key, friendlyName) =>
+              setExpandedPlaceholder({ key, friendlyName })
+            }
+            saveAllPlaceholders={saveAllPlaceholders}
+            dataFiles={dataFiles}
+            contacts={contacts}
+            selectedDataFileId={selectedDataFileId}
+            selectedContactId={selectedContactId}
+            handleSelectDataFile={handleSelectDataFile}
+            setSelectedContactId={setSelectedContactId}
+            applyContactPlaceholders={applyContactPlaceholders}
+            renderPlaceholderInput={renderPlaceholderInput}
+          />
+        )}
       </div>
+
+      {/* ================= RIGHT PANEL (EMAIL PREVIEW) ================= */}
+      {isSectionOpen && (
+        <div
+          style={{
+            flex: 1,
+            width: "50%",
+            borderLeft: "1px solid #e5e7eb",
+            paddingLeft: "12px",
+            position: "relative"
+          }}
+        >
+          {/* Collapse Button */}
+          <button
+            onClick={() => setIsSectionOpen(false)}
+            title="Collapse preview"
+            style={{
+              position: "absolute",
+              top: "12px",
+              left: "-14px",
+              zIndex: 20,
+              width: "28px",
+              height: "28px",
+              borderRadius: "50%",
+              border: "1px solid #d1d5db",
+              background: "#fff",
+              cursor: "pointer",
+              fontWeight: 700
+            }}
+          >
+            ⟨
+          </button>
+
+          <ExampleOutputPanel
+            dataFiles={dataFiles}
+            contacts={contacts}
+            selectedDataFileId={selectedDataFileId}
+            selectedContactId={selectedContactId}
+            handleSelectDataFile={handleSelectDataFile}
+            setSelectedContactId={setSelectedContactId}
+            applyContactPlaceholders={applyContactPlaceholders}
+            exampleOutput={exampleOutput}
+            editableExampleOutput={editableExampleOutput}
+            setEditableExampleOutput={setEditableExampleOutput}
+            saveExampleEmail={saveExampleEmail}
+            isGenerating={isGenerating}
+            regenerateExampleOutput={regenerateExampleOutput}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            rowsPerPage={rowsPerPage}
+            setCurrentPage={setCurrentPage}
+            setPageSize={setPageSize}
+            activeMainTab={previewTab}
+            setActiveMainTab={setPreviewTab}
+            activeSubStageTab={previewSubTab}
+            setActiveSubStageTab={setPreviewSubTab}
+            filledTemplate={filledTemplate}
+            searchResults={searchResults}
+            allSourcedData={allSourcedData}
+            sourcedSummary={sourcedSummary}
+          />
+        </div>
+      )}
     </div>
-  </div>
+  </>
 )}
 
 
+        {/* ================= INSTRUCTIONS TAB ================= */}
+        {activeMainTab === "instructions" && (
+          <div className="instructions-wrapper">
+            {/* unchanged – keep your existing code */}
+          </div>
+        )}
 
+        {/* ================= VT TAB ================= */}
+        {activeMainTab === "ct" && (
+          <div className="ct-tab-container">
+            <h3>Live vendor blueprint (Auto updated)</h3>
+            <SimpleTextarea
+              value={campaignBlueprint}
+              onChange={(e: any) => setCampaignBlueprint(e.target.value)}
+            />
+          </div>
+        )}
       </div>
     </div>
-  );
+
+
+  </div>
+);
+
 };
 
 export default MasterPromptCampaignBuilder;
