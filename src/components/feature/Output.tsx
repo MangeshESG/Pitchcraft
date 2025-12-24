@@ -1667,19 +1667,7 @@ useEffect(() => {
       </span>
     </div>
                 )}
-                 {!isDemoAccount && (
-    <div className="flex items-center">
-      <label className="checkbox-label !mb-[0px] mr-[5px] flex items-center">
-        <input
-          type="checkbox"
-          checked={followupEnabled || false}
-          onChange={(e) => setFollowupEnabled?.(e.target.checked)}
-          className="!mr-0"
-        />
-        <span className="text-[14px]">Followup</span>
-      </label>
-    </div>
-  )}
+                 
               </div>
             </div>
 

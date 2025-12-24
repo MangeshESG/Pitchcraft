@@ -415,6 +415,18 @@ const MainPage: React.FC = () => {
 
       const pv = bpJson.placeholderValues || {};
 
+      // ✅ Subject config from placeholderValues
+        const subjectConfig = {
+          isAI: pv["email_subject-AI"] === "yes",
+          manualTemplate: pv["email_subject-manual"] || "",
+        };
+
+        sessionStorage.setItem(
+          "campaignSubjectConfig",
+          JSON.stringify(subjectConfig)
+        );
+
+
       setSearchTermForm({
         searchTerm: pv.hook_search_terms || "",
         instructions: pv.search_objective || "",
@@ -706,40 +718,9 @@ const MainPage: React.FC = () => {
     setOpenModals((prev) => ({ ...prev, [id]: false }));
   };
 
-  const fetchPromptsList = useCallback(async () => {
-    setEmailLoading(true); // Start loading indicator
 
-    try {
-      let url = apiUrl; // Default to current user's prompts
 
-      // If a client is selected, modify the URL to fetch prompts for that client
-      if (selectedClient !== "") {
-        url = `${API_BASE_URL}/api/auth/getprompts/${selectedClient}`;
-      }
 
-      const response = await fetch(url);
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `HTTP error! status: ${response.status}, message: ${errorText}`
-        );
-      }
-      const data: Prompt[] = await response.json();
-      console.log("Fetched prompts:", data);
-      setPromptList(data);
-    } catch (err) {
-      console.error("Error fetching prompts:", err);
-      setPromptList([]); // Ensure the list is empty in case of an error
-    } finally {
-      setEmailLoading(false); // Set loading to false when fetching is done
-    }
-  }, [selectedClient, apiUrl, API_BASE_URL]);
-
-  useEffect(() => {
-    // Clear the prompt list immediately when a new client is selected
-    setPromptList([]);
-    fetchPromptsList();
-  }, [selectedClient, fetchPromptsList]);
 
   const handleClientChange = async (
     event: React.ChangeEvent<HTMLSelectElement>
@@ -783,39 +764,6 @@ const MainPage: React.FC = () => {
     setUserRole(isAdmin ? "ADMIN" : "USER");
   }, []);
 
-
-
-
-
-
-
- 
-
-  const tabHandler = (e: React.MouseEvent<HTMLButtonElement>) => {
-    const { innerText } = e.currentTarget;
-    setTab(innerText);
-  };
-
-  const [tab2, setTab2] = useState("Template");
-  const tabHandler2 = (e: React.ChangeEvent<any>) => {
-    const { innerText } = e.target;
-    console.log(innerText, "innerText");
-    setTab2(innerText);
-  };
-
-  const [tab3, setTab3] = useState("Template");
-  const tabHandler3 = (e: React.ChangeEvent<any>) => {
-    const { innerText } = e.target;
-    console.log(innerText, "innerText");
-    setTab3(innerText);
-  };
-
-  const [tab4, setTab4] = useState("Template");
-  const tabHandler4 = (e: React.ChangeEvent<any>) => {
-    const { innerText } = e.target;
-    console.log(innerText, "innerText");
-    setTab4(innerText);
-  };
 
   const [delayTime, setDelay] = useState<number>(0);
   const delay = (ms: number) =>
@@ -967,7 +915,7 @@ const MainPage: React.FC = () => {
     if (sessionStorage.getItem("isDemoAccount") !== "true" && effectiveUserId) {
       fetchToneSettings();
     }
-  }, [effectiveUserId]); // Add effectiveUserId as dependency
+  }, [effectiveUserId]); 
 
 
 
@@ -1344,12 +1292,6 @@ const MainPage: React.FC = () => {
         return;
       }
     }
-
-
-
-
-
-
     // --- Get current date in readable format ---
     const currentDate = new Date().toLocaleDateString("en-US", {
       year: "numeric",
@@ -1404,6 +1346,24 @@ const MainPage: React.FC = () => {
     if (isProcessing) {
       return;
     }
+
+          // =====================================================
+      // 🟢 STEP 3: READ subject config from campaign placeholders
+      // =====================================================
+      const campaignSubjectConfig = (() => {
+        try {
+          return JSON.parse(
+            sessionStorage.getItem("campaignSubjectConfig") || "{}"
+          );
+        } catch {
+          return {};
+        }
+      })();
+
+      const isSubjectAI = campaignSubjectConfig?.isAI === true;
+      const manualSubjectTemplate =
+        campaignSubjectConfig?.manualTemplate || "";
+
 
     const selectedModelNameA = selectedModelName;
     const searchterm = searchTermForm.searchTerm;
@@ -1589,8 +1549,7 @@ if (!scrapeResponse.ok) {
   processCacheRef.current[cacheKey] = scrapeData;
 }
 
-          scrapeData = await scrapeResponse.json();
-          processCacheRef.current[cacheKey] = scrapeData;
+          
         }
 
         if (cacheHit) {
@@ -1695,7 +1654,7 @@ if (!scrappedData) {
 
         //----------------------------------------------------------------------------------------
         let subjectLine = "";
-        if (subjectMode === "AI generated") {
+        if (isSubjectAI) {
           const filledSubjectInstruction = replaceAllPlaceholders(
             subject_instruction,
             {
@@ -1752,28 +1711,33 @@ if (!scrappedData) {
                 prev.generatedContent,
             }));
           }
-        } else if (subjectMode === "With Placeholder") {
-          subjectLine = (subjectText || "")
-            .replace("{company_name}", company_name)
-            .replace("{job_title}", job_title)
-            .replace("{location}", location)
-            .replace("{full_name}", full_name)
-            .replace("{linkedin_url}", linkedin_url)
-            .replace("{search_output_summary}", scrappedData)
-            .replace("{generated_pitch}", pitchData.response?.content || "")
-            .replace("{website}", website)
-            .replace("{date}", currentDate);
+        } else if (manualSubjectTemplate) {
+  subjectLine = replaceAllPlaceholders(
+    manualSubjectTemplate,
+    {
+      company_name,
+      job_title,
+      location,
+      full_name,
+      linkedin_url,
+      website,
+      date: currentDate,
+      search_output_summary: scrappedData || "",
+      generated_pitch: pitchData.response?.content || "",
+    }
+  );
 
-          setOutputForm((prev) => ({
-            ...prev,
-            generatedContent:
-              `<span style="color: green">[${formatDateTime(
-                new Date()
-              )}] Subject using user placeholder for contact ${full_name} with company name ${company_name} and domain ${entry.email
-              }</span><br/>` + prev.generatedContent,
-            emailSubject: subjectLine,
-          }));
-        }
+  setOutputForm((prev) => ({
+    ...prev,
+    generatedContent:
+      `<span style="color: green">[${formatDateTime(
+        new Date()
+      )}] Subject generated from campaign placeholder for ${full_name}</span><br/>`
+      + prev.generatedContent,
+    emailSubject: subjectLine,
+  }));
+}
+
         // ✅ Replace the database update logic in REGENERATION BLOCK
         try {
           if (id && pitchData.response?.content) {
@@ -2509,7 +2473,7 @@ if (!scrappedData) {
 
           // Generate subject line
           let subjectLine = "";
-          if (subjectMode === "AI generated") {
+          if (isSubjectAI) {
             const filledSubjectInstruction = replaceAllPlaceholders(
               subject_instruction,
               {
@@ -2566,28 +2530,33 @@ if (!scrappedData) {
                   }</span><br/>` + prev.generatedContent,
               }));
             }
-          } else if (subjectMode === "With Placeholder") {
-            subjectLine = (subjectText || "")
-              .replace("{company_name}", company_name)
-              .replace("{job_title}", job_title)
-              .replace("{location}", location)
-              .replace("{full_name}", full_name)
-              .replace("{linkedin_url}", linkedin_url)
-              .replace("{search_output_summary}", scrappedData)
-              .replace("{generated_pitch}", pitchData.response?.content || "")
-              .replace("{website}", website)
-              .replace("{date}", currentDate);
+} else if (manualSubjectTemplate) {
+  subjectLine = replaceAllPlaceholders(
+    manualSubjectTemplate,
+    {
+      company_name,
+      job_title,
+      location,
+      full_name,
+      linkedin_url,
+      website,
+      date: currentDate,
+      search_output_summary: scrappedData || "",
+      generated_pitch: pitchData.response?.content || "",
+    }
+  );
 
-            setOutputForm((prev) => ({
-              ...prev,
-              generatedContent:
-                `<span style="color: green">[${formatDateTime(
-                  new Date()
-                )}] Subject using user placeholder for contact ${full_name} with company name ${company_name} and domain ${entry.email
-                }</span><br/>` + prev.generatedContent,
-              emailSubject: subjectLine,
-            }));
-          }
+  setOutputForm((prev) => ({
+    ...prev,
+    generatedContent:
+      `<span style="color: green">[${formatDateTime(
+        new Date()
+      )}] Subject generated from campaign placeholder for ${full_name}</span><br/>`
+      + prev.generatedContent,
+    emailSubject: subjectLine,
+  }));
+}
+
 
           // Update the linkLabel to show both subject and pitch
           setOutputForm((prevOutputForm) => ({
