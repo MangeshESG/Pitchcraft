@@ -36,119 +36,137 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
   applyContactPlaceholders
 }) => {
 
-  return (
-    <div className="elements-tab-container" style={{ padding: "20px" }}>
-      <div style={{ display: "flex", gap: "20px" }}>
+return (
+  <div
+    className="elements-tab-container"
+    style={{
+      padding: "20px",
+      height: "100%",          // ✅ take full available height
+      display: "flex",
+      flexDirection: "column"
+    }}
+  >
+<div
+  style={{
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "15px",
+    flexShrink: 0
+  }}
+>
+  <h2 style={{ fontSize: "22px", fontWeight: 600 }}>
+    Edit Placeholder Values
+  </h2>
 
-        {/* LEFT */}
-        <div style={{ flex: 1 }}>
-          <h2 style={{ fontSize: "22px", fontWeight: 600, marginBottom: "15px" }}>
-            Edit Placeholder Values
-          </h2>
+  {/* EDIT BUTTON */}
+<button
+  onClick={saveAllPlaceholders}   // ✅ CALL THE SAVE FUNCTION
+  style={{
+    padding: "6px 14px",
+    fontSize: "14px",
+    fontWeight: 600,
+    borderRadius: "6px",
+    border: "1px solid #d1d5db",
+    background: "#16a34a",
+    color: "#fff",
+    cursor: "pointer"
+  }}
+>
+  💾 Save
+</button>
 
-          {Object.entries(groupedPlaceholders).map(([category, placeholders]) => (
-            <div key={category} style={{ marginBottom: "28px" }}>
-              <h3
-                style={{
-                  fontSize: "16px",
-                  fontWeight: 600,
-                  marginBottom: "12px",
-                  borderBottom: "1px solid #e5e7eb",
-                  paddingBottom: "6px"
-                }}
-              >
-                {category}
-              </h3>
+</div>
 
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "20px",
-                  background: "#fff",
-                  padding: "16px",
-                  borderRadius: "8px",
-                  border: "1px solid #e5e7eb"
-                }}
-              >
-                {placeholders.map((p: any) => (
-                  <div key={p.placeholderKey}>
-                    <label
+
+    {/* ✅ SCROLLABLE CONTENT */}
+    <div
+      style={{
+        flex: 1,               // ✅ takes remaining height
+        overflowY: "auto",     // ✅ enables scrolling
+        paddingRight: "8px"
+      }}
+    >
+      {Object.entries(groupedPlaceholders).map(([category, placeholders]) => (
+        <div key={category} style={{ marginBottom: "28px" }}>
+          <h3
+            style={{
+              fontSize: "16px",
+              fontWeight: 600,
+              marginBottom: "12px",
+              borderBottom: "1px solid #e5e7eb",
+              paddingBottom: "6px"
+            }}
+          >
+            {category}
+          </h3>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "20px",
+              background: "#fff",
+              padding: "16px",
+              borderRadius: "8px",
+              border: "1px solid #e5e7eb"
+            }}
+          >
+            {placeholders.map((p) => (
+              <div key={p.placeholderKey}>
+                <label
+                  style={{
+                    fontWeight: 600,
+                    marginBottom: "6px",
+                    fontSize: "14px",
+                    display: "flex",
+                    justifyContent: "space-between"
+                  }}
+                >
+                  {p.friendlyName}
+
+                  {p.isExpandable && (
+                    <button
+                      onClick={() =>
+                        setExpandedKey(p.placeholderKey, p.friendlyName)
+                      }
                       style={{
-                        fontWeight: 600,
-                        marginBottom: "6px",
-                        fontSize: "14px",
-                        display: "flex",
-                        justifyContent: "space-between"
+                        fontSize: "12px",
+                        padding: "4px 8px",
+                        borderRadius: "4px",
+                        border: "1px solid #d1d5db",
+                        background: "#f9fafb"
                       }}
                     >
-                      {p.friendlyName}
+                      Expand
+                    </button>
+                  )}
+                </label>
 
-                      {p.isExpandable && (
-                          <button
-                            onClick={() =>
-                              setExpandedKey(p.placeholderKey, p.friendlyName)
-                            }                          
-                            style={{
-                            fontSize: "12px",
-                            padding: "4px 8px",
-                            borderRadius: "4px",
-                            border: "1px solid #d1d5db",
-                            background: "#f9fafb"
-                          }}
-                        >
-                          Expand
-                        </button>
-                      )}
-                    </label>
-
-                        <div>
-                          {renderPlaceholderInput({
-                            ...p,
-                            options: p.options || []
-                          })}
-
-                          {p.inputType === "select" && (
-                            <div
-                              style={{
-                                marginTop: "4px",
-                                fontSize: "12px",
-                                color: "#6b7280"
-                              }}
-                            >
-                             
-                            </div>
-                          )}
-                        </div>
-
-                  </div>
-                ))}
+                {renderPlaceholderInput({
+                  ...p,
+                  options: p.options || []
+                })}
               </div>
-            </div>
-          ))}
-
-          <div style={{ textAlign: "right", marginTop: "20px" }}>
-            <button
-              onClick={saveAllPlaceholders}
-              style={{
-                padding: "10px 20px",
-                background: "#16a34a",
-                color: "#fff",
-                borderRadius: "6px",
-                fontWeight: 600
-              }}
-            >
-              💾 Save All Changes
-            </button>
+            ))}
           </div>
         </div>
-
-        {/* RIGHT */}
-
-
-      </div>
+      ))}
     </div>
-  );
+
+    {/* FOOTER (fixed) */}
+    <div
+      style={{
+        flexShrink: 0,
+        textAlign: "right",
+        marginTop: "12px"
+      }}
+    >
+
+    </div>
+  </div>
+);
+
 };
 
 export default ElementsTab;

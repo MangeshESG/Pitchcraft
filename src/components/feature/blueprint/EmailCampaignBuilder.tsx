@@ -277,234 +277,6 @@ export function useSessionState<T>(key: string, defaultValue: T): [T, React.Disp
   return [state, setState];
 }
 
-const TemplateTab: React.FC<TemplateTabProps> = ({
-  masterPrompt, setMasterPrompt,
-  masterPromptExtensive, setMasterPromptExtensive,
-  systemPrompt, setSystemPrompt,
-  systemPromptForEdit, setSystemPromptForEdit,
-  previewText, setPreviewText,
-  startConversation, currentPlaceholders,
-  extractPlaceholders, selectedModel,
-  setSelectedModel, availableModels,
-  saveTemplateDefinition, isSavingDefinition,
-  saveDefinitionStatus, templateDefinitions,
-  loadTemplateDefinition, selectedTemplateDefinitionId,
-  templateName, setTemplateName
-}) => {
-  return (
-    <div className="template-tab">
-      {/* ✅ NEW - Template Definition Selector */}
-      <div className="template-definition-section">
-        <div className="template-section">
-          <h2>📋 Load Existing Template Definition</h2>
-          <p>Select a saved template definition to auto-fill all fields below.</p>
-        </div>
-        <div className="template-definition-selector">
-          {templateDefinitions.length > 0 ? (
-            <select
-              className="template-definition-dropdown"
-              onChange={(e) => {
-                const id = parseInt(e.target.value);
-                if (id > 0) loadTemplateDefinition(id);
-              }}
-              value={selectedTemplateDefinitionId || ''}
-            >
-              <option value="">-- Select a template definition --</option>
-              {templateDefinitions.map((def) => (
-                <option key={def.id} value={def.id}>
-                  {def.templateName} (Used {def.usageCount} times)
-                </option>
-              ))}
-            </select>
-          ) : (
-            <p className="no-templates-message">No saved template definitions yet. Create one below!</p>
-          )}
-        </div>
-      </div>
-
-      {/* ✅ NEW - Template Name Input */}
-      <div className="template-name-section">
-        <div className="template-section">
-          <h2>Template Name</h2>
-          <p>Give this template definition a unique name.</p>
-        </div>
-        <input
-          type="text"
-          value={templateName}
-          onChange={(e) => setTemplateName(e.target.value)}
-          className="template-name-input"
-          placeholder="e.g., Sales Outreach Template v1"
-        />
-      </div>
-
-      {/* Model Selection Section */}
-      <div className="model-selection-section">
-        <h2>Select GPT-5 Model</h2>
-        <p>Choose the AI model for your campaign generation.</p>
-        <div className="model-dropdown-wrapper">
-          <select
-            value={selectedModel}
-            onChange={(e) => setSelectedModel(e.target.value)}
-            className="model-dropdown"
-          >
-            {availableModels.map((model: GPTModel) => (
-              <option key={model.id} value={model.id}>
-                {model.name} {model.description ? `- ${model.description}` : ''}
-              </option>
-            ))}
-          </select>
-          <ChevronDown className="dropdown-icon" size={20} />
-        </div>
-      </div>
-
-
-
-      <div className="template-grid">
-        <div>
-          <div className="template-section">
-            <h2>1. AI Instructions (System Prompt)</h2>
-            <p>Define how the AI should behave and what its goal is.</p>
-          </div>
-          <textarea
-            value={systemPrompt}
-            onChange={(e) => setSystemPrompt(e.target.value)}
-            className="template-textarea"
-            placeholder="e.g., You are a helpful assistant. Your goal is to fill in the placeholders in the user's template..."
-            rows={6}
-          />
-        </div>
-
-        <div>
-          <div className="template-section">
-            <h2>1b. AI Instructions for Editing</h2>
-            <p>Define how the AI should behave when editing placeholder values.</p>
-          </div>
-          <textarea
-            value={systemPromptForEdit}
-            onChange={(e) => setSystemPromptForEdit(e.target.value)}
-            className="template-textarea"
-            placeholder="e.g., You are an AI assistant helping to edit placeholder values. Use {placeholder} and {currentValue} as variables..."
-            rows={6}
-          />
-          <p className="helper-text" style={{ fontSize: '12px', color: '#6b7280', marginTop: '8px' }}>
-            💡 Use <code>{'{placeholder}'}</code> and <code>{'{currentValue}'}</code> as placeholders in your instructions
-          </p>
-        </div>
-
-        <div>
-          <div className="template-section">
-            <h2>2. Placeholders List (Short)</h2>
-            <p>Enter a brief list of placeholders for the AI to fill.</p>
-          </div>
-          <textarea
-            value={masterPrompt}
-            onChange={(e) => setMasterPrompt(e.target.value)}
-            className="template-textarea"
-            placeholder="e.g., {name}, {company}, {role}"
-            rows={4}
-          />
-        </div>
-
-        <div>
-          <div className="template-section">
-            <h2>2b. Placeholders List (Extensive)</h2>
-            <p>Provide detailed descriptions and context for each placeholder.</p>
-          </div>
-          <textarea
-            value={masterPromptExtensive}
-            onChange={(e) => setMasterPromptExtensive(e.target.value)}
-            className="template-textarea"
-            placeholder="e.g., {name} - Recipient's full name&#10;{company} - Company name where they work&#10;{role} - Their job title or position"
-            rows={8}
-          />
-          <p className="helper-text" style={{ fontSize: '12px', color: '#6b7280', marginTop: '8px' }}>
-            💡 This extensive list helps the AI understand context and generate better questions
-          </p>
-        </div>
-      </div>
-
-      <div className="additional-text-section">
-        <div className="template-section">
-          <h2>3. Master campaign template </h2>
-          <p className="warning-text">⚠️ This text is NOT sent to the AI. Placeholders here will be filled with values from the conversation.</p>
-        </div>
-        <textarea
-          value={previewText}
-          onChange={(e) => setPreviewText(e.target.value)}
-          className="additional-text-textarea"
-          placeholder="e.g., Name-{name}&#10;Company-{company}&#10;Dear {name}, We at {company} are excited to connect with you..."
-        />
-      </div>
-
-      <div className="placeholders-section">
-        <h3>Detected Placeholders in Placeholders List:</h3>
-        <div className="placeholders-container">
-          {currentPlaceholders.length > 0 ? currentPlaceholders.map((p) => (
-            <span key={p} className="placeholder-tag">{`{${p}}`}</span>
-          )) : <span className="no-placeholders">No placeholders found in placeholders list.</span>}
-        </div>
-
-        {previewText && (
-          <div style={{ marginTop: '12px' }}>
-            <h3>Placeholders in Master Campaign Template:</h3>
-            <div className="placeholders-container">
-              {extractPlaceholders(previewText).length > 0 ? extractPlaceholders(previewText).map((p) => (
-                <span key={p} className="placeholder-tag green">{`{${p}}`}</span>
-              )) : <span className="no-placeholders">No placeholders found in master campaign template.</span>}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* ✅ NEW - Save Template Definition Button */}
-      <div className="template-actions-section">
-        <div className="template-actions-grid">
-          <button
-            onClick={saveTemplateDefinition}
-            disabled={isSavingDefinition || !templateName.trim() || !systemPrompt.trim() || !masterPrompt.trim()}
-            className="save-definition-button"
-          >
-            {isSavingDefinition ? (
-              <>
-                <Loader2 size={20} className="spinning" /> Saving Template Definition...
-              </>
-            ) : saveDefinitionStatus === 'success' ? (
-              <>
-                <CheckCircle size={20} /> Template Definition Saved!
-              </>
-            ) : saveDefinitionStatus === 'error' ? (
-              <>
-                <XCircle size={20} /> Save Failed
-              </>
-            ) : (
-              <>
-                <FileText size={20} /> Save Template Definition
-              </>
-            )}
-          </button>
-
-          <button
-            onClick={startConversation}
-            disabled={currentPlaceholders.length === 0 || systemPrompt.trim() === '' || !selectedTemplateDefinitionId}
-            className="start-button"
-          >
-            <MessageSquare size={20} /> Start Filling Placeholders →
-          </button>
-        </div>
-
-        {saveDefinitionStatus === 'success' && (
-          <p className="success-message">✅ Template definition saved successfully! You can now start the conversation.</p>
-        )}
-        {saveDefinitionStatus === 'error' && (
-          <p className="error-message">❌ Failed to save template definition. Please try again.</p>
-        )}
-        {!selectedTemplateDefinitionId && currentPlaceholders.length > 0 && (
-          <p className="info-message">ℹ️ Please save the template definition before starting the conversation.</p>
-        )}
-      </div>
-    </div>
-  );
-};
 
 
 
@@ -2436,12 +2208,10 @@ const groupedPlaceholders = uiPlaceholders
     return acc;
   }, {});
 
-
 const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
   const key = p.placeholderKey;
   const value = formValues[key] ?? "";
 
-  // Common input style
   const baseStyle: React.CSSProperties = {
     width: "100%",
     padding: "8px 10px",
@@ -2452,136 +2222,58 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
   };
 
   switch (p.inputType) {
-    // ================================
-    // 🔽 DROPDOWN (SELECT)
-    // ================================
-case "select":
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-      {/* OPTIONS EDITOR */}
-      <input
-        type="text"
-        placeholder="Options (comma separated)"
-        value={p._rawOptions ?? p.options?.join(", ") ?? ""}
-        onChange={e => {
-          const raw = e.target.value;
-
-          // store raw typing ONLY
-          setUiPlaceholders(prev =>
-            prev.map(x =>
-              x.placeholderKey === p.placeholderKey
-                ? { ...x, _rawOptions: raw }
-                : x
-            )
-          );
-        }}
-        onBlur={() => {
-          // parse ONLY when user finishes typing
-          setUiPlaceholders(prev =>
-            prev.map(x =>
-              x.placeholderKey === p.placeholderKey
-                ? {
-                    ...x,
-                    options: (x._rawOptions ?? "")
-                      .split(",")
-                      .map((o: string) => o.trim())
-                      .filter(Boolean),
-                    _rawOptions: undefined
-                  }
-                : x
-            )
-          );
-        }}
-        style={{
-          ...baseStyle,
-          fontSize: "12px",
-          background: "#f9fafb"
-        }}
-      />
-
-      {/* ACTUAL DROPDOWN */}
-      <select
-        value={value}
-        onChange={e =>
-          setFormValues(prev => ({ ...prev, [key]: e.target.value }))
-        }
-        style={baseStyle}
-      >
-        <option value="">-- Select --</option>
-        {p.options?.map(opt => (
-          <option key={opt} value={opt}>
-            {opt}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-
-
-    // ================================
-    // 📝 TEXTAREA
-    // ================================
     case "textarea":
       return (
         <textarea
           value={value}
           onChange={e =>
-            setFormValues(prev => ({ ...prev, [key]: e.target.value }))
+            setFormValues(prev => ({
+              ...prev,
+              [key]: e.target.value
+            }))
           }
-          style={{
-            ...baseStyle,
-            minHeight: "90px",
-            resize: "vertical"
-          }}
+          style={{ ...baseStyle, minHeight: "90px" }}
         />
       );
 
-    // ================================
-    // 🧠 RICH TEXT (EXPANDABLE)
-    // ================================
-      case "richtext":
-        return (
-          <div
-            onClick={() =>
-              setExpandedPlaceholder({
-                key,
-                friendlyName: p.friendlyName
-              })
-            }
-            dangerouslySetInnerHTML={{
-              __html:
-                value ||
-                "<span style='color:#9ca3af'>Click Expand to edit</span>"
-            }}
-            style={{
-              minHeight: "120px",
-              border: "1px solid #d1d5db",
-              borderRadius: "6px",
-              padding: "10px",
-              background: "#ffffff",
-              cursor: "pointer",
-              lineHeight: "1.6"
-            }}
-          />
-        );
+    case "select":
+      return (
+        <select
+          value={value}
+          onChange={e =>
+            setFormValues(prev => ({
+              ...prev,
+              [key]: e.target.value
+            }))
+          }
+          style={baseStyle}
+        >
+          <option value="">-- Select --</option>
+          {p.options?.map(opt => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+        </select>
+      );
 
-
-    // ================================
-    // ✏️ DEFAULT TEXT INPUT
-    // ================================
     default:
       return (
         <input
           type="text"
           value={value}
           onChange={e =>
-            setFormValues(prev => ({ ...prev, [key]: e.target.value }))
+            setFormValues(prev => ({
+              ...prev,
+              [key]: e.target.value
+            }))
           }
           style={baseStyle}
         />
       );
   }
 };
+
 
 
   // ====================================================================

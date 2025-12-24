@@ -1570,12 +1570,26 @@ const MainPage: React.FC = () => {
               }),
             }
           );
-          if (!scrapeResponse.ok) {
-            setIsProcessing(false);
-            setIsPitchUpdateCompleted(true);
-            setIsPaused(true);
-            return;
-          }
+if (!scrapeResponse.ok) {
+  setOutputForm(prev => ({
+    ...prev,
+    generatedContent:
+      `<span style="color: orange">[${formatDateTime(
+        new Date()
+      )}] Process API failed for ${full_name}. Continuing with fallback data.</span><br/>`
+      + prev.generatedContent,
+  }));
+
+  scrapeData = {
+    pitchResponse: { content: "" },
+    searchResults: [],
+    allScrapedData: "",
+  };
+} else {
+  scrapeData = await scrapeResponse.json();
+  processCacheRef.current[cacheKey] = scrapeData;
+}
+
           scrapeData = await scrapeResponse.json();
           processCacheRef.current[cacheKey] = scrapeData;
         }
@@ -1595,12 +1609,17 @@ const MainPage: React.FC = () => {
         const searchResults = scrapeData.searchResults || [];
         const scrappedData = summary.content || "";
 
-        if (!scrappedData) {
-          setIsProcessing(false);
-          setIsPitchUpdateCompleted(true);
-          setIsPaused(true);
-          return;
-        }
+if (!scrappedData) {
+  setOutputForm(prev => ({
+    ...prev,
+    generatedContent:
+      `<span style="color: orange">[${formatDateTime(
+        new Date()
+      )}] No scraped data for ${full_name}. Generating pitch anyway.</span><br/>`
+      + prev.generatedContent,
+  }));
+}
+
 
         replacements = {
           ...replacements,
@@ -1643,11 +1662,20 @@ const MainPage: React.FC = () => {
 
         const pitchData = await pitchResponse.json();
         if (!pitchResponse.ok) {
-          setIsProcessing(false);
-          setIsPitchUpdateCompleted(true);
-          setIsPaused(true);
-          return;
+          setOutputForm(prev => ({
+            ...prev,
+            generatedContent:
+              `<span style="color: red">[${formatDateTime(
+                new Date()
+              )}] Pitch generation failed for ${full_name}. Using fallback pitch.</span><br/>`
+              + prev.generatedContent,
+          }));
+
+          pitchData.response = {
+            content: `Hi ${full_name},\n\nI wanted to reach out regarding a potential opportunity.`,
+          };
         }
+
 
         const dataAnalysis = analyzeScrapedData(
           scrapeData.allScrapedData || ""
@@ -2301,7 +2329,6 @@ const MainPage: React.FC = () => {
                 ...entry,
                 pitch: "Error scraping website",
               });
-              continue;
             }
             scrapeData = await scrapeResponse.json();
             processCacheRef.current[cacheKey] = scrapeData;
@@ -2348,7 +2375,6 @@ const MainPage: React.FC = () => {
               ...entry,
               pitch: "Error scraping website",
             });
-            continue;
           }
 
           replacements = {
