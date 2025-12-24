@@ -660,13 +660,13 @@ const displayData =
           <input
             type="text"
             className="search-input"
-            style={{ minWidth: 300 }}
+            style={{ minWidth: 300,marginBottom:"-23px" }}
             placeholder="Search..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
           {totalItems !== undefined && (
-            <span style={{ fontWeight: 500 }}>Total: {totalItems} items</span>
+            <span style={{ fontWeight: 500,marginBottom:"-23px" }}>Total: {totalItems} items</span>
           )}
           <div style={{marginLeft:"auto",display:"-moz-initial"}}>
           <PaginationControls
