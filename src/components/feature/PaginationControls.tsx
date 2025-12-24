@@ -51,7 +51,7 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
         alignItems: "center",
       }}
     >
-      <div className="pagination-info" style={{ marginTop: "17px" }}>
+      <div className="pagination-info" style={{ marginTop: "17px",marginRight:"20px" }}>
         Showing {startRecord} to {endRecord} of {totalRecords} items
       </div>
 
