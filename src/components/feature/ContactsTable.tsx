@@ -182,13 +182,13 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
           <input
             type="text"
             className="search-input"
-            style={{ minWidth: 300 }}
+            style={{ minWidth: 300 ,marginBottom:"-23px"}}
             placeholder="Search..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
           {totalContacts !== undefined && (
-            <span style={{ fontWeight: 600 }}>
+            <span style={{ fontWeight: 600 ,marginBottom:"-23px"}}>
               Total: {totalContacts} contacts
             </span>
           )}

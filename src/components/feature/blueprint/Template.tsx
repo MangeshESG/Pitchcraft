@@ -426,20 +426,36 @@ const generateExampleEmail = (template: CampaignTemplate) => {
       }
       
       const data = await response.json();
+      console.log("AI data",data);
       return data;
     } catch (error) {
       console.error("Error fetching template details:", error);
       return null;
     }
   };
+const extractExampleOutputEmail = (placeholderListWithValue?: string) => {
+  debugger
+  if (!placeholderListWithValue) return "";
 
+  // Match everything after {example_output_email} =
+  const match = placeholderListWithValue.match(
+    /\{example_output_email\}\s*=\s*([\s\S]*)/i
+  );
+
+  return match ? match[1].trim() : "";
+};
   const handleViewCampaignTemplate = async (template: CampaignTemplate) => {
     setIsLoading(true);
     try {
       const fullTemplate = await fetchCampaignTemplateDetails(template.id);
       if (fullTemplate) {
+        debugger
         setSelectedCampaignTemplate(fullTemplate);
-        setExampleEmail(generateExampleEmail(fullTemplate));
+        const exampleEmailHtml = extractExampleOutputEmail(
+  fullTemplate.placeholderListWithValue
+)
+setExampleEmail(exampleEmailHtml);
+       // setExampleEmail(generateExampleEmail(fullTemplate));
         setEditableCampaignTemplate(fullTemplate.campaignBlueprint || "");
         setCurrentPlaceholderValues(fullTemplate.placeholderValues || {});
         setViewCampaignTab("example");
