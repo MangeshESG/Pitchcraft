@@ -347,12 +347,19 @@ const createCampaign = async () => {
   // ================== UI RENDER ==================
 
   //const pageSize = 5;
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState<number | "All">(10);
   const filteredCampaigns = campaigns.filter((c) =>
     c.campaignName.toLowerCase().includes(campaignSearch.toLowerCase())
   );
-  const totalPages = Math.ceil(filteredCampaigns.length / pageSize);
-  const paginatedCampaigns = filteredCampaigns.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const totalPages = pageSize === "All"
+    ? 1
+    : Math.ceil(filteredCampaigns.length / pageSize);
+  const paginatedCampaigns =  pageSize === "All"
+    ? filteredCampaigns
+    : filteredCampaigns.slice(
+        (currentPage - 1) * pageSize,
+        currentPage * pageSize
+      );
 const menuBtnStyle: React.CSSProperties = {
   width: "100%",
   padding: "8px 12px",

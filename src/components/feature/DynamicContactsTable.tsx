@@ -14,6 +14,7 @@ interface ColumnConfig {
   sortable?: boolean;
 }
 
+type PageSize = number | "All";
 interface DynamicContactsTableProps {
   data: any[];
   isLoading: boolean;
@@ -22,7 +23,7 @@ interface DynamicContactsTableProps {
   showCheckboxes?: boolean;
   paginated?: boolean;
   currentPage?: number;
-  pageSize?: number;
+ pageSize?: number | "All";
   onPageChange: (pg: number) => void;
   selectedItems?: Set<string>;
   onSelectItem?: (id: string) => void;
@@ -101,7 +102,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   const [columns, setColumns] = useState<ColumnConfig[]>([]);
   const [showColumnPanel, setShowColumnPanel] = useState(false);
   const columnPanelRef = useRef<HTMLDivElement>(null);
-   const [pageSize, setPageSize] = useState(10);
+   const [pageSize, setPageSize] = useState<PageSize>(10);
   const isInitializedRef = useRef(false); // ADD THIS LINE
   //const [currentPage, setCurrentPage] = useState(1);
 
@@ -439,6 +440,9 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
 
     // Show index-based numbering for ID column
     if (column.key === "id" && typeof index === "number") {
+      if (pageSize === "All") {
+    return index + 1;
+  }
       return (currentPage - 1) * pageSize + index + 1;
     }
 
@@ -489,13 +493,19 @@ const sortedData = [...filteredData].sort((a, b) => {
   if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
   return 0;
 });
-const pagedData = paginated
-  ? sortedData.slice((currentPage - 1) * pageSize, currentPage * pageSize)
-  : sortedData;
+// const pagedData = paginated
+//   ? sortedData.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+//   : sortedData;
 
-const displayData = pagedData;
+const displayData =
+    !paginated || pageSize === "All"
+      ? sortedData
+      : sortedData.slice(
+          (currentPage - 1) * pageSize,
+          currentPage * pageSize
+        );
   const visibleColumns = columns.filter((col) => col.visible);
-  const totalPages = Math.ceil(filteredData.length / pageSize);
+  const totalPages = pageSize === "All"?1:Math.ceil(filteredData.length / pageSize);
 
   // Toggle column visibility with persistence support
   const toggleColumnVisibility = (columnKey: string) => {
