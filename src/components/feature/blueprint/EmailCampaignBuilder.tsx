@@ -1691,6 +1691,7 @@ const regenerateExampleOutput = async () => {
       placeholders: uiPlaceholders
     }
   );
+  alert("✅ Placeholder definitions saved");
 
   console.log("✅ Placeholder definitions saved");
 };
