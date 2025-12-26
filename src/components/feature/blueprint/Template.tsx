@@ -98,6 +98,8 @@ const Template: React.FC<TemplateProps> = ({
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [renameInput, setRenameInput] = useState("");
   const [showCloneConfirmModal, setShowCloneConfirmModal] = useState(false);
+  const [showCloneNameModal, setShowCloneNameModal] = useState(false);
+  const [cloneNameInput, setCloneNameInput] = useState("");
   
   const [viewCampaignTab, setViewCampaignTab] = useState<"example" | "template">("example");
   const [exampleEmail, setExampleEmail] = useState("");
@@ -349,13 +351,16 @@ const handleTemplateNameSubmit = async () => {
     }
   };
 
-  // Clone campaign template
+  // Clone campaign template with name
   const handleCloneCampaignTemplate = async () => {
-    if (!selectedCampaignTemplate) return;
+    if (!selectedCampaignTemplate || !cloneNameInput.trim()) {
+      appModal.showError("Please enter a name for the cloned template");
+      return;
+    }
 
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/clone-template?clientId=${effectiveUserId}&templateId=${selectedCampaignTemplate.id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/clone-template?clientId=${effectiveUserId}&templateId=${selectedCampaignTemplate.id}&Name=${encodeURIComponent(cloneNameInput.trim())}`, {
         method: "POST",
         headers: { "accept": "*/*" },
         body: ""
@@ -366,8 +371,9 @@ const handleTemplateNameSubmit = async () => {
       }
 
       appModal.showSuccess("Campaign template cloned successfully!");
-      setShowCloneConfirmModal(false);
+      setShowCloneNameModal(false);
       setSelectedCampaignTemplate(null);
+      setCloneNameInput("");
       await fetchCampaignTemplates();
     } catch (error) {
       appModal.showError("Failed to clone campaign template");
@@ -679,7 +685,8 @@ setExampleEmail(exampleEmailHtml);
                               <button
                                 onClick={() => {
                                   setSelectedCampaignTemplate(template);
-                                  setShowCloneConfirmModal(true);
+                                  setCloneNameInput(`${template.templateName} - copy`);
+                                  setShowCloneNameModal(true);
                                   setTemplateActionsAnchor(null);
                                 }}
                                 style={menuBtnStyle}
@@ -871,20 +878,55 @@ setExampleEmail(exampleEmailHtml);
     </div>
   </div>
 )}
-      {/* Clone Confirmation Modal */}
-      {showCloneConfirmModal && selectedCampaignTemplate && (
+      {/* Clone Name Input Modal */}
+      {showCloneNameModal && selectedCampaignTemplate && (
         <div className="modal-backdrop">
-          <div className="modal-content" style={{ maxWidth: "450px", padding: "24px" }}>
-            <h2 style={{ fontSize: "18px", fontWeight: "600", marginBottom: "16px", color: "#1f2937" }}>Clone blueprint</h2>
-            <p style={{ fontSize: "14px", color: "#6b7280", marginBottom: "24px" }}>
-              Are you sure you want to clone the blueprint{" "}
-              <strong>"{selectedCampaignTemplate.templateName}"</strong>?
-            </p>
-            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+          <div className="modal-content" style={{ maxWidth: "500px", padding: "24px" }}>
+            <h2 style={{ fontSize: "18px", fontWeight: "600", marginBottom: "24px", color: "#1f2937" }}>Clone blueprint</h2>
+            
+            <div className="form-group" style={{ marginBottom: "16px" }}>
+              <label htmlFor="cloneNameInput" style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px", color: "#374151" }}>
+                New blueprint name <span style={{ color: "#ef4444" }}>*</span>
+              </label>
+              <input
+                id="cloneNameInput"
+                type="text"
+                value={cloneNameInput}
+                onChange={(e) => setCloneNameInput(e.target.value)}
+                placeholder="Enter name for cloned blueprint"
+                autoFocus
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && cloneNameInput.trim()) {
+                    handleCloneCampaignTemplate();
+                  }
+                }}
+                style={{
+                  width: "100%",
+                  padding: "12px 16px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                  outline: "none",
+                  transition: "border-color 0.2s"
+                }}
+                onFocus={(e) => e.target.style.borderColor = "#3b82f6"}
+                onBlur={(e) => e.target.style.borderColor = "#d1d5db"}
+              />
+              <p style={{ 
+                marginTop: "8px", 
+                fontSize: "13px", 
+                color: "#6b7280" 
+              }}>
+                💡 Cloning from: <strong>{selectedCampaignTemplate.templateName}</strong>
+              </p>
+            </div>
+            
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end", marginTop: "24px" }}>
               <button
                 onClick={() => {
-                  setShowCloneConfirmModal(false);
+                  setShowCloneNameModal(false);
                   setSelectedCampaignTemplate(null);
+                  setCloneNameInput("");
                 }}
                 disabled={isLoading}
                 style={{
@@ -902,7 +944,7 @@ setExampleEmail(exampleEmailHtml);
               </button>
               <button
                 onClick={handleCloneCampaignTemplate}
-                disabled={isLoading}
+                disabled={isLoading || !cloneNameInput.trim()}
                 style={{
                   padding: "10px 20px",
                   border: "none",
@@ -911,10 +953,11 @@ setExampleEmail(exampleEmailHtml);
                   color: "white",
                   fontSize: "14px",
                   fontWeight: "500",
-                  cursor: "pointer"
+                  cursor: cloneNameInput.trim() ? "pointer" : "not-allowed",
+                  opacity: cloneNameInput.trim() ? 1 : 0.6
                 }}
               >
-                {isLoading ? "Cloning..." : "Clone"}
+                {isLoading ? "Cloning..." : "Clone Blueprint"}
               </button>
             </div>
           </div>
