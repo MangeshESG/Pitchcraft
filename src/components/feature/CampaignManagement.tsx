@@ -300,6 +300,7 @@ const createCampaign = async () => {
       zohoViewId: campaignForm.zohoViewId || null,
       segmentId: campaignForm.segmentId ? parseInt(campaignForm.segmentId) : null,
       description: campaignForm.description,
+      templateId: campaignForm.templateId ? parseInt(campaignForm.templateId) : null,
     };
     try {
       const res = await fetch(`${API_BASE_URL}/api/auth/updatecampaign`, {

@@ -104,111 +104,36 @@ const DataFile: React.FC<DataFileProps> = ({
   // Auto-detect column mappings
   const autoDetectColumns = (headers: string[]) => {
     const mappings: ColumnMapping = {};
-    const columnPatterns: { [key: string]: string[] } = {
-      name: [
-        "name",
-        "full name",
-        "fullname",
-        "contact name",
-        "person",
-        "firstname lastname",
-      ],
-      email: ["email", "email address", "e-mail", "mail", "email id"],
-      job_title: [
-        "job title",
-        "title",
-        "position",
-        "role",
-        "designation",
-        "job role",
-      ],
-      company: [
-        "company",
-        "company name",
-        "organization",
-        "org",
-        "employer",
-        "firm",
-      ],
-      location: ["location", "address", "city", "country", "place", "region"],
-      linkedin: [
-        "linkedin",
-        "linkedin url",
-        "linkedin profile",
-        "profile url",
-        "linkedin link",
-      ],
-      company_website: [
-        "company website",
-        "website",
-        "company url",
-        "company link",
-        "web address",
-      ],
-      email_body: [
-        "email body",
-        "message body",
-        "email content",
-        "message content",
-      ],
-      email_subject: [
-        "email subject",
-        "subject",
-        "message subject",
-        "email title",
-      ],
-      company_telephone: [
-        "company telephone",
-        "company phone",
-        "telephone",
-        "phone",
-        "contact number",
-        "company contact",
-      ],
-      company_employee_count: [
-        "company employee count",
-        "employee count",
-        "employees",
-        "company size",
-        "headcount",
-        "staff count",
-      ],
-      company_industry: [
-        "company industry",
-        "industry",
-        "sector",
-        "business type",
-        "industry type",
-      ],
-      company_linkedin_url: [
-        "company linkedin url",
-        "company linkedin",
-        "business linkedin",
-        "organization linkedin",
-      ],
-      // company_event_link: [
-      //   "company event link",
-      //   "event link",
-      //   "event url",
-      //   "conference link",
-      //   "meeting link",
-      // ],
-       notes: [
-        "notes",
-        "note",
-        "comments",
-        "remarks",
-        "additional info",
-      ],
+    
+    headers.forEach(header => {
+      const lowerHeader = header.toLowerCase().trim();
+      
+      if (lowerHeader === 'name') mappings.name = header;
+      else if (lowerHeader === 'email') mappings.email = header;
+      else if (lowerHeader === 'company') mappings.company = header;
+      else if (lowerHeader === 'location') mappings.location = header;
+      else if (lowerHeader === 'website') mappings.company_website = header;
+      else if (lowerHeader === 'job title') mappings.job_title = header;
+      else if (lowerHeader === 'li' || lowerHeader === 'linkedin') mappings.linkedin = header;
+    });
+    
+    // Pattern matching for common variations
+    const patterns = {
+      name: ['full name', 'fullname', 'contact name'],
+      email: ['email address', 'e-mail', 'mail'],
+      job_title: ['title', 'position', 'role'],
+      company: ['company name', 'organization'],
+      location: ['address', 'city', 'country'],
+      linkedin: ['linkedin url', 'linkedin profile'],
+      company_website: ['company website', 'company url']
     };
-
-    REQUIRED_FIELDS.forEach((field) => {
-      const patterns = columnPatterns[field.key] || [];
-      const matchedHeader = headers.find((header) =>
-        patterns.some((pattern) => header.toLowerCase().includes(pattern))
-      );
-      if (matchedHeader) {
-        mappings[field.key] = matchedHeader;
+    
+    Object.entries(patterns).forEach(([field, patternList]) => {
+      if (!mappings[field]) {
+        const match = headers.find(header => 
+          patternList.some(pattern => header.toLowerCase().includes(pattern))
+        );
+        if (match) mappings[field] = match;
       }
     });
 
@@ -217,12 +142,6 @@ const DataFile: React.FC<DataFileProps> = ({
 
 const reduxUserId = useSelector((state: RootState) => state.auth.userId);
 const effectiveUserId = selectedClient !== "" ? selectedClient : reduxUserId;
-console.log("API Payload Client ID:", effectiveUserId);
-
-useEffect(() => {
-  console.log("User ID from Redux:", reduxUserId);
-  console.log("Effective User ID:", effectiveUserId);
-}, [reduxUserId, effectiveUserId]);
 
   // const userId = sessionStorage.getItem("clientId");
   //  console.log("Client ID stored in session:", userId);
@@ -310,12 +229,18 @@ useEffect(() => {
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
         if (jsonData.length > 0) {
-          const headers = (jsonData[0] as string[]).map(
-            (h) => h?.toString().trim() || ""
-          );
+          // Get headers and clean them properly
+          const rawHeaders = jsonData[0] as any[];
+          const headers = rawHeaders.map((h, index) => {
+            if (h === null || h === undefined || h === '') {
+              return `Column_${index + 1}`;
+            }
+            return String(h).trim();
+          });
+          
           const rows = jsonData
             .slice(1)
-            .filter((row) => (row as any[]).some((cell) => cell));
+            .filter((row) => (row as any[]).some((cell) => cell !== null && cell !== undefined && cell !== ''));
 
           setColumnHeaders(headers);
           setExcelData(rows);
@@ -365,8 +290,12 @@ useEffect(() => {
 
       Object.entries(columnMappings).forEach(([field, column]) => {
         const columnIndex = columnHeaders.indexOf(column);
-        if (columnIndex !== -1) {
-          mappedRow[field] = row[columnIndex]?.toString().trim() || "";
+        
+        if (columnIndex !== -1 && columnIndex < row.length && row[columnIndex] !== undefined && row[columnIndex] !== null) {
+          const cellValue = row[columnIndex];
+          mappedRow[field] = cellValue?.toString().trim() || "";
+        } else {
+          mappedRow[field] = "";
         }
       });
 
@@ -569,14 +498,8 @@ useEffect(() => {
     XLSX.writeFile(wb, "contact_template.xlsx");
   };
   const handleButtonClick = () => {
-    debugger
-  console.log("Button clicked!");
   setShowDataFileModal(true);
-   console.log("showDataFileModal after click:", showDataFileModal);
-   
 };
-console.log("isProcessing:", isProcessing);
-console.log("processingStats.valid:", processingStats.valid);
   return (
     <div className="full-width d-flex">
       <div className="input-section edit-section w-[100%]">
@@ -822,7 +745,7 @@ console.log("processingStats.valid:", processingStats.valid);
                         }`}
                       >
                         <option value="">--Do not include--</option>
-                        {columnHeaders.sort().map((header, index) => (
+                        {[...columnHeaders].sort().map((header, index) => (
                           <option key={index} value={header}>
                             {header}
                           </option>
