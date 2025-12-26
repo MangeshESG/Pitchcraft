@@ -10,8 +10,7 @@ import { useAppData } from "../../contexts/AppDataContext";
 import * as XLSX from "xlsx";
 import FileSaver from "file-saver";
 import { toast } from "react-toastify";
-import ReactQuill from "react-quill";
-import "react-quill/dist/quill.snow.css"; // Import styles
+import 'quill/dist/quill.snow.css'; // Import styles
 import API_BASE_URL from "../../config";
 import axios from "axios";
 import AppModal from "../common/AppModal";
@@ -161,6 +160,8 @@ interface OutputInterface {
   showCreditModal?: boolean; // Add this
   checkUserCredits?: (clientId?: string | number | null) => Promise<{total: number, canGenerate: boolean, monthlyLimitExceeded: boolean} | number | null>; // Add this
   userId?: string | null; // Add this
+  followupEnabled?: boolean;
+  setFollowupEnabled?: (value: boolean) => void;
 }
 
 const Output: React.FC<OutputInterface> = ({
@@ -241,6 +242,8 @@ const Output: React.FC<OutputInterface> = ({
   showCreditModal,
   checkUserCredits,
   userId,
+  followupEnabled,
+  setFollowupEnabled,
 }) => {
   const appModal = useAppModal();
   const [loading, setLoading] = useState(true);
@@ -621,6 +624,7 @@ useEffect(() => {
         Pitch: item.pitch || item.sample_email_body || "N/A",
         Timestamp: item.timestamp || new Date().toISOString(),
         Generated: item.generated ? "Yes" : "No",
+        Subject: item.subject || "N/A", 
       }));
 
       // Create worksheet with the data
@@ -637,6 +641,7 @@ useEffect(() => {
         { wch: 60 }, // Pitch
         { wch: 20 }, // Timestamp
         { wch: 10 }, // Generated
+        { wch: 25 }, //Subject
       ];
       ws["!cols"] = wscols;
 
@@ -1003,7 +1008,7 @@ useEffect(() => {
 
         toEmail: currentContact.email,
         subject: subjectToUse,
-        body: currentContact.pitch || "",
+        isFollowUp: followupEnabled || false,
         bccEmail: emailFormData.BccEmail || "",
         smtpId: selectedSmtpUser,
         fullName: currentContact.name,
@@ -1099,18 +1104,27 @@ useEffect(() => {
       }, 2000);
     } catch (err) {
       if (axios.isAxiosError(err)) {
-        setEmailError(
-          err.response?.data?.message ||
-          err.response?.data ||
-          "Failed to send email."
-        );
+        const errorMessage = err.response?.data?.message || err.response?.data || "Failed to send email.";
+        
+        // Check for specific error message
+        if (errorMessage === "Email body or subject is incorrect.") {
+          appModal.showModal({
+            type: "error",
+            title: "Email Error",
+            message: `Email body or subject is incorrect for ${combinedResponses[currentIndex]?.name || combinedResponses[currentIndex]?.email || 'this contact'}. Please check your email content and subject line.`,
+            confirmText: "OK"
+          });
+        } else {
+          setEmailError(errorMessage);
+          toast.error("Failed to send email");
+        }
       } else if (err instanceof Error) {
         setEmailError(err.message);
+        toast.error("Failed to send email");
       } else {
         setEmailError("An unknown error occurred.");
+        toast.error("Failed to send email");
       }
-
-      toast.error("Failed to send email");
     } finally {
       setSendingEmail(false);
     }
@@ -1383,7 +1397,7 @@ useEffect(() => {
 
           toEmail: contact.email,
           subject: subjectToUse,
-          body: contact.pitch || "",
+          isFollowUp: followupEnabled || false,
           bccEmail: emailFormData.BccEmail || "",
           smtpId: selectedSmtpUser,
           fullName: contact.name,
@@ -1472,6 +1486,26 @@ useEffect(() => {
 
         if (axios.isAxiosError(err)) {
           console.error("API Error:", err.response?.data);
+          
+          const errorMessage = err.response?.data?.message || err.response?.data || "Failed to send email.";
+          
+          // Check for specific error message and show popup
+          if (errorMessage === "Email body or subject is incorrect.") {
+            appModal.showModal({
+              type: "error",
+              title: "Email Error",
+              message: `Email body or subject is incorrect for ${contact.name || contact.email}. Please check your email content and subject line.`,
+              confirmText: "OK"
+            });
+            
+            // Wait 3 seconds before closing popup and continuing
+            await new Promise((resolve) => {
+              setTimeout(() => {
+                appModal.hideModal();
+                resolve(void 0);
+              }, 3000);
+            });
+          }
         }
 
         skippedCount++;
@@ -1529,7 +1563,7 @@ useEffect(() => {
     <div className="login-box gap-down">
       {/* Add the selection dropdowns and subject line section */}
       {/* Add the selection dropdowns and subject line section */}
-      <div className="d-flex justify-between align-center mb-0">
+      <div className="d-flex justify-between align-center mb-0" style={{marginTop: "-60px"}}>
         <div className="input-section edit-section w-[100%]">
           {/* Dropdowns Row */}
           <div className="flex items-start justify-between gap-4 w-full">
@@ -1599,8 +1633,24 @@ useEffect(() => {
                     </button>
                   )}
                 </div>
+                {!isDemoAccount && (
+    <div className="flex items-center">
+      <label className="checkbox-label !mb-[0px] mr-[5px] flex items-center">
+        <input
+          type="checkbox"
+          checked={settingsForm?.overwriteDatabase}
+          name="overwriteDatabase"
+          id="overwriteDatabase"
+          onChange={settingsFormHandler}
+          className="!mr-0"
+        />
+        <span className="text-[14px]">Overwrite</span>
+      </label>
+    </div>
+  )}
 
                 {!isDemoAccount && (
+                  <div className="flex items-center gap-2">
                   <button
                     className="secondary-button nowrap"
                     onClick={handleClearAll}
@@ -1610,54 +1660,14 @@ useEffect(() => {
                   >
                     Reset
                   </button>
+                   <span>
+        <ReactTooltip anchorSelect="#overwrite-info" place="top">
+          Reset all company level intel
+        </ReactTooltip>
+      </span>
+    </div>
                 )}
-
-                {!isDemoAccount && (
-                  <div className="flex items-center">
-                    <label className="checkbox-label !mb-[0px] mr-[5px] flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={settingsForm?.overwriteDatabase}
-                        name="overwriteDatabase"
-                        id="overwriteDatabase"
-                        onChange={settingsFormHandler}
-                        className="!mr-0"
-                      />
-                      <span className="text-[14px]">Overwrite</span>
-                    </label>
-                    <span>
-                      <ReactTooltip
-                        anchorSelect="#overwrite-checkbox"
-                        place="top"
-                      >
-                        Reset all company level intel
-                      </ReactTooltip>
-                      <svg
-                        id="overwrite-checkbox"
-                        width="14px"
-                        height="14px"
-                        viewBox="0 0 24 24"
-                        fill="#555555"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          d="M12 17.75C12.4142 17.75 12.75 17.4142 12.75 17V11C12.75 10.5858 12.4142 10.25 12 10.25C11.5858 10.25 11.25 10.5858 11.25 11V17C11.25 17.4142 11.5858 17.75 12 17.75Z"
-                          fill="#1C274C"
-                        />
-                        <path
-                          d="M12 7C12.5523 7 13 7.44772 13 8C13 8.55228 12.5523 9 12 9C11.4477 9 11 8.55228 11 8C11 7.44772 11.4477 7 12 7Z"
-                          fill="#1C274C"
-                        />
-                        <path
-                          fill-rule="evenodd"
-                          clip-rule="evenodd"
-                          d="M1.25 12C1.25 6.06294 6.06294 1.25 12 1.25C17.9371 1.25 22.75 6.06294 22.75 12C22.75 17.9371 17.9371 22.75 12 22.75C6.06294 22.75 1.25 17.9371 1.25 12ZM12 2.75C6.89137 2.75 2.75 6.89137 2.75 12C2.75 17.1086 6.89137 21.25 12 21.25C17.1086 21.25 21.25 17.1086 21.25 12C21.25 6.89137 17.1086 2.75 12 2.75Z"
-                          fill="#1C274C"
-                        />
-                      </svg>
-                    </span>
-                  </div>
-                )}
+                 
               </div>
             </div>
 
@@ -1937,7 +1947,7 @@ useEffect(() => {
             min="1"
             max={combinedResponses.length}
             className="form-control text-center !mx-2"
-            style={{ width: "70px", padding: "8px" }}
+            style={{ width: "70px", padding: "8px",border: "1px solid #ddd",borderRadius: "4px" }}
           />
           <span className="flex items-center">
             of{" "}
@@ -1993,6 +2003,25 @@ useEffect(() => {
                 </button>
               </li>
             </ul>
+            {!isDemoAccount && (
+              <div className="flex items-center" style={{marginRight:'890px'}}>
+                <label className="checkbox-label !mb-[0px] mr-[5px] flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={followupEnabled || false}
+                    onChange={(e) => {
+                      console.log('Followup checkbox clicked, new value:', e.target.checked);
+                      console.log('Current selectedZohoviewId:', selectedZohoviewId);
+                      setFollowupEnabled?.(e.target.checked);
+                    }}
+                    className="!mr-0"
+                  />
+                      <span style={{ fontSize: "14px", whiteSpace: "nowrap" }}>
+                        Include email trail
+                      </span>
+                </label>
+              </div>
+            )}
           </div>
           {tab2 === "Output" && (
             <>
@@ -3144,98 +3173,96 @@ useEffect(() => {
                           </button>
                         </>
 
-                        {userRole === "ADMIN" && (
-                          <>
-                            <ReactTooltip
-                              anchorSelect="#regenerate-email-body-tooltip"
-                              place="top"
-                            >
-                              Regenerate this email body
-                            </ReactTooltip>
-                            <button
-                              id="regenerate-email-body-tooltip"
-                              onClick={async () => {
-                                // Don't trigger if credit modal is showing
-                                if (showCreditModal) {
-                                  return;
-                                }
-                                
-                                if (!combinedResponses[currentIndex]) {
-                                  alert(
-                                    "No contact selected to regenerate pitch for."
-                                  );
-                                  return;
-                                }
-                                if (!onRegenerateContact) {
-                                  alert(
-                                    "Regenerate logic not wired up! Consult admin."
-                                  );
-                                  return;
-                                }
-
-                                // Check credits before regenerating
-                                if (sessionStorage.getItem("isDemoAccount") !== "true") {
-                                  const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
-                                  const currentCredits = await checkUserCredits?.(effectiveUserId);
-                                  if (currentCredits && typeof currentCredits === 'object' && !currentCredits.canGenerate) {
-                                    return; // Stop if can't generate
-                                  }
-                                }
-                                
-                                setIsRegenerating(true);
-                                setRegenerationTargetId(
-                                  combinedResponses[currentIndex].id
-                                );
-
-                                const regenerateIndex = currentIndex;
-
-                                onRegenerateContact("Output", {
-                                  regenerate: true,
-                                  regenerateIndex: regenerateIndex, // Use currentIndex instead of 0
-                                });
-
-                                setTimeout(
-                                  () => setIsRegenerating(false),
-                                  2500
-                                );
-                              }}
-                              disabled={
-                                !combinedResponses[currentIndex] ||
-                                !isResetEnabled ||
-                                isRegenerating
+                        <>
+                          <ReactTooltip
+                            anchorSelect="#regenerate-email-body-tooltip"
+                            place="top"
+                          >
+                            Regenerate this email body
+                          </ReactTooltip>
+                          <button
+                            id="regenerate-email-body-tooltip"
+                            onClick={async () => {
+                              // Don't trigger if credit modal is showing
+                              if (showCreditModal) {
+                                return;
                               }
-                              className="button square-40  !bg-transparent justify-center !disabled:bg-transparent"
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                borderRadius: "4px",
-                                background: "none !important",
-                                cursor:
-                                  combinedResponses[currentIndex] &&
-                                    !isRegenerating
-                                    ? "pointer"
-                                    : "not-allowed",
-                                opacity:
-                                  combinedResponses[currentIndex] &&
-                                    !isRegenerating
-                                    ? 1
-                                    : 0.6,
-                              }}
+                              
+                              if (!combinedResponses[currentIndex]) {
+                                alert(
+                                  "No contact selected to regenerate pitch for."
+                                );
+                                return;
+                              }
+                              if (!onRegenerateContact) {
+                                alert(
+                                  "Regenerate logic not wired up! Consult admin."
+                                );
+                                return;
+                              }
+
+                              // Check credits before regenerating
+                              if (sessionStorage.getItem("isDemoAccount") !== "true") {
+                                const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
+                                const currentCredits = await checkUserCredits?.(effectiveUserId);
+                                if (currentCredits && typeof currentCredits === 'object' && !currentCredits.canGenerate) {
+                                  return; // Stop if can't generate
+                                }
+                              }
+                              
+                              setIsRegenerating(true);
+                              setRegenerationTargetId(
+                                combinedResponses[currentIndex].id
+                              );
+
+                              const regenerateIndex = currentIndex;
+
+                              onRegenerateContact("Output", {
+                                regenerate: true,
+                                regenerateIndex: regenerateIndex, // Use currentIndex instead of 0
+                              });
+
+                              setTimeout(
+                                () => setIsRegenerating(false),
+                                2500
+                              );
+                            }}
+                            disabled={
+                              !combinedResponses[currentIndex] ||
+                              !isResetEnabled ||
+                              isRegenerating
+                            }
+                            className="button square-40  !bg-transparent justify-center !disabled:bg-transparent"
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              borderRadius: "4px",
+                              background: "none !important",
+                              cursor:
+                                combinedResponses[currentIndex] &&
+                                  !isRegenerating
+                                  ? "pointer"
+                                  : "not-allowed",
+                              opacity:
+                                combinedResponses[currentIndex] &&
+                                  !isRegenerating
+                                  ? 1
+                                  : 0.6,
+                            }}
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="20px"
+                              height="20px"
+                              viewBox="0 0 16 16"
+                              fill="none"
                             >
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="20px"
-                                height="20px"
-                                viewBox="0 0 16 16"
-                                fill="none"
-                              >
-                                <g fill="#000000">
-                                  <path d="M8 1.5A6.5 6.5 0 001.5 8 .75.75 0 010 8a8 8 0 0113.5-5.81v-.94a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zM15.25 7.25A.75.75 0 0116 8a8 8 0 01-13.5 5.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z" />
-                                </g>
-                              </svg>
-                            </button>
-                          </>
-                        )}
+                              <g fill="#000000">
+                                <path d="M8 1.5A6.5 6.5 0 001.5 8 .75.75 0 010 8a8 8 0 0113.5-5.81v-.94a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zM15.25 7.25A.75.75 0 0116 8a8 8 0 01-13.5 5.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z" />
+                              </g>
+                            </svg>
+                          </button>
+                        </>
                         <>
                           {/* Your existing Copy to clipboard button */}
                           <ReactTooltip
@@ -3383,10 +3410,9 @@ useEffect(() => {
                     <div style={{ display: "flex", justifyContent: "flex-end" }}>
                       <button
                         type="button"
+                        className="button save-button"
                         style={{
-                          border: "none",
-                          background: "transparent",
-                          fontSize: "2rem",
+                          padding: "8px 16px",
                           cursor: "pointer",
                         }}
                         onClick={() => {
@@ -3396,7 +3422,7 @@ useEffect(() => {
                         aria-label="Close"
                         title="Close"
                       >
-                        ×
+                        OK
                       </button>
                     </div>
                     <div>
@@ -4080,7 +4106,7 @@ useEffect(() => {
                     className="btn btn-primary"
                     style={{
                       padding: "10px 30px",
-                      backgroundColor: "#007bff",
+                      backgroundColor: "#3f9f42",
                       color: "white",
                       border: "none",
                       borderRadius: "4px",

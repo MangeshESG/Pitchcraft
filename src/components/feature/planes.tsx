@@ -84,6 +84,7 @@ function PaymentForm({ clientSecret, selectedPlan, onGoBack }: { clientSecret: s
   const [message, setMessage] = useState("");
   const [paymentMethod, setPaymentMethod] = useState('credit-card');
 
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!stripe || !elements) return;
@@ -91,9 +92,9 @@ function PaymentForm({ clientSecret, selectedPlan, onGoBack }: { clientSecret: s
     setLoading(true);
     const result = await stripe.confirmPayment({
       elements,
-      confirmParams: {
-        return_url: window.location.origin + "/payment-success",
-      },
+      // confirmParams: {
+      //   return_url: window.location.origin + "/payment-success",
+      // },
       redirect: "if_required",
     });
 
@@ -101,17 +102,23 @@ function PaymentForm({ clientSecret, selectedPlan, onGoBack }: { clientSecret: s
       setMessage(result.error.message || "Payment failed");
     } else if (result.paymentIntent?.status === "succeeded") {
       setMessage("✅ Payment successful!");
+      // setTimeout(() => {
+      //   window.location.href = "/main";
+      // }, 2000);
       setTimeout(() => {
-        window.location.href = "/main";
-      }, 2000);
+      onGoBack();            // close payment form
+      window.location.reload(); // optional: refresh data
+    }, 1500);
+  
     }
 
     setLoading(false);
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-100 overflow-y-auto" data-secure="true">
-      <div className="min-h-full flex items-start justify-center py-8">
+    <div className="w-full bg-gray-100 rounded-lg p-6" data-secure="true">
+      <div className="flex items-start justify-center py-4">
+        {/* other window page  */}
         <div className="bg-white rounded-lg shadow-lg max-w-4xl w-full mx-4 p-8">
         <div className="flex gap-8">
           {/* Left Side - Order Summary */}
@@ -216,7 +223,8 @@ const Planes: React.FC = () => {
   const [isYearly, setIsYearly] = useState(false);
   const [currentPlan, setCurrentPlan] = useState<string | null>(null);
   const [currentInterval, setCurrentInterval] = useState<string | null>(null);
-
+   const [loadingPlanCode, setLoadingPlanCode] = useState<string | null>(null);
+const [errorPopup, setErrorPopup] = useState<string | null>(null);
   const fetchCurrentPlan = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/stripe/active/${effectiveUserId}`);
@@ -240,6 +248,7 @@ const Planes: React.FC = () => {
     setClientSecret(null);
     setSelectedPlan(null);
     setShowCreditsModal(false);
+    setLoadingPlanCode(null); 
   };
 
   const handleTryItNowClick = async (plan: Plan) => {
@@ -247,7 +256,7 @@ const Planes: React.FC = () => {
       setShowCreditsModal(true);
       return;
     }
-
+   setLoadingPlanCode(plan.planCode);
     try {
       setSelectedPlan(plan);
       const priceId = isYearly ? (plan.title.toLowerCase() === 'standard' ? 'price_1SPgOFHDCkj9hBmZxSnUTzAT' : plan.title.toLowerCase() === 'premium' ? 'price_1SPh0hHDCkj9hBmZXtVBJ1QG' : plan.planCode) : plan.planCode;
@@ -266,8 +275,9 @@ const Planes: React.FC = () => {
       const data = await response.json();
       setClientSecret(data.clientSecret);
     } catch (error) {
-      console.error("Subscription error:", error);
-      alert("Error starting subscription. Please try again.");
+       console.error("Subscription error:", error);
+  setErrorPopup("Error starting subscription. Please try again.");
+  setLoadingPlanCode(null); // optional: reset loading spinner
     }
   };
 
@@ -344,7 +354,8 @@ const Planes: React.FC = () => {
           const isExactSamePlan = !!currentPlan && currentPlan.toLowerCase() === plan.title.toLowerCase() && currentInterval?.toLowerCase() === currentBillingType.toLowerCase();
           const canUpgrade = !!currentPlan && (currentPlan.toLowerCase() === 'standard' && plan.title.toLowerCase() === 'premium');
           const canSwitchInterval = !!currentPlan && currentPlan.toLowerCase() === plan.title.toLowerCase() && currentInterval?.toLowerCase() === 'monthly' && currentBillingType.toLowerCase() === 'yearly';
-          const cannotBuy = !!currentPlan && plan.title.toLowerCase() !== 'pay-as-you-go' && ((currentPlan.toLowerCase() === 'premium' && plan.title.toLowerCase() === 'standard') || (currentInterval?.toLowerCase() === 'yearly' && !isYearly));
+          const cannotBuyAgain = !!currentPlan && currentPlan.toLowerCase() === plan.title.toLowerCase() && plan.title.toLowerCase() !== 'pay-as-you-go';
+          const cannotBuy = !!currentPlan && plan.title.toLowerCase() !== 'pay-as-you-go' && ((currentPlan.toLowerCase() === 'premium' && plan.title.toLowerCase() === 'standard') || (currentInterval?.toLowerCase() === 'yearly' && !isYearly) || cannotBuyAgain);
           
           return (
           <div className="card" key={index} title={isExactSamePlan ? 'You already have this plan with same billing' : cannotBuy ? 'Cannot downgrade to lower plan' : canSwitchInterval ? 'Switch billing interval' : ''}>
@@ -356,10 +367,10 @@ const Planes: React.FC = () => {
               )}
               <div className="yz">
                 <h3 className="y">{plan.title}</h3>
-                <div className="z">${displayPrice.toFixed(2)}</div>
+                <div className="z"> ${Number.isInteger(displayPrice) ? displayPrice : displayPrice.toFixed(2)}</div>
                 {isYearly && plan.planCode !== 'credits' && (
                   <div style={{fontSize: '14px', opacity: 0.75, textDecoration: 'line-through'}}>
-                    ${(plan.price * 12).toFixed(2)}
+                    ${Math.round(plan.price * 12)}
                   </div>
                 )}
                 <div className="A">{displayPeriod}</div>
@@ -377,16 +388,37 @@ const Planes: React.FC = () => {
               className={`try-button ${(isExactSamePlan || cannotBuy) ? 'disabled' : ''}`}
               onClick={() => {
                 if (isExactSamePlan || cannotBuy) return;
+                 setLoadingPlanCode(plan.planCode);
                 handleTryItNowClick({...plan, price: displayPrice, period: displayPeriod});
               }}
-              disabled={isExactSamePlan || cannotBuy}
+              disabled={isExactSamePlan || cannotBuy ||loadingPlanCode === plan.planCode}
             >
               <FontAwesomeIcon icon={faCloudDownloadAlt} /> 
-              {isExactSamePlan ? 'Current plan' : cannotBuy ? 'Cannot downgrade' : canSwitchInterval ? `Switch to ${currentBillingType}` : canUpgrade ? 'Upgrade' : plan.buttonText}
+              {loadingPlanCode === plan.planCode?"Processing...":isExactSamePlan ? 'Current plan' : cannotBuyAgain ? 'Already purchased this month' : cannotBuy ? 'Cannot downgrade' : canSwitchInterval ? `Switch to ${currentBillingType}` : canUpgrade ? 'Upgrade' : plan.buttonText}
             </button>
           </div>
         )})}
       </div>
+               {errorPopup && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+      <h3 className="text-xl font-bold mb-4 text-red-600">Error</h3>
+
+      <p className="text-gray-700 mb-6">
+        {errorPopup}
+      </p>
+
+      <div className="flex justify-end">
+        <button
+          onClick={() => setErrorPopup(null)}
+          className="px-4 py-2 bg-green-600 text-white rounded-md"
+        >
+          OK
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
       {/* Credits Selection Modal */}
       {showCreditsModal && (

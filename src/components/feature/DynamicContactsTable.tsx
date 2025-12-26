@@ -14,6 +14,7 @@ interface ColumnConfig {
   sortable?: boolean;
 }
 
+type PageSize = number | "All";
 interface DynamicContactsTableProps {
   data: any[];
   isLoading: boolean;
@@ -22,8 +23,8 @@ interface DynamicContactsTableProps {
   showCheckboxes?: boolean;
   paginated?: boolean;
   currentPage?: number;
-  pageSize?: number;
-  onPageChange?: (pg: number) => void;
+ pageSize?: number | "All";
+  onPageChange: (pg: number) => void;
   selectedItems?: Set<string>;
   onSelectItem?: (id: string) => void;
   totalItems?: number;
@@ -48,10 +49,17 @@ interface DynamicContactsTableProps {
   hideSearch?: boolean;
   customHeader?: React.ReactNode;
   onColumnsChange?: (columns: ColumnConfig[]) => void;
+  columnNameMap?: Record<string, string>;
+  
+  // Column persistence
+  persistedColumnSelection?: string[];
+   onPageSizeChange?: (size: number) => void;
 }
-interface DynamicContactsTableProps {
-  // ... existing props
-  columnNameMap?: Record<string, string>; // 👈 Add this line
+type SortDirection = "asc" | "desc";
+
+interface SortConfig {
+  key: string | null;
+  direction: SortDirection;
 }
 const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   data,
@@ -61,8 +69,9 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   showCheckboxes = false,
   paginated = false,
   currentPage = 1,
-  pageSize = 20,
+  //pageSize = 20,
   onPageChange,
+  onPageSizeChange,
   selectedItems,
   onSelectItem,
   totalItems,
@@ -86,12 +95,16 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   customHeader,
   onColumnsChange,
   columnNameMap,
+  
+  // Persistence props
+  persistedColumnSelection = [],
 }) => {
   const [columns, setColumns] = useState<ColumnConfig[]>([]);
   const [showColumnPanel, setShowColumnPanel] = useState(false);
   const columnPanelRef = useRef<HTMLDivElement>(null);
+   const [pageSize, setPageSize] = useState<PageSize>(10);
   const isInitializedRef = useRef(false); // ADD THIS LINE
-  const [currentPage1, setCurrentPage] = useState(1);
+  //const [currentPage, setCurrentPage] = useState(1);
 
   // Auto-generate columns from data
   const generateColumnsFromData = useCallback(
@@ -219,7 +232,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
       .trim();
   };
 
-  // Determine default visibility
+  // Determine default visibility with persistence support
   const getDefaultVisibility = (
     key: string,
     type: ColumnConfig["type"]
@@ -235,7 +248,12 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
       return false;
     }
 
-    // Always show these important fields
+    // If we have persisted selection, use it
+    if (persistedColumnSelection.length > 0) {
+      return persistedColumnSelection.includes(key);
+    }
+
+    // Always show these important fields by default
     if (
       ["name", "email", "company", "title", "type", "status", "date"].some(
         (show) => keyLower.includes(show)
@@ -323,12 +341,20 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
     }
   };
 
-  // Initialize columns
+  // Initialize columns with persistence support
   useEffect(() => {
     // Only initialize once when data is available
     if (!isInitializedRef.current && data.length > 0) {
       if (customColumns) {
-        setColumns(customColumns);
+        // Apply persisted selection to custom columns
+        const columnsWithPersistence = customColumns.map(col => {
+          if (col.key === 'checkbox') return col;
+          if (persistedColumnSelection.length > 0) {
+            return { ...col, visible: persistedColumnSelection.includes(col.key) };
+          }
+          return col;
+        });
+        setColumns(columnsWithPersistence);
       } else if (autoGenerateColumns) {
         const generatedColumns = generateColumnsFromData(data);
         setColumns(generatedColumns);
@@ -337,17 +363,33 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
     }
     // Update columns when customColumns prop changes
     else if (customColumns && isInitializedRef.current) {
-      setColumns(customColumns);
+      const columnsWithPersistence = customColumns.map(col => {
+        if (col.key === 'checkbox') return col;
+        if (persistedColumnSelection.length > 0) {
+          return { ...col, visible: persistedColumnSelection.includes(col.key) };
+        }
+        return col;
+      });
+      setColumns(columnsWithPersistence);
     }
-  }, [data.length, customColumns, autoGenerateColumns]); // Simplified dependencies
+  }, [data.length, customColumns, autoGenerateColumns, persistedColumnSelection]); // Added persistedColumnSelection
 
-  // ADD this useEffect after the column initialization one:
+  // Reset initialization when switching between different data types
   useEffect(() => {
-    // Reset initialization when switching between different data types
     if (data.length === 0) {
       isInitializedRef.current = false;
     }
   }, [data.length]);
+
+  // Apply persisted column selection when it changes
+  useEffect(() => {
+    if (persistedColumnSelection.length > 0 && columns.length > 0) {
+      setColumns(prev => prev.map(col => {
+        if (col.key === 'checkbox') return col;
+        return { ...col, visible: persistedColumnSelection.includes(col.key) };
+      }));
+    }
+  }, [persistedColumnSelection]);
 
   // Dynamic filtering
   const getFilteredData = () => {
@@ -379,11 +421,10 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   };
 
   // Get value with formatting
-  // REPLACE the getFormattedValue function with:
-  // REPLACE the getFormattedValue function with:
   const getFormattedValue = (
     item: any,
-    column: ColumnConfig
+    column: ColumnConfig,
+    index?: number
   ): React.ReactNode => {
     if (column.key === "checkbox") {
       return (
@@ -396,6 +437,14 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
     }
 
     const rawValue = item[column.key];
+
+    // Show index-based numbering for ID column
+    if (column.key === "id" && typeof index === "number") {
+      if (pageSize === "All") {
+    return index + 1;
+  }
+      return (currentPage - 1) * pageSize + index + 1;
+    }
 
     // First try custom formatters from props
     if (customFormatters[column.key]) {
@@ -412,14 +461,53 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
 
   // Filter and paginate data
   const filteredData = getFilteredData();
-  const displayData = paginated
-    ? filteredData.slice((currentPage - 1) * pageSize, currentPage * pageSize)
-    : filteredData;
+  // const displayData = paginated
+  //   ? filteredData.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  //   : filteredData;
+    //for grid sorting cloumns
+const [sortConfig, setSortConfig] = useState<SortConfig>({
+  key: null,
+  direction: "asc",
+});
+const handleSort = (columnKey: string) => {
+  let direction: SortDirection = "asc";
 
+  if (sortConfig.key === columnKey && sortConfig.direction === "asc") {
+    direction = "desc";
+  }
+
+  setSortConfig({ key: columnKey, direction });
+};
+const sortedData = [...filteredData].sort((a, b) => {
+  if (!sortConfig.key) return 0;
+
+  const key = sortConfig.key as string;
+  const valA = a[key];
+  const valB = b[key];
+
+  // Handle null/undefined
+  if (valA == null) return 1;
+  if (valB == null) return -1;
+
+  if (valA < valB) return sortConfig.direction === "asc" ? -1 : 1;
+  if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
+  return 0;
+});
+// const pagedData = paginated
+//   ? sortedData.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+//   : sortedData;
+
+const displayData =
+    !paginated || pageSize === "All"
+      ? sortedData
+      : sortedData.slice(
+          (currentPage - 1) * pageSize,
+          currentPage * pageSize
+        );
   const visibleColumns = columns.filter((col) => col.visible);
-  const totalPages = Math.ceil(filteredData.length / pageSize);
+  const totalPages = pageSize === "All"?1:Math.ceil(filteredData.length / pageSize);
 
-  // Toggle column visibility
+  // Toggle column visibility with persistence support
   const toggleColumnVisibility = (columnKey: string) => {
     const updatedColumns = columns.map((col) =>
       col.key === columnKey ? { ...col, visible: !col.visible } : col
@@ -518,6 +606,26 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
             )}
             {detailTitle && <h2 style={{ margin: 0 }}>{detailTitle}</h2>}
             <div style={{ marginLeft: "auto", display: "flex", gap: 12 }}>
+              {onAddItem && (
+                <button
+                  className="button primary"
+                  onClick={onAddItem}
+                  style={{
+                    background: "#3f9f42",
+                    color: "#fff",
+                    border: "none",
+                    padding: "8px 16px",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px"
+                  }}
+                >
+                  <span style={{ fontSize: "18px" }}>+</span>
+                  Add Contact
+                </button>
+              )}
               <button
                 className="button secondary"
                 onClick={() => setShowColumnPanel(!showColumnPanel)}
@@ -552,14 +660,26 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
           <input
             type="text"
             className="search-input"
-            style={{ minWidth: 300 }}
+            style={{ minWidth: 300,marginBottom:"-23px" }}
             placeholder="Search..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
           {totalItems !== undefined && (
-            <span style={{ fontWeight: 500 }}>Total: {totalItems} items</span>
+            <span style={{ fontWeight: 500,marginBottom:"-23px" }}>Total: {totalItems} items</span>
           )}
+          <div style={{marginLeft:"auto",display:"-moz-initial"}}>
+          <PaginationControls
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalRecords={filteredData.length}
+            setCurrentPage={onPageChange}
+             setPageSize={setPageSize}
+             showPageSizeDropdown={true}
+             pageLabel="Page:"
+          />
+          </div>
           {showCheckboxes && selectedItems && selectedItems.size > 0 && (
             <span style={{ color: "#186bf3" }}>
               {filteredData.every((item) =>
@@ -657,7 +777,8 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
               <thead>
                 <tr>
                   {visibleColumns.map((column) => (
-                    <th key={column.key} style={{ width: column.width }}>
+                    <th key={column.key}  onClick={() => column.key !== "checkbox" && handleSort(column.key)}
+    style={{ cursor: column.key !== "checkbox" ? "pointer" : "default", width: column.width }}>
                       {column.key === "checkbox" ? (
                         <input
                           type="checkbox"
@@ -673,6 +794,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                         columnNameMap?.[column.key] || column.label
                         //column.label
                       )}
+                      {sortConfig.key === column.key ? (sortConfig.direction === "asc" ? " ▲" : " ▼") : ""}
                     </th>
                   ))}
                 </tr>
@@ -693,7 +815,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                     </td>
                   </tr>
                 ) : (
-                  displayData.map((item) => (
+                  displayData.map((item, index) => (
                     <tr
                       key={item[primaryKey]}
                       className={
@@ -704,7 +826,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                     >
                       {visibleColumns.map((column) => (
                         <td key={column.key}>
-                          {getFormattedValue(item, column)}
+                          {getFormattedValue(item, column, index)}
                         </td>
                       ))}
                     </tr>
@@ -770,7 +892,10 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
             totalPages={totalPages}
             pageSize={pageSize}
             totalRecords={filteredData.length}
-            setCurrentPage={setCurrentPage}
+            setCurrentPage={onPageChange}
+             setPageSize={setPageSize}
+             showPageSizeDropdown={true}
+             pageLabel="Page:"
           />
         </div>
 
@@ -875,7 +1000,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
                           textTransform: "capitalize",
                         }}
                       >
-                        {column.type} • {column.key}
+                        {/* {column.type} • {column.key} */}
                       </span>
                     </div>
                     {column.visible && (

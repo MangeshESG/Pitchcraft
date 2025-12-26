@@ -2,10 +2,11 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Tooltip as ReactTooltip } from "react-tooltip";
 import ReactQuill from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
-import API_BASE_URL from "../../config";
+import API_BASE_URL from "../../../config";
 import "./Template.css";
-import { useAppModal } from "../../hooks/useAppModal";
+import { useAppModal } from "../../../hooks/useAppModal";
 import EmailCampaignBuilder from "./EmailCampaignBuilder";
+import PaginationControls from "../PaginationControls";
 
 const menuBtnStyle = {
   width: "100%",
@@ -94,6 +95,9 @@ const Template: React.FC<TemplateProps> = ({
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [showViewCampaignModal, setShowViewCampaignModal] = useState(false);
   const [showEditCampaignModal, setShowEditCampaignModal] = useState(false);
+  const [showRenameModal, setShowRenameModal] = useState(false);
+  const [renameInput, setRenameInput] = useState("");
+  const [showCloneConfirmModal, setShowCloneConfirmModal] = useState(false);
   
   const [viewCampaignTab, setViewCampaignTab] = useState<"example" | "template">("example");
   const [exampleEmail, setExampleEmail] = useState("");
@@ -211,7 +215,6 @@ const handleTemplateNameSubmit = async () => {
         clientId: effectiveUserId,
         templateDefinitionId: selectedTemplateDefinitionId,
         templateName: templateNameInput,
-        model: "gpt-5",
       }),
     });
 
@@ -308,6 +311,71 @@ const handleTemplateNameSubmit = async () => {
     }
   };
 
+  // Rename campaign template
+  const handleRenameCampaignTemplate = async () => {
+    if (!selectedCampaignTemplate || !renameInput.trim()) {
+      appModal.showError("Please enter a valid name");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/rename-Template`, {
+        method: "POST",
+        headers: { 
+          "accept": "*/*",
+          "Content-Type": "application/json" 
+        },
+        body: JSON.stringify({
+          clientId: effectiveUserId,
+          templateId: selectedCampaignTemplate.id,
+          templateName: renameInput.trim()
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to rename campaign template");
+      }
+
+      appModal.showSuccess("Campaign template renamed successfully!");
+      setShowRenameModal(false);
+      setSelectedCampaignTemplate(null);
+      setRenameInput("");
+      await fetchCampaignTemplates();
+    } catch (error) {
+      appModal.showError("Failed to rename campaign template");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Clone campaign template
+  const handleCloneCampaignTemplate = async () => {
+    if (!selectedCampaignTemplate) return;
+
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/clone-template?clientId=${effectiveUserId}&templateId=${selectedCampaignTemplate.id}`, {
+        method: "POST",
+        headers: { "accept": "*/*" },
+        body: ""
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to clone campaign template");
+      }
+
+      appModal.showSuccess("Campaign template cloned successfully!");
+      setShowCloneConfirmModal(false);
+      setSelectedCampaignTemplate(null);
+      await fetchCampaignTemplates();
+    } catch (error) {
+      appModal.showError("Failed to clone campaign template");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Filter templates
   const filteredCampaignTemplates = campaignTemplates.filter((template) => {
     const searchLower = searchQuery.toLowerCase();
@@ -316,7 +384,18 @@ const handleTemplateNameSubmit = async () => {
       template.id.toString().includes(searchLower)
     );
   });
+  //pagination
+const [currentPage, setCurrentPage] = useState(1);
+const [pageSize, setPageSize] = useState<number | "All">(10);
+//const pageSize = 10;
+const effectivePageSize = pageSize === "All" ? filteredCampaignTemplates.length : pageSize;
+const totalPages =effectivePageSize === 0 ? 1 : Math.ceil(filteredCampaignTemplates.length / effectivePageSize);
 
+const startIndex = pageSize === "All" ? 0 :(currentPage - 1) * effectivePageSize;
+const paginatedTemplates =
+  pageSize === "All"
+    ? filteredCampaignTemplates
+    : filteredCampaignTemplates.slice(startIndex, startIndex + (effectivePageSize || 0));
   // Effects
   useEffect(() => {
     if (effectiveUserId) {
@@ -347,20 +426,36 @@ const generateExampleEmail = (template: CampaignTemplate) => {
       }
       
       const data = await response.json();
+      console.log("AI data",data);
       return data;
     } catch (error) {
       console.error("Error fetching template details:", error);
       return null;
     }
   };
+const extractExampleOutputEmail = (placeholderListWithValue?: string) => {
+  debugger
+  if (!placeholderListWithValue) return "";
 
+  // Match everything after {example_output_email} =
+  const match = placeholderListWithValue.match(
+    /\{example_output_email\}\s*=\s*([\s\S]*)/i
+  );
+
+  return match ? match[1].trim() : "";
+};
   const handleViewCampaignTemplate = async (template: CampaignTemplate) => {
     setIsLoading(true);
     try {
       const fullTemplate = await fetchCampaignTemplateDetails(template.id);
       if (fullTemplate) {
+        debugger
         setSelectedCampaignTemplate(fullTemplate);
-        setExampleEmail(generateExampleEmail(fullTemplate));
+        const exampleEmailHtml = extractExampleOutputEmail(
+  fullTemplate.placeholderListWithValue
+)
+setExampleEmail(exampleEmailHtml);
+       // setExampleEmail(generateExampleEmail(fullTemplate));
         setEditableCampaignTemplate(fullTemplate.campaignBlueprint || "");
         setCurrentPlaceholderValues(fullTemplate.placeholderValues || {});
         setViewCampaignTab("example");
@@ -405,12 +500,11 @@ const generateExampleEmail = (template: CampaignTemplate) => {
       setIsLoading(false);
     }
   };
-
  return (
   <div className="template-container">
     {!showCampaignBuilder ? (
       <>
-        <div className="section-wrapper">
+        <div className="section-wrapper" style={{marginTop:'-60px'}}>
           <h2 className="section-title">Blueprints</h2>
 
           {/* Search and Create button */}
@@ -429,6 +523,18 @@ const generateExampleEmail = (template: CampaignTemplate) => {
               <span className="text-[20px] mr-1">+</span> Create campaign blueprint
             </button>
           </div>
+          <div style={{marginBottom:"10px"}}>
+           <PaginationControls
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalRecords={filteredCampaignTemplates.length}
+              setCurrentPage={setCurrentPage}
+              setPageSize={setPageSize}
+              showPageSizeDropdown={true}
+              pageLabel="Page:"
+            />
+            </div>
 
           {/* Campaign Templates Table */}
           <table className="contacts-table">
@@ -447,14 +553,14 @@ const generateExampleEmail = (template: CampaignTemplate) => {
                     Loading...
                   </td>
                 </tr>
-              ) : filteredCampaignTemplates.length === 0 ? (
+              ) : paginatedTemplates.length === 0 ? (
                 <tr>
                   <td colSpan={6} style={{ textAlign: "center" }}>
                     No campaign blueprint found.
                   </td>
                 </tr>
               ) : (
-                filteredCampaignTemplates.map((template) => (
+                paginatedTemplates.map((template) => (
                   <tr key={template.id}>
                     <td>
                       <span
@@ -491,29 +597,96 @@ const generateExampleEmail = (template: CampaignTemplate) => {
                             style={menuBtnStyle}
                             className="flex gap-2 items-center"
                           >
-                            <span>👁</span>
+                            <span>
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="24px"
+                                    height="24px"
+                                    viewBox="0 0 24 20"
+                                    fill="none"
+                                  >
+                                    <circle
+                                      cx="12"
+                                      cy="12"
+                                      r="4"
+                                      fill="#33363F"
+                                    />
+                                    <path
+                                      d="M21 12C21 12 20 4 12 4C4 4 3 12 3 12"
+                                      stroke="#33363F"
+                                      stroke-width="2"
+                                    />
+                                  </svg>
+                                </span>
                             <span>View</span>
                           </button>
 
                             <>
                               <button
                                 onClick={() => {
-                                  sessionStorage.setItem(
-                                    "editTemplateId",
-                                    template.id.toString()
-                                  );
-                                  sessionStorage.setItem(
-                                    "editTemplateMode",
-                                    "true"
-                                  );
+                                sessionStorage.setItem("editTemplateId", template.id.toString());
+                                sessionStorage.setItem("editTemplateMode", "true");
+
+                                // REQUIRED FIX 🔥 (builder reads this!)
+                                sessionStorage.setItem("newCampaignId", template.id.toString());
+                                sessionStorage.setItem("newCampaignName", template.templateName);
+
+
+                                // Safe delay
+                                setTimeout(() => {
                                   setShowCampaignBuilder(true);
+                                }, 0);
+
+                                setTemplateActionsAnchor(null);
+                                }}
+                                style={menuBtnStyle}
+                                className="flex gap-2 items-center"
+                              >
+                                <span>
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      width="28px"
+                                      height="28px"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                    >
+                                      <path
+                                        d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
+                                        stroke="#000000"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                      ></path>
+                                    </svg>
+                                  </span>
+                                <span>Edit</span>
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setSelectedCampaignTemplate(template);
+                                  setRenameInput(template.templateName);
+                                  setShowRenameModal(true);
                                   setTemplateActionsAnchor(null);
                                 }}
                                 style={menuBtnStyle}
                                 className="flex gap-2 items-center"
                               >
                                 <span>✏️</span>
-                                <span>Edit</span>
+                                <span>Rename</span>
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setSelectedCampaignTemplate(template);
+                                  setShowCloneConfirmModal(true);
+                                  setTemplateActionsAnchor(null);
+                                }}
+                                style={menuBtnStyle}
+                                className="flex gap-2 items-center"
+                              >
+                                <span>📋</span>
+                                <span>Clone</span>
                               </button>
 
                               <button
@@ -525,7 +698,16 @@ const generateExampleEmail = (template: CampaignTemplate) => {
                                 style={menuBtnStyle}
                                 className="flex gap-2 items-center"
                               >
-                                <span>🗑️</span>
+                                <span className="ml-[3px]">
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      viewBox="0 0 50 50"
+                                      width="22px"
+                                      height="22px"
+                                    >
+                                      <path d="M 21 2 C 19.354545 2 18 3.3545455 18 5 L 18 7 L 8 7 A 1.0001 1.0001 0 1 0 8 9 L 9 9 L 9 45 C 9 46.654 10.346 48 12 48 L 38 48 C 39.654 48 41 46.654 41 45 L 41 9 L 42 9 A 1.0001 1.0001 0 1 0 42 7 L 32 7 L 32 5 C 32 3.3545455 30.645455 2 29 2 L 21 2 z M 21 4 L 29 4 C 29.554545 4 30 4.4454545 30 5 L 30 7 L 20 7 L 20 5 C 20 4.4454545 20.445455 4 21 4 z M 19 14 C 19.552 14 20 14.448 20 15 L 20 40 C 20 40.553 19.552 41 19 41 C 18.448 41 18 40.553 18 40 L 18 15 C 18 14.448 18.448 14 19 14 z M 25 14 C 25.552 14 26 14.448 26 15 L 26 40 C 26 40.553 25.552 41 25 41 C 24.448 41 24 40.553 24 40 L 24 15 C 24 14.448 24.448 14 25 14 z M 31 14 C 31.553 14 32 14.448 32 15 L 32 40 C 32 40.553 31.553 41 31 41 C 30.447 41 30 40.553 30 40 L 30 15 C 30 14.448 30.447 14 31 14 z"></path>
+                                    </svg>
+                                  </span>
                                 <span>Delete</span>
                               </button>
                             </>
@@ -538,6 +720,16 @@ const generateExampleEmail = (template: CampaignTemplate) => {
               )}
             </tbody>
           </table>
+           <PaginationControls
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalRecords={paginatedTemplates.length}
+            setCurrentPage={setCurrentPage}
+            setPageSize={setPageSize}
+            showPageSizeDropdown={true}
+            pageLabel="Page:"
+            />
         </div>
 
       {/* ✅ NEW: Template Name Modal */}
@@ -571,7 +763,7 @@ const generateExampleEmail = (template: CampaignTemplate) => {
         {/* ✅ Template Definition Selector */}
         <div className="form-group" style={{ marginBottom: "20px" }}>
           <label htmlFor="templateDefinition" style={{ display: "block", marginBottom: "8px", fontWeight: "500" }}>
-            Select Base Template <span style={{ color: "red" }}>*</span>
+            Select base template <span style={{ color: "red" }}>*</span>
           </label>
           <select
             id="templateDefinition"
@@ -579,7 +771,7 @@ const generateExampleEmail = (template: CampaignTemplate) => {
             onChange={(e) => setSelectedTemplateDefinitionId(parseInt(e.target.value))}
             style={{
               width: "100%",
-              padding: "12px 16px",
+             // padding: "12px 16px",
               border: "2px solid #e5e7eb",
               borderRadius: "8px",
               fontSize: "15px",
@@ -605,7 +797,7 @@ const generateExampleEmail = (template: CampaignTemplate) => {
         {/* Template Name Input */}
         <div className="form-group" style={{ marginBottom: "20px" }}>
           <label htmlFor="templateName" style={{ display: "block", marginBottom: "8px", fontWeight: "500" }}>
-            Campaign Name <span style={{ color: "red" }}>*</span>
+            Campaign name <span style={{ color: "red" }}>*</span>
           </label>
           <input
             id="templateName"
@@ -679,17 +871,143 @@ const generateExampleEmail = (template: CampaignTemplate) => {
     </div>
   </div>
 )}
+      {/* Clone Confirmation Modal */}
+      {showCloneConfirmModal && selectedCampaignTemplate && (
+        <div className="modal-backdrop">
+          <div className="modal-content" style={{ maxWidth: "450px", padding: "24px" }}>
+            <h2 style={{ fontSize: "18px", fontWeight: "600", marginBottom: "16px", color: "#1f2937" }}>Clone blueprint</h2>
+            <p style={{ fontSize: "14px", color: "#6b7280", marginBottom: "24px" }}>
+              Are you sure you want to clone the blueprint{" "}
+              <strong>"{selectedCampaignTemplate.templateName}"</strong>?
+            </p>
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => {
+                  setShowCloneConfirmModal(false);
+                  setSelectedCampaignTemplate(null);
+                }}
+                disabled={isLoading}
+                style={{
+                  padding: "10px 20px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "8px",
+                  backgroundColor: "white",
+                  color: "#374151",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  cursor: "pointer"
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCloneCampaignTemplate}
+                disabled={isLoading}
+                style={{
+                  padding: "10px 20px",
+                  border: "none",
+                  borderRadius: "8px",
+                  backgroundColor: "#22c55e",
+                  color: "white",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  cursor: "pointer"
+                }}
+              >
+                {isLoading ? "Cloning..." : "Clone"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rename Modal */}
+      {showRenameModal && selectedCampaignTemplate && (
+        <div className="modal-backdrop">
+          <div className="modal-content" style={{ maxWidth: "500px", padding: "24px" }}>
+            <h2 style={{ fontSize: "18px", fontWeight: "600", marginBottom: "24px", color: "#1f2937" }}>Rename blueprint</h2>
+            
+            <div className="form-group" style={{ marginBottom: "16px" }}>
+              <label htmlFor="renameInput" style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px", color: "#374151" }}>
+                Blueprint name <span style={{ color: "#ef4444" }}>*</span>
+              </label>
+              <input
+                id="renameInput"
+                type="text"
+                value={renameInput}
+                onChange={(e) => setRenameInput(e.target.value)}
+                placeholder="Enter blueprint name"
+                autoFocus
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && renameInput.trim()) {
+                    handleRenameCampaignTemplate();
+                  }
+                }}
+                style={{
+                  width: "100%",
+                  padding: "12px 16px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                  outline: "none",
+                  transition: "border-color 0.2s"
+                }}
+                onFocus={(e) => e.target.style.borderColor = "#3b82f6"}
+                onBlur={(e) => e.target.style.borderColor = "#d1d5db"}
+              />
+            </div>
+            
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end", marginTop: "24px" }}>
+              <button
+                onClick={() => {
+                  setShowRenameModal(false);
+                  setSelectedCampaignTemplate(null);
+                  setRenameInput("");
+                }}
+                disabled={isLoading}
+                style={{
+                  padding: "10px 20px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "8px",
+                  backgroundColor: "white",
+                  color: "#374151",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  cursor: "pointer"
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRenameCampaignTemplate}
+                disabled={isLoading || !renameInput.trim()}
+                style={{
+                  padding: "10px 20px",
+                  border: "none",
+                  borderRadius: "8px",
+                  backgroundColor: "#22c55e",
+                  color: "white",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  cursor: renameInput.trim() ? "pointer" : "not-allowed",
+                  opacity: renameInput.trim() ? 1 : 0.6
+                }}
+              >
+                {isLoading ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirmation Modal */}
       {showDeleteConfirmModal && selectedCampaignTemplate && (
         <div className="modal-backdrop">
-          <div className="modal-content">
-            <h2>Confirm Deletion</h2>
+          <div className="modal-content" style={{padding:"15px"}}>
+            <h2>Confirm deletion</h2>
             <p>
               Are you sure you want to delete the campaign template{" "}
               <strong>"{selectedCampaignTemplate.templateName}"</strong>?
-            </p>
-            <p style={{ color: "#dc3545", fontSize: "14px" }}>
-              ⚠️ This action cannot be undone. All associated conversation data will also be deleted.
             </p>
             <div className="modal-footer">
               <button
@@ -704,7 +1022,7 @@ const generateExampleEmail = (template: CampaignTemplate) => {
               </button>
               <button
                 className="button"
-                style={{ backgroundColor: "#dc3545", color: "white" }}
+                style={{ backgroundColor: "#3f9f42", color: "white" }}
                 onClick={handleDeleteCampaignTemplate}
                 disabled={isLoading}
               >
@@ -716,163 +1034,61 @@ const generateExampleEmail = (template: CampaignTemplate) => {
       )}
 
       {/* View Campaign Template Modal */}
-      {showViewCampaignModal && selectedCampaignTemplate && (
-        <div className="modal-backdrop">
-          <div className="modal-content modal-large">
-            <h2>View Campaign Template: {selectedCampaignTemplate.templateName}</h2>
-            
-            {/* Tab Navigation */}
-            <div className="tabs secondary">
-              <ul className="d-flex">
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => setViewCampaignTab("example")}
-                    className={`button ${viewCampaignTab === "example" ? "active" : ""}`}
-                  >
-                    Example Email
-                  </button>
-                </li>
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => setViewCampaignTab("template")}
-                    className={`button ${viewCampaignTab === "template" ? "active" : ""}`}
-                  >
-                    Campaign Template
-                  </button>
-                </li>
-              </ul>
-            </div>
+{showViewCampaignModal && selectedCampaignTemplate && (
+  <div className="modal-backdrop">
+    <div className="modal-content modal-large">
 
-            {/* Example Email Tab */}
-            {viewCampaignTab === "example" && (
-              <div className="form-group">
-                <label>Example Email Output</label>
-                {userRole === "ADMIN" && !isDemoAccount ? (
-                  <ReactQuill
-                    theme="snow"
-                    value={exampleEmail}
-                    onChange={(value) => {
-                      setExampleEmail(value);
-                      setCurrentPlaceholderValues({
-                        ...currentPlaceholderValues,
-                        example_output: value
-                      });
-                    }}
-                    modules={modules}
-                    className="template-editor"
-                    style={{ minHeight: "300px" }}
-                  />
-                  ) : (
-                  <div 
-                    className="template-preview example-email-preview"
-                    dangerouslySetInnerHTML={{ __html: exampleEmail }}
-                    style={{ 
-                      minHeight: "300px",
-                      backgroundColor: "#f9f9f9",
-                      padding: "1rem",
-                      borderRadius: "4px"
-                    }}
-                  />
-                )}
-                
-                {/* Display Placeholder Values */}
-                {currentPlaceholderValues && Object.keys(currentPlaceholderValues).length > 0 && (
-                  <div className="placeholder-values-section" style={{ marginTop: "1rem" }}>
-                    <h4>Placeholder Values:</h4>
-                    <div className="placeholder-values-grid">
-                      {Object.entries(currentPlaceholderValues).map(([key, value]) => (
-                        key !== 'example_output' && (
-                          <div key={key} className="placeholder-value-item">
-                            <strong>{`{${key}}`}:</strong>
-                            <span>{value}</span>
-                          </div>
-                        )
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+       {/* ✅ Header with close (✕) icon */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+        marginTop:"-22px",
+          borderBottom: "1px solid #e5e7eb"
+        }}
+      >
+        <button
+          onClick={() => {
+            setShowViewCampaignModal(false);
+            setSelectedCampaignTemplate(null);
+            setExampleEmail("");
+          }}
+          style={{
+            background: "none",
+            border: "none",
+            fontSize: "22px",
+            cursor: "pointer",
+            color: "#6b7280",
+            fontWeight: "bold"
+          }}
+          aria-label="Close"
+        >
+          ✕
+        </button>
+      </div>
 
-            {/* Campaign Template Tab */}
-            {viewCampaignTab === "template" && (
-              <div className="form-group">
-                <label>Campaign Template (Final Result)</label>
-                  <>
-                    <textarea
-                      value={editableCampaignTemplate}
-                      onChange={(e) => setEditableCampaignTemplate(e.target.value)}
-                      className="campaign-template-textarea"
-                      rows={15}
-                      style={{ 
-                        width: "100%",
-                        fontFamily: "monospace",
-                        fontSize: "0.9rem"
-                      }}
-                    />
-                    <div className="template-metadata" style={{ marginTop: "1rem" }}>
-                      <p><strong>Model:</strong> {selectedCampaignTemplate.selectedModel}</p>
-                      <p><strong>Created:</strong> {formatDate(selectedCampaignTemplate.createdAt)}</p>
-                      {selectedCampaignTemplate.updatedAt && (
-                        <p><strong>Last Updated:</strong> {formatDate(selectedCampaignTemplate.updatedAt)}</p>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <div className="template-preview">
-                    <pre style={{ whiteSpace: "pre-wrap", wordWrap: "break-word" }}>
-                      {selectedCampaignTemplate.campaignBlueprint || "No template content"}
-                    </pre>
-                  </div>
-               
-              </div>
-            )}
 
-            <div className="modal-footer">
-              <button
-                className="button secondary"
-                onClick={() => {
-                  setShowViewCampaignModal(false);
-                  setSelectedCampaignTemplate(null);
-                  setExampleEmail("");
-                  setEditableCampaignTemplate("");
-                  setCurrentPlaceholderValues({});
-                }}
-              >
-                Close
-              </button>
-                <>
-                  <button
-                    className="button save-button"
-                    onClick={handleSaveCampaignTemplateChanges}
-                    disabled={isLoading}
-                  >
-                    {isLoading ? "Saving..." : "Save Changes"}
-                  </button>
-                  <button
-                    className="button primary"
-                    onClick={() => {
-                      setEditCampaignForm({
-                        templateName: selectedCampaignTemplate.templateName,
-                        aiInstructions: selectedCampaignTemplate.aiInstructions,
-                        placeholderListInfo: selectedCampaignTemplate.placeholderListInfo,
-                        masterBlueprintUnpopulated: selectedCampaignTemplate.masterBlueprintUnpopulated,
-                        selectedModel: selectedCampaignTemplate.selectedModel,
-                      });
-                      setShowViewCampaignModal(false);
-                      setShowEditCampaignModal(true);
-                    }}
-                  >
-                    Advanced Edit
-                  </button>
-                </>
-             
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Render ONLY Example Output */}
+       <div className="modal-body">
+      <div
+        className="example-output-preview"
+        style={{
+          background: "#ffffff",
+          padding: "20px",
+          borderRadius: "8px",
+          border: "1px solid #e5e7eb",
+          height: "auto",
+          overflowY: "hidden"
+        }}
+        dangerouslySetInnerHTML={{
+          __html: exampleEmail || "<p>No example email available</p>"
+        }}
+      />
+    </div>
+  </div>
+  </div>
+)}
+
 
       {/* Edit Campaign Modal */}
       {showEditCampaignModal && selectedCampaignTemplate && (
@@ -965,25 +1181,16 @@ const generateExampleEmail = (template: CampaignTemplate) => {
  </>
     ) : (
       /* ✅ Show Campaign Builder Inline */
-      <div
-        className="campaign-builder-container"
-        style={{
-          width: "100%",
-          marginTop: "16px",
-          background: "#fff",
-          borderRadius: "8px",
-          boxShadow: "0 2px 12px rgba(0, 0, 0, 0.05)",
-          padding: "0",
-          overflow: "hidden"
-        }}
-      >
+      <div>
 <div
   style={{
     display: "flex",
-    justifyContent: "flex-start", // ⬅️ Move to left side
-    padding: "12px 16px",
-    borderBottom: "1px solid #e5e7eb",
-    background: "#f9fafb"
+    gap:"16px" ,
+    alignItems:"center",
+    marginBottom:"20px",
+    marginTop:"-60px"
+    // borderBottom: "1px solid #e5e7eb",
+    // background: "#f9fafb"
   }}
 >
   <button
@@ -1006,22 +1213,25 @@ const generateExampleEmail = (template: CampaignTemplate) => {
       }, 300);
     }}
     style={{
-      background: "#3f9f42", // ✅ Match PitchKraft green
-      color: "#fff",
+      background: "#eaeaea", // ✅ Match PitchKraft green
+      color: "#222",
       border: "none",
-      borderRadius: "8px",
+      borderRadius: "4px",
       padding: "8px 16px",
       cursor: "pointer",
       fontSize: "14px",
-      fontWeight: "bold"
+      fontWeight: "600"
     }}
   >
-    ← Back to blueprints
+    ← Back
   </button>
+   
+    <h2>{sessionStorage.getItem("newCampaignName") || "Blueprint"}</h2>
+  
 </div>
 
 
-        <div style={{ padding: "20px" }}>
+        <div style={{ marginTop: "46px" }}>
           <EmailCampaignBuilder selectedClient={selectedClient} />
         </div>
       </div>

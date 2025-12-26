@@ -87,15 +87,28 @@
 
 .template-actions-menu {
   position: absolute;
-  top: 32px;
   right: 0;
+  top: 32px;
   background: #fff;
   border: 1px solid #eee;
   border-radius: 6px;
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 2px 16px rgba(0,0,0,0.12);
   z-index: 101;
-  min-width: 160px;
+  min-width: 180px;
   padding: 10px 0;
+}
+.template-actions-menu button {
+  width: 100%;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+}.template-actions-menu button:hover {
+  background-color: #f8f9fa;
 }
 
 /* ------------------------ */
@@ -121,7 +134,7 @@
   width: 600px;
   max-width: 90%;
   max-height: 90vh;
-  overflow-y: auto;
+  overflow-y: hidden;
   display: flex;
   flex-direction: column;
   animation: scaleIn 0.25s ease;
@@ -149,6 +162,7 @@
 .modal-content.modal-large {
   width: 800px;
   max-width: 95%;
+  max-height: 90vh;
 }
 
 .modal-header {
@@ -362,3 +376,30 @@ select:focus {
     display: none !important;
   }
 }
+/* Keep backdrop centered */
+.modal-backdrop {
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Modal should never exceed screen height */
+.modal-content,
+.modal-content.modal-large {
+  max-height: 90vh !important; /* keep modal inside screen */
+  overflow: auto !important;  /* prevent outer scrolling */
+  display: flex;
+  flex-direction: column;
+}
+
+/* The email area scrolls when necessary */
+.modal-body {
+  flex: 1;                     /* take full remaining height */
+  overflow-y: visible  !important; /* ONLY this part scrolls */
+  padding: 24px;
+}
+
+/* Email preview box adjusts naturally */
+/* .example-output-preview {
+  height: auto;
+  overflow: visible;
+} */

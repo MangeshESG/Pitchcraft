@@ -1,12 +1,47 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect,useMemo } from "react";
 import API_BASE_URL from "../../config";
 import "./ContactList.css";
 import DynamicContactsTable from "./DynamicContactsTable";
 import AppModal from "../common/AppModal";
+import AddContactModal from "./AddContactModal";
+import EditContactModal from "./EditContactModal";
+import CreateListModal from "./CreateListModal";
+
 import { useAppModal } from "../../hooks/useAppModal";
 import { useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
 import PaginationControls from "./PaginationControls";
+
+// Persistent column selection utilities
+const CONTACTLIST_COLUMNS_KEY = 'contactlist_selected_columns';
+
+const saveSelectedColumns = (columns: string[]) => {
+  try {
+    localStorage.setItem(CONTACTLIST_COLUMNS_KEY, JSON.stringify(columns));
+  } catch (error) {
+    console.warn('Failed to save column selection:', error);
+  }
+};
+
+const loadSelectedColumns = (): string[] => {
+  try {
+    const saved = localStorage.getItem(CONTACTLIST_COLUMNS_KEY);
+    return saved ? JSON.parse(saved) : [];
+  } catch (error) {
+    console.warn('Failed to load column selection:', error);
+    return [];
+  }
+};
+
+const getDefaultVisibleColumns = (): string[] => {
+  return [
+    'full_name',
+    'email', 
+    'company_name',
+    'job_title',
+    'country_or_address'
+  ];
+};
 
 const menuBtnStyle = {
   width: "100%",
@@ -44,6 +79,7 @@ interface DataFileItem {
   description: string;
   created_at: string;
   contacts: any[];
+  contactCount?: number;
 }
 
 interface Contact {
@@ -64,7 +100,9 @@ interface Contact {
   companyEmployeeCount?: string;
   companyIndustry?: string;
   companyLinkedInURL?: string;
-  companyEventLink?: string;
+  // companyEventLink?: string;
+  unsubscribe?: string;
+  notes?: string;
 }
 
 const getContactValue = (contact: Contact, key: string): any => {
@@ -82,7 +120,10 @@ interface ColumnConfig {
   visible: boolean;
   width?: string;
 }
-
+interface SortConfig {
+  key: string;
+  direction: "asc" | "desc";
+}
 const DataCampaigns: React.FC<DataCampaignsProps> = ({
   selectedClient,
   onDataProcessed,
@@ -110,17 +151,30 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
 
   // Contact list states
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
   const [totalContacts, setTotalContacts] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [currentPageLists, setCurrentPageLists] = useState(1);
+  const [pageSize, setPageSize] = useState<number | "All">(10);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedContacts, setSelectedContacts] = useState<Set<string>>(
     new Set()
   );
   const [showColumnSettings, setShowColumnSettings] = useState(false);
   const [showAddContactModal, setShowAddContactModal] = useState(false);
+  const [showEditContactModal, setShowEditContactModal] = useState(false);
+  const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  const [showCreateListModal, setShowCreateListModal] = useState(false);
+  const [showCreateListOptions, setShowCreateListOptions] = useState(false);
+
   const isDemoAccount = sessionStorage.getItem("isDemoAccount") === "true";
 
+
+  // Persistent column selection state
+  const [savedColumnSelection, setSavedColumnSelection] = useState<string[]>(() => {
+    const saved = loadSelectedColumns();
+    return saved.length > 0 ? saved : getDefaultVisibleColumns();
+  });
 
   // Column configuration - excluding email_subject and email_body
   const [columns, setColumns] = useState<ColumnConfig[]>([
@@ -135,6 +189,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     { key: "created_at", label: "Created date", visible: false },
     { key: "updated_at", label: "Last updated", visible: false },
     { key: "email_sent_at", label: "Email Sent Date", visible: false },
+    { key: "notes", label: "Notes", visible: false },
   ]);
 
   const appModal = useAppModal();
@@ -182,7 +237,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     setIsLoadingContacts(true);
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/Crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${selectedDataFile}`
+        `${API_BASE_URL}/api/Crm/contacts/List-by-CleinteId?clientId=${effectiveUserId}&dataFileId=${selectedDataFile}`
       );
 
       if (!response.ok) {
@@ -226,23 +281,93 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     return date.toLocaleDateString("en-GB", options);
   };
   // Filter contacts based on search query
-  const filteredContacts = contacts.filter((contact) => {
-    const searchLower = searchQuery.toLowerCase();
-    return (
-      contact.full_name?.toLowerCase().includes(searchLower) ||
-      contact.email?.toLowerCase().includes(searchLower) ||
-      contact.company_name?.toLowerCase().includes(searchLower) ||
-      contact.job_title?.toLowerCase().includes(searchLower) ||
-      contact.country_or_address?.toLowerCase().includes(searchLower)
-    );
-  });
+  const filteredContacts = useMemo(() => {
+    return contacts.filter((contact) => {
+      const searchLower = searchQuery.toLowerCase()
+      return (
+        contact.full_name?.toLowerCase().includes(searchLower) ||
+        contact.email?.toLowerCase().includes(searchLower) ||
+        contact.company_name?.toLowerCase().includes(searchLower) ||
+        contact.job_title?.toLowerCase().includes(searchLower) ||
+        contact.country_or_address?.toLowerCase().includes(searchLower)
+      )
+    })
+  }, [contacts, searchQuery])
+   const compareContactValues = (valA: any, valB: any, direction: "asc" | "desc"): number => {
+    if (valA == null && valB == null) return 0
+    if (valA == null) return direction === "asc" ? 1 : -1
+    if (valB == null) return direction === "asc" ? -1 : 1
 
-  // Paginate filtered contacts
-  const paginatedContacts = filteredContacts.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
-  );
+    // Date sorting
+    const dateA = new Date(valA)
+    const dateB = new Date(valB)
+    if (!isNaN(dateA.getTime()) && !isNaN(dateB.getTime())) {
+      return direction === "asc" ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime()
+    }
 
+    // Number sorting
+    const numA = Number(valA)
+    const numB = Number(valB)
+    if (!isNaN(numA) && !isNaN(numB) && valA !== "" && valB !== "") {
+      return direction === "asc" ? numA - numB : numB - numA
+    }
+
+    // String sorting
+    return direction === "asc"
+      ? String(valA).toLowerCase().localeCompare(String(valB).toLowerCase())
+      : String(valB).toLowerCase().localeCompare(String(valA).toLowerCase())
+  }
+
+
+  const sortedContacts = useMemo(() => {
+    if (!sortConfig?.key) return filteredContacts
+
+    return [...filteredContacts].sort((a, b) => {
+      const valA = (a as any)[sortConfig.key]
+      const valB = (b as any)[sortConfig.key]
+      return compareContactValues(valA, valB, sortConfig.direction)
+    })
+  }, [filteredContacts, sortConfig])
+const getNumericPageSize = (size: number | "All", totalItems: number) => {
+  return size === "All" ? totalItems : size;
+};
+const paginatedContacts = useMemo(() => {
+  const numericPageSize = getNumericPageSize(pageSize, sortedContacts.length);
+  return sortedContacts.slice((currentPage - 1) * numericPageSize, currentPage * numericPageSize);
+}, [sortedContacts, currentPage, pageSize]);
+  // const paginatedContacts = useMemo(() => {
+  //   return sortedContacts.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  // }, [sortedContacts, currentPage, pageSize])
+  
+  // const totalPages = useMemo(() => {
+  //   return Math.ceil(sortedContacts.length / pageSize)
+  // }, [sortedContacts.length, pageSize])
+const totalPages = useMemo(() => {
+  const numericPageSize = getNumericPageSize(pageSize, sortedContacts.length);
+  return Math.ceil(sortedContacts.length / numericPageSize);
+}, [sortedContacts.length, pageSize]);
+   const handleListSort = (columnKey: string) => {
+    if (listSortKey === columnKey) {
+      // Same column - toggle direction
+      setListSortDirection((prev) => (prev === "asc" ? "desc" : "asc"))
+    } else {
+      // Different column - set new sort with asc
+      setListSortKey(columnKey)
+      setListSortDirection("asc")
+    }
+    setCurrentPageLists(1)
+  }
+   const handleSegmentSort = (columnKey: string) => {
+    if (segmentSortKey === columnKey) {
+      // Same column - toggle direction
+      setSegmentSortDirection((prev) => (prev === "asc" ? "desc" : "asc"))
+    } else {
+      // Different column - set new sort with asc
+      setSegmentSortKey(columnKey)
+      setSegmentSortDirection("asc")
+    }
+    setSegmentCurrentPage(1)
+  }
   // Handle contact selection
   const handleSelectContact = (contactId: string) => {
     setSelectedContacts((prev) => {
@@ -272,22 +397,46 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     });
   };
 
-  // Toggle column visibility
-  const toggleColumnVisibility = (columnKey: string) => {
-    setColumns((prev) =>
-      prev.map((col) =>
-        col.key === columnKey ? { ...col, visible: !col.visible } : col
-      )
-    );
+  // Apply saved column selection to current columns
+  const applyColumnSelection = (currentColumns: ColumnConfig[], savedSelection: string[]) => {
+    return currentColumns.map(col => {
+      if (col.key === 'checkbox') return col;
+      
+      // If no saved selection, use default visibility
+      if (savedSelection.length === 0) {
+        return { ...col, visible: getDefaultVisibleColumns().includes(col.key) };
+      }
+      
+      // Apply saved selection, defaulting to false for columns not in selection
+      return { ...col, visible: savedSelection.includes(col.key) };
+    });
   };
 
-  // Calculate pagination
-  const totalPages = Math.ceil(filteredContacts.length / pageSize);
-  const startIndex =
-    filteredContacts.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
-  const endIndex = Math.min(currentPage * pageSize, filteredContacts.length)
-  // const endIndex = startIndex + pageSize;
-  //const currentData = filteredContacts.slice(startIndex, endIndex);
+  // Toggle column visibility with persistence
+  const toggleColumnVisibility = (columnKey: string) => {
+    setColumns((prev) => {
+      const updated = prev.map((col) =>
+        col.key === columnKey ? { ...col, visible: !col.visible } : col
+      );
+      
+      // Save the new selection to localStorage
+      const visibleColumns = updated
+        .filter(col => col.visible && col.key !== 'checkbox')
+        .map(col => col.key);
+      
+      setSavedColumnSelection(visibleColumns);
+      saveSelectedColumns(visibleColumns);
+      
+      return updated;
+    });
+  };
+   const numericPageSize = getNumericPageSize(pageSize, filteredContacts.length);
+   const startIndex = (currentPage - 1) * numericPageSize;  
+  const endIndex = Math.min(currentPage * numericPageSize, filteredContacts.length)
+
+  useEffect(() => {
+    setColumns(prev => applyColumnSelection(prev, savedColumnSelection));
+  }, [savedColumnSelection]);
 
   // Load data when client changes
   useEffect(() => {
@@ -295,6 +444,15 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
       fetchDataFiles();
     }
   }, [effectiveUserId]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = () => setShowCreateListOptions(false);
+    if (showCreateListOptions) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [showCreateListOptions]);
 
   // Fetch contacts when data file changes
   useEffect(() => {
@@ -317,6 +475,180 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   const [segmentName, setSegmentName] = useState("");
   const [segmentDescription, setSegmentDescription] = useState("");
   const [savingSegment, setSavingSegment] = useState(false);
+
+  // Delete contacts from Lists
+  const handleDeleteListContacts = async () => {
+    const contactsToDelete = viewMode === "detail"
+      ? Array.from(detailSelectedContacts)
+      : Array.from(selectedContacts);
+
+    if (contactsToDelete.length === 0) return;
+
+    try {
+      setIsLoading(true);
+      
+      for (const contactId of contactsToDelete) {
+        const response = await fetch(
+          `${API_BASE_URL}/api/Crm/delete-Datafile-contact?contactId=${contactId}`,
+          {
+            method: "POST",
+            headers: {
+              "accept": "*/*",
+            },
+          }
+        );
+        
+        if (!response.ok) {
+          throw new Error(`Failed to delete contact ${contactId}`);
+        }
+      }
+
+      appModal.showSuccess(`${contactsToDelete.length} contact(s) deleted successfully!`);
+      
+      if (viewMode === "detail") {
+        setDetailSelectedContacts(new Set());
+        if (selectedDataFileForView) {
+          fetchDetailContacts("list", selectedDataFileForView);
+        }
+      } else {
+        setSelectedContacts(new Set());
+        if (selectedDataFile) {
+          fetchContacts();
+        }
+      }
+      
+    } catch (error) {
+      console.error("Error deleting contacts:", error);
+      appModal.showError("Failed to delete contacts");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Delete contacts from Segments
+  const handleDeleteSegmentContacts = async () => {
+    const contactsToDelete = segmentViewMode === "detail"
+      ? Array.from(detailSelectedContacts)
+      : Array.from(selectedContacts);
+
+    if (contactsToDelete.length === 0) return;
+
+    try {
+      setIsLoading(true);
+      
+      for (const contactId of contactsToDelete) {
+        const response = await fetch(
+          `${API_BASE_URL}/api/Crm/delete-by-segment?contactId=${contactId}`,
+          {
+            method: "POST",
+            headers: {
+              "accept": "*/*",
+            },
+          }
+        );
+        
+        if (!response.ok) {
+          throw new Error(`Failed to delete contact ${contactId}`);
+        }
+      }
+
+      appModal.showSuccess(`${contactsToDelete.length} contact(s) deleted successfully!`);
+      
+      if (segmentViewMode === "detail") {
+        setDetailSelectedContacts(new Set());
+        if (selectedSegmentForView) {
+          fetchDetailContacts("segment", selectedSegmentForView);
+        }
+      } else {
+        setSelectedContacts(new Set());
+        fetchSegments();
+      }
+      
+    } catch (error) {
+      console.error("Error deleting contacts:", error);
+      appModal.showError("Failed to delete contacts");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Unsubscribe contacts
+  const handleUnsubscribeContacts = async () => {
+    const contactsToUnsubscribe = viewMode === "detail" || segmentViewMode === "detail"
+      ? Array.from(detailSelectedContacts)
+      : Array.from(selectedContacts);
+
+    if (contactsToUnsubscribe.length === 0) return;
+
+    try {
+      setIsLoading(true);
+      let successCount = 0;
+      let errorCount = 0;
+      
+      for (const contactId of contactsToUnsubscribe) {
+        // Find the contact to get email
+        const contactData = viewMode === "detail" || segmentViewMode === "detail" 
+          ? detailContacts 
+          : contacts;
+        const contact = contactData.find(c => c.id.toString() === contactId);
+        
+        if (!contact?.email) {
+          errorCount++;
+          continue;
+        }
+
+        const response = await fetch(
+          `${API_BASE_URL}/api/Crm/UnsubscribeContacts?ClientId=${effectiveUserId}&email=${encodeURIComponent(contact.email)}`,
+          {
+            method: "GET",
+            headers: {
+              "accept": "*/*",
+            },
+          }
+        );
+        
+        if (response.ok) {
+          const responseText = await response.text();
+          if (responseText === "Unsubscribed Added Successfully") {
+            appModal.showSuccess(`${contact.email} has been unsubscribed successfully.`);
+          } else if (responseText === "Already Unsubscribed") {
+            appModal.showInfo(`${contact.email} is already unsubscribed.`);
+          }
+          successCount++;
+        } else {
+          errorCount++;
+        }
+      }
+
+      if (errorCount > 0) {
+        appModal.showError(`${errorCount} contact(s) failed to unsubscribe.`);
+      }
+      
+      // Clear selections
+      if (viewMode === "detail" || segmentViewMode === "detail") {
+        setDetailSelectedContacts(new Set());
+      } else {
+        setSelectedContacts(new Set());
+      }
+      
+      // Auto-refresh data after unsubscribe operation
+      if (viewMode === "detail" && selectedDataFileForView) {
+        fetchDetailContacts("list", selectedDataFileForView);
+      } else if (segmentViewMode === "detail" && selectedSegmentForView) {
+        fetchDetailContacts("segment", selectedSegmentForView);
+      } else if (selectedDataFile) {
+        fetchContacts();
+      } else if (activeSubTab === "Segment" && selectedSegment) {
+        fetchSegmentContacts(selectedSegment);
+      }
+      
+    } catch (error) {
+      console.error("Error unsubscribing contacts:", error);
+      appModal.showError("Failed to unsubscribe contacts");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Find this function in your DataCampaigns.tsx and replace it
   const handleSaveSegment = async () => {
@@ -367,7 +699,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
       setSegmentDescription("");
 
       // Clear selections after saving
-      if (viewMode === "detail") {
+      if (viewMode === "detail" || segmentViewMode === "detail") {
         setDetailSelectedContacts(new Set());
       } else {
         setSelectedContacts(new Set());
@@ -384,9 +716,25 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     }
   };
 
+  // Segment interface
+  interface Segment {
+    id: number;
+    name: string;
+    description?: string;
+    dataFileId: number;
+    clientId: number;
+    createdAt: string;
+    updatedAt?: string;
+    contactCount?: number;
+    contacts?: any[];
+  }
+
   //segments
-  const [segments, setSegments] = useState<any[]>([]);
+  const [segments, setSegments] = useState<Segment[]>([]);
   const [selectedSegment, setSelectedSegment] = useState<string>("");
+   const [segmentSortKey, setSegmentSortKey] = useState("")
+   const [segmentSortDirection, setSegmentSortDirection] = useState("asc")
+  const [segmentCurrentPage, setSegmentCurrentPage] = useState(1)
   const [segmentContacts, setSegmentContacts] = useState<Contact[]>([]);
   const [segmentSearchQuery, setSegmentSearchQuery] = useState("");
   const [isLoadingSegments, setIsLoadingSegments] = useState(false);
@@ -403,6 +751,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
       if (!response.ok) throw new Error("Failed to fetch segments");
       const data = await response.json();
       setSegments(data);
+      setSegmentCurrentPage(1)
     } catch (err) {
       setSegments([]);
     } finally {
@@ -412,16 +761,17 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
 
   // Fetch contacts for selected segment
   const fetchSegmentContacts = async (segmentId: string) => {
-    if (!segmentId) return;
+    if (!segmentId || !effectiveUserId) return;
     setIsLoadingSegmentContacts(true);
     try {
-      // Use the correct endpoint!
+      // Use the new endpoint with clientId and segmentId parameters
       const response = await fetch(
-        `${API_BASE_URL}/api/Crm/segment/${segmentId}/contacts`
+        `${API_BASE_URL}/api/Crm/segment-contacts?clientId=${effectiveUserId}&segmentId=${segmentId}`
       );
       if (!response.ok) throw new Error("Failed to fetch segment contacts");
       const data = await response.json();
-      setSegmentContacts(data || []);
+      // Extract contacts from the response structure
+      setSegmentContacts(data.contacts || []);
     } catch (err) {
       setSegmentContacts([]);
     } finally {
@@ -447,18 +797,20 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     }
   }, [selectedSegment]);
 
-  const segmentFilteredContacts = segmentContacts.filter((contact) => {
-    const searchLower = segmentSearchQuery.toLowerCase();
-    return (
-      contact.full_name?.toLowerCase().includes(searchLower) ||
-      contact.email?.toLowerCase().includes(searchLower) ||
-      contact.company_name?.toLowerCase().includes(searchLower) ||
-      contact.job_title?.toLowerCase().includes(searchLower) ||
-      contact.country_or_address?.toLowerCase().includes(searchLower)
-    );
-  });
+  // const segmentFilteredContacts = segmentContacts.filter((contact) => {
+  //   const searchLower = segmentSearchQuery.toLowerCase();
+  //   return (
+  //     contact.full_name?.toLowerCase().includes(searchLower) ||
+  //     contact.email?.toLowerCase().includes(searchLower) ||
+  //     contact.company_name?.toLowerCase().includes(searchLower) ||
+  //     contact.job_title?.toLowerCase().includes(searchLower) ||
+  //     contact.country_or_address?.toLowerCase().includes(searchLower)
+  //   );
+  // });
 
   const [listSearch, setListSearch] = useState("");
+   const [listSortKey, setListSortKey] = useState("")
+   const [listSortDirection, setListSortDirection] = useState("asc")
   const [listActionsAnchor, setListActionsAnchor] = useState<string | null>(
     null
   ); // Which datafile ID's menu open
@@ -467,12 +819,56 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   const [showConfirmListDelete, setShowConfirmListDelete] = useState(false);
   const [viewingListId, setViewingListId] = useState<string | null>(null); // for modal of viewing contacts
 
+  
+  const toggleListSort = (key: string) => {
+    if (listSortKey === key) {
+      // Same column - toggle direction
+      setListSortDirection((prev) => (prev === "asc" ? "desc" : "asc"))
+    } else {
+      // Different column - set new sort with asc
+      setListSortKey(key)
+      setListSortDirection("asc")
+    }
+  }
   // Filter datafiles per search
-  const filteredDatafiles = dataFiles.filter(
-    (df) =>
-      df.name.toLowerCase().includes(listSearch.toLowerCase()) ||
-      df.id.toString().includes(listSearch)
-  );
+  // const filteredDatafiles = dataFiles.filter(
+  //   (df) =>
+  //     df.name.toLowerCase().includes(listSearch.toLowerCase()) ||
+  //     df.id.toString().includes(listSearch)
+  // );
+   const filteredDatafiles = useMemo(() => {
+    //const searchLower = listSearch.toLowerCase()
+    let filtered = dataFiles.filter((file) => file.name.toLowerCase().includes(listSearch.toLowerCase()))
+
+    // Apply sorting
+    if (listSortKey) {
+      filtered = [...filtered].sort((a, b) => {
+        const aVal = (a as any)[listSortKey] ?? ""
+        const bVal = (b as any)[listSortKey] ?? ""
+
+        // Date sorting
+        const dateA = new Date(aVal)
+        const dateB = new Date(bVal)
+        if (!isNaN(dateA.getTime()) && !isNaN(dateB.getTime())) {
+          return listSortDirection === "asc" ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime()
+        }
+
+        // Number sorting
+        const numA = Number(aVal)
+        const numB = Number(bVal)
+        if (!isNaN(numA) && !isNaN(numB)) {
+          return listSortDirection === "asc" ? numA - numB : numB - numA
+        }
+
+        // String sorting
+        return listSortDirection === "asc"
+          ? String(aVal).toLowerCase().localeCompare(String(bVal).toLowerCase())
+          : String(bVal).toLowerCase().localeCompare(String(aVal).toLowerCase())
+      })
+    }
+
+    return filtered
+  }, [dataFiles, listSearch, listSortKey, listSortDirection])
 
 
   const handleDeleteList = async (file: DataFileItem) => {
@@ -506,7 +902,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   const [detailContacts, setDetailContacts] = useState<Contact[]>([]);
   const [detailTotalContacts, setDetailTotalContacts] = useState(0);
   const [detailCurrentPage, setDetailCurrentPage] = useState(1);
-  const [detailPageSize] = useState(20);
+  const [detailPageSize] = useState(10);
   const [detailSearchQuery, setDetailSearchQuery] = useState("");
   const [detailSelectedContacts, setDetailSelectedContacts] = useState<
     Set<string>
@@ -530,9 +926,10 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     try {
       let url = "";
       if (type === "list") {
-        url = `${API_BASE_URL}/api/Crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${item.id}`;
+        url = `${API_BASE_URL}/api/Crm/contacts/List-by-CleinteId?clientId=${effectiveUserId}&dataFileId=${item.id}`;
       } else {
-        url = `${API_BASE_URL}/api/Crm/segment/${item.id}/contacts`;
+        // Use the new segment-contacts endpoint
+        url = `${API_BASE_URL}/api/Crm/segment-contacts?clientId=${effectiveUserId}&segmentId=${item.id}`;
       }
 
       const response = await fetch(url);
@@ -543,8 +940,9 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
         setDetailContacts(data.contacts || []);
         setDetailTotalContacts(data.contactCount || 0);
       } else {
-        setDetailContacts(data || []);
-        setDetailTotalContacts(data.length || 0);
+        // Extract contacts from the new response structure
+        setDetailContacts(data.contacts || []);
+        setDetailTotalContacts(data.contactCount || 0);
       }
     } catch (error) {
       console.error("Error fetching contacts:", error);
@@ -762,8 +1160,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   const handleRenameSegment = async () => {
     if (
       !editingSegment ||
-      !renamingSegmentName.trim() ||
-      !renamingSegmentDescription.trim()
+      !renamingSegmentName.trim()
     )
       return;
 
@@ -842,7 +1239,9 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
       { key: "companyEmployeeCount", header: "Company Employee Count" },
       { key: "companyIndustry", header: "Company industry" },
       { key: "companyLinkedInURL", header: "Company LinkedIn URL" },
-      { key: "companyEventLink", header: "Company Event Link" },
+      // { key: "companyEventLink", header: "Company Event Link" },
+      { key: "unsubscribe", header: "Unsubscribe" },
+      { key: "notes", header: "Notes" },
       { key: "created_at", header: "Created date" },
       { key: "updated_at", header: "Updated date" },
       { key: "email_sent_at", header: "Email Sent Date" },
@@ -939,7 +1338,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
 
       // Fetch all contacts for this list
       const response = await fetch(
-        `${API_BASE_URL}/api/Crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${file.id}`
+        `${API_BASE_URL}/api/Crm/contacts/List-by-CleinteId?clientId=${effectiveUserId}&dataFileId=${file.id}`
       );
 
       if (!response.ok) throw new Error("Failed to fetch contacts");
@@ -970,14 +1369,15 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     try {
       setIsLoadingSegments(true);
 
-      // Fetch all contacts for this segment
+      // Fetch all contacts for this segment using the new endpoint
       const response = await fetch(
-        `${API_BASE_URL}/api/Crm/segment/${segment.id}/contacts`
+        `${API_BASE_URL}/api/Crm/segment-contacts?clientId=${effectiveUserId}&segmentId=${segment.id}`
       );
 
       if (!response.ok) throw new Error("Failed to fetch segment contacts");
 
-      const contacts = await response.json();
+      const data = await response.json();
+      const contacts = data.contacts || [];
 
       if (!contacts || contacts.length === 0) {
         appModal.showWarning("No contacts to download");
@@ -996,11 +1396,75 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
       setSegmentActionsAnchor(null);
     }
   };
-  const totalPages1 = Math.ceil(filteredDatafiles.length / pageSize);
-  const startIndex1 = (currentPage - 1) * pageSize;
-  const endIndex1 = startIndex1 + pageSize;
-  const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
+  const numericPageSizeLists = getNumericPageSize(pageSize, filteredDatafiles.length);
+  const totalPages1 = Math.ceil(filteredDatafiles.length / numericPageSizeLists );
+ const startIndex1 = (currentPageLists - 1) * numericPageSizeLists ;  // ✅ CORRECT - uses currentPageLists
+const endIndex1 = Math.min(currentPageLists * numericPageSizeLists , filteredDatafiles.length);
+const currentData = filteredDatafiles.slice(startIndex1, endIndex1);
   //const currentData = filteredDatafiles.slice(currentPage, currentPage + pageSize);
+
+//for segments
+
+// const filteredSegments = segments.filter(
+//     (seg) =>
+//       seg.name?.toLowerCase().includes(segmentSearchQuery.toLowerCase()) ||
+//       seg.description?.toLowerCase().includes(segmentSearchQuery.t oLowerCase()),
+//   )
+ // Helper function to render sort arrow
+  const renderSortArrow = (columnKey: string, currentSortKey: string, sortDirection: string) => {
+    if (columnKey === currentSortKey) {
+      return sortDirection === "asc" ? " ▲" : " ▼"
+    }
+    return ""
+  }
+const { filteredSegments, paginatedSegments, segmentTotalPages } = useMemo(() => {
+    let filtered = segments.filter(
+      (seg) =>
+        seg.name?.toLowerCase().includes(segmentSearchQuery.toLowerCase()) ||
+        seg.description?.toLowerCase().includes(segmentSearchQuery.toLowerCase()),
+    )
+
+    // Apply sorting to filtered segments
+    if (segmentSortKey) {
+      filtered = [...filtered].sort((a, b) => {
+        const aVal = (a as any)[segmentSortKey] ?? ""
+        const bVal = (b as any)[segmentSortKey] ?? ""
+
+        const dateA = new Date(aVal)
+        const dateB = new Date(bVal)
+        if (!isNaN(dateA.getTime()) && !isNaN(dateB.getTime())) {
+          return segmentSortDirection === "asc" ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime()
+        }
+
+        const numA = Number(aVal)
+        const numB = Number(bVal)
+        if (!isNaN(numA) && !isNaN(numB)) {
+          return segmentSortDirection === "asc" ? numA - numB : numB - numA
+        }
+
+        return segmentSortDirection === "asc"
+          ? String(aVal).toLowerCase().localeCompare(String(bVal).toLowerCase())
+          : String(bVal).toLowerCase().localeCompare(String(aVal).toLowerCase())
+      })
+    }
+const numericPageSizeSegments = getNumericPageSize(pageSize, filtered.length);
+    const totalPages = Math.ceil(filtered.length / numericPageSizeSegments)
+    const startIndex = (segmentCurrentPage - 1) * numericPageSizeSegments
+    const endIndex = Math.min(startIndex + numericPageSizeSegments, filtered.length);
+    const paginated = filtered.slice(startIndex, endIndex)
+
+    return {
+      filteredSegments: filtered,
+      paginatedSegments: paginated,
+      segmentTotalPages: totalPages,
+    }
+  }, [segments, segmentSearchQuery, segmentSortKey, segmentSortDirection, segmentCurrentPage, pageSize])
+
+  // const segmentTotalPages = Math.ceil(filteredSegments.length / pageSize)
+  // const segmentStartIndex = (segmentCurrentPage - 1) * pageSize
+  // const segmentEndIndex = segmentStartIndex + pageSize
+  // const paginatedSegments = filteredSegments.slice(segmentStartIndex, segmentEndIndex)
+
   const columnNameMap: Record<string, string> = {
     id: "ID",
     full_name: "Full name",
@@ -1008,7 +1472,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     website: "Website",
     company_name: "Company name",
     job_title: "Job title",
-    linkedin_url: "LinkedIn url",
+    linkedin_url: "LinkedIn URL",
     country_or_address: "Country or address",
     created_at: "Created at",
     updated_at: "Updated at",
@@ -1016,15 +1480,59 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     companyTelephone: "Company telephone",
     companyEmployeeCount: "Company employee count",
     companyIndustry: "Company industry",
-    companyLinkedInURL: "Company linked in url",
+    companyLinkedInURL: "Company linked in URL",
     companyEventLink: "Company event link",
+    unsubscribe: "Unsubscribe",
+    notes: "Notes",
   };
+ const segmentFilteredContacts = useMemo(() => {
+    let filtered = segmentContacts.filter((contact) => {
+      const searchLower = segmentSearchQuery.toLowerCase()
+      return (
+        contact.full_name?.toLowerCase().includes(searchLower) ||
+        contact.email?.toLowerCase().includes(searchLower) ||
+        contact.company_name?.toLowerCase().includes(searchLower) ||
+        contact.job_title?.toLowerCase().includes(searchLower) ||
+        contact.country_or_address?.toLowerCase().includes(searchLower)
+      )
+    })
 
+    // Apply sorting if segmentSortKey exists
+    if (segmentSortKey) {
+      filtered = [...filtered].sort((a, b) => {
+        const aVal = (a as any)[segmentSortKey] ?? ""
+        const bVal = (b as any)[segmentSortKey] ?? ""
+
+        const dateA = new Date(aVal)
+        const dateB = new Date(bVal)
+        if (!isNaN(dateA.getTime()) && !isNaN(dateB.getTime())) {
+          return segmentSortDirection === "asc" ? dateA.getTime() - dateB.getTime() : dateB.getTime() - dateA.getTime()
+        }
+
+        const numA = Number(aVal)
+        const numB = Number(bVal)
+        if (!isNaN(numA) && !isNaN(numB)) {
+          return segmentSortDirection === "asc" ? numA - numB : numB - numA
+        }
+
+        return segmentSortDirection === "asc"
+          ? String(aVal).toLowerCase().localeCompare(String(bVal).toLowerCase())
+          : String(bVal).toLowerCase().localeCompare(String(aVal).toLowerCase())
+      })
+    }
+const numericPageSizeSegmentContacts = getNumericPageSize(pageSize, filtered.length);
+    const totalPages = Math.ceil(filtered.length / numericPageSizeSegmentContacts)
+    const startIndex = (segmentCurrentPage - 1) * numericPageSizeSegmentContacts
+    const endIndex = Math.min(startIndex + numericPageSizeSegmentContacts, filtered.length);
+    const paginated = filtered.slice(startIndex, endIndex)
+
+    return { filtered, paginated, totalPages }
+  }, [segmentContacts, segmentSearchQuery, segmentSortKey, segmentSortDirection, segmentCurrentPage, pageSize])
   return (
     <div className="data-campaigns-container">
       {/* Sub-tabs Navigation */}
       <div className="tabs secondary mb-20">
-        <ul className="d-flex">
+        <ul className="d-flex" style={{marginTop: "-56px"}}>
           <li>
             <button
               type="button"
@@ -1064,7 +1572,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    marginBottom: 16,
+                    marginBottom: -5,
                     gap: 16,
                   }}
                 >
@@ -1076,31 +1584,96 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                     value={listSearch}
                     onChange={(e) => setListSearch(e.target.value)}
                   />
-                  <button
-                    className="ml-10 save-button button auto-width small d-flex justify-between align-center"
-                    style={{ marginLeft: "auto" }}
-                    onClick={onAddContactClick}
-                  >
-                    <span className="text-[20px] mr-1">+</span> Create a list
-                  </button>
+                  <div style={{ marginLeft: "auto", position: "relative" }}>
+                    <button
+                      className="ml-10 save-button button auto-width small d-flex justify-between align-center"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowCreateListOptions(!showCreateListOptions);
+                      }}
+                    >
+                      <span className="text-[20px] mr-1">+</span> Create a list
+                    </button>
+                    {showCreateListOptions && (
+                      <div style={{
+                        position: "absolute",
+                        right: 0,
+                        top: 40,
+                        background: "#fff",
+                        border: "1px solid #eee",
+                        borderRadius: 6,
+                        boxShadow: "0 2px 16px rgba(0,0,0,0.12)",
+                        zIndex: 101,
+                        minWidth: 160
+                      }}>
+                        <button
+                          onClick={() => {
+                            if (onAddContactClick) onAddContactClick();
+                            setShowCreateListOptions(false);
+                          }}
+                          style={{
+                            width: "100%",
+                            padding: "8px 18px",
+                            textAlign: "left",
+                            background: "none",
+                            border: "none",
+                            color: "#222",
+                            fontSize: "15px",
+                            cursor: "pointer"
+                          }}
+                        >
+                          📁 Upload File
+                        </button>
+                        <button
+                          onClick={() => {
+                            setShowCreateListModal(true);
+                            setShowCreateListOptions(false);
+                          }}
+                          style={{
+                            width: "100%",
+                            padding: "8px 18px",
+                            textAlign: "left",
+                            background: "none",
+                            border: "none",
+                            color: "#222",
+                            fontSize: "15px",
+                            cursor: "pointer"
+                          }}
+                        >
+                          ✏️ Add Manually
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
+                 <PaginationControls
+                  currentPage={currentPageLists}
+                  totalPages={totalPages1}
+                  pageSize={pageSize}
+                  totalRecords={filteredDatafiles.length}
+                  setCurrentPage={setCurrentPageLists}
+                  setPageSize={setPageSize}
+                  showPageSizeDropdown={true}
+                  pageLabel="Page:"
+                />
+                <div style={{marginBottom:"10px"}}></div>
                 <table
                   className="contacts-table"
-                  style={{ background: "#fff" }}
+                  style={{ background: "#fff", width: "100%", tableLayout: "auto" }}
                 >
                   <thead>
                     <tr>
-                      <th>Lists</th>
-                      <th>ID</th>
-                      <th>Folder</th>
-                      <th>Contacts</th>
-                      <th>Creation date</th>
-                      <th>Description</th>
+                      <th onClick={() => handleListSort("name")} style={{ cursor: "pointer" }}>Lists{renderSortArrow("name", listSortKey, listSortDirection)}</th>
+                      <th onClick={() => handleListSort("id")} style={{ cursor: "pointer" }}>ID{renderSortArrow("id", listSortKey, listSortDirection)}</th>
+                      <th onClick={() => handleListSort("folder")} style={{ cursor: "pointer" }}>Folder{renderSortArrow("folder", listSortKey, listSortDirection)}</th>
+                      <th onClick={() => handleListSort("contactCount")} style={{ cursor: "pointer" }}>Contacts{renderSortArrow("contactCount", listSortKey, listSortDirection)}</th>
+                      <th onClick={() => handleListSort("created_at")} style={{ cursor: "pointer" }}>Creation date{renderSortArrow("created_at", listSortKey, listSortDirection)}</th>
+                      <th onClick={() => handleListSort("description")} style={{ cursor: "pointer" }}>Description{renderSortArrow("description", listSortKey, listSortDirection)}</th>
                       <th style={{ minWidth: 48 }}>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredDatafiles.length === 0 && (
+                    {currentData.length === 0 && (
                       <tr>
                         <td colSpan={7} style={{ textAlign: "center" }}>
                           No lists found.
@@ -1130,7 +1703,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                         </td>
                         <td>#{file.id}</td>
                         <td>Your First Folder</td>
-                        <td>{file.contacts?.length || 0}</td>
+                        <td>{file.contactCount || file.contacts?.length || 0}</td>
                         <td>
                           {file.created_at
                             ? formatDate(file.created_at) // Use formatDate instead of toLocaleString
@@ -1328,11 +1901,14 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                   </tbody>
                 </table>
                 <PaginationControls
-                  currentPage={currentPage}
-                  totalPages={totalPages}
+                  currentPage={currentPageLists}
+                  totalPages={totalPages1}
                   pageSize={pageSize}
                   totalRecords={filteredDatafiles.length}
-                  setCurrentPage={setCurrentPage}
+                  setCurrentPage={setCurrentPageLists}
+                   setPageSize={setPageSize}
+                   showPageSizeDropdown={true}
+                   pageLabel="Page:"
                 />
 
               </>
@@ -1359,6 +1935,15 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                   "dataFileId",
                   "data_file",
                 ]} // Hide large/unwanted fields
+                onColumnsChange={(updatedColumns) => {
+                  // Handle column changes from DynamicContactsTable
+                  const visibleColumns = updatedColumns
+                    .filter(col => col.visible && col.key !== 'checkbox')
+                    .map(col => col.key);
+                  setSavedColumnSelection(visibleColumns);
+                  saveSelectedColumns(visibleColumns);
+                }}
+                persistedColumnSelection={savedColumnSelection}
                 customFormatters={{
                   // Date formatting
                   created_at: (value: any) => formatDate(value),
@@ -1447,7 +2032,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                   setViewMode("list");
                   setSelectedDataFileForView(null);
                 }}
-                onAddItem={onAddContactClick}
+                onAddItem={() => setShowAddContactModal(true)}
                 columnNameMap={columnNameMap}
                 customHeader={
                   detailSelectedContacts.size > 0 && (
@@ -1466,13 +2051,59 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                         {detailSelectedContacts.size} contact
                         {detailSelectedContacts.size > 1 ? "s" : ""} selected
                       </span>
-                      <button
-                        className="button primary"
-                        onClick={() => setShowSaveSegmentModal(true)}
-                        style={{ marginLeft: "auto" }}
-                      >
-                        Create segment
-                      </button>
+                      <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+                        <button
+                          className="button secondary"
+                          onClick={handleDeleteListContacts}
+                          disabled={isLoading}
+                          style={{
+                            background: "#dc3545",
+                            color: "#fff",
+                            border: "none",
+                          }}
+                        >
+                          {isLoading ? "Deleting..." : "Delete contacts"}
+                        </button>
+                        <button
+                          className="button secondary"
+                          onClick={handleUnsubscribeContacts}
+                          disabled={isLoading}
+                          style={{
+                            background: "#ff9800",
+                            color: "#fff",
+                            border: "none",
+                          }}
+                        >
+                          {isLoading ? "Processing..." : "Unsubscribe"}
+                        </button>
+                        {detailSelectedContacts.size === 1 && (
+                          <button
+                            className="button secondary"
+                            onClick={() => {
+                              const contactId = Array.from(detailSelectedContacts)[0];
+                              const contact = detailContacts.find(c => c.id.toString() === contactId);
+                              if (contact) {
+                                setEditingContact(contact);
+                                setShowEditContactModal(true);
+                              }
+                            }}
+                            style={{
+                              background: "#17a2b8",
+                              color: "#fff",
+                              border: "none",
+                            }}
+                          >
+                            Edit contact
+                          </button>
+                        )}
+                        <button
+                          className="button primary"
+                          onClick={() => setShowSaveSegmentModal(true)}
+                          style={{backgroundColor:"#3f9f42"}}
+                        >
+                          Create segment
+                        </button>
+                      </div>
                     </div>
                   )
                 }
@@ -1721,16 +2352,28 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                   />
                 </div>
                 {/* ✅ Pagination on top right */}
+                <div style={{marginBottom:"10px"}}>
+                <PaginationControls
+                  currentPage={segmentCurrentPage}
+                  totalPages={segmentTotalPages}
+                  pageSize={pageSize}
+                  totalRecords={filteredSegments.length}
+                  setCurrentPage={setSegmentCurrentPage}
+                   setPageSize={setPageSize}
+                   showPageSizeDropdown={true}
+                   pageLabel="Page:"
+                />
+                </div>
                 <table
                   className="contacts-table"
-                  style={{ background: "#fff" }}
+                  style={{ background: "#fff", width: "100%", tableLayout: "auto" }}
                 >
                   <thead>
                     <tr>
-                      <th>Segment name</th>
-                      <th>Contacts</th>
-                      <th>Created date</th>
-                      <th>Description</th>
+                      <th onClick={() => handleSegmentSort("name")} style={{ cursor: "pointer" }}>Segment name{renderSortArrow("name", segmentSortKey, segmentSortDirection)}</th>
+                      <th onClick={() => handleSegmentSort("contactCount")} style={{ cursor: "pointer" }}>Contacts{renderSortArrow("contactCount", segmentSortKey, segmentSortDirection)}</th>
+                      <th onClick={() => handleSegmentSort("createdAt")} style={{ cursor: "pointer" }}>Created date{renderSortArrow("createdAt", segmentSortKey, segmentSortDirection)}</th>
+                      <th onClick={() => handleSegmentSort("description")} style={{ cursor: "pointer" }}>Description{renderSortArrow("description", segmentSortKey, segmentSortDirection)}</th>
                       <th style={{ minWidth: 48 }}>Actions</th>
                     </tr>
                   </thead>
@@ -1741,14 +2384,14 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                           Loading segments...
                         </td>
                       </tr>
-                    ) : segments.length === 0 ? (
+                    ) : filteredSegments.length === 0 ? (
                       <tr>
                         <td colSpan={5} style={{ textAlign: "center" }}>
                           No segments found.
                         </td>
                       </tr>
                     ) : (
-                      segments
+                      paginatedSegments
                         .filter(
                           (seg) =>
                             seg.name
@@ -1895,6 +2538,63 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                                       </span>
                                       <span className="font-[600]">View</span>
                                     </button>
+                                    <button
+                                      onClick={() => handleDownloadSegment(segment)}
+                                      style={menuBtnStyle}
+                                      className="flex gap-2 items-center"
+                                    >
+                                      <span className="ml-[2px]">
+                                        <svg
+                                          xmlns="http://www.w3.org/2000/svg"
+                                          width="22px"
+                                          height="22px"
+                                          viewBox="0 0 24 24"
+                                        >
+                                          <title />
+
+                                          <g id="Complete">
+                                            <g id="download">
+                                              <g>
+                                                <path
+                                                  d="M3,12.3v7a2,2,0,0,0,2,2H19a2,2,0,0,0,2-2v-7"
+                                                  fill="none"
+                                                  stroke="#000000"
+                                                  stroke-linecap="round"
+                                                  stroke-linejoin="round"
+                                                  stroke-width="2"
+                                                />
+
+                                                <g>
+                                                  <polyline
+                                                    data-name="Right"
+                                                    fill="none"
+                                                    id="Right-2"
+                                                    points="7.9 12.3 12 16.3 16.1 12.3"
+                                                    stroke="#000000"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    stroke-width="2"
+                                                  />
+
+                                                  <line
+                                                    fill="none"
+                                                    stroke="#000000"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    stroke-width="2"
+                                                    x1="12"
+                                                    x2="12"
+                                                    y1="2.7"
+                                                    y2="14.2"
+                                                  />
+                                                </g>
+                                              </g>
+                                            </g>
+                                          </g>
+                                        </svg>
+                                      </span>
+                                      <span className="font-[600]">Download</span>
+                                    </button>
                                     {!isDemoAccount && (
                                       <button
                                         onClick={() => {
@@ -1975,11 +2675,14 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                 </div> */}
                 {/* ✅ Pagination on top right */}
                 <PaginationControls
-                  currentPage={currentPage}
-                  totalPages={totalPages}
+                  currentPage={segmentCurrentPage}
+                  totalPages={segmentTotalPages}
                   pageSize={pageSize}
-                  totalRecords={filteredDatafiles.length}
-                  setCurrentPage={setCurrentPage}
+                  totalRecords={filteredSegments.length}
+                  setCurrentPage={setSegmentCurrentPage}
+                   setPageSize={setPageSize}
+                   showPageSizeDropdown={true}
+                   pageLabel="Page:"
                 />
 
               </>
@@ -2006,6 +2709,15 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                   "dataFileId",
                   "data_file",
                 ]}
+                onColumnsChange={(updatedColumns) => {
+                  // Handle column changes from DynamicContactsTable
+                  const visibleColumns = updatedColumns
+                    .filter(col => col.visible && col.key !== 'checkbox')
+                    .map(col => col.key);
+                  setSavedColumnSelection(visibleColumns);
+                  saveSelectedColumns(visibleColumns);
+                }}
+                persistedColumnSelection={savedColumnSelection}
                 customFormatters={{
                   created_at: (value: any) => formatDate(value),
                   updated_at: (value: any) => formatDate(value),
@@ -2089,7 +2801,6 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                   setSegmentViewMode("list");
                   setSelectedSegmentForView(null);
                 }}
-                onAddItem={onAddContactClick}
                 customHeader={
                   detailSelectedContacts.size > 0 && (
                     <div
@@ -2107,13 +2818,58 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                         {detailSelectedContacts.size} contact
                         {detailSelectedContacts.size > 1 ? "s" : ""} selected
                       </span>
-                      <button
-                        className="button primary"
-                        onClick={() => setShowSaveSegmentModal(true)}
-                        style={{ marginLeft: "auto" }}
-                      >
-                        Create segment
-                      </button>
+                      <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+                        <button
+                          className="button secondary"
+                          onClick={handleDeleteSegmentContacts}
+                          disabled={isLoading}
+                          style={{
+                            background: "#dc3545",
+                            color: "#fff",
+                            border: "none",
+                          }}
+                        >
+                          {isLoading ? "Deleting..." : "Delete contacts"}
+                        </button>
+                        <button
+                          className="button secondary"
+                          onClick={handleUnsubscribeContacts}
+                          disabled={isLoading}
+                          style={{
+                            background: "#ff9800",
+                            color: "#fff",
+                            border: "none",
+                          }}
+                        >
+                          {isLoading ? "Processing..." : "Unsubscribe"}
+                        </button>
+                        {detailSelectedContacts.size === 1 && (
+                          <button
+                            className="button secondary"
+                            onClick={() => {
+                              const contactId = Array.from(detailSelectedContacts)[0];
+                              const contact = detailContacts.find(c => c.id.toString() === contactId);
+                              if (contact) {
+                                setEditingContact(contact);
+                                setShowEditContactModal(true);
+                              }
+                            }}
+                            style={{
+                              background: "#17a2b8",
+                              color: "#fff",
+                              border: "none",
+                            }}
+                          >
+                            Edit contact
+                          </button>
+                        )}
+                        <button
+                          className="button primary"
+                          onClick={() => setShowSaveSegmentModal(true)}
+                        >
+                          Create segment
+                        </button>
+                      </div>
                     </div>
                   )
                 }
@@ -2216,14 +2972,12 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                 onClick={handleRenameSegment}
                 disabled={
                   !renamingSegmentName.trim() ||
-                  !renamingSegmentDescription.trim() ||
                   isRenamingSegment
                 }
                 style={{
                   padding: "8px 16px",
                   background:
                     renamingSegmentName.trim() &&
-                      renamingSegmentDescription.trim() &&
                       !isRenamingSegment
                       ? "#007bff"
                       : "#ccc",
@@ -2232,7 +2986,6 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                   borderRadius: "4px",
                   cursor:
                     renamingSegmentName.trim() &&
-                      renamingSegmentDescription.trim() &&
                       !isRenamingSegment
                       ? "pointer"
                       : "not-allowed",
@@ -2327,20 +3080,22 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
           <div
             style={{
               background: "#fff",
-              padding: 40,
+              padding: 24,
               borderRadius: 12,
-              minWidth: 340,
+              maxWidth: 800,
+              width:"45%",
+              //minWidth: 340,
               boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
             }}
           >
             <h2 style={{ marginTop: 0 }}>Save as segment</h2>
             <p style={{ marginBottom: 16, color: "#666" }}>
               Creating segment with{" "}
-              {viewMode === "detail"
+              {viewMode === "detail" || segmentViewMode === "detail"
                 ? detailSelectedContacts.size
                 : selectedContacts.size}{" "}
               selected contact
-              {(viewMode === "detail"
+              {(viewMode === "detail" || segmentViewMode === "detail"
                 ? detailSelectedContacts.size
                 : selectedContacts.size) > 1
                 ? "s"
@@ -2348,7 +3103,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
             </p>
             <input
               type="text"
-              placeholder="Segment Name"
+              placeholder="Segment name"
               value={segmentName}
               onChange={(e) => setSegmentName(e.target.value)}
               autoFocus
@@ -2380,12 +3135,74 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                 className="button primary"
                 disabled={!segmentName || savingSegment}
               >
-                {savingSegment ? "Saving..." : "Save Segment"}
+                {savingSegment ? "Saving..." : "Save segment"}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      <CreateListModal
+        isOpen={showCreateListModal}
+        onClose={() => setShowCreateListModal(false)}
+        selectedClient={selectedClient}
+        onListCreated={() => {
+          fetchDataFiles();
+        }}
+        onShowMessage={(message, type) => {
+          if (type === 'success') {
+            appModal.showSuccess(message);
+          } else {
+            appModal.showError(message);
+          }
+        }}
+      />
+      <AddContactModal
+        isOpen={showAddContactModal}
+        onClose={() => setShowAddContactModal(false)}
+        dataFileId={selectedDataFileForView?.id?.toString() || selectedDataFile}
+        onContactAdded={() => {
+          if (viewMode === "detail" && selectedDataFileForView) {
+            fetchDetailContacts("list", selectedDataFileForView);
+          } else if (segmentViewMode === "detail" && selectedSegmentForView) {
+            fetchDetailContacts("segment", selectedSegmentForView);
+          } else if (selectedDataFile) {
+            fetchContacts();
+          }
+        }}
+        onShowMessage={(message, type) => {
+          if (type === 'success') {
+            appModal.showSuccess(message);
+          } else {
+            appModal.showError(message);
+          }
+        }}
+      />
+      <EditContactModal
+        isOpen={showEditContactModal}
+        onClose={() => {
+          setShowEditContactModal(false);
+          setEditingContact(null);
+        }}
+        contact={editingContact}
+        onContactUpdated={() => {
+          if (viewMode === "detail" && selectedDataFileForView) {
+            fetchDetailContacts("list", selectedDataFileForView);
+          } else if (segmentViewMode === "detail" && selectedSegmentForView) {
+            fetchDetailContacts("segment", selectedSegmentForView);
+          } else if (selectedDataFile) {
+            fetchContacts();
+          }
+          setDetailSelectedContacts(new Set());
+        }}
+        onShowMessage={(message, type) => {
+          if (type === 'success') {
+            appModal.showSuccess(message);
+          } else {
+            appModal.showError(message);
+          }
+        }}
+      />
       <AppModal
         isOpen={appModal.isOpen}
         onClose={appModal.hideModal}

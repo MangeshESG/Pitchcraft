@@ -11,10 +11,13 @@ import { useNavigate } from "react-router-dom";
 export const Dashboard: React.FC = () => {
   const [mode, setMode] = useState<"new" | "existing">("new");
   const navigate = useNavigate();
-  const [showModal, setShowModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+const [showCampaignModal, setShowCampaignModal] = useState(false);
 
-  const handleOpen = () => setShowModal(true);
-  const handleClose = () => setShowModal(false);
+  const handleClose = () => {
+  setShowImportModal(false);
+  setShowCampaignModal(false);
+};
 
   return (
     <div className="mx-auto">
@@ -62,18 +65,18 @@ export const Dashboard: React.FC = () => {
                     <span className="min-w-[30px] h-[30px] font-[600] rounded-full bg-[#cfecd6] green flex items-center justify-center text-[16px] font-extrabold mr-2">
                       1
                     </span>
-                    Create a template
+                    Create a blueprint
                   </div>
                   <span className=" text-gray-400">Video coming soon</span>
                 </div>
                 <div className="flex justify-between h-[calc(100%-30px)]">
                   <div className="flex-1 flex flex-col">
                     <div className="text-gray-500 my-6">
-                      <p>Contact your account manager for new pitch templates. Soon you'll
+                      <p>Contact your account manager for new pitch blueprints. Soon you'll
                         be able to build them right in PitchKraft.</p>
                     </div>
                     <button onClick={() => navigate("/main?tab=TestTemplate")} className="border-[#3f9f42] border  w-[fit-content] mt-[auto] text-[#3f9f42]  rounded-md px-3 py-1.5  font-semibold ">
-                      Create template
+                      Create blueprint
                     </button>
                   </div>
                   <div className="min-w-[180px] d-flex justify-center items-center">
@@ -94,7 +97,7 @@ export const Dashboard: React.FC = () => {
                     </span>
                     Import contacts
                   </div>
-                  <button onClick={handleOpen} className=" green flex gap-2 items-center">
+                  <button onClick={() => setShowImportModal(true)} className=" green flex gap-2 items-center">
                     <FontAwesomeIcon
                       icon={faPlayCircle}
                       className=" text-[#3f9f42] text-[14px]"
@@ -103,7 +106,7 @@ export const Dashboard: React.FC = () => {
                       Watch quick intro
                     </span>
                   </button>
-                  {showModal && (
+                  {showImportModal  && (
                     <div
                       style={{
                         position: "fixed",
@@ -115,7 +118,7 @@ export const Dashboard: React.FC = () => {
                         display: "flex",
                         justifyContent: "center",
                         alignItems: "center",
-                        zIndex: 1000,
+                        //zIndex: 1000,
                       }}
                     >
                       <div
@@ -125,6 +128,7 @@ export const Dashboard: React.FC = () => {
                           borderRadius: "10px",
                           maxWidth: "800px",
                           width: "90%",
+                          zIndex: 2000,
                         }}
                       >
                         <button
@@ -133,13 +137,9 @@ export const Dashboard: React.FC = () => {
                         >
                           Close
                         </button>
-                        <video
-                          width="100%"
-                          height="auto"
-                          controls
-                          autoPlay
-                          src="/video/Import contacts into PitchKraft.mp4"
-                        />
+                         <video width="100%" height="auto" controls autoPlay>
+  <source src="/video/ImportContacts.mp4" type="video/mp4" />
+</video>
                       </div>
                     </div>
                   )}
@@ -171,7 +171,7 @@ export const Dashboard: React.FC = () => {
                     </span>
                     Create a campaign
                   </div>
-                  <button onClick={handleOpen} className=" green flex gap-2 items-center">
+                  <button onClick={() => setShowCampaignModal(true)} className=" green flex gap-2 items-center">
                     <FontAwesomeIcon
                       icon={faPlayCircle}
                       className=" text-[#3f9f42] text-[14px]"
@@ -180,7 +180,7 @@ export const Dashboard: React.FC = () => {
                       Watch quick intro
                     </span>
                   </button>
-                  {showModal && (
+                  {showCampaignModal  && (
                     <div
                       style={{
                         position: "fixed",
@@ -192,7 +192,7 @@ export const Dashboard: React.FC = () => {
                         display: "flex",
                         justifyContent: "center",
                         alignItems: "center",
-                        zIndex: 1000,
+                        //zIndex: 1000,
                       }}
                     >
                       <div
@@ -202,6 +202,7 @@ export const Dashboard: React.FC = () => {
                           borderRadius: "10px",
                           maxWidth: "800px",
                           width: "90%",
+                          zIndex: 2000,
                         }}
                       >
                         <button
@@ -210,12 +211,15 @@ export const Dashboard: React.FC = () => {
                         >
                           Close
                         </button>
-                        <video
+                         {/* <video width="100%" height="auto" controls autoPlay muted={false}>
+  <source src="/video/CreateCampaign.mp4" type="video/mp4" />
+</video> */}
+<video
                           width="100%"
                           height="auto"
                           controls
                           autoPlay
-                          src="/video/Create a campaign.mp4"
+                          src="/video/CreateCampaign1.mp4"
                         />
                       </div>
                     </div>
@@ -247,10 +251,10 @@ export const Dashboard: React.FC = () => {
                     <span className="min-w-[30px] h-[30px] font-[600] rounded-full bg-[#cfecd6] green flex items-center justify-center text-[16px] font-extrabold mr-2">
                       4
                     </span>
-                    Generate emails
+                    Kraft emails
 
                   </div>
-                  <span className=" text-gray-400">Video coming sooon</span>
+                  <span className=" text-gray-400">Video coming soon</span>
                   {/* <button className=" green flex gap-2 items-center">
                     <FontAwesomeIcon
                       icon={faPlayCircle}
@@ -265,7 +269,7 @@ export const Dashboard: React.FC = () => {
                       <p className="flex-1">Create hyper-personalized emails for your campaigns.</p>
                     </div>
                     <button onClick={() => navigate("/main?tab=Output")} className="border-[#3f9f42] border  w-[fit-content] mt-[auto] text-[#3f9f42]  rounded-md px-3 py-1.5  font-semibold">
-                      Generate emails
+                      Kraft emails
                     </button>
                   </div>
                   <div className="min-w-[180px] d-flex justify-center items-center">
@@ -288,7 +292,7 @@ export const Dashboard: React.FC = () => {
                     Schedule and review campaigns
                   </div>
 
-                  <span className=" text-gray-400">Video coming sooon</span>
+                  <span className=" text-gray-400">Video coming soon</span>
 
                 </div>
                 <div className="flex justify-between h-[calc(100%-30px)]">

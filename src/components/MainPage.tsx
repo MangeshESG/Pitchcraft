@@ -13,11 +13,12 @@ import {
 
 } from "@fortawesome/free-solid-svg-icons";
 import { faEnvelope, faFileAlt } from "@fortawesome/free-regular-svg-icons";
+import { usePageTitle } from "../hooks/usePageTitle";
 import "./MainPage.css";
 import Modal from "./common/Modal";
 import AppModal from "../components/common/AppModal";
 import pitchLogo from '../assets/images/pitch_logo.png';
-import Template from "./feature/Template"; // Add this import
+import Template from "./feature/blueprint/Template"; // Add this import
 
 import { useAppModal } from "../hooks/useAppModal";
 import { useSelector } from "react-redux";
@@ -28,7 +29,6 @@ import "react-quill-new/dist/quill.snow.css";
 import { RootState } from "../Redux/store";
 import { systemPrompt, Languages } from "../utils/label";
 import Output from "./feature/Output";
-import Settings from "./feature/Settings";
 import DataFile from "./feature/datafile";
 import axios from "axios";
 import Header from "./common/Header";
@@ -40,7 +40,7 @@ import DataCampaigns from "./feature/ContactList"; // Adjust the path based on y
 import CampaignManagement from "./feature/CampaignManagement";
 import { useAppData } from "../contexts/AppDataContext";
 import { Dashboard } from "./feature/Dashboard";
-import EmailCampaignBuilder from "./feature/EmailCampaignBuilder";
+import EmailCampaignBuilder from "./feature/blueprint/EmailCampaignBuilder";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { saveUserCredit } from "../slices/authSLice";
 import { useCreditCheck } from "../hooks/useCreditCheck";
@@ -355,93 +355,161 @@ const MainPage: React.FC = () => {
   const [mailSubTab, setMailSubTab] = useState<string>(initialMailSubTab);
   const [contactsSubTab, setContactsSubTab] = useState<string>(initialContactsSubTab);
 
+  // Update page title when tab changes
+  useEffect(() => {
+    const getPageTitle = () => {
+      switch (tab) {
+        case "Dashboard": return "Dashboard - View progress and help videos";
+        case "TestTemplate": return "Blueprints - Create and manage email blueprints";
+        case "Playground": return "Playground - Experiment with email generation";
+        case "DataCampaigns": return contactsSubTab === "List" ? "Contact Lists - Create and manage contacts and segments" : "Contact Segments - Create and manage contacts and segments";
+        case "Campaigns": return "Campaigns - Create and manage email campaigns";
+        case "Output": return "Kraft Emails - Generate hyper-personalized emails";
+        case "Mail": return mailSubTab === "Dashboard" ? "Mail Dashboard - Configure email, schedule sends and review analytics" : mailSubTab === "Configuration" ? "Mail Configuration - Configure email, schedule sends and review analytics" : "Mail Schedules - Configure email, schedule sends and review analytics";
+        case "MyPlan": return "My Plan";
+        default: return "Dashboard";
+      }
+    };
+
+    document.title = `${getPageTitle()} - PitchKraft`;
+  }, [tab, contactsSubTab, mailSubTab]);
+
   const [showMailSubmenu, setShowMailSubmenu] = useState(initialTab === "Mail");
   const [showContactsSubmenu, setShowContactsSubmenu] = useState(false);
 
 
-// Load Campaign Blueprint when a campaign is selected
-// 🧠 Define this function above goToTab (not inside useEffect)
-const loadCampaignBlueprint = async (selectedCampaign: string) => {
-  console.log("Fetching campaign details for selected campaign:", selectedCampaign);
+  // Load Campaign Blueprint when a campaign is selected
+  // 🧠 Define this function above goToTab (not inside useEffect)
+  // Load Campaign Blueprint when a campaign is selected
+  const loadCampaignBlueprint = async (selectedCampaign: string) => {
+    console.log("Fetching campaign details for selected campaign:", selectedCampaign);
 
-  const campaignResponse = await fetch(`${API_BASE_URL}/api/auth/campaigns/${selectedCampaign}`);
-  if (!campaignResponse.ok) throw new Error("Failed to fetch campaign details");
-  const campaignData = await campaignResponse.json();
+    const campaignResponse = await fetch(`${API_BASE_URL}/api/auth/campaigns/${selectedCampaign}`);
+    if (!campaignResponse.ok) throw new Error("Failed to fetch campaign details");
+    const campaignData = await campaignResponse.json();
 
-  const clientId = campaignData.clientId;
-  const templateId = campaignData.templateId;
+    const clientId = campaignData.clientId;
+    const templateId = campaignData.templateId;
 
-  if (!templateId || !clientId) throw new Error("Missing templateId or clientId");
+    if (!templateId || !clientId) throw new Error("Missing templateId or clientId");
 
-  let blueprint = "";
-  let matchedTemplate: any = null;
+    let blueprint = "";
+    let matchedTemplate: any = null;
 
-  // 🔹 1. Fetch blueprint from specific campaign endpoint
-  const bpResp = await fetch(`${API_BASE_URL}/api/CampaignPrompt/campaign/${templateId}`);
-  if (bpResp.ok) {
-    const bpJson = await bpResp.json();
-    blueprint =
-      (bpJson.campaignBlueprint ||
-        bpJson.aiInstructions ||
-        bpJson.masterBlueprint ||
-        bpJson.templateBlueprint ||
-        "").toString();
-  }
+    // 🔹 1. Fetch blueprint + placeholderValues from template
+    const bpResp = await fetch(`${API_BASE_URL}/api/CampaignPrompt/campaign/${templateId}`);
+    let bpJson: any = {};
+    if (bpResp.ok) {
+      bpJson = await bpResp.json();
 
-  // 🔹 2. Fallback: check in client templates
-  if (!blueprint.trim()) {
-    const templatesResp = await fetch(`${API_BASE_URL}/api/CampaignPrompt/templates/${clientId}`);
-    if (templatesResp.ok) {
-      const templatesJson = await templatesResp.json();
-      matchedTemplate = (templatesJson.templates || []).find((t: any) => t.id === templateId);
       blueprint =
-        (matchedTemplate?.campaignBlueprint ||
-          matchedTemplate?.aiInstructions ||
-          matchedTemplate?.masterBlueprint ||
+        (bpJson.campaignBlueprint ||
+          bpJson.aiInstructions ||
+          bpJson.masterBlueprint ||
+          bpJson.templateBlueprint ||
           "").toString();
+
+      // ---------------------------------------------------------
+      // ⭐⭐⭐ ADD YOUR REQUIRED LOGIC HERE
+      // ---------------------------------------------------------
+
+      const pv = bpJson.placeholderValues || {};
+
+      // ✅ Subject config from placeholderValues
+        const subjectConfig = {
+          isAI: pv["email_subject-AI"] === "yes",
+          manualTemplate: pv["email_subject-manual"] || "",
+        };
+
+        sessionStorage.setItem(
+          "campaignSubjectConfig",
+          JSON.stringify(subjectConfig)
+        );
+
+
+      setSearchTermForm({
+        searchTerm: pv.hook_search_terms || "",
+        instructions: pv.search_objective || "",
+        searchCount: bpJson.searchURLCount?.toString() || "1",
+        output: ""
+      });
+
+      // Set selected GPT Model
+      setSelectedModelName(bpJson.selectedModel || "gpt-5");
+
+      if (bpJson.subjectInstructions) {
+        setSettingsForm((prev: any) => ({
+          ...prev,
+          subjectInstructions: bpJson.subjectInstructions
+        }));
+      }
+      console.log("🎯 Loaded from DB:", {
+        searchTerm: pv.hook_search_terms,
+        instructions: pv.search_objective,
+        searchCount: bpJson.searchURLCount,
+        model: bpJson.selectedModel
+      });
+
+      // ---------------------------------------------------------
     }
-  }
 
-  if (!blueprint.trim()) throw new Error(`No blueprint found for templateId: ${templateId}`);
+    // 🔹 2. Fallback: fetch from client templates
+    if (!blueprint.trim()) {
+      const templatesResp = await fetch(`${API_BASE_URL}/api/CampaignPrompt/templates/${clientId}`);
+      if (templatesResp.ok) {
+        const templatesJson = await templatesResp.json();
+        matchedTemplate = (templatesJson.templates || []).find((t: any) => t.id === templateId);
+        blueprint =
+          (matchedTemplate?.campaignBlueprint ||
+            matchedTemplate?.aiInstructions ||
+            matchedTemplate?.masterBlueprint ||
+            "").toString();
+      }
+    }
 
-  // ✅ Prepare the prompt object
-  const campaignBlueprintPrompt = {
-    id: templateId,
-    name: matchedTemplate?.templateName || campaignData.templateName || `Template ${templateId}`,
-    text: blueprint,
-    model: matchedTemplate?.selectedModel || "gpt-5",
+    if (!blueprint.trim()) throw new Error(`No blueprint found for templateId: ${templateId}`);
+
+    // Prepare prompt
+    const campaignBlueprintPrompt = {
+      id: templateId,
+      name: matchedTemplate?.templateName || campaignData.templateName || `Template ${templateId}`,
+      text: blueprint,
+      model: matchedTemplate?.selectedModel || "gpt-5",
+    };
+
+    // Save to React + sessionStorage
+    setSelectedPrompt(campaignBlueprintPrompt);
+    sessionStorage.setItem("selectedPrompt", JSON.stringify(campaignBlueprintPrompt));
+
+    console.log(
+      "✅ Blueprint set:",
+      campaignBlueprintPrompt.name,
+      campaignBlueprintPrompt.text.substring(0, 120)
+    );
+
+    return campaignBlueprintPrompt;
   };
 
-  // ✅ Store in React + session storage
-  setSelectedPrompt(campaignBlueprintPrompt);
-  sessionStorage.setItem("selectedPrompt", JSON.stringify(campaignBlueprintPrompt));
 
-  console.log(
-    "✅ Blueprint set:",
-    campaignBlueprintPrompt.name,
-    campaignBlueprintPrompt.text.substring(0, 120)
-  );
 
-  return campaignBlueprintPrompt;
-};
-useEffect(() => {
-  if (selectedCampaign) {
-    loadCampaignBlueprint(selectedCampaign).catch((err) =>
-      console.error("❌ Blueprint load failed in useEffect:", err)
-    );
-  }
-}, [selectedCampaign]);
+  useEffect(() => {
+    if (selectedCampaign) {
+      loadCampaignBlueprint(selectedCampaign).catch((err) =>
+        console.error("❌ Blueprint load failed in useEffect:", err)
+      );
+    }
+  }, [selectedCampaign]);
 
 
 
-useEffect(() => {
-  // Safety reset for stuck loader after login
-  const timer = setTimeout(() => {
-    setIsFetchingContacts?.(false);
-    setIsLoadingClientSettings?.(false);
-  }, 2000); // 2s fallback in case fetch fails silently
-  return () => clearTimeout(timer);
-}, []);
+  useEffect(() => {
+    // Safety reset for stuck loader after login
+    const timer = setTimeout(() => {
+      setIsFetchingContacts?.(false);
+      setIsLoadingClientSettings?.(false);
+    }, 2000); // 2s fallback in case fetch fails silently
+    return () => clearTimeout(timer);
+  }, []);
 
 
   // update states when query changes
@@ -563,17 +631,7 @@ useEffect(() => {
     }
   };
 
-  useEffect(() => {
-    const fetchSettings = async () => {
-      if (selectedClient) {
-        const settings = await fetchClientSettings(Number(selectedClient));
-        // do something with the settings here
-        console.log(settings);
-      }
-    };
 
-    fetchSettings();
-  }, [selectedClient]);
 
   const handleNewDataFileSelection = () => {
     // Call the clear function when a new data file is selected
@@ -596,15 +654,18 @@ useEffect(() => {
       setSelectedCampaign(""); // Clear campaign selection
     }
 
-    setSelectedZohoviewId(selectedId); // Update the global state
+    // ✅ Fix: Set selectedZohoviewId in the correct format
+    const formattedZohoviewId = `${clientID || effectiveUserId},${selectedId}`;
+    setSelectedZohoviewId(formattedZohoviewId);
+    console.log('Setting selectedZohoviewId to:', formattedZohoviewId);
 
     // Call the clear function when a new data file is selected
     handleNewDataFileSelection();
 
-    if (selectedId && clientID) {
+    if (selectedId && (clientID || effectiveUserId)) {
       try {
-        // Pass the data file ID instead of zoho view ID
-        await fetchAndDisplayEmailBodies(`${clientID},${selectedId}`);
+        // Use the formatted zohoviewId
+        await fetchAndDisplayEmailBodies(formattedZohoviewId);
       } catch (error) {
         console.error("Error fetching email bodies:", error);
       }
@@ -657,40 +718,9 @@ useEffect(() => {
     setOpenModals((prev) => ({ ...prev, [id]: false }));
   };
 
-  const fetchPromptsList = useCallback(async () => {
-    setEmailLoading(true); // Start loading indicator
 
-    try {
-      let url = apiUrl; // Default to current user's prompts
 
-      // If a client is selected, modify the URL to fetch prompts for that client
-      if (selectedClient !== "") {
-        url = `${API_BASE_URL}/api/auth/getprompts/${selectedClient}`;
-      }
 
-      const response = await fetch(url);
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `HTTP error! status: ${response.status}, message: ${errorText}`
-        );
-      }
-      const data: Prompt[] = await response.json();
-      console.log("Fetched prompts:", data);
-      setPromptList(data);
-    } catch (err) {
-      console.error("Error fetching prompts:", err);
-      setPromptList([]); // Ensure the list is empty in case of an error
-    } finally {
-      setEmailLoading(false); // Set loading to false when fetching is done
-    }
-  }, [selectedClient, apiUrl, API_BASE_URL]);
-
-  useEffect(() => {
-    // Clear the prompt list immediately when a new client is selected
-    setPromptList([]);
-    fetchPromptsList();
-  }, [selectedClient, fetchPromptsList]);
 
   const handleClientChange = async (
     event: React.ChangeEvent<HTMLSelectElement>
@@ -698,88 +728,35 @@ useEffect(() => {
     const newClientId = event.target.value;
     setSelectedClient(newClientId);
 
-    // Clear existing selections when client changes
+    // Reset everything when switching clients
     setSelectedPrompt(null);
     setSelectedZohoviewId("");
     setSelectedCampaign("");
     setSelectionMode("manual");
     setPromptList([]);
+    setClientSettings(null);
 
-    if (newClientId) {
-      setIsLoadingClientSettings(true);
-      try {
-        console.log("Loading settings for client:", newClientId);
-        const settings = await fetchClientSettings(Number(newClientId));
-        console.log("Settings loaded:", settings);
+    // Clear all local form states (they will later be overwritten
+    // automatically by loadCampaignBlueprint() when user selects a campaign)
+    setSearchTermForm({
+      searchCount: "",
+      searchTerm: "",
+      instructions: "",
+      output: "",
+    });
 
-        // Store settings in context
-        setClientSettings(settings);
+    setSettingsForm({
+      systemInstructions: "",
+      subjectInstructions: "",
+      emailTemplate: "",
+    });
 
-        // IMPORTANT: Apply settings to form states immediately
-        if (settings && Object.keys(settings).length > 0) {
-          // Update searchTermForm state
-          setSearchTermForm({
-            searchCount: settings.searchCount?.toString() || "",
-            searchTerm: settings.searchTerm || "",
-            instructions: settings.instructions || "",
-            output: "", // or whatever default value you use
-          });
+    setSelectedModelName("gpt-5"); // default model, will be overwritten by campaign
 
-          // Update settingsForm state
-          setSettingsForm({
-            systemInstructions: settings.systemInstructions || "",
-            subjectInstructions: settings.subjectInstructions || "",
-            emailTemplate: settings.emailTemplate || "",
-          });
-
-          // Update selected model
-          if (settings.modelName) {
-            setSelectedModelName(settings.modelName);
-            localStorage.setItem("selectedModel", settings.modelName);
-          }
-        }
-
-        // Trigger refresh for all components
-        triggerRefresh();
-      } catch (error) {
-        console.error("Error loading client settings:", error);
-        setClientSettings(null);
-
-        // Clear form states on error
-        setSearchTermForm({
-          searchCount: "",
-          searchTerm: "",
-          instructions: "",
-          output: "",
-        });
-
-        setSettingsForm({
-          systemInstructions: "",
-          subjectInstructions: "",
-          emailTemplate: "",
-        });
-      } finally {
-        setIsLoadingClientSettings(false);
-      }
-    } else {
-      // Clear everything when no client is selected
-      setClientSettings(null);
-      setSearchTermForm({
-        searchCount: "",
-        searchTerm: "",
-        instructions: "",
-        output: "",
-      });
-
-      setSettingsForm({
-        systemInstructions: "",
-        subjectInstructions: "",
-        emailTemplate: "",
-      });
-
-      triggerRefresh();
-    }
+    // Trigger refresh for dependent UI
+    triggerRefresh();
   };
+
 
   useEffect(() => {
     const isAdminString = sessionStorage.getItem("isAdmin");
@@ -787,260 +764,6 @@ useEffect(() => {
     setUserRole(isAdmin ? "ADMIN" : "USER");
   }, []);
 
-  // Add a prompt
-  const [addPrompt, setAddPrompt] = useState({
-    promptName: "",
-    promptInput: "",
-    promptTemplate: "",
-  });
-  const [editPrompt, setEditPrompt] = useState({
-    promptName: "",
-    promptInput: "",
-    promptTemplate: "",
-  }) as any;
-
-  const addPromptHandler = (
-    e:
-      | React.ChangeEvent<HTMLInputElement>
-      | React.ChangeEvent<HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target;
-
-    setAddPrompt({
-      ...addPrompt,
-      [name]: value,
-    });
-  };
-  const editPromptHandler = (
-    e:
-      | React.ChangeEvent<HTMLInputElement>
-      | React.ChangeEvent<HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target;
-
-    setEditPrompt({
-      ...editPrompt,
-      [name]: value,
-    });
-  };
-  const addPromptSubmitHandler = (e: any) => {
-    e.preventDefault();
-    createPromptList();
-  };
-  const setEditHandler = () => {
-    setEditPrompt({
-      promptName: selectedPrompt?.name,
-      promptInput: selectedPrompt?.text,
-      promptTemplate: selectedPrompt?.template,
-    });
-  };
-  const editPromptSubmitHandler = (e: any) => {
-    e.preventDefault();
-    editPromptList();
-  };
-
-  const [editPromptAlert, setEditPromptAlert] = useState(false);
-
-  const editPromptList = useCallback(async () => {
-    if (
-      !editPrompt?.promptName ||
-      !editPrompt?.promptInput ||
-      !editPrompt?.promptTemplate
-    )
-      return;
-
-    // Determine which ID to use for the update
-    //  const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
-
-    if (!effectiveUserId || Number(effectiveUserId) <= 0) {
-      console.error("Invalid userId or clientID:", effectiveUserId);
-      return;
-    }
-
-    const id = selectedPrompt?.id; // Get the ID from selectedPrompt
-
-    if (!id || Number(id) <= 0) {
-      console.error("Invalid prompt ID:", id);
-      return;
-    }
-
-    const dataToSend = {
-      id: id, // Include the ID for the update
-      name: editPrompt?.promptName,
-      text: editPrompt?.promptInput,
-      userId: effectiveUserId, // Use the determined ID
-      createdAt: "2025-02-12T15:15:53.666Z", // This should be updated or removed based on your backend requirements
-      template: editPrompt?.promptTemplate,
-    };
-
-    try {
-      const res = await axios.post(
-        `${API_BASE_URL}/api/auth/updateprompt`,
-        dataToSend,
-        { headers: { "Content-Type": "application/json" } }
-      );
-
-      console.log("Prompt updated successfully:", res);
-      setEditPrompt({ promptName: "", promptInput: "", promptTemplate: "" }); // Reset the form
-      setEditPromptAlert((prev) => !prev);
-      setTimeout(() => {
-        setEditPromptAlert((prev) => !prev);
-      }, 3000);
-      await fetchPromptsList(); // Refresh the prompt list
-    } catch (error: any) {
-      console.error(
-        "Error updating prompt:",
-        error.response?.data || error.message
-      );
-      // Handle error, display message to user, etc.
-    }
-  }, [
-    editPrompt?.promptInput,
-    editPrompt?.promptName,
-    editPrompt?.promptTemplate,
-    selectedPrompt?.id,
-    userId,
-    selectedClient,
-    fetchPromptsList,
-    setEditPrompt,
-    setEditPromptAlert,
-  ]);
-
-  const [addPromptAlert, setAddPromptAlert] = useState(false);
-
-  const createPromptList = useCallback(async () => {
-    if (!addPrompt?.promptName || !addPrompt?.promptInput) return;
-
-    // Determine which ID to use for the creation
-    const effectiveUserId =
-      selectedClient !== "" ? Number(selectedClient) : Number(userId);
-
-    if (!effectiveUserId || effectiveUserId <= 0) {
-      console.error("Invalid userId or clientID:", effectiveUserId);
-      return;
-    }
-
-    const dataToSend = {
-      name: addPrompt.promptName,
-      text: addPrompt.promptInput,
-      userId: effectiveUserId, // Use the determined ID
-      createdAt: new Date().toISOString(),
-      template: addPrompt.promptTemplate,
-    };
-
-    try {
-      const res = await axios.post(
-        `${API_BASE_URL}/api/auth/addprompt`,
-        dataToSend,
-        { headers: { "Content-Type": "application/json" } }
-      );
-
-      console.log("Prompt created successfully:", res);
-      setAddPrompt({ promptName: "", promptInput: "", promptTemplate: "" });
-      setAddPromptAlert((prev) => !prev);
-      setTimeout(() => {
-        setAddPromptAlert((prev) => !prev);
-      }, 3000);
-      await fetchPromptsList();
-    } catch (error) {
-      console.error("Error creating prompt:", error);
-    }
-  }, [
-    addPrompt,
-    userId,
-    selectedClient,
-    fetchPromptsList,
-    setAddPrompt,
-    setAddPromptAlert,
-  ]);
-
-  const deletePromptHandler = async () => {
-    if (!selectedPrompt) {
-      console.error("No prompt selected to delete.");
-      return;
-    }
-
-    // Determine which ID to use for the deletion
-    const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
-
-    if (!effectiveUserId || Number(effectiveUserId) <= 0) {
-      console.error("Invalid userId or clientID:", effectiveUserId);
-      return;
-    }
-
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/auth/deleteprompt/${selectedPrompt.id}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ userId: Number(effectiveUserId) }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `HTTP error! status: ${response.status}, message: ${errorText}`
-        );
-      }
-
-      // Get the updated prompt list from the API
-      let updatedPromptsResponse;
-      if (selectedClient !== "") {
-        updatedPromptsResponse = await fetch(
-          `${API_BASE_URL}/api/auth/getprompts/${selectedClient}`
-        );
-      } else {
-        updatedPromptsResponse = await fetch(apiUrl);
-      }
-
-      if (!updatedPromptsResponse.ok) {
-        const errorText = await updatedPromptsResponse.text();
-        throw new Error(
-          `HTTP error fetching prompts: ${updatedPromptsResponse.status}, message: ${errorText}`
-        );
-      }
-
-      const updatedPromptList = await updatedPromptsResponse.json();
-      setPromptList(updatedPromptList); // Update the promptList state
-      handleModalClose("modal-confirm-delete");
-
-      console.log("Prompt deleted and prompt list updated:", updatedPromptList);
-      setSelectedPrompt(null); // Clear the selected prompt
-    } catch (error) {
-      console.error("Error deleting prompt or fetching updated list:", error);
-      // Handle error, e.g., show message to user
-    }
-  };
-
-  const tabHandler = (e: React.MouseEvent<HTMLButtonElement>) => {
-    const { innerText } = e.currentTarget;
-    setTab(innerText);
-  };
-
-  const [tab2, setTab2] = useState("Template");
-  const tabHandler2 = (e: React.ChangeEvent<any>) => {
-    const { innerText } = e.target;
-    console.log(innerText, "innerText");
-    setTab2(innerText);
-  };
-
-  const [tab3, setTab3] = useState("Template");
-  const tabHandler3 = (e: React.ChangeEvent<any>) => {
-    const { innerText } = e.target;
-    console.log(innerText, "innerText");
-    setTab3(innerText);
-  };
-
-  const [tab4, setTab4] = useState("Template");
-  const tabHandler4 = (e: React.ChangeEvent<any>) => {
-    const { innerText } = e.target;
-    console.log(innerText, "innerText");
-    setTab4(innerText);
-  };
 
   const [delayTime, setDelay] = useState<number>(0);
   const delay = (ms: number) =>
@@ -1070,7 +793,7 @@ useEffect(() => {
       [name]: value,
     }));
   };
-   //  Close popup when clicking outside for support details
+  //  Close popup when clicking outside for support details
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -1192,7 +915,7 @@ useEffect(() => {
     if (sessionStorage.getItem("isDemoAccount") !== "true" && effectiveUserId) {
       fetchToneSettings();
     }
-  }, [effectiveUserId]); // Add effectiveUserId as dependency
+  }, [effectiveUserId]); 
 
 
 
@@ -1211,6 +934,7 @@ useEffect(() => {
       linkedin_url: entry.linkedin_url || entry.linkedin || "",
       website: entry.website || "",
       date: currentDate,
+      notes: entry.notes || "",
 
       // ✅ Add here, with optional default
       search_output_summary: scrappedData || "",
@@ -1228,12 +952,14 @@ useEffect(() => {
   };
 
   const [isFetchingContacts, setIsFetchingContacts] = useState(false);
+  const [followupEnabled, setFollowupEnabled] = useState(false);
 
   const fetchAndDisplayEmailBodies = useCallback(
     async (
       zohoviewId: string, // Format: "clientId,dataFileId" OR "segment_segmentId"
       pageToken: string | null = null,
-      direction: "next" | "previous" | null = null
+      direction: "next" | "previous" | null = null,
+      forceFollowup?: boolean
     ) => {
       try {
 
@@ -1260,7 +986,7 @@ useEffect(() => {
           console.log("Fetching segment contacts for segmentId:", segmentId);
 
           // ✅ Fetch from segment API
-          const url = `${API_BASE_URL}/api/Crm/segment/${segmentId}/contacts`;
+          const url = `${API_BASE_URL}/api/Crm/contacts/by-client-segment?clientId=${effectiveUserId}&segmentId=${segmentId}&isFollowUp=${forceFollowup ?? followupEnabled}`;
           const response = await fetch(url);
 
           if (!response.ok) {
@@ -1268,16 +994,23 @@ useEffect(() => {
           }
 
           const fetchedSegmentData = await response.json();
-          contactsData = fetchedSegmentData || [];
+          contactsData = fetchedSegmentData.contacts || [];
           console.log("Fetched segment contacts:", contactsData);
         } else {
-          // ✅ Original datafile logic (unchanged)
+          // ✅ Original datafile logic - ensure dataFileId is valid
           // Parse zohoviewId to get clientId and dataFileId
           const [clientId, extractedDataFileId] = zohoviewId.split(",");
           dataFileId = extractedDataFileId;
 
+          // ✅ Validation: ensure dataFileId is not undefined
+          if (!dataFileId || dataFileId === "undefined") {
+            console.error("Invalid dataFileId:", dataFileId, "from zohoviewId:", zohoviewId);
+            throw new Error("Invalid dataFileId - cannot fetch contacts");
+          }
+
           // Use effectiveUserId instead of selectedClient in URL
-          const url = `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${dataFileId}`;
+          const url = `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${dataFileId}&isFollowUp=${forceFollowup ?? followupEnabled}`;
+          console.log("Fetching datafile contacts with URL:", url);
           const response = await fetch(url);
 
           if (!response.ok) {
@@ -1315,6 +1048,7 @@ useEffect(() => {
           email: entry.email || "N/A",
           lastemailupdateddate: entry.updated_at || "N/A",
           emailsentdate: entry.email_sent_at || "N/A",
+          notes: entry.notes || "",
         }));
 
         const newItemsCount = emailResponses.length;
@@ -1350,8 +1084,35 @@ useEffect(() => {
 
       }
     },
-    [selectedClient, userId]
+    [selectedClient, userId, followupEnabled]
   );
+
+
+  // Refetch data when followup checkbox changes
+  useEffect(() => {
+    if (selectedZohoviewId) {
+      console.log('Followup checkbox changed, refetching data:', followupEnabled);
+      console.log('Current selectedZohoviewId:', selectedZohoviewId);
+      
+      // ✅ Fix: Ensure selectedZohoviewId is in correct format
+      let correctedZohoviewId = selectedZohoviewId;
+      
+      // If it's just a number (dataFileId) and not segment format, fix it
+      if (!selectedZohoviewId.startsWith('segment_') && !selectedZohoviewId.includes(',')) {
+        correctedZohoviewId = `${effectiveUserId},${selectedZohoviewId}`;
+        console.log('Corrected selectedZohoviewId to:', correctedZohoviewId);
+        // Also update the state to prevent future issues
+        setSelectedZohoviewId(correctedZohoviewId);
+      }
+      
+      fetchAndDisplayEmailBodies(correctedZohoviewId);
+    }
+  }, [followupEnabled, effectiveUserId]);
+
+  // Handle followup checkbox change
+  const handleFollowupChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setFollowupEnabled(event.target.checked);
+  };
 
   const sendEmail = async (
     cost: number,
@@ -1487,38 +1248,7 @@ useEffect(() => {
     return `${day}.${month}.${year} ${hours}:${minutes}:${seconds}`;
   }
 
-  const fetchClientSettings = async (clientID: number): Promise<any> => {
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/auth/clientSettings/${clientID}`
-      );
-      if (!response.ok) {
-        throw new Error("Failed to fetch client settings");
-      }
-      const settings = await response.json();
 
-      if (!settings || settings.length === 0) {
-        console.warn("No settings found for the given Client ID");
-        return {};
-      }
-
-      // The API returns an array, so get the first element
-      const clientSettings = settings[0];
-
-      // Map snake_case API properties to camelCase for React components
-      return {
-        modelName: clientSettings.model_name,
-        searchCount: clientSettings.search_URL_count,
-        searchTerm: clientSettings.search_term,
-        instructions: clientSettings.instruction,
-        systemInstructions: clientSettings.system_instruction,
-        subjectInstructions: clientSettings.subject_instruction,
-      };
-    } catch (error) {
-      console.error("Error fetching client settings:", error);
-      return {};
-    }
-  };
 
   const analyzeScrapedData = (
     scrapedData: string
@@ -1554,20 +1284,14 @@ useEffect(() => {
       }
     }
 
-if (tab === "Output" && selectedCampaign) {
-  try {
-    await loadCampaignBlueprint(selectedCampaign);
-  } catch (error) {
-    console.error("❌ Failed to load campaign blueprint:", error);
-    return;
-  }
-}
-
-
-
-
-
-
+    if (tab === "Output" && selectedCampaign) {
+      try {
+        await loadCampaignBlueprint(selectedCampaign);
+      } catch (error) {
+        console.error("❌ Failed to load campaign blueprint:", error);
+        return;
+      }
+    }
     // --- Get current date in readable format ---
     const currentDate = new Date().toLocaleDateString("en-US", {
       year: "numeric",
@@ -1577,7 +1301,7 @@ if (tab === "Output" && selectedCampaign) {
 
     const replaceAllPlaceholders = (
       text: string,
-      replacements: Record<string, string>
+      replacements: { [key: string]: any }
     ) => {
       if (!text) return "";
 
@@ -1623,25 +1347,36 @@ if (tab === "Output" && selectedCampaign) {
       return;
     }
 
-    // Fetch default values from API
-    const defaultValues = await fetchClientSettings(Number(clientID));
-    // Determine which values to use
-    const selectedModelNameA = selectedModelName || defaultValues.modelName;
-    const searchterm = searchTermForm.searchTerm || defaultValues.searchTerm;
-    const searchCount = searchTermForm.searchCount || defaultValues.searchCount;
-    const instructionsParamA =
-      searchTermForm.instructions || defaultValues.instructions;
-    const systemInstructionsA =
-      settingsForm.systemInstructions || defaultValues.systemInstructions;
-    const subject_instruction =
-      settingsForm.subjectInstructions || defaultValues.subjectInstructions;
+          // =====================================================
+      // 🟢 STEP 3: READ subject config from campaign placeholders
+      // =====================================================
+      const campaignSubjectConfig = (() => {
+        try {
+          return JSON.parse(
+            sessionStorage.getItem("campaignSubjectConfig") || "{}"
+          );
+        } catch {
+          return {};
+        }
+      })();
+
+      const isSubjectAI = campaignSubjectConfig?.isAI === true;
+      const manualSubjectTemplate =
+        campaignSubjectConfig?.manualTemplate || "";
+
+
+    const selectedModelNameA = selectedModelName;
+    const searchterm = searchTermForm.searchTerm;
+    const searchCount = searchTermForm.searchCount;
+    const instructionsParamA = searchTermForm.instructions;
+    const systemInstructionsA = settingsForm.systemInstructions;
+    const subject_instruction = settingsForm.subjectInstructions;
 
     const startTime = new Date();
 
     let parsedClientId: number;
     let parsedDataFileId: number | null = null;
     let segmentId: string | null = null;
-
     if (selectedZohoviewId) {
       if (selectedZohoviewId.startsWith("segment_")) {
         // ✅ Handle segment-based campaign
@@ -1750,6 +1485,9 @@ if (tab === "Output" && selectedCampaign) {
         // --- Generate new pitch as per your normal contact process ---
         let replacements = buildReplacements(entry, currentDate, toneSettings);
 
+        replacements.notes = entry.notes || "";
+
+
         const searchTermBody = replaceAllPlaceholders(searchterm, replacements);
 
         const filledInstructions = replaceAllPlaceholders(
@@ -1791,14 +1529,27 @@ if (tab === "Output" && selectedCampaign) {
               }),
             }
           );
-          if (!scrapeResponse.ok) {
-            setIsProcessing(false);
-            setIsPitchUpdateCompleted(true);
-            setIsPaused(true);
-            return;
-          }
-          scrapeData = await scrapeResponse.json();
-          processCacheRef.current[cacheKey] = scrapeData;
+if (!scrapeResponse.ok) {
+  setOutputForm(prev => ({
+    ...prev,
+    generatedContent:
+      `<span style="color: orange">[${formatDateTime(
+        new Date()
+      )}] Process API failed for ${full_name}. Continuing with fallback data.</span><br/>`
+      + prev.generatedContent,
+  }));
+
+  scrapeData = {
+    pitchResponse: { content: "" },
+    searchResults: [],
+    allScrapedData: "",
+  };
+} else {
+  scrapeData = await scrapeResponse.json();
+  processCacheRef.current[cacheKey] = scrapeData;
+}
+
+          
         }
 
         if (cacheHit) {
@@ -1816,12 +1567,17 @@ if (tab === "Output" && selectedCampaign) {
         const searchResults = scrapeData.searchResults || [];
         const scrappedData = summary.content || "";
 
-        if (!scrappedData) {
-          setIsProcessing(false);
-          setIsPitchUpdateCompleted(true);
-          setIsPaused(true);
-          return;
-        }
+if (!scrappedData) {
+  setOutputForm(prev => ({
+    ...prev,
+    generatedContent:
+      `<span style="color: orange">[${formatDateTime(
+        new Date()
+      )}] No scraped data for ${full_name}. Generating pitch anyway.</span><br/>`
+      + prev.generatedContent,
+  }));
+}
+
 
         replacements = {
           ...replacements,
@@ -1864,11 +1620,20 @@ if (tab === "Output" && selectedCampaign) {
 
         const pitchData = await pitchResponse.json();
         if (!pitchResponse.ok) {
-          setIsProcessing(false);
-          setIsPitchUpdateCompleted(true);
-          setIsPaused(true);
-          return;
+          setOutputForm(prev => ({
+            ...prev,
+            generatedContent:
+              `<span style="color: red">[${formatDateTime(
+                new Date()
+              )}] Pitch generation failed for ${full_name}. Using fallback pitch.</span><br/>`
+              + prev.generatedContent,
+          }));
+
+          pitchData.response = {
+            content: `Hi ${full_name},\n\nI wanted to reach out regarding a potential opportunity.`,
+          };
         }
+
 
         const dataAnalysis = analyzeScrapedData(
           scrapeData.allScrapedData || ""
@@ -1889,7 +1654,7 @@ if (tab === "Output" && selectedCampaign) {
 
         //----------------------------------------------------------------------------------------
         let subjectLine = "";
-        if (subjectMode === "AI generated") {
+        if (isSubjectAI) {
           const filledSubjectInstruction = replaceAllPlaceholders(
             subject_instruction,
             {
@@ -1946,28 +1711,33 @@ if (tab === "Output" && selectedCampaign) {
                 prev.generatedContent,
             }));
           }
-        } else if (subjectMode === "With Placeholder") {
-          subjectLine = (subjectText || "")
-            .replace("{company_name}", company_name)
-            .replace("{job_title}", job_title)
-            .replace("{location}", location)
-            .replace("{full_name}", full_name)
-            .replace("{linkedin_url}", linkedin_url)
-            .replace("{search_output_summary}", scrappedData)
-            .replace("{generated_pitch}", pitchData.response?.content || "")
-            .replace("{website}", website)
-            .replace("{date}", currentDate);
+        } else if (manualSubjectTemplate) {
+  subjectLine = replaceAllPlaceholders(
+    manualSubjectTemplate,
+    {
+      company_name,
+      job_title,
+      location,
+      full_name,
+      linkedin_url,
+      website,
+      date: currentDate,
+      search_output_summary: scrappedData || "",
+      generated_pitch: pitchData.response?.content || "",
+    }
+  );
 
-          setOutputForm((prev) => ({
-            ...prev,
-            generatedContent:
-              `<span style="color: green">[${formatDateTime(
-                new Date()
-              )}] Subject using user placeholder for contact ${full_name} with company name ${company_name} and domain ${entry.email
-              }</span><br/>` + prev.generatedContent,
-            emailSubject: subjectLine,
-          }));
-        }
+  setOutputForm((prev) => ({
+    ...prev,
+    generatedContent:
+      `<span style="color: green">[${formatDateTime(
+        new Date()
+      )}] Subject generated from campaign placeholder for ${full_name}</span><br/>`
+      + prev.generatedContent,
+    emailSubject: subjectLine,
+  }));
+}
+
         // ✅ Replace the database update logic in REGENERATION BLOCK
         try {
           if (id && pitchData.response?.content) {
@@ -2035,7 +1805,6 @@ if (tab === "Output" && selectedCampaign) {
                     prevOutputForm.generatedContent,
                 }));
                 try {
-                  debugger
                   const userCreditResponse = await fetch(
                     `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`
                   );
@@ -2453,6 +2222,8 @@ if (tab === "Output" && selectedCampaign) {
             currentDate,
             toneSettings
           );
+          replacements.notes = entry.notes || "";
+
 
           const searchTermBody = replaceAllPlaceholders(
             searchterm,
@@ -2521,7 +2292,6 @@ if (tab === "Output" && selectedCampaign) {
                 ...entry,
                 pitch: "Error scraping website",
               });
-              continue;
             }
             scrapeData = await scrapeResponse.json();
             processCacheRef.current[cacheKey] = scrapeData;
@@ -2568,7 +2338,6 @@ if (tab === "Output" && selectedCampaign) {
               ...entry,
               pitch: "Error scraping website",
             });
-            continue;
           }
 
           replacements = {
@@ -2704,7 +2473,7 @@ if (tab === "Output" && selectedCampaign) {
 
           // Generate subject line
           let subjectLine = "";
-          if (subjectMode === "AI generated") {
+          if (isSubjectAI) {
             const filledSubjectInstruction = replaceAllPlaceholders(
               subject_instruction,
               {
@@ -2761,28 +2530,33 @@ if (tab === "Output" && selectedCampaign) {
                   }</span><br/>` + prev.generatedContent,
               }));
             }
-          } else if (subjectMode === "With Placeholder") {
-            subjectLine = (subjectText || "")
-              .replace("{company_name}", company_name)
-              .replace("{job_title}", job_title)
-              .replace("{location}", location)
-              .replace("{full_name}", full_name)
-              .replace("{linkedin_url}", linkedin_url)
-              .replace("{search_output_summary}", scrappedData)
-              .replace("{generated_pitch}", pitchData.response?.content || "")
-              .replace("{website}", website)
-              .replace("{date}", currentDate);
+} else if (manualSubjectTemplate) {
+  subjectLine = replaceAllPlaceholders(
+    manualSubjectTemplate,
+    {
+      company_name,
+      job_title,
+      location,
+      full_name,
+      linkedin_url,
+      website,
+      date: currentDate,
+      search_output_summary: scrappedData || "",
+      generated_pitch: pitchData.response?.content || "",
+    }
+  );
 
-            setOutputForm((prev) => ({
-              ...prev,
-              generatedContent:
-                `<span style="color: green">[${formatDateTime(
-                  new Date()
-                )}] Subject using user placeholder for contact ${full_name} with company name ${company_name} and domain ${entry.email
-                }</span><br/>` + prev.generatedContent,
-              emailSubject: subjectLine,
-            }));
-          }
+  setOutputForm((prev) => ({
+    ...prev,
+    generatedContent:
+      `<span style="color: green">[${formatDateTime(
+        new Date()
+      )}] Subject generated from campaign placeholder for ${full_name}</span><br/>`
+      + prev.generatedContent,
+    emailSubject: subjectLine,
+  }));
+}
+
 
           // Update the linkLabel to show both subject and pitch
           setOutputForm((prevOutputForm) => ({
@@ -3024,10 +2798,10 @@ if (tab === "Output" && selectedCampaign) {
                       prevOutputForm.generatedContent,
                   }));
                   try {
-                  const userCreditResponse = await fetch(
-                    `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`
-                  );
-                  if (!userCreditResponse.ok) throw new Error("Failed to fetch user credit");
+                    const userCreditResponse = await fetch(
+                      `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`
+                    );
+                    if (!userCreditResponse.ok) throw new Error("Failed to fetch user credit");
 
                     const userCreditData = await userCreditResponse.json();
                     console.log("User credit data:", userCreditData);
@@ -3192,48 +2966,7 @@ if (tab === "Output" && selectedCampaign) {
     output: "",
   });
 
-  const searchTermFormOnSubmit = async (e: any) => {
-    e.preventDefault();
-    try {
-      const requestBody = searchTermForm.searchTerm; // Send only the search term in the body
 
-      const instructionsParam = encodeURIComponent(searchTermForm.instructions); // Encode to prevent URL issues
-      const modelNameParam = encodeURIComponent(selectedModelName);
-      const searchCountParam = encodeURIComponent(searchTermForm.searchCount);
-
-      const response = await fetch(
-        `${API_BASE_URL}/api/auth/process?instructions=${instructionsParam}&modelName=${modelNameParam}&searchCount=${searchCountParam}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(requestBody), 
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        console.error("API Error:", data);
-        setSearchTermForm((prevForm: any) => ({
-          ...prevForm,
-          output: "Error processing request",
-        }));
-      } else {
-        setSearchTermForm((prevForm: any) => ({
-          ...prevForm,
-          output: data.response.content, 
-        }));
-      }
-    } catch (error) {
-      console.error("Error:", error);
-      setSearchTermForm((prevForm: any) => ({
-        ...prevForm,
-        output: "Error processing request",
-      }));
-    }
-  };
 
   const [settingsForm, setSettingsForm] = useState({
     emailTemplate: "",
@@ -3263,71 +2996,7 @@ if (tab === "Output" && selectedCampaign) {
         [name]: newValue,
       }));
     },
-    [] // Empty dependency array
-  );
-
-  const settingsFormOnSubmit = (e: any) => {
-    e.preventDefault();
-    console.log(outputForm, "outputForm");
-    console.log(settingsForm, "settingForm");
-  };
-
-  // To handle RTE change
-  const handleViewPromptRTE = useCallback(
-    (value: string) => {
-      if (selectedPrompt) {
-        setSelectedPrompt((prev) => ({
-          ...prev!,
-          text: value,
-        }));
-      }
-    },
-    [selectedPrompt]
-  );
-
-  const handleEditPromptInputRTE = useCallback(
-    (value: string) => {
-      if (editPrompt) {
-        setEditPrompt((prev: any) => ({
-          ...prev!,
-          promptInput: value,
-        }));
-      }
-    },
-    [editPrompt]
-  );
-  const handleEditPromptTemplateRTE = useCallback(
-    (value: string) => {
-      if (editPrompt) {
-        setEditPrompt((prev: any) => ({
-          ...prev!,
-          promptTemplate: value,
-        }));
-      }
-    },
-    [editPrompt]
-  );
-  const handleAddPromptInPutRTE = useCallback(
-    (value: string) => {
-      if (addPrompt) {
-        setAddPrompt((prev) => ({
-          ...prev!,
-          promptInput: value,
-        }));
-      }
-    },
-    [addPrompt]
-  );
-  const handleAddPromptTemplateRTE = useCallback(
-    (value: string) => {
-      if (addPrompt) {
-        setAddPrompt((prev) => ({
-          ...prev!,
-          promptTemplate: value,
-        }));
-      }
-    },
-    [addPrompt]
+    [] 
   );
 
   // Convert line break to br
@@ -3623,15 +3292,15 @@ if (tab === "Output" && selectedCampaign) {
           if (segmentId) {
             // ✅ Campaign uses segment
             console.log("Using segment-based campaign");
-            setSelectedZohoviewId(`segment_${segmentId}`);
-            await fetchAndDisplayEmailBodies(`segment_${segmentId}`);
+            const segmentZohoviewId = `segment_${segmentId}`;
+            setSelectedZohoviewId(segmentZohoviewId);
+            await fetchAndDisplayEmailBodies(segmentZohoviewId);
           } else if (dataFileId) {
-            // ✅ Campaign uses datafile - existing logic
+            // ✅ Campaign uses datafile - Fix: set in correct format
             console.log("Using datafile-based campaign");
-            setSelectedZohoviewId(dataFileId);
-            await fetchAndDisplayEmailBodies(
-              `${effectiveUserId},${dataFileId}`
-            );
+            const datafileZohoviewId = `${effectiveUserId},${dataFileId}`;
+            setSelectedZohoviewId(datafileZohoviewId);
+            await fetchAndDisplayEmailBodies(datafileZohoviewId);
           } else {
             console.error("Campaign has neither segmentId nor dataFileId");
             return;
@@ -3792,7 +3461,7 @@ if (tab === "Output" && selectedCampaign) {
                           navigate("/main");
                         }}
                         className="side-menu-button"
-                        title="Click to view the original non-personalized email template"
+                        title="View progress and help videos"
                       >
                         <span className="menu-icon">
                           {/* <FontAwesomeIcon
@@ -3806,13 +3475,12 @@ if (tab === "Output" && selectedCampaign) {
                         <span className="menu-text">Dashboard</span>
                       </button>
                     </li>
-                    
+
 
 
                     <li
-                      className={`${tab === "TestTemplate" ? "active" : ""} ${
-                        showBlueprintSubmenu ? "has-submenu submenu-open" : "has-submenu"
-                      }`}
+                      className={`${tab === "TestTemplate" ? "active" : ""} ${showBlueprintSubmenu ? "has-submenu submenu-open" : "has-submenu"
+                        }`}
                     >
                       <button
                         onClick={() => {
@@ -3821,13 +3489,13 @@ if (tab === "Output" && selectedCampaign) {
                             setShowBlueprintSubmenu(true);
                             setShowMailSubmenu(false);
                             setShowContactsSubmenu(false);
-                            navigate("/main");
+                            navigate("/main?tab=TestTemplate");
                           } else {
                             setShowBlueprintSubmenu((prev: boolean) => !prev);
                           }
                         }}
                         className="side-menu-button"
-                        title="Manage test templates and playground"
+                        title="Create and manage email blueprints"
                       >
                         <span className="menu-icon">
                           <FontAwesomeIcon icon={faFileAlt} className="text-[#333333] text-lg" />
@@ -3850,13 +3518,20 @@ if (tab === "Output" && selectedCampaign) {
                               onClick={() => {
                                 setBlueprintSubTab("List");
                                 setTab("TestTemplate");
-                                navigate("/main");
+
+                                // FIX: Delay writing to session to avoid breaking navigation
+                                setTimeout(() => {
+                                  sessionStorage.setItem("campaign_activeTab", "build");
+                                }, 0);
+
+                                navigate("/main?tab=TestTemplate");
                               }}
                               className="submenu-button"
                             >
                               Blueprints
                             </button>
                           </li>
+
 
                           {/* ADMIN only Playground */}
                           {userRole === "ADMIN" && (
@@ -3895,7 +3570,7 @@ if (tab === "Output" && selectedCampaign) {
                           }
                         }}
                         className="side-menu-button"
-                        title="Manage contacts and segments"
+                        title="Create and manage contacts and segments"
                       >
                         <span className="menu-icon">
                           <FontAwesomeIcon
@@ -3958,7 +3633,7 @@ if (tab === "Output" && selectedCampaign) {
                           navigate("/main?tab=Campaigns");
                         }}
                         className="side-menu-button"
-                        title="Manage campaigns"
+                        title="Create and manage email campaigns"
                       >
                         <span className="menu-icon">
                           <FontAwesomeIcon
@@ -3979,7 +3654,7 @@ if (tab === "Output" && selectedCampaign) {
                           navigate("/main?tab=Output");
                         }}
                         className="side-menu-button"
-                        title="Click to view the hyper-personalized emails being generated"
+                        title="Generate hyper-personalized emails"
                       >
                         <span className="menu-icon">
                           <FontAwesomeIcon
@@ -4007,6 +3682,8 @@ if (tab === "Output" && selectedCampaign) {
                           }
                         }}
                         className="side-menu-button"
+                        title="Configure email, schedule sends and review analytics"
+
                       >
                         <span className="menu-icon">
                           <FontAwesomeIcon
@@ -4072,101 +3749,6 @@ if (tab === "Output" && selectedCampaign) {
                         </ul>
                       )}
                     </li>
-                  
-
-                    <li className={tab === "Settings" ? "active" : ""}>
-                      <button
-                        onClick={() => {
-                          setTab("Settings");
-                          setShowMailSubmenu(false);
-                          setShowContactsSubmenu(false);
-                        }}
-                        className="side-menu-button"
-                      >
-                        <span className="menu-icon">
-                          <FontAwesomeIcon
-                            icon={faGear}
-                            className=" text-[#333333] text-lg"
-                          />
-                        </span>
-                        <span className="menu-text">Settings</span>
-                      </button>
-                    </li>
-                   <li className="relative">
-        {/* Button */}
-        <button
-          ref={buttonRef}
-          onClick={() => setShowSupportPopup((prev) => !prev)}
-          className="side-menu-button w-full flex items-center gap-3 px-3 py-2 hover:bg-gray-100 rounded-md"
-        >
-          <span className="menu-icon">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="20px"
-              height="20px"
-              viewBox="0 0 24 24"
-              fill="#111111"
-            >
-              <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 15h-2v-2h2v2zm1.07-7.75-.9.92C12.45 10.9 12 11.5 12 13h-2v-.5c0-.83.45-1.54 1.17-2.11l1.24-1.23a2 2 0 1 0-3.41-1.41H7a4 4 0 1 1 6.07 3.41z" />
-            </svg>
-          </span>
-          <span className="menu-text">Support Details</span>
-        </button>
-
-        {/* Popup */}
-        {showSupportPopup && (
-          <div
-            ref={popupRef}
-            className="absolute left-0 top-full mt-2 bg-white border border-gray-300 rounded-md shadow-lg p-3 w-50 z-50"
-          >
-            <h4 className="font-semibold mb-2 text-sm text-gray-800">
-              Need support?
-            </h4>
-            <div className="text-sm text-gray-700 space-y-1">
-              <p>
-                <strong>London:</strong> +44 (0) 207 660 4243
-              </p>
-              <p>
-                <strong>New York:</strong> +1 (0) 315 400 2402
-              </p>
-              <p>
-                <a
-                  href="mailto:support@pitchkraft.co"
-                  className="text-blue-600 hover:underline"
-                >
-                  support@pitchkraft.co
-                </a>
-              </p>
-            </div>
-          </div>
-        )}
-      </li>
-
-
-
-
-
-                    {/* {userRole === "ADMIN" && (
-                      <li className={tab === "TestTemplate" ? "active" : ""}>
-                        <button
-                          onClick={() => {
-                            setTab("TestTemplate");
-                            setShowMailSubmenu(false);
-                            setShowContactsSubmenu(false);
-                          }}
-                          className="side-menu-button"
-                          title="Manage test templates"
-                        >
-                          <span className="menu-icon">
-                            <FontAwesomeIcon
-                              icon={faFileAlt}
-                              className=" text-[#333333] text-lg"
-                            />
-                          </span>
-                          <span className="menu-text">Test Templates</span>
-                        </button>
-                      </li>
-                    )} */}
                   </ul>
                 </div>
               </div>
@@ -4191,6 +3773,30 @@ if (tab === "Output" && selectedCampaign) {
                     >
                       Clear Usage
                     </button>
+                    <div
+                      ref={popupRef}
+                      className="absolute left-0 top-full mt-2 bg-white border border-gray-300 rounded-md shadow-lg p-3 w-50"
+                    >
+                      <h4 className="font-semibold mb-2 text-sm text-gray-800">
+                        Need support?
+                      </h4>
+                      <div className="text-sm text-gray-700 space-y-1">
+                        <p>
+                          <strong>London:</strong> +44 (0) 207 660 4243
+                        </p>
+                        <p>
+                          <strong>New York:</strong> +1 (0) 315 400 2402
+                        </p>
+                        <p>
+                          <a
+                            href="mailto:support@pitchkraft.co"
+                            className="text-blue-600 hover:underline"
+                          >
+                            support@pitchkraft.co
+                          </a>
+                        </p>
+                      </div>
+                    </div>
                   </span>
                 </div>
               </div>
@@ -4241,7 +3847,7 @@ if (tab === "Output" && selectedCampaign) {
 
             {/* Tab Content */}
             <div className="tab-content">
-           
+
             </div>
 
             {tab === "DataCampaigns" && !showDataFileUpload && (
@@ -4350,25 +3956,12 @@ if (tab === "Output" && selectedCampaign) {
                 showCreditModal={showCreditModal}
                 checkUserCredits={checkUserCredits}
                 userId={userId}
+                followupEnabled={followupEnabled}
+                setFollowupEnabled={setFollowupEnabled}
               />
             )}
 
-            {tab === "Settings" && (
-              <Settings
-                selectedClient={selectedClient}
-                fetchClientSettings={fetchClientSettings}
-                settingsForm={settingsForm}
-                settingsFormHandler={settingsFormHandler}
-                settingsFormOnSubmit={settingsFormOnSubmit}
-                searchTermForm={searchTermForm}
-                searchTermFormHandler={searchTermFormHandler}
-                searchTermFormOnSubmit={searchTermFormOnSubmit}
-                preloadedSettings={clientSettings} // ADD THIS LINE
-                isLoadingSettings={isLoadingClientSettings} // ADD THIS LINE
-                lastLoadedClientId={lastLoadedClientId}
-                setLastLoadedClientId={setLastLoadedClientId}
-              />
-            )}
+
 
             {tab === "Mail" && (
               <Mail
@@ -4412,7 +4005,7 @@ if (tab === "Output" && selectedCampaign) {
               <EmailCampaignBuilder selectedClient={selectedClient} />
             )}
 
-            {tab === "TestTemplate" &&  (
+            {tab === "TestTemplate" && (
               <Template
                 selectedClient={selectedClient}
                 userRole={userRole}

@@ -23,21 +23,17 @@ const MyPlan: React.FC = () => {
   };
 
   return (
-    <div className="p-2">
-      {/* Title */}
-      <h1 className="text-4xl font-bold mb-6">My plan</h1>
-
+    <div className="p-2" style={{marginTop:"-70px"}}>
       {/* Tabs */}
       <div className="flex space-x-8 border-b border-gray-200">
         {tabs.map((tab) => (
           <button
             key={tab}
             onClick={() => handleTabClick(tab)}
-            className={`pb-3 text-sm font-medium ${
-              activeTab === tab
-                ? "text-indigo-600 border-b-2 border-indigo-600"
-                : "text-gray-700 hover:text-indigo-500"
-            }`}
+            className={`pb-3 text-sm font-medium ${activeTab === tab
+                ? "text-[#3f9f42] border-b-2 border-[#3f9f42]"
+                : "text-gray-700 hover:text-[#3f9f42] hover:border-b-2 hover:border-[#3f9f42]"
+              }`}
           >
             {tab}
           </button>

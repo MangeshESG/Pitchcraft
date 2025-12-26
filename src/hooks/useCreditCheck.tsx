@@ -34,7 +34,15 @@ export const useCreditCheck = () => {
         
         // Show modal if can't generate and not skipped
         if (creditData && !creditData.canGenerate && !localStorage.getItem('creditModalSkipped')) {
-          setShowCreditModal(true);
+          // Check if user has standard plan or higher
+          const hasValidPlan = creditData.planName && 
+            (creditData.planName.toLowerCase().includes('standard') || 
+             creditData.planName.toLowerCase().includes('premium') ||
+             creditData.planName.toLowerCase().includes('pro'));
+          
+          if (!hasValidPlan) {
+            setShowCreditModal(true);
+          }
         }
         
 

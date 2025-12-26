@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useRef } from "react";
 import * as XLSX from "xlsx";
 import { Tooltip as ReactTooltip } from "react-tooltip";
 import Modal from "../common/Modal";
+import ValidationErrorModal from "../common/ValidationErrorModal";
 import "./datafile.css";
 import API_BASE_URL from "../../config";
 import { useAppData } from "../../contexts/AppDataContext";
@@ -32,17 +33,18 @@ interface ProcessedContact {
   company_employee_count?: string;
   company_industry?: string;
   company_linkedin_url?: string;
-  company_event_link?: string;
+  // company_event_link?: string;
+    notes?: string;
 }
 
 const REQUIRED_FIELDS = [
-  { key: "name", label: "Name", required: true },
-  { key: "email", label: "Email", required: true },
-  { key: "job_title", label: "Job title", required: false },
-  { key: "company", label: "Company", required: false },
-  { key: "location", label: "Location", required: false },
+  { key: "name", label: "Full name (First name and Surname)", required: true },
+  { key: "email", label: "Email address", required: true },
+  { key: "job_title", label: <>Job title <span style={{ color: "blue" }}>*</span></>, required: false },
+  { key: "company", label: <>Company <span style={{ color: "blue" }}>*</span></>, required: false },
+  { key: "location", label: <>Location <span style={{ color: "blue" }}>*</span></>, required: false },
   { key: "linkedin", label: "LinkedIn URL", required: false },
-  { key: "company_website", label: "Company website", required: false },
+  { key: "company_website", label: <>Company website <span style={{ color: "blue" }}>*</span></>, required: false },
   { key: "email_body", label: "Email body", required: false },
   { key: "email_subject", label: "Email subject", required: false },
   { key: "company_telephone", label: "Company telephone", required: false },
@@ -51,13 +53,14 @@ const REQUIRED_FIELDS = [
     label: "Company employee count",
     required: false,
   },
-  { key: "company_industry", label: "Company industry", required: false },
+  { key: "company_industry", label: <>Company industry <span style={{ color: "blue" }}>*</span></>, required: false },
   {
     key: "company_linkedin_url",
     label: "Company LinkedIn URL",
     required: false,
   },
-  { key: "company_event_link", label: "Company event link", required: false },
+  // { key: "company_event_link", label: "Company event link", required: false },
+    { key: "notes", label: "Notes", required: false },
 ];
 
 const DataFile: React.FC<DataFileProps> = ({
@@ -75,6 +78,8 @@ const DataFile: React.FC<DataFileProps> = ({
   const [previewData, setPreviewData] = useState<ProcessedContact[]>([]);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [errors, setErrors] = useState<string[]>([]);
+  const [validationErrors, setValidationErrors] = useState<Array<{row: number, field: string, value: string, message: string}>>([]);
+  const [showValidationModal, setShowValidationModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [processingStats, setProcessingStats] = useState({
     total: 0,
@@ -181,12 +186,19 @@ const DataFile: React.FC<DataFileProps> = ({
         "business linkedin",
         "organization linkedin",
       ],
-      company_event_link: [
-        "company event link",
-        "event link",
-        "event url",
-        "conference link",
-        "meeting link",
+      // company_event_link: [
+      //   "company event link",
+      //   "event link",
+      //   "event url",
+      //   "conference link",
+      //   "meeting link",
+      // ],
+       notes: [
+        "notes",
+        "note",
+        "comments",
+        "remarks",
+        "additional info",
       ],
     };
 
@@ -341,7 +353,7 @@ useEffect(() => {
   const generatePreview = () => {
     const allValidData: ProcessedContact[] = [];
     const preview: ProcessedContact[] = [];
-    const validationErrors: string[] = [];
+    const detailedErrors: Array<{row: number, field: string, value: string, message: string}> = [];
     let validCount = 0;
     let invalidCount = 0;
 
@@ -359,23 +371,39 @@ useEffect(() => {
       });
 
       // Validate required fields
-      if (!mappedRow.name || !mappedRow.email) {
-        if (rowIndex < 5) {
-          validationErrors.push(
-            `Row ${rowIndex + 2}: Missing required fields (name or email)`
-          );
-        }
+      if (!mappedRow.name) {
+        detailedErrors.push({
+          row: rowIndex + 2,
+          field: 'name',
+          value: mappedRow.name || '',
+          message: 'Missing required field: Full name'
+        });
         isValid = false;
-        invalidCount++;
+      }
+      
+      if (!mappedRow.email) {
+        detailedErrors.push({
+          row: rowIndex + 2,
+          field: 'email',
+          value: mappedRow.email || '',
+          message: 'Missing required field: Email address'
+        });
+        isValid = false;
       } else if (!isValidEmail(mappedRow.email)) {
-        if (rowIndex < 5) {
-          validationErrors.push(`Row ${rowIndex + 2}: Invalid email format`);
-        }
+        detailedErrors.push({
+          row: rowIndex + 2,
+          field: 'email',
+          value: mappedRow.email,
+          message: 'Invalid email format'
+        });
         isValid = false;
-        invalidCount++;
-      } else {
+      }
+
+      if (isValid) {
         validCount++;
         allValidData.push(mappedRow);
+      } else {
+        invalidCount++;
       }
 
       if (rowIndex < 5) {
@@ -383,7 +411,7 @@ useEffect(() => {
       }
     });
 
-    setErrors(validationErrors);
+    setValidationErrors(detailedErrors);
     setPreviewData(preview);
     setProcessingStats({
       total: totalRows,
@@ -391,7 +419,13 @@ useEffect(() => {
       invalid: invalidCount,
     });
     setValidatedData(allValidData);
-    setCurrentStep(3);
+    
+    // Show validation modal if there are errors, otherwise proceed to step 3
+    if (detailedErrors.length > 0) {
+      setShowValidationModal(true);
+    } else {
+      setCurrentStep(3);
+    }
   };
 
   // Process and save data
@@ -427,7 +461,8 @@ useEffect(() => {
           companyEmployeeCount: contact.company_employee_count || "",
           companyIndustry: contact.company_industry || "",
           companyLinkedInURL: contact.company_linkedin_url || "",
-          companyEventLink: contact.company_event_link || "",
+          // companyEventLink: contact.company_event_link || "",
+                    notes: contact.notes || "",
         })),
       };
 
@@ -506,7 +541,8 @@ useEffect(() => {
         "Company Employee Count",
         "Company Industry",
         "Company LinkedIn URL",
-        "Company Event Link",
+        // "Company Event Link",
+        "Notes",
       ],
       [
         "John Doe",
@@ -522,7 +558,8 @@ useEffect(() => {
         "100-500",
         "Technology",
         "https://linkedin.com/company/techcorp",
-        "https://techcorp.com/events/annual-conference",
+        // "https://techcorp.com/events/annual-conference",
+        "Prospect is actively researching solutions and open to further discussion.",
       ],
     ];
 
@@ -720,36 +757,91 @@ console.log("processingStats.valid:", processingStats.valid);
                 Map your contacts data file columns
               </h4>
               <p className="text-muted mb-20">
-                Please map your contacts data file to the required fields below:
+                Please map your contacts data file to the required fields below.<br />
+                Mandatory fields are marked with a red asterisk (<span style={{color: 'red'}}>*</span>). 
+                For best results, also include those fields with a blue asterisk (<span style={{color: 'blue'}}>*</span>).
               </p>
 
               <div className="mapping-container">
-                {REQUIRED_FIELDS.map((field) => (
-                  <div key={field.key} className="form-group">
-                    <label>
-                      {field.label}
-                      {field.required && <span className="required"> *</span>}
-                    </label>
-                    <select
-                      value={columnMappings[field.key] || ""}
-                      onChange={(e) =>
-                        handleMappingChange(field.key, e.target.value)
-                      }
-                      className={`${
-                        field.required && !columnMappings[field.key]
-                          ? "highlight-required"
-                          : ""
-                      }`}
-                    >
-                      <option value="">--Do not include--</option>
-                      {columnHeaders.map((header, index) => (
-                        <option key={index} value={header}>
-                          {header}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ))}
+                {REQUIRED_FIELDS.map((field) => {
+                  // Define helper text for each field
+                  const getFieldDescription = (fieldKey: string) => {
+                    switch (fieldKey) {
+                      case 'name':
+                        return 'Required – mapping the full name lets you address each recipient personally in your messages.';
+                      case 'email':
+                        return 'Required – mapping the email address is necessary for sending messages to each recipient.';
+                      case 'company':
+                        return 'Optional: mapping the company name lets you personalise messages and refer to each recipient\'s organisation.';
+                      case 'company_website':
+                        return 'Optional but very useful – mapping the company website lets PitchKraft personalize the emails based on your prospect\'s company.';
+                      case 'location':
+                        return 'Optional – mapping the location lets you tailor messages according to the prospect\'s region.';
+                      case 'email_body':
+                        return 'Optional – map if you want existing email body to be imported.';
+                      case 'linkedin':
+                        return 'Optional – mapping the contact\'s personal LinkedIn profile lets you add personal touches or include a direct profile link in your message.';
+                      case 'email_subject':
+                        return 'Optional – map if you want existing email subject to be imported.';
+                      case 'job_title':
+                        return 'Optional – mapping the job title lets you personalise your message by referencing the recipient\'s role and responsibilities.';
+                      case 'company_industry':
+                        return 'Optional – mapping the industry helps you tailor your messaging to the recipient\'s business sector and add relevant context.';
+                      // case 'company_event_link':
+                      //   return 'Optional – mapping the company event link lets you reference or share their events directly in personalised messages.';
+                       case 'company_linkedin_url':
+                        return 'Optional – mapping the company\'s LinkedIn page helps you add relevant context or include a direct link to their organisation profile.';
+                      case 'company_employee_count':
+                        return 'Optional – mapping the employee count helps you tailor messaging based on the organisation\'s size and structure.';
+                      case 'company_telephone':
+                        return 'Optional – mapping the company telephone number lets you include direct contact details when needed in personalised outreach.';
+                        case 'notes':
+                        return 'Optional - mapping notes is a useful way of including any communications, emails, notes etc related to the contact and company.';
+                      default:
+                        return null;
+                    }
+                  };
+
+                  const description = getFieldDescription(field.key);
+
+                  return (
+                    <div key={field.key} className="form-group">
+                      <label>
+                        {field.label}
+                        {field.required && <span className="required"> *</span>}
+                      </label>
+                      <select
+                        value={columnMappings[field.key] || ""}
+                        onChange={(e) =>
+                          handleMappingChange(field.key, e.target.value)
+                        }
+                        className={`${
+                          field.required && !columnMappings[field.key]
+                            ? "highlight-required"
+                            : ""
+                        }`}
+                      >
+                        <option value="">--Do not include--</option>
+                        {columnHeaders.sort().map((header, index) => (
+                          <option key={index} value={header}>
+                            {header}
+                          </option>
+                        ))}
+                      </select>
+                      {description && (
+                        <p style={{
+                          fontSize: '13px',
+                          color: '#666',
+                          marginTop: '4px',
+                          marginBottom: '0',
+                          lineHeight: '1.4'
+                        }}>
+                          {description}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
 
               <div
@@ -764,7 +856,7 @@ console.log("processingStats.valid:", processingStats.valid);
                   className="button action-button"
                   disabled={!columnMappings.name || !columnMappings.email}
                 >
-                  Continue to Preview
+                  Continue to preview
                 </button>
               </div>
             </div>
@@ -826,15 +918,26 @@ console.log("processingStats.valid:", processingStats.valid);
                 </table>
               </div>
 
-              {errors.length > 0 && (
+              {validationErrors.length > 0 && (
                 <div className="alert alert-warning mt-20">
-                  <h5>Validation Warnings:</h5>
-                  {errors.slice(0, 5).map((error, index) => (
-                    <p key={index}>{error}</p>
-                  ))}
-                  {errors.length > 5 && (
-                    <p>... and {errors.length - 5} more warnings</p>
-                  )}
+                  <h5>Data Quality Summary:</h5>
+                  <p>{validationErrors.length} issue{validationErrors.length > 1 ? 's' : ''} found in your data. 
+                     Only valid rows will be processed during import.</p>
+                  <button 
+                    onClick={() => setShowValidationModal(true)}
+                    style={{
+                      background: '#ffc107',
+                      color: '#000',
+                      border: 'none',
+                      padding: '6px 12px',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      marginTop: '8px'
+                    }}
+                  >
+                    View Details
+                  </button>
                 </div>
               )}
 
@@ -843,7 +946,7 @@ console.log("processingStats.valid:", processingStats.valid);
                   onClick={() => setCurrentStep(2)}
                   className="button secondary"
                 >
-                  Back to Mapping
+                  Back to mapping
                 </button>
                 <button
                   //onClick={() => {console.log("Process & Save Data button clicked!");setShowDataFileModal(true)}}
@@ -851,7 +954,7 @@ console.log("processingStats.valid:", processingStats.valid);
                   className="button action-button"
                   disabled={isProcessing || processingStats.valid === 0}
                 >
-                  {isProcessing ? "Processing..." : "Process & Save Data"}
+                  {isProcessing ? "Processing..." : "Process & save data"}
                 </button>
               </div>
             </div>
@@ -921,7 +1024,7 @@ console.log("processingStats.valid:", processingStats.valid);
                         resetUpload();
                       }}
                     >
-                      Continue to Email Generation
+                      Continue to email generation
                     </button>
                   </div>
                 </>
@@ -970,11 +1073,16 @@ console.log("processingStats.valid:", processingStats.valid);
         buttonLabel=""
         size="auto-width"
       >
-        <div className="datafile-modal" >
-          <h3>Enter Data File Information</h3>
+        {/* <div className="datafile-modal" > */}
+          <h2  style={{
+          fontSize: "20px",
+          fontWeight: "600",
+          marginBottom: "24px",
+          color: "#222",
+        }}>Enter data file information</h2>
           <div className="form-group">
             <label>
-              Data File Name <span className="required">*</span>
+              Data file name <span className="required">*</span>
             </label>
             <input
               type="text"
@@ -1011,11 +1119,26 @@ console.log("processingStats.valid:", processingStats.valid);
               onClick={processData}
               disabled={!dataFileInfo.name.trim()}
             >
-              Save Data
+              Save data
             </button>
           </div>
-        </div>
+        {/* </div> */}
       </Modal>
+
+      {/* Validation Error Modal */}
+      <ValidationErrorModal
+        isOpen={showValidationModal}
+        onClose={() => setShowValidationModal(false)}
+        errors={validationErrors}
+        onContinue={() => {
+          setShowValidationModal(false);
+          setCurrentStep(3);
+        }}
+        onFixErrors={() => {
+          setShowValidationModal(false);
+          setCurrentStep(2);
+        }}
+      />
     </div>
   );
 };
