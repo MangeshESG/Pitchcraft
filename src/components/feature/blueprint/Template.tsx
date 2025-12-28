@@ -1226,14 +1226,14 @@ setExampleEmail(exampleEmailHtml);
     ← Back
   </button>
    
-    <h2>{sessionStorage.getItem("newCampaignName") || "Blueprint"}</h2>
+    <h2 className="font-[600]">{sessionStorage.getItem("newCampaignName") || "Blueprint"}</h2>
   
 </div>
 
 
-        <div style={{ marginTop: "46px" }}>
+        
           <EmailCampaignBuilder selectedClient={selectedClient} />
-        </div>
+        
       </div>
     )}
   </div>

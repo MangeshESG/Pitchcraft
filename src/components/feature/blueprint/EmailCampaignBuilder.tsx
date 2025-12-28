@@ -1,4 +1,7 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import {
+  faAngleRight,
+} from "@fortawesome/free-solid-svg-icons";
 import { Send, Copy, Check, Loader2, RefreshCw, Globe, Eye, FileText, MessageSquare, CheckCircle, XCircle, ChevronDown, Volume2, VolumeX } from 'lucide-react';
 import axios from 'axios';
 import API_BASE_URL from "../../../config";
@@ -14,12 +17,6 @@ import { faBars } from '@fortawesome/free-solid-svg-icons';
 import downArrow from "../../assets/images/down.png";
 import PopupModal from '../../common/PopupModal';
 import ElementsTab from "./ElementsTab"
-
-
-
-
-
-
 
 // --- Type Definitions ---
 interface Message {
@@ -566,7 +563,7 @@ return (
               ))}
 
               {isTyping && (
-                <div className="typing-indicator">
+                <div className="typing-indicator flex items-center gap-[5px]">
                   <Loader2 className="typing-spinner" />
                   <span>Blueprint builder is thinking…</span>
                 </div>
@@ -708,12 +705,11 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
   const selectedContact = contacts.find(c => c.id === selectedContactId);
 
   return (
-    <div className="example-section">
-
+    <div className="example-section !h-[calc(100%-60px)]">
       {/* ===================== HEADER ===================== */}
-      <div className="example-header">
-        <div className="example-datafile-section" style={{ marginTop: "10px" }}>
-          <label>Contact list</label>
+      <div className="example-header mb-[0]">
+        <div className="example-datafile-section">
+          <label className="text-[14px] font-[600]">Contact list</label>
 
           <div style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "-20px" }}>
             <select
@@ -810,7 +806,7 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          marginBottom: "10px"
+          marginTop: "0px",
         }}
       >
         <div style={{ display: "flex", gap: "12px" }}>
@@ -835,10 +831,10 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
               color: "white",
               borderRadius: "6px",
               fontSize: "14px",
-              fontWeight: 600
+              fontWeight: 600,
             }}
           >
-             Save email
+            Save email
           </button>
         )}
       </div>
@@ -853,7 +849,7 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
           />
         ) : (
           <div className="example-placeholder">
-            <p>📧 Example output will appear here</p>
+            <p>Example output will appear here</p>
           </div>
         )}
 
@@ -866,7 +862,7 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
           {filledTemplate ? (
             <pre className="filled-template-box">{filledTemplate}</pre>
           ) : (
-            <p className="example-placeholder">🔧 Filled Template will appear here</p>
+            <p className="example-placeholder">Filled Template will appear here</p>
           )}
         </div>
       )}
@@ -2780,7 +2776,7 @@ function SimpleTextarea({
   // RENDER
   // ====================================================================
 return (
-  <div className="email-campaign-builder">
+  <div className="email-campaign-builder !p-[0]">
     {/* ================= LOADING OVERLAYS ================= */}
     {isLoadingTemplate && (
       <div className="loading-overlay">
@@ -2793,32 +2789,37 @@ return (
 
     {isLoadingDefinitions && (
       <div className="loading-overlay">
-        <div className="loading-content">
+        <div className="loading-content flex flex-col items-center gap-[5px]">
           <Loader2 size={48} className="spinning" />
           <p>Loading template definitions...</p>
         </div>
       </div>
     )}
 
-    {/* ================= MAIN CONTAINER ================= */}
-    <div className="campaign-builder-container" style={{ marginTop: "-30px" }}>
-      <div className="campaign-builder-main">
-
-        {/* ================= TOP TABS ================= */}
-        <div className="sticky-tabs">
-          <ul>
-            {["build", "instructions", "ct"].map(t => (
-              <li key={t}>
-                <button
-                  className={activeMainTab === t ? "active" : ""}
-                  onClick={() => setActiveMainTab(t as any)}
-                >
-                  {t === "build" ? "Build" : t === "instructions" ? "Instructions set" : "VT"}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
+      {/* ================= MAIN CONTAINER ================= */}
+      <div
+        className="campaign-builder-container !p-[0]"
+      >
+        <div className="campaign-builder-mains">
+          {/* ================= TOP TABS ================= */}
+          {/* <div className="sticky-tabs">
+            <ul>
+              {["build", "instructions", "ct"].map((t) => (
+                <li key={t}>
+                  <button
+                    className={activeMainTab === t ? "active" : ""}
+                    onClick={() => setActiveMainTab(t as any)}
+                  >
+                    {t === "build"
+                      ? "Build"
+                      : t === "instructions"
+                      ? "Instructions set"
+                      : "VT"}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div> */}
 
         <PopupModal
           open={popupmodalInfo.open}
@@ -2827,51 +2828,54 @@ return (
           onClose={closeModal}
         />
 
-        {/* ================= BUILD TAB ================= */}
-{activeMainTab === "build" && (
-  <>
-    {/* ================= BUILD SUBTAB HEADER ROW ================= */}
-    <div className="build-subtabs-row">
-      {/* LEFT: Chat / Elements tabs */}
-      <div className="build-subtabs">
-        {["chat", "elements"].map(t => (
-          <button
-            key={t}
-            className={activeBuildTab === t ? "active" : ""}
-            onClick={() => setActiveBuildTab(t as any)}
-          >
-            {t === "chat" ? "Chat" : "Elements"}
-          </button>
-        ))}
-      </div>
+          {/* ================= BUILD TAB ================= */}
+          {activeMainTab === "build" && (
+            <>
 
-      {/* RIGHT: Show Preview Button (only when closed) */}
-      {!isSectionOpen && (
-        <button
-          className="show-preview-btn"
-          onClick={() => setIsSectionOpen(true)}
-        >
-          ⟩ Show Email Preview
-        </button>
-      )}
-    </div>
 
-    {/* ================= SPLIT LAYOUT ================= */}
-    <div
-      style={{
-        display: "flex",
-        gap: "16px",
-        height: "calc(100vh - 200px)"
-      }}
-    >
-      {/* ================= LEFT PANEL ================= */}
-      <div
-        style={{
-          flex: 1,
-          width: isSectionOpen ? "50%" : "100%",
-          transition: "all 0.25s ease"
-        }}
-      >
+              {/* ================= SPLIT LAYOUT ================= */}
+              <div
+                style={{
+                  display: "flex",
+                  gap: "16px",
+                  height: "calc(100vh - 200px)",
+                }}
+              >
+                {/* RIGHT: Show Preview Button (only when closed) */}
+                <div className="absolute right-[0] top-[0] z-[1]">
+                  <button
+                    className="show-preview-btn !rounded-[4px]"
+                    onClick={() => setIsSectionOpen(!isSectionOpen)}
+                  >
+                    {isSectionOpen ? "Hide" : "Show" } email preview
+                  </button>
+                </div>
+                {/* ================= LEFT PANEL ================= */}
+                <div
+                  style={{
+                    flex: 1,
+                    width: isSectionOpen ? "50%" : "100%",
+                    transition: "all 0.25s ease",
+                  }}
+                >
+                  {/* ================= BUILD SUBTAB HEADER ROW ================= */}
+                  <div className="build-subtabs-row !pb-[0]">
+                    {/* LEFT: Chat / Elements tabs */}
+                    <div className="build-subtabs !gap-[0]">
+                      {["chat", "elements"].map((t) => (
+                        <button
+                          key={t}
+                          className={activeBuildTab === t ? "active" : ""}
+                          onClick={() => setActiveBuildTab(t as any)}
+                        >
+                          {t === "chat" ? "Chat" : "Elements"}
+                        </button>
+                      ))}
+                    </div>
+
+                    
+
+                  </div>
         {activeBuildTab === "chat" && (
           <ConversationTab
             conversationStarted={conversationStarted}
@@ -2927,37 +2931,46 @@ return (
         )}
       </div>
 
-      {/* ================= RIGHT PANEL (EMAIL PREVIEW) ================= */}
-      {isSectionOpen && (
-        <div
-          style={{
-            flex: 1,
-            width: "50%",
-            borderLeft: "1px solid #e5e7eb",
-            paddingLeft: "12px",
-            position: "relative"
-          }}
-        >
-          {/* Collapse Button */}
-          <button
-            onClick={() => setIsSectionOpen(false)}
-            title="Collapse preview"
-            style={{
-              position: "absolute",
-              top: "12px",
-              left: "-14px",
-              zIndex: 20,
-              width: "28px",
-              height: "28px",
-              borderRadius: "50%",
-              border: "1px solid #d1d5db",
-              background: "#fff",
-              cursor: "pointer",
-              fontWeight: 700
-            }}
-          >
-            ⟨
-          </button>
+                {/* ================= RIGHT PANEL (EMAIL PREVIEW) ================= */}
+                {isSectionOpen && (
+                  <div
+                    style={{
+                      flex: 1,
+                      width: "50%",
+                      paddingLeft: "12px",
+                      position: "relative",
+                    }}
+                  >
+
+                    <div className="flex justify-between min-h-[44px]">
+                      <h3 className="text-[20px] font-[600]">Email preview</h3>
+                    </div>
+
+                     
+
+                    {/* Collapse Button */}
+                    {/* <button
+                      onClick={() => setIsSectionOpen(false)}
+                      title="Collapse preview"
+                      style={{
+                        position: "absolute",
+                        top: "12px",
+                        left: "-14px",
+                        zIndex: 20,
+                        width: "40px",
+                        height: "40px",
+                        borderRadius: "50%",
+                        border: "1px solid #d1d5db",
+                        background: "#fff",
+                        cursor: "pointer",
+                        fontWeight: 700,
+                      }}
+                    >
+                      <FontAwesomeIcon
+                          icon={faAngleRight}
+                          className="text-[#333333] text-[30px]"
+                        />
+                    </button> */}
 
           <ExampleOutputPanel
             dataFiles={dataFiles}
