@@ -3066,30 +3066,25 @@ const numericPageSizeSegmentContacts = getNumericPageSize(pageSize, filtered.len
       )}
 
       {showSaveSegmentModal && (
-        <div
-          style={{
-            position: "fixed",
-            zIndex: 99999,
-            inset: 0,
-            background: "rgba(0,0,0,0.6)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <div
-            style={{
-              background: "#fff",
-              padding: 24,
-              borderRadius: 12,
-              maxWidth: 800,
-              width:"45%",
-              //minWidth: 340,
-              boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
-            }}
-          >
-            <h2 style={{ marginTop: 0 }}>Save as segment</h2>
-            <p style={{ marginBottom: 16, color: "#666" }}>
+        <div className="modal-overlay">
+          <div className="modal-content popup-modal">
+            <div className="headerr">
+              <h2 style={{color:"#000",fontWeight:"600"}}>Create segment</h2>
+              <span
+                onClick={() => setShowSaveSegmentModal(false)}
+                style={{
+                  marginLeft: "auto",
+                  fontSize: "25px",
+                  fontWeight: 600,
+                  color: "#9e9e9e",
+                  cursor: "pointer",
+                  lineHeight: 1
+                }}
+              >
+                ×
+              </span>
+            </div>
+            <p style={{marginRight:"auto", marginBottom: "16px"}}>
               Creating segment with{" "}
               {viewMode === "detail" || segmentViewMode === "detail"
                 ? detailSelectedContacts.size
@@ -3101,41 +3096,82 @@ const numericPageSizeSegmentContacts = getNumericPageSize(pageSize, filtered.len
                 ? "s"
                 : ""}
             </p>
-            <input
-              type="text"
-              placeholder="Segment name"
-              value={segmentName}
-              onChange={(e) => setSegmentName(e.target.value)}
-              autoFocus
-              style={{ width: "100%", marginBottom: 10 }}
-            />
-            <textarea
-              placeholder="Description (optional)"
-              value={segmentDescription}
-              onChange={(e) => setSegmentDescription(e.target.value)}
-              style={{ marginTop: 10, width: "100%", minHeight: 80 }}
-              rows={3}
-            />
-            <div
-              style={{
-                marginTop: 18,
-                display: "flex",
-                gap: 8,
-                justifyContent: "flex-end",
-              }}
-            >
+            <div style={{ marginBottom: "16px", width: "100%", textAlign: "left" }}>
+              <label style={{
+                display: "block",
+                marginBottom: "4px",
+                fontSize: "14px",
+                fontWeight: "500",
+                color: "#333"
+              }}>Segment name <span style={{color: "red"}}>*</span></label>
+              <input
+                type="text"
+                placeholder="Enter segment name"
+                value={segmentName}
+                onChange={(e) => setSegmentName(e.target.value)}
+                autoFocus
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  border: "1px solid #ddd",
+                  borderRadius: "4px",
+                  fontSize: "14px"
+                }}
+              />
+            </div>
+            <div style={{ marginBottom: "20px", width: "100%", textAlign: "left" }}>
+              <label style={{
+                display: "block",
+                marginBottom: "4px",
+                fontSize: "14px",
+                fontWeight: "500",
+                color: "#333"
+              }}>Description</label>
+              <textarea
+                placeholder="Enter description (optional)"
+                value={segmentDescription}
+                onChange={(e) => setSegmentDescription(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  border: "1px solid #ddd",
+                  borderRadius: "4px",
+                  fontSize: "14px",
+                  minHeight: "80px",
+                  resize: "vertical"
+                }}
+                rows={3}
+              />
+            </div>
+            <div style={{ display: "flex", gap: "12px", marginLeft: "auto" }}>
               <button
                 onClick={() => setShowSaveSegmentModal(false)}
-                className="button secondary"
+                style={{
+                  background: "#fff",
+                  padding: "8px 16px",
+                  color: "#666",
+                  borderRadius: "4px",
+                  border: "2px solid #ddd",
+                  cursor: "pointer",
+                  fontSize: "14px"
+                }}
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveSegment}
-                className="button primary"
                 disabled={!segmentName || savingSegment}
+                style={{
+                  background: !segmentName || savingSegment ? "#ccc" : "#218838",
+                  padding: "8px 16px",
+                  color: "#fff",
+                  borderRadius: "4px",
+                  border: `2px solid ${!segmentName || savingSegment ? "#ccc" : "#218838"}`,
+                  cursor: !segmentName || savingSegment ? "not-allowed" : "pointer",
+                  fontSize: "14px"
+                }}
               >
-                {savingSegment ? "Saving..." : "Save segment"}
+                {savingSegment ? "Saving..." : "Create"}
               </button>
             </div>
           </div>
