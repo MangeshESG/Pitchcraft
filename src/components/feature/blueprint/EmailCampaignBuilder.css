@@ -16,8 +16,7 @@
   padding: 0.5rem;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  margin-top: -70px;
+  /* overflow: hidden; */
 }
 
 @media (min-width: 768px) {
@@ -569,7 +568,6 @@
 
 /* Messages List */
 .email-campaign-builder .messages-list {
-  padding-top: 3.5rem;
   padding-bottom: 1rem;
 }
 
@@ -616,7 +614,7 @@
 }
 
 .email-campaign-builder .message-bubble.user {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, #3f9f42 0%, #3f9f42 100%);
   color: white;
   border-radius: 1.25rem 1.25rem 0.25rem 1.25rem;
   box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.3), 0 2px 4px -1px rgba(37, 99, 235, 0.2);
@@ -689,7 +687,7 @@
 .email-campaign-builder .typing-spinner {
   width: 1rem;
   height: 1rem;
-  color: #3b82f6;
+  color: #50a553;
   animation: campaign-builder-spin 1s linear infinite;
 }
 
@@ -730,7 +728,7 @@
 
 .email-campaign-builder .message-input:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: #3f9f42;
   background-color: white;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
@@ -759,13 +757,13 @@
 }
 
 .email-campaign-builder .send-button:not(:disabled) {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, #3f9f42 0%, #3f9f42 100%);
   color: white;
   box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.3);
 }
 
 .email-campaign-builder .send-button:not(:disabled):hover {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, #318334 0%, #318334 100%);
   transform: scale(1.05);
   box-shadow: 0 6px 8px -1px rgba(37, 99, 235, 0.4);
 }
@@ -1934,7 +1932,6 @@
 .chat-section {
   flex: 1.2;
   border: 1px solid #e5e7eb;
-  padding-right: 16px;
   display: flex;
   flex-direction: column;
   min-height: 0; /* critical for scroll */
@@ -1948,7 +1945,7 @@
   height: 100%;
   background: #fafafa;
   border: 1px solid #e5e7eb;
-  border-radius: 10px;
+  border-radius: 5px;
   padding: 16px;
   box-sizing: border-box;
 }
@@ -2056,8 +2053,8 @@
 }
 
 .stage-tab-btn.active {
-  color: #10b981;
-  border-bottom: 2px solid #10b981;
+  color: #3f9f42;
+  border-bottom: 2px solid #3f9f42;
   font-weight: 600;
 }
 
@@ -2093,8 +2090,8 @@
 }
 
 .stage-tab.active {
-  color: #2563eb;
-  border-bottom: 2px solid #2563eb;
+  color: #3f9f42;
+  border-bottom: 2px solid #3f9f42;
   font-weight: 600;
 }
 
@@ -2616,34 +2613,43 @@
 .build-subtabs {
   display: inline-flex;
   gap: 6px;
-  padding: 4px;
+  padding: 0;
   background: #f3f4f6;
-  border: 1px solid #e5e7eb;
-  border-radius: 999px;
-  margin-bottom: 12px;
 }
 
 .build-subtabs button {
-  padding: 6px 16px;
-  border-radius: 999px;
+  padding:10px 30px;
   border: none;
   background: transparent;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
-  color: #6b7280;
+  color: #111111;
   cursor: pointer;
   transition: all 0.2s ease;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 5px 5px 0 0;
 }
 
 .build-subtabs button:hover {
-  background: #e5e7eb;
-  color: #111827;
+  color: #111111;
 }
 
 .build-subtabs button.active {
-  background: #3f9f42;
-  color: #ffffff;
-  box-shadow: 0 2px 6px rgba(63, 159, 66, 0.35);
+  position: relative;
+  color: #3f9f42;
+  background: #ffffff;
+  border-color: #e5e7eb;
+ 
+}
+.build-subtabs button.active:after{
+  content: "";
+    position:absolute;
+    bottom: -1px;
+    left:0;
+    width:100%;
+    height:1px;
+    background:#ffffff;
 }
 /* ================= BUILD SUBTAB HEADER ================= */
 .build-subtabs-row {
@@ -2651,9 +2657,7 @@
   align-items: center;
   justify-content: space-between;
   background: #f9fafb;
-  padding: 10px 14px;
   border-radius: 999px;
-  margin-bottom: 12px;
 }
 
 .build-subtabs {
