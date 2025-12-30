@@ -9,6 +9,8 @@ import { useAppModal } from "../../../hooks/useAppModal";
 import EmailCampaignBuilder from "./EmailCampaignBuilder";
 import PaginationControls from "../PaginationControls";
 import duplicateIcon from "../../../assets/images/icons/duplicate.png";
+import CreditCheckModal from "../../common/CreditCheckModal";
+
 
 const menuBtnStyle = {
   width: "100%",
