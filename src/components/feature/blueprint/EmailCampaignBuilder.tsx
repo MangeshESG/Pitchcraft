@@ -2171,17 +2171,25 @@ useEffect(() => {
       if (existing) {
         return {
           ...existing,
+
           // ✅ preserve typing buffer
           _rawOptions: (existing as any)._rawOptions,
 
           // ensure runtime flag remains correct
           isRuntimeOnly:
             existing.isRuntimeOnly ??
-            RUNTIME_ONLY_PLACEHOLDERS.includes(key)
+            RUNTIME_ONLY_PLACEHOLDERS.includes(key),
+
+          // ✅ KEY FIX: Expand based on input type
+            isRichText: existing.isRichText ?? existing.inputType === "richtext",
+            isExpandable: existing.isExpandable ?? false
         };
       }
 
       // ✅ ONLY for brand-new placeholders
+      const isRichText =
+        key.includes("example") || key.includes("output");
+
       return {
         placeholderKey: key,
         friendlyName: key.replace(/_/g, " "),
@@ -2191,17 +2199,17 @@ useEffect(() => {
           ? "Output"
           : "General",
 
-        inputType: "text",
+        // default input type
+        inputType: isRichText ? "richtext" : "text",
         options: [],
 
-        uiSize:
-          key.includes("example") || key.includes("output")
-            ? "xl"
-            : "md",
+        uiSize: isRichText ? "xl" : "md",
 
         isRuntimeOnly: RUNTIME_ONLY_PLACEHOLDERS.includes(key),
-        isExpandable: key.includes("example") || key.includes("output"),
-        isRichText: key.includes("example") || key.includes("output")
+
+        // ✅ Expand only if rich text
+        isRichText,
+        isExpandable: isRichText
       };
     });
   });
@@ -3212,7 +3220,7 @@ return (
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr",
+gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr 1fr",
         gap: "10px",
         fontWeight: 600,
         fontSize: "13px",
@@ -3225,6 +3233,8 @@ return (
       <div>Category</div>
       <div>Input / Options</div>
       <div>Size</div>
+      <div>Expand</div>
+
     </div>
 
     {/* ROWS */}
@@ -3233,7 +3243,7 @@ return (
         key={p.placeholderKey}
         style={{
           display: "grid",
-          gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr",
+          gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr 1fr",
           gap: "10px",
           alignItems: "center",
           marginBottom: "10px"
@@ -3295,7 +3305,10 @@ return (
                     ? {
                         ...x,
                         inputType: v,
-                        options: v === "select" ? x.options || [] : []
+                        isRichText: v === "richtext",
+                        isExpandable: v === "richtext" ? x.isExpandable : false,
+
+                      options: v === "select" ? x.options || [] : []
                       }
                     : x
                 )
@@ -3425,6 +3438,30 @@ return (
           <option value="lg">LG</option>
           <option value="xl">XL</option>
         </select>
+
+        {/* EXPAND TOGGLE */}
+<label style={{ display: "flex", justifyContent: "center" }}>
+  <input
+    type="checkbox"
+    checked={!!p.isExpandable}
+    disabled={p.inputType !== "richtext"} // 🔒 only richtext allowed
+    onChange={(e) => {
+      const checked = e.target.checked;
+      setUiPlaceholders(prev =>
+        prev.map(x =>
+          x.placeholderKey === p.placeholderKey
+            ? {
+                ...x,
+                isExpandable: checked,
+                isRichText: checked || x.isRichText // keep consistent
+              }
+            : x
+        )
+      );
+    }}
+  />
+</label>
+
       </div>
     ))}
 
@@ -3487,6 +3524,86 @@ return (
         )}
       </div>
     </div>
+          {/* ================= EXPANDED PLACEHOLDER MODAL ================= */}
+      {expandedPlaceholder && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.35)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center"
+          }}
+        >
+          <div
+            style={{
+              width: "80%",
+              maxWidth: "900px",
+              background: "#fff",
+              borderRadius: "10px",
+              padding: "20px",
+              boxShadow: "0 20px 40px rgba(0,0,0,0.25)"
+            }}
+          >
+            {/* HEADER */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "12px"
+              }}
+            >
+              <h3 style={{ fontSize: "18px", fontWeight: 600 }}>
+                {expandedPlaceholder.friendlyName}
+              </h3>
+
+              <button
+                onClick={() => setExpandedPlaceholder(null)}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  fontSize: "20px",
+                  cursor: "pointer"
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* RICH TEXT EDITOR */}
+            <ExampleEmailEditor
+              value={formValues[expandedPlaceholder.key] || ""}
+              onChange={(val) =>
+                setFormValues(prev => ({
+                  ...prev,
+                  [expandedPlaceholder.key]: val
+                }))
+              }
+            />
+
+            {/* FOOTER */}
+            <div style={{ textAlign: "right", marginTop: "12px" }}>
+              <button
+                onClick={() => setExpandedPlaceholder(null)}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: "6px",
+                  background: "#2563eb",
+                  color: "#fff",
+                  fontWeight: 600,
+                  cursor: "pointer"
+                }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
 
 
   </div>

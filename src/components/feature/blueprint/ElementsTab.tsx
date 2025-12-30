@@ -125,11 +125,9 @@ return (
                 >
                   {p.friendlyName}
 
-                  {p.isExpandable && (
+                  {p.isExpandable && p.isRichText && (
                     <button
-                      onClick={() =>
-                        setExpandedKey(p.placeholderKey, p.friendlyName)
-                      }
+                      onClick={() => setExpandedKey(p.placeholderKey, p.friendlyName)}
                       style={{
                         fontSize: "12px",
                         padding: "4px 8px",
