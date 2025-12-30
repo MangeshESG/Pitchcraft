@@ -1747,18 +1747,23 @@ if (!scrappedData) {
                     )}] Updated pitch in database for ${full_name}.</span><br/>` +
                     prevOutputForm.generatedContent,
                 }));
-                try {
-                  const userCreditResponse = await fetch(
-                    `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`
-                  );
-                  if (!userCreditResponse.ok) throw new Error("Failed to fetch user credit");
+                  try {
+                    const userCreditResponse = await fetch(
+                      `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`
+                    );
+                    if (!userCreditResponse.ok) throw new Error("Failed to fetch user credit");
 
-                  const userCreditData = await userCreditResponse.json();
-                  console.log("User credit data:", userCreditData);
-                  dispatch(saveUserCredit(userCreditData));
-                } catch (creditError) {
-                  console.error("User credit API error:", creditError);
-                }
+                    const userCreditData = await userCreditResponse.json();
+                    console.log("User credit data:", userCreditData);
+                    dispatch(saveUserCredit(userCreditData));
+                    
+                    // Dispatch custom event to notify credit update
+                    window.dispatchEvent(new CustomEvent('creditUpdated', {
+                      detail: { clientId: effectiveUserId }
+                    }));
+                  } catch (creditError) {
+                    console.error("User credit API error:", creditError);
+                  }
               }
             }
           }
@@ -2530,7 +2535,11 @@ if (!scrappedData) {
                     const userCreditData = await userCreditResponse.json();
                     console.log("User credit data:", userCreditData);
                     dispatch(saveUserCredit(userCreditData));
-
+                    
+                    // Dispatch custom event to notify credit update
+                    window.dispatchEvent(new CustomEvent('creditUpdated', {
+                      detail: { clientId: effectiveUserId }
+                    }));
 
                   } catch (creditError) {
                     console.error("User credit API error:", creditError);

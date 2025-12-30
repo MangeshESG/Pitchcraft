@@ -4,9 +4,11 @@ import ReactQuill from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
 import API_BASE_URL from "../../../config";
 import "./Template.css";
+import { useCreditCheck } from "../../../hooks/useCreditCheck";
 import { useAppModal } from "../../../hooks/useAppModal";
 import EmailCampaignBuilder from "./EmailCampaignBuilder";
 import PaginationControls from "../PaginationControls";
+import CreditCheckModal from "../../common/CreditCheckModal";
 
 const menuBtnStyle = {
   width: "100%",
@@ -115,6 +117,7 @@ const Template: React.FC<TemplateProps> = ({
   });
   
   const appModal = useAppModal();
+  const { checkUserCredits, showCreditModal, closeCreditModal, handleSkipModal, credits } = useCreditCheck();
   const userId = sessionStorage.getItem("clientId");
   const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
 
@@ -187,6 +190,15 @@ const Template: React.FC<TemplateProps> = ({
 
   // ✅ NEW: Handle create campaign button click
   const handleCreateCampaignClick = async () => {
+    // Check credits before allowing blueprint creation
+    if (sessionStorage.getItem("isDemoAccount") !== "true" && effectiveUserId) {
+      const currentCredits = await checkUserCredits(effectiveUserId);
+      
+      if (currentCredits && !currentCredits.canGenerate) {
+        return; // Stop execution if can't generate
+      }
+    }
+
     // Fetch template definitions first
     await fetchTemplateDefinitions();
     
@@ -1279,6 +1291,15 @@ setExampleEmail(exampleEmailHtml);
         </div>
       </div>
     )}
+    
+    {/* Credit Check Modal */}
+    <CreditCheckModal
+      isOpen={showCreditModal}
+      onClose={closeCreditModal}
+      onSkip={handleSkipModal}
+      credits={credits || 0}
+      setTab={() => {}} // Not needed in this context
+    />
   </div>
 );
 };
