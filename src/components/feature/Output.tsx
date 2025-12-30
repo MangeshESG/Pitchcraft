@@ -488,7 +488,7 @@ useEffect(() => {
     ) {
       setCurrentIndex(Math.max(0, combinedResponses.length - 1));
     }
-  }, [allResponses, currentIndex, setCurrentIndex, combinedResponses.length]);
+  }, [allResponses, combinedResponses.length]);
 
   useEffect(() => {
     // Prioritize allResponses, then add unique existingResponses
@@ -1350,6 +1350,28 @@ useEffect(() => {
       setCurrentIndex(index);
 
       const contact = combinedResponses[index];
+      
+      // Check if we should skip this contact based on include email trail setting
+      if (followupEnabled) {
+        const emailedDate = contact.emailsentdate;
+        const kraftedDate = contact.lastemailupdateddate;
+        
+        if (emailedDate && kraftedDate) {
+          const emailedTime = new Date(emailedDate).getTime();
+          const kraftedTime = new Date(kraftedDate).getTime();
+          
+          // Skip if emailed date is greater than krafted date
+          if (emailedTime > kraftedTime) {
+            console.log(`Skipping contact ${contact.id}: Email already sent after last kraft`);
+            skippedCount++;
+            index++;
+            setBulkSendIndex(index);
+            await new Promise((res) => setTimeout(res, 500));
+            continue;
+          }
+        }
+      }
+      
       try {
         // Prepare subject and request body
 
@@ -1558,6 +1580,7 @@ useEffect(() => {
   };
 
   const [sendEmailControls, setSendEmailControls] = useState(false);
+  const preserveIndexRef = useRef(false);
 
   return (
     <div className="login-box gap-down">
@@ -2010,8 +2033,6 @@ useEffect(() => {
                     type="checkbox"
                     checked={followupEnabled || false}
                     onChange={(e) => {
-                      console.log('Followup checkbox clicked, new value:', e.target.checked);
-                      console.log('Current selectedZohoviewId:', selectedZohoviewId);
                       setFollowupEnabled?.(e.target.checked);
                     }}
                     className="!mr-0"
@@ -2452,24 +2473,73 @@ useEffect(() => {
 
                                 await handleSendEmail(subject); // 👈 Pass subject here
                               }}
-                              disabled={
-                                !combinedResponses[currentIndex] ||
-                                sendingEmail ||
-                                sessionStorage.getItem("isDemoAccount") ===
-                                "true"
+                              disabled={(() => {
+                                const contact = combinedResponses[currentIndex];
+                                if (!contact || sendingEmail || sessionStorage.getItem("isDemoAccount") === "true") {
+                                  return true;
+                                }
+                                
+                                // If include email trail is checked, compare dates
+                                if (followupEnabled) {
+                                  const emailedDate = contact.emailsentdate;
+                                  const kraftedDate = contact.lastemailupdateddate;
+                                  
+                                  if (emailedDate && kraftedDate) {
+                                    const emailedTime = new Date(emailedDate).getTime();
+                                    const kraftedTime = new Date(kraftedDate).getTime();
+                                    
+                                    // Disable if emailed date is greater than krafted date
+                                    if (emailedTime > kraftedTime) {
+                                      return true;
+                                    }
+                                  }
+                                }
+                                
+                                return false;
+                              })()
                               }
                               style={{
-                                cursor:
-                                  combinedResponses[currentIndex] &&
-                                    !sendingEmail
-                                    ? "pointer"
-                                    : "not-allowed",
+                                cursor: (() => {
+                                  const contact = combinedResponses[currentIndex];
+                                  if (!contact || sendingEmail) return "not-allowed";
+                                  
+                                  if (followupEnabled) {
+                                    const emailedDate = contact.emailsentdate;
+                                    const kraftedDate = contact.lastemailupdateddate;
+                                    
+                                    if (emailedDate && kraftedDate) {
+                                      const emailedTime = new Date(emailedDate).getTime();
+                                      const kraftedTime = new Date(kraftedDate).getTime();
+                                      
+                                      if (emailedTime > kraftedTime) {
+                                        return "not-allowed";
+                                      }
+                                    }
+                                  }
+                                  
+                                  return "pointer";
+                                })(),
                                 padding: "5px 15px",
-                                opacity:
-                                  combinedResponses[currentIndex] &&
-                                    !sendingEmail
-                                    ? 1
-                                    : 0.6,
+                                opacity: (() => {
+                                  const contact = combinedResponses[currentIndex];
+                                  if (!contact || sendingEmail) return 0.6;
+                                  
+                                  if (followupEnabled) {
+                                    const emailedDate = contact.emailsentdate;
+                                    const kraftedDate = contact.lastemailupdateddate;
+                                    
+                                    if (emailedDate && kraftedDate) {
+                                      const emailedTime = new Date(emailedDate).getTime();
+                                      const kraftedTime = new Date(kraftedDate).getTime();
+                                      
+                                      if (emailedTime > kraftedTime) {
+                                        return 0.6;
+                                      }
+                                    }
+                                  }
+                                  
+                                  return 1;
+                                })(),
                                 height: "40px",
                                 display: "flex",
                                 alignItems: "center",
@@ -2520,22 +2590,80 @@ useEffect(() => {
                                   sendEmailsInBulk(currentIndex);
                                 }
                               }}
-                              disabled={
-                                sessionStorage.getItem("isDemoAccount") ===
-                                "true"
+                              disabled={(() => {
+                                if (sessionStorage.getItem("isDemoAccount") === "true") {
+                                  return true;
+                                }
+                                
+                                // If include email trail is checked, check if any contacts can be sent
+                                if (followupEnabled) {
+                                  const canSendAny = combinedResponses.some(contact => {
+                                    const emailedDate = contact.emailsentdate;
+                                    const kraftedDate = contact.lastemailupdateddate;
+                                    
+                                    if (!emailedDate || !kraftedDate) return true;
+                                    
+                                    const emailedTime = new Date(emailedDate).getTime();
+                                    const kraftedTime = new Date(kraftedDate).getTime();
+                                    
+                                    // Can send if krafted date is greater than or equal to emailed date
+                                    return kraftedTime >= emailedTime;
+                                  });
+                                  
+                                  return !canSendAny;
+                                }
+                                
+                                return false;
+                              })()
                               }
                               style={{
-                                cursor:
-                                  sessionStorage.getItem("isDemoAccount") !==
-                                    "true"
-                                    ? "pointer"
-                                    : "not-allowed",
+                                cursor: (() => {
+                                  if (sessionStorage.getItem("isDemoAccount") === "true") {
+                                    return "not-allowed";
+                                  }
+                                  
+                                  if (followupEnabled) {
+                                    const canSendAny = combinedResponses.some(contact => {
+                                      const emailedDate = contact.emailsentdate;
+                                      const kraftedDate = contact.lastemailupdateddate;
+                                      
+                                      if (!emailedDate || !kraftedDate) return true;
+                                      
+                                      const emailedTime = new Date(emailedDate).getTime();
+                                      const kraftedTime = new Date(kraftedDate).getTime();
+                                      
+                                      return kraftedTime >= emailedTime;
+                                    });
+                                    
+                                    return canSendAny ? "pointer" : "not-allowed";
+                                  }
+                                  
+                                  return "pointer";
+                                })(),
                                 padding: "5px 15px",
-                                opacity:
-                                  sessionStorage.getItem("isDemoAccount") !==
-                                    "true"
-                                    ? 1
-                                    : 0.6,
+                                opacity: (() => {
+                                  if (sessionStorage.getItem("isDemoAccount") === "true") {
+                                    return 0.6;
+                                  }
+                                  
+                                  if (followupEnabled) {
+                                    const canSendAny = combinedResponses.some(contact => {
+                                      const emailedDate = contact.emailsentdate;
+                                      const kraftedDate = contact.lastemailupdateddate;
+                                      
+                                      if (!emailedDate || !kraftedDate) return true;
+                                      
+                                      const emailedTime = new Date(emailedDate).getTime();
+                                      const kraftedTime = new Date(kraftedDate).getTime();
+                                      
+                                      return kraftedTime >= emailedTime;
+                                    });
+                                    
+                                    return canSendAny ? 1 : 0.6;
+                                  }
+                                  
+                                  return 1;
+                                })(),
                                 height: "40px",
                                 display: "flex",
                                 alignItems: "center",
