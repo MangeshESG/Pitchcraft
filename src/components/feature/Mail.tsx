@@ -1697,19 +1697,19 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                       alignItems: "center",
                       justifyContent: "center",
                     }}
-                    onClick={() => {
-                      // Close modal when clicking backdrop
-                      handleModalClose("modal-add-mailbox")
-                      setEditingId(null)
-                      setForm({
-                        server: "",
-                        port: "",
-                        username: "",
-                        password: "",
-                        fromEmail: "",
-                        usessl: false,
-                      })
-                    }}
+                    // onClick={() => {
+                    //   // Close modal when clicking backdrop
+                    //   handleModalClose("modal-add-mailbox")
+                    //   setEditingId(null)
+                    //   setForm({
+                    //     server: "",
+                    //     port: "",
+                    //     username: "",
+                    //     password: "",
+                    //     fromEmail: "",
+                    //     usessl: false,
+                    //   })
+                    // }}
                   >
                     <div
                       style={{
