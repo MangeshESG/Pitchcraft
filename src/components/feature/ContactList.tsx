@@ -2740,6 +2740,27 @@ const numericPageSizeSegmentContacts = getNumericPageSize(pageSize, filtered.len
                 }}
                 persistedColumnSelection={savedColumnSelection}
                 customFormatters={{
+                   full_name: (value: any, row: any) => {
+    if (!value || value === "-") return "-";
+
+    return (
+      <span
+        style={{
+          color: "#3f9f42",
+          textDecoration: "underline",
+          cursor: "pointer",
+          fontWeight: 500,
+        }}
+        onClick={(e) => {
+          e.stopPropagation(); // important
+          setEditingContact(row);
+          setShowEditContactModal(true);
+        }}
+      >
+        {value}
+      </span>
+    );
+  },
                   created_at: (value: any) => formatDate(value),
                   updated_at: (value: any) => formatDate(value),
                   email_sent_at: (value: any) => formatDate(value),
@@ -2864,7 +2885,7 @@ const numericPageSizeSegmentContacts = getNumericPageSize(pageSize, filtered.len
                         >
                           {isLoading ? "Processing..." : "Unsubscribe"}
                         </button>
-                        {detailSelectedContacts.size === 1 && (
+                        {/* {detailSelectedContacts.size === 1 && (
                           <button
                             className="button secondary"
                             onClick={() => {
@@ -2883,7 +2904,7 @@ const numericPageSizeSegmentContacts = getNumericPageSize(pageSize, filtered.len
                           >
                             Edit contact
                           </button>
-                        )}
+                        )} */}
                         <button
                           className="button primary"
                           onClick={() => setShowSaveSegmentModal(true)}
