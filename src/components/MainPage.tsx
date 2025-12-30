@@ -1063,19 +1063,23 @@ const MainPage: React.FC = () => {
         setallsummery(naPlaceholders);
         setallSearchTermBodies(naPlaceholders);
 
-        // Find first valid contact BEFORE setting index
-        let validIndex = 0;
-        for (let i = 0; i < emailResponses.length; i++) {
-          const contact = emailResponses[i];
-          if (contact.name !== "N/A" && contact.company !== "N/A") {
-            validIndex = i;
-            break;
+        // Don't automatically set index when refetching due to followup change
+        // Only set to valid index on initial load
+        if (!followupEnabled && direction === null) {
+          // Find first valid contact BEFORE setting index
+          let validIndex = 0;
+          for (let i = 0; i < emailResponses.length; i++) {
+            const contact = emailResponses[i];
+            if (contact.name !== "N/A" && contact.company !== "N/A") {
+              validIndex = i;
+              break;
+            }
           }
+          
+          // Set to the valid index directly
+          setCurrentIndex(validIndex);
+          console.log("Setting current index to:", validIndex);
         }
-
-        // Set to the valid index directly
-        setCurrentIndex(validIndex);
-        console.log("Setting current index to:", validIndex);
       } catch (error) {
         console.error("Error fetching email bodies:", error);
       } finally {
@@ -1093,6 +1097,10 @@ const MainPage: React.FC = () => {
     if (selectedZohoviewId) {
       console.log('Followup checkbox changed, refetching data:', followupEnabled);
       console.log('Current selectedZohoviewId:', selectedZohoviewId);
+      console.log('Current index before refetch:', currentIndex);
+      
+      // Store current index before refetch
+      const savedIndex = currentIndex;
       
       // ✅ Fix: Ensure selectedZohoviewId is in correct format
       let correctedZohoviewId = selectedZohoviewId;
@@ -1105,7 +1113,13 @@ const MainPage: React.FC = () => {
         setSelectedZohoviewId(correctedZohoviewId);
       }
       
-      fetchAndDisplayEmailBodies(correctedZohoviewId);
+      fetchAndDisplayEmailBodies(correctedZohoviewId).then(() => {
+        // Restore index after data is fetched
+        setTimeout(() => {
+          console.log('Restoring index to:', savedIndex);
+          setCurrentIndex(savedIndex);
+        }, 100);
+      });
     }
   }, [followupEnabled, effectiveUserId]);
 
