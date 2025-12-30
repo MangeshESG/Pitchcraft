@@ -667,7 +667,8 @@ interface ExampleOutputPanelProps {
   allSourcedData: string;
   sourcedSummary: string;
 
-  // Editor component
+  isPreviewAllowed: boolean;   // ✅ ADD
+
 
 
 }
@@ -700,7 +701,9 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
   searchResults,
   allSourcedData,
   sourcedSummary,
-  exampleOutput,                    // ✅ ADD THIS
+  exampleOutput,
+  isPreviewAllowed,
+                    
 
 }) => {
 
@@ -782,7 +785,7 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
           {/* GENERATE BUTTON */}
           <button
             className="regenerate-btn"
-            disabled={isGenerating}
+            disabled={isGenerating || !isPreviewAllowed}
             onClick={async () => {
               await applyContactPlaceholders(selectedContact);
               if (regenerateExampleOutput) {
@@ -987,6 +990,14 @@ const [activeBuildTab, setActiveBuildTab] = useState<BuildSubTab>('chat');
  const [currentPage, setCurrentPage] = useState(1);
 const rowsPerPage = 1;
 const setPageSize = () => {};
+
+
+const isPreviewAllowed = React.useMemo(() => {
+  const emailHtml = placeholderValues?.example_output_email;
+  return getPlainTextLength(emailHtml) >= 20;
+}, [placeholderValues?.example_output_email]);
+
+
 
 // ========================================
 // UI-ONLY PLACEHOLDER METADATA STATE
@@ -2077,6 +2088,16 @@ const startEditConversation = async (placeholder: string) => {
     return placeholders;
   };
 
+// ===============================
+// HTML → TEXT LENGTH HELPER
+// ===============================
+function getPlainTextLength(html?: string): number {
+  if (!html) return 0;
+  const tmp = document.createElement("div");
+  tmp.innerHTML = html;
+  return tmp.innerText.trim().length;
+}
+
 
   // ====================================================================
   // REPLACE PLACEHOLDERS IN STRING
@@ -2986,6 +3007,8 @@ return (
             searchResults={searchResults}
             allSourcedData={allSourcedData}
             sourcedSummary={sourcedSummary}
+            isPreviewAllowed={isPreviewAllowed}
+
           />
         </div>
       )}

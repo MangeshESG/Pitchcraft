@@ -2006,6 +2006,19 @@
   gap: 2px;     
 }
 
+/* ✅ Disabled state */
+.regenerate-btn:disabled {
+  background-color: #9fd5a7;  /* light green */
+  color: #ffffff;
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* ✅ Prevent hover styles when disabled */
+.regenerate-btn:disabled:hover {
+  background-color: #9fd5a7;
+}
+
 .regenerate-btn:hover {
   background-color: #3f9f42;
 }
