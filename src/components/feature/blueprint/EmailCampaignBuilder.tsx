@@ -3158,7 +3158,7 @@ return (
         ["ai_new", "AI Instructions (new blueprint)"],
         ["ai_edit", "AI Instructions (edit blueprint)"],
         ["placeholder_short", "Placeholders list (essential)"],
-        ["placeholders", "Placeholder Manager"],
+        ["placeholders", "Placeholder manager"],
         ["ct", "UT "],
         ["subject_instructions", "Email Subject Instructions"]
 
@@ -3213,7 +3213,7 @@ return (
     }}
   >
     <h3 style={{ fontSize: "18px", fontWeight: 600, marginBottom: "16px" }}>
-      Placeholder Manager
+      Placeholder manager
     </h3>
 
     {/* HEADER */}
