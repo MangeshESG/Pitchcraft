@@ -1635,7 +1635,23 @@ useEffect(() => {
 
                     <button
                       className="primary-button bg-[#3f9f42]"
-                      onClick={() => handleStart?.(currentIndex)}
+                      onClick={async () => {
+                        // Don't trigger if credit modal is showing
+                        if (showCreditModal) {
+                          return;
+                        }
+                        
+                        // Check credits before starting
+                        if (sessionStorage.getItem("isDemoAccount") !== "true") {
+                          const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
+                          const currentCredits = await checkUserCredits?.(effectiveUserId);
+                          if (currentCredits && typeof currentCredits === 'object' && !currentCredits.canGenerate) {
+                            return; // Stop if can't generate
+                          }
+                        }
+                        
+                        handleStart?.(currentIndex);
+                      }}
                       disabled={
                         (!selectedPrompt?.name || !selectedZohoviewId) &&
                         !selectedCampaign

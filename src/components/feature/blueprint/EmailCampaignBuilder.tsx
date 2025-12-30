@@ -1570,6 +1570,11 @@ const regenerateExampleOutput = async () => {
       }
     );
 
+    // Dispatch credit update event after successful API call
+    window.dispatchEvent(new CustomEvent('creditUpdated', {
+      detail: { clientId: effectiveUserId }
+    }));
+
     if (response.data?.success || response.data?.Success) {
       const html =
         response.data.exampleOutput ||
@@ -1915,7 +1920,13 @@ const startEditConversation = async (placeholder: string) => {
     // const bodyToSend = { req: payload }; // <-- uncomment if API requires req wrapper
     const bodyToSend = payload;
 
-    const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/edit/start`, bodyToSend);
+    const response = await axios.post(
+      `${API_BASE_URL}/api/CampaignPrompt/edit/start`, bodyToSend);
+
+    // Dispatch credit update event after successful API call
+    window.dispatchEvent(new CustomEvent('creditUpdated', {
+      detail: { clientId: effectiveUserId }
+    }));
 
     const data = response.data?.response ?? response.data;
     if (data && data.assistantText) {
@@ -2317,6 +2328,11 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
         model: selectedModel, // ✅ Use selected model
       });
 
+      // Dispatch credit update event after successful API call
+      window.dispatchEvent(new CustomEvent('creditUpdated', {
+        detail: { clientId: effectiveUserId }
+      }));
+
       const data = response.data.response;
       if (data) {
         // if it's already marked complete, only push completion message
@@ -2402,6 +2418,12 @@ const handleSendMessage = async () => {
         };
 
     const response = await axios.post(endpoint, requestBody);
+    
+    // Dispatch credit update event after successful API call
+    window.dispatchEvent(new CustomEvent('creditUpdated', {
+      detail: { clientId: effectiveUserId }
+    }));
+    
     const data = response.data.response;
 
     const cleanAssistantMessage = (text: string): string => {
