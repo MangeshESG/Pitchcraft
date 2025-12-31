@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import {
-  faAngleRight,
+  faAngleRight, faAngleLeft
 } from "@fortawesome/free-solid-svg-icons";
 import { Send, Copy, Check, Loader2, RefreshCw, Globe, Eye, FileText, MessageSquare, CheckCircle, XCircle, ChevronDown, Volume2, VolumeX } from 'lucide-react';
 import axios from 'axios';
@@ -475,7 +475,7 @@ const truncate = (val: string, max = 50) =>
 
 
 return (
-  <div className="conversation-container">
+  <div className="conversation-container shadow-[3px_3px_10px_rgba(0,0,0,0.2)]">
     <div className="chat-layout">
 
       {/* ===================== LEFT : CHAT ===================== */}
@@ -705,7 +705,7 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
   const selectedContact = contacts.find(c => c.id === selectedContactId);
 
   return (
-    <div className="example-section !h-[calc(100%-60px)]">
+    <div className="example-section !h-[calc(100%-60px)] shadow-[3px_3px_10px_rgba(0,0,0,0.2)]">
       {/* ===================== HEADER ===================== */}
       <div className="example-header mb-[0]">
         <div className="example-datafile-section">
@@ -2777,6 +2777,25 @@ function SimpleTextarea({
   // ====================================================================
 return (
   <div className="email-campaign-builder !p-[0]">
+    {/* ================= TOP TABS ================= */}
+          <div className="sticky-tabs">
+            <ul>
+              {["build", "instructions", "ct"].map((t) => (
+                <li key={t}>
+                  <button
+                    className={activeMainTab === t ? "active" : ""}
+                    onClick={() => setActiveMainTab(t as any)}
+                  >
+                    {t === "build"
+                      ? "Build"
+                      : t === "instructions"
+                      ? "Instructions set"
+                      : "VT"}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
     {/* ================= LOADING OVERLAYS ================= */}
     {isLoadingTemplate && (
       <div className="loading-overlay">
@@ -2801,25 +2820,7 @@ return (
         className="campaign-builder-container !p-[0]"
       >
         <div className="campaign-builder-mains">
-          {/* ================= TOP TABS ================= */}
-          {/* <div className="sticky-tabs">
-            <ul>
-              {["build", "instructions", "ct"].map((t) => (
-                <li key={t}>
-                  <button
-                    className={activeMainTab === t ? "active" : ""}
-                    onClick={() => setActiveMainTab(t as any)}
-                  >
-                    {t === "build"
-                      ? "Build"
-                      : t === "instructions"
-                      ? "Instructions set"
-                      : "VT"}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div> */}
+          
 
         <PopupModal
           open={popupmodalInfo.open}
@@ -2834,20 +2835,20 @@ return (
 
 
               {/* ================= SPLIT LAYOUT ================= */}
-              <div
-                style={{
-                  display: "flex",
-                  gap: "16px",
-                  height: "calc(100vh - 200px)",
-                }}
-              >
+              <div className='flex gap-4 h-[calc(100vh-200px)] mt-[10px]'>
                 {/* RIGHT: Show Preview Button (only when closed) */}
-                <div className="absolute right-[0] top-[0] z-[1]">
+                <div className="absolute right-[0] top-[8] z-[100]">
                   <button
                     className="show-preview-btn !rounded-[4px]"
                     onClick={() => setIsSectionOpen(!isSectionOpen)}
                   >
-                    {isSectionOpen ? "Hide" : "Show" } email preview
+                    <span className='flex items-center gap-[5px]'>
+                      <FontAwesomeIcon
+                        icon={isSectionOpen ?  faAngleRight:faAngleLeft }
+                        className="text-[#ffffff] text-md"
+                      />
+                      <span>{isSectionOpen ? "Hide" : "Show" } email preview</span>
+                    </span>
                   </button>
                 </div>
                 {/* ================= LEFT PANEL ================= */}
@@ -2943,7 +2944,7 @@ return (
                   >
 
                     <div className="flex justify-between min-h-[44px]">
-                      <h3 className="text-[20px] font-[600]">Email preview</h3>
+                      <h3 className="font-[600] flex items-center">Email preview</h3>
                     </div>
 
                      
@@ -3009,12 +3010,12 @@ return (
 
         {/* ================= INSTRUCTIONS TAB ================= */}
  {activeMainTab === "instructions" && (
-              <div className="instructions-wrapper">
+              <div className="instructions-wrapper ">
 
                 {/* =======================================================
                     TOP HEADER SECTION (Picklist + Inputs + Buttons)
                  ======================================================== */}
-                <div className="instructions-header" style={{ marginTop: "-43px" }}>
+                <div className="instructions-header !px-[0]">
 
                   {/* Load Template Definition */}
                   <div className="load-template-box">
@@ -3424,7 +3425,7 @@ return (
         onClick={savePlaceholderDefinitions}
         style={{
           padding: "10px 18px",
-          background: "#2563eb",
+          background: "#3f9f42",
           color: "#fff",
           borderRadius: "6px",
           fontWeight: 600
@@ -3467,7 +3468,7 @@ return (
 
         {/* ================= VT TAB ================= */}
         {activeMainTab === "ct" && (
-          <div className="ct-tab-container">
+          <div className="ct-tab-container mt-[6px]">
             <h3>Live vendor blueprint (Auto updated)</h3>
             <SimpleTextarea
               value={campaignBlueprint}
