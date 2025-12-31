@@ -792,13 +792,13 @@
 }
 
 .email-campaign-builder .messages-area::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: #b9b9b9;
   border-radius: 4px;
   transition: background 0.2s;
 }
 
 .email-campaign-builder .messages-area::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #9c9c9c;
 }
 
 /* Bot message enhancements for better readability */
