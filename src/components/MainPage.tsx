@@ -46,6 +46,7 @@ import { saveUserCredit } from "../slices/authSLice";
 import { useCreditCheck } from "../hooks/useCreditCheck";
 import CreditCheckModal from "./common/CreditCheckModal";
 import Myplan from "./feature/Myplan";
+import { useSoundAlert } from "./common/useSoundAlert";
 
 
 interface Prompt {
@@ -229,8 +230,25 @@ interface SettingsFormType {
   overwriteDatabase: boolean;
   // Add any other properties that your settingsForm has
 }
-
 const MainPage: React.FC = () => {
+  const unlockAudio = () => {
+  const audio = new Audio(process.env.PUBLIC_URL + "/assets/sound/notification.mp3");
+  audio.volume = 0; // silent
+  audio.play().catch(() => {});
+};
+  const { playSound } = useSoundAlert();
+  const [isSoundEnabled, setIsSoundEnabled] = useState<boolean>(() => {
+  return localStorage.getItem("soundEnabled") !== "false";
+});
+useEffect(() => {
+  localStorage.setItem("soundEnabled", String(isSoundEnabled));
+}, [isSoundEnabled]);
+const isSoundEnabledRef = useRef(isSoundEnabled);
+
+useEffect(() => {
+  isSoundEnabledRef.current = isSoundEnabled;
+  localStorage.setItem("soundEnabled", String(isSoundEnabled));
+}, [isSoundEnabled]);
   // Credit check hook
   const { credits, showCreditModal, checkUserCredits, closeCreditModal, handleSkipModal } = useCreditCheck();
 
@@ -1557,7 +1575,6 @@ if (!scrappedData) {
           prompt: replacedPromptText,
           ModelName: selectedModelNameA,
         };
-
         const pitchResponse = await fetch(
           `${API_BASE_URL}/api/auth/generatepitch`,
           {
@@ -1738,6 +1755,9 @@ if (!scrappedData) {
                     )}] Updating contact in database incomplete for ${full_name}. Error: ${updateContactError.Message || "Unknown error"
                     }</span><br/>` + prevOutputForm.generatedContent,
                 }));
+                if (isSoundEnabledRef.current) {
+                 playSound();
+                }
               } else {
                 setOutputForm((prevOutputForm) => ({
                   ...prevOutputForm,
@@ -1747,6 +1767,9 @@ if (!scrappedData) {
                     )}] Updated pitch in database for ${full_name}.</span><br/>` +
                     prevOutputForm.generatedContent,
                 }));
+                 if (isSoundEnabledRef.current) {
+                  playSound();
+                 }
                   try {
                     const userCreditResponse = await fetch(
                       `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`
@@ -1761,6 +1784,8 @@ if (!scrappedData) {
                     window.dispatchEvent(new CustomEvent('creditUpdated', {
                       detail: { clientId: effectiveUserId }
                     }));
+                    
+
                   } catch (creditError) {
                     console.error("User credit API error:", creditError);
                   }
@@ -2208,7 +2233,6 @@ if (!scrappedData) {
             prompt: replacedPromptText,
             ModelName: selectedModelNameA,
           };
-
           const pitchResponse = await fetch(
             `${API_BASE_URL}/api/auth/generatepitch`,
             {
@@ -2313,7 +2337,6 @@ if (!scrappedData) {
                 )}] Crafting phase #2 concinnus, for contact ${full_name} with company name ${company_name} and domain ${entry.email
                 }</span><br/>` + prev.generatedContent,
             }));
-
             const subjectResponse = await fetch(
               `${API_BASE_URL}/api/auth/generatepitch`,
               {
@@ -2517,6 +2540,9 @@ if (!scrappedData) {
                       )}] Updating contact in database incomplete for ${full_name}. Error: ${updateContactError.Message || "Unknown error"
                       }</span><br/>` + prevOutputForm.generatedContent,
                   }));
+                  if (isSoundEnabledRef.current) {
+                    playSound();
+                  }
                 } else {
                   setOutputForm((prevOutputForm) => ({
                     ...prevOutputForm,
@@ -2526,6 +2552,9 @@ if (!scrappedData) {
                       )}] Updated pitch in database for ${full_name}.</span><br/>` +
                       prevOutputForm.generatedContent,
                   }));
+                  if (isSoundEnabledRef.current) {
+                   playSound();
+                  }
                   try {
                     const userCreditResponse = await fetch(
                       `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`
@@ -3691,6 +3720,8 @@ if (!scrappedData) {
                 userId={userId}
                 followupEnabled={followupEnabled}
                 setFollowupEnabled={setFollowupEnabled}
+                isSoundEnabled={isSoundEnabled}
+                setIsSoundEnabled={setIsSoundEnabled}
               />
             )}
 
