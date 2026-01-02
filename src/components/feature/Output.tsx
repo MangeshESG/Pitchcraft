@@ -17,6 +17,10 @@ import AppModal from "../common/AppModal";
 import { useAppModal } from "../../hooks/useAppModal";
 import { useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
+import { useSoundAlert } from "../common/useSoundAlert";
+import toggleOn from "../../assets/images/on-button.png";
+import toggleOff from "../../assets/images/off-button.png";
+
 
 // In Output.tsx
 interface ZohoClient {
@@ -56,7 +60,9 @@ interface OutputInterface {
     searchResults: string[];
     allScrapedData: string;
   };
-  isResetEnabled: boolean; // Add this prop
+  isResetEnabled: boolean; 
+   isSoundEnabled: boolean;
+  setIsSoundEnabled: React.Dispatch<React.SetStateAction<boolean>>;// Add this prop
 
   onRegenerateContact?: (
     tab: string,
@@ -244,6 +250,8 @@ const Output: React.FC<OutputInterface> = ({
   userId,
   followupEnabled,
   setFollowupEnabled,
+  isSoundEnabled,
+setIsSoundEnabled,
 }) => {
   const appModal = useAppModal();
   const [loading, setLoading] = useState(true);
@@ -730,7 +738,7 @@ useEffect(() => {
     emailSubject: string;
     emailBody: string;
   }
-
+const { playSound } = useSoundAlert();
   const saveToCrmUpdateEmail = async ({
     clientId,
     contactId,
@@ -764,8 +772,12 @@ useEffect(() => {
           errJson.message || "Failed to update contact via CRM API"
         );
       }
+ const result = await response.json();
 
-      return await response.json();
+    // 🔔 PLAY SOUND AFTER SUCCESS
+    playSound();
+
+    return result;
     } catch (error) {
       console.error("Error saving to CRM contacts API:", error);
       throw error;
@@ -1711,7 +1723,8 @@ useEffect(() => {
             </div>
 
             {/* Right side - Download button */}
-            <div className="flex items-center mt-[26px]">
+            <div className="flex items-center mt-[26px] gap-4">
+              <div className="flex items-center">
               <ReactTooltip anchorSelect="#download-data-tooltip" place="top">
                 Download all loaded emails to a spreadsheet
               </ReactTooltip>
@@ -1797,6 +1810,27 @@ useEffect(() => {
                   </>
                 )}
               </a>
+              </div>
+              <div
+    className="flex items-center cursor-pointer"
+    title={isSoundEnabled ? "Sound ON" : "Sound OFF"}
+    onClick={() => {
+  setIsSoundEnabled(prev => {
+    console.log("Toggle clicked, new value:", !prev);
+    return !prev;
+  });
+}}
+  >
+    <img
+      src={isSoundEnabled ? toggleOn : toggleOff}
+      alt="Sound Toggle"
+      style={{
+        height: "32px",
+        width: "52px",
+        objectFit: "contain"
+      }}
+    />
+  </div>
             </div>
           </div>
         </div>

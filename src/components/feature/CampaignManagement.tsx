@@ -617,19 +617,19 @@ const menuBtnStyle: React.CSSProperties = {
 
 {showCreateCampaignModal && (
   <div
-    onClick={() => {
-      setShowCreateCampaignModal(false);
-      setSelectedCampaign(null);
-      setCampaignForm({
-        campaignName: "",
-        promptId: "",
-        zohoViewId: "",
-        segmentId: "",
-        description: "",
-        templateId: "",
-      });
-      setSelectedPrompt(null);
-    }}
+    // onClick={() => {
+    //   setShowCreateCampaignModal(false);
+    //   setSelectedCampaign(null);
+    //   setCampaignForm({
+    //     campaignName: "",
+    //     promptId: "",
+    //     zohoViewId: "",
+    //     segmentId: "",
+    //     description: "",
+    //     templateId: "",
+    //   });
+    //   setSelectedPrompt(null);
+    // }}
     style={{
       position: "fixed",
       inset: 0,
