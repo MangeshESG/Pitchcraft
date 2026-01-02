@@ -1,6 +1,8 @@
 import React from "react";
 import type { PlaceholderDefinitionUI } 
   from "./EmailCampaignBuilder";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faAngleDown } from "@fortawesome/free-solid-svg-icons";
 
 
 export interface ElementsTabProps {
@@ -38,45 +40,45 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
 
 return (
   <div
-    className="elements-tab-container"
+    className="elements-tab-container !mt-[0] !rounded-none "
     style={{
       padding: "20px",
-      height: "100%",          // ✅ take full available height
+      height: "calc(100% - 60px)",          // ✅ take full available height
       display: "flex",
       flexDirection: "column"
     }}
   >
-<div
-  style={{
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "15px",
-    flexShrink: 0
-  }}
->
-  <h2 style={{ fontSize: "22px", fontWeight: 600 }}>
-    Edit Placeholder Values
-  </h2>
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: "15px",
+        flexShrink: 0
+      }}
+    >
+      <h2 style={{ fontSize: "22px", fontWeight: 600 }}>
+        Edit Placeholder Values
+      </h2>
 
-  {/* EDIT BUTTON */}
-<button
-  onClick={saveAllPlaceholders}   // ✅ CALL THE SAVE FUNCTION
-  style={{
-    padding: "6px 14px",
-    fontSize: "14px",
-    fontWeight: 600,
-    borderRadius: "6px",
-    border: "1px solid #d1d5db",
-    background: "#16a34a",
-    color: "#fff",
-    cursor: "pointer"
-  }}
->
-  💾 Save
-</button>
+      {/* EDIT BUTTON */}
+    <button
+      onClick={saveAllPlaceholders}   // ✅ CALL THE SAVE FUNCTION
+      style={{
+        padding: "6px 14px",
+        fontSize: "14px",
+        fontWeight: 600,
+        borderRadius: "4px",
+        border: "1px solid #d1d5db",
+        background: "#3f9f42",
+        color: "#fff",
+        cursor: "pointer"
+      }}
+    >
+      Save
+    </button>
 
-</div>
+    </div>
 
 
     {/* ✅ SCROLLABLE CONTENT */}
@@ -88,42 +90,61 @@ return (
       }}
     >
       {Object.entries(groupedPlaceholders).map(([category, placeholders]) => (
-        <div key={category} style={{ marginBottom: "28px" }}>
-          <h3
+        <div key={category}>
+         
+          <details
+            key={category}
             style={{
-              fontSize: "16px",
-              fontWeight: 600,
-              marginBottom: "12px",
-              borderBottom: "1px solid #e5e7eb",
-              paddingBottom: "6px"
-            }}
-          >
-            {category}
-          </h3>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 1fr",
-              gap: "20px",
-              background: "#fff",
-              padding: "16px",
+              marginBottom: "10px",
+              border: "1px solid #e5e7eb",
               borderRadius: "8px",
-              border: "1px solid #e5e7eb"
+              background: "#fff"
             }}
           >
-            {placeholders.map((p) => (
-              <div key={p.placeholderKey}>
-                <label
-                  style={{
-                    fontWeight: 600,
-                    marginBottom: "6px",
-                    fontSize: "14px",
-                    display: "flex",
-                    justifyContent: "space-between"
-                  }}
-                >
-                  {p.friendlyName}
+            {/* Accordion Title */}
+            <summary
+              style={{
+                listStyle: "none",
+                cursor: "pointer",
+                padding: "12px 16px",
+                fontSize: "16px",
+                fontWeight: 600,
+                borderBottom: "1px solid #e5e7eb",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between"
+              }}
+            >
+              <span>{category}</span>
+
+              <FontAwesomeIcon
+                icon={faAngleDown}
+                className="accordion-chevron"
+                style={{ transition: "transform 0.2s ease" }}
+              />
+            </summary>
+
+            {/* Accordion Body (Input) */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "20px",
+                padding: "16px"
+              }}
+            >
+              {placeholders.map((p) => (
+                <div key={p.placeholderKey}>
+                  <label
+                    style={{
+                      fontWeight: 600,
+                      marginBottom: "6px",
+                      fontSize: "13px",
+                      display: "flex",
+                      justifyContent: "space-between"
+                    }}
+                  >
+                    {p.friendlyName}
 
                   {p.isExpandable && p.isRichText && (
                     <button
@@ -141,13 +162,15 @@ return (
                   )}
                 </label>
 
-                {renderPlaceholderInput({
-                  ...p,
-                  options: p.options || []
-                })}
-              </div>
-            ))}
-          </div>
+                  {renderPlaceholderInput({
+                    ...p,
+                    options: p.options || []
+                  })}
+                </div>
+              ))}
+            </div>
+          </details>
+
         </div>
       ))}
     </div>

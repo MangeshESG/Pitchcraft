@@ -3564,7 +3564,7 @@ if (!scrappedData) {
         </header>
 
         {/* Inner Main Content */}
-        <main className="flex-1 overflow-y-auto h-[calc(100%-87px)]">
+        <main className="flex-1 overflow-y-auto h-[calc(100%-87px)] p-[20px] bg-[#eeeeee]">
           <div className={`
                rounded-md p-6
               ${tab !== "Dashboard" && 'bg-white p-4 shadow-md'}
