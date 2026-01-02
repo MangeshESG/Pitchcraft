@@ -56,7 +56,7 @@ return (
   }}
 >
   <h2 style={{ fontSize: "22px", fontWeight: 600 }}>
-    Edit Placeholder Values
+    Edit placeholder values
   </h2>
 
   {/* EDIT BUTTON */}

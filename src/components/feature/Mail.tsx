@@ -1937,7 +1937,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                 {/* Popup Modal */}
                 {showPopup && (
                   <div
-                    onClick={() => setShowPopup(false)}
+                    // onClick={() => setShowPopup(false)}
                     style={{
                       position: "fixed",
                       top: 0,

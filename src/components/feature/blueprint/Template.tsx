@@ -1167,10 +1167,10 @@ setExampleEmail(exampleEmailHtml);
       {showEditCampaignModal && selectedCampaignTemplate && (
         <div className="modal-backdrop">
           <div className="modal-content modal-large">
-            <h2>Advanced Edit: {selectedCampaignTemplate.templateName}</h2>
+            <h2>Advanced edit: {selectedCampaignTemplate.templateName}</h2>
             
             <div className="form-group">
-              <label>Template Name</label>
+              <label>Template name</label>
               <input
                 type="text"
                 value={editCampaignForm.templateName}
@@ -1180,7 +1180,7 @@ setExampleEmail(exampleEmailHtml);
             </div>
 
             <div className="form-group">
-              <label>AI Instructions</label>
+              <label>AI instructions</label>
               <textarea
                 value={editCampaignForm.aiInstructions}
                 onChange={(e) => setEditCampaignForm({ ...editCampaignForm, aiInstructions: e.target.value })}
@@ -1190,7 +1190,7 @@ setExampleEmail(exampleEmailHtml);
             </div>
 
             <div className="form-group">
-              <label>Placeholder List</label>
+              <label>Placeholder list</label>
               <textarea
                 value={editCampaignForm.placeholderListInfo}
                 onChange={(e) => setEditCampaignForm({ ...editCampaignForm, placeholderListInfo: e.target.value })}
@@ -1200,7 +1200,7 @@ setExampleEmail(exampleEmailHtml);
             </div>
 
             <div className="form-group">
-              <label>Master Blueprint (Unpopulated)</label>
+              <label>Master blueprint (unpopulated)</label>
               <textarea
                 value={editCampaignForm.masterBlueprintUnpopulated}
                 onChange={(e) => setEditCampaignForm({ ...editCampaignForm, masterBlueprintUnpopulated: e.target.value })}
@@ -1210,16 +1210,16 @@ setExampleEmail(exampleEmailHtml);
             </div>
 
             <div className="form-group">
-              <label>GPT Model</label>
+              <label>GPT model</label>
               <select
                 value={editCampaignForm.selectedModel}
                 onChange={(e) => setEditCampaignForm({ ...editCampaignForm, selectedModel: e.target.value })}
               >
                 <option value="gpt-4.1">GPT-4.1</option>
-                <option value="gpt-4.1-mini">GPT-4.1 Mini</option>
+                <option value="gpt-4.1-mini">GPT-4.1 mini</option>
                 <option value="gpt-5">GPT-5</option>
-                <option value="gpt-5-mini">GPT-5 Mini</option>
-                <option value="gpt-5-nano">GPT-5 Nano</option>
+                <option value="gpt-5-mini">GPT-5 mini</option>
+                <option value="gpt-5-nano">GPT-5 nano</option>
               </select>
             </div>
 
@@ -1245,7 +1245,7 @@ setExampleEmail(exampleEmailHtml);
                 onClick={handleUpdateCampaignTemplate}
                 disabled={isLoading || !editCampaignForm.templateName}
               >
-                {isLoading ? "Updating..." : "Update Template"}
+                {isLoading ? "Updating..." : "Update template"}
               </button>
             </div>
           </div>

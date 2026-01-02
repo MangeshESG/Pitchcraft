@@ -2902,7 +2902,7 @@ return (
           className="show-preview-btn"
           onClick={() => setIsSectionOpen(true)}
         >
-          ⟩ Show Email Preview
+          ⟩ Show email preview
         </button>
       )}
     </div>
@@ -3058,7 +3058,7 @@ return (
 
                   {/* Load Template Definition */}
                   <div className="load-template-box">
-                    <label className="section-label">Load Existing Template Definition</label>
+                    <label className="section-label">Load existing template definition</label>
                     <select
                       className="definition-select"
                       value={selectedTemplateDefinitionId || ""}
@@ -3080,7 +3080,7 @@ return (
                   <div className="input-row">
                     {/* Template Name */}
                     <div className="template-name-box">
-                      <label className="section-label">Template Name</label>
+                      <label className="section-label">Template name</label>
                       <input
                         type="text"
                         value={templateName}
@@ -3092,7 +3092,7 @@ return (
 
         {/* Model Picker */}
         <div className="model-select-box">
-          <label className="section-label">Select GPT Model</label>
+          <label className="section-label">Select GPT model</label>
           <select
             className="definition-select"
             value={selectedModel}
@@ -3107,7 +3107,7 @@ return (
         </div>
 
         <div className="search-count-box">
-  <label className="section-label">Search URL Count</label>
+  <label className="section-label">Search URL count</label>
   <select
     className="definition-select"
     value={searchURLCount}
@@ -3129,7 +3129,7 @@ return (
                           onClick={saveTemplateDefinition}
                           disabled={isSavingDefinition}
                         >
-                          {isSavingDefinition ? "Saving..." : "Save Template Definition"}
+                          {isSavingDefinition ? "Saving..." : "Save template definition"}
                         </button>
                       )}
 
@@ -3141,7 +3141,7 @@ return (
                           onClick={updateTemplateDefinition}
                           disabled={isSavingDefinition}
                         >
-                          {isSavingDefinition ? "Updating..." : "Update Template Definition"}
+                          {isSavingDefinition ? "Updating..." : "Update template definition"}
                         </button>
                       )}
 
@@ -3151,13 +3151,13 @@ return (
                         onClick={startConversation}
                         disabled={!selectedTemplateDefinitionId}
                       >
-                        Start Filling Placeholders →
+                        Start filling placeholders →
                       </button>
                       <button
                         className="new-btn"
                         onClick={createNewInstruction}
                       >
-                        + New Instruction
+                        + New instruction
                       </button>
                     </div>
                     {selectedTemplateDefinitionId !== null && (
@@ -3177,12 +3177,12 @@ return (
     ======================================================== */}
     <div className="instruction-subtabs">
       {[
-        ["ai_new", "AI Instructions (new blueprint)"],
-        ["ai_edit", "AI Instructions (edit blueprint)"],
+        ["ai_new", "AI instructions (new blueprint)"],
+        ["ai_edit", "AI instructions (edit blueprint)"],
         ["placeholder_short", "Placeholders list (essential)"],
         ["placeholders", "Placeholder manager"],
         ["ct", "UT "],
-        ["subject_instructions", "Email Subject Instructions"]
+        ["subject_instructions", "Email subject instructions"]
 
       ].map(([key, label]) => (
         <button
@@ -3251,7 +3251,7 @@ gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr 1fr",
       }}
     >
       <div>Placeholder</div>
-      <div>Friendly Name</div>
+      <div>Friendly name</div>
       <div>Category</div>
       <div>Input / Options</div>
       <div>Size</div>
@@ -3305,13 +3305,13 @@ gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr 1fr",
           }}
           className="definition-select"
         >
-          <option>Your Company</option>
-          <option>Core Message Focus</option>
+          <option>Your company</option>
+          <option>Core message focus</option>
           <option>Dos and Don'ts</option>
-          <option>Message Writing Style</option>
-          <option>Call-To-Action</option>
+          <option>Message writing style</option>
+          <option>Call-to-action</option>
           <option>Greetings & farewells</option>
-          <option>Subject Line</option>
+          <option>Subject line</option>
           <option>Images</option>
         </select>
 
@@ -3340,7 +3340,7 @@ gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr 1fr",
           >
             <option value="text">Text</option>
             <option value="textarea">Textarea</option>
-            <option value="richtext">Rich Text</option>
+            <option value="richtext">Rich text</option>
             <option value="select">Dropdown</option>
           </select>
 
@@ -3499,7 +3499,7 @@ gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr 1fr",
           fontWeight: 600
         }}
       >
-        Save Placeholder Settings
+        Save placeholder settings
       </button>
     </div>
   </div>
