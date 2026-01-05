@@ -1252,6 +1252,13 @@ const { playSound } = useSoundAlert();
 
   const [bccSelectMode, setBccSelectMode] = useState("dropdown"); // or "other"
 
+  // Notes functionality
+  const [showNotesModal, setShowNotesModal] = useState(false);
+  const [currentNotes, setCurrentNotes] = useState("");
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const [notesMessage, setNotesMessage] = useState("");
+
   useEffect(() => {
     const lastBcc = localStorage.getItem("lastBCC");
     const wasOtherMode = localStorage.getItem("lastBCCOtherMode");
@@ -2251,6 +2258,53 @@ const { playSound } = useSoundAlert();
                         ></path>
                       </svg>
                     </a>
+                    <ReactTooltip
+                      anchorSelect="#notes-icon-tooltip"
+                      place="top"
+                    >
+                      View/Edit notes for this contact
+                    </ReactTooltip>
+                    <button
+                      id="notes-icon-tooltip"
+                      onClick={() => {
+                        const contact = combinedResponses[currentIndex];
+                        setCurrentNotes(contact?.notes || "");
+                        setIsEditingNotes(true);
+                        setShowNotesModal(true);
+                      }}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        verticalAlign: "middle",
+                        height: "34px",
+                        display: "inline-block",
+                        marginLeft: "3px"
+                      }}
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="24px"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                      >
+                        <path
+                          d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V8L14 2Z"
+                          fill="#3f9f42"
+                        />
+                        <path
+                          d="M14 2V8H20"
+                          fill="none"
+                          stroke="#fff"
+                          strokeWidth="2"
+                        />
+                        <path
+                          d="M16 13H8M16 17H8M10 9H8"
+                          stroke="#fff"
+                          strokeWidth="2"
+                        />
+                      </svg>
+                    </button>
                   </div>
 
                   {/* Email Sent Date - remaining width */}
@@ -4334,6 +4388,151 @@ const { playSound } = useSoundAlert();
         loaderMessage="Sending email..."
         closeOnOverlayClick={false}
       />
+
+      {/* Notes Modal */}
+      {showNotesModal && (
+        <div
+          style={{
+            position: "fixed",
+            zIndex: 99999,
+            inset: 0,
+            background: "rgba(0,0,0,0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              padding: 24,
+              borderRadius: 8,
+              minWidth: 500,
+              maxWidth: 600,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+            }}
+          >
+            {/* <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ marginTop: 0, marginBottom: 0 }}>Notes for {combinedResponses[currentIndex]?.name}</h3>
+              <span
+                onClick={() => {
+                  setShowNotesModal(false);
+                  setIsEditingNotes(false);
+                  setNotesMessage("");
+                }}
+                style={{
+                  fontSize: "25px",
+                  fontWeight: 600,
+                  color: "#9e9e9e",
+                  cursor: "pointer",
+                  lineHeight: 1
+                }}
+              >
+                ×
+              </span>
+            </div> */}
+            
+            <>
+              <textarea
+                value={currentNotes}
+                onChange={(e) => setCurrentNotes(e.target.value)}
+                placeholder="Enter notes for this contact..."
+                style={{
+                  width: "100%",
+                  minHeight: 120,
+                  padding: 12,
+                  border: "1px solid #ddd",
+                  borderRadius: 4,
+                  fontSize: 14,
+                  resize: "vertical",
+                  marginBottom: 16
+                }}
+              />
+              {notesMessage && (
+                <div style={{ 
+                  color: "green", 
+                  marginBottom: 16, 
+                  fontSize: 14 
+                }}>
+                  {notesMessage}
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+                <button
+                  onClick={async () => {
+                    setIsSavingNotes(true);
+                    try {
+                      const contact = combinedResponses[currentIndex];
+                      const response = await fetch(
+                        `https://localhost:7216/api/Crm/Update-Notes?contactid=${contact.id}&Notes=${encodeURIComponent(currentNotes)}`,
+                        {
+                          method: 'POST',
+                          headers: {
+                            'accept': '*/*'
+                          }
+                        }
+                      );
+                      
+                      if (response.ok) {
+                        // Update the contact in combinedResponses
+                        const updatedCombinedResponses = [...combinedResponses];
+                        updatedCombinedResponses[currentIndex] = {
+                          ...updatedCombinedResponses[currentIndex],
+                          notes: currentNotes
+                        };
+                        setCombinedResponses(updatedCombinedResponses);
+                        
+                        setNotesMessage("Notes updated successfully!");
+                        
+                        setTimeout(() => {
+                          setNotesMessage("");
+                          setShowNotesModal(false);
+                          setIsEditingNotes(false);
+                        }, 1000);
+                      } else {
+                        throw new Error('Failed to update notes');
+                      }
+                    } catch (error) {
+                      console.error('Error updating notes:', error);
+                      setNotesMessage("Failed to update notes. Please try again.");
+                    } finally {
+                      setIsSavingNotes(false);
+                    }
+                  }}
+                  disabled={isSavingNotes}
+                  style={{
+                    padding: "8px 16px",
+                    background: isSavingNotes ? "#ccc" : "#3f9f42",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "4px",
+                    cursor: isSavingNotes ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {isSavingNotes ? "Saving..." : "Save"}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowNotesModal(false);
+                    setIsEditingNotes(false);
+                    setNotesMessage("");
+                  }}
+                  disabled={isSavingNotes}
+                  style={{
+                    padding: "8px 16px",
+                    border: "1px solid #ddd",
+                    background: "#fff",
+                    borderRadius: "4px",
+                    cursor: isSavingNotes ? "not-allowed" : "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
