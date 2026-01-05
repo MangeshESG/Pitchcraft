@@ -37,6 +37,9 @@ interface Campaign {
   templateId?: number; // campaign blueprint ID
   segmentId?: number | null;
   zohoViewId?: string | null;
+  segmentName?: string | null;
+  dataFileName?: string | null;
+  dataSource?: string;
 }
 
 interface DataFile {
@@ -489,7 +492,11 @@ const menuBtnStyle: React.CSSProperties = {
     : "-"}
 </td>
 
-                  <td>{c.zohoViewId ? "List" : c.segmentId ? "Segment" : "-"}</td>
+                  <td>
+                    {c.dataSource === "Segment" && c.segmentName ? c.segmentName : 
+                     c.dataSource === "DataFile" && c.dataFileName ? c.dataFileName : 
+                     c.zohoViewId ? "List" : c.segmentId ? "Segment" : "-"}
+                  </td>
                   <td>{c.description || "-"}</td>
                   <td style={{ position: "relative" }}>
   <button
