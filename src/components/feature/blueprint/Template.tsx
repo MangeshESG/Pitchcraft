@@ -132,6 +132,12 @@ const Template: React.FC<TemplateProps> = ({
   const [selectedTemplateDefinitionId, setSelectedTemplateDefinitionId] = useState<number | null>(null);
   const [isCreatingCampaign, setIsCreatingCampaign] = useState(false);
 
+
+  const DEFAULT_USER_TEMPLATE_ID = 62;
+  const DEFAULT_USER_TEMPLATE_NAME = "PKB- Final";
+  const isAdmin = userRole?.toUpperCase() === "ADMIN";
+
+
   // Utility functions
   const formatDate = (dateString?: string | null) => {
     if (!dateString) return "-";
@@ -149,24 +155,35 @@ const Template: React.FC<TemplateProps> = ({
   // ✅ NEW: Fetch template definitions
   const fetchTemplateDefinitions = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/template-definitions?activeOnly=true`);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
+      const response = await fetch(
+        `${API_BASE_URL}/api/CampaignPrompt/template-definitions?activeOnly=true`
+      );
+
+      if (!response.ok) throw new Error("Failed to load template definitions");
+
       const data = await response.json();
-      setTemplateDefinitions(data.templateDefinitions || []);
-      
-      // ✅ Auto-select first template definition
-      if (data.templateDefinitions && data.templateDefinitions.length > 0) {
-        setSelectedTemplateDefinitionId(data.templateDefinitions[0].id);
+      const defs: TemplateDefinition[] = data.templateDefinitions || [];
+
+      if (isAdmin) {
+        // ✅ Admin → see all templates
+        setTemplateDefinitions(defs);
+
+        if (defs.length > 0) {
+          setSelectedTemplateDefinitionId(defs[0].id);
+        }
+      } else {
+        // ✅ USER → force PKB-Final only
+        const pkbTemplate = defs.find(d => d.id === DEFAULT_USER_TEMPLATE_ID);
+
+        setTemplateDefinitions(pkbTemplate ? [pkbTemplate] : []);
+        setSelectedTemplateDefinitionId(DEFAULT_USER_TEMPLATE_ID);
       }
     } catch (error) {
-      console.error("Error fetching template definitions:", error);
+      console.error(error);
       setTemplateDefinitions([]);
     }
-  }, []);
+  }, [isAdmin]);
+
 
   // Fetch campaign templates
   const fetchCampaignTemplates = useCallback(async () => {
@@ -216,23 +233,36 @@ const handleTemplateNameSubmit = async () => {
     appModal.showError("Please enter a campaign name");
     return;
   }
-  if (!selectedTemplateDefinitionId) {
-    appModal.showError("Please select a template definition first");
-    return;
+
+  // ✅ ROLE-BASED TEMPLATE RESOLUTION (TS SAFE)
+  let finalTemplateDefinitionId: number;
+
+  if (isAdmin) {
+    if (selectedTemplateDefinitionId == null) {
+      appModal.showError("Please select a template definition first");
+      return;
+    }
+    finalTemplateDefinitionId = selectedTemplateDefinitionId;
+  } else {
+    // 🔒 USER → force PKB-Final
+    finalTemplateDefinitionId = DEFAULT_USER_TEMPLATE_ID;
   }
 
   setIsCreatingCampaign(true);
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/campaign/start`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        clientId: effectiveUserId,
-        templateDefinitionId: selectedTemplateDefinitionId,
-        templateName: templateNameInput,
-      }),
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/api/CampaignPrompt/campaign/start`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId: effectiveUserId,
+          templateDefinitionId: finalTemplateDefinitionId,
+          templateName: templateNameInput,
+        }),
+      }
+    );
 
     if (!response.ok) {
       throw new Error("Failed to create campaign");
@@ -244,10 +274,13 @@ const handleTemplateNameSubmit = async () => {
       // ✅ Store campaign info
       sessionStorage.setItem("newCampaignId", data.campaignId.toString());
       sessionStorage.setItem("newCampaignName", data.templateName);
-      sessionStorage.setItem("selectedTemplateDefinitionId", selectedTemplateDefinitionId.toString());
+      sessionStorage.setItem(
+        "selectedTemplateDefinitionId",
+        finalTemplateDefinitionId.toString()
+      );
       sessionStorage.setItem("autoStartConversation", "true");
-      sessionStorage.setItem("openConversationTab", "true"); // ✅ NEW FLAG
-      
+      sessionStorage.setItem("openConversationTab", "true");
+
       // ✅ Close modal and open builder
       setShowTemplateNameModal(false);
       setShowCampaignBuilder(true);
@@ -256,11 +289,12 @@ const handleTemplateNameSubmit = async () => {
     }
   } catch (error) {
     console.error("Error creating campaign:", error);
-    appModal.showError(  "Failed to create campaign");
+    appModal.showError("Failed to create campaign");
   } finally {
-    setIsCreatingCampaign(false); // Loader disappears after
+    setIsCreatingCampaign(false);
   }
 };
+
 
   // Update template
   const handleUpdateCampaignTemplate = async () => {
@@ -798,38 +832,28 @@ setExampleEmail(exampleEmailHtml);
       
       <div className="modal-body" style={{ padding: "24px" }}>
         {/* ✅ Template Definition Selector */}
-        <div className="form-group" style={{ marginBottom: "20px" }}>
-          <label htmlFor="templateDefinition" style={{ display: "block", marginBottom: "8px", fontWeight: "500" }}>
-            Select base template <span style={{ color: "red" }}>*</span>
-          </label>
-          <select
-            id="templateDefinition"
-            value={selectedTemplateDefinitionId || ''}
-            onChange={(e) => setSelectedTemplateDefinitionId(parseInt(e.target.value))}
-            style={{
-              width: "100%",
-             // padding: "12px 16px",
-              border: "2px solid #e5e7eb",
-              borderRadius: "8px",
-              fontSize: "15px",
-              backgroundColor: "white"
-            }}
-          >
-            <option value="">-- Select a template definition --</option>
-            {templateDefinitions.map((def) => (
-              <option key={def.id} value={def.id}>
-                {def.templateName} {def.usageCount > 0 && `(Used ${def.usageCount} times)`}
-              </option>
-            ))}
-          </select>
-          <p style={{ 
-            marginTop: "8px", 
-            fontSize: "13px", 
-            color: "#6b7280" 
-          }}>
-            💡 Choose which template structure to use for this campaign
-          </p>
-        </div>
+        {isAdmin && (
+          <div className="form-group" style={{ marginBottom: "20px" }}>
+            <label>
+              Select base template <span style={{ color: "red" }}>*</span>
+            </label>
+
+            <select
+              value={selectedTemplateDefinitionId || ""}
+              onChange={(e) =>
+                setSelectedTemplateDefinitionId(parseInt(e.target.value))
+              }
+            >
+              <option value="">-- Select a template definition --</option>
+              {templateDefinitions.map((def) => (
+                <option key={def.id} value={def.id}>
+                  {def.templateName}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
 
         {/* Template Name Input */}
         <div className="form-group" style={{ marginBottom: "20px" }}>

@@ -122,7 +122,6 @@ interface ConversationTabProps {
   setCurrentAnswer: (value: string) => void;
   handleSendMessage: () => void;
   handleKeyPress: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
-  chatEndRef: React.Ref<HTMLDivElement>;
   resetAll: () => void;
 
   // --- Edit‑mode support ---
@@ -288,7 +287,6 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   setCurrentAnswer,
   handleSendMessage,
   handleKeyPress,
-  chatEndRef,
   resetAll,
   isEditMode = false,
   availablePlaceholders = [],
@@ -321,6 +319,9 @@ const [isGenerating, setIsGenerating] = useState(false);
 const [editableExampleOutput, setEditableExampleOutput] = useState<string>("");
 
 const [placeholderConfirmed, setPlaceholderConfirmed] = useState(false);
+const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
 
 useEffect(() => {
@@ -328,6 +329,51 @@ useEffect(() => {
     setEditableExampleOutput(exampleOutput);
   }
 }, [exampleOutput]);
+
+
+
+
+useLayoutEffect(() => {
+  const container = messagesContainerRef.current;
+  if (!container || !messages.length) return;
+
+  const messageElements =
+    container.querySelectorAll(".message-wrapper");
+
+  if (!messageElements.length) return;
+
+  const lastMessage =
+    messageElements[messageElements.length - 1] as HTMLElement;
+
+  const lastMessageType =
+    messages[messages.length - 1]?.type;
+
+  if (lastMessageType === "user") {
+    // user message → bottom
+    container.scrollTop = container.scrollHeight;
+  } else {
+    // bot message → start of response
+    lastMessage.scrollIntoView({
+      block: "start",
+      behavior: "auto",
+    });
+
+    // subtle spacing (ChatGPT feel)
+    container.scrollTop -= 16;
+  
+  }
+}, [messages]);
+
+
+useEffect(() => {
+  if (!isTyping && conversationStarted) {
+    // wait for DOM + disabled=false
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+  }
+}, [isTyping, conversationStarted]);
+
 
 
 useEffect(() => {
@@ -348,7 +394,6 @@ useEffect(() => {
 
 
 
-  const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
 const renderMessageContent = (rawContent: string) => {
   if (!rawContent) return null;
@@ -374,11 +419,7 @@ const renderMessageContent = (rawContent: string) => {
 };
 
 
-  useEffect(() => {
-    if (!isTyping && conversationStarted && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [isTyping, messages, conversationStarted]);
+
 
 
 
@@ -524,7 +565,7 @@ return (
         )}
 
         {/* ===== CHAT BODY ===== */}
-        <div className="messages-area">
+        <div className="messages-area" ref={messagesContainerRef}>
 
           {/* EDIT MODE – no placeholder yet */}
           {isEditMode && !conversationStarted && !selectedPlaceholder && (
@@ -547,7 +588,9 @@ return (
 
           {/* ACTIVE CHAT */}
           {conversationStarted && (
-            <div className="messages-list">
+
+        <div className="messages-list">
+
               {messages.map((msg, idx) => (
                 <div key={idx} className={`message-wrapper ${msg.type}`}>
                   <div className={`message-bubble ${msg.type}`}>
@@ -569,7 +612,7 @@ return (
                 </div>
               )}
 
-              <div ref={chatEndRef} />
+              
             </div>
           )}
         </div>
@@ -813,7 +856,7 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
         }}
       >
         <div style={{ display: "flex", gap: "12px" }}>
-          {["output", "pt", "stages"].map((t) => (
+          {["output"].map((t) => (                   // {["output", "pt", "stages"].map((t) => (
             <button
               key={t}
               className={`stage-tab-btn ${activeMainTab === t ? "active" : ""}`}
@@ -860,7 +903,7 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
       )}
 
       {/* ===================== PT TAB ===================== */}
-      {activeMainTab === "pt" && (
+      {/* {activeMainTab === "pt" && (
         <div className="example-body">
           {filledTemplate ? (
             <pre className="filled-template-box">{filledTemplate}</pre>
@@ -868,10 +911,10 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
             <p className="example-placeholder">Filled Template will appear here</p>
           )}
         </div>
-      )}
+      )} */}
 
       {/* ===================== STAGES TAB ===================== */}
-      {activeMainTab === "stages" && (
+      {/* {activeMainTab === "stages" && (
         <div className="stages-container">
           <div className="stage-tabs">
             {["search", "data", "summary"].map((t) => (
@@ -917,7 +960,7 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
             )}
           </div>
         </div>
-      )}
+      )} */}
     </div>
   );
 };
@@ -933,7 +976,6 @@ const [activeBuildTab, setActiveBuildTab] = useState<BuildSubTab>('chat');
   const [currentAnswer, setCurrentAnswer] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [copied, setCopied] = useState(false);
-  const chatEndRef = useRef<HTMLDivElement>(null);
   const [soundEnabled, setSoundEnabled] = useSessionState<boolean>("campaign_sound_enabled", true);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -988,10 +1030,12 @@ const rowsPerPage = 1;
 const setPageSize = () => {};
 
 
+
 const isPreviewAllowed = React.useMemo(() => {
   const emailHtml = placeholderValues?.example_output_email;
   return getPlainTextLength(emailHtml) >= 20;
 }, [placeholderValues?.example_output_email]);
+
 
 
 
@@ -2140,9 +2184,6 @@ function getPlainTextLength(html?: string): number {
   // ====================================================================
   // SCROLL TO BOTTOM
   // ====================================================================
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
 
   // ====================================================================
   // RESET ON CLIENT CHANGE
@@ -2829,6 +2870,8 @@ function SimpleTextarea({
 return (
   <div className="email-campaign-builder !p-[0]">
     {/* ================= TOP TABS ================= */}
+    {userRole === "ADMIN" && (
+
           <div className="sticky-tabs">
             <ul>
               {["build", "instructions", "ct"].map((t) => (
@@ -2847,6 +2890,7 @@ return (
               ))}
             </ul>
           </div>
+    )}
     {/* ================= LOADING OVERLAYS ================= */}
     {isLoadingTemplate && (
       <div className="loading-overlay">
@@ -2938,7 +2982,6 @@ return (
             setCurrentAnswer={setCurrentAnswer}
             handleSendMessage={handleSendMessage}
             handleKeyPress={handleKeyPress}
-            chatEndRef={chatEndRef}
             resetAll={resetAll}
             isEditMode={isEditMode}
             availablePlaceholders={extractPlaceholders(masterPrompt)}

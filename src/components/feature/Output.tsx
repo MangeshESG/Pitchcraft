@@ -2058,22 +2058,16 @@ const { playSound } = useSoundAlert();
 
               {userRole === "ADMIN" && (
                 <li>
-                  <button
+                  {/* <button
                     onClick={tabHandler2}
                     className={`button ${tab2 === "Stages" ? "active" : ""}`}
                   >
                     Stages
-                  </button>
+                  </button> */}
                 </li>
               )}
               <li>
-                <button
-                  className={`tab-button ${tab2 === "Settings" ? "active" : ""
-                    }`}
-                  onClick={() => setTab2("Settings")}
-                >
-                  Settings
-                </button>
+
               </li>
             </ul>
             {!isDemoAccount && (

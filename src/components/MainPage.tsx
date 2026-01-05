@@ -3535,6 +3535,9 @@ if (!scrappedData) {
                     >
                       Clear Usage
                     </button>
+
+
+                    
                     <div
                       ref={popupRef}
                       className="absolute left-0 top-full mt-2 bg-white border border-gray-300 rounded-md shadow-lg p-3 w-50"
