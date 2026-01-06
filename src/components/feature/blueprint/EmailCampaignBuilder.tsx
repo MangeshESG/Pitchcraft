@@ -17,6 +17,8 @@ import { faBars } from '@fortawesome/free-solid-svg-icons';
 import downArrow from "../../assets/images/down.png";
 import PopupModal from '../../common/PopupModal';
 import ElementsTab from "./ElementsTab"
+import toggleOn from '../../../assets/images/on-button.png';
+import toggleOff from "../../../assets/images/off-button.png";
 
 // --- Type Definitions ---
 interface Message {
@@ -743,6 +745,7 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
                 totalRecords={contacts.length}
                 setCurrentPage={setCurrentPage}
                 setPageSize={setPageSize}
+                pageLabel="Contact:"
               />
             </div>
           </div>
@@ -935,6 +938,7 @@ const [activeBuildTab, setActiveBuildTab] = useState<BuildSubTab>('chat');
   const [copied, setCopied] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [soundEnabled, setSoundEnabled] = useSessionState<boolean>("campaign_sound_enabled", true);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const [isEditMode, setIsEditMode] = useState(false);
@@ -1429,7 +1433,9 @@ const splitPlaceholders = (all: Record<string, string>) => {
   // ✅ COMPLETE: Regenerate Example Output (MANUAL ONLY)
   // ====================================================================
 const regenerateExampleOutput = async () => {
+  // if (isGenerating) return;
   try {
+     setIsGenerating(true);
     console.log("🚀 Manual regenerate button clicked");
 
     if (!editTemplateId && !selectedTemplateDefinitionId) {
@@ -1566,7 +1572,7 @@ const regenerateExampleOutput = async () => {
 
     console.log("📧 Generating example output...");
     console.log("📦 Persisted placeholders only:", Object.keys(persisted));
-
+ setIsPreviewLoading(true);
     const response = await axios.post(
       `${API_BASE_URL}/api/CampaignPrompt/example/generate`,
       {
@@ -1597,6 +1603,7 @@ const regenerateExampleOutput = async () => {
       setFilledTemplate(filled);
 
       console.log("✅ Example output generated");
+      playNotificationSound();
     } else {
       showModal("Warning","⚠️ Example generation returned no output.");
     }
@@ -1604,9 +1611,14 @@ const regenerateExampleOutput = async () => {
   } catch (error: any) {
     console.error("❌ regenerateExampleOutput failed:", error);
     showModal("Error",`Failed to regenerate: ${error.message}`);
+  }finally {
+    // 🔥 THIS IS THE IMPORTANT PART
+    setIsPreviewLoading(false);
   }
 };
-
+const toggleNotifications = () => {
+  setSoundEnabled(prev => !prev);
+};
   // ====================================================================
   // LOAD TEMPLATE DEFINITIONS
   // ====================================================================
@@ -2829,7 +2841,7 @@ function SimpleTextarea({
 return (
   <div className="email-campaign-builder !p-[0]">
     {/* ================= TOP TABS ================= */}
-          <div className="sticky-tabs">
+          {/* <div className="sticky-tabs">
             <ul>
               {["build", "instructions", "ct"].map((t) => (
                 <li key={t}>
@@ -2846,7 +2858,57 @@ return (
                 </li>
               ))}
             </ul>
-          </div>
+          </div> */}
+          <div className="sticky-tabs">
+  <ul className="flex items-center justify-between">
+    {/* LEFT TABS */}
+    <div className="flex items-center gap-2">
+      {["build", "instructions"].map((t) => (
+        <li key={t}>
+          <button
+            className={activeMainTab === t ? "active" : ""}
+            onClick={() => setActiveMainTab(t as any)}
+          >
+            {t === "build" ? "Build" : "Instructions set"}
+          </button>
+        </li>
+      ))}
+
+      {/* VT TAB */}
+      <li>
+        <button
+          className={activeMainTab === "ct" ? "active" : ""}
+          onClick={() => setActiveMainTab("ct")}
+        >
+          VT
+        </button>
+      </li>
+    </div>
+
+    {/* RIGHT SIDE — Notifications */}
+    <li className="flex items-center gap-2 cursor-pointer">
+      <span
+        style={{ color: "#3f9f42", fontWeight: 500 }}
+       title={soundEnabled ? "Notifications ON" : "Notifications OFF"}
+          onClick={toggleNotifications}
+      >
+        🔔 Notifications
+      </span>
+
+      <img
+        src={soundEnabled  ? toggleOn : toggleOff}
+        alt="Notifications Toggle"
+        style={{
+          height: "28px",
+          width: "48px",
+          objectFit: "contain",
+        }}
+        onClick={toggleNotifications}
+      />
+    </li>
+  </ul>
+</div>
+
     {/* ================= LOADING OVERLAYS ================= */}
     {isLoadingTemplate && (
       <div className="loading-overlay">
@@ -3036,7 +3098,7 @@ return (
             editableExampleOutput={editableExampleOutput}
             setEditableExampleOutput={setEditableExampleOutput}
             saveExampleEmail={saveExampleEmail}
-            isGenerating={isGenerating}
+            isGenerating={isPreviewLoading}
             regenerateExampleOutput={regenerateExampleOutput}
             currentPage={currentPage}
             totalPages={totalPages}
