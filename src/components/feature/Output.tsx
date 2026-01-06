@@ -1723,7 +1723,7 @@ const { playSound } = useSoundAlert();
             </div>
 
             {/* Right side - Download button */}
-            <div className="flex items-center mt-[26px] gap-4">
+            <div className="flex items-center mt-[26px] gap-2 ">
               <div className="flex items-center">
               <ReactTooltip anchorSelect="#download-data-tooltip" place="top">
                 Download all loaded emails to a spreadsheet
@@ -1821,13 +1821,14 @@ const { playSound } = useSoundAlert();
   });
 }}
   >
+    <h1  style={{ color: "#3f9f42", fontWeight: 500 }}> 🔔 Notifications </h1>
     <img
       src={isSoundEnabled ? toggleOn : toggleOff}
       alt="Sound Toggle"
       style={{
         height: "32px",
         width: "52px",
-        objectFit: "contain"
+        objectFit: "contain",
       }}
     />
   </div>

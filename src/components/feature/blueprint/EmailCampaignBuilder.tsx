@@ -17,6 +17,8 @@ import { faBars } from '@fortawesome/free-solid-svg-icons';
 import downArrow from "../../assets/images/down.png";
 import PopupModal from '../../common/PopupModal';
 import ElementsTab from "./ElementsTab"
+import toggleOn from '../../../assets/images/on-button.png';
+import toggleOff from "../../../assets/images/off-button.png";
 
 // --- Type Definitions ---
 interface Message {
@@ -786,6 +788,7 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
                 totalRecords={contacts.length}
                 setCurrentPage={setCurrentPage}
                 setPageSize={setPageSize}
+                pageLabel="Contact:"
               />
             </div>
           </div>
@@ -977,6 +980,7 @@ const [activeBuildTab, setActiveBuildTab] = useState<BuildSubTab>('chat');
   const [isTyping, setIsTyping] = useState(false);
   const [copied, setCopied] = useState(false);
   const [soundEnabled, setSoundEnabled] = useSessionState<boolean>("campaign_sound_enabled", true);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const [isEditMode, setIsEditMode] = useState(false);
@@ -1473,7 +1477,9 @@ const splitPlaceholders = (all: Record<string, string>) => {
   // ✅ COMPLETE: Regenerate Example Output (MANUAL ONLY)
   // ====================================================================
 const regenerateExampleOutput = async () => {
+  // if (isGenerating) return;
   try {
+     setIsGenerating(true);
     console.log("🚀 Manual regenerate button clicked");
 
     if (!editTemplateId && !selectedTemplateDefinitionId) {
@@ -1610,7 +1616,7 @@ const regenerateExampleOutput = async () => {
 
     console.log("📧 Generating example output...");
     console.log("📦 Persisted placeholders only:", Object.keys(persisted));
-
+ setIsPreviewLoading(true);
     const response = await axios.post(
       `${API_BASE_URL}/api/CampaignPrompt/example/generate`,
       {
@@ -1641,6 +1647,7 @@ const regenerateExampleOutput = async () => {
       setFilledTemplate(filled);
 
       console.log("✅ Example output generated");
+      playNotificationSound();
     } else {
       showModal("Warning","⚠️ Example generation returned no output.");
     }
@@ -1648,9 +1655,14 @@ const regenerateExampleOutput = async () => {
   } catch (error: any) {
     console.error("❌ regenerateExampleOutput failed:", error);
     showModal("Error",`Failed to regenerate: ${error.message}`);
+  }finally {
+    // 🔥 THIS IS THE IMPORTANT PART
+    setIsPreviewLoading(false);
   }
 };
-
+const toggleNotifications = () => {
+  setSoundEnabled(prev => !prev);
+};
   // ====================================================================
   // LOAD TEMPLATE DEFINITIONS
   // ====================================================================
@@ -3079,7 +3091,7 @@ return (
             editableExampleOutput={editableExampleOutput}
             setEditableExampleOutput={setEditableExampleOutput}
             saveExampleEmail={saveExampleEmail}
-            isGenerating={isGenerating}
+            isGenerating={isPreviewLoading}
             regenerateExampleOutput={regenerateExampleOutput}
             currentPage={currentPage}
             totalPages={totalPages}
@@ -3115,7 +3127,7 @@ return (
 
                   {/* Load Template Definition */}
                   <div className="load-template-box">
-                    <label className="section-label">Load Existing Template Definition</label>
+                    <label className="section-label">Load existing template definition</label>
                     <select
                       className="definition-select"
                       value={selectedTemplateDefinitionId || ""}
@@ -3137,7 +3149,7 @@ return (
                   <div className="input-row">
                     {/* Template Name */}
                     <div className="template-name-box">
-                      <label className="section-label">Template Name</label>
+                      <label className="section-label">Template name</label>
                       <input
                         type="text"
                         value={templateName}
@@ -3149,7 +3161,7 @@ return (
 
         {/* Model Picker */}
         <div className="model-select-box">
-          <label className="section-label">Select GPT Model</label>
+          <label className="section-label">Select GPT model</label>
           <select
             className="definition-select"
             value={selectedModel}
@@ -3164,7 +3176,7 @@ return (
         </div>
 
         <div className="search-count-box">
-  <label className="section-label">Search URL Count</label>
+  <label className="section-label">Search URL count</label>
   <select
     className="definition-select"
     value={searchURLCount}
@@ -3186,7 +3198,7 @@ return (
                           onClick={saveTemplateDefinition}
                           disabled={isSavingDefinition}
                         >
-                          {isSavingDefinition ? "Saving..." : "Save Template Definition"}
+                          {isSavingDefinition ? "Saving..." : "Save template definition"}
                         </button>
                       )}
 
@@ -3198,7 +3210,7 @@ return (
                           onClick={updateTemplateDefinition}
                           disabled={isSavingDefinition}
                         >
-                          {isSavingDefinition ? "Updating..." : "Update Template Definition"}
+                          {isSavingDefinition ? "Updating..." : "Update template definition"}
                         </button>
                       )}
 
@@ -3208,13 +3220,13 @@ return (
                         onClick={startConversation}
                         disabled={!selectedTemplateDefinitionId}
                       >
-                        Start Filling Placeholders →
+                        Start filling placeholders →
                       </button>
                       <button
                         className="new-btn"
                         onClick={createNewInstruction}
                       >
-                        + New Instruction
+                        + New instruction
                       </button>
                     </div>
                     {selectedTemplateDefinitionId !== null && (
@@ -3234,12 +3246,12 @@ return (
     ======================================================== */}
     <div className="instruction-subtabs">
       {[
-        ["ai_new", "AI Instructions (new blueprint)"],
-        ["ai_edit", "AI Instructions (edit blueprint)"],
+        ["ai_new", "AI instructions (new blueprint)"],
+        ["ai_edit", "AI instructions (edit blueprint)"],
         ["placeholder_short", "Placeholders list (essential)"],
         ["placeholders", "Placeholder manager"],
         ["ct", "UT "],
-        ["subject_instructions", "Email Subject Instructions"]
+        ["subject_instructions", "Email subject instructions"]
 
       ].map(([key, label]) => (
         <button
@@ -3308,7 +3320,7 @@ gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr 1fr",
       }}
     >
       <div>Placeholder</div>
-      <div>Friendly Name</div>
+      <div>Friendly name</div>
       <div>Category</div>
       <div>Input / Options</div>
       <div>Size</div>
@@ -3362,13 +3374,13 @@ gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr 1fr",
           }}
           className="definition-select"
         >
-          <option>Your Company</option>
-          <option>Core Message Focus</option>
+          <option>Your company</option>
+          <option>Core message focus</option>
           <option>Dos and Don'ts</option>
-          <option>Message Writing Style</option>
-          <option>Call-To-Action</option>
+          <option>Message writing style</option>
+          <option>Call-to-action</option>
           <option>Greetings & farewells</option>
-          <option>Subject Line</option>
+          <option>Subject line</option>
           <option>Images</option>
         </select>
 
@@ -3397,7 +3409,7 @@ gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr 1fr",
           >
             <option value="text">Text</option>
             <option value="textarea">Textarea</option>
-            <option value="richtext">Rich Text</option>
+            <option value="richtext">Rich text</option>
             <option value="select">Dropdown</option>
           </select>
 
@@ -3556,7 +3568,7 @@ gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr 1fr",
           fontWeight: 600
         }}
       >
-        Save Placeholder Settings
+        Save placeholder settings
       </button>
     </div>
   </div>
