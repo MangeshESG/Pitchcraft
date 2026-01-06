@@ -430,11 +430,8 @@ const renderMessageContent = (rawContent: string) => {
     "search" | "data" | "summary"
   >("search");
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState<PageSize>(10);
 
-  const rowsPerPage = pageSize === "All" ? contacts.length : pageSize;
-  const totalPages =  pageSize === "All" ? 1 : Math.ceil(contacts.length / rowsPerPage);
+
 const [popupmodalInfo, setPopupModalInfo] = useState({
   open: false,
   title: "",
@@ -447,15 +444,7 @@ const showModal = (title: string, message: string) => {
 const closeModal = () => {
   setPopupModalInfo(prev => ({ ...prev, open: false }));
 };
-  useEffect(() => {
-    if (contacts.length > 0) {
-      const contact = contacts[(currentPage - 1) * rowsPerPage];
-      if (contact) {
-        setSelectedContactId(contact.id);
-        applyContactPlaceholders(contact);
-      }
-    }
-  }, [currentPage, contacts]);
+
 
 
 const saveExampleEmail = async () => {
@@ -975,7 +964,7 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
 // ====================================================================
 const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ selectedClient }) => {
   // --- State Management ---
-const [activeBuildTab, setActiveBuildTab] = useState<BuildSubTab>('chat');
+  const [activeBuildTab, setActiveBuildTab] = useState<BuildSubTab>('chat');
   const [currentAnswer, setCurrentAnswer] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -983,7 +972,7 @@ const [activeBuildTab, setActiveBuildTab] = useState<BuildSubTab>('chat');
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const [isEditMode, setIsEditMode] = useState(false);
+
   const [editTemplateId, setEditTemplateId] = useState<number | null>(null);
   const [originalTemplateData, setOriginalTemplateData] = useState<any>(null);
   const [selectedPlaceholder, setSelectedPlaceholder] = useState<string>("");
@@ -1027,11 +1016,13 @@ const [activeBuildTab, setActiveBuildTab] = useState<BuildSubTab>('chat');
   // NEW
   const [searchURLCount, setSearchURLCount] = useState<number>(1);
   const [subjectInstructions, setSubjectInstructions] = useState<string>("");
- const [formValues, setFormValues] = useState<Record<string, string>>({});
+  const [formValues, setFormValues] = useState<Record<string, string>>({});
 
- const [currentPage, setCurrentPage] = useState(1);
-const rowsPerPage = 1;
-const setPageSize = () => {};
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 1;
+  const setPageSize = () => {};
+  const [openedFromTemplateEdit, setOpenedFromTemplateEdit] = useState(false);
+
 
 
 
@@ -1040,7 +1031,10 @@ const isPreviewAllowed = React.useMemo(() => {
   return getPlainTextLength(emailHtml) >= 20;
 }, [placeholderValues?.example_output_email]);
 
-
+  const isEditMode = Boolean(
+    openedFromTemplateEdit ||
+    (exampleOutput && exampleOutput.trim().length > 0)
+  );
 
 
 // ========================================
@@ -1174,6 +1168,8 @@ useEffect(() => {
 }, [activeMainTab, activeBuildTab, exampleOutput]);
 
 
+
+
 useEffect(() => {
   if (!selectedTemplateDefinitionId) return;
 
@@ -1209,18 +1205,24 @@ useEffect(() => {
 }, [placeholderValues]);
 
 
-// ⭐ Ensure contact switching works inside Elements tab also
+// 1️⃣ Reset page ONLY when contacts list changes
 useEffect(() => {
-  if (activeMainTab !== "build" || activeBuildTab !== "elements") return;
+  if (!selectedDataFileId) return;
+  setCurrentPage(1);
+}, [selectedDataFileId]);
 
-  if (contacts.length > 0) {
-    const contact = contacts[(currentPage - 1) * rowsPerPage];
-    if (contact) {
-      setSelectedContactId(contact.id);
-      applyContactPlaceholders(contact);
-    }
-  }
-}, [currentPage, contacts, activeMainTab, activeBuildTab]);
+
+// 2️⃣ Apply contact when page changes
+useEffect(() => {
+  if (!contacts.length) return;
+
+  const contact = contacts[(currentPage - 1) * rowsPerPage];
+  if (!contact || contact.id === selectedContactId) return;
+
+  setSelectedContactId(contact.id);
+  applyContactPlaceholders(contact);
+}, [currentPage, contacts]);
+
 
 
 
@@ -1829,22 +1831,25 @@ const toggleNotifications = () => {
   // ====================================================================
   // LOAD TEMPLATE FOR EDIT MODE
   // ====================================================================
-  useEffect(() => {
-    const templateId = sessionStorage.getItem('editTemplateId');
-    const editMode = sessionStorage.getItem('editTemplateMode');
+    useEffect(() => {
+      const templateId = sessionStorage.getItem('editTemplateId');
+      const editMode = sessionStorage.getItem('editTemplateMode');
 
-    if (templateId && editMode === 'true') {
-      clearAllSessionData();
+      if (templateId && editMode === 'true') {
+        clearAllSessionData();
 
-      setEditTemplateId(parseInt(templateId));
-      setIsEditMode(true);
-      setActiveMainTab("build"); setActiveBuildTab("chat");      
-      loadTemplateForEdit(parseInt(templateId));
+        setEditTemplateId(Number(templateId));
+        setOpenedFromTemplateEdit(true); // ✅ ONLY HERE
+        setActiveMainTab("build");
+        setActiveBuildTab("chat");
 
-      sessionStorage.removeItem('editTemplateId');
-      sessionStorage.removeItem('editTemplateMode');
-    }
-  }, []);
+        loadTemplateForEdit(Number(templateId));
+
+        sessionStorage.removeItem('editTemplateId');
+        sessionStorage.removeItem('editTemplateMode');
+      }
+    }, []);
+
 
   const clearAllSessionData = () => {
     sessionStorage.removeItem("campaign_messages");
@@ -1915,11 +1920,11 @@ const toggleNotifications = () => {
       setActiveMainTab("build"); setActiveBuildTab("chat");
       setConversationStarted(false);
       setIsTyping(false);
-      setIsEditMode(true);
+      // setIsEditMode(true);
     } catch (error) {
       console.error("Error loading template:", error);
       alert("Failed to load template for editing");
-      setIsEditMode(false);
+      //setIsEditMode(false);
     } finally {
       setIsLoadingTemplate(false);
     }
@@ -2683,7 +2688,9 @@ const handleSendMessage = async () => {
 
     clearAllSessionData();
 
-    setIsEditMode(false);
+    //setIsEditMode(false);
+    setOpenedFromTemplateEdit(false); // ✅ IMPORTANT
+
     setEditTemplateId(null);
     setOriginalTemplateData(null);
     setSelectedPlaceholder("");
@@ -2884,24 +2891,55 @@ return (
     {/* ================= TOP TABS ================= */}
     {userRole === "ADMIN" && (
 
-          <div className="sticky-tabs">
-            <ul>
-              {["build", "instructions", "ct"].map((t) => (
-                <li key={t}>
-                  <button
-                    className={activeMainTab === t ? "active" : ""}
-                    onClick={() => setActiveMainTab(t as any)}
-                  >
-                    {t === "build"
-                      ? "Build"
-                      : t === "instructions"
-                      ? "Instructions set"
-                      : "VT"}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
+                    <div className="sticky-tabs">
+  <ul className="flex items-center justify-between">
+    {/* LEFT TABS */}
+    <div className="flex items-center gap-2">
+      {["build", "instructions"].map((t) => (
+        <li key={t}>
+          <button
+            className={activeMainTab === t ? "active" : ""}
+            onClick={() => setActiveMainTab(t as any)}
+          >
+            {t === "build" ? "Build" : "Instructions set"}
+          </button>
+        </li>
+      ))}
+
+      {/* VT TAB */}
+      <li>
+        <button
+          className={activeMainTab === "ct" ? "active" : ""}
+          onClick={() => setActiveMainTab("ct")}
+        >
+          VT
+        </button>
+      </li>
+    </div>
+
+    {/* RIGHT SIDE — Notifications */}
+    <li className="flex items-center gap-2 cursor-pointer">
+      <span
+        style={{ color: "#3f9f42", fontWeight: 500 }}
+       title={soundEnabled ? "Notifications ON" : "Notifications OFF"}
+          onClick={toggleNotifications}
+      >
+        🔔 Notifications
+      </span>
+
+      <img
+        src={soundEnabled  ? toggleOn : toggleOff}
+        alt="Notifications Toggle"
+        style={{
+          height: "28px",
+          width: "48px",
+          objectFit: "contain",
+        }}
+        onClick={toggleNotifications}
+      />
+    </li>
+  </ul>
+</div>
     )}
     {/* ================= LOADING OVERLAYS ================= */}
     {isLoadingTemplate && (
