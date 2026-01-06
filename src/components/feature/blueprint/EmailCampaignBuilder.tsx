@@ -2889,11 +2889,13 @@ function SimpleTextarea({
 return (
   <div className="email-campaign-builder !p-[0]">
     {/* ================= TOP TABS ================= */}
-    {userRole === "ADMIN" && (
+    
 
                     <div className="sticky-tabs">
   <ul className="flex items-center justify-between">
     {/* LEFT TABS */}
+        {userRole === "ADMIN" && (
+
     <div className="flex items-center gap-2">
       {["build", "instructions"].map((t) => (
         <li key={t}>
@@ -2916,7 +2918,7 @@ return (
         </button>
       </li>
     </div>
-
+        )}
     {/* RIGHT SIDE — Notifications */}
     <li className="flex items-center gap-2 cursor-pointer">
       <span
@@ -2924,7 +2926,7 @@ return (
        title={soundEnabled ? "Notifications ON" : "Notifications OFF"}
           onClick={toggleNotifications}
       >
-        🔔 Notifications
+        🔔 
       </span>
 
       <img
@@ -2940,7 +2942,7 @@ return (
     </li>
   </ul>
 </div>
-    )}
+    
     {/* ================= LOADING OVERLAYS ================= */}
     {isLoadingTemplate && (
       <div className="loading-overlay">
