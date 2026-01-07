@@ -1031,11 +1031,10 @@ const isPreviewAllowed = React.useMemo(() => {
   return getPlainTextLength(emailHtml) >= 20;
 }, [placeholderValues?.example_output_email]);
 
-  const isEditMode = Boolean(
-    openedFromTemplateEdit ||
-    (exampleOutput && exampleOutput.trim().length > 0)
-  );
-
+const isEditMode = React.useMemo(() => {
+  const html = placeholderValues?.example_output_email;
+  return typeof html === "string" && getPlainTextLength(html) >= 20;
+}, [placeholderValues?.example_output_email]);
 
 // ========================================
 // UI-ONLY PLACEHOLDER METADATA STATE
@@ -1078,32 +1077,38 @@ const saveExampleEmail = async () => {
       editTemplateId ?? (storedId ? Number(storedId) : null);
 
     if (!activeCampaignId) {
-      showModal("Error","No campaign instance found.");
+      showModal("Error", "No campaign instance found.");
       return;
     }
 
     if (!editableExampleOutput.trim()) {
-      showModal("Warning","Example email is empty.");
+      showModal("Warning", "Example email is empty.");
       return;
     }
 
-    // ✅ Send example_output as a placeholder
     await axios.post(
       `${API_BASE_URL}/api/CampaignPrompt/template/update-placeholders`,
       {
         templateId: activeCampaignId,
         placeholderValues: {
-          example_output: editableExampleOutput
+          example_output_email: editableExampleOutput // ✅ CORRECT KEY
         }
       }
     );
 
-    showModal("Success","✅ Example email saved successfully!");
+    // ✅ THIS is what flips edit mode
+    setPlaceholderValues(prev => ({
+      ...prev,
+      example_output_email: editableExampleOutput
+    }));
+
+    showModal("Success", "✅ Example email saved successfully!");
   } catch (error) {
     console.error("❌ Save example output failed:", error);
-    showModal("Error","Failed to save example email.");
+    showModal("Error", "Failed to save example email.");
   }
 };
+
 
 
 interface ExampleEmailEditorProps {
@@ -2046,7 +2051,7 @@ const startEditConversation = async (placeholder: string) => {
     }
 
     conversationValues[updatedPlaceholder] = newValue;
-    
+
     // Merge for display
     const mergedForDisplay = getMergedPlaceholdersForDisplay(conversationValues, contactValues);
     setPlaceholderValues(mergedForDisplay);
