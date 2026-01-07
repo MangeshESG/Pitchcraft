@@ -1328,7 +1328,12 @@ const saveAllPlaceholders = async () => {
     }
 
     // ✅ only conversation placeholders (exclude contact placeholders)
-    const conversationOnly = getConversationPlaceholders(formValues);
+    //const conversationOnly = getConversationPlaceholders(formValues);
+    const conversationOnly = Object.fromEntries(
+      Object.entries(getConversationPlaceholders(formValues)).filter(
+        ([key]) => extractPlaceholders(masterPrompt).includes(key)
+      )
+    );
 
     await axios.post(
       `${API_BASE_URL}/api/CampaignPrompt/template/update-placeholders`,
@@ -2032,8 +2037,16 @@ const startEditConversation = async (placeholder: string) => {
     const contactValues = getContactPlaceholders(placeholderValues);
 
     // Update the specific placeholder
-    conversationValues[updatedPlaceholder] = newValue;
+    // conversationValues[updatedPlaceholder] = newValue;
+    const essentialKeys = extractPlaceholders(masterPrompt);
 
+    if (!essentialKeys.includes(updatedPlaceholder)) {
+      console.warn("Blocked non-essential placeholder:", updatedPlaceholder);
+      return;
+    }
+
+    conversationValues[updatedPlaceholder] = newValue;
+    
     // Merge for display
     const mergedForDisplay = getMergedPlaceholdersForDisplay(conversationValues, contactValues);
     setPlaceholderValues(mergedForDisplay);
@@ -2296,13 +2309,23 @@ useEffect(() => {
 
 
 
+// 🔒 ESSENTIAL placeholders ONLY (from masterPrompt)
+const essentialPlaceholderKeys = React.useMemo(
+  () => extractPlaceholders(masterPrompt),
+  [masterPrompt]
+);
+
 const groupedPlaceholders = uiPlaceholders
-  .filter(p => !p.isRuntimeOnly)
+  .filter(p =>
+    !p.isRuntimeOnly &&
+    essentialPlaceholderKeys.includes(p.placeholderKey)
+  )
   .reduce<Record<string, PlaceholderDefinitionUI[]>>((acc, p) => {
     acc[p.category] = acc[p.category] || [];
     acc[p.category].push(p);
     return acc;
   }, {});
+
 
 const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
   const key = p.placeholderKey;
@@ -2545,11 +2568,23 @@ const handleSendMessage = async () => {
         const currentContactValues = getContactPlaceholders(placeholderValues);
         const updatedConversationValues = { ...currentConversationValues };
 
+        // Object.entries(parsedPlaceholders).forEach(([key, value]) => {
+        //   if (!CONTACT_PLACEHOLDERS.includes(key)) {
+        //     updatedConversationValues[key] = value;
+        //   }
+        // });
+
+        const essentialKeys = extractPlaceholders(masterPrompt);
+
         Object.entries(parsedPlaceholders).forEach(([key, value]) => {
-          if (!CONTACT_PLACEHOLDERS.includes(key)) {
+          if (
+            essentialKeys.includes(key) &&
+            !CONTACT_PLACEHOLDERS.includes(key)
+          ) {
             updatedConversationValues[key] = value;
           }
         });
+
 
         // merge for display once (removed duplicate call)
         const mergedForDisplay = getMergedPlaceholdersForDisplay(updatedConversationValues, currentContactValues);
