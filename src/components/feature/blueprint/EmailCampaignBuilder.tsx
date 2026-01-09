@@ -848,7 +848,7 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
         }}
       >
         <div style={{ display: "flex", gap: "12px" }}>
-          {["output"].map((t) => (                   // {["output", "pt", "stages"].map((t) => (
+           {["output", "pt"].map((t) => (                //{["output", "pt", "stages"].map((t) => (
             <button
               key={t}
               className={`stage-tab-btn ${activeMainTab === t ? "active" : ""}`}
@@ -895,7 +895,7 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
       )}
 
       {/* ===================== PT TAB ===================== */}
-      {/* {activeMainTab === "pt" && (
+      {activeMainTab === "pt" && (
         <div className="example-body">
           {filledTemplate ? (
             <pre className="filled-template-box">{filledTemplate}</pre>
@@ -903,7 +903,7 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
             <p className="example-placeholder">Filled Template will appear here</p>
           )}
         </div>
-      )} */}
+      )}
 
       {/* ===================== STAGES TAB ===================== */}
       {/* {activeMainTab === "stages" && (
@@ -2234,69 +2234,34 @@ function getPlainTextLength(html?: string): number {
 // BUILD UI PLACEHOLDERS FROM { } LIST
 // ========================================
 
+// ========================================
+// BUILD UI PLACEHOLDERS ONLY IF EMPTY
+// (Do NOT override backend-loaded placeholders)
+// ========================================
 useEffect(() => {
-  // 🛑 IMPORTANT: do NOT rebuild while user is typing dropdown options
-  if (uiPlaceholders.some(p => (p as any)._rawOptions !== undefined)) {
+  // ⛔ If backend already loaded placeholders → DO NOT rebuild
+  if (uiPlaceholders.length > 0) {
     return;
   }
 
   const keys = extractPlaceholders(masterPrompt);
 
-  setUiPlaceholders(prev => {
-    const prevMap = new Map(
-      prev.map(p => [p.placeholderKey, p])
-    );
-
-    return keys.map(key => {
-      const existing = prevMap.get(key);
-
-      // ✅ FULLY PRESERVE existing placeholder config
-      if (existing) {
-        return {
-          ...existing,
-
-          // ✅ preserve typing buffer
-          _rawOptions: (existing as any)._rawOptions,
-
-          // ensure runtime flag remains correct
-          isRuntimeOnly:
-            existing.isRuntimeOnly ??
-            RUNTIME_ONLY_PLACEHOLDERS.includes(key),
-
-          // ✅ KEY FIX: Expand based on input type
-            isRichText: existing.isRichText ?? existing.inputType === "richtext",
-            isExpandable: existing.isExpandable ?? false
-        };
-      }
-
-      // ✅ ONLY for brand-new placeholders
-      const isRichText =
-        key.includes("example") || key.includes("output");
-
-      return {
-        placeholderKey: key,
-        friendlyName: key.replace(/_/g, " "),
-        category: key.includes("search")
-          ? "Search"
-          : key.includes("example") || key.includes("output")
-          ? "Output"
-          : "General",
-
-        // default input type
-        inputType: isRichText ? "richtext" : "text",
-        options: [],
-
-        uiSize: isRichText ? "xl" : "md",
-
-        isRuntimeOnly: RUNTIME_ONLY_PLACEHOLDERS.includes(key),
-
-        // ✅ Expand only if rich text
-        isRichText,
-        isExpandable: isRichText
-      };
-    });
-  });
+  // Create minimal default items ONLY when no backend data exists
+  setUiPlaceholders(
+    keys.map(key => ({
+      placeholderKey: key,
+      friendlyName: key.replace(/_/g, " "),
+      category: "General",
+      inputType: "text",
+      options: [],
+      uiSize: "md",
+      isRichText: false,
+      isExpandable: false,
+      isRuntimeOnly: RUNTIME_ONLY_PLACEHOLDERS.includes(key),
+    }))
+  );
 }, [masterPrompt]);
+
 
 
 useEffect(() => {

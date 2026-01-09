@@ -2705,3 +2705,9 @@
 .show-preview-btn:hover {
   background: #368a3a;
 }
+.filled-template-box {
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
+}

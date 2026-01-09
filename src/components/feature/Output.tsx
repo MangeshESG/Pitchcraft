@@ -1821,7 +1821,7 @@ const { playSound } = useSoundAlert();
   });
 }}
   >
-    <h1  style={{ color: "#3f9f42", fontWeight: 500 }}> 🔔 Notifications </h1>
+    <h1  style={{ color: "#3f9f42", fontWeight: 500 }}> 🔔  </h1>
     <img
       src={isSoundEnabled ? toggleOn : toggleOff}
       alt="Sound Toggle"
@@ -2059,12 +2059,12 @@ const { playSound } = useSoundAlert();
 
               {userRole === "ADMIN" && (
                 <li>
-                  {/* <button
+                  <button
                     onClick={tabHandler2}
                     className={`button ${tab2 === "Stages" ? "active" : ""}`}
                   >
                     Stages
-                  </button> */}
+                  </button>
                 </li>
               )}
               <li>
@@ -3653,7 +3653,7 @@ const { playSound } = useSoundAlert();
                     </button>
                   </li>
                   <li className="flex-50percent-991 flex-full-640">
-                    <button
+                    {/* <button
                       onClick={() => setTab3("Search results")}
                       className={`button full-width ${tab3 === "Search results" ? "active" : ""
                         }`}
@@ -3677,7 +3677,7 @@ const { playSound } = useSoundAlert();
                         }`}
                     >
                       Sourced data summary
-                    </button>
+                    </button> */}
                   </li>
                 </ul>
               </div>
@@ -3763,7 +3763,7 @@ const { playSound } = useSoundAlert();
                 </div>
               )}
 
-              {tab3 === "Search results" && (
+              {/* {tab3 === "Search results" && (
                 <div className="form-group">
                   <h3>
                     Search results for "
@@ -4037,282 +4037,11 @@ const { playSound } = useSoundAlert();
                     </button>
                   </span>
                 </div>
-              )}
+              )} */}
             </>
           )}
           {/* Add this after the Output tab and before the Stages tab */}
-          {tab2 === "Settings" && (
-            <div className="settings-tab-content w-full">
-              <p style={{marginBottom:'20px'}}>The Settings tab allows you to configure campaign options and adjust email parameters.</p>
-              <div className="col-12 flex gap-4">
-                <div className="form-group flex-1">
-                  <label style={{ width: "100%" }}>Subject</label>
-                  <select
-                    onChange={(e) => {
-                      const newMode = e.target.value;
 
-                      // Only call if setSubjectMode is defined
-                      if (setSubjectMode) {
-                        setSubjectMode(newMode);
-                      }
-
-                      // Clear or set subjectText based on mode
-                      if (newMode === "AI generated") {
-                        // Call handleSubjectTextChange only if it exists
-                        if (handleSubjectTextChange) {
-                          handleSubjectTextChange("");
-                        }
-                      } else if (
-                        newMode === "With Placeholder" &&
-                        toneSettings?.subjectTemplate
-                      ) {
-                        // Only call if setSubjectText is defined
-                        if (setSubjectText) {
-                          setSubjectText(toneSettings.subjectTemplate);
-                        }
-                      }
-                    }}
-                    value={subjectMode}
-                    className="height-35"
-                    style={{ minWidth: 150 }}
-                  >
-                    <option value="AI generated">AI generated</option>
-                    <option value="With Placeholder">With placeholder</option>
-                  </select>
-                </div>
-                <div className="form-group flex-1 mt-[26px]">
-                  <div className="flex">
-                    <input
-                      type="text"
-                      placeholder="Enter subject here"
-                      value={
-                        subjectMode === "With Placeholder" ? subjectText : ""
-                      }
-                      onChange={(e) => {
-                        if (handleSubjectTextChange) {
-                          handleSubjectTextChange(e.target.value);
-                        }
-                      }}
-                      disabled={subjectMode !== "With Placeholder"}
-                    />
-                  </div>
-                </div>
-                <div className="form-group flex-1">
-                  <label>Language</label>
-                  <select
-                    className="form-control"
-                    value={toneSettings?.language || "English"}
-                    onChange={(e) =>
-                      toneSettingsHandler?.({
-                        target: { name: "language", value: e.target.value },
-                      })
-                    }
-                    disabled={
-                      sessionStorage.getItem("isDemoAccount") === "true"
-                    }
-                  >
-                    <option value="English">English</option>
-                    <option value="Spanish">Spanish</option>
-                    <option value="French">French</option>
-                    <option value="German">German</option>
-                    <option value="Italian">Italian</option>
-                    <option value="Portuguese">Portuguese</option>
-                    <option value="Dutch">Dutch</option>
-                    <option value="Russian">Russian</option>
-                    <option value="Chinese">Chinese</option>
-                    <option value="Japanese">Japanese</option>
-                    <option value="Korean">Korean</option>
-                  </select>
-                </div>
-                <div className="form-group flex-1">
-                  <label>Emojis</label>
-                  <select
-                    className="form-control"
-                    value={toneSettings?.emojis || "None"}
-                    onChange={(e) =>
-                      toneSettingsHandler?.({
-                        target: { name: "emojis", value: e.target.value },
-                      })
-                    }
-                    disabled={
-                      sessionStorage.getItem("isDemoAccount") === "true"
-                    }
-                  >
-                    <option value="None">None</option>
-                    <option value="Minimal">Minimal</option>
-                    <option value="Few">Few</option>
-                    <option value="Many">Many</option>
-                  </select>
-                </div>
-                <div className="form-group flex-1">
-                  <label>Tone</label>
-                  <select
-                    className="form-control"
-                    value={toneSettings?.tone || "Professional"}
-                    onChange={(e) =>
-                      toneSettingsHandler?.({
-                        target: { name: "tone", value: e.target.value },
-                      })
-                    }
-                    disabled={
-                      sessionStorage.getItem("isDemoAccount") === "true"
-                    }
-                  >
-                    <option value="Professional">Professional</option>
-                    <option value="Casual">Casual</option>
-                    <option value="Formal">Formal</option>
-                    <option value="Friendly">Friendly</option>
-                    <option value="Enthusiastic">Enthusiastic</option>
-                    <option value="Conversational">Conversational</option>
-                    <option value="Persuasive">Persuasive</option>
-                    <option value="Empathetic">Empathetic</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="col-12 flex gap-4">
-                <div className="form-group flex-1">
-                  <label>Chatty level</label>
-                  <select
-                    className="form-control"
-                    value={toneSettings?.chatty || "Medium"}
-                    onChange={(e) =>
-                      toneSettingsHandler?.({
-                        target: { name: "chatty", value: e.target.value },
-                      })
-                    }
-                    disabled={
-                      sessionStorage.getItem("isDemoAccount") === "true"
-                    }
-                  >
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
-                  </select>
-                </div>
-
-                <div className="form-group flex-1">
-                  <label>Creativity level</label>
-                  <select
-                    className="form-control"
-                    value={toneSettings?.creativity || "Medium"}
-                    onChange={(e) =>
-                      toneSettingsHandler?.({
-                        target: { name: "creativity", value: e.target.value },
-                      })
-                    }
-                    disabled={
-                      sessionStorage.getItem("isDemoAccount") === "true"
-                    }
-                  >
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
-                  </select>
-                </div>
-
-                <div className="form-group flex-1">
-                  <label>Reasoning level</label>
-                  <select
-                    className="form-control"
-                    value={toneSettings?.reasoning || "Medium"}
-                    onChange={(e) =>
-                      toneSettingsHandler?.({
-                        target: { name: "reasoning", value: e.target.value },
-                      })
-                    }
-                    disabled={
-                      sessionStorage.getItem("isDemoAccount") === "true"
-                    }
-                  >
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
-                  </select>
-                </div>
-
-                <div className="form-group flex-1">
-                  <label>Date related greeting</label>
-                  <select
-                    className="form-control"
-                    value={toneSettings?.dateGreeting || "No"}
-                    onChange={(e) =>
-                      toneSettingsHandler?.({
-                        target: { name: "dateGreeting", value: e.target.value },
-                      })
-                    }
-                    disabled={
-                      sessionStorage.getItem("isDemoAccount") === "true"
-                    }
-                  >
-                    <option value="Yes">Yes</option>
-                    <option value="No">No</option>
-                  </select>
-                </div>
-
-                <div className="form-group flex-1">
-                  <label>Date related farewell</label>
-                  <select
-                    className="form-control"
-                    value={toneSettings?.dateFarewell || "No"}
-                    onChange={(e) =>
-                      toneSettingsHandler?.({
-                        target: { name: "dateFarewell", value: e.target.value },
-                      })
-                    }
-                    disabled={
-                      sessionStorage.getItem("isDemoAccount") === "true"
-                    }
-                  >
-                    <option value="Yes">Yes</option>
-                    <option value="No">No</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Add Save Button */}
-              {sessionStorage.getItem("isDemoAccount") !== "true" && (
-                <div className="mt-4 flex justify-end">
-                  <button
-                    onClick={handleSaveSettings}
-                    disabled={isSavingSettings}
-                    className="btn btn-primary"
-                    style={{
-                      padding: "10px 30px",
-                      backgroundColor: "#3f9f42",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "4px",
-                      cursor: isSavingSettings ? "not-allowed" : "pointer",
-                      opacity: isSavingSettings ? 0.6 : 1,
-                      fontSize: "16px",
-                      fontWeight: "500",
-                      marginTop: "20px",
-                    }}
-                  >
-                    {isSavingSettings ? "Saving..." : "Save settings"}
-                  </button>
-                </div>
-              )}
-
-              {sessionStorage.getItem("isDemoAccount") === "true" && (
-                <div
-                  className="demo-notice"
-                  style={{
-                    padding: "10px",
-                    background: "#fff3cd",
-                    border: "1px solid #ffeaa7",
-                    borderRadius: "4px",
-                    color: "#856404",
-                    marginTop: "20px",
-                  }}
-                >
-                  <strong>Demo Mode:</strong> Settings are visible but disabled.
-                  Upgrade your account to enable these features.
-                </div>
-              )}
-            </div>
-          )}
         </>
       )}
       <AppModal
