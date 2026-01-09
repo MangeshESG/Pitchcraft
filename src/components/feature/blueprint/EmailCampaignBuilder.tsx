@@ -1895,6 +1895,7 @@ const toggleNotifications = () => {
       setSelectedModel(template.selectedModel || "gpt-5");
       setSelectedTemplateDefinitionId(template.templateDefinitionId || null);
       setTemplateName(template.templateName || "");
+      setSubjectInstructions(template.subjectInstructions || "");
       setIsComplete(false);
 
       // --------------------------------------------
