@@ -1362,7 +1362,7 @@ const MainPage: React.FC = () => {
 
       const isSubjectAI = campaignSubjectConfig?.isAI === true;
       const manualSubjectTemplate =
-        campaignSubjectConfig?.manualTemplate || "";
+      campaignSubjectConfig?.manualTemplate || "";
 
 
     const selectedModelNameA = selectedModelName;
@@ -1495,77 +1495,12 @@ const MainPage: React.FC = () => {
           replacements
         );
 
-        const cacheKey = JSON.stringify({
-          searchTerm: searchTermBody,
-          instructions: filledInstructions,
-          modelName: selectedModelNameA,
-          searchCount,
-        });
 
-        let scrapeData: any;
-        let cacheHit = false;
-        if (processCacheRef.current[cacheKey]) {
-          scrapeData = processCacheRef.current[cacheKey];
-          cacheHit = true;
-        } else {
-          setOutputForm((prev) => ({
-            ...prev,
-            generatedContent:
-              `<span style="color: orange">[${formatDateTime(
-                new Date()
-              )}] Crafting phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${entry.email
-              }</span><br/>` + prev.generatedContent,
-          }));
-          const scrapeResponse = await fetch(
-            `${API_BASE_URL}/api/auth/process`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                searchTerm: searchTermBody,
-                instructions: filledInstructions,
-                modelName: selectedModelNameA,
-                searchCount: searchCount,
-              }),
-            }
-          );
-if (!scrapeResponse.ok) {
-  setOutputForm(prev => ({
-    ...prev,
-    generatedContent:
-      `<span style="color: orange">[${formatDateTime(
-        new Date()
-      )}] Process API failed for ${full_name}. Continuing with fallback data.</span><br/>`
-      + prev.generatedContent,
-  }));
 
-  scrapeData = {
-    pitchResponse: { content: "" },
-    searchResults: [],
-    allScrapedData: "",
-  };
-} else {
-  scrapeData = await scrapeResponse.json();
-  processCacheRef.current[cacheKey] = scrapeData;
-}
 
-          
-        }
-
-        if (cacheHit) {
-          setOutputForm((prev) => ({
-            ...prev,
-            generatedContent:
-              `<span style="color: #b38f00">[${formatDateTime(
-                new Date()
-              )}] Loading phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${entry.email
-              }</span><br/>` + prev.generatedContent,
-          }));
-        }
-
-        const summary = scrapeData.pitchResponse || {};
-        const searchResults = scrapeData.searchResults || [];
-        const scrappedData = summary.content || "";
+        const summary =   {};
+        const searchResults =  [];
+        const scrappedData ="";
 
 if (!scrappedData) {
   setOutputForm(prev => ({
@@ -1598,8 +1533,8 @@ if (!scrappedData) {
         setOutputForm((prev) => ({
           ...prev,
           currentPrompt: promptToSend,
-          searchResults: scrapeData.searchResults || [],
-          allScrapedData: scrapeData.allScrapedData || "",
+          searchResults:  [],
+          allScrapedData:  "",
         }));
 
         // Request body
@@ -1635,19 +1570,13 @@ if (!scrappedData) {
         }
 
 
-        const dataAnalysis = analyzeScrapedData(
-          scrapeData.allScrapedData || ""
-        );
+
         setOutputForm((prev) => ({
           ...prev,
-          searchResults: searchResults,
-          allScrapedData: scrapeData.allScrapedData || "",
           generatedContent:
             `<span style="color: green">[${formatDateTime(
               new Date()
-            )}] Pitch successfully crafted(att:${searchCount} org:${dataAnalysis.original
-            } ass:${dataAnalysis.assisted
-            }), for contact ${full_name} with company name ${company_name} and domain ${entry.email
+            )}] Pitch successfully crafted, for contact ${full_name} with company name ${company_name} and domain ${entry.email
             }</span><br/>` + prev.generatedContent,
           linkLabel: pitchData.response.content,
         }));
@@ -1675,7 +1604,7 @@ if (!scrappedData) {
             generatedContent:
               `<span style="color: blue">[${formatDateTime(
                 new Date()
-              )}] Crafting phase #3 concinnus, for contact ${full_name} with company name ${company_name} and domain ${entry.email
+              )}] Crafting phase #2 concinnus, for contact ${full_name} with company name ${company_name} and domain ${entry.email
               }</span><br/>` + prev.generatedContent,
           }));
 
@@ -1868,35 +1797,9 @@ if (!scrappedData) {
           return updated;
         });
 
-        setallsearchResults((prev) => {
-          const updated = [...prev];
-          if (regenIndex > -1) updated[regenIndex] = searchResults;
-          else updated.push(searchResults);
-          return updated;
-        });
 
-        seteveryscrapedData((prev) => {
-          const updated = [...prev];
-          if (regenIndex > -1)
-            updated[regenIndex] = scrapeData.allScrapedData || "";
-          else updated.push(scrapeData.allScrapedData || "");
-          return updated;
-        });
 
-        setallsummery((prev) => {
-          const updated = [...prev];
-          if (regenIndex > -1)
-            updated[regenIndex] = scrapeData.pitchResponse?.content || "";
-          else updated.push(scrapeData.pitchResponse?.content || "");
-          return updated;
-        });
 
-        setallSearchTermBodies((prev) => {
-          const updated = [...prev];
-          if (regenIndex > -1) updated[regenIndex] = searchTermBody;
-          else updated.push(searchTermBody);
-          return updated;
-        });
 
         setRecentlyAddedOrUpdatedId(id);
 
@@ -2234,111 +2137,13 @@ if (!scrappedData) {
             replacements
           );
 
-          const cacheKey = JSON.stringify({
-            searchTerm: searchTermBody,
-            instructions: filledInstructions,
-            modelName: selectedModelNameA,
-            searchCount,
-          });
 
-          let scrapeData: any;
-          let cacheHit = false;
 
-          if (processCacheRef.current[cacheKey]) {
-            scrapeData = processCacheRef.current[cacheKey];
-            cacheHit = true;
-          } else {
-            setOutputForm((prevOutputForm) => ({
-              ...prevOutputForm,
-              generatedContent:
-                `<span style="color: orange">[${formatDateTime(
-                  new Date()
-                )}] Crafting phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${entry.email
-                }</span><br/>` + prevOutputForm.generatedContent,
-            }));
+          const summary =  {};
+          const searchResults =  [];
+          const scrappedData = "";
 
-            const scrapeResponse = await fetch(
-              `${API_BASE_URL}/api/auth/process`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  searchTerm: searchTermBody,
-                  instructions: filledInstructions,
-                  modelName: selectedModelNameA,
-                  searchCount: searchCount,
-                }),
-              }
-            );
-            if (!scrapeResponse.ok) {
-              scrapfailedreq += 1;
-              setOutputForm((prevOutputForm) => ({
-                ...prevOutputForm,
-                searchResults: [],
-                allScrapedData: "",
-                generatedContent:
-                  `<span style="color: red">[${formatDateTime(
-                    new Date()
-                  )}] Centum nulla analysis incomplete for contact ${full_name} with company name ${company_name} and domain ${entry.email
-                  }</span><br/>` + prevOutputForm.generatedContent,
-                usage:
-                  `Cost: $${cost.toFixed(6)}    ` +
-                  `Failed Requests: ${failedReq}    ` +
-                  `Success Requests: ${successReq}              ` +
-                  `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
-                  `Total Tokens Used: ${totaltokensused}   `,
-              }));
-              generatedPitches.push({
-                ...entry,
-                pitch: "Error scraping website",
-              });
-            }
-            scrapeData = await scrapeResponse.json();
-            processCacheRef.current[cacheKey] = scrapeData;
-          }
 
-          // Always show if data is from cache or not
-          if (cacheHit) {
-            setOutputForm((prevOutputForm) => ({
-              ...prevOutputForm,
-              generatedContent:
-                `<span style="color: #b38f00">[${formatDateTime(
-                  new Date()
-                )}] Loading phase #1 societatis, for contact ${full_name} with company name ${company_name} and domain ${entry.email
-                }</span><br/>` + prevOutputForm.generatedContent,
-            }));
-          }
-
-          console.log("All cached values:", processCacheRef.current);
-
-          const summary = scrapeData.pitchResponse || {};
-          const searchResults = scrapeData.searchResults || [];
-          const scrappedData = summary.content || "";
-
-          if (!scrappedData) {
-            const formattedTime = formatDateTime(new Date());
-            scrapfailedreq += 1;
-            setOutputForm((prevOutputForm) => ({
-              ...prevOutputForm,
-              searchResults: scrapeData.searchResults || [],
-              allScrapedData: scrapeData.allScrapedData || "",
-              generatedContent:
-                `<span style="color: red">[${formatDateTime(
-                  new Date()
-                )}] Centum nulla analysis incomplete for contact ${full_name} with company name ${company_name} and domain ${entry.email
-                }</span><br/>` + prevOutputForm.generatedContent,
-              usage:
-                `Cost: $${cost.toFixed(6)}    ` +
-                `Failed Requests: ${failedReq}    ` +
-                `Success Requests: ${successReq}              ` +
-                `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
-                `Total Tokens Used: ${totaltokensused}   `,
-            }));
-            generatedPitches.push({
-              ...entry,
-              pitch: "Error scraping website",
-            });
-          }
 
           replacements = {
             ...replacements,
@@ -2364,24 +2169,18 @@ if (!scrappedData) {
           setOutputForm((prevState) => ({
             ...prevState,
             currentPrompt: promptToSend,
-            searchResults: scrapeData.searchResults || [],
-            allScrapedData: scrapeData.allScrapedData || "",
+
           }));
 
-          const dataAnalysis = analyzeScrapedData(
-            scrapeData.allScrapedData || ""
-          );
+
 
           setOutputForm((prevOutputForm) => ({
             ...prevOutputForm,
-            searchResults: scrapeData.searchResults || [],
-            allScrapedData: scrapeData.allScrapedData || "",
+            
             generatedContent:
               `<span style="color: blue">[${formatDateTime(
                 new Date()
-              )}] Crafting phase #2 integritas (att:${searchCount} org:${dataAnalysis.original
-              } ass:${dataAnalysis.assisted
-              }), for contact ${full_name} with company name ${company_name} and domain ${entry.email
+              )}] Crafting phase #1 integritas , for contact ${full_name} with company name ${company_name} and domain ${entry.email
               }</span><br/>` + prevOutputForm.generatedContent,
           }));
 
@@ -2408,12 +2207,11 @@ if (!scrappedData) {
             totaltokensused += parseFloat(pitchData?.response?.totalTokens);
             setOutputForm((prevOutputForm) => ({
               ...prevOutputForm,
-              searchResults: scrapeData.searchResults || [],
-              allScrapedData: scrapeData.allScrapedData || "",
+              
               generatedContent:
                 `<span style="color: red">[${formatDateTime(
                   new Date()
-                )}] Phase #2 integritas incomplete for contact ${full_name} with company name ${company_name} and domain ${entry.email
+                )}] Phase #1 integritas incomplete for contact ${full_name} with company name ${company_name} and domain ${entry.email
                 }</span><br/>` + prevOutputForm.generatedContent,
               usage:
                 `Cost: $${cost.toFixed(6)}    ` +
@@ -2437,8 +2235,7 @@ if (!scrappedData) {
           // Success: Update UI with the generated pitch
           setOutputForm((prevOutputForm) => ({
             ...prevOutputForm,
-            searchResults: scrapeData.searchResults || [],
-            allScrapedData: scrapeData.allScrapedData || "",
+            
             generatedContent:
               `<span style="color: green">[${formatDateTime(
                 new Date()
@@ -2494,7 +2291,7 @@ if (!scrappedData) {
               generatedContent:
                 `<span style="color: blue">[${formatDateTime(
                   new Date()
-                )}] Crafting phase #3 concinnus, for contact ${full_name} with company name ${company_name} and domain ${entry.email
+                )}] Crafting phase #2 concinnus, for contact ${full_name} with company name ${company_name} and domain ${entry.email
                 }</span><br/>` + prev.generatedContent,
             }));
 
@@ -2632,102 +2429,15 @@ if (!scrappedData) {
           // Similarly update other arrays at the correct index
 
           setallprompt((prevPrompts) => {
-
             const updated = [...prevPrompts];
-
             if (responseIndex < updated.length) {
-
               updated[responseIndex] = promptToSend;
-
             } else {
-
               updated.push(promptToSend);
-
             }
-
             return updated;
-
           });
 
-
-
-          setallsearchResults((prevSearchResults) => {
-
-            const updated = [...prevSearchResults];
-
-            if (responseIndex < updated.length) {
-
-              updated[responseIndex] = scrapeData.searchResults || [];
-
-            } else {
-
-              updated.push(scrapeData.searchResults || []);
-
-            }
-
-            return updated;
-
-          });
-
-
-
-          seteveryscrapedData((prevScrapedData) => {
-
-            const updated = [...prevScrapedData];
-
-            if (responseIndex < updated.length) {
-
-              updated[responseIndex] = scrapeData.allScrapedData || "";
-
-            } else {
-
-              updated.push(scrapeData.allScrapedData || "");
-
-            }
-
-            return updated;
-
-          });
-
-
-
-          setallsummery((prevSummery) => {
-
-            const updated = [...prevSummery];
-
-            if (responseIndex < updated.length) {
-
-              updated[responseIndex] = scrapeData.pitchResponse?.content || "";
-
-            } else {
-
-              updated.push(scrapeData.pitchResponse?.content || "");
-
-            }
-
-            return updated;
-
-          });
-
-
-
-          setallSearchTermBodies((prevSearchTermBodies) => {
-
-            const updated = [...prevSearchTermBodies];
-
-            if (responseIndex < updated.length) {
-
-              updated[responseIndex] = searchTermBody;
-
-            } else {
-
-              updated.push(searchTermBody);
-
-            }
-
-            return updated;
-
-          });
           setCurrentIndex(responseIndex);
           setRecentlyAddedOrUpdatedId(newResponse.id);
 
@@ -2833,7 +2543,7 @@ if (!scrappedData) {
             generatedContent:
               `<span style="color: red">[${formatDateTime(
                 new Date()
-              )}] Phase #2 integritas incomplete for contact ${entry.full_name
+              )}] Phase #1 integritas incomplete for contact ${entry.full_name
               } with company name ${entry.company_name} and domain ${entry.email
               }</span><br/>` + prevOutputForm.generatedContent,
             usage:
