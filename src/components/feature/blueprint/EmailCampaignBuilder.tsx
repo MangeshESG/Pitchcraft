@@ -2314,52 +2314,58 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
   switch (p.inputType) {
     case "textarea":
       return (
-        <textarea
-          value={value}
-          onChange={e =>
-            setFormValues(prev => ({
-              ...prev,
-              [key]: e.target.value
-            }))
-          }
-          style={{ ...baseStyle, minHeight: "90px" }}
-        />
+        <div className='flex'>
+          <textarea
+            value={value}
+            onChange={e =>
+              setFormValues(prev => ({
+                ...prev,
+                [key]: e.target.value
+              }))
+            }
+            style={{ ...baseStyle, minHeight: "90px" }}
+          />
+        </div>
       );
 
     case "select":
       return (
-        <select
-          value={value}
-          onChange={e =>
-            setFormValues(prev => ({
-              ...prev,
-              [key]: e.target.value
-            }))
-          }
-          style={baseStyle}
-        >
-          <option value="">-- Select --</option>
-          {p.options?.map(opt => (
-            <option key={opt} value={opt}>
-              {opt}
-            </option>
-          ))}
-        </select>
+        <div className='flex'>
+          <select
+            value={value}
+            onChange={e =>
+              setFormValues(prev => ({
+                ...prev,
+                [key]: e.target.value
+              }))
+            }
+            style={baseStyle}
+          >
+            <option value="">-- Select --</option>
+            {p.options?.map(opt => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
+        </div>
       );
 
     default:
       return (
-        <input
-          type="text"
-          value={value}
-          onChange={e =>
-            setFormValues(prev => ({
-              ...prev,
-              [key]: e.target.value
-            }))
-          }
-          style={baseStyle}
-        />
+        <div className='flex'>
+          <input
+            type="text"
+            value={value}
+            onChange={e =>
+              setFormValues(prev => ({
+                ...prev,
+                [key]: e.target.value
+              }))
+            }
+            style={baseStyle}
+          />
+        </div>
       );
   }
 };
