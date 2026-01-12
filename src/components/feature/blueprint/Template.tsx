@@ -133,8 +133,8 @@ const Template: React.FC<TemplateProps> = ({
   const [isCreatingCampaign, setIsCreatingCampaign] = useState(false);
 
 
-  const DEFAULT_USER_TEMPLATE_ID = 62;
-  const DEFAULT_USER_TEMPLATE_NAME = "PKB- Final";
+  const DEFAULT_USER_TEMPLATE_ID = 64;
+  const DEFAULT_USER_TEMPLATE_NAME = "PKB- FINAL";
   const isAdmin = userRole?.toUpperCase() === "ADMIN";
 
 
