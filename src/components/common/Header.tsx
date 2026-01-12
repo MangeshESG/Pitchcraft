@@ -2,8 +2,8 @@ import React, { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { Link, useNavigate } from "react-router-dom";
 import { RootState } from "../../Redux/store";
-import { clearToken, saveUserCredit } from "../../slices/authSLice";
-import API_BASE_URL from "../../config";
+import { clearToken } from "../../slices/authSLice";
+import { useCreditRefresh } from "../../hooks/useCreditRefresh";
 
 interface HeaderProps {
   connectTo: boolean;
@@ -26,8 +26,11 @@ const Header: React.FC<HeaderProps> = React.memo(
   ({ connectTo, selectedClient, handleClientChange, clientNames = [], userRole, onUpgradeClick, onCreditClick }) => {
     const firstName = useSelector((state: RootState) => state.auth.firstName);
     const lastName = useSelector((state: RootState) => state.auth.lastName);
-    const credits = useSelector((state: RootState) => state.auth.credits);
     const username = useSelector((state: RootState) => state.auth.username) as string;
+    const reduxUserId = useSelector((state: RootState) => state.auth.userId);
+    
+    // Use the credit refresh hook
+    const { credits, refreshCredits } = useCreditRefresh();
 
     console.log('Header Debug:', { firstName, username });
 
@@ -43,24 +46,14 @@ const Header: React.FC<HeaderProps> = React.memo(
 
     const toggleMenu = () => setIsMenuOpen((prev) => !prev);
 
-    const reduxUserId = useSelector((state: RootState) => state.auth.userId);
     const effectiveUserId = selectedClient !== "" ? selectedClient : reduxUserId;
 
+    // Refresh credits when effectiveUserId changes
     useEffect(() => {
-      const fetchCredits = async () => {
-        try {
-          const creditRes = await fetch(
-            `${API_BASE_URL}/api/Crm/user_credit?clientId=${effectiveUserId}`,
-            { method: "GET", headers: { "Content-Type": "application/json" } }
-          );
-          const data = await creditRes.json();
-          dispatch(saveUserCredit(data));
-        } catch (error) {
-          console.error("Error fetching credit data:", error);
-        }
-      };
-      if (effectiveUserId) fetchCredits();
-    }, [effectiveUserId, dispatch]);
+      if (effectiveUserId) {
+        refreshCredits(effectiveUserId);
+      }
+    }, [effectiveUserId, refreshCredits]);
 
     return (
       <div className="main-head d-flex justify-between align-center w-[100%]">

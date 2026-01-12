@@ -32,20 +32,10 @@ export const useCreditCheck = () => {
         const creditData = await response.json();
         dispatch(saveUserCredit(creditData));
         
-        // Show modal if can't generate and not skipped
-        if (creditData && !creditData.canGenerate && !localStorage.getItem('creditModalSkipped')) {
-          // Check if user has standard plan or higher
-          const hasValidPlan = creditData.planName && 
-            (creditData.planName.toLowerCase().includes('standard') || 
-             creditData.planName.toLowerCase().includes('premium') ||
-             creditData.planName.toLowerCase().includes('pro'));
-          
-          if (!hasValidPlan) {
-            setShowCreditModal(true);
-          }
+        // Show modal only based on canGenerate flag
+        if (creditData && !creditData.canGenerate) {
+          setShowCreditModal(true);
         }
-        
-
         
         return creditData;
       } else {

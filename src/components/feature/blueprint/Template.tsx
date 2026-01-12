@@ -4,9 +4,13 @@ import ReactQuill from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
 import API_BASE_URL from "../../../config";
 import "./Template.css";
+import { useCreditCheck } from "../../../hooks/useCreditCheck";
 import { useAppModal } from "../../../hooks/useAppModal";
 import EmailCampaignBuilder from "./EmailCampaignBuilder";
 import PaginationControls from "../PaginationControls";
+import duplicateIcon from "../../../assets/images/icons/duplicate.png";
+import CreditCheckModal from "../../common/CreditCheckModal";
+
 
 const menuBtnStyle = {
   width: "100%",
@@ -115,6 +119,7 @@ const Template: React.FC<TemplateProps> = ({
   });
   
   const appModal = useAppModal();
+  const { checkUserCredits, showCreditModal, closeCreditModal, handleSkipModal, credits } = useCreditCheck();
   const userId = sessionStorage.getItem("clientId");
   const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
 
@@ -126,6 +131,12 @@ const Template: React.FC<TemplateProps> = ({
   const [templateDefinitions, setTemplateDefinitions] = useState<TemplateDefinition[]>([]);
   const [selectedTemplateDefinitionId, setSelectedTemplateDefinitionId] = useState<number | null>(null);
   const [isCreatingCampaign, setIsCreatingCampaign] = useState(false);
+
+
+  const DEFAULT_USER_TEMPLATE_ID = 62;
+  const DEFAULT_USER_TEMPLATE_NAME = "PKB- Final";
+  const isAdmin = userRole?.toUpperCase() === "ADMIN";
+
 
   // Utility functions
   const formatDate = (dateString?: string | null) => {
@@ -144,24 +155,35 @@ const Template: React.FC<TemplateProps> = ({
   // ✅ NEW: Fetch template definitions
   const fetchTemplateDefinitions = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/template-definitions?activeOnly=true`);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
+      const response = await fetch(
+        `${API_BASE_URL}/api/CampaignPrompt/template-definitions?activeOnly=true`
+      );
+
+      if (!response.ok) throw new Error("Failed to load template definitions");
+
       const data = await response.json();
-      setTemplateDefinitions(data.templateDefinitions || []);
-      
-      // ✅ Auto-select first template definition
-      if (data.templateDefinitions && data.templateDefinitions.length > 0) {
-        setSelectedTemplateDefinitionId(data.templateDefinitions[0].id);
+      const defs: TemplateDefinition[] = data.templateDefinitions || [];
+
+      if (isAdmin) {
+        // ✅ Admin → see all templates
+        setTemplateDefinitions(defs);
+
+        if (defs.length > 0) {
+          setSelectedTemplateDefinitionId(defs[0].id);
+        }
+      } else {
+        // ✅ USER → force PKB-Final only
+        const pkbTemplate = defs.find(d => d.id === DEFAULT_USER_TEMPLATE_ID);
+
+        setTemplateDefinitions(pkbTemplate ? [pkbTemplate] : []);
+        setSelectedTemplateDefinitionId(DEFAULT_USER_TEMPLATE_ID);
       }
     } catch (error) {
-      console.error("Error fetching template definitions:", error);
+      console.error(error);
       setTemplateDefinitions([]);
     }
-  }, []);
+  }, [isAdmin]);
+
 
   // Fetch campaign templates
   const fetchCampaignTemplates = useCallback(async () => {
@@ -187,6 +209,15 @@ const Template: React.FC<TemplateProps> = ({
 
   // ✅ NEW: Handle create campaign button click
   const handleCreateCampaignClick = async () => {
+    // Check credits before allowing blueprint creation
+    if (sessionStorage.getItem("isDemoAccount") !== "true" && effectiveUserId) {
+      const currentCredits = await checkUserCredits(effectiveUserId);
+      
+      if (currentCredits && !currentCredits.canGenerate) {
+        return; // Stop execution if can't generate
+      }
+    }
+
     // Fetch template definitions first
     await fetchTemplateDefinitions();
     
@@ -202,23 +233,36 @@ const handleTemplateNameSubmit = async () => {
     appModal.showError("Please enter a campaign name");
     return;
   }
-  if (!selectedTemplateDefinitionId) {
-    appModal.showError("Please select a template definition first");
-    return;
+
+  // ✅ ROLE-BASED TEMPLATE RESOLUTION (TS SAFE)
+  let finalTemplateDefinitionId: number;
+
+  if (isAdmin) {
+    if (selectedTemplateDefinitionId == null) {
+      appModal.showError("Please select a template definition first");
+      return;
+    }
+    finalTemplateDefinitionId = selectedTemplateDefinitionId;
+  } else {
+    // 🔒 USER → force PKB-Final
+    finalTemplateDefinitionId = DEFAULT_USER_TEMPLATE_ID;
   }
 
   setIsCreatingCampaign(true);
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/campaign/start`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        clientId: effectiveUserId,
-        templateDefinitionId: selectedTemplateDefinitionId,
-        templateName: templateNameInput,
-      }),
-    });
+    const response = await fetch(
+      `${API_BASE_URL}/api/CampaignPrompt/campaign/start`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId: effectiveUserId,
+          templateDefinitionId: finalTemplateDefinitionId,
+          templateName: templateNameInput,
+        }),
+      }
+    );
 
     if (!response.ok) {
       throw new Error("Failed to create campaign");
@@ -230,10 +274,13 @@ const handleTemplateNameSubmit = async () => {
       // ✅ Store campaign info
       sessionStorage.setItem("newCampaignId", data.campaignId.toString());
       sessionStorage.setItem("newCampaignName", data.templateName);
-      sessionStorage.setItem("selectedTemplateDefinitionId", selectedTemplateDefinitionId.toString());
+      sessionStorage.setItem(
+        "selectedTemplateDefinitionId",
+        finalTemplateDefinitionId.toString()
+      );
       sessionStorage.setItem("autoStartConversation", "true");
-      sessionStorage.setItem("openConversationTab", "true"); // ✅ NEW FLAG
-      
+      sessionStorage.setItem("openConversationTab", "true");
+
       // ✅ Close modal and open builder
       setShowTemplateNameModal(false);
       setShowCampaignBuilder(true);
@@ -242,11 +289,12 @@ const handleTemplateNameSubmit = async () => {
     }
   } catch (error) {
     console.error("Error creating campaign:", error);
-    appModal.showError(  "Failed to create campaign");
+    appModal.showError("Failed to create campaign");
   } finally {
-    setIsCreatingCampaign(false); // Loader disappears after
+    setIsCreatingCampaign(false);
   }
 };
+
 
   // Update template
   const handleUpdateCampaignTemplate = async () => {
@@ -678,7 +726,23 @@ setExampleEmail(exampleEmailHtml);
                                 style={menuBtnStyle}
                                 className="flex gap-2 items-center"
                               >
-                                <span>✏️</span>
+                                <span>
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      width="28px"
+                                      height="28px"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                    >
+                                      <path
+                                        d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
+                                        stroke="#000000"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                      ></path>
+                                    </svg>
+                                  </span>
                                 <span>Rename</span>
                               </button>
 
@@ -692,7 +756,7 @@ setExampleEmail(exampleEmailHtml);
                                 style={menuBtnStyle}
                                 className="flex gap-2 items-center"
                               >
-                                <span>📋</span>
+                                <span> <img src={duplicateIcon}alt="Clone"style={{width: "23px",height: "23px",objectFit: "contain",}} /></span>
                                 <span>Clone</span>
                               </button>
 
@@ -768,38 +832,28 @@ setExampleEmail(exampleEmailHtml);
       
       <div className="modal-body" style={{ padding: "24px" }}>
         {/* ✅ Template Definition Selector */}
-        <div className="form-group" style={{ marginBottom: "20px" }}>
-          <label htmlFor="templateDefinition" style={{ display: "block", marginBottom: "8px", fontWeight: "500" }}>
-            Select base template <span style={{ color: "red" }}>*</span>
-          </label>
-          <select
-            id="templateDefinition"
-            value={selectedTemplateDefinitionId || ''}
-            onChange={(e) => setSelectedTemplateDefinitionId(parseInt(e.target.value))}
-            style={{
-              width: "100%",
-             // padding: "12px 16px",
-              border: "2px solid #e5e7eb",
-              borderRadius: "8px",
-              fontSize: "15px",
-              backgroundColor: "white"
-            }}
-          >
-            <option value="">-- Select a template definition --</option>
-            {templateDefinitions.map((def) => (
-              <option key={def.id} value={def.id}>
-                {def.templateName} {def.usageCount > 0 && `(Used ${def.usageCount} times)`}
-              </option>
-            ))}
-          </select>
-          <p style={{ 
-            marginTop: "8px", 
-            fontSize: "13px", 
-            color: "#6b7280" 
-          }}>
-            💡 Choose which template structure to use for this campaign
-          </p>
-        </div>
+        {isAdmin && (
+          <div className="form-group" style={{ marginBottom: "20px" }}>
+            <label>
+              Select base template <span style={{ color: "red" }}>*</span>
+            </label>
+
+            <select
+              value={selectedTemplateDefinitionId || ""}
+              onChange={(e) =>
+                setSelectedTemplateDefinitionId(parseInt(e.target.value))
+              }
+            >
+              <option value="">-- Select a template definition --</option>
+              {templateDefinitions.map((def) => (
+                <option key={def.id} value={def.id}>
+                  {def.templateName}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
 
         {/* Template Name Input */}
         <div className="form-group" style={{ marginBottom: "20px" }}>
@@ -1137,10 +1191,10 @@ setExampleEmail(exampleEmailHtml);
       {showEditCampaignModal && selectedCampaignTemplate && (
         <div className="modal-backdrop">
           <div className="modal-content modal-large">
-            <h2>Advanced Edit: {selectedCampaignTemplate.templateName}</h2>
+            <h2>Advanced edit: {selectedCampaignTemplate.templateName}</h2>
             
             <div className="form-group">
-              <label>Template Name</label>
+              <label>Template name</label>
               <input
                 type="text"
                 value={editCampaignForm.templateName}
@@ -1150,7 +1204,7 @@ setExampleEmail(exampleEmailHtml);
             </div>
 
             <div className="form-group">
-              <label>AI Instructions</label>
+              <label>AI instructions</label>
               <textarea
                 value={editCampaignForm.aiInstructions}
                 onChange={(e) => setEditCampaignForm({ ...editCampaignForm, aiInstructions: e.target.value })}
@@ -1160,7 +1214,7 @@ setExampleEmail(exampleEmailHtml);
             </div>
 
             <div className="form-group">
-              <label>Placeholder List</label>
+              <label>Placeholder list</label>
               <textarea
                 value={editCampaignForm.placeholderListInfo}
                 onChange={(e) => setEditCampaignForm({ ...editCampaignForm, placeholderListInfo: e.target.value })}
@@ -1170,7 +1224,7 @@ setExampleEmail(exampleEmailHtml);
             </div>
 
             <div className="form-group">
-              <label>Master Blueprint (Unpopulated)</label>
+              <label>Master blueprint (unpopulated)</label>
               <textarea
                 value={editCampaignForm.masterBlueprintUnpopulated}
                 onChange={(e) => setEditCampaignForm({ ...editCampaignForm, masterBlueprintUnpopulated: e.target.value })}
@@ -1180,16 +1234,16 @@ setExampleEmail(exampleEmailHtml);
             </div>
 
             <div className="form-group">
-              <label>GPT Model</label>
+              <label>GPT model</label>
               <select
                 value={editCampaignForm.selectedModel}
                 onChange={(e) => setEditCampaignForm({ ...editCampaignForm, selectedModel: e.target.value })}
               >
                 <option value="gpt-4.1">GPT-4.1</option>
-                <option value="gpt-4.1-mini">GPT-4.1 Mini</option>
+                <option value="gpt-4.1-mini">GPT-4.1 mini</option>
                 <option value="gpt-5">GPT-5</option>
-                <option value="gpt-5-mini">GPT-5 Mini</option>
-                <option value="gpt-5-nano">GPT-5 Nano</option>
+                <option value="gpt-5-mini">GPT-5 mini</option>
+                <option value="gpt-5-nano">GPT-5 nano</option>
               </select>
             </div>
 
@@ -1215,7 +1269,7 @@ setExampleEmail(exampleEmailHtml);
                 onClick={handleUpdateCampaignTemplate}
                 disabled={isLoading || !editCampaignForm.templateName}
               >
-                {isLoading ? "Updating..." : "Update Template"}
+                {isLoading ? "Updating..." : "Update template"}
               </button>
             </div>
           </div>
@@ -1279,6 +1333,15 @@ setExampleEmail(exampleEmailHtml);
         
       </div>
     )}
+    
+    {/* Credit Check Modal */}
+    <CreditCheckModal
+      isOpen={showCreditModal}
+      onClose={closeCreditModal}
+      onSkip={handleSkipModal}
+      credits={credits || 0}
+      setTab={() => {}} // Not needed in this context
+    />
   </div>
 );
 };

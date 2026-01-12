@@ -46,6 +46,7 @@ import { saveUserCredit } from "../slices/authSLice";
 import { useCreditCheck } from "../hooks/useCreditCheck";
 import CreditCheckModal from "./common/CreditCheckModal";
 import Myplan from "./feature/Myplan";
+import { useSoundAlert } from "./common/useSoundAlert";
 
 
 interface Prompt {
@@ -229,8 +230,25 @@ interface SettingsFormType {
   overwriteDatabase: boolean;
   // Add any other properties that your settingsForm has
 }
-
 const MainPage: React.FC = () => {
+  const unlockAudio = () => {
+  const audio = new Audio(process.env.PUBLIC_URL + "/assets/sound/notification.mp3");
+  audio.volume = 0; // silent
+  audio.play().catch(() => {});
+};
+  const { playSound } = useSoundAlert();
+  const [isSoundEnabled, setIsSoundEnabled] = useState<boolean>(() => {
+  return localStorage.getItem("soundEnabled") !== "false";
+});
+useEffect(() => {
+  localStorage.setItem("soundEnabled", String(isSoundEnabled));
+}, [isSoundEnabled]);
+const isSoundEnabledRef = useRef(isSoundEnabled);
+
+useEffect(() => {
+  isSoundEnabledRef.current = isSoundEnabled;
+  localStorage.setItem("soundEnabled", String(isSoundEnabled));
+}, [isSoundEnabled]);
   // Credit check hook
   const { credits, showCreditModal, checkUserCredits, closeCreditModal, handleSkipModal } = useCreditCheck();
 
@@ -1063,19 +1081,23 @@ const MainPage: React.FC = () => {
         setallsummery(naPlaceholders);
         setallSearchTermBodies(naPlaceholders);
 
-        // Find first valid contact BEFORE setting index
-        let validIndex = 0;
-        for (let i = 0; i < emailResponses.length; i++) {
-          const contact = emailResponses[i];
-          if (contact.name !== "N/A" && contact.company !== "N/A") {
-            validIndex = i;
-            break;
+        // Don't automatically set index when refetching due to followup change
+        // Only set to valid index on initial load
+        if (!followupEnabled && direction === null) {
+          // Find first valid contact BEFORE setting index
+          let validIndex = 0;
+          for (let i = 0; i < emailResponses.length; i++) {
+            const contact = emailResponses[i];
+            if (contact.name !== "N/A" && contact.company !== "N/A") {
+              validIndex = i;
+              break;
+            }
           }
+          
+          // Set to the valid index directly
+          setCurrentIndex(validIndex);
+          console.log("Setting current index to:", validIndex);
         }
-
-        // Set to the valid index directly
-        setCurrentIndex(validIndex);
-        console.log("Setting current index to:", validIndex);
       } catch (error) {
         console.error("Error fetching email bodies:", error);
       } finally {
@@ -1093,6 +1115,10 @@ const MainPage: React.FC = () => {
     if (selectedZohoviewId) {
       console.log('Followup checkbox changed, refetching data:', followupEnabled);
       console.log('Current selectedZohoviewId:', selectedZohoviewId);
+      console.log('Current index before refetch:', currentIndex);
+      
+      // Store current index before refetch
+      const savedIndex = currentIndex;
       
       // ✅ Fix: Ensure selectedZohoviewId is in correct format
       let correctedZohoviewId = selectedZohoviewId;
@@ -1105,7 +1131,13 @@ const MainPage: React.FC = () => {
         setSelectedZohoviewId(correctedZohoviewId);
       }
       
-      fetchAndDisplayEmailBodies(correctedZohoviewId);
+      fetchAndDisplayEmailBodies(correctedZohoviewId).then(() => {
+        // Restore index after data is fetched
+        setTimeout(() => {
+          console.log('Restoring index to:', savedIndex);
+          setCurrentIndex(savedIndex);
+        }, 100);
+      });
     }
   }, [followupEnabled, effectiveUserId]);
 
@@ -1543,7 +1575,6 @@ if (!scrappedData) {
           prompt: replacedPromptText,
           ModelName: selectedModelNameA,
         };
-
         const pitchResponse = await fetch(
           `${API_BASE_URL}/api/auth/generatepitch`,
           {
@@ -1724,6 +1755,9 @@ if (!scrappedData) {
                     )}] Updating contact in database incomplete for ${full_name}. Error: ${updateContactError.Message || "Unknown error"
                     }</span><br/>` + prevOutputForm.generatedContent,
                 }));
+                if (isSoundEnabledRef.current) {
+                 playSound();
+                }
               } else {
                 setOutputForm((prevOutputForm) => ({
                   ...prevOutputForm,
@@ -1733,18 +1767,28 @@ if (!scrappedData) {
                     )}] Updated pitch in database for ${full_name}.</span><br/>` +
                     prevOutputForm.generatedContent,
                 }));
-                try {
-                  const userCreditResponse = await fetch(
-                    `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`
-                  );
-                  if (!userCreditResponse.ok) throw new Error("Failed to fetch user credit");
+                 if (isSoundEnabledRef.current) {
+                  playSound();
+                 }
+                  try {
+                    const userCreditResponse = await fetch(
+                      `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`
+                    );
+                    if (!userCreditResponse.ok) throw new Error("Failed to fetch user credit");
 
-                  const userCreditData = await userCreditResponse.json();
-                  console.log("User credit data:", userCreditData);
-                  dispatch(saveUserCredit(userCreditData));
-                } catch (creditError) {
-                  console.error("User credit API error:", creditError);
-                }
+                    const userCreditData = await userCreditResponse.json();
+                    console.log("User credit data:", userCreditData);
+                    dispatch(saveUserCredit(userCreditData));
+                    
+                    // Dispatch custom event to notify credit update
+                    window.dispatchEvent(new CustomEvent('creditUpdated', {
+                      detail: { clientId: effectiveUserId }
+                    }));
+                    
+
+                  } catch (creditError) {
+                    console.error("User credit API error:", creditError);
+                  }
               }
             }
           }
@@ -2189,7 +2233,6 @@ if (!scrappedData) {
             prompt: replacedPromptText,
             ModelName: selectedModelNameA,
           };
-
           const pitchResponse = await fetch(
             `${API_BASE_URL}/api/auth/generatepitch`,
             {
@@ -2294,7 +2337,6 @@ if (!scrappedData) {
                 )}] Crafting phase #2 concinnus, for contact ${full_name} with company name ${company_name} and domain ${entry.email
                 }</span><br/>` + prev.generatedContent,
             }));
-
             const subjectResponse = await fetch(
               `${API_BASE_URL}/api/auth/generatepitch`,
               {
@@ -2498,6 +2540,9 @@ if (!scrappedData) {
                       )}] Updating contact in database incomplete for ${full_name}. Error: ${updateContactError.Message || "Unknown error"
                       }</span><br/>` + prevOutputForm.generatedContent,
                   }));
+                  if (isSoundEnabledRef.current) {
+                    playSound();
+                  }
                 } else {
                   setOutputForm((prevOutputForm) => ({
                     ...prevOutputForm,
@@ -2507,6 +2552,9 @@ if (!scrappedData) {
                       )}] Updated pitch in database for ${full_name}.</span><br/>` +
                       prevOutputForm.generatedContent,
                   }));
+                  if (isSoundEnabledRef.current) {
+                   playSound();
+                  }
                   try {
                     const userCreditResponse = await fetch(
                       `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`
@@ -2516,7 +2564,11 @@ if (!scrappedData) {
                     const userCreditData = await userCreditResponse.json();
                     console.log("User credit data:", userCreditData);
                     dispatch(saveUserCredit(userCreditData));
-
+                    
+                    // Dispatch custom event to notify credit update
+                    window.dispatchEvent(new CustomEvent('creditUpdated', {
+                      detail: { clientId: effectiveUserId }
+                    }));
 
                   } catch (creditError) {
                     console.error("User credit API error:", creditError);
@@ -3483,6 +3535,9 @@ if (!scrappedData) {
                     >
                       Clear Usage
                     </button>
+
+
+                    
                     <div
                       ref={popupRef}
                       className="absolute left-0 top-full mt-2 bg-white border border-gray-300 rounded-md shadow-lg p-3 w-50"
@@ -3668,6 +3723,8 @@ if (!scrappedData) {
                 userId={userId}
                 followupEnabled={followupEnabled}
                 setFollowupEnabled={setFollowupEnabled}
+                isSoundEnabled={isSoundEnabled}
+                setIsSoundEnabled={setIsSoundEnabled}
               />
             )}
 

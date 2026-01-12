@@ -469,7 +469,8 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
               }
               
               const transformedData = missingContactsData.map((contact: any, index: number) => ({
-                id: index + 1,
+                id: contact.contactId || index + 1,
+                contactId: contact.contactId,
                 full_name: contact.full_name || contact.fullName || contact.name || "-",
                 email: contact.email || contact.emailAddress || "-",
                 company_name: contact.company_name || contact.companyName || contact.company || "-",
@@ -1372,19 +1373,14 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
             selectedMissingLogs.has(log.id.toString())
           );
 
-          // For missing logs, we need to get contactIds from the original data
-          // Since missing logs might not have contactId, we'll use email to match
-          const selectedEmails = selectedLogs.map(log => log.email);
-          
-          // Try to find contactIds from allEmailLogs based on email
-          contactIds = allEmailLogs
-            .filter(log => selectedEmails.includes(log.toEmail || log.email))
-            .map(log => log.contactId)
+          // For missing logs, use the contactId field from the API response
+          contactIds = selectedLogs
+            .map((log) => log.contactId)
             .filter((id): id is number => id !== null && id !== undefined && id > 0);
 
           if (contactIds.length === 0) {
             appModal.showWarning(
-              "No valid contacts selected. Missing logs contacts may not have valid contact IDs for segment creation."
+              "No valid contacts selected. Please select contacts to create a segment."
             );
             setSavingSegment(false);
             return;
@@ -2378,114 +2374,112 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
 
           {/* Segment Save Modal */}
           {showSaveSegmentModal && (
-            <div
-              style={{
-                position: "fixed",
-                zIndex: 99999,
-                inset: 0,
-                background: "rgba(0,0,0,0.6)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <div
-                style={{
-                  background: "#fff",
-                  padding: 40,
-                  borderRadius: 12,
-                  minWidth: 400,
-                  maxWidth: 500,
-                  boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
-                }}
-              >
-                <h2 style={{ marginTop: 0 }}>Create Segment</h2>
-
-                <div
-                  style={{
-                    marginBottom: 16,
-                    padding: 12,
-                    background: "#f8f9fa",
-                    borderRadius: 6,
-                  }}
-                >
-                  <p style={{ margin: 0, fontSize: 14, color: "#666" }}>
-                    <strong>Source:</strong>{" "}
-                    {emailFilterType === "email-logs"
-                      ? "Email Logs"
-                      : "Engagement Data"}
-                  </p>
-                  <p style={{ margin: 0, fontSize: 14, color: "#666" }}>
-                    <strong>Selected:</strong>{" "}
-                    {emailFilterType === "email-logs"
-                      ? selectedEmailLogs.size
-                      : emailFilterType === "missing-logs"
-                      ? selectedMissingLogs.size
-                      : detailSelectedContacts.size}{" "}
-                    contact
-                    {(emailFilterType === "email-logs"
-                      ? selectedEmailLogs.size
-                      : emailFilterType === "missing-logs"
-                      ? selectedMissingLogs.size
-                      : detailSelectedContacts.size) > 1
-                      ? "s"
-                      : ""}
-                  </p>
-                  <p style={{ margin: 0, fontSize: 14, color: "#666" }}>
-                    <strong>Campaign:</strong>{" "}
-                    {availableCampaigns.find(
-                      (c) => c.id.toString() === selectedCampaign
-                    )?.campaignName || "Unknown"}
-                  </p>
+            <div className="modal-overlay">
+              <div className="modal-content popup-modal">
+                <div className="headerr">
+                  <h2 style={{color:"#000",fontWeight:"600"}}>Create segment</h2>
+                  <span
+                    onClick={() => {
+                      setShowSaveSegmentModal(false);
+                      setSegmentName("");
+                      setSegmentDescription("");
+                    }}
+                    style={{
+                      marginLeft: "auto",
+                      fontSize: "25px",
+                      fontWeight: 600,
+                      color: "#9e9e9e",
+                      cursor: "pointer",
+                      lineHeight: 1
+                    }}
+                  >
+                    ×
+                  </span>
                 </div>
-
-                <div className="form-group">
-                  <label>
-                    Segment Name <span style={{ color: "red" }}>*</span>
-                  </label>
+                <p style={{marginRight:"auto", marginBottom: "16px"}}>
+                  Creating segment with{" "}
+                  {emailFilterType === "email-logs"
+                    ? selectedEmailLogs.size
+                    : emailFilterType === "missing-logs"
+                    ? selectedMissingLogs.size
+                    : detailSelectedContacts.size}{" "}
+                  selected contact
+                  {(emailFilterType === "email-logs"
+                    ? selectedEmailLogs.size
+                    : emailFilterType === "missing-logs"
+                    ? selectedMissingLogs.size
+                    : detailSelectedContacts.size) > 1
+                    ? "s"
+                    : ""}
+                </p>
+                <div style={{ marginBottom: "16px", width: "100%", textAlign: "left" }}>
+                  <label style={{
+                    display: "block",
+                    marginBottom: "4px",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    color: "#333"
+                  }}>Segment name <span style={{color: "red"}}>*</span></label>
                   <input
                     type="text"
                     placeholder="Enter segment name"
                     value={segmentName}
                     onChange={(e) => setSegmentName(e.target.value)}
                     autoFocus
-                    style={{ width: "100%", marginBottom: 10 }}
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: "1px solid #ddd",
+                      borderRadius: "4px",
+                      fontSize: "14px"
+                    }}
                   />
                 </div>
-
-                <div className="form-group">
-                  <label>Description (optional)</label>
+                <div style={{ marginBottom: "20px", width: "100%", textAlign: "left" }}>
+                  <label style={{
+                    display: "block",
+                    marginBottom: "4px",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    color: "#333"
+                  }}>Description</label>
                   <textarea
-                    placeholder="Enter segment description"
+                    placeholder="Enter description (optional)"
                     value={segmentDescription}
                     onChange={(e) => setSegmentDescription(e.target.value)}
-                    style={{ width: "100%", minHeight: 80, resize: "vertical" }}
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: "1px solid #ddd",
+                      borderRadius: "4px",
+                      fontSize: "14px",
+                      minHeight: "80px",
+                      resize: "vertical"
+                    }}
                     rows={3}
                   />
                 </div>
-
-                <div
-                  style={{
-                    marginTop: 24,
-                    display: "flex",
-                    gap: 12,
-                    justifyContent: "flex-end",
-                  }}
-                >
+                <div style={{ display: "flex", gap: "12px", marginLeft: "auto" }}>
                   <button
                     onClick={() => {
                       setShowSaveSegmentModal(false);
                       setSegmentName("");
                       setSegmentDescription("");
                     }}
-                    className="button secondary"
-                    disabled={savingSegment}
+                    style={{
+                      background: "#fff",
+                      padding: "8px 16px",
+                      color: "#666",
+                      borderRadius: "4px",
+                      border: "2px solid #ddd",
+                      cursor: "pointer",
+                      fontSize: "14px"
+                    }}
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleSaveEmailSegment}
-                    className="button primary"
                     disabled={
                       !segmentName.trim() ||
                       savingSegment ||
@@ -2496,8 +2490,38 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
                         ? selectedMissingLogs.size === 0
                         : detailSelectedContacts.size === 0)
                     }
+                    style={{
+                      background: !segmentName.trim() ||
+                        savingSegment ||
+                        !selectedCampaign ||
+                        (emailFilterType === "email-logs"
+                          ? selectedEmailLogs.size === 0
+                          : emailFilterType === "missing-logs"
+                          ? selectedMissingLogs.size === 0
+                          : detailSelectedContacts.size === 0) ? "#ccc" : "#218838",
+                      padding: "8px 16px",
+                      color: "#fff",
+                      borderRadius: "4px",
+                      border: `2px solid ${!segmentName.trim() ||
+                        savingSegment ||
+                        !selectedCampaign ||
+                        (emailFilterType === "email-logs"
+                          ? selectedEmailLogs.size === 0
+                          : emailFilterType === "missing-logs"
+                          ? selectedMissingLogs.size === 0
+                          : detailSelectedContacts.size === 0) ? "#ccc" : "#218838"}`,
+                      cursor: !segmentName.trim() ||
+                        savingSegment ||
+                        !selectedCampaign ||
+                        (emailFilterType === "email-logs"
+                          ? selectedEmailLogs.size === 0
+                          : emailFilterType === "missing-logs"
+                          ? selectedMissingLogs.size === 0
+                          : detailSelectedContacts.size === 0) ? "not-allowed" : "pointer",
+                      fontSize: "14px"
+                    }}
                   >
-                    {savingSegment ? "Creating..." : "Create Segment"}
+                    {savingSegment ? "Creating..." : "Create"}
                   </button>
                 </div>
               </div>

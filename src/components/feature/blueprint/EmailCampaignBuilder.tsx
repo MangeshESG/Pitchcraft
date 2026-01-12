@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import {
-  faAngleRight,
+  faAngleRight, faAngleLeft
 } from "@fortawesome/free-solid-svg-icons";
 import { Send, Copy, Check, Loader2, RefreshCw, Globe, Eye, FileText, MessageSquare, CheckCircle, XCircle, ChevronDown, Volume2, VolumeX } from 'lucide-react';
 import axios from 'axios';
@@ -17,6 +17,8 @@ import { faBars } from '@fortawesome/free-solid-svg-icons';
 import downArrow from "../../assets/images/down.png";
 import PopupModal from '../../common/PopupModal';
 import ElementsTab from "./ElementsTab"
+import toggleOn from '../../../assets/images/on-button.png';
+import toggleOff from "../../../assets/images/off-button.png";
 
 // --- Type Definitions ---
 interface Message {
@@ -122,7 +124,6 @@ interface ConversationTabProps {
   setCurrentAnswer: (value: string) => void;
   handleSendMessage: () => void;
   handleKeyPress: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
-  chatEndRef: React.Ref<HTMLDivElement>;
   resetAll: () => void;
 
   // --- Edit‑mode support ---
@@ -288,7 +289,6 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   setCurrentAnswer,
   handleSendMessage,
   handleKeyPress,
-  chatEndRef,
   resetAll,
   isEditMode = false,
   availablePlaceholders = [],
@@ -321,6 +321,9 @@ const [isGenerating, setIsGenerating] = useState(false);
 const [editableExampleOutput, setEditableExampleOutput] = useState<string>("");
 
 const [placeholderConfirmed, setPlaceholderConfirmed] = useState(false);
+const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
 
 useEffect(() => {
@@ -328,6 +331,51 @@ useEffect(() => {
     setEditableExampleOutput(exampleOutput);
   }
 }, [exampleOutput]);
+
+
+
+
+useLayoutEffect(() => {
+  const container = messagesContainerRef.current;
+  if (!container || !messages.length) return;
+
+  const messageElements =
+    container.querySelectorAll(".message-wrapper");
+
+  if (!messageElements.length) return;
+
+  const lastMessage =
+    messageElements[messageElements.length - 1] as HTMLElement;
+
+  const lastMessageType =
+    messages[messages.length - 1]?.type;
+
+  if (lastMessageType === "user") {
+    // user message → bottom
+    container.scrollTop = container.scrollHeight;
+  } else {
+    // bot message → start of response
+    lastMessage.scrollIntoView({
+      block: "start",
+      behavior: "auto",
+    });
+
+    // subtle spacing (ChatGPT feel)
+    container.scrollTop -= 16;
+  
+  }
+}, [messages]);
+
+
+useEffect(() => {
+  if (!isTyping && conversationStarted) {
+    // wait for DOM + disabled=false
+    requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+  }
+}, [isTyping, conversationStarted]);
+
 
 
 useEffect(() => {
@@ -348,7 +396,6 @@ useEffect(() => {
 
 
 
-  const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
 const renderMessageContent = (rawContent: string) => {
   if (!rawContent) return null;
@@ -374,11 +421,7 @@ const renderMessageContent = (rawContent: string) => {
 };
 
 
-  useEffect(() => {
-    if (!isTyping && conversationStarted && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [isTyping, messages, conversationStarted]);
+
 
 
 
@@ -387,11 +430,8 @@ const renderMessageContent = (rawContent: string) => {
     "search" | "data" | "summary"
   >("search");
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState<PageSize>(10);
 
-  const rowsPerPage = pageSize === "All" ? contacts.length : pageSize;
-  const totalPages =  pageSize === "All" ? 1 : Math.ceil(contacts.length / rowsPerPage);
+
 const [popupmodalInfo, setPopupModalInfo] = useState({
   open: false,
   title: "",
@@ -404,15 +444,7 @@ const showModal = (title: string, message: string) => {
 const closeModal = () => {
   setPopupModalInfo(prev => ({ ...prev, open: false }));
 };
-  useEffect(() => {
-    if (contacts.length > 0) {
-      const contact = contacts[(currentPage - 1) * rowsPerPage];
-      if (contact) {
-        setSelectedContactId(contact.id);
-        applyContactPlaceholders(contact);
-      }
-    }
-  }, [currentPage, contacts]);
+
 
 
 const saveExampleEmail = async () => {
@@ -475,7 +507,7 @@ const truncate = (val: string, max = 50) =>
 
 
 return (
-  <div className="conversation-container">
+  <div className="conversation-container shadow-[3px_3px_10px_rgba(0,0,0,0.2)]">
     <div className="chat-layout">
 
       {/* ===================== LEFT : CHAT ===================== */}
@@ -524,7 +556,7 @@ return (
         )}
 
         {/* ===== CHAT BODY ===== */}
-        <div className="messages-area">
+        <div className="messages-area" ref={messagesContainerRef}>
 
           {/* EDIT MODE – no placeholder yet */}
           {isEditMode && !conversationStarted && !selectedPlaceholder && (
@@ -547,7 +579,9 @@ return (
 
           {/* ACTIVE CHAT */}
           {conversationStarted && (
-            <div className="messages-list">
+
+        <div className="messages-list">
+
               {messages.map((msg, idx) => (
                 <div key={idx} className={`message-wrapper ${msg.type}`}>
                   <div className={`message-bubble ${msg.type}`}>
@@ -569,7 +603,7 @@ return (
                 </div>
               )}
 
-              <div ref={chatEndRef} />
+              
             </div>
           )}
         </div>
@@ -664,7 +698,8 @@ interface ExampleOutputPanelProps {
   allSourcedData: string;
   sourcedSummary: string;
 
-  // Editor component
+  isPreviewAllowed: boolean;   // ✅ ADD
+
 
 
 }
@@ -697,7 +732,9 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
   searchResults,
   allSourcedData,
   sourcedSummary,
-  exampleOutput,                    // ✅ ADD THIS
+  exampleOutput,
+  isPreviewAllowed,
+                    
 
 }) => {
 
@@ -705,7 +742,7 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
   const selectedContact = contacts.find(c => c.id === selectedContactId);
 
   return (
-    <div className="example-section !h-[calc(100%-60px)]">
+    <div className="example-section !h-[calc(100%-60px)] shadow-[3px_3px_10px_rgba(0,0,0,0.2)]">
       {/* ===================== HEADER ===================== */}
       <div className="example-header mb-[0]">
         <div className="example-datafile-section">
@@ -740,6 +777,7 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
                 totalRecords={contacts.length}
                 setCurrentPage={setCurrentPage}
                 setPageSize={setPageSize}
+                pageLabel="Contact:"
               />
             </div>
           </div>
@@ -778,7 +816,7 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
           {/* GENERATE BUTTON */}
           <button
             className="regenerate-btn"
-            disabled={isGenerating}
+            disabled={isGenerating || !isPreviewAllowed}
             onClick={async () => {
               await applyContactPlaceholders(selectedContact);
               if (regenerateExampleOutput) {
@@ -810,7 +848,7 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
         }}
       >
         <div style={{ display: "flex", gap: "12px" }}>
-          {["output", "pt", "stages"].map((t) => (
+           {["output", "pt"].map((t) => (                //{["output", "pt", "stages"].map((t) => (
             <button
               key={t}
               className={`stage-tab-btn ${activeMainTab === t ? "active" : ""}`}
@@ -868,7 +906,7 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
       )}
 
       {/* ===================== STAGES TAB ===================== */}
-      {activeMainTab === "stages" && (
+      {/* {activeMainTab === "stages" && (
         <div className="stages-container">
           <div className="stage-tabs">
             {["search", "data", "summary"].map((t) => (
@@ -914,7 +952,7 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
             )}
           </div>
         </div>
-      )}
+      )} */}
     </div>
   );
 };
@@ -926,15 +964,15 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
 // ====================================================================
 const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ selectedClient }) => {
   // --- State Management ---
-const [activeBuildTab, setActiveBuildTab] = useState<BuildSubTab>('chat');
+  const [activeBuildTab, setActiveBuildTab] = useState<BuildSubTab>('chat');
   const [currentAnswer, setCurrentAnswer] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [copied, setCopied] = useState(false);
-  const chatEndRef = useRef<HTMLDivElement>(null);
   const [soundEnabled, setSoundEnabled] = useSessionState<boolean>("campaign_sound_enabled", true);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const [isEditMode, setIsEditMode] = useState(false);
+
   const [editTemplateId, setEditTemplateId] = useState<number | null>(null);
   const [originalTemplateData, setOriginalTemplateData] = useState<any>(null);
   const [selectedPlaceholder, setSelectedPlaceholder] = useState<string>("");
@@ -978,11 +1016,25 @@ const [activeBuildTab, setActiveBuildTab] = useState<BuildSubTab>('chat');
   // NEW
   const [searchURLCount, setSearchURLCount] = useState<number>(1);
   const [subjectInstructions, setSubjectInstructions] = useState<string>("");
- const [formValues, setFormValues] = useState<Record<string, string>>({});
+  const [formValues, setFormValues] = useState<Record<string, string>>({});
 
- const [currentPage, setCurrentPage] = useState(1);
-const rowsPerPage = 1;
-const setPageSize = () => {};
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 1;
+  const setPageSize = () => {};
+  const [openedFromTemplateEdit, setOpenedFromTemplateEdit] = useState(false);
+
+
+
+
+const isPreviewAllowed = React.useMemo(() => {
+  const emailHtml = placeholderValues?.example_output_email;
+  return getPlainTextLength(emailHtml) >= 20;
+}, [placeholderValues?.example_output_email]);
+
+const isEditMode = React.useMemo(() => {
+  const html = placeholderValues?.example_output_email;
+  return typeof html === "string" && getPlainTextLength(html) >= 20;
+}, [placeholderValues?.example_output_email]);
 
 // ========================================
 // UI-ONLY PLACEHOLDER METADATA STATE
@@ -1025,32 +1077,38 @@ const saveExampleEmail = async () => {
       editTemplateId ?? (storedId ? Number(storedId) : null);
 
     if (!activeCampaignId) {
-      showModal("Error","No campaign instance found.");
+      showModal("Error", "No campaign instance found.");
       return;
     }
 
     if (!editableExampleOutput.trim()) {
-      showModal("Warning","Example email is empty.");
+      showModal("Warning", "Example email is empty.");
       return;
     }
 
-    // ✅ Send example_output as a placeholder
     await axios.post(
       `${API_BASE_URL}/api/CampaignPrompt/template/update-placeholders`,
       {
         templateId: activeCampaignId,
         placeholderValues: {
-          example_output: editableExampleOutput
+          example_output_email: editableExampleOutput // ✅ CORRECT KEY
         }
       }
     );
 
-    showModal("Success","✅ Example email saved successfully!");
+    // ✅ THIS is what flips edit mode
+    setPlaceholderValues(prev => ({
+      ...prev,
+      example_output_email: editableExampleOutput
+    }));
+
+    showModal("Success", "✅ Example email saved successfully!");
   } catch (error) {
     console.error("❌ Save example output failed:", error);
-    showModal("Error","Failed to save example email.");
+    showModal("Error", "Failed to save example email.");
   }
 };
+
 
 
 interface ExampleEmailEditorProps {
@@ -1115,6 +1173,8 @@ useEffect(() => {
 }, [activeMainTab, activeBuildTab, exampleOutput]);
 
 
+
+
 useEffect(() => {
   if (!selectedTemplateDefinitionId) return;
 
@@ -1150,18 +1210,24 @@ useEffect(() => {
 }, [placeholderValues]);
 
 
-// ⭐ Ensure contact switching works inside Elements tab also
+// 1️⃣ Reset page ONLY when contacts list changes
 useEffect(() => {
-  if (activeMainTab !== "build" || activeBuildTab !== "elements") return;
+  if (!selectedDataFileId) return;
+  setCurrentPage(1);
+}, [selectedDataFileId]);
 
-  if (contacts.length > 0) {
-    const contact = contacts[(currentPage - 1) * rowsPerPage];
-    if (contact) {
-      setSelectedContactId(contact.id);
-      applyContactPlaceholders(contact);
-    }
-  }
-}, [currentPage, contacts, activeMainTab, activeBuildTab]);
+
+// 2️⃣ Apply contact when page changes
+useEffect(() => {
+  if (!contacts.length) return;
+
+  const contact = contacts[(currentPage - 1) * rowsPerPage];
+  if (!contact || contact.id === selectedContactId) return;
+
+  setSelectedContactId(contact.id);
+  applyContactPlaceholders(contact);
+}, [currentPage, contacts]);
+
 
 
 
@@ -1267,7 +1333,12 @@ const saveAllPlaceholders = async () => {
     }
 
     // ✅ only conversation placeholders (exclude contact placeholders)
-    const conversationOnly = getConversationPlaceholders(formValues);
+    //const conversationOnly = getConversationPlaceholders(formValues);
+    const conversationOnly = Object.fromEntries(
+      Object.entries(getConversationPlaceholders(formValues)).filter(
+        ([key]) => extractPlaceholders(masterPrompt).includes(key)
+      )
+    );
 
     await axios.post(
       `${API_BASE_URL}/api/CampaignPrompt/template/update-placeholders`,
@@ -1418,7 +1489,9 @@ const splitPlaceholders = (all: Record<string, string>) => {
   // ✅ COMPLETE: Regenerate Example Output (MANUAL ONLY)
   // ====================================================================
 const regenerateExampleOutput = async () => {
+  // if (isGenerating) return;
   try {
+     setIsGenerating(true);
     console.log("🚀 Manual regenerate button clicked");
 
     if (!editTemplateId && !selectedTemplateDefinitionId) {
@@ -1555,7 +1628,7 @@ const regenerateExampleOutput = async () => {
 
     console.log("📧 Generating example output...");
     console.log("📦 Persisted placeholders only:", Object.keys(persisted));
-
+ setIsPreviewLoading(true);
     const response = await axios.post(
       `${API_BASE_URL}/api/CampaignPrompt/example/generate`,
       {
@@ -1565,6 +1638,11 @@ const regenerateExampleOutput = async () => {
         placeholderValues: mergedAll // ✅ SEND EVERYTHING
       }
     );
+
+    // Dispatch credit update event after successful API call
+    window.dispatchEvent(new CustomEvent('creditUpdated', {
+      detail: { clientId: effectiveUserId }
+    }));
 
     if (response.data?.success || response.data?.Success) {
       const html =
@@ -1581,6 +1659,7 @@ const regenerateExampleOutput = async () => {
       setFilledTemplate(filled);
 
       console.log("✅ Example output generated");
+      playNotificationSound();
     } else {
       showModal("Warning","⚠️ Example generation returned no output.");
     }
@@ -1588,9 +1667,14 @@ const regenerateExampleOutput = async () => {
   } catch (error: any) {
     console.error("❌ regenerateExampleOutput failed:", error);
     showModal("Error",`Failed to regenerate: ${error.message}`);
+  }finally {
+    // 🔥 THIS IS THE IMPORTANT PART
+    setIsPreviewLoading(false);
   }
 };
-
+const toggleNotifications = () => {
+  setSoundEnabled(prev => !prev);
+};
   // ====================================================================
   // LOAD TEMPLATE DEFINITIONS
   // ====================================================================
@@ -1757,22 +1841,25 @@ const regenerateExampleOutput = async () => {
   // ====================================================================
   // LOAD TEMPLATE FOR EDIT MODE
   // ====================================================================
-  useEffect(() => {
-    const templateId = sessionStorage.getItem('editTemplateId');
-    const editMode = sessionStorage.getItem('editTemplateMode');
+    useEffect(() => {
+      const templateId = sessionStorage.getItem('editTemplateId');
+      const editMode = sessionStorage.getItem('editTemplateMode');
 
-    if (templateId && editMode === 'true') {
-      clearAllSessionData();
+      if (templateId && editMode === 'true') {
+        clearAllSessionData();
 
-      setEditTemplateId(parseInt(templateId));
-      setIsEditMode(true);
-      setActiveMainTab("build"); setActiveBuildTab("chat");      
-      loadTemplateForEdit(parseInt(templateId));
+        setEditTemplateId(Number(templateId));
+        setOpenedFromTemplateEdit(true); // ✅ ONLY HERE
+        setActiveMainTab("build");
+        setActiveBuildTab("chat");
 
-      sessionStorage.removeItem('editTemplateId');
-      sessionStorage.removeItem('editTemplateMode');
-    }
-  }, []);
+        loadTemplateForEdit(Number(templateId));
+
+        sessionStorage.removeItem('editTemplateId');
+        sessionStorage.removeItem('editTemplateMode');
+      }
+    }, []);
+
 
   const clearAllSessionData = () => {
     sessionStorage.removeItem("campaign_messages");
@@ -1808,6 +1895,7 @@ const regenerateExampleOutput = async () => {
       setSelectedModel(template.selectedModel || "gpt-5");
       setSelectedTemplateDefinitionId(template.templateDefinitionId || null);
       setTemplateName(template.templateName || "");
+      setSubjectInstructions(template.subjectInstructions || "");
       setIsComplete(false);
 
       // --------------------------------------------
@@ -1843,11 +1931,11 @@ const regenerateExampleOutput = async () => {
       setActiveMainTab("build"); setActiveBuildTab("chat");
       setConversationStarted(false);
       setIsTyping(false);
-      setIsEditMode(true);
+      // setIsEditMode(true);
     } catch (error) {
       console.error("Error loading template:", error);
       alert("Failed to load template for editing");
-      setIsEditMode(false);
+      //setIsEditMode(false);
     } finally {
       setIsLoadingTemplate(false);
     }
@@ -1912,7 +2000,13 @@ const startEditConversation = async (placeholder: string) => {
     // const bodyToSend = { req: payload }; // <-- uncomment if API requires req wrapper
     const bodyToSend = payload;
 
-    const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/edit/start`, bodyToSend);
+    const response = await axios.post(
+      `${API_BASE_URL}/api/CampaignPrompt/edit/start`, bodyToSend);
+
+    // Dispatch credit update event after successful API call
+    window.dispatchEvent(new CustomEvent('creditUpdated', {
+      detail: { clientId: effectiveUserId }
+    }));
 
     const data = response.data?.response ?? response.data;
     if (data && data.assistantText) {
@@ -1949,6 +2043,14 @@ const startEditConversation = async (placeholder: string) => {
     const contactValues = getContactPlaceholders(placeholderValues);
 
     // Update the specific placeholder
+    // conversationValues[updatedPlaceholder] = newValue;
+    const essentialKeys = extractPlaceholders(masterPrompt);
+
+    if (!essentialKeys.includes(updatedPlaceholder)) {
+      console.warn("Blocked non-essential placeholder:", updatedPlaceholder);
+      return;
+    }
+
     conversationValues[updatedPlaceholder] = newValue;
 
     // Merge for display
@@ -2073,6 +2175,16 @@ const startEditConversation = async (placeholder: string) => {
     return placeholders;
   };
 
+// ===============================
+// HTML → TEXT LENGTH HELPER
+// ===============================
+function getPlainTextLength(html?: string): number {
+  if (!html) return 0;
+  const tmp = document.createElement("div");
+  tmp.innerHTML = html;
+  return tmp.innerText.trim().length;
+}
+
 
   // ====================================================================
   // REPLACE PLACEHOLDERS IN STRING
@@ -2108,9 +2220,6 @@ const startEditConversation = async (placeholder: string) => {
   // ====================================================================
   // SCROLL TO BOTTOM
   // ====================================================================
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
 
   // ====================================================================
   // RESET ON CLIENT CHANGE
@@ -2126,61 +2235,34 @@ const startEditConversation = async (placeholder: string) => {
 // BUILD UI PLACEHOLDERS FROM { } LIST
 // ========================================
 
+// ========================================
+// BUILD UI PLACEHOLDERS ONLY IF EMPTY
+// (Do NOT override backend-loaded placeholders)
+// ========================================
 useEffect(() => {
-  // 🛑 IMPORTANT: do NOT rebuild while user is typing dropdown options
-  if (uiPlaceholders.some(p => (p as any)._rawOptions !== undefined)) {
+  // ⛔ If backend already loaded placeholders → DO NOT rebuild
+  if (uiPlaceholders.length > 0) {
     return;
   }
 
   const keys = extractPlaceholders(masterPrompt);
 
-  setUiPlaceholders(prev => {
-    const prevMap = new Map(
-      prev.map(p => [p.placeholderKey, p])
-    );
-
-    return keys.map(key => {
-      const existing = prevMap.get(key);
-
-      // ✅ FULLY PRESERVE existing placeholder config
-      if (existing) {
-        return {
-          ...existing,
-          // ✅ preserve typing buffer
-          _rawOptions: (existing as any)._rawOptions,
-
-          // ensure runtime flag remains correct
-          isRuntimeOnly:
-            existing.isRuntimeOnly ??
-            RUNTIME_ONLY_PLACEHOLDERS.includes(key)
-        };
-      }
-
-      // ✅ ONLY for brand-new placeholders
-      return {
-        placeholderKey: key,
-        friendlyName: key.replace(/_/g, " "),
-        category: key.includes("search")
-          ? "Search"
-          : key.includes("example") || key.includes("output")
-          ? "Output"
-          : "General",
-
-        inputType: "text",
-        options: [],
-
-        uiSize:
-          key.includes("example") || key.includes("output")
-            ? "xl"
-            : "md",
-
-        isRuntimeOnly: RUNTIME_ONLY_PLACEHOLDERS.includes(key),
-        isExpandable: key.includes("example") || key.includes("output"),
-        isRichText: key.includes("example") || key.includes("output")
-      };
-    });
-  });
+  // Create minimal default items ONLY when no backend data exists
+  setUiPlaceholders(
+    keys.map(key => ({
+      placeholderKey: key,
+      friendlyName: key.replace(/_/g, " "),
+      category: "General",
+      inputType: "text",
+      options: [],
+      uiSize: "md",
+      isRichText: false,
+      isExpandable: false,
+      isRuntimeOnly: RUNTIME_ONLY_PLACEHOLDERS.includes(key),
+    }))
+  );
 }, [masterPrompt]);
+
 
 
 useEffect(() => {
@@ -2198,13 +2280,23 @@ useEffect(() => {
 
 
 
+// 🔒 ESSENTIAL placeholders ONLY (from masterPrompt)
+const essentialPlaceholderKeys = React.useMemo(
+  () => extractPlaceholders(masterPrompt),
+  [masterPrompt]
+);
+
 const groupedPlaceholders = uiPlaceholders
-  .filter(p => !p.isRuntimeOnly)
+  .filter(p =>
+    !p.isRuntimeOnly &&
+    essentialPlaceholderKeys.includes(p.placeholderKey)
+  )
   .reduce<Record<string, PlaceholderDefinitionUI[]>>((acc, p) => {
     acc[p.category] = acc[p.category] || [];
     acc[p.category].push(p);
     return acc;
   }, {});
+
 
 const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
   const key = p.placeholderKey;
@@ -2314,6 +2406,11 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
         model: selectedModel, // ✅ Use selected model
       });
 
+      // Dispatch credit update event after successful API call
+      window.dispatchEvent(new CustomEvent('creditUpdated', {
+        detail: { clientId: effectiveUserId }
+      }));
+
       const data = response.data.response;
       if (data) {
         // if it's already marked complete, only push completion message
@@ -2399,6 +2496,12 @@ const handleSendMessage = async () => {
         };
 
     const response = await axios.post(endpoint, requestBody);
+    
+    // Dispatch credit update event after successful API call
+    window.dispatchEvent(new CustomEvent('creditUpdated', {
+      detail: { clientId: effectiveUserId }
+    }));
+    
     const data = response.data.response;
 
     const cleanAssistantMessage = (text: string): string => {
@@ -2436,11 +2539,23 @@ const handleSendMessage = async () => {
         const currentContactValues = getContactPlaceholders(placeholderValues);
         const updatedConversationValues = { ...currentConversationValues };
 
+        // Object.entries(parsedPlaceholders).forEach(([key, value]) => {
+        //   if (!CONTACT_PLACEHOLDERS.includes(key)) {
+        //     updatedConversationValues[key] = value;
+        //   }
+        // });
+
+        const essentialKeys = extractPlaceholders(masterPrompt);
+
         Object.entries(parsedPlaceholders).forEach(([key, value]) => {
-          if (!CONTACT_PLACEHOLDERS.includes(key)) {
+          if (
+            essentialKeys.includes(key) &&
+            !CONTACT_PLACEHOLDERS.includes(key)
+          ) {
             updatedConversationValues[key] = value;
           }
         });
+
 
         // merge for display once (removed duplicate call)
         const mergedForDisplay = getMergedPlaceholdersForDisplay(updatedConversationValues, currentContactValues);
@@ -2579,7 +2694,9 @@ const handleSendMessage = async () => {
 
     clearAllSessionData();
 
-    setIsEditMode(false);
+    //setIsEditMode(false);
+    setOpenedFromTemplateEdit(false); // ✅ IMPORTANT
+
     setEditTemplateId(null);
     setOriginalTemplateData(null);
     setSelectedPlaceholder("");
@@ -2777,6 +2894,61 @@ function SimpleTextarea({
   // ====================================================================
 return (
   <div className="email-campaign-builder !p-[0]">
+    {/* ================= TOP TABS ================= */}
+    
+
+                    <div className="sticky-tabs">
+  <ul className="flex items-center justify-between">
+    {/* LEFT TABS */}
+        {userRole === "ADMIN" && (
+
+    <div className="flex items-center gap-2">
+      {["build", "instructions"].map((t) => (
+        <li key={t}>
+          <button
+            className={activeMainTab === t ? "active" : ""}
+            onClick={() => setActiveMainTab(t as any)}
+          >
+            {t === "build" ? "Build" : "Instructions set"}
+          </button>
+        </li>
+      ))}
+
+      {/* VT TAB */}
+      <li>
+        <button
+          className={activeMainTab === "ct" ? "active" : ""}
+          onClick={() => setActiveMainTab("ct")}
+        >
+          VT
+        </button>
+      </li>
+    </div>
+        )}
+    {/* RIGHT SIDE — Notifications */}
+    <li className="flex items-center gap-2 cursor-pointer">
+      <span
+        style={{ color: "#3f9f42", fontWeight: 500 }}
+       title={soundEnabled ? "Notifications ON" : "Notifications OFF"}
+          onClick={toggleNotifications}
+      >
+        🔔 
+      </span>
+
+      <img
+        src={soundEnabled  ? toggleOn : toggleOff}
+        alt="Notifications Toggle"
+        style={{
+          height: "28px",
+          width: "48px",
+          objectFit: "contain",
+        }}
+        onClick={toggleNotifications}
+      />
+    </li>
+  </ul>
+</div>
+    
     {/* ================= LOADING OVERLAYS ================= */}
     {isLoadingTemplate && (
       <div className="loading-overlay">
@@ -2801,25 +2973,7 @@ return (
         className="campaign-builder-container !p-[0]"
       >
         <div className="campaign-builder-mains">
-          {/* ================= TOP TABS ================= */}
-          {/* <div className="sticky-tabs">
-            <ul>
-              {["build", "instructions", "ct"].map((t) => (
-                <li key={t}>
-                  <button
-                    className={activeMainTab === t ? "active" : ""}
-                    onClick={() => setActiveMainTab(t as any)}
-                  >
-                    {t === "build"
-                      ? "Build"
-                      : t === "instructions"
-                      ? "Instructions set"
-                      : "VT"}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div> */}
+          
 
         <PopupModal
           open={popupmodalInfo.open}
@@ -2834,20 +2988,20 @@ return (
 
 
               {/* ================= SPLIT LAYOUT ================= */}
-              <div
-                style={{
-                  display: "flex",
-                  gap: "16px",
-                  height: "calc(100vh - 200px)",
-                }}
-              >
+              <div className='flex gap-4 h-[calc(100vh-200px)] mt-[10px]'>
                 {/* RIGHT: Show Preview Button (only when closed) */}
-                <div className="absolute right-[0] top-[0] z-[1]">
+                <div className="absolute right-[0] top-[8] z-[100]">
                   <button
                     className="show-preview-btn !rounded-[4px]"
                     onClick={() => setIsSectionOpen(!isSectionOpen)}
                   >
-                    {isSectionOpen ? "Hide" : "Show" } email preview
+                    <span className='flex items-center gap-[5px]'>
+                      <FontAwesomeIcon
+                        icon={isSectionOpen ?  faAngleRight:faAngleLeft }
+                        className="text-[#ffffff] text-md"
+                      />
+                      <span>{isSectionOpen ? "Hide" : "Show" } email preview</span>
+                    </span>
                   </button>
                 </div>
                 {/* ================= LEFT PANEL ================= */}
@@ -2886,7 +3040,6 @@ return (
             setCurrentAnswer={setCurrentAnswer}
             handleSendMessage={handleSendMessage}
             handleKeyPress={handleKeyPress}
-            chatEndRef={chatEndRef}
             resetAll={resetAll}
             isEditMode={isEditMode}
             availablePlaceholders={extractPlaceholders(masterPrompt)}
@@ -2943,7 +3096,7 @@ return (
                   >
 
                     <div className="flex justify-between min-h-[44px]">
-                      <h3 className="text-[20px] font-[600]">Email preview</h3>
+                      <h3 className="font-[600] flex items-center">Email preview</h3>
                     </div>
 
                      
@@ -2984,7 +3137,7 @@ return (
             editableExampleOutput={editableExampleOutput}
             setEditableExampleOutput={setEditableExampleOutput}
             saveExampleEmail={saveExampleEmail}
-            isGenerating={isGenerating}
+            isGenerating={isPreviewLoading}
             regenerateExampleOutput={regenerateExampleOutput}
             currentPage={currentPage}
             totalPages={totalPages}
@@ -2999,6 +3152,8 @@ return (
             searchResults={searchResults}
             allSourcedData={allSourcedData}
             sourcedSummary={sourcedSummary}
+            isPreviewAllowed={isPreviewAllowed}
+
           />
         </div>
       )}
@@ -3009,16 +3164,16 @@ return (
 
         {/* ================= INSTRUCTIONS TAB ================= */}
  {activeMainTab === "instructions" && (
-              <div className="instructions-wrapper">
+              <div className="instructions-wrapper ">
 
                 {/* =======================================================
                     TOP HEADER SECTION (Picklist + Inputs + Buttons)
                  ======================================================== */}
-                <div className="instructions-header" style={{ marginTop: "-43px" }}>
+                <div className="instructions-header !px-[0]">
 
                   {/* Load Template Definition */}
                   <div className="load-template-box">
-                    <label className="section-label">Load Existing Template Definition</label>
+                    <label className="section-label">Load existing template definition</label>
                     <select
                       className="definition-select"
                       value={selectedTemplateDefinitionId || ""}
@@ -3040,7 +3195,7 @@ return (
                   <div className="input-row">
                     {/* Template Name */}
                     <div className="template-name-box">
-                      <label className="section-label">Template Name</label>
+                      <label className="section-label">Template name</label>
                       <input
                         type="text"
                         value={templateName}
@@ -3052,7 +3207,7 @@ return (
 
         {/* Model Picker */}
         <div className="model-select-box">
-          <label className="section-label">Select GPT Model</label>
+          <label className="section-label">Select GPT model</label>
           <select
             className="definition-select"
             value={selectedModel}
@@ -3067,7 +3222,7 @@ return (
         </div>
 
         <div className="search-count-box">
-  <label className="section-label">Search URL Count</label>
+  <label className="section-label">Search URL count</label>
   <select
     className="definition-select"
     value={searchURLCount}
@@ -3089,7 +3244,7 @@ return (
                           onClick={saveTemplateDefinition}
                           disabled={isSavingDefinition}
                         >
-                          {isSavingDefinition ? "Saving..." : "Save Template Definition"}
+                          {isSavingDefinition ? "Saving..." : "Save template definition"}
                         </button>
                       )}
 
@@ -3101,7 +3256,7 @@ return (
                           onClick={updateTemplateDefinition}
                           disabled={isSavingDefinition}
                         >
-                          {isSavingDefinition ? "Updating..." : "Update Template Definition"}
+                          {isSavingDefinition ? "Updating..." : "Update template definition"}
                         </button>
                       )}
 
@@ -3111,13 +3266,13 @@ return (
                         onClick={startConversation}
                         disabled={!selectedTemplateDefinitionId}
                       >
-                        Start Filling Placeholders →
+                        Start filling placeholders →
                       </button>
                       <button
                         className="new-btn"
                         onClick={createNewInstruction}
                       >
-                        + New Instruction
+                        + New instruction
                       </button>
                     </div>
                     {selectedTemplateDefinitionId !== null && (
@@ -3137,12 +3292,12 @@ return (
     ======================================================== */}
     <div className="instruction-subtabs">
       {[
-        ["ai_new", "AI Instructions (new blueprint)"],
-        ["ai_edit", "AI Instructions (edit blueprint)"],
+        ["ai_new", "AI instructions (new blueprint)"],
+        ["ai_edit", "AI instructions (edit blueprint)"],
         ["placeholder_short", "Placeholders list (essential)"],
-        ["placeholders", "Placeholder Manager"],
+        ["placeholders", "Placeholder manager"],
         ["ct", "UT "],
-        ["subject_instructions", "Email Subject Instructions"]
+        ["subject_instructions", "Email subject instructions"]
 
       ].map(([key, label]) => (
         <button
@@ -3195,14 +3350,14 @@ return (
     }}
   >
     <h3 style={{ fontSize: "18px", fontWeight: 600, marginBottom: "16px" }}>
-      Placeholder Manager
+      Placeholder manager
     </h3>
 
     {/* HEADER */}
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr",
+gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr 1fr",
         gap: "10px",
         fontWeight: 600,
         fontSize: "13px",
@@ -3211,10 +3366,12 @@ return (
       }}
     >
       <div>Placeholder</div>
-      <div>Friendly Name</div>
+      <div>Friendly name</div>
       <div>Category</div>
       <div>Input / Options</div>
       <div>Size</div>
+      <div>Expand</div>
+
     </div>
 
     {/* ROWS */}
@@ -3223,7 +3380,7 @@ return (
         key={p.placeholderKey}
         style={{
           display: "grid",
-          gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr",
+          gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr 1fr",
           gap: "10px",
           alignItems: "center",
           marginBottom: "10px"
@@ -3263,13 +3420,13 @@ return (
           }}
           className="definition-select"
         >
-          <option>Your Company</option>
-          <option>Core Message Focus</option>
+          <option>Your company</option>
+          <option>Core message focus</option>
           <option>Dos and Don'ts</option>
-          <option>Message Writing Style</option>
-          <option>Call-To-Action</option>
+          <option>Message writing style</option>
+          <option>Call-to-action</option>
           <option>Greetings & farewells</option>
-          <option>Subject Line</option>
+          <option>Subject line</option>
           <option>Images</option>
         </select>
 
@@ -3285,7 +3442,10 @@ return (
                     ? {
                         ...x,
                         inputType: v,
-                        options: v === "select" ? x.options || [] : []
+                        isRichText: v === "richtext",
+                        isExpandable: v === "richtext" ? x.isExpandable : false,
+
+                      options: v === "select" ? x.options || [] : []
                       }
                     : x
                 )
@@ -3295,7 +3455,7 @@ return (
           >
             <option value="text">Text</option>
             <option value="textarea">Textarea</option>
-            <option value="richtext">Rich Text</option>
+            <option value="richtext">Rich text</option>
             <option value="select">Dropdown</option>
           </select>
 
@@ -3415,6 +3575,30 @@ return (
           <option value="lg">LG</option>
           <option value="xl">XL</option>
         </select>
+
+        {/* EXPAND TOGGLE */}
+<label style={{ display: "flex", justifyContent: "center" }}>
+  <input
+    type="checkbox"
+    checked={!!p.isExpandable}
+    disabled={p.inputType !== "richtext"} // 🔒 only richtext allowed
+    onChange={(e) => {
+      const checked = e.target.checked;
+      setUiPlaceholders(prev =>
+        prev.map(x =>
+          x.placeholderKey === p.placeholderKey
+            ? {
+                ...x,
+                isExpandable: checked,
+                isRichText: checked || x.isRichText // keep consistent
+              }
+            : x
+        )
+      );
+    }}
+  />
+</label>
+
       </div>
     ))}
 
@@ -3424,13 +3608,13 @@ return (
         onClick={savePlaceholderDefinitions}
         style={{
           padding: "10px 18px",
-          background: "#2563eb",
+          background: "#3f9f42",
           color: "#fff",
           borderRadius: "6px",
           fontWeight: 600
         }}
       >
-        Save Placeholder Settings
+        Save placeholder settings
       </button>
     </div>
   </div>
@@ -3467,7 +3651,7 @@ return (
 
         {/* ================= VT TAB ================= */}
         {activeMainTab === "ct" && (
-          <div className="ct-tab-container">
+          <div className="ct-tab-container mt-[6px]">
             <h3>Live vendor blueprint (Auto updated)</h3>
             <SimpleTextarea
               value={campaignBlueprint}
@@ -3477,6 +3661,86 @@ return (
         )}
       </div>
     </div>
+          {/* ================= EXPANDED PLACEHOLDER MODAL ================= */}
+      {expandedPlaceholder && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.35)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center"
+          }}
+        >
+          <div
+            style={{
+              width: "80%",
+              maxWidth: "900px",
+              background: "#fff",
+              borderRadius: "10px",
+              padding: "20px",
+              boxShadow: "0 20px 40px rgba(0,0,0,0.25)"
+            }}
+          >
+            {/* HEADER */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "12px"
+              }}
+            >
+              <h3 style={{ fontSize: "18px", fontWeight: 600 }}>
+                {expandedPlaceholder.friendlyName}
+              </h3>
+
+              <button
+                onClick={() => setExpandedPlaceholder(null)}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  fontSize: "20px",
+                  cursor: "pointer"
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* RICH TEXT EDITOR */}
+            <ExampleEmailEditor
+              value={formValues[expandedPlaceholder.key] || ""}
+              onChange={(val) =>
+                setFormValues(prev => ({
+                  ...prev,
+                  [expandedPlaceholder.key]: val
+                }))
+              }
+            />
+
+            {/* FOOTER */}
+            <div style={{ textAlign: "right", marginTop: "12px" }}>
+              <button
+                onClick={() => setExpandedPlaceholder(null)}
+                style={{
+                  padding: "6px 14px",
+                  borderRadius: "6px",
+                  background: "#2563eb",
+                  color: "#fff",
+                  fontWeight: 600,
+                  cursor: "pointer"
+                }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
 
 
   </div>

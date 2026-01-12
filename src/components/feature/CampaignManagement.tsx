@@ -37,6 +37,9 @@ interface Campaign {
   templateId?: number; // campaign blueprint ID
   segmentId?: number | null;
   zohoViewId?: string | null;
+  segmentName?: string | null;
+  dataFileName?: string | null;
+  dataSource?: string;
 }
 
 interface DataFile {
@@ -67,6 +70,8 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
   const [campaignSearch, setCampaignSearch] = useState("");
   const [campaignActionsAnchor, setCampaignActionsAnchor] = useState<number  | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+const [listSortKey, setListSortKey] = useState<string>("campaignName");
+const [listSortDirection, setListSortDirection] = useState<"asc" | "desc">("asc");
 
   const appModal = useAppModal();
   const { refreshTrigger, triggerRefresh } = useAppData();
@@ -84,7 +89,22 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
   });
 
   // ================== FETCH FUNCTIONS ==================
+const compareStrings = (a?: string, b?: string, direction: "asc" | "desc" = "asc") => {
+  const valueA = (a || "").toLowerCase();
+  const valueB = (b || "").toLowerCase();
 
+  if (valueA < valueB) return direction === "asc" ? -1 : 1;
+  if (valueA > valueB) return direction === "asc" ? 1 : -1;
+  return 0;
+};
+const handleListSort = (key: string) => {
+  if (listSortKey === key) {
+    setListSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+  } else {
+    setListSortKey(key);
+    setListSortDirection("asc");
+  }
+};
   const fetchCampaigns = async () => {
     if (!effectiveUserId) return;
     setIsLoading(true);
@@ -349,9 +369,33 @@ const createCampaign = async () => {
 
   //const pageSize = 5;
   const [pageSize, setPageSize] = useState<number | "All">(10);
-  const filteredCampaigns = campaigns.filter((c) =>
+  // const filteredCampaigns = campaigns.filter((c) =>
+  //   c.campaignName.toLowerCase().includes(campaignSearch.toLowerCase())
+  // );
+  const filteredCampaigns = campaigns
+  .filter((c) =>
     c.campaignName.toLowerCase().includes(campaignSearch.toLowerCase())
-  );
+  )
+  .sort((a, b) => {
+    switch (listSortKey) {
+      case "campaignName":
+        return compareStrings(a.campaignName, b.campaignName, listSortDirection);
+
+      case "templateName":
+        return compareStrings(
+          campaignBlueprints.find(bp => bp.id === a.templateId)?.templateName,
+          campaignBlueprints.find(bp => bp.id === b.templateId)?.templateName,
+          listSortDirection
+        );
+
+      case "description":
+        return compareStrings(a.description, b.description, listSortDirection);
+
+      default:
+        return 0;
+    }
+  });
+
   const totalPages = pageSize === "All"
     ? 1
     : Math.ceil(filteredCampaigns.length / pageSize);
@@ -370,6 +414,12 @@ const menuBtnStyle: React.CSSProperties = {
   fontSize: "14px",
   cursor: "pointer",
 };
+  const renderSortArrow = (columnKey: string, currentSortKey: string, sortDirection: string) => {
+    if (columnKey === currentSortKey) {
+      return sortDirection === "asc" ? " ▲" : " ▼"
+    }
+    return ""
+  }
   return (
     <div className="data-campaigns-container">
       <div className="section-wrapper">
@@ -420,11 +470,11 @@ const menuBtnStyle: React.CSSProperties = {
         <table className="contacts-table" style={{ background: "#fff" }}>
           <thead>
             <tr>
-              <th>Campaign name</th>
-              <th>Blueprint</th>
-              <th>Data source</th>
-              <th>Description</th>
-              <th>Actions</th>
+              <th onClick={() => handleListSort("campaignName")} style={{ cursor: "pointer" }}>Campaign name{renderSortArrow("campaignName", listSortKey, listSortDirection)}</th>
+              <th onClick={() => handleListSort("templateName")} style={{ cursor: "pointer" }}>Blueprint{renderSortArrow("templateName", listSortKey, listSortDirection)}</th>
+              <th onClick={() => handleListSort("description")} style={{ cursor: "pointer" }}>Data source</th>
+              <th onClick={() => handleListSort("description")} style={{ cursor: "pointer" }}>Description{renderSortArrow("description", listSortKey, listSortDirection)}</th>
+              <th onClick={() => handleListSort("name")} style={{ cursor: "pointer" }}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -442,7 +492,11 @@ const menuBtnStyle: React.CSSProperties = {
     : "-"}
 </td>
 
-                  <td>{c.zohoViewId ? "List" : c.segmentId ? "Segment" : "-"}</td>
+                  <td>
+                    {c.dataSource === "Segment" && c.segmentName ? c.segmentName : 
+                     c.dataSource === "DataFile" && c.dataFileName ? c.dataFileName : 
+                     c.zohoViewId ? "List" : c.segmentId ? "Segment" : "-"}
+                  </td>
                   <td>{c.description || "-"}</td>
                   <td style={{ position: "relative" }}>
   <button
@@ -563,19 +617,19 @@ const menuBtnStyle: React.CSSProperties = {
 
 {showCreateCampaignModal && (
   <div
-    onClick={() => {
-      setShowCreateCampaignModal(false);
-      setSelectedCampaign(null);
-      setCampaignForm({
-        campaignName: "",
-        promptId: "",
-        zohoViewId: "",
-        segmentId: "",
-        description: "",
-        templateId: "",
-      });
-      setSelectedPrompt(null);
-    }}
+    // onClick={() => {
+    //   setShowCreateCampaignModal(false);
+    //   setSelectedCampaign(null);
+    //   setCampaignForm({
+    //     campaignName: "",
+    //     promptId: "",
+    //     zohoViewId: "",
+    //     segmentId: "",
+    //     description: "",
+    //     templateId: "",
+    //   });
+    //   setSelectedPrompt(null);
+    // }}
     style={{
       position: "fixed",
       inset: 0,

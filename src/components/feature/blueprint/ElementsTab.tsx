@@ -58,7 +58,7 @@ return (
       }}
     >
       <h2 style={{ fontSize: "22px", fontWeight: 600 }}>
-        Edit Placeholder Values
+        Edit elements
       </h2>
 
       {/* EDIT BUTTON */}
@@ -146,23 +146,21 @@ return (
                   >
                     {p.friendlyName}
 
-                    {p.isExpandable && (
-                      <button
-                        onClick={() =>
-                          setExpandedKey(p.placeholderKey, p.friendlyName)
-                        }
-                        style={{
-                          fontSize: "12px",
-                          padding: "4px 8px",
-                          borderRadius: "4px",
-                          border: "1px solid #d1d5db",
-                          background: "#f9fafb"
-                        }}
-                      >
-                        Expand
-                      </button>
-                    )}
-                  </label>
+                  {p.isExpandable && p.isRichText && (
+                    <button
+                      onClick={() => setExpandedKey(p.placeholderKey, p.friendlyName)}
+                      style={{
+                        fontSize: "12px",
+                        padding: "4px 8px",
+                        borderRadius: "4px",
+                        border: "1px solid #d1d5db",
+                        background: "#f9fafb"
+                      }}
+                    >
+                      Expand
+                    </button>
+                  )}
+                </label>
 
                   {renderPlaceholderInput({
                     ...p,
