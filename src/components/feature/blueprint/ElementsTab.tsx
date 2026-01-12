@@ -38,6 +38,13 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
   applyContactPlaceholders
 }) => {
 
+  const UI_SIZE_TO_SPAN: Record<string, number> = {
+    sm: 3,  // 25%
+    md: 4,  // 33.33%
+    lg: 6,  // 50%
+    xl: 12  // 100%
+  };
+
 return (
   <div
     className="elements-tab-container !mt-[0] !rounded-none "
@@ -128,13 +135,18 @@ return (
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "1fr 1fr",
+                gridTemplateColumns: "repeat(12, 1fr)",
                 gap: "20px",
                 padding: "16px"
               }}
             >
               {placeholders.map((p) => (
-                <div key={p.placeholderKey}>
+                <div
+                  key={p.placeholderKey}
+                  style={{
+                    gridColumn: `span ${UI_SIZE_TO_SPAN[p.uiSize || "md"]}`
+                  }}
+                >
                   <label
                     style={{
                       fontWeight: 600,
