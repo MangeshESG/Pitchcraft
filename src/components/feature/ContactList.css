@@ -396,7 +396,7 @@
 }
 
 .button.primary {
-  background-color: #186bf3;
+  background-color: #333;
   color: #fff;
   border: none;
   border-radius: 4px;
@@ -411,4 +411,33 @@
   border-radius: 4px;
   padding: 8px 16px;
   cursor: pointer;
+}
+.email-preview-toggle {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #e9f5ec;
+  padding: 10px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: #2f6f3e;
+  margin-bottom: 10px;
+}
+
+.email-preview-toggle:hover {
+  background: #dff0e4;
+}
+
+.submenu-arrow {
+  transition: transform 0.3s ease;
+  color: #333;  
+}
+
+/* rotate arrow when open */
+.submenu-open .submenu-arrow {
+  transform: rotate(90deg);
+  top: 11px;
 }

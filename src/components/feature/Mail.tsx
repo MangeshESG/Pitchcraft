@@ -996,7 +996,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
 
   // Delete Handler (Assuming you create this API in backend)
   const handleDeleteSchedule = async (id: any) => {
-    if (window.confirm("Are you sure to delete this schedule?")) {
+   
       try {
         await axios.post(
           `${API_BASE_URL}/api/email/delete-sequence/${id}?ClientId=${effectiveUserId}`,
@@ -1012,7 +1012,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
         console.error(err);
         appModal.showError("Error deleting SMTP");
       }
-    }
+   
   };
 
   // Email device width
@@ -2543,7 +2543,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                       disabled={!isFormValid}
                       style={{
                         padding: "8px 16px",
-                        background: isFormValid ? "#007bff" : "#ccc",
+                        background: isFormValid ? "#3f9f42" : "#ccc",
                         color: "#fff",
                         border: "none",
                         borderRadius: "4px",

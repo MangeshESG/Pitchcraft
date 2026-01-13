@@ -482,17 +482,39 @@ const sortedData = [...filteredData].sort((a, b) => {
   if (!sortConfig.key) return 0;
 
   const key = sortConfig.key as string;
-  const valA = a[key];
-  const valB = b[key];
+  const valA = a?.[key];
+  const valB = b?.[key];
 
-  // Handle null/undefined
+  // Handle null / undefined
+  if (valA == null && valB == null) return 0;
   if (valA == null) return 1;
   if (valB == null) return -1;
 
-  if (valA < valB) return sortConfig.direction === "asc" ? -1 : 1;
-  if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
-  return 0;
+  // 🔢 Number sorting
+  if (typeof valA === "number" && typeof valB === "number") {
+    return sortConfig.direction === "asc"
+      ? valA - valB
+      : valB - valA;
+  }
+
+  // 📅 Date sorting
+  const dateA = Date.parse(valA);
+  const dateB = Date.parse(valB);
+  if (!isNaN(dateA) && !isNaN(dateB)) {
+    return sortConfig.direction === "asc"
+      ? dateA - dateB
+      : dateB - dateA;
+  }
+
+  // 🔤 STRING SORTING (CASE-INSENSITIVE ✅)
+  const strA = String(valA).toLowerCase();
+  const strB = String(valB).toLowerCase();
+
+  return sortConfig.direction === "asc"
+    ? strA.localeCompare(strB)
+    : strB.localeCompare(strA);
 });
+
 // const pagedData = paginated
 //   ? sortedData.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 //   : sortedData;

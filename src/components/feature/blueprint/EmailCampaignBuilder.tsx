@@ -1140,11 +1140,11 @@ useEffect(() => {
     .then(res => {
       if (Array.isArray(res.data) && res.data.length > 0) {
         setUiPlaceholders(res.data);
-        console.log("✅ Loaded placeholder definitions from backend");
+        console.log("✅ Loaded element definitions from backend");
       }
     })
     .catch(err =>
-      console.error("❌ Failed to load placeholder definitions", err)
+      console.error("❌ Failed to load element definitions", err)
     );
 }, [selectedTemplateDefinitionId]);
 
@@ -1300,10 +1300,10 @@ const saveAllPlaceholders = async () => {
 
     await reloadCampaignBlueprint();
 
-    showModal("Success","✅ Placeholder values updated successfully!");
+    showModal("Success","✅ Element values updated successfully!");
   } catch (error) {
-    console.error("❌ Failed to update placeholders:", error);
-    showModal("Warning","Failed to update placeholder values.");
+    console.error("❌ Failed to update elements:", error);
+    showModal("Warning","Failed to update element values.");
   }
 };
 
@@ -1337,7 +1337,7 @@ const saveAllPlaceholders = async () => {
     if (!contact) return;
 
     try {
-      console.log('📇 Applying contact placeholders:', contact.full_name);
+      console.log('📇 Applying contact elements:', contact.full_name);
 
       // Derive friendly / abbrev variants
       const friendly = contact.company_name?.replace(/\b(ltd|llc|limited|plc)\b/gi, "").trim() || contact.company_name;
@@ -1364,13 +1364,13 @@ const saveAllPlaceholders = async () => {
 
       setPlaceholderValues(mergedForDisplay);
 
-      console.log('✅ Contact placeholders applied');
+      console.log('✅ Contact elements applied');
       console.log('🌐 Website value:', mergedForDisplay.website || '(none)');
       console.log('🔗 LinkedIn value:', mergedForDisplay.linkedin_url || '(none)');
       console.log('ℹ️ Click "Regenerate" to generate email with this contact');
 
     } catch (error) {
-      console.error("⚠️ Error applying contact placeholders:", error);
+      console.error("⚠️ Error applying contact elements:", error);
     }
   };
 
@@ -1455,8 +1455,8 @@ const regenerateExampleOutput = async () => {
       contactValues
     );
 
-    console.log("📦 Conversation placeholders:", Object.keys(conversationValues));
-    console.log("📇 Contact placeholders:", Object.keys(contactValues));
+    console.log("📦 Conversation elements:", Object.keys(conversationValues));
+    console.log("📇 Contact elements:", Object.keys(contactValues));
 
     // --------------------------------------------------
     // 2️⃣ SEARCH FLOW (optional)
@@ -1571,7 +1571,7 @@ const regenerateExampleOutput = async () => {
     const { persisted } = splitPlaceholders(mergedAll);
 
     console.log("📧 Generating example output...");
-    console.log("📦 Persisted placeholders only:", Object.keys(persisted));
+    console.log("📦 Persisted elements only:", Object.keys(persisted));
  setIsPreviewLoading(true);
     const response = await axios.post(
       `${API_BASE_URL}/api/CampaignPrompt/example/generate`,
@@ -1648,7 +1648,7 @@ const toggleNotifications = () => {
     }
 
     if (!systemPrompt.trim() || !masterPrompt.trim()) {
-      showModal("missing parameters","Please fill in AI Instructions and Placeholders List");
+      showModal("missing parameters","Please fill in AI Instructions and elements List");
       return;
     }
 
@@ -1684,7 +1684,7 @@ const toggleNotifications = () => {
     }
   );
 
-  console.log("✅ Placeholder definitions saved");
+  console.log("✅ element definitions saved");
 };
 
         await loadTemplateDefinitions();
@@ -1715,9 +1715,9 @@ const toggleNotifications = () => {
       placeholders: uiPlaceholders
     }
   );
-  alert("✅ Placeholder definitions saved");
+  alert("✅ element definitions saved");
 
-  console.log("✅ Placeholder definitions saved");
+  console.log("✅ element definitions saved");
 };
 
 
@@ -1888,7 +1888,7 @@ const toggleNotifications = () => {
 // validates numeric campaignTemplateId, and optionally wraps payload in { req } if needed.
 const startEditConversation = async (placeholder: string) => {
   if (!effectiveUserId || !placeholder) {
-    console.warn("startEditConversation: missing effectiveUserId or placeholder");
+    console.warn("startEditConversation: missing effectiveUserId or element");
     return;
   }
 
@@ -1997,14 +1997,14 @@ const startEditConversation = async (placeholder: string) => {
       selectedModel,
     });
     reloadCampaignBlueprint();
-    console.log("✅ Conversation placeholder saved in DB:", updatedPlaceholder);
+    console.log("✅ Conversation element saved in DB:", updatedPlaceholder);
     console.log("ℹ️ Click 'Regenerate' to see the updated email");
 
       // ❌ REMOVED: Auto-regeneration
       // User must click "Regenerate" button manually
 
     } catch (err) {
-      console.error("⚠️ Error during placeholder finalization:", err);
+      console.error("⚠️ Error during element finalization:", err);
     }
   };
 
@@ -2378,7 +2378,7 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
           const completionMessage: Message = {
             type: "bot",
             content:
-              "🎉 Great! I've filled in all placeholders. Select a contact and click 'Regenerate' to see the personalized email.",
+              "🎉 Great! I've filled in all elements. Select a contact and click 'Regenerate' to see the personalized email.",
             timestamp: new Date(),
           };
           setMessages([completionMessage]);
@@ -2508,7 +2508,7 @@ const handleSendMessage = async () => {
         // merge for display once (removed duplicate call)
         const mergedForDisplay = getMergedPlaceholdersForDisplay(updatedConversationValues, currentContactValues);
         setPlaceholderValues(mergedForDisplay);
-        console.log('📦 Updated conversation placeholders:', Object.keys(updatedConversationValues));
+        console.log('📦 Updated conversation elements:', Object.keys(updatedConversationValues));
 
         // Save conversation placeholders to DB (if campaign exists)
         const storedId = sessionStorage.getItem('newCampaignId');
@@ -2521,9 +2521,9 @@ const handleSendMessage = async () => {
               placeholderValues: updatedConversationValues, // only conversation placeholders
             });
              reloadCampaignBlueprint();
-            console.log('💾 Saved conversation placeholders to DB (no auto-generation)');
+            console.log('💾 Saved conversation elements to DB (no auto-generation)');
           } catch (err) {
-            console.warn('⚠️ Failed to save placeholders:', err);
+            console.warn('⚠️ Failed to save elements:', err);
           }
         }
       }
@@ -2536,7 +2536,7 @@ const handleSendMessage = async () => {
       // push only the friendly completion message (do not push the raw assistantText)
       const completionMessage: Message = {
         type: 'bot',
-        content: "🎉 Great! I've filled in all placeholders. Select a contact and click 'Regenerate' to see the personalized email.",
+        content: "🎉 Great! I've filled in all elements. Select a contact and click 'Regenerate' to see the personalized email.",
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, completionMessage]);
@@ -2549,7 +2549,7 @@ const handleSendMessage = async () => {
         try {
           await finalizeEditPlaceholder(selectedPlaceholder, answerText);
         } catch (err) {
-          console.warn('⚠️ finalizeEditPlaceholder failed:', err);
+          console.warn('⚠️ finalizeEditelement failed:', err);
         }
       }
 
