@@ -25,6 +25,8 @@ interface EditContactModalProps {
   contact: Contact | null;
   onContactUpdated: () => void;
   onShowMessage: (message: string, type: 'success' | 'error') => void;
+  hideOverlay?: boolean;
+  asPage?: boolean;
 }
 
 const EditContactModal: React.FC<EditContactModalProps> = ({
@@ -32,7 +34,9 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   onClose,
   contact,
   onContactUpdated,
-  onShowMessage
+  onShowMessage,
+  hideOverlay = false,
+  asPage = false
 }) => {
   const [formData, setFormData] = useState({
     fullName: '',
@@ -51,6 +55,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
     notes: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showEmailBodyPopup, setShowEmailBodyPopup] = useState(false);
 
   useEffect(() => {
     if (contact) {
@@ -83,7 +88,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.fullName.trim() || !formData.email.trim()) {
       onShowMessage('Full name and email are required', 'error');
       return;
@@ -95,7 +100,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
     }
 
     setIsSubmitting(true);
-    
+
     try {
       const response = await fetch(
         `${API_BASE_URL}/api/Crm/update-contact?id=${contact.id}`,
@@ -129,6 +134,408 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   };
 
   if (!isOpen || !contact) return null;
+  const content = (
+    <div style={{
+      background: "#f6f7f9",
+      //background: '#fff',
+      padding: 24,
+      borderRadius: 8,
+      width: asPage ? '100%' : '45%',
+      maxWidth: asPage ? '100%' : 800,
+      marginTop: asPage ? 24 : 0,
+      boxShadow: asPage ? 'none' : '0 20px 60px rgba(0,0,0,0.5)'
+    }}>
+      <h3 style={{ marginTop: 0, marginBottom: 20 }}>Edit contact</h3>
+      <form onSubmit={handleSubmit}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+              Full name <span style={{ color: 'red' }}>*</span>
+            </label>
+            <input
+              type="text"
+              name="fullName"
+              value={formData.fullName}
+              onChange={handleInputChange}
+              required
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #ddd',
+                borderRadius: '4px'
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+              Email <span style={{ color: 'red' }}>*</span>
+            </label>
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleInputChange}
+              required
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #ddd',
+                borderRadius: '4px'
+              }}
+            />
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+              Company name
+            </label>
+            <input
+              type="text"
+              name="companyName"
+              value={formData.companyName}
+              onChange={handleInputChange}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #ddd',
+                borderRadius: '4px'
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+              Job title
+            </label>
+            <input
+              type="text"
+              name="jobTitle"
+              value={formData.jobTitle}
+              onChange={handleInputChange}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #ddd',
+                borderRadius: '4px'
+              }}
+            />
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+              Website
+            </label>
+            <input
+              type="text"
+              name="website"
+              value={formData.website}
+              onChange={handleInputChange}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #ddd',
+                borderRadius: '4px'
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+              LinkedIn URL
+            </label>
+            <input
+              type="text"
+              name="linkedInUrl"
+              value={formData.linkedInUrl}
+              onChange={handleInputChange}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #ddd',
+                borderRadius: '4px'
+              }}
+            />
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+              Country/address
+            </label>
+            <input
+              type="text"
+              name="countryOrAddress"
+              value={formData.countryOrAddress}
+              onChange={handleInputChange}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #ddd',
+                borderRadius: '4px'
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+              Company telephone
+            </label>
+            <input
+              type="text"
+              name="companyTelephone"
+              value={formData.companyTelephone}
+              onChange={handleInputChange}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #ddd',
+                borderRadius: '4px'
+              }}
+            />
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+              Company employee count
+            </label>
+            <input
+              type="text"
+              name="companyEmployeeCount"
+              value={formData.companyEmployeeCount}
+              onChange={handleInputChange}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #ddd',
+                borderRadius: '4px'
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+              Company industry
+            </label>
+            <input
+              type="text"
+              name="companyIndustry"
+              value={formData.companyIndustry}
+              onChange={handleInputChange}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #ddd',
+                borderRadius: '4px'
+              }}
+            />
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+              Company linkedin URL
+            </label>
+            <input
+              type="text"
+              name="companyLinkedInURL"
+              value={formData.companyLinkedInURL}
+              onChange={handleInputChange}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #ddd',
+                borderRadius: '4px'
+              }}
+            />
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+            Email subject
+          </label>
+          <input
+            type="text"
+            name="emailSubject"
+            value={formData.emailSubject}
+            onChange={handleInputChange}
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              border: '1px solid #ddd',
+              borderRadius: '4px'
+            }}
+          />
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+            Email body
+          </label>
+          <div style={{ position: "relative" }}>
+            {/* Expand button */}
+            <button
+              type="button"
+              onClick={() => setShowEmailBodyPopup(true)}
+              title="Expand"
+              style={{
+                position: "absolute",
+                top: 8,
+                right: 8,
+                background: "#fff",
+                border: "1px solid #ddd",
+                borderRadius: 4,
+                padding: 4,
+                cursor: "pointer",
+                zIndex: 1,
+              }}
+            >
+              ⤢
+            </button>
+            <textarea
+              name="emailBody"
+              value={formData.emailBody}
+              onChange={handleInputChange}
+              rows={4}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                resize: 'none',
+                overflow: 'hidden'
+              }}
+            />
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+            Notes
+          </label>
+          <textarea
+            name="notes"
+            value={formData.notes}
+            onChange={handleInputChange}
+            rows={3}
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              resize: 'vertical'
+            }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            onClick={handleClose}
+            style={{
+              padding: '8px 16px',
+              border: '1px solid #ddd',
+              background: '#fff',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={isSubmitting || !formData.fullName.trim() || !formData.email.trim()}
+            style={{
+              padding: '8px 16px',
+              background: isSubmitting || !formData.fullName.trim() || !formData.email.trim() ? '#ccc' : '#3f9f42',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: isSubmitting || !formData.fullName.trim() || !formData.email.trim() ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {isSubmitting ? 'Updating...' : 'Update contact'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+if (asPage) {
+  return (
+    <>
+      {content}
+
+      {showEmailBodyPopup && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.6)",
+            zIndex: 100000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              padding: 24,
+              borderRadius: 8,
+              width: "70%",
+              maxWidth: 900,
+              boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+            }}
+          >
+            <h3 style={{ marginTop: 0, marginBottom: 16 }}>
+              Email body
+            </h3>
+
+            <textarea
+              value={formData.emailBody}
+              readOnly
+              rows={12}
+              style={{
+                width: "100%",
+                padding: "12px",
+                border: "1px solid #ddd",
+                borderRadius: 4,
+                resize: "vertical",
+                background: "#f9f9f9",
+              }}
+            />
+
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+              <button
+                type="button"
+                onClick={() => setShowEmailBodyPopup(false)}
+                style={{
+                  padding: "8px 16px",
+                  background: "#3f9f42",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                }}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
 
   return (
     <div style={{
@@ -151,7 +558,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
         boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
       }}>
         <h3 style={{ marginTop: 0, marginBottom: 20 }}>Edit contact</h3>
-        
+
         <form onSubmit={handleSubmit}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
             <div>
@@ -172,7 +579,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                 }}
               />
             </div>
-            
+
             <div>
               <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
                 Email <span style={{ color: 'red' }}>*</span>
@@ -211,7 +618,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                 }}
               />
             </div>
-            
+
             <div>
               <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
                 Job title
@@ -249,7 +656,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                 }}
               />
             </div>
-            
+
             <div>
               <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
                 LinkedIn URL
@@ -287,7 +694,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                 }}
               />
             </div>
-            
+
             <div>
               <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
                 Company telephone
@@ -325,7 +732,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                 }}
               />
             </div>
-            
+
             <div>
               <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
                 Company industry

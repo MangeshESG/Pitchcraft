@@ -56,21 +56,43 @@ const Header: React.FC<HeaderProps> = React.memo(
     }, [effectiveUserId, refreshCredits]);
 
     return (
-      <div className="main-head d-flex justify-between align-center w-[100%]">
-        <div
-          className={`menu-section flex items-center justify-between w-[100%] ${isMenuOpen ? "show" : ""}`}
+      <div
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 1000,
+          background: "#fff",
+         // borderBottom: "1px solid #e5e5e5",
+          width: "100%"
+        }}
+      >
+         <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "260px 1fr auto",
+            alignItems: "center",
+          //  padding: "12px 20px",
+            width: "100%"
+          }}
         >
+          <div>
           {/* CLIENT DROPDOWN */}
           {userRole === "ADMIN" && handleClientChange && (
-            <div className="client-selector-wrapper" style={{ padding: "8px 12px", border: "1px solid #ddd", borderRadius: "4px" }}>
+            <div style={{
+                  padding: "8px 12px",
+                  border: "1px solid #ddd",
+                  borderRadius: "4px",
+                  width: "240px"
+                }}>
               <select
                 value={selectedClient || ""}
                 onChange={handleClientChange}
-                className="header-client-select"
-                style={{
-                  outline: "none",
-                  boxShadow: "none"
-                }}
+               style={{
+                    width: "100%",
+                    border: "none",
+                    outline: "none",
+                    background: "transparent"
+                  }}
               >
                 <option value="">Select a client</option>
                 {clientNames.map((client) => (
@@ -81,12 +103,19 @@ const Header: React.FC<HeaderProps> = React.memo(
               </select>
             </div>
           )}
+            </div>
+             <div />
 
           {/* USER INFO */}
-          <div className="item group flex">
+          <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "16px",
+              whiteSpace: "nowrap"
+            }}>
             <div className="item flex items-center">
-              <div className="user-info-wrapper flex items-center gap-2">
-                <div className="user-greeting d-flex align-center mx-[0px]">
+              {/* <div className="user-info-wrapper flex items-center gap-2">
+                <div className="user-greeting d-flex align-center mx-[0px] sticky-right"> */}
                   <span className="mr-5">
                     <svg xmlns="http://www.w3.org/2000/svg" width="15px" height="15px" viewBox="0 0 16 16" fill="none">
                       <path d="M8 7C9.65685 7 11 5.65685 11 4C11 2.34315 9.65685 1 8 1C6.34315 1 5 2.34315 5 4C5 5.65685 6.34315 7 8 7Z" fill="#000000" />
@@ -96,35 +125,60 @@ const Header: React.FC<HeaderProps> = React.memo(
                   Hello <Link to="" className="ml-5 green">{firstName || ''}</Link>
                 </div>
 
-                <div className="user-credit text-sm text-gray-600">
+                {/* <div className="user-credit text-sm text-gray-600 sticky-right"> */}
+                 <span>
                   Credits:{" "}
                   <span
-                    className="font-semibold text-green-600 cursor-pointer hover:underline"
+                   style={{
+                  color: "#3f9f42",
+                  fontWeight: 600,
+                  cursor: "pointer"
+                }}
                     onClick={onCreditClick ? () => onCreditClick() : onUpgradeClick}
                     title="Click to view billing history"
                   >
                     {credits !== null ? (typeof credits === 'object' && credits !== null ? credits.total : credits) : "Loading..."}
                   </span>
-                </div>
+                </span>
 
                 {/* UPGRADE BUTTON */}
                 <button
                   onClick={onUpgradeClick}
-                  className="ml-2 save-button button auto-width small d-flex justify-between align-center"
-                  style={{ backgroundColor: "#3f9f42" }}
+                   style={{
+                backgroundColor: "#3f9f42",
+                color: "#fff",
+                padding: "0.5rem 0.8rem",
+                borderRadius: "4px",
+                border: "none",
+                cursor: "pointer",
+                fontSize:"15px",
+                fontWeight:"600"
+              }}
                   onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#37a137")}
                   onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#3f9f42")}
                 >
                   Upgrade
                 </button>
-              </div>
-            </div>
+              {/* </div>
+            </div> */}
 
             {/* LOGOUT BUTTON */}
-            <div className="item">
+            {/* <div className="item"> */}
               <button
                 onClick={logoutHandler}
-                className="ml-10 save-button button auto-width small d-flex justify-between align-center"
+                 style={{
+                backgroundColor: "#3f9f42",
+                color: "#fff",
+                padding: "0.5rem 0.8rem",
+                borderRadius: "4px",
+                border: "none",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                fontSize:"15px",
+                fontWeight:"600"
+              }}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="18px" height="18px" viewBox="0 0 24 24" fill="none">
                   <path
@@ -135,10 +189,10 @@ const Header: React.FC<HeaderProps> = React.memo(
                     strokeLinejoin="round"
                   />
                 </svg>
-                <span className="ml-5">Logout</span>
+               Logout
               </button>
             </div>
-          </div>
+          {/* </div> */}
         </div>
       </div>
     );
