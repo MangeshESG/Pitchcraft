@@ -70,7 +70,8 @@ export interface PlaceholderDefinitionUI {
   isRuntimeOnly: boolean;
   isExpandable: boolean;
   isRichText: boolean;
-
+  categorySequence: number;       // ⭐ NEW
+  placeholderSequence: number;    // ⭐ NEW
   options?: string[];
 
   // ✅ TEMP UI-only raw editor value (NOT saved to backend)
@@ -1184,8 +1185,14 @@ useEffect(() => {
     )
     .then(res => {
       if (Array.isArray(res.data) && res.data.length > 0) {
-        setUiPlaceholders(res.data);
-        console.log("✅ Loaded element definitions from backend");
+    setUiPlaceholders(
+      res.data.map((p: any, index: number) => ({
+        ...p,
+        categorySequence: p.categorySequence ?? 999,       // default sort
+        placeholderSequence: p.placeholderSequence ?? index + 1
+      }))
+    );        
+    console.log("✅ Loaded element definitions from backend");
       }
     })
     .catch(err =>
@@ -1697,23 +1704,25 @@ const toggleNotifications = () => {
   // ====================================================================
   // SAVE TEMPLATE DEFINITION
   // ====================================================================
-  const saveTemplateDefinition = async () => {
-    if (!templateName.trim()) {
-      showModal("reason","Please enter a template name");
-      return;
-    }
+const saveTemplateDefinition = async () => {
+  if (!templateName.trim()) {
+    showModal("reason","Please enter a template name");
+    return;
+  }
 
-    if (!systemPrompt.trim() || !masterPrompt.trim()) {
-      showModal("missing parameters","Please fill in AI Instructions and elements List");
-      return;
-    }
+  if (!systemPrompt.trim() || !masterPrompt.trim()) {
+    showModal("missing parameters","Please fill in AI Instructions and elements List");
+    return;
+  }
 
-    setIsSavingDefinition(true);
-    setSaveDefinitionStatus('idle');
+  setIsSavingDefinition(true);
+  setSaveDefinitionStatus('idle');
 
-    try {
-      const response = await axios.post(`${API_BASE_URL}/api/CampaignPrompt/template-definition/save`, {
-        templateName: templateName,
+  try {
+    const response = await axios.post(
+      `${API_BASE_URL}/api/CampaignPrompt/template-definition/save`,
+      {
+        templateName,
         aiInstructions: systemPrompt,
         aiInstructionsForEdit: systemPromptForEdit,
         placeholderList: masterPrompt,
@@ -1722,60 +1731,74 @@ const toggleNotifications = () => {
         createdBy: effectiveUserId,
         searchURLCount,
         subjectInstructions,
-        selectedModel: selectedModel
+        selectedModel
+      }
+    );
 
-      });
+    if (response.data.success) {
+      const newId = response.data.templateDefinitionId;
 
-      if (response.data.success) {
-        setSaveDefinitionStatus('success');
-        setSelectedTemplateDefinitionId(response.data.templateDefinitionId);
-          const savePlaceholderDefinitions = async () => {
-  if (!selectedTemplateDefinitionId) return;
+      setSaveDefinitionStatus('success');
+      setSelectedTemplateDefinitionId(newId);
 
-  await axios.post(
-    `${API_BASE_URL}/api/CampaignPrompt/placeholders/save`,
-    {
-      templateDefinitionId: selectedTemplateDefinitionId,
-      placeholders: uiPlaceholders
+      // ⭐ SAVE PLACEHOLDERS AFTER CREATING TEMPLATE DEF
+      await savePlaceholderDefinitionsInner(newId);
+
+      await loadTemplateDefinitions();
+
+      setTimeout(() => setSaveDefinitionStatus('idle'), 3000);
     }
-  );
+  } catch (error: any) {
+    console.error('Error saving template definition:', error);
+    if (error.response?.data?.message?.includes('already exists')) {
+      showModal("Instruction",'A template with this name already exists. Please use a different name.');
+    } else {
+      setSaveDefinitionStatus('error');
+      setTimeout(() => setSaveDefinitionStatus('idle'), 3000);
+    }
+  } finally {
+    setIsSavingDefinition(false);
+  }
+};
+
+
+  const savePlaceholderDefinitionsInner = async (definitionId: number) => {
+  const sortedPlaceholders = [...uiPlaceholders].sort((a, b) => {
+    if (a.categorySequence !== b.categorySequence)
+      return a.categorySequence - b.categorySequence;
+    return a.placeholderSequence - b.placeholderSequence;
+  });
+
+  await axios.post(`${API_BASE_URL}/api/CampaignPrompt/placeholders/save`, {
+    templateDefinitionId: definitionId,
+    placeholders: sortedPlaceholders
+  });
 
   console.log("✅ element definitions saved");
 };
 
-        await loadTemplateDefinitions();
-
-        setTimeout(() => setSaveDefinitionStatus('idle'), 3000);
-      }
-    } catch (error: any) {
-      console.error('Error saving template definition:', error);
-
-      if (error.response?.data?.message?.includes('already exists')) {
-        showModal("Instruction",'A template with this name already exists. Please use a different name.');
-      } else {
-        setSaveDefinitionStatus('error');
-        setTimeout(() => setSaveDefinitionStatus('idle'), 3000);
-      }
-    } finally {
-      setIsSavingDefinition(false);
-    }
-  };
-
-  const savePlaceholderDefinitions = async () => {
+const savePlaceholderDefinitions = async () => {
   if (!selectedTemplateDefinitionId) return;
+
+  const sortedPlaceholders = [...uiPlaceholders].sort((a, b) => {
+    if (a.categorySequence !== b.categorySequence)
+      return a.categorySequence - b.categorySequence;
+    return a.placeholderSequence - b.placeholderSequence;
+  });
 
   await axios.post(
     `${API_BASE_URL}/api/CampaignPrompt/placeholders/save`,
     {
       templateDefinitionId: selectedTemplateDefinitionId,
-      placeholders: uiPlaceholders
+      placeholders: sortedPlaceholders
     }
   );
+
   alert("✅ element definitions saved");
-
-  console.log("✅ element definitions saved");
 };
-
+  // ====================================================================
+  // UPDATE TEMPLATE DEFINITION
+  // ==================================================================== 
 
   const updateTemplateDefinition = async () => {
     if (!selectedTemplateDefinitionId) {
@@ -2249,10 +2272,12 @@ useEffect(() => {
 
   // Create minimal default items ONLY when no backend data exists
   setUiPlaceholders(
-    keys.map(key => ({
+    keys.map((key, index) => ({
       placeholderKey: key,
       friendlyName: key.replace(/_/g, " "),
       category: "General",
+      categorySequence: 99,
+      placeholderSequence: index + 1,
       inputType: "text",
       options: [],
       uiSize: "md",
@@ -2261,6 +2286,8 @@ useEffect(() => {
       isRuntimeOnly: RUNTIME_ONLY_PLACEHOLDERS.includes(key),
     }))
   );
+
+
 }, [masterPrompt]);
 
 
@@ -2287,12 +2314,20 @@ const essentialPlaceholderKeys = React.useMemo(
 );
 
 const groupedPlaceholders = uiPlaceholders
-  .filter(p =>
-    !p.isRuntimeOnly &&
-    essentialPlaceholderKeys.includes(p.placeholderKey)
+  .sort((a, b) => {
+    if (a.categorySequence !== b.categorySequence)
+      return a.categorySequence - b.categorySequence;
+    return a.placeholderSequence - b.placeholderSequence;
+  })
+  .filter(
+    p =>
+      !p.isRuntimeOnly &&
+      essentialPlaceholderKeys.includes(p.placeholderKey)
   )
   .reduce<Record<string, PlaceholderDefinitionUI[]>>((acc, p) => {
-    acc[p.category] = acc[p.category] || [];
+    if (!acc[p.category]) {
+      acc[p.category] = [];
+    }
     acc[p.category].push(p);
     return acc;
   }, {});
@@ -2894,6 +2929,109 @@ function SimpleTextarea({
   );
 }
 
+const movePlaceholder = (key: string, direction: "up" | "down") => {
+  setUiPlaceholders(prev => {
+    const current = prev.find(p => p.placeholderKey === key);
+    if (!current) return prev;
+
+    const category = current.category;
+
+    // 1️⃣ Get placeholders only inside this category
+    const sameCategory = prev
+      .filter(p => p.category === category)
+      .sort((a, b) => a.placeholderSequence - b.placeholderSequence);
+
+    // 2️⃣ Find index inside category block
+    const idx = sameCategory.findIndex(p => p.placeholderKey === key);
+
+    if (idx === -1) return prev;
+
+    // 3️⃣ Move inside category
+    if (direction === "up" && idx > 0) {
+      [sameCategory[idx - 1], sameCategory[idx]] = 
+        [sameCategory[idx], sameCategory[idx - 1]];
+    }
+
+    if (direction === "down" && idx < sameCategory.length - 1) {
+      [sameCategory[idx], sameCategory[idx + 1]] =
+        [sameCategory[idx + 1], sameCategory[idx]];
+    }
+
+    // 4️⃣ Reassign NEW placeholderSequence inside this category only
+    sameCategory.forEach((p, i) => {
+      p.placeholderSequence = i + 1;
+    });
+
+    // 5️⃣ Merge back into full UI list
+    return prev.map(p =>
+      p.category === category
+        ? sameCategory.find(x => x.placeholderKey === p.placeholderKey)!
+        : p
+    );
+  });
+};
+
+
+const categoryList = React.useMemo(() => {
+  const map = new Map<string, number>();
+
+  uiPlaceholders.forEach(p => {
+    map.set(p.category, p.categorySequence ?? 999);
+  });
+
+  return Array.from(map.entries())
+    .map(([name, seq]) => ({ name, seq }))
+    .sort((a, b) => a.seq - b.seq);
+}, [uiPlaceholders]);
+
+
+const moveCategory = (category: string, direction: "up" | "down") => {
+  setUiPlaceholders(prev => {
+
+    // 1️⃣ Build clean category list with FIXED default sequences
+    let categories = Array.from(new Set(prev.map(p => p.category)));
+
+    // Assign proper sequential numbers (1,2,3...)
+    let categorySeqList = categories.map((cat, idx) => ({
+      name: cat,
+      seq: prev.find(p => p.category === cat)?.categorySequence ?? (idx + 1)
+    }));
+
+    // 2️⃣ Sort by sequence
+    categorySeqList.sort((a, b) => a.seq - b.seq);
+
+    // 3️⃣ Find target category index
+    const index = categorySeqList.findIndex(c => c.name === category);
+    if (index === -1) return prev;
+
+    // 4️⃣ Swap UP
+    if (direction === "up" && index > 0) {
+      const tmp = categorySeqList[index - 1].seq;
+      categorySeqList[index - 1].seq = categorySeqList[index].seq;
+      categorySeqList[index].seq = tmp;
+    }
+
+    // 5️⃣ Swap DOWN
+    if (direction === "down" && index < categorySeqList.length - 1) {
+      const tmp = categorySeqList[index + 1].seq;
+      categorySeqList[index + 1].seq = categorySeqList[index].seq;
+      categorySeqList[index].seq = tmp;
+    }
+
+    // 6️⃣ Normalize sequences again (1,2,3…)
+    categorySeqList = categorySeqList
+      .sort((a, b) => a.seq - b.seq)
+      .map((c, idx) => ({ ...c, seq: idx + 1 }));
+
+    // 7️⃣ Apply NEW sequence numbers to each placeholder
+    return prev.map(p => ({
+      ...p,
+      categorySequence:
+        categorySeqList.find(c => c.name === p.category)?.seq ?? p.categorySequence
+    }));
+  });
+};
+
 
   // ====================================================================
   // RENDER
@@ -3363,7 +3501,7 @@ return (
     <div
       style={{
         display: "grid",
-gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr 1fr",
+        gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr 1fr 60px",
         gap: "10px",
         fontWeight: 600,
         fontSize: "13px",
@@ -3377,238 +3515,304 @@ gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr 1fr",
       <div>Input / Options</div>
       <div>Size</div>
       <div>Expand</div>
-
+      <div></div>
     </div>
 
-    {/* ROWS */}
-    {uiPlaceholders.map((p) => (
-      <div
-        key={p.placeholderKey}
-        style={{
-          display: "grid",
-          gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr 1fr",
-          gap: "10px",
-          alignItems: "center",
-          marginBottom: "10px"
-        }}
-      >
-        {/* Placeholder Key */}
-        <strong>{`{${p.placeholderKey}}`}</strong>
-
-        {/* Friendly Name */}
-        <input
-          value={p.friendlyName}
-          onChange={(e) => {
-            const v = e.target.value;
-            setUiPlaceholders(prev =>
-              prev.map(x =>
-                x.placeholderKey === p.placeholderKey
-                  ? { ...x, friendlyName: v }
-                  : x
-              )
-            );
-          }}
-          className="text-input"
-        />
-
-        {/* Category */}
-        <select
-          value={p.category}
-          onChange={(e) => {
-            const v = e.target.value;
-            setUiPlaceholders(prev =>
-              prev.map(x =>
-                x.placeholderKey === p.placeholderKey
-                  ? { ...x, category: v }
-                  : x
-              )
-            );
-          }}
-          className="definition-select"
-        >
-          <option>Your company</option>
-          <option>Core message focus</option>
-          <option>Dos and Don'ts</option>
-          <option>Message writing style</option>
-          <option>Call-to-action</option>
-          <option>Greetings & farewells</option>
-          <option>Subject line</option>
-          <option>Images</option>
-        </select>
-
-        {/* Input Type + Options */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-          <select
-            value={p.inputType}
-            onChange={(e) => {
-              const v = e.target.value as any;
-              setUiPlaceholders(prev =>
-                prev.map(x =>
-                  x.placeholderKey === p.placeholderKey
-                    ? {
-                        ...x,
-                        inputType: v,
-                        isRichText: v === "richtext",
-                        isExpandable: v === "richtext" ? x.isExpandable : false,
-
-                      options: v === "select" ? x.options || [] : []
-                      }
-                    : x
-                )
-              );
-            }}
-            className="definition-select"
-          >
-            <option value="text">Text</option>
-            <option value="textarea">Textarea</option>
-            <option value="richtext">Rich text</option>
-            <option value="select">Dropdown</option>
-          </select>
-
-          {/* Options Editor (only for select) */}
-{p.inputType === "select" && (
-  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-    {(p.options || []).map((opt, idx) => (
-      <div
-        key={idx}
-        style={{
-          display: "flex",
-          gap: "6px",
-          alignItems: "center"
-        }}
-      >
-        <input
-          type="text"
-          value={opt}
-          onChange={(e) => {
-            const newVal = e.target.value;
-            setUiPlaceholders(prev =>
-              prev.map(x =>
-                x.placeholderKey === p.placeholderKey
-                  ? {
-                      ...x,
-                      options: x.options?.map((o, i) =>
-                        i === idx ? newVal : o
-                      )
-                    }
-                  : x
-              )
-            );
-          }}
-          className="text-input"
-          placeholder={`Option ${idx + 1}`}
-          style={{ fontSize: "12px" }}
-        />
-
-        <button
-          type="button"
-          onClick={() => {
-            setUiPlaceholders(prev =>
-              prev.map(x =>
-                x.placeholderKey === p.placeholderKey
-                  ? {
-                      ...x,
-                      options: x.options?.filter((_, i) => i !== idx)
-                    }
-                  : x
-              )
-            );
-          }}
+    {/* ======================================================
+        CATEGORY GROUPS (replaces the old uiPlaceholders.map)
+       ====================================================== */}
+    {categoryList.map((cat) => (
+      <div key={cat.name} style={{ marginBottom: "20px" }}>
+        
+        {/* CATEGORY HEADER */}
+        <div
           style={{
-            background: "#ef4444",
-            color: "#fff",
-            borderRadius: "4px",
-            padding: "4px 8px",
-            fontSize: "12px",
-            border: "none",
-            cursor: "pointer"
+            fontWeight: 700,
+            fontSize: "16px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            margin: "12px 0 8px 0",
+            borderBottom: "1px solid #e5e7eb",
+            paddingBottom: "6px"
           }}
         >
-          ✕
-        </button>
-      </div>
-    ))}
+          <span>{cat.name}</span>
 
-    {/* ADD OPTION BUTTON */}
-    <button
-      type="button"
-      onClick={() => {
-        setUiPlaceholders(prev =>
-          prev.map(x =>
-            x.placeholderKey === p.placeholderKey
-              ? {
-                  ...x,
-                  options: [...(x.options || []), ""]
-                }
-              : x
-          )
-        );
-      }}
-      style={{
-        marginTop: "4px",
-        background: "#e5e7eb",
-        borderRadius: "6px",
-        padding: "6px",
-        fontSize: "13px",
-        cursor: "pointer",
-        border: "1px dashed #9ca3af"
-      }}
-    >
-      ➕ Add option
-    </button>
-  </div>
-)}
+          <div style={{ display: "flex", gap: "6px" }}>
+            <button
+              style={{
+                padding: "4px 8px",
+                borderRadius: "6px",
+                background: "#e5e7eb",
+                cursor: "pointer"
+              }}
+              onClick={() => moveCategory(cat.name, "up")}
+            >
+              ↑
+            </button>
 
+            <button
+              style={{
+                padding: "4px 8px",
+                borderRadius: "6px",
+                background: "#e5e7eb",
+                cursor: "pointer"
+              }}
+              onClick={() => moveCategory(cat.name, "down")}
+            >
+              ↓
+            </button>
+          </div>
         </div>
 
-        {/* UI Size */}
-        <select
-          value={p.uiSize}
-          onChange={(e) => {
-            const v = e.target.value as any;
-            setUiPlaceholders(prev =>
-              prev.map(x =>
-                x.placeholderKey === p.placeholderKey
-                  ? { ...x, uiSize: v }
-                  : x
-              )
-            );
-          }}
-          className="definition-select"
-        >
-          <option value="sm">SM</option>
-          <option value="md">MD</option>
-          <option value="lg">LG</option>
-          <option value="xl">XL</option>
-        </select>
+        {/* ===== PLACEHOLDERS UNDER THIS CATEGORY ===== */}
+        {uiPlaceholders
+          .filter((p) => p.category === cat.name)
+          .sort((a, b) => a.placeholderSequence - b.placeholderSequence)
+          .map((p) => (
+            <div
+              key={p.placeholderKey}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr 1fr 60px",
+                gap: "10px",
+                alignItems: "center",
+                marginBottom: "10px"
+              }}
+            >
+              {/* Placeholder Key */}
+              <strong>{`{${p.placeholderKey}}`}</strong>
 
-        {/* EXPAND TOGGLE */}
-<label style={{ display: "flex", justifyContent: "center" }}>
-  <input
-    type="checkbox"
-    checked={!!p.isExpandable}
-    disabled={p.inputType !== "richtext"} // 🔒 only richtext allowed
-    onChange={(e) => {
-      const checked = e.target.checked;
-      setUiPlaceholders(prev =>
-        prev.map(x =>
-          x.placeholderKey === p.placeholderKey
-            ? {
-                ...x,
-                isExpandable: checked,
-                isRichText: checked || x.isRichText // keep consistent
-              }
-            : x
-        )
-      );
-    }}
-  />
-</label>
+              {/* Friendly Name */}
+              <input
+                value={p.friendlyName}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setUiPlaceholders((prev) =>
+                    prev.map((x) =>
+                      x.placeholderKey === p.placeholderKey
+                        ? { ...x, friendlyName: v }
+                        : x
+                    )
+                  );
+                }}
+                className="text-input"
+              />
 
+              {/* Category */}
+              <select
+                value={p.category}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setUiPlaceholders((prev) =>
+                    prev.map((x) =>
+                      x.placeholderKey === p.placeholderKey
+                        ? { ...x, category: v }
+                        : x
+                    )
+                  );
+                }}
+                className="definition-select"
+              >
+                <option>Your company</option>
+                <option>Core message focus</option>
+                <option>Dos and Don'ts</option>
+                <option>Message writing style</option>
+                <option>Call-to-action</option>
+                <option>Greetings & farewells</option>
+                <option>Subject line</option>
+                <option>Images</option>
+              </select>
+
+              {/* INPUT TYPE + OPTIONS */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                <select
+                  value={p.inputType}
+                  onChange={(e) => {
+                    const v = e.target.value as any;
+                    setUiPlaceholders((prev) =>
+                      prev.map((x) =>
+                        x.placeholderKey === p.placeholderKey
+                          ? {
+                              ...x,
+                              inputType: v,
+                              isRichText: v === "richtext",
+                              isExpandable: v === "richtext" ? x.isExpandable : false,
+                              options: v === "select" ? x.options || [] : []
+                            }
+                          : x
+                      )
+                    );
+                  }}
+                  className="definition-select"
+                >
+                  <option value="text">Text</option>
+                  <option value="textarea">Textarea</option>
+                  <option value="richtext">Rich text</option>
+                  <option value="select">Dropdown</option>
+                </select>
+
+                {/* Option editor */}
+                {p.inputType === "select" && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                    {(p.options || []).map((opt, idx) => (
+                      <div
+                        key={idx}
+                        style={{ display: "flex", gap: "6px", alignItems: "center" }}
+                      >
+                        <input
+                          type="text"
+                          value={opt}
+                          onChange={(e) => {
+                            const newVal = e.target.value;
+                            setUiPlaceholders((prev) =>
+                              prev.map((x) =>
+                                x.placeholderKey === p.placeholderKey
+                                  ? {
+                                      ...x,
+                                      options: x.options?.map((o, i) =>
+                                        i === idx ? newVal : o
+                                      )
+                                    }
+                                  : x
+                              )
+                            );
+                          }}
+                          className="text-input"
+                          style={{ fontSize: "12px" }}
+                        />
+
+                        <button
+                          onClick={() => {
+                            setUiPlaceholders((prev) =>
+                              prev.map((x) =>
+                                x.placeholderKey === p.placeholderKey
+                                  ? {
+                                      ...x,
+                                      options: x.options?.filter((_, i) => i !== idx)
+                                    }
+                                  : x
+                              )
+                            );
+                          }}
+                          style={{
+                            background: "#ef4444",
+                            color: "#fff",
+                            padding: "4px 8px",
+                            borderRadius: "4px",
+                            fontSize: "12px",
+                            border: "none",
+                            cursor: "pointer"
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+
+                    <button
+                      onClick={() => {
+                        setUiPlaceholders((prev) =>
+                          prev.map((x) =>
+                            x.placeholderKey === p.placeholderKey
+                              ? { ...x, options: [...(x.options || []), ""] }
+                              : x
+                          )
+                        );
+                      }}
+                      style={{
+                        marginTop: "4px",
+                        border: "1px dashed #9ca3af",
+                        padding: "6px",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                        background: "#e5e7eb"
+                      }}
+                    >
+                      ➕ Add option
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* UI Size */}
+              <select
+                value={p.uiSize}
+                onChange={(e) => {
+                  const v = e.target.value as "sm" | "md" | "lg" | "xl";  // FIXED
+                  setUiPlaceholders(prev =>
+                    prev.map(x =>
+                      x.placeholderKey === p.placeholderKey
+                        ? { ...x, uiSize: v }
+                        : x
+                    )
+                  );
+                }}
+                className="definition-select"
+              >
+                <option value="sm">SM</option>
+                <option value="md">MD</option>
+                <option value="lg">LG</option>
+                <option value="xl">XL</option>
+              </select>
+
+
+              {/* Expand toggle */}
+              <label style={{ display: "flex", justifyContent: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={!!p.isExpandable}
+                  disabled={p.inputType !== "richtext"}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setUiPlaceholders((prev) =>
+                      prev.map((x) =>
+                        x.placeholderKey === p.placeholderKey
+                          ? {
+                              ...x,
+                              isExpandable: checked,
+                              isRichText: checked || x.isRichText
+                            }
+                          : x
+                      )
+                    );
+                  }}
+                />
+              </label>
+
+              {/* Placeholder move buttons */}
+              <div style={{ display: "flex", gap: "6px" }}>
+                <button
+                  style={{
+                    padding: "4px 8px",
+                    borderRadius: "6px",
+                    background: "#e5e7eb",
+                    cursor: "pointer"
+                  }}
+                  onClick={() => movePlaceholder(p.placeholderKey, "up")}
+                >
+                  ↑
+                </button>
+
+                <button
+                  style={{
+                    padding: "4px 8px",
+                    borderRadius: "6px",
+                    background: "#e5e7eb",
+                    cursor: "pointer"
+                  }}
+                  onClick={() => movePlaceholder(p.placeholderKey, "down")}
+                >
+                  ↓
+                </button>
+              </div>
+            </div>
+          ))}
       </div>
     ))}
 
-    {/* SAVE BUTTON */}
+    {/* Save button */}
     <div style={{ marginTop: "20px", textAlign: "right" }}>
       <button
         onClick={savePlaceholderDefinitions}
@@ -3625,6 +3829,7 @@ gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr 1fr",
     </div>
   </div>
 )}
+
 
 
 
