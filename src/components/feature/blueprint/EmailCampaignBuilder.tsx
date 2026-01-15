@@ -19,7 +19,7 @@ import PopupModal from '../../common/PopupModal';
 import ElementsTab from "./ElementsTab"
 import toggleOn from '../../../assets/images/on-button.png';
 import toggleOff from "../../../assets/images/off-button.png";
-import RichTextEditor from '../../common/RTEEditor';
+import RichTextEditor from "../../common/RTEEditor";
 
 // --- Type Definitions ---
 interface Message {
