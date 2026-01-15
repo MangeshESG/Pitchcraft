@@ -19,6 +19,7 @@ import PopupModal from '../../common/PopupModal';
 import ElementsTab from "./ElementsTab"
 import toggleOn from '../../../assets/images/on-button.png';
 import toggleOff from "../../../assets/images/off-button.png";
+import RichTextEditor from '../../common/RTEEditor';
 
 // --- Type Definitions ---
 interface Message {
@@ -1136,28 +1137,10 @@ const ExampleEmailEditor = ({
   }, [value]);
 
   return (
-    <div
-      ref={editorRef}
-      contentEditable
-      suppressContentEditableWarning
-      className="example-content"
-      style={{
-        minHeight: "320px",
-        padding: "16px",
-        border: "1px solid #e5e7eb",
-        borderRadius: "8px",
-        background: "#ffffff",
-        outline: "none",
-        lineHeight: "1.6"
-      }}
-      onInput={() => {
-        if (editorRef.current) {
-          localDraft.current = editorRef.current.innerHTML;
-        }
-      }}
-      onBlur={() => {
-        onChange(localDraft.current);
-      }}
+    <RichTextEditor
+      value={value}
+      height={320}
+      onChange={onChange}
     />
   );
 };
@@ -2347,10 +2330,23 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
   };
 
   switch (p.inputType) {
+
+    case "richtext":
+      return (
+        <div className="flex w-full rich-text-editor">
+          <div
+            className="border border-gray-300 p-3 rounded w-full bg-gray-50"
+            style={{ minHeight: "90px" }}
+            dangerouslySetInnerHTML={{ __html: value }}
+          />
+        </div>
+      );
+
     case "textarea":
       return (
         <div className='flex'>
           <textarea
+            className='resize-y'
             value={value}
             onChange={e =>
               setFormValues(prev => ({

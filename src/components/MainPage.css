@@ -719,6 +719,58 @@ pre span {
 .edit-prompt-form-height {
   height: calc(100% - 255px);
 }
+
+/* Scope only inside RTE */
+.rich-text-editor {
+  font-family: inherit;
+}
+
+.rich-text-editor a {
+  color: #3f9f42;
+}
+
+.rich-text-editor h1 {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.rich-text-editor h2 {
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.rich-text-editor h3 {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.rich-text-editor p {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.rich-text-editor ul {
+  list-style-type: disc;
+  padding-left: 15px;
+}
+
+.rich-text-editor ul li {
+  list-style:disc !important;
+}
+
+.rich-text-editor ol {
+  list-style-type: decimal;
+  padding-left: 17px;
+
+}
+
+.rich-text-editor ol li {
+    list-style: decimal !important;
+
+}
+
+
 /* original */
 /* .quill.adjust-quill-height .ql-container {
   height: calc(100% - 65px);
