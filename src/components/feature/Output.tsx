@@ -1621,7 +1621,7 @@ const { playSound } = useSoundAlert();
                     value={selectedCampaign}
                   >
                     <option value="">Campaign</option>
-                    {campaigns?.map((campaign) => (
+                    {(campaigns || []).map((campaign) => (
                       <option key={campaign.id} value={campaign.id.toString()}>
                         {campaign.campaignName}
                       </option>

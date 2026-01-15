@@ -16,6 +16,10 @@ import { useAppModal } from "../../hooks/useAppModal";
 import { useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
 import PaginationControls from "./PaginationControls";
+import ValidateRecordsModal from "./ValidateRecordsModal";
+import OtpModal from "./OtpModal";
+import DomainAuthColumn from "./DomainAuthColumn";
+import DomainAuthModal from "./DomainAuthModal";
 
 type MailTabType = "Dashboard" | "Configuration" | "Schedule";
 
@@ -282,6 +286,9 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     usessl: false,
   });
   const [editingId, setEditingId] = useState(null);
+  const [smtpLoading, setSmtpLoading] = useState(false);
+  const [showSmtpOtpModal, setShowSmtpOtpModal] = useState(false);
+  const [smtpOtpEmail, setSmtpOtpEmail] = useState("");
   // Fetch SMTP List
   const fetchSmtp = async () => {
     try {
@@ -318,9 +325,10 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   // Handle Add/Update Submit
   const handleSubmitSMTP = async (e: any) => {
     e.preventDefault();
+    setSmtpLoading(true);
 
     try {
-      // Step 1: First send test email
+      // Only send test email
       await axios.post(
         `${API_BASE_URL}/api/email/configTestMail?ClientId=${effectiveUserId}`,
         JSON.stringify(form),
@@ -332,50 +340,69 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
         }
       );
 
-      // Step 2: If test email succeeded, save or update record
-      if (editingId) {
-        await axios.post(
-          `${API_BASE_URL}/api/email/update-smtp/${editingId}?ClientId=${effectiveUserId}`,
-          form,
-          {
-            headers: {
-              "Content-Type": "application/json",
-              ...(token && { Authorization: `Bearer ${token}` }),
-            },
-          }
-        );
-        appModal.showSuccess("SMTP updated successfully");
+      if (!editingId) {
+        // For Add operation, close add modal first then show OTP modal
+        handleModalClose("modal-add-mailbox");
+        setSmtpOtpEmail(form.fromEmail);
+        setShowSmtpOtpModal(true);
       } else {
-        await axios.post(
-          `${API_BASE_URL}/api/email/save-smtp?ClientId=${effectiveUserId}`,
-          form,
-          {
-            headers: {
-              "Content-Type": "application/json",
-              ...(token && { Authorization: `Bearer ${token}` }),
-            },
-          }
-        );
-        appModal.showSuccess("SMTP added successfully");
+        // For Edit operation, just show success
+        appModal.showSuccess("Test email sent successfully");
+        setForm({
+          server: "",
+          port: "",
+          username: "",
+          password: "",
+          fromEmail: "",
+          usessl: false,
+        });
+        setEditingId(null);
+        handleModalClose("modal-add-mailbox");
       }
-
-      // Step 3: Clear form and refresh list
-      setForm({
-        server: "",
-        port: "",
-        username: "",
-        password: "",
-        fromEmail: "",
-        usessl: false,
-      });
-      setEditingId(null);
-      fetchSmtp();
-      handleModalClose("modal-add-mailbox");
     } catch (err) {
       console.error(err);
       appModal.showError(
-        "Failed to send test email or save SMTP. Please check the settings."
+        "Failed to send test email. Please check the settings."
       );
+    } finally {
+      setSmtpLoading(false);
+    }
+  };
+
+  // Handle SMTP OTP Verification
+  const handleSmtpOtpVerify = async (otp: string) => {
+    try {
+      const response = await fetch(
+        `https://localhost:7216/api/domain-verification/verifySmtpOtp?email=${encodeURIComponent(smtpOtpEmail)}&otp=${encodeURIComponent(otp)}&clientId=${effectiveUserId}`,
+        {
+          method: 'POST',
+          headers: {
+            'accept': '*/*'
+          },
+          body: ''
+        }
+      );
+      
+      if (response.ok) {
+        appModal.showSuccess('SMTP email verified successfully!');
+        setShowSmtpOtpModal(false);
+        setForm({
+          server: "",
+          port: "",
+          username: "",
+          password: "",
+          fromEmail: "",
+          usessl: false,
+        });
+        setEditingId(null);
+        // Refresh SMTP list instead of page reload
+        fetchSmtp();
+      } else {
+        appModal.showError('Invalid OTP. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error verifying SMTP OTP:', error);
+      appModal.showError('Error verifying OTP. Please check your connection.');
     }
   };
 
@@ -1489,6 +1516,65 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     bccPage * bccPageSize
   );
 
+  // Domain states
+  const [domainData, setDomainData] = useState<any[]>([]);
+  const [fetchingDomain, setFetchingDomain] = useState(false);
+  const [showValidatePopup, setShowValidatePopup] = useState(false);
+  const [selectedDomain, setSelectedDomain] = useState<any>(null);
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [selectedOtpDomain, setSelectedOtpDomain] = useState<any>(null);
+  const [showDomainAuthModal, setShowDomainAuthModal] = useState(false);
+
+  // Handle domain validation click
+  const handleDomainValidateClick = (domain: any) => {
+    setSelectedDomain(domain);
+    setShowDomainAuthModal(true);
+  };
+
+  // Fetch domain verification data
+  const fetchDomainData = async () => {
+    if (!effectiveUserId) return;
+    
+    setFetchingDomain(true);
+    try {
+      const response = await fetch(
+        `https://localhost:7216/api/domain-verification/get-verified-domain?clientId=${effectiveUserId}`,
+        {
+          method: 'GET',
+          headers: {
+            'accept': '*/*'
+          }
+        }
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        setDomainData(Array.isArray(data) ? data : []);
+      } else {
+        setDomainData([]);
+      }
+    } catch (error) {
+      console.error('Error fetching domain data:', error);
+      setDomainData([]);
+    } finally {
+      setFetchingDomain(false);
+    }
+  };
+
+  // Fetch domain data when component mounts or user changes
+  useEffect(() => {
+    if (effectiveUserId) {
+      fetchDomainData();
+    }
+  }, [effectiveUserId]);
+
+  // Fetch domain data when tab changes to domain
+  useEffect(() => {
+    if (configTab === "domain" && effectiveUserId) {
+      fetchDomainData();
+    }
+  }, [configTab, effectiveUserId]);
+
   return (
     <div className="login-box gap-down">
       {tab === "Dashboard" && (
@@ -1517,6 +1603,13 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
               className={configTab === "bcc" ? "active-config-tab" : "config-tab"}
             >
               BCC email management
+            </button>
+
+            <button
+              onClick={() => setConfigTab("domain")}
+              className={configTab === "domain" ? "active-config-tab" : "config-tab"}
+            >
+              Domain authentication
             </button>
           </div>
           <div className="data-campaigns-container" style={{ marginTop: "-61px" }}>
@@ -1824,11 +1917,91 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                           >
                             Cancel
                           </button>
-                          <button className="save-button button min-w-[120px]" type="submit">
-                            {editingId ? "Update" : "Add"}
+                          <button className="save-button button min-w-[120px]" type="submit" disabled={smtpLoading}>
+                            {smtpLoading ? "Testing..." : (editingId ? "Update" : "Add")}
                           </button>
                         </div>
                       </form>
+                    </div>
+                  </div>
+                )}
+
+                {/* SMTP OTP Modal */}
+                {showSmtpOtpModal && (
+                  <div
+                    style={{
+                      position: "fixed",
+                      zIndex: 99999,
+                      inset: 0,
+                      background: "rgba(0,0,0,0.6)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <div
+                      style={{
+                        background: "#fff",
+                        padding: "24px",
+                        borderRadius: "8px",
+                        width: "400px",
+                        boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <h3 style={{ marginBottom: 16, color: "#333" }}>Verify SMTP Email</h3>
+                      <p style={{ marginBottom: 16, color: "#666" }}>
+                        Please enter the OTP sent to {smtpOtpEmail}
+                      </p>
+                      <input
+                        type="text"
+                        placeholder="Enter OTP"
+                        style={{
+                          width: "100%",
+                          padding: "8px",
+                          marginBottom: "16px",
+                          border: "1px solid #ccc",
+                          borderRadius: "4px",
+                        }}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            const otp = (e.target as HTMLInputElement).value;
+                            if (otp) {
+                              handleSmtpOtpVerify(otp);
+                            }
+                          }
+                        }}
+                      />
+                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                        <button
+                          className="button secondary small"
+                          onClick={() => {
+                            setShowSmtpOtpModal(false);
+                            setForm({
+                              server: "",
+                              port: "",
+                              username: "",
+                              password: "",
+                              fromEmail: "",
+                              usessl: false,
+                            });
+                            handleModalClose("modal-add-mailbox");
+                          }}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          className="save-button button small"
+                          onClick={() => {
+                            const otpInput = document.querySelector('input[placeholder="Enter OTP"]') as HTMLInputElement;
+                            if (otpInput?.value) {
+                              handleSmtpOtpVerify(otpInput.value);
+                            }
+                          }}
+                        >
+                          Verify
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1994,6 +2167,148 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Domain Authentication Section */}
+            {configTab === "domain" && (
+              <div className="section-wrapper" style={{ marginTop: 40 }}>
+                <div style={{ marginBottom: "20px", color: "#555", marginTop: "80px" }}>
+                  Configure domain authentication settings for improved email deliverability.
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    marginBottom: 16,
+                    gap: 16,
+                  }}
+                >
+                </div>
+
+                <table className="contacts-table" style={{ background: "#fff" }}>
+                  <thead>
+                    <tr>
+                      <th>Domain</th>
+                      <th>Email status</th>
+                      <th>Domain owner authentication</th>
+                      <th>Domain status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {fetchingDomain ? (
+                      <tr>
+                        <td colSpan={4} style={{ textAlign: "center" }}>
+                          Loading domain data...
+                        </td>
+                      </tr>
+                    ) : domainData.length > 0 ? (
+                      domainData.map((domain, index) => (
+                        <tr key={domain.emailDomainId || index}>
+                          <td>{domain.domain || "-"}</td>
+                          <td>
+                            {domain.emailDomainverified ? (
+                              <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                                <span style={{ color: "#28a745", fontSize: "14px" }}>✓</span>
+                                <span style={{ color: "#28a745", fontSize: "14px" }}>Verified</span>
+                              </div>
+                            ) : (
+                              <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                                <span style={{ color: "#dc3545", fontSize: "14px" }}>✗</span>
+                                <span style={{ color: "#dc3545", fontSize: "14px" }}>Not Verified</span>
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            {domain.domainverified ? (
+                              <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                                <span style={{ color: "#28a745", fontSize: "14px" }}>✓</span>
+                                <span style={{ color: "#28a745", fontSize: "14px" }}>Verified</span>
+                              </div>
+                            ) : (
+                              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                <span style={{ color: "#dc3545", fontSize: "14px" }}>Pending</span>
+                                <span
+                                  style={{
+                                    color: "#007bff",
+                                    fontSize: "14px",
+                                    cursor: "pointer",
+                                    textDecoration: "underline",
+                                  }}
+                                  onClick={() => {
+                                    setSelectedDomain(domain);
+                                    setShowValidatePopup(true);
+                                  }}
+                                >
+                                  Validate Records
+                                </span>
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            <DomainAuthColumn 
+                              domain={domain} 
+                              onValidateClick={handleDomainValidateClick} 
+                            />
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={4} style={{ textAlign: "center" }}>
+                          No domains configured.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+
+                {/* OTP Modal */}
+                <OtpModal
+                  isOpen={showOtpModal}
+                  onClose={() => setShowOtpModal(false)}
+                  emailDomain={selectedOtpDomain?.emailDomain || ''}
+                  onSubmit={async (otp) => {
+                    try {
+                      const response = await fetch(
+                        `https://localhost:7216/api/domain-verification/domain-verify-email-otp?Otp=${encodeURIComponent(otp)}&email=${encodeURIComponent(selectedOtpDomain.emailDomain)}&clientId=${effectiveUserId}`,
+                        {
+                          method: 'POST',
+                          headers: {
+                            'accept': '*/*'
+                          },
+                          body: ''
+                        }
+                      );
+                      
+                      if (response.ok) {
+                        appModal.showSuccess('Email verification successful!');
+                        fetchDomainData(); // Refresh domain data
+                      } else {
+                        appModal.showError('Invalid verification code. Please try again.');
+                      }
+                    } catch (error) {
+                      console.error('Error verifying OTP:', error);
+                      appModal.showError('Error verifying code. Please check your connection.');
+                    }
+                  }}
+                />
+
+                {/* Validate Records Modal */}
+                <ValidateRecordsModal
+                  isOpen={showValidatePopup}
+                  onClose={() => setShowValidatePopup(false)}
+                  selectedDomain={selectedDomain}
+                  onValidate={(domain) => {
+                    console.log('Validate Records for:', domain.emailDomain);
+                    // Refresh domain data after validation
+                    setTimeout(() => fetchDomainData(), 1000);
+                  }}
+                  showSuccess={appModal.showSuccess}
+                  showError={appModal.showError}
+                  refreshDomainData={() => setTimeout(() => fetchDomainData(), 1000)}
+                />
               </div>
             )}
           </div>
@@ -2565,6 +2880,64 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
         isOpen={appModal.isOpen}
         onClose={appModal.hideModal}
         {...appModal.config}
+      />
+
+      {/* Domain Validation Modals */}
+      <DomainAuthModal
+        isOpen={showDomainAuthModal}
+        onClose={() => setShowDomainAuthModal(false)}
+        selectedDomain={selectedDomain}
+        onValidate={(domain) => {
+          console.log('Validate Records for:', domain.emailDomain);
+          setTimeout(() => fetchDomainData(), 1000);
+        }}
+        showSuccess={appModal.showSuccess}
+        showError={appModal.showError}
+        refreshDomainData={() => setTimeout(() => fetchDomainData(), 1000)}
+        effectiveUserId={effectiveUserId}
+      />
+
+      <ValidateRecordsModal
+        isOpen={showValidatePopup}
+        onClose={() => setShowValidatePopup(false)}
+        selectedDomain={selectedDomain}
+        onValidate={(domain) => {
+          console.log('Validate Records for:', domain.emailDomain);
+          setTimeout(() => fetchDomainData(), 1000);
+        }}
+        showSuccess={appModal.showSuccess}
+        showError={appModal.showError}
+        refreshDomainData={() => setTimeout(() => fetchDomainData(), 1000)}
+      />
+
+      <OtpModal
+        isOpen={showOtpModal}
+        onClose={() => setShowOtpModal(false)}
+        emailDomain={selectedOtpDomain?.emailDomain || ''}
+        onSubmit={async (otp) => {
+          try {
+            const response = await fetch(
+              `https://localhost:7216/api/domain-verification/domain-verify-email-otp?Otp=${encodeURIComponent(otp)}&email=${encodeURIComponent(selectedOtpDomain.emailDomain)}&clientId=${effectiveUserId}`,
+              {
+                method: 'POST',
+                headers: {
+                  'accept': '*/*'
+                },
+                body: ''
+              }
+            );
+            
+            if (response.ok) {
+              appModal.showSuccess('Email verification successful!');
+              fetchDomainData();
+            } else {
+              appModal.showError('Invalid verification code. Please try again.');
+            }
+          } catch (error) {
+            console.error('Error verifying OTP:', error);
+            appModal.showError('Error verifying code. Please check your connection.');
+          }
+        }}
       />
     </div>
   );
