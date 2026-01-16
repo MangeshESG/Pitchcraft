@@ -1701,95 +1701,76 @@ if (!scrappedData) {
         // ✅ Replace the database update logic in REGENERATION BLOCK
         try {
           if (id && pitchData.response?.content) {
-            // ✅ Determine the dataFileId to use for update
-            let updateDataFileId: number | null = null;
+            const requestBody: any = {
+              clientId: effectiveUserId,
+              contactId: id,
+              GPTGenerate: true,
+              emailSubject: subjectLine,
+              emailBody: pitchData.response.content,
+            };
 
+            // Add segmentId or dataFileId based on priority
             if (segmentId) {
-              // ✅ For segment-based campaigns, get dataFileId from contact
-              updateDataFileId =
-                entry.dataFileId || entry.data_file_id || entry.datafileid;
-
-              if (!updateDataFileId) {
-                setOutputForm((prevOutputForm) => ({
-                  ...prevOutputForm,
-                  generatedContent:
-                    `<span style="color: orange">[${formatDateTime(
-                      new Date()
-                    )}] No dataFileId found for segment contact ${full_name}</span><br/>` +
-                    prevOutputForm.generatedContent,
-                }));
-                // Continue processing but skip database update
-              }
+              requestBody.segmentId = segmentId;
             } else if (parsedDataFileId) {
-              // ✅ For datafile-based campaigns, use parsed dataFileId
-              updateDataFileId = parsedDataFileId;
+              requestBody.dataFileId = parsedDataFileId;
             }
 
-            // ✅ Only update if we have a valid dataFileId
-            if (updateDataFileId) {
-              const updateContactResponse = await fetch(
-                `${API_BASE_URL}/api/crm/contacts/update-email`,
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    clientId: effectiveUserId,
-                    dataFileId: updateDataFileId,
-                    contactId: id,
-                    GPTGenerate: true,
-                    emailSubject: subjectLine,
-                    emailBody: pitchData.response.content,
-                  }),
-                }
-              );///
-
-              if (!updateContactResponse.ok) {
-                const updateContactError = await updateContactResponse.json();
-                setOutputForm((prevOutputForm) => ({
-                  ...prevOutputForm,
-                  generatedContent:
-                    `<span style="color: orange">[${formatDateTime(
-                      new Date()
-                    )}] Updating contact in database incomplete for ${full_name}. Error: ${updateContactError.Message || "Unknown error"
-                    }</span><br/>` + prevOutputForm.generatedContent,
-                }));
-                if (isSoundEnabledRef.current) {
-                 playSound();
-                }
-              } else {
-                setOutputForm((prevOutputForm) => ({
-                  ...prevOutputForm,
-                  generatedContent:
-                    `<span style="color: green">[${formatDateTime(
-                      new Date()
-                    )}] Updated pitch in database for ${full_name}.</span><br/>` +
-                    prevOutputForm.generatedContent,
-                }));
-                 if (isSoundEnabledRef.current) {
-                  playSound();
-                 }
-                  try {
-                    const userCreditResponse = await fetch(
-                      `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`
-                    );
-                    if (!userCreditResponse.ok) throw new Error("Failed to fetch user credit");
-
-                    const userCreditData = await userCreditResponse.json();
-                    console.log("User credit data:", userCreditData);
-                    dispatch(saveUserCredit(userCreditData));
-                    
-                    // Dispatch custom event to notify credit update
-                    window.dispatchEvent(new CustomEvent('creditUpdated', {
-                      detail: { clientId: effectiveUserId }
-                    }));
-                    
-
-                  } catch (creditError) {
-                    console.error("User credit API error:", creditError);
-                  }
+            const updateContactResponse = await fetch(
+              `${API_BASE_URL}/api/crm/contacts/update-email`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify(requestBody),
               }
+            );///
+
+            if (!updateContactResponse.ok) {
+              const updateContactError = await updateContactResponse.json();
+              setOutputForm((prevOutputForm) => ({
+                ...prevOutputForm,
+                generatedContent:
+                  `<span style="color: orange">[${formatDateTime(
+                    new Date()
+                  )}] Updating contact in database incomplete for ${full_name}. Error: ${updateContactError.Message || "Unknown error"
+                  }</span><br/>` + prevOutputForm.generatedContent,
+              }));
+              if (isSoundEnabledRef.current) {
+               playSound();
+              }
+            } else {
+              setOutputForm((prevOutputForm) => ({
+                ...prevOutputForm,
+                generatedContent:
+                  `<span style="color: green">[${formatDateTime(
+                    new Date()
+                  )}] Updated pitch in database for ${full_name}.</span><br/>` +
+                  prevOutputForm.generatedContent,
+              }));
+               if (isSoundEnabledRef.current) {
+                playSound();
+               }
+                try {
+                  const userCreditResponse = await fetch(
+                    `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`
+                  );
+                  if (!userCreditResponse.ok) throw new Error("Failed to fetch user credit");
+
+                  const userCreditData = await userCreditResponse.json();
+                  console.log("User credit data:", userCreditData);
+                  dispatch(saveUserCredit(userCreditData));
+                  
+                  // Dispatch custom event to notify credit update
+                  window.dispatchEvent(new CustomEvent('creditUpdated', {
+                    detail: { clientId: effectiveUserId }
+                  }));
+                  
+
+                } catch (creditError) {
+                  console.error("User credit API error:", creditError);
+                }
             }
           }
         } catch (updateError) {
@@ -2486,93 +2467,74 @@ if (!scrappedData) {
           // ✅ Update database with new API (in main processing loop)
           try {
             if (entry.id && pitchData.response.content) {
-              // ✅ Determine the dataFileId to use for update
-              let updateDataFileId: number | null = null;
+              const requestBody: any = {
+                clientId: effectiveUserId,
+                contactId: entry.id,
+                GPTGenerate: true,
+                emailSubject: subjectLine,
+                emailBody: pitchData.response.content,
+              };
 
+              // Add segmentId or dataFileId based on priority
               if (segmentId) {
-                // ✅ For segment-based campaigns, get dataFileId from contact
-                updateDataFileId =
-                  entry.dataFileId || entry.data_file_id || entry.datafileid;
-
-                if (!updateDataFileId) {
-                  setOutputForm((prevOutputForm) => ({
-                    ...prevOutputForm,
-                    generatedContent:
-                      `<span style="color: orange">[${formatDateTime(
-                        new Date()
-                      )}] No dataFileId found for segment contact ${full_name}</span><br/>` +
-                      prevOutputForm.generatedContent,
-                  }));
-                  // Continue processing but skip database update
-                }
+                requestBody.segmentId = segmentId;
               } else if (parsedDataFileId) {
-                // ✅ For datafile-based campaigns, use parsed dataFileId
-                updateDataFileId = parsedDataFileId;
+                requestBody.dataFileId = parsedDataFileId;
               }
 
-              // ✅ Only update if we have a valid dataFileId
-              if (updateDataFileId) {
-                const updateContactResponse = await fetch(
-                  `${API_BASE_URL}/api/crm/contacts/update-email`,
-                  {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                      clientId: effectiveUserId,
-                      dataFileId: updateDataFileId,
-                      contactId: entry.id,
-                      GPTGenerate: true,
-                      emailSubject: subjectLine,
-                      emailBody: pitchData.response.content,
-                    }),
-                  }
-                );
+              const updateContactResponse = await fetch(
+                `${API_BASE_URL}/api/crm/contacts/update-email`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify(requestBody),
+                }
+              );
 
-                if (!updateContactResponse.ok) {
-                  const updateContactError = await updateContactResponse.json();
-                  setOutputForm((prevOutputForm) => ({
-                    ...prevOutputForm,
-                    generatedContent:
-                      `<span style="color: orange">[${formatDateTime(
-                        new Date()
-                      )}] Updating contact in database incomplete for ${full_name}. Error: ${updateContactError.Message || "Unknown error"
-                      }</span><br/>` + prevOutputForm.generatedContent,
+              if (!updateContactResponse.ok) {
+                const updateContactError = await updateContactResponse.json();
+                setOutputForm((prevOutputForm) => ({
+                  ...prevOutputForm,
+                  generatedContent:
+                    `<span style="color: orange">[${formatDateTime(
+                      new Date()
+                    )}] Updating contact in database incomplete for ${full_name}. Error: ${updateContactError.Message || "Unknown error"
+                    }</span><br/>` + prevOutputForm.generatedContent,
+                }));
+                if (isSoundEnabledRef.current) {
+                  playSound();
+                }
+              } else {
+                setOutputForm((prevOutputForm) => ({
+                  ...prevOutputForm,
+                  generatedContent:
+                    `<span style="color: green">[${formatDateTime(
+                      new Date()
+                    )}] Updated pitch in database for ${full_name}.</span><br/>` +
+                    prevOutputForm.generatedContent,
+                }));
+                if (isSoundEnabledRef.current) {
+                 playSound();
+                }
+                try {
+                  const userCreditResponse = await fetch(
+                    `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`
+                  );
+                  if (!userCreditResponse.ok) throw new Error("Failed to fetch user credit");
+
+                  const userCreditData = await userCreditResponse.json();
+                  console.log("User credit data:", userCreditData);
+                  dispatch(saveUserCredit(userCreditData));
+                  
+                  // Dispatch custom event to notify credit update
+                  window.dispatchEvent(new CustomEvent('creditUpdated', {
+                    detail: { clientId: effectiveUserId }
                   }));
-                  if (isSoundEnabledRef.current) {
-                    playSound();
-                  }
-                } else {
-                  setOutputForm((prevOutputForm) => ({
-                    ...prevOutputForm,
-                    generatedContent:
-                      `<span style="color: green">[${formatDateTime(
-                        new Date()
-                      )}] Updated pitch in database for ${full_name}.</span><br/>` +
-                      prevOutputForm.generatedContent,
-                  }));
-                  if (isSoundEnabledRef.current) {
-                   playSound();
-                  }
-                  try {
-                    const userCreditResponse = await fetch(
-                      `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`
-                    );
-                    if (!userCreditResponse.ok) throw new Error("Failed to fetch user credit");
 
-                    const userCreditData = await userCreditResponse.json();
-                    console.log("User credit data:", userCreditData);
-                    dispatch(saveUserCredit(userCreditData));
-                    
-                    // Dispatch custom event to notify credit update
-                    window.dispatchEvent(new CustomEvent('creditUpdated', {
-                      detail: { clientId: effectiveUserId }
-                    }));
-
-                  } catch (creditError) {
-                    console.error("User credit API error:", creditError);
-                  }
+                } catch (creditError) {
+                  console.error("User credit API error:", creditError);
                 }
               }
             }
