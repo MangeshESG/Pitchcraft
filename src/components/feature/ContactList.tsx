@@ -308,6 +308,13 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
       setIsLoadingHistory(false);
     }
   };
+  const stripHtml = (html: string) => {
+    if (!html) return "";
+    // Remove code block backticks if present
+    const cleaned = html.replace(/```(html)?/g, "").trim();
+    // Remove all HTML tags
+    return cleaned.replace(/<[^>]+>/g, "");
+  };
   const formatDateTime = (date?: string) =>
     date ? new Date(date).toLocaleString() : "-";
 
@@ -2668,8 +2675,26 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                                 }}
                               >
                                 {/* Subject */}
-                                <div style={{ fontWeight: 500, marginBottom: 8 }}>
-                                  {email.subject || "No subject"}
+                                {/* Subject */}
+                                <div style={{ marginBottom: 8 }}>
+                                  <div
+                                    style={{
+                                      fontSize: 13,
+                                      color: "#000", // gray
+                                      fontWeight: 600,
+                                      marginBottom: 2,
+                                    }}
+                                  >
+                                    Subject
+                                  </div>
+                                  <div style={{ color: "#666", fontSize: 13 }}>
+                                    {email.subject || "No subject"}
+                                  </div>
+                                </div>
+                                {/* Source */}
+                                <div>
+                                  <div style={{ fontWeight: 600, marginBottom: 2, fontSize: 13 }}>Source</div>
+                                  <div style={{ color: "#666", fontSize: 13, marginBottom: 5 }}>{email.source || "Unknown source"}</div>
                                 </div>
 
                                 {/* Events */}
@@ -2716,15 +2741,17 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                                 background: "#f3f4f6",
                                 padding: 12,
                                 borderRadius: 6,
-                                marginBottom: 20,
+                                marginBottom: 8,
                                 fontSize: 14,
                                 whiteSpace: "pre-wrap",
                               }}
                             >
-                              {editingContact?.email_body || "No email body available"}
+                              {/* Email Body */}
+                              <div style={{ color: "#333", whiteSpace: "pre-wrap" }}>
+                                {stripHtml(email.body) || "No email body available"}
+                              </div>
                             </div>
                           )}
-
                         </div>
                       ))}
                     </>
@@ -3538,8 +3565,25 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                                 }}
                               >
                                 {/* Subject */}
-                                <div style={{ fontWeight: 500, marginBottom: 8 }}>
-                                  {email.subject || "No subject"}
+                                <div style={{ marginBottom: 8 }}>
+                                  <div
+                                    style={{
+                                      fontSize: 13,
+                                      color: "#000", // gray
+                                      fontWeight: 600,
+                                      marginBottom: 2,
+                                    }}
+                                  >
+                                    Subject
+                                  </div>
+                                  <div style={{ color: "#666", fontSize: 13 }}>
+                                    {email.subject || "No subject"}
+                                  </div>
+                                </div>
+                                {/* Source */}
+                                <div>
+                                  <div style={{ fontWeight: 600, marginBottom: 2, fontSize: 13 }}>Source</div>
+                                  <div style={{ color: "#666", fontSize: 13, marginBottom: 5 }}>{email.source || "Unknown source"}</div>
                                 </div>
 
                                 {/* Events */}
@@ -3579,19 +3623,21 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                               <FontAwesomeIcon icon={faAngleRight} />
                             </span>
                           </div>
-
                           {expandedEmailId === email.trackingId && (
                             <div
                               style={{
                                 background: "#f3f4f6",
                                 padding: 12,
                                 borderRadius: 6,
-                                marginBottom: 20,
+                                marginBottom: 8,
                                 fontSize: 14,
                                 whiteSpace: "pre-wrap",
                               }}
                             >
-                              {editingContact?.email_body || "No email body available"}
+                              {/* Email Body */}
+                              <div style={{ color: "#333", whiteSpace: "pre-wrap" }}>
+                                {stripHtml(email.body) || "No email body available"}
+                              </div>
                             </div>
                           )}
 
