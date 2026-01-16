@@ -278,9 +278,6 @@ export function useSessionState<T>(key: string, defaultValue: T): [T, React.Disp
 }
 
 
-
-
-
 const ConversationTab: React.FC<ConversationTabProps> = ({
   conversationStarted,
   messages,
@@ -706,8 +703,6 @@ interface ExampleOutputPanelProps {
 
 }
 
-
-
 const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
   dataFiles,
   contacts,
@@ -959,8 +954,6 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
   );
 };
 
-
-
 // ====================================================================
 // MAIN COMPONENT
 // ====================================================================
@@ -983,6 +976,8 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
   const [selectedTemplateDefinitionId, setSelectedTemplateDefinitionId] = useState<number | null>(null);
 
   const [messages, setMessages] = useSessionState<Message[]>("campaign_messages", []);
+  const [usageInfo, setUsageInfo] = useState<any>(null);
+
   const [finalPrompt, setFinalPrompt] = useSessionState<string>("campaign_final_prompt", "");
   const [finalPreviewText, setFinalPreviewText] = useSessionState<string>("campaign_final_preview", "");
   const [exampleOutput, setExampleOutput] = useState<string>('');
@@ -1064,6 +1059,14 @@ const [activeSubStageTab, setActiveSubStageTab] =
   title: "",
   message: ""
 });
+
+const [totalUsage, setTotalUsage] = useState({
+  totalInput: 0,
+  totalOutput: 0,
+  totalCalls: 0,
+  totalCost: 0
+});
+
 const showModal = (title: string, message: string) => {
   setPopupModalInfo({ open: true, title, message });
 };
@@ -1071,6 +1074,8 @@ const showModal = (title: string, message: string) => {
 const closeModal = () => {
   setPopupModalInfo(prev => ({ ...prev, open: false }));
 };
+
+
 
 const saveExampleEmail = async () => {
   try {
@@ -1618,7 +1623,7 @@ const regenerateExampleOutput = async () => {
 
     console.log("📧 Generating example output...");
     console.log("📦 Persisted elements only:", Object.keys(persisted));
- setIsPreviewLoading(true);
+    setIsPreviewLoading(true);
     const response = await axios.post(
       `${API_BASE_URL}/api/CampaignPrompt/example/generate`,
       {
@@ -1628,6 +1633,32 @@ const regenerateExampleOutput = async () => {
         placeholderValues: mergedAll // ✅ SEND EVERYTHING
       }
     );
+
+if (response.data?.usage) {
+  const u = response.data.usage;
+
+  const inTokens =
+    u.promptTokens ?? u.prompt_tokens ?? u.inputTokens ?? 0;
+  const outTokens =
+    u.completionTokens ?? u.completion_tokens ?? u.outputTokens ?? 0;
+  const cost = u.cost ?? u.totalCost ?? 0;
+
+  setUsageInfo({
+    promptTokens: inTokens,
+    completionTokens: outTokens,
+    cost,
+  });
+
+  setTotalUsage(prev => ({
+    totalInput: prev.totalInput + inTokens,
+    totalOutput: prev.totalOutput + outTokens,
+    totalCalls: prev.totalCalls + 1,
+    totalCost: prev.totalCost + cost,
+  }));
+}
+
+
+
 
     // Dispatch credit update event after successful API call
     window.dispatchEvent(new CustomEvent('creditUpdated', {
@@ -2015,6 +2046,30 @@ const startEditConversation = async (placeholder: string) => {
     }));
 
     const data = response.data?.response ?? response.data;
+if (response.data?.usage) {
+  const u = response.data.usage;
+
+  const inTokens =
+    u.promptTokens ?? u.prompt_tokens ?? u.inputTokens ?? 0;
+  const outTokens =
+    u.completionTokens ?? u.completion_tokens ?? u.outputTokens ?? 0;
+  const cost = u.cost ?? u.totalCost ?? 0;
+
+  setUsageInfo({
+    promptTokens: inTokens,
+    completionTokens: outTokens,
+    cost,
+  });
+
+  setTotalUsage(prev => ({
+    totalInput: prev.totalInput + inTokens,
+    totalOutput: prev.totalOutput + outTokens,
+    totalCalls: prev.totalCalls + 1,
+    totalCost: prev.totalCost + cost,
+  }));
+}
+
+
     if (data && data.assistantText) {
       setMessages([{ type: "bot", content: data.assistantText, timestamp: new Date() }]);
       playNotificationSound();
@@ -2449,6 +2504,31 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
       }));
 
       const data = response.data.response;
+if (data?.usage || response.data?.usage) {
+  const u = data?.usage ?? response.data.usage;
+
+  const inTokens =
+    u.promptTokens ?? u.prompt_tokens ?? u.inputTokens ?? 0;
+  const outTokens =
+    u.completionTokens ?? u.completion_tokens ?? u.outputTokens ?? 0;
+  const cost = u.cost ?? u.totalCost ?? 0;
+
+  setUsageInfo({
+    promptTokens: inTokens,
+    completionTokens: outTokens,
+    cost,
+  });
+
+  setTotalUsage(prev => ({
+    totalInput: prev.totalInput + inTokens,
+    totalOutput: prev.totalOutput + outTokens,
+    totalCalls: prev.totalCalls + 1,
+    totalCost: prev.totalCost + cost,
+  }));
+}
+
+
+
       if (data) {
         // if it's already marked complete, only push completion message
         if (data.isComplete) {
@@ -2540,6 +2620,29 @@ const handleSendMessage = async () => {
     }));
     
     const data = response.data.response;
+if (data?.usage || response.data?.usage) {
+  const u = data?.usage ?? response.data.usage;
+
+  const inTokens =
+    u.promptTokens ?? u.prompt_tokens ?? u.inputTokens ?? 0;
+  const outTokens =
+    u.completionTokens ?? u.completion_tokens ?? u.outputTokens ?? 0;
+  const cost = u.cost ?? u.totalCost ?? 0;
+
+  setUsageInfo({
+    promptTokens: inTokens,
+    completionTokens: outTokens,
+    cost,
+  });
+
+  setTotalUsage(prev => ({
+    totalInput: prev.totalInput + inTokens,
+    totalOutput: prev.totalOutput + outTokens,
+    totalCalls: prev.totalCalls + 1,
+    totalCost: prev.totalCost + cost,
+  }));
+}
+
 
     const cleanAssistantMessage = (text: string): string => {
       if (!text) return '';
@@ -3040,6 +3143,46 @@ return (
                     <div className="sticky-tabs">
   <ul className="flex items-center gap-6">
     {/* LEFT TABS */}
+
+                      {/* ================= ADMIN USAGE PANEL ================= */}
+{userRole === "ADMIN" && usageInfo && (
+  <div style={{
+    marginTop: "4px",
+    padding: "6px 10px",
+    background: "#f1f5f9",
+    border: "1px solid #e2e8f0",
+    borderRadius: "6px",
+    fontSize: "11px",
+    lineHeight: "1.3",
+    display: "inline-block",
+  }}>
+    
+    {/* Last Call */}
+    <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+      <strong>Last:</strong>
+      <span>In {usageInfo.promptTokens ?? 0}</span>
+      <span>Out {usageInfo.completionTokens ?? 0}</span>
+      <span>💲{(usageInfo.cost ?? 0).toFixed(6)}</span>
+    </div>
+
+    {/* Total */}
+    {totalUsage.totalCost > 0 && (
+      <div style={{
+        marginTop: "2px",
+        display: "flex",
+        gap: "10px",
+        flexWrap: "wrap",
+      }}>
+        <strong>Total:</strong>
+        <span>In {totalUsage.totalInput}</span>
+        <span>Out {totalUsage.totalOutput}</span>
+        <span>💲{totalUsage.totalCost.toFixed(6)}</span>
+      </div>
+    )}
+
+  </div>
+)}
+
         {userRole === "ADMIN" && (
 
     <div className="flex items-center gap-2">
@@ -3087,7 +3230,13 @@ return (
       />
     </li>
   </ul>
-</div>
+                  
+
+
+                  </div>
+
+
+
     
     {/* ================= LOADING OVERLAYS ================= */}
     {isLoadingTemplate && (
@@ -3618,7 +3767,9 @@ return (
                 <option>Call-to-action</option>
                 <option>Greetings & farewells</option>
                 <option>Subject line</option>
-                <option>Images</option>
+                <option>Extra visuals</option>
+                <option>Extra assets</option>
+
               </select>
 
               {/* INPUT TYPE + OPTIONS */}
