@@ -3038,7 +3038,7 @@ return (
     
 
                     <div className="sticky-tabs">
-  <ul className="flex items-center justify-between">
+  <ul className="flex items-center gap-6">
     {/* LEFT TABS */}
         {userRole === "ADMIN" && (
 
@@ -3066,7 +3066,7 @@ return (
     </div>
         )}
     {/* RIGHT SIDE — Notifications */}
-    <li className="flex items-center gap-2 cursor-pointer">
+    <li className="flex items-center gap-0 cursor-pointer">
       <span
         style={{ color: "#3f9f42", fontWeight: 500 }}
        title={soundEnabled ? "Notifications ON" : "Notifications OFF"}
@@ -3079,8 +3079,8 @@ return (
         src={soundEnabled  ? toggleOn : toggleOff}
         alt="Notifications Toggle"
         style={{
-          height: "28px",
-          width: "48px",
+          height: "24px",
+          width: "42px",
           objectFit: "contain",
         }}
         onClick={toggleNotifications}

@@ -12,12 +12,14 @@ export const Dashboard: React.FC = () => {
   const [mode, setMode] = useState<"new" | "existing">("new");
   const navigate = useNavigate();
   const [showImportModal, setShowImportModal] = useState(false);
-const [showCampaignModal, setShowCampaignModal] = useState(false);
+  const [showCampaignModal, setShowCampaignModal] = useState(false);
+  const [showKraftEmailModal, setShowKraftEmailModal] = useState(false);
 
   const handleClose = () => {
-  setShowImportModal(false);
-  setShowCampaignModal(false);
-};
+    setShowImportModal(false);
+    setShowCampaignModal(false);
+    setShowKraftEmailModal(false);
+  };
 
   return (
     <div className="mx-auto">
@@ -106,7 +108,7 @@ const [showCampaignModal, setShowCampaignModal] = useState(false);
                       Watch quick intro
                     </span>
                   </button>
-                  {showImportModal  && (
+                  {showImportModal && (
                     <div
                       style={{
                         position: "fixed",
@@ -137,9 +139,9 @@ const [showCampaignModal, setShowCampaignModal] = useState(false);
                         >
                           Close
                         </button>
-                         <video width="100%" height="auto" controls autoPlay>
-  <source src="/video/ImportContacts.mp4" type="video/mp4" />
-</video>
+                        <video width="100%" height="auto" controls autoPlay>
+                          <source src="/video/Import Contacts.mp4" type="video/mp4" />
+                        </video>
                       </div>
                     </div>
                   )}
@@ -180,7 +182,7 @@ const [showCampaignModal, setShowCampaignModal] = useState(false);
                       Watch quick intro
                     </span>
                   </button>
-                  {showCampaignModal  && (
+                  {showCampaignModal && (
                     <div
                       style={{
                         position: "fixed",
@@ -211,15 +213,15 @@ const [showCampaignModal, setShowCampaignModal] = useState(false);
                         >
                           Close
                         </button>
-                         {/* <video width="100%" height="auto" controls autoPlay muted={false}>
+                        {/* <video width="100%" height="auto" controls autoPlay muted={false}>
   <source src="/video/CreateCampaign.mp4" type="video/mp4" />
 </video> */}
-<video
+                        <video
                           width="100%"
                           height="auto"
                           controls
                           autoPlay
-                          src="/video/CreateCampaign1.mp4"
+                          src="/video/Campaigns.mp4"
                         />
                       </div>
                     </div>
@@ -254,14 +256,59 @@ const [showCampaignModal, setShowCampaignModal] = useState(false);
                     Kraft emails
 
                   </div>
-                  <span className=" text-gray-400">Video coming soon</span>
-                  {/* <button className=" green flex gap-2 items-center">
+                  <button
+                    onClick={() => setShowKraftEmailModal(true)}
+                    className="green flex gap-2 items-center"
+                  >
                     <FontAwesomeIcon
                       icon={faPlayCircle}
-                      className=" text-[#3f9f42] text-[14px]"
+                      className="text-[#3f9f42] text-[14px]"
                     />
-                    <span>Video coming sooon</span>
-                  </button> */}
+                    <span>Watch quick intro</span>
+                  </button>
+                  {showKraftEmailModal && (
+                    <div
+                      style={{
+                        position: "fixed",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        height: "100%",
+                        backgroundColor: "rgba(0,0,0,0.5)",
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                      }}
+                    >
+                      <div
+                        style={{
+                          backgroundColor: "#fff",
+                          padding: "20px",
+                          borderRadius: "10px",
+                          maxWidth: "800px",
+                          width: "90%",
+                          zIndex: 2000,
+                        }}
+                      >
+                        <button
+                          onClick={handleClose}
+                          style={{ float: "right", fontSize: "16px" }}
+                        >
+                          Close
+                        </button>
+
+                        <video
+                          width="100%"
+                          height="auto"
+                          controls
+                          autoPlay
+                          src="/video/Kraft Emails.mp4"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+
                 </div>
                 <div className="flex justify-between h-[calc(100%-30px)]">
                   <div className="flex-1 flex flex-col">

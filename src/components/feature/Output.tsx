@@ -1826,8 +1826,8 @@ const { playSound } = useSoundAlert();
       src={isSoundEnabled ? toggleOn : toggleOff}
       alt="Sound Toggle"
       style={{
-        height: "32px",
-        width: "52px",
+        height: "28px",
+        width: "32px",
         objectFit: "contain",
       }}
     />
