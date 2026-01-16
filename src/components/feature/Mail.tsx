@@ -16,6 +16,10 @@ import { useAppModal } from "../../hooks/useAppModal";
 import { useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
 import PaginationControls from "./PaginationControls";
+import ValidateRecordsModal from "./ValidateRecordsModal";
+import OtpModal from "./OtpModal";
+import DomainAuthColumn from "./DomainAuthColumn";
+import DomainAuthModal from "./DomainAuthModal";
 
 type MailTabType = "Dashboard" | "Configuration" | "Schedule";
 
@@ -188,6 +192,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
 }) => {
   const [segments, setSegments] = useState<Segment[]>([]);
   const [segmentsLoading, setSegmentsLoading] = useState(false);
+  const [scheduleCampaigns, setScheduleCampaigns] = useState<any[]>([]);
 
   const [isCopyText, setIsCopyText] = useState(false);
   const { saveFormState, getFormState, refreshTrigger } = useAppData();
@@ -279,9 +284,14 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     username: "",
     password: "",
     fromEmail: "",
+    senderName: "",
     usessl: false,
   });
   const [editingId, setEditingId] = useState(null);
+  const [smtpLoading, setSmtpLoading] = useState(false);
+  const [showSmtpOtpModal, setShowSmtpOtpModal] = useState(false);
+  const [smtpOtpEmail, setSmtpOtpEmail] = useState("");
+  const [smtpOtpVerifying, setSmtpOtpVerifying] = useState(false);
   // Fetch SMTP List
   const fetchSmtp = async () => {
     try {
@@ -318,9 +328,10 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   // Handle Add/Update Submit
   const handleSubmitSMTP = async (e: any) => {
     e.preventDefault();
+    setSmtpLoading(true);
 
     try {
-      // Step 1: First send test email
+      // Only send test email
       await axios.post(
         `${API_BASE_URL}/api/email/configTestMail?ClientId=${effectiveUserId}`,
         JSON.stringify(form),
@@ -332,50 +343,74 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
         }
       );
 
-      // Step 2: If test email succeeded, save or update record
-      if (editingId) {
-        await axios.post(
-          `${API_BASE_URL}/api/email/update-smtp/${editingId}?ClientId=${effectiveUserId}`,
-          form,
-          {
-            headers: {
-              "Content-Type": "application/json",
-              ...(token && { Authorization: `Bearer ${token}` }),
-            },
-          }
-        );
-        appModal.showSuccess("SMTP updated successfully");
+      if (!editingId) {
+        // For Add operation, close add modal first then show OTP modal
+        handleModalClose("modal-add-mailbox");
+        setSmtpOtpEmail(form.fromEmail);
+        setShowSmtpOtpModal(true);
       } else {
-        await axios.post(
-          `${API_BASE_URL}/api/email/save-smtp?ClientId=${effectiveUserId}`,
-          form,
-          {
-            headers: {
-              "Content-Type": "application/json",
-              ...(token && { Authorization: `Bearer ${token}` }),
-            },
-          }
-        );
-        appModal.showSuccess("SMTP added successfully");
+        // For Edit operation, just show success
+        appModal.showSuccess("Test email sent successfully");
+        setForm({
+          server: "",
+          port: "",
+          username: "",
+          password: "",
+          fromEmail: "",
+          senderName: "",
+          usessl: false,
+        });
+        setEditingId(null);
+        handleModalClose("modal-add-mailbox");
       }
-
-      // Step 3: Clear form and refresh list
-      setForm({
-        server: "",
-        port: "",
-        username: "",
-        password: "",
-        fromEmail: "",
-        usessl: false,
-      });
-      setEditingId(null);
-      fetchSmtp();
-      handleModalClose("modal-add-mailbox");
     } catch (err) {
       console.error(err);
       appModal.showError(
-        "Failed to send test email or save SMTP. Please check the settings."
+        "Failed to send test email. Please check the settings."
       );
+    } finally {
+      setSmtpLoading(false);
+    }
+  };
+
+  // Handle SMTP OTP Verification
+  const handleSmtpOtpVerify = async (otp: string) => {
+    setSmtpOtpVerifying(true);
+    try {
+      const response = await fetch(
+        `https://localhost:7216/api/domain-verification/verifySmtpOtp?email=${encodeURIComponent(smtpOtpEmail)}&otp=${encodeURIComponent(otp)}&clientId=${effectiveUserId}`,
+        {
+          method: 'POST',
+          headers: {
+            'accept': '*/*'
+          },
+          body: ''
+        }
+      );
+      
+      if (response.ok) {
+        appModal.showSuccess('SMTP email verified successfully!');
+        setShowSmtpOtpModal(false);
+        setForm({
+          server: "",
+          port: "",
+          username: "",
+          password: "",
+          fromEmail: "",
+          senderName: "",
+          usessl: false,
+        });
+        setEditingId(null);
+        // Refresh SMTP list instead of page reload
+        fetchSmtp();
+      } else {
+        appModal.showError('Invalid OTP. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error verifying SMTP OTP:', error);
+      appModal.showError('Error verifying OTP. Please check your connection.');
+    } finally {
+      setSmtpOtpVerifying(false);
     }
   };
 
@@ -429,47 +464,24 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     const fetchScheduleData = async () => {
       if (tab === "Schedule" && effectiveUserId) {
         setScheduleDataLoading(true);
-        setSegmentsLoading(true);
 
         try {
-          // Fetch data files separately
-          try {
-            const dataFilesResponse = await axios.get(
-              `${API_BASE_URL}/api/crm/datafile-byclientid?clientId=${effectiveUserId}`,
-              {
-                headers: {
-                  ...(token && { Authorization: `Bearer ${token}` }),
-                },
-              }
-            );
-            console.log('Data files response:', dataFilesResponse.data);
-            setScheduleDataFiles(dataFilesResponse.data || []);
-          } catch (error) {
-            console.error("Error fetching data files:", error);
-            setScheduleDataFiles([]);
-          }
-
-          // Fetch segments separately
-          try {
-            const segmentsResponse = await axios.get(
-              `${API_BASE_URL}/api/Crm/get-segments-by-client?clientId=${effectiveUserId}`,
-              {
-                headers: {
-                  ...(token && { Authorization: `Bearer ${token}` }),
-                },
-              }
-            );
-            console.log('Segments response:', segmentsResponse.data);
-            setSegments(segmentsResponse.data || []);
-          } catch (error) {
-            console.error("Error fetching segments:", error);
-            setSegments([]);
-          }
+          const campaignsResponse = await axios.get(
+            `https://localhost:7216/api/auth/campaigns/client/${effectiveUserId}`,
+            {
+              headers: {
+                accept: '*/*',
+                ...(token && { Authorization: `Bearer ${token}` }),
+              },
+            }
+          );
+          console.log('Campaigns response:', campaignsResponse.data);
+          setScheduleCampaigns(campaignsResponse.data || []);
         } catch (error) {
-          console.error("Error in fetchScheduleData:", error);
+          console.error("Error fetching campaigns:", error);
+          setScheduleCampaigns([]);
         } finally {
           setScheduleDataLoading(false);
-          setSegmentsLoading(false);
         }
       }
     };
@@ -478,10 +490,9 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   }, [tab, effectiveUserId, token]);
   // Add this useEffect after your existing useEffects
 
-  // Clear schedule data when user changes
   useEffect(() => {
     setSelectedZohoviewId1("");
-    setScheduleDataFiles([]);
+    setScheduleCampaigns([]);
   }, [effectiveUserId]);
 
   const handleZohoModelChange1 = async (
@@ -493,19 +504,13 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     if (selectedValue) {
       const [type, id] = selectedValue.split("-");
 
-      if (type === "list") {
-        const selectedFile = scheduleDataFiles.find(
-          (file) => file.id.toString() === id
+      if (type === "campaign") {
+        const selectedCampaign = scheduleCampaigns.find(
+          (campaign) => campaign.id.toString() === id
         );
-        setSelectedScheduleFile(selectedFile || null);
-      } else if (type === "segment") {
-        const selectedSegment = segments.find(
-          (segment) => segment.id.toString() === id
-        );
-        // Handle segment selection - you might want to store this differently
         setSelectedScheduleFile({
-          id: selectedSegment?.id || 0,
-          name: selectedSegment?.name || "",
+          id: selectedCampaign?.id || 0,
+          name: selectedCampaign?.campaignName || "",
         });
       }
 
@@ -685,26 +690,24 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       });
     }
 
-    // Parse the selected value to determine if it's a list or segment
     const [type, id] = selectedZohoviewId1.split("-");
     let selectedName = "";
     let dataFileId: number | null = null;
     let segmentId: number | null = null;
 
-    if (type === "list") {
-      const selectedFile = scheduleDataFiles.find(
-        (file) => file.id.toString() === id
+    if (type === "campaign") {
+      const selectedCampaign = scheduleCampaigns.find(
+        (campaign) => campaign.id.toString() === id
       );
-      selectedName = selectedFile?.name || "";
-      dataFileId = parseInt(id) || null;
-      segmentId = null;
-    } else if (type === "segment") {
-      const selectedSegment = segments.find(
-        (segment) => segment.id.toString() === id
-      );
-      selectedName = selectedSegment?.name || "";
-      segmentId = parseInt(id) || null;
-      dataFileId = null;
+      selectedName = selectedCampaign?.campaignName || "";
+      
+      if (selectedCampaign?.dataSource === "DataFile") {
+        dataFileId = parseInt(selectedCampaign.zohoViewId) || null;
+        segmentId = null;
+      } else if (selectedCampaign?.dataSource === "Segment") {
+        segmentId = selectedCampaign.segmentId || null;
+        dataFileId = null;
+      }
     }
 
     const payload = {
@@ -871,26 +874,24 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       },
     ];
 
-    // Parse the selected value to determine if it's a list or segment
     const [type, id] = selectedZohoviewId1.split("-");
     let selectedName = "";
     let dataFileId: number | null = null;
     let segmentId: number | null = null;
 
-    if (type === "list") {
-      const selectedFile = scheduleDataFiles.find(
-        (file) => file.id.toString() === id
+    if (type === "campaign") {
+      const selectedCampaign = scheduleCampaigns.find(
+        (campaign) => campaign.id.toString() === id
       );
-      selectedName = selectedFile?.name || "";
-      dataFileId = parseInt(id) || null;
-      segmentId = null;
-    } else if (type === "segment") {
-      const selectedSegment = segments.find(
-        (segment) => segment.id.toString() === id
-      );
-      selectedName = selectedSegment?.name || "";
-      segmentId = parseInt(id) || null;
-      dataFileId = null;
+      selectedName = selectedCampaign?.campaignName || "";
+      
+      if (selectedCampaign?.dataSource === "DataFile") {
+        dataFileId = parseInt(selectedCampaign.zohoViewId) || null;
+        segmentId = null;
+      } else if (selectedCampaign?.dataSource === "Segment") {
+        segmentId = selectedCampaign.segmentId || null;
+        dataFileId = null;
+      }
     }
 
     const payload = {
@@ -962,7 +963,6 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       }
     }
   };
-  // Edit Handler
   const handleEditSchedule = (item: any) => {
     setFormData({
       title: item.title || "",
@@ -983,11 +983,17 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     });
     setEditingId(item.id);
 
-    // Set the appropriate selection based on whether it's a list or segment
-    if (item.segmentId && item.segmentId > 0) {
-      setSelectedZohoviewId1(`segment-${item.segmentId}`);
-    } else if (item.dataFileId && item.dataFileId > 0) {
-      setSelectedZohoviewId1(`list-${item.dataFileId}`);
+    const matchingCampaign = scheduleCampaigns.find(campaign => {
+      if (item.segmentId && item.segmentId > 0) {
+        return campaign.segmentId === item.segmentId;
+      } else if (item.dataFileId && item.dataFileId > 0) {
+        return campaign.zohoViewId === item.dataFileId.toString();
+      }
+      return false;
+    });
+
+    if (matchingCampaign) {
+      setSelectedZohoviewId1(`campaign-${matchingCampaign.id}`);
     }
 
     setSelectedUser(item.smtpID);
@@ -1157,58 +1163,34 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   >(null);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
 
-  // Fetch data when schedule modal opens
   useEffect(() => {
     const fetchScheduleDataForModal = async () => {
-      if (showScheduleModal && effectiveUserId && scheduleDataFiles.length === 0 && segments.length === 0) {
+      if (showScheduleModal && effectiveUserId && scheduleCampaigns.length === 0) {
         setScheduleDataLoading(true);
-        setSegmentsLoading(true);
 
         try {
-          // Fetch data files separately
-          try {
-            const dataFilesResponse = await axios.get(
-              `${API_BASE_URL}/api/crm/datafile-byclientid?clientId=${effectiveUserId}`,
-              {
-                headers: {
-                  ...(token && { Authorization: `Bearer ${token}` }),
-                },
-              }
-            );
-            console.log('Modal - Data files response:', dataFilesResponse.data);
-            setScheduleDataFiles(dataFilesResponse.data || []);
-          } catch (error) {
-            console.error('Modal - Error fetching data files:', error);
-            setScheduleDataFiles([]);
-          }
-
-          // Fetch segments separately
-          try {
-            const segmentsResponse = await axios.get(
-              `${API_BASE_URL}/api/Crm/get-segments-by-client?clientId=${effectiveUserId}`,
-              {
-                headers: {
-                  ...(token && { Authorization: `Bearer ${token}` }),
-                },
-              }
-            );
-            console.log('Modal - Segments response:', segmentsResponse.data);
-            setSegments(segmentsResponse.data || []);
-          } catch (error) {
-            console.error('Modal - Error fetching segments:', error);
-            setSegments([]);
-          }
+          const campaignsResponse = await axios.get(
+            `https://localhost:7216/api/auth/campaigns/client/${effectiveUserId}`,
+            {
+              headers: {
+                accept: '*/*',
+                ...(token && { Authorization: `Bearer ${token}` }),
+              },
+            }
+          );
+          console.log('Modal - Campaigns response:', campaignsResponse.data);
+          setScheduleCampaigns(campaignsResponse.data || []);
         } catch (error) {
-          console.error('Modal - Error in fetchScheduleDataForModal:', error);
+          console.error('Modal - Error fetching campaigns:', error);
+          setScheduleCampaigns([]);
         } finally {
           setScheduleDataLoading(false);
-          setSegmentsLoading(false);
         }
       }
     };
 
     fetchScheduleDataForModal();
-  }, [showScheduleModal, effectiveUserId, token, scheduleDataFiles.length, segments.length]);
+  }, [showScheduleModal, effectiveUserId, token, scheduleCampaigns.length]);
 
   // Menu button style constant
   const menuBtnStyle = {
@@ -1489,6 +1471,65 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     bccPage * bccPageSize
   );
 
+  // Domain states
+  const [domainData, setDomainData] = useState<any[]>([]);
+  const [fetchingDomain, setFetchingDomain] = useState(false);
+  const [showValidatePopup, setShowValidatePopup] = useState(false);
+  const [selectedDomain, setSelectedDomain] = useState<any>(null);
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [selectedOtpDomain, setSelectedOtpDomain] = useState<any>(null);
+  const [showDomainAuthModal, setShowDomainAuthModal] = useState(false);
+
+  // Handle domain validation click
+  const handleDomainValidateClick = (domain: any) => {
+    setSelectedDomain(domain);
+    setShowDomainAuthModal(true);
+  };
+
+  // Fetch domain verification data
+  const fetchDomainData = async () => {
+    if (!effectiveUserId) return;
+    
+    setFetchingDomain(true);
+    try {
+      const response = await fetch(
+        `https://localhost:7216/api/domain-verification/get-verified-domain?clientId=${effectiveUserId}`,
+        {
+          method: 'GET',
+          headers: {
+            'accept': '*/*'
+          }
+        }
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        setDomainData(Array.isArray(data) ? data : []);
+      } else {
+        setDomainData([]);
+      }
+    } catch (error) {
+      console.error('Error fetching domain data:', error);
+      setDomainData([]);
+    } finally {
+      setFetchingDomain(false);
+    }
+  };
+
+  // Fetch domain data when component mounts or user changes
+  useEffect(() => {
+    if (effectiveUserId) {
+      fetchDomainData();
+    }
+  }, [effectiveUserId]);
+
+  // Fetch domain data when tab changes to domain
+  useEffect(() => {
+    if (configTab === "domain" && effectiveUserId) {
+      fetchDomainData();
+    }
+  }, [configTab, effectiveUserId]);
+
   return (
     <div className="login-box gap-down">
       {tab === "Dashboard" && (
@@ -1517,6 +1558,13 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
               className={configTab === "bcc" ? "active-config-tab" : "config-tab"}
             >
               BCC email management
+            </button>
+
+            <button
+              onClick={() => setConfigTab("domain")}
+              className={configTab === "domain" ? "active-config-tab" : "config-tab"}
+            >
+              Domain authentication
             </button>
           </div>
           <div className="data-campaigns-container" style={{ marginTop: "-61px" }}>
@@ -1780,18 +1828,33 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                             />
                           </div>
                         </div>
-                        <div className="form-group">
-                          <label>
-                            From email <span style={{ color: "red" }}>*</span>
-                          </label>
-                          <input
-                            name="fromEmail"
-                            type="email"
-                            placeholder="sender@example.com"
-                            value={form.fromEmail}
-                            onChange={handleChangeSMTP}
-                            required
-                          />
+                        <div className="flex gap-4">
+                          <div className="form-group flex-1">
+                            <label>
+                              From email <span style={{ color: "red" }}>*</span>
+                            </label>
+                            <input
+                              name="fromEmail"
+                              type="email"
+                              placeholder="sender@example.com"
+                              value={form.fromEmail}
+                              onChange={handleChangeSMTP}
+                              required
+                            />
+                          </div>
+                          <div className="form-group flex-1">
+                            <label>
+                              Sender name <span style={{ color: "red" }}>*</span>
+                            </label>
+                            <input
+                              name="senderName"
+                              type="text"
+                              placeholder="John Doe"
+                              value={form.senderName}
+                              onChange={handleChangeSMTP}
+                              required
+                            />
+                          </div>
                         </div>
                         <div className="d-flex justify-end" style={{ marginTop: 16 }}>
                           <span className="flex items-center">
@@ -1818,17 +1881,100 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                                 username: "",
                                 password: "",
                                 fromEmail: "",
+                                senderName: "",
                                 usessl: false,
                               })
                             }}
                           >
                             Cancel
                           </button>
-                          <button className="save-button button min-w-[120px]" type="submit">
-                            {editingId ? "Update" : "Add"}
+                          <button className="save-button button min-w-[120px]" type="submit" disabled={smtpLoading}>
+                            {smtpLoading ? "Testing..." : (editingId ? "Update" : "Add")}
                           </button>
                         </div>
                       </form>
+                    </div>
+                  </div>
+                )}
+
+                {/* SMTP OTP Modal */}
+                {showSmtpOtpModal && (
+                  <div
+                    style={{
+                      position: "fixed",
+                      zIndex: 99999,
+                      inset: 0,
+                      background: "rgba(0,0,0,0.6)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <div
+                      style={{
+                        background: "#fff",
+                        padding: "24px",
+                        borderRadius: "8px",
+                        width: "400px",
+                        boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <h3 style={{ marginBottom: 16, color: "#333" }}>Verify SMTP Email</h3>
+                      <p style={{ marginBottom: 16, color: "#666" }}>
+                        Please enter the OTP sent to {smtpOtpEmail}
+                      </p>
+                      <input
+                        type="text"
+                        placeholder="Enter OTP"
+                        style={{
+                          width: "100%",
+                          padding: "8px",
+                          marginBottom: "16px",
+                          border: "1px solid #ccc",
+                          borderRadius: "4px",
+                        }}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            const otp = (e.target as HTMLInputElement).value;
+                            if (otp) {
+                              handleSmtpOtpVerify(otp);
+                            }
+                          }
+                        }}
+                      />
+                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                        <button
+                          className="button secondary small"
+                          onClick={() => {
+                            setShowSmtpOtpModal(false);
+                            setForm({
+                              server: "",
+                              port: "",
+                              username: "",
+                              password: "",
+                              fromEmail: "",
+                              senderName: "",
+                              usessl: false,
+                            });
+                            handleModalClose("modal-add-mailbox");
+                          }}
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          className="save-button button small"
+                          onClick={() => {
+                            const otpInput = document.querySelector('input[placeholder="Enter OTP"]') as HTMLInputElement;
+                            if (otpInput?.value) {
+                              handleSmtpOtpVerify(otpInput.value);
+                            }
+                          }}
+                          disabled={smtpOtpVerifying}
+                        >
+                          {smtpOtpVerifying ? 'Verifying...' : 'Verify'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1996,6 +2142,148 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                 )}
               </div>
             )}
+
+            {/* Domain Authentication Section */}
+            {configTab === "domain" && (
+              <div className="section-wrapper" style={{ marginTop: 40 }}>
+                <div style={{ marginBottom: "20px", color: "#555", marginTop: "80px" }}>
+                  Configure domain authentication settings for improved email deliverability.
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    marginBottom: 16,
+                    gap: 16,
+                  }}
+                >
+                </div>
+
+                <table className="contacts-table" style={{ background: "#fff" }}>
+                  <thead>
+                    <tr>
+                      <th>Domain</th>
+                      <th>Email status</th>
+                      <th>Domain owner authentication</th>
+                      <th>Domain status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {fetchingDomain ? (
+                      <tr>
+                        <td colSpan={4} style={{ textAlign: "center" }}>
+                          Loading domain data...
+                        </td>
+                      </tr>
+                    ) : domainData.length > 0 ? (
+                      domainData.map((domain, index) => (
+                        <tr key={domain.emailDomainId || index}>
+                          <td>{domain.domain || "-"}</td>
+                          <td>
+                            {domain.emailDomainverified ? (
+                              <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                                <span style={{ color: "#28a745", fontSize: "14px" }}>✓</span>
+                                <span style={{ color: "#28a745", fontSize: "14px" }}>Verified</span>
+                              </div>
+                            ) : (
+                              <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                                <span style={{ color: "#dc3545", fontSize: "14px" }}>✗</span>
+                                <span style={{ color: "#dc3545", fontSize: "14px" }}>Not Verified</span>
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            {domain.domainverified ? (
+                              <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                                <span style={{ color: "#28a745", fontSize: "14px" }}>✓</span>
+                                <span style={{ color: "#28a745", fontSize: "14px" }}>Verified</span>
+                              </div>
+                            ) : (
+                              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                <span style={{ color: "#dc3545", fontSize: "14px" }}>Pending</span>
+                                <span
+                                  style={{
+                                    color: "#007bff",
+                                    fontSize: "14px",
+                                    cursor: "pointer",
+                                    textDecoration: "underline",
+                                  }}
+                                  onClick={() => {
+                                    setSelectedDomain(domain);
+                                    setShowValidatePopup(true);
+                                  }}
+                                >
+                                  Validate Records
+                                </span>
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            <DomainAuthColumn 
+                              domain={domain} 
+                              onValidateClick={handleDomainValidateClick} 
+                            />
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={4} style={{ textAlign: "center" }}>
+                          No domains configured.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+
+                {/* OTP Modal */}
+                <OtpModal
+                  isOpen={showOtpModal}
+                  onClose={() => setShowOtpModal(false)}
+                  emailDomain={selectedOtpDomain?.emailDomain || ''}
+                  onSubmit={async (otp) => {
+                    try {
+                      const response = await fetch(
+                        `https://localhost:7216/api/domain-verification/domain-verify-email-otp?Otp=${encodeURIComponent(otp)}&email=${encodeURIComponent(selectedOtpDomain.emailDomain)}&clientId=${effectiveUserId}`,
+                        {
+                          method: 'POST',
+                          headers: {
+                            'accept': '*/*'
+                          },
+                          body: ''
+                        }
+                      );
+                      
+                      if (response.ok) {
+                        appModal.showSuccess('Email verification successful!');
+                        fetchDomainData(); // Refresh domain data
+                      } else {
+                        appModal.showError('Invalid verification code. Please try again.');
+                      }
+                    } catch (error) {
+                      console.error('Error verifying OTP:', error);
+                      appModal.showError('Error verifying code. Please check your connection.');
+                    }
+                  }}
+                />
+
+                {/* Validate Records Modal */}
+                <ValidateRecordsModal
+                  isOpen={showValidatePopup}
+                  onClose={() => setShowValidatePopup(false)}
+                  selectedDomain={selectedDomain}
+                  onValidate={(domain) => {
+                    console.log('Validate Records for:', domain.emailDomain);
+                    // Refresh domain data after validation
+                    setTimeout(() => fetchDomainData(), 1000);
+                  }}
+                  showSuccess={appModal.showSuccess}
+                  showError={appModal.showError}
+                  refreshDomainData={() => setTimeout(() => fetchDomainData(), 1000)}
+                />
+              </div>
+            )}
           </div>
         </>
       )}
@@ -2082,26 +2370,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                         return (
                           <tr key={item.id || index}>
                             <td>{item.title}</td>
-                            <td>
-                              {(() => {
-                                if (item.segmentId) {
-                                  const segment = segments.find(
-                                    (s) => s.id === item.segmentId
-                                  );
-                                  return segment
-                                    ? `${segment.name} (Segment)`
-                                    : item.zohoviewName || "-";
-                                } else if (item.dataFileId) {
-                                  const dataFile = scheduleDataFiles.find(
-                                    (f) => f.id === item.dataFileId
-                                  );
-                                  return dataFile
-                                    ? `${dataFile.name} (List)`
-                                    : item.zohoviewName || "-";
-                                }
-                                return item.zohoviewName || "-";
-                              })()}
-                            </td>
+                            <td>{item.zohoviewName || "-"}</td>
                             <td>{smtpUser?.username || "-"}</td>
                             <td>{scheduledDate}</td>
                             <td>{scheduledTime}</td>
@@ -2360,46 +2629,30 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
 
                     <div className="form-group">
                       <label>
-                        List/segment <span style={{ color: "red" }}>*</span>
+                        Campaign <span style={{ color: "red" }}>*</span>
                       </label>
                       <select
                         name="model"
                         onChange={handleZohoModelChange1}
                         value={selectedZohoviewId1 || ""}
-                        disabled={
-                          scheduleDataLoading ||
-                          segmentsLoading
-                        }
+                        disabled={scheduleDataLoading}
                         required
                         style={{ width: "100%" }}
                       >
-                        <option value="">List or segment</option>
-                        {scheduleDataFiles.length > 0 && (
-                          <optgroup label="Lists">
-                            {scheduleDataFiles.map((file) => (
-                              <option
-                                key={`list-${file.id}`}
-                                value={`list-${file.id}`}
-                              >
-                                {file.name}
-                              </option>
-                            ))}
-                          </optgroup>
-                        )}
-                        {segments.length > 0 && (
-                          <optgroup label="Segments">
-                            {segments.map((segment) => (
-                              <option
-                                key={`segment-${segment.id}`}
-                                value={`segment-${segment.id}`}
-                              >
-                                {segment.name}
-                              </option>
-                            ))}
-                          </optgroup>
-                        )}
-                        {scheduleDataFiles.length === 0 && segments.length === 0 && !scheduleDataLoading && !segmentsLoading && (
-                          <option disabled>No lists or segments available</option>
+                        <option value="">Select campaign</option>
+                        {scheduleCampaigns.length > 0 ? (
+                          scheduleCampaigns.map((campaign) => (
+                            <option
+                              key={`campaign-${campaign.id}`}
+                              value={`campaign-${campaign.id}`}
+                            >
+                              {campaign.campaignName}
+                            </option>
+                          ))
+                        ) : (
+                          !scheduleDataLoading && (
+                            <option disabled>No campaigns available</option>
+                          )
                         )}
                       </select>
                     </div>
@@ -2565,6 +2818,64 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
         isOpen={appModal.isOpen}
         onClose={appModal.hideModal}
         {...appModal.config}
+      />
+
+      {/* Domain Validation Modals */}
+      <DomainAuthModal
+        isOpen={showDomainAuthModal}
+        onClose={() => setShowDomainAuthModal(false)}
+        selectedDomain={selectedDomain}
+        onValidate={(domain) => {
+          console.log('Validate Records for:', domain.emailDomain);
+          setTimeout(() => fetchDomainData(), 1000);
+        }}
+        showSuccess={appModal.showSuccess}
+        showError={appModal.showError}
+        refreshDomainData={() => setTimeout(() => fetchDomainData(), 1000)}
+        effectiveUserId={effectiveUserId}
+      />
+
+      <ValidateRecordsModal
+        isOpen={showValidatePopup}
+        onClose={() => setShowValidatePopup(false)}
+        selectedDomain={selectedDomain}
+        onValidate={(domain) => {
+          console.log('Validate Records for:', domain.emailDomain);
+          setTimeout(() => fetchDomainData(), 1000);
+        }}
+        showSuccess={appModal.showSuccess}
+        showError={appModal.showError}
+        refreshDomainData={() => setTimeout(() => fetchDomainData(), 1000)}
+      />
+
+      <OtpModal
+        isOpen={showOtpModal}
+        onClose={() => setShowOtpModal(false)}
+        emailDomain={selectedOtpDomain?.emailDomain || ''}
+        onSubmit={async (otp) => {
+          try {
+            const response = await fetch(
+              `https://localhost:7216/api/domain-verification/domain-verify-email-otp?Otp=${encodeURIComponent(otp)}&email=${encodeURIComponent(selectedOtpDomain.emailDomain)}&clientId=${effectiveUserId}`,
+              {
+                method: 'POST',
+                headers: {
+                  'accept': '*/*'
+                },
+                body: ''
+              }
+            );
+            
+            if (response.ok) {
+              appModal.showSuccess('Email verification successful!');
+              fetchDomainData();
+            } else {
+              appModal.showError('Invalid verification code. Please try again.');
+            }
+          } catch (error) {
+            console.error('Error verifying OTP:', error);
+            appModal.showError('Error verifying code. Please check your connection.');
+          }
+        }}
       />
     </div>
   );
