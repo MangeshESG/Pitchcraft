@@ -192,6 +192,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
 }) => {
   const [segments, setSegments] = useState<Segment[]>([]);
   const [segmentsLoading, setSegmentsLoading] = useState(false);
+  const [scheduleCampaigns, setScheduleCampaigns] = useState<any[]>([]);
 
   const [isCopyText, setIsCopyText] = useState(false);
   const { saveFormState, getFormState, refreshTrigger } = useAppData();
@@ -283,12 +284,14 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     username: "",
     password: "",
     fromEmail: "",
+    senderName: "",
     usessl: false,
   });
   const [editingId, setEditingId] = useState(null);
   const [smtpLoading, setSmtpLoading] = useState(false);
   const [showSmtpOtpModal, setShowSmtpOtpModal] = useState(false);
   const [smtpOtpEmail, setSmtpOtpEmail] = useState("");
+  const [smtpOtpVerifying, setSmtpOtpVerifying] = useState(false);
   // Fetch SMTP List
   const fetchSmtp = async () => {
     try {
@@ -354,6 +357,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
           username: "",
           password: "",
           fromEmail: "",
+          senderName: "",
           usessl: false,
         });
         setEditingId(null);
@@ -371,6 +375,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
 
   // Handle SMTP OTP Verification
   const handleSmtpOtpVerify = async (otp: string) => {
+    setSmtpOtpVerifying(true);
     try {
       const response = await fetch(
         `https://localhost:7216/api/domain-verification/verifySmtpOtp?email=${encodeURIComponent(smtpOtpEmail)}&otp=${encodeURIComponent(otp)}&clientId=${effectiveUserId}`,
@@ -392,6 +397,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
           username: "",
           password: "",
           fromEmail: "",
+          senderName: "",
           usessl: false,
         });
         setEditingId(null);
@@ -403,6 +409,8 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     } catch (error) {
       console.error('Error verifying SMTP OTP:', error);
       appModal.showError('Error verifying OTP. Please check your connection.');
+    } finally {
+      setSmtpOtpVerifying(false);
     }
   };
 
@@ -456,47 +464,24 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     const fetchScheduleData = async () => {
       if (tab === "Schedule" && effectiveUserId) {
         setScheduleDataLoading(true);
-        setSegmentsLoading(true);
 
         try {
-          // Fetch data files separately
-          try {
-            const dataFilesResponse = await axios.get(
-              `${API_BASE_URL}/api/crm/datafile-byclientid?clientId=${effectiveUserId}`,
-              {
-                headers: {
-                  ...(token && { Authorization: `Bearer ${token}` }),
-                },
-              }
-            );
-            console.log('Data files response:', dataFilesResponse.data);
-            setScheduleDataFiles(dataFilesResponse.data || []);
-          } catch (error) {
-            console.error("Error fetching data files:", error);
-            setScheduleDataFiles([]);
-          }
-
-          // Fetch segments separately
-          try {
-            const segmentsResponse = await axios.get(
-              `${API_BASE_URL}/api/Crm/get-segments-by-client?clientId=${effectiveUserId}`,
-              {
-                headers: {
-                  ...(token && { Authorization: `Bearer ${token}` }),
-                },
-              }
-            );
-            console.log('Segments response:', segmentsResponse.data);
-            setSegments(segmentsResponse.data || []);
-          } catch (error) {
-            console.error("Error fetching segments:", error);
-            setSegments([]);
-          }
+          const campaignsResponse = await axios.get(
+            `https://localhost:7216/api/auth/campaigns/client/${effectiveUserId}`,
+            {
+              headers: {
+                accept: '*/*',
+                ...(token && { Authorization: `Bearer ${token}` }),
+              },
+            }
+          );
+          console.log('Campaigns response:', campaignsResponse.data);
+          setScheduleCampaigns(campaignsResponse.data || []);
         } catch (error) {
-          console.error("Error in fetchScheduleData:", error);
+          console.error("Error fetching campaigns:", error);
+          setScheduleCampaigns([]);
         } finally {
           setScheduleDataLoading(false);
-          setSegmentsLoading(false);
         }
       }
     };
@@ -505,10 +490,9 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   }, [tab, effectiveUserId, token]);
   // Add this useEffect after your existing useEffects
 
-  // Clear schedule data when user changes
   useEffect(() => {
     setSelectedZohoviewId1("");
-    setScheduleDataFiles([]);
+    setScheduleCampaigns([]);
   }, [effectiveUserId]);
 
   const handleZohoModelChange1 = async (
@@ -520,19 +504,13 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     if (selectedValue) {
       const [type, id] = selectedValue.split("-");
 
-      if (type === "list") {
-        const selectedFile = scheduleDataFiles.find(
-          (file) => file.id.toString() === id
+      if (type === "campaign") {
+        const selectedCampaign = scheduleCampaigns.find(
+          (campaign) => campaign.id.toString() === id
         );
-        setSelectedScheduleFile(selectedFile || null);
-      } else if (type === "segment") {
-        const selectedSegment = segments.find(
-          (segment) => segment.id.toString() === id
-        );
-        // Handle segment selection - you might want to store this differently
         setSelectedScheduleFile({
-          id: selectedSegment?.id || 0,
-          name: selectedSegment?.name || "",
+          id: selectedCampaign?.id || 0,
+          name: selectedCampaign?.campaignName || "",
         });
       }
 
@@ -712,26 +690,24 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       });
     }
 
-    // Parse the selected value to determine if it's a list or segment
     const [type, id] = selectedZohoviewId1.split("-");
     let selectedName = "";
     let dataFileId: number | null = null;
     let segmentId: number | null = null;
 
-    if (type === "list") {
-      const selectedFile = scheduleDataFiles.find(
-        (file) => file.id.toString() === id
+    if (type === "campaign") {
+      const selectedCampaign = scheduleCampaigns.find(
+        (campaign) => campaign.id.toString() === id
       );
-      selectedName = selectedFile?.name || "";
-      dataFileId = parseInt(id) || null;
-      segmentId = null;
-    } else if (type === "segment") {
-      const selectedSegment = segments.find(
-        (segment) => segment.id.toString() === id
-      );
-      selectedName = selectedSegment?.name || "";
-      segmentId = parseInt(id) || null;
-      dataFileId = null;
+      selectedName = selectedCampaign?.campaignName || "";
+      
+      if (selectedCampaign?.dataSource === "DataFile") {
+        dataFileId = parseInt(selectedCampaign.zohoViewId) || null;
+        segmentId = null;
+      } else if (selectedCampaign?.dataSource === "Segment") {
+        segmentId = selectedCampaign.segmentId || null;
+        dataFileId = null;
+      }
     }
 
     const payload = {
@@ -898,26 +874,24 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       },
     ];
 
-    // Parse the selected value to determine if it's a list or segment
     const [type, id] = selectedZohoviewId1.split("-");
     let selectedName = "";
     let dataFileId: number | null = null;
     let segmentId: number | null = null;
 
-    if (type === "list") {
-      const selectedFile = scheduleDataFiles.find(
-        (file) => file.id.toString() === id
+    if (type === "campaign") {
+      const selectedCampaign = scheduleCampaigns.find(
+        (campaign) => campaign.id.toString() === id
       );
-      selectedName = selectedFile?.name || "";
-      dataFileId = parseInt(id) || null;
-      segmentId = null;
-    } else if (type === "segment") {
-      const selectedSegment = segments.find(
-        (segment) => segment.id.toString() === id
-      );
-      selectedName = selectedSegment?.name || "";
-      segmentId = parseInt(id) || null;
-      dataFileId = null;
+      selectedName = selectedCampaign?.campaignName || "";
+      
+      if (selectedCampaign?.dataSource === "DataFile") {
+        dataFileId = parseInt(selectedCampaign.zohoViewId) || null;
+        segmentId = null;
+      } else if (selectedCampaign?.dataSource === "Segment") {
+        segmentId = selectedCampaign.segmentId || null;
+        dataFileId = null;
+      }
     }
 
     const payload = {
@@ -989,7 +963,6 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       }
     }
   };
-  // Edit Handler
   const handleEditSchedule = (item: any) => {
     setFormData({
       title: item.title || "",
@@ -1010,11 +983,17 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     });
     setEditingId(item.id);
 
-    // Set the appropriate selection based on whether it's a list or segment
-    if (item.segmentId && item.segmentId > 0) {
-      setSelectedZohoviewId1(`segment-${item.segmentId}`);
-    } else if (item.dataFileId && item.dataFileId > 0) {
-      setSelectedZohoviewId1(`list-${item.dataFileId}`);
+    const matchingCampaign = scheduleCampaigns.find(campaign => {
+      if (item.segmentId && item.segmentId > 0) {
+        return campaign.segmentId === item.segmentId;
+      } else if (item.dataFileId && item.dataFileId > 0) {
+        return campaign.zohoViewId === item.dataFileId.toString();
+      }
+      return false;
+    });
+
+    if (matchingCampaign) {
+      setSelectedZohoviewId1(`campaign-${matchingCampaign.id}`);
     }
 
     setSelectedUser(item.smtpID);
@@ -1184,58 +1163,34 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   >(null);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
 
-  // Fetch data when schedule modal opens
   useEffect(() => {
     const fetchScheduleDataForModal = async () => {
-      if (showScheduleModal && effectiveUserId && scheduleDataFiles.length === 0 && segments.length === 0) {
+      if (showScheduleModal && effectiveUserId && scheduleCampaigns.length === 0) {
         setScheduleDataLoading(true);
-        setSegmentsLoading(true);
 
         try {
-          // Fetch data files separately
-          try {
-            const dataFilesResponse = await axios.get(
-              `${API_BASE_URL}/api/crm/datafile-byclientid?clientId=${effectiveUserId}`,
-              {
-                headers: {
-                  ...(token && { Authorization: `Bearer ${token}` }),
-                },
-              }
-            );
-            console.log('Modal - Data files response:', dataFilesResponse.data);
-            setScheduleDataFiles(dataFilesResponse.data || []);
-          } catch (error) {
-            console.error('Modal - Error fetching data files:', error);
-            setScheduleDataFiles([]);
-          }
-
-          // Fetch segments separately
-          try {
-            const segmentsResponse = await axios.get(
-              `${API_BASE_URL}/api/Crm/get-segments-by-client?clientId=${effectiveUserId}`,
-              {
-                headers: {
-                  ...(token && { Authorization: `Bearer ${token}` }),
-                },
-              }
-            );
-            console.log('Modal - Segments response:', segmentsResponse.data);
-            setSegments(segmentsResponse.data || []);
-          } catch (error) {
-            console.error('Modal - Error fetching segments:', error);
-            setSegments([]);
-          }
+          const campaignsResponse = await axios.get(
+            `https://localhost:7216/api/auth/campaigns/client/${effectiveUserId}`,
+            {
+              headers: {
+                accept: '*/*',
+                ...(token && { Authorization: `Bearer ${token}` }),
+              },
+            }
+          );
+          console.log('Modal - Campaigns response:', campaignsResponse.data);
+          setScheduleCampaigns(campaignsResponse.data || []);
         } catch (error) {
-          console.error('Modal - Error in fetchScheduleDataForModal:', error);
+          console.error('Modal - Error fetching campaigns:', error);
+          setScheduleCampaigns([]);
         } finally {
           setScheduleDataLoading(false);
-          setSegmentsLoading(false);
         }
       }
     };
 
     fetchScheduleDataForModal();
-  }, [showScheduleModal, effectiveUserId, token, scheduleDataFiles.length, segments.length]);
+  }, [showScheduleModal, effectiveUserId, token, scheduleCampaigns.length]);
 
   // Menu button style constant
   const menuBtnStyle = {
@@ -1873,18 +1828,33 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                             />
                           </div>
                         </div>
-                        <div className="form-group">
-                          <label>
-                            From email <span style={{ color: "red" }}>*</span>
-                          </label>
-                          <input
-                            name="fromEmail"
-                            type="email"
-                            placeholder="sender@example.com"
-                            value={form.fromEmail}
-                            onChange={handleChangeSMTP}
-                            required
-                          />
+                        <div className="flex gap-4">
+                          <div className="form-group flex-1">
+                            <label>
+                              From email <span style={{ color: "red" }}>*</span>
+                            </label>
+                            <input
+                              name="fromEmail"
+                              type="email"
+                              placeholder="sender@example.com"
+                              value={form.fromEmail}
+                              onChange={handleChangeSMTP}
+                              required
+                            />
+                          </div>
+                          <div className="form-group flex-1">
+                            <label>
+                              Sender name <span style={{ color: "red" }}>*</span>
+                            </label>
+                            <input
+                              name="senderName"
+                              type="text"
+                              placeholder="John Doe"
+                              value={form.senderName}
+                              onChange={handleChangeSMTP}
+                              required
+                            />
+                          </div>
                         </div>
                         <div className="d-flex justify-end" style={{ marginTop: 16 }}>
                           <span className="flex items-center">
@@ -1911,6 +1881,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                                 username: "",
                                 password: "",
                                 fromEmail: "",
+                                senderName: "",
                                 usessl: false,
                               })
                             }}
@@ -1983,6 +1954,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                               username: "",
                               password: "",
                               fromEmail: "",
+                              senderName: "",
                               usessl: false,
                             });
                             handleModalClose("modal-add-mailbox");
@@ -1998,8 +1970,9 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                               handleSmtpOtpVerify(otpInput.value);
                             }
                           }}
+                          disabled={smtpOtpVerifying}
                         >
-                          Verify
+                          {smtpOtpVerifying ? 'Verifying...' : 'Verify'}
                         </button>
                       </div>
                     </div>
@@ -2397,26 +2370,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                         return (
                           <tr key={item.id || index}>
                             <td>{item.title}</td>
-                            <td>
-                              {(() => {
-                                if (item.segmentId) {
-                                  const segment = segments.find(
-                                    (s) => s.id === item.segmentId
-                                  );
-                                  return segment
-                                    ? `${segment.name} (Segment)`
-                                    : item.zohoviewName || "-";
-                                } else if (item.dataFileId) {
-                                  const dataFile = scheduleDataFiles.find(
-                                    (f) => f.id === item.dataFileId
-                                  );
-                                  return dataFile
-                                    ? `${dataFile.name} (List)`
-                                    : item.zohoviewName || "-";
-                                }
-                                return item.zohoviewName || "-";
-                              })()}
-                            </td>
+                            <td>{item.zohoviewName || "-"}</td>
                             <td>{smtpUser?.username || "-"}</td>
                             <td>{scheduledDate}</td>
                             <td>{scheduledTime}</td>
@@ -2675,46 +2629,30 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
 
                     <div className="form-group">
                       <label>
-                        List/segment <span style={{ color: "red" }}>*</span>
+                        Campaign <span style={{ color: "red" }}>*</span>
                       </label>
                       <select
                         name="model"
                         onChange={handleZohoModelChange1}
                         value={selectedZohoviewId1 || ""}
-                        disabled={
-                          scheduleDataLoading ||
-                          segmentsLoading
-                        }
+                        disabled={scheduleDataLoading}
                         required
                         style={{ width: "100%" }}
                       >
-                        <option value="">List or segment</option>
-                        {scheduleDataFiles.length > 0 && (
-                          <optgroup label="Lists">
-                            {scheduleDataFiles.map((file) => (
-                              <option
-                                key={`list-${file.id}`}
-                                value={`list-${file.id}`}
-                              >
-                                {file.name}
-                              </option>
-                            ))}
-                          </optgroup>
-                        )}
-                        {segments.length > 0 && (
-                          <optgroup label="Segments">
-                            {segments.map((segment) => (
-                              <option
-                                key={`segment-${segment.id}`}
-                                value={`segment-${segment.id}`}
-                              >
-                                {segment.name}
-                              </option>
-                            ))}
-                          </optgroup>
-                        )}
-                        {scheduleDataFiles.length === 0 && segments.length === 0 && !scheduleDataLoading && !segmentsLoading && (
-                          <option disabled>No lists or segments available</option>
+                        <option value="">Select campaign</option>
+                        {scheduleCampaigns.length > 0 ? (
+                          scheduleCampaigns.map((campaign) => (
+                            <option
+                              key={`campaign-${campaign.id}`}
+                              value={`campaign-${campaign.id}`}
+                            >
+                              {campaign.campaignName}
+                            </option>
+                          ))
+                        ) : (
+                          !scheduleDataLoading && (
+                            <option disabled>No campaigns available</option>
+                          )
                         )}
                       </select>
                     </div>
