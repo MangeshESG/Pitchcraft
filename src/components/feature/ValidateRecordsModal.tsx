@@ -9,6 +9,7 @@ interface ValidateRecordsModalProps {
   showSuccess: (message: string) => void;
   showError: (message: string) => void;
   refreshDomainData: () => void;
+  effectiveUserId: string | null;
 }
 
 const ValidateRecordsModal: React.FC<ValidateRecordsModalProps> = ({
@@ -18,7 +19,8 @@ const ValidateRecordsModal: React.FC<ValidateRecordsModalProps> = ({
   onValidate,
   showSuccess,
   showError,
-  refreshDomainData
+  refreshDomainData,
+  effectiveUserId
 }) => {
   const [isLoading, setIsLoading] = useState(false);
 
@@ -121,7 +123,7 @@ const ValidateRecordsModal: React.FC<ValidateRecordsModalProps> = ({
               setIsLoading(true);
               try {
                 const response = await fetch(
-                  `${API_BASE_URL}/api/domain-verification/verify?domain=${encodeURIComponent(selectedDomain.domain || selectedDomain.emailDomain?.split('@')[1])}&clientId=${selectedDomain.clientId || 6}`,
+                  `${API_BASE_URL}/api/domain-verification/verify?domain=${encodeURIComponent(selectedDomain.domain || selectedDomain.emailDomain?.split('@')[1])}&clientId=${effectiveUserId || ''}`,
                   {
                     method: 'POST',
                     headers: {
