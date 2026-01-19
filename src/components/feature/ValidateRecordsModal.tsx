@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import API_BASE_URL from '../../config';
 
 interface ValidateRecordsModalProps {
   isOpen: boolean;
@@ -120,7 +121,7 @@ const ValidateRecordsModal: React.FC<ValidateRecordsModalProps> = ({
               setIsLoading(true);
               try {
                 const response = await fetch(
-                  `https://localhost:7216/api/domain-verification/verify?domain=${encodeURIComponent(selectedDomain.domain || selectedDomain.emailDomain?.split('@')[1])}&clientId=${selectedDomain.clientId || 6}`,
+                  `${API_BASE_URL}/api/domain-verification/verify?domain=${encodeURIComponent(selectedDomain.domain || selectedDomain.emailDomain?.split('@')[1])}&clientId=${selectedDomain.clientId || 6}`,
                   {
                     method: 'POST',
                     headers: {
