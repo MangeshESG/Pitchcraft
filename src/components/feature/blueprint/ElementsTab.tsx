@@ -139,7 +139,9 @@ return (
                 display: "grid",
                 gridTemplateColumns: "repeat(12, 1fr)",
                 gap: "20px",
-                padding: "16px"
+                padding: "16px",
+                maxHeight: "60vh",       // ⭐ LIMIT HEIGHT
+                overflowY: "auto"        // ⭐ ENABLE SCROLLING
               }}
             >
               {placeholders.map((p) => (
