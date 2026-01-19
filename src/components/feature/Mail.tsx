@@ -378,7 +378,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     setSmtpOtpVerifying(true);
     try {
       const response = await fetch(
-        `https://localhost:7216/api/domain-verification/verifySmtpOtp?email=${encodeURIComponent(smtpOtpEmail)}&otp=${encodeURIComponent(otp)}&clientId=${effectiveUserId}`,
+        `${API_BASE_URL}/api/domain-verification/verifySmtpOtp?email=${encodeURIComponent(smtpOtpEmail)}&otp=${encodeURIComponent(otp)}&clientId=${effectiveUserId}`,
         {
           method: 'POST',
           headers: {
@@ -467,7 +467,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
 
         try {
           const campaignsResponse = await axios.get(
-            `https://localhost:7216/api/auth/campaigns/client/${effectiveUserId}`,
+            `${API_BASE_URL}/api/auth/campaigns/client/${effectiveUserId}`,
             {
               headers: {
                 accept: '*/*',
@@ -1170,7 +1170,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
 
         try {
           const campaignsResponse = await axios.get(
-            `https://localhost:7216/api/auth/campaigns/client/${effectiveUserId}`,
+            `${API_BASE_URL}/api/auth/campaigns/client/${effectiveUserId}`,
             {
               headers: {
                 accept: '*/*',
@@ -1493,7 +1493,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     setFetchingDomain(true);
     try {
       const response = await fetch(
-        `https://localhost:7216/api/domain-verification/get-verified-domain?clientId=${effectiveUserId}`,
+        `${API_BASE_URL}/api/domain-verification/get-verified-domain?clientId=${effectiveUserId}`,
         {
           method: 'GET',
           headers: {
@@ -2245,7 +2245,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                   onSubmit={async (otp) => {
                     try {
                       const response = await fetch(
-                        `https://localhost:7216/api/domain-verification/domain-verify-email-otp?Otp=${encodeURIComponent(otp)}&email=${encodeURIComponent(selectedOtpDomain.emailDomain)}&clientId=${effectiveUserId}`,
+                        `${API_BASE_URL}/api/domain-verification/domain-verify-email-otp?Otp=${encodeURIComponent(otp)}&email=${encodeURIComponent(selectedOtpDomain.emailDomain)}&clientId=${effectiveUserId}`,
                         {
                           method: 'POST',
                           headers: {
@@ -2855,7 +2855,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
         onSubmit={async (otp) => {
           try {
             const response = await fetch(
-              `https://localhost:7216/api/domain-verification/domain-verify-email-otp?Otp=${encodeURIComponent(otp)}&email=${encodeURIComponent(selectedOtpDomain.emailDomain)}&clientId=${effectiveUserId}`,
+              `${API_BASE_URL}/api/domain-verification/domain-verify-email-otp?Otp=${encodeURIComponent(otp)}&email=${encodeURIComponent(selectedOtpDomain.emailDomain)}&clientId=${effectiveUserId}`,
               {
                 method: 'POST',
                 headers: {
