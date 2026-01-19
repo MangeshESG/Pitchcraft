@@ -122,7 +122,9 @@ return (
                 justifyContent: "space-between"
               }}
             >
-              <span>{category}</span>
+              <span style={{ color: "green", textTransform: "uppercase" }}>
+                {category}
+              </span>
 
               <FontAwesomeIcon
                 icon={faAngleDown}
