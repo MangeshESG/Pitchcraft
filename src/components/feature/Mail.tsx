@@ -2281,6 +2281,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                   showSuccess={appModal.showSuccess}
                   showError={appModal.showError}
                   refreshDomainData={() => setTimeout(() => fetchDomainData(), 1000)}
+                  effectiveUserId={effectiveUserId}
                 />
               </div>
             )}
@@ -2846,6 +2847,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
         showSuccess={appModal.showSuccess}
         showError={appModal.showError}
         refreshDomainData={() => setTimeout(() => fetchDomainData(), 1000)}
+        effectiveUserId={effectiveUserId}
       />
 
       <OtpModal
