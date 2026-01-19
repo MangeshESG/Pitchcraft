@@ -378,7 +378,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     setSmtpOtpVerifying(true);
     try {
       const response = await fetch(
-        `https://localhost:7216/api/domain-verification/verifySmtpOtp?email=${encodeURIComponent(smtpOtpEmail)}&otp=${encodeURIComponent(otp)}&clientId=${effectiveUserId}`,
+        `${API_BASE_URL}/api/domain-verification/verifySmtpOtp?email=${encodeURIComponent(smtpOtpEmail)}&otp=${encodeURIComponent(otp)}&clientId=${effectiveUserId}`,
         {
           method: 'POST',
           headers: {
