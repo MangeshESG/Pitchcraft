@@ -276,9 +276,6 @@ export function useSessionState<T>(key: string, defaultValue: T): [T, React.Disp
 }
 
 
-
-
-
 const ConversationTab: React.FC<ConversationTabProps> = ({
   conversationStarted,
   messages,
@@ -740,8 +737,6 @@ interface ExampleOutputPanelProps {
 
 }
 
-
-
 const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
   dataFiles,
   contacts,
@@ -993,8 +988,6 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
   );
 };
 
-
-
 // ====================================================================
 // MAIN COMPONENT
 // ====================================================================
@@ -1017,6 +1010,8 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
   const [selectedTemplateDefinitionId, setSelectedTemplateDefinitionId] = useState<number | null>(null);
 
   const [messages, setMessages] = useSessionState<Message[]>("campaign_messages", []);
+  const [usageInfo, setUsageInfo] = useState<any>(null);
+
   const [finalPrompt, setFinalPrompt] = useSessionState<string>("campaign_final_prompt", "");
   const [finalPreviewText, setFinalPreviewText] = useSessionState<string>("campaign_final_preview", "");
   const [exampleOutput, setExampleOutput] = useState<string>('');
@@ -1094,17 +1089,27 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
   const [activeSubStageTab, setActiveSubStageTab] =
     useState<"search" | "data" | "summary">("summary");
   const [popupmodalInfo, setPopupModalInfo] = useState({
-    open: false,
-    title: "",
-    message: ""
-  });
-  const showModal = (title: string, message: string) => {
-    setPopupModalInfo({ open: true, title, message });
-  };
+  open: false,
+  title: "",
+  message: ""
+});
 
-  const closeModal = () => {
-    setPopupModalInfo(prev => ({ ...prev, open: false }));
-  };
+const [totalUsage, setTotalUsage] = useState({
+  totalInput: 0,
+  totalOutput: 0,
+  totalCalls: 0,
+  totalCost: 0
+});
+
+const showModal = (title: string, message: string) => {
+  setPopupModalInfo({ open: true, title, message });
+};
+
+const closeModal = () => {
+  setPopupModalInfo(prev => ({ ...prev, open: false }));
+};
+
+
 
   const saveExampleEmail = async () => {
     try {
@@ -1662,18 +1667,44 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
       // 🔥 SPLIT PLACEHOLDERS
       const { persisted } = splitPlaceholders(mergedAll);
 
-      console.log("📧 Generating example output...");
-      console.log("📦 Persisted elements only:", Object.keys(persisted));
-      setIsPreviewLoading(true);
-      const response = await axios.post(
-        `${API_BASE_URL}/api/CampaignPrompt/example/generate`,
-        {
-          userId: effectiveUserId,
-          campaignTemplateId: activeCampaignId,
-          model: selectedModel,
-          placeholderValues: mergedAll // ✅ SEND EVERYTHING
-        }
-      );
+    console.log("📧 Generating example output...");
+    console.log("📦 Persisted elements only:", Object.keys(persisted));
+    setIsPreviewLoading(true);
+    const response = await axios.post(
+      `${API_BASE_URL}/api/CampaignPrompt/example/generate`,
+      {
+        userId: effectiveUserId,
+        campaignTemplateId: activeCampaignId,
+        model: selectedModel,
+        placeholderValues: mergedAll // ✅ SEND EVERYTHING
+      }
+    );
+
+if (response.data?.usage) {
+  const u = response.data.usage;
+
+  const inTokens =
+    u.promptTokens ?? u.prompt_tokens ?? u.inputTokens ?? 0;
+  const outTokens =
+    u.completionTokens ?? u.completion_tokens ?? u.outputTokens ?? 0;
+  const cost = u.cost ?? u.totalCost ?? 0;
+
+  setUsageInfo({
+    promptTokens: inTokens,
+    completionTokens: outTokens,
+    cost,
+  });
+
+  setTotalUsage(prev => ({
+    totalInput: prev.totalInput + inTokens,
+    totalOutput: prev.totalOutput + outTokens,
+    totalCalls: prev.totalCalls + 1,
+    totalCost: prev.totalCost + cost,
+  }));
+}
+
+
+
 
       // Dispatch credit update event after successful API call
       window.dispatchEvent(new CustomEvent('creditUpdated', {
@@ -2044,28 +2075,52 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
         detail: { clientId: effectiveUserId }
       }));
 
-      const data = response.data?.response ?? response.data;
-      if (data && data.assistantText) {
-        setMessages([{ type: "bot", content: data.assistantText, timestamp: new Date() }]);
-        playNotificationSound();
-      } else {
-        // If API returns a different shape, log it for debugging and show friendly message
-        console.warn("startEditConversation: unexpected response:", response.data);
-        setMessages([{ type: "bot", content: "Received unexpected response from server.", timestamp: new Date() }]);
-      }
-    } catch (err: any) {
-      console.error("Error starting edit conversation:", err, err?.response?.data);
-      setMessages([
-        {
-          type: "bot",
-          content: "Sorry, I couldn't start the edit conversation. Please try again.",
-          timestamp: new Date(),
-        },
-      ]);
-    } finally {
-      setIsTyping(false);
+    const data = response.data?.response ?? response.data;
+if (response.data?.usage) {
+  const u = response.data.usage;
+
+  const inTokens =
+    u.promptTokens ?? u.prompt_tokens ?? u.inputTokens ?? 0;
+  const outTokens =
+    u.completionTokens ?? u.completion_tokens ?? u.outputTokens ?? 0;
+  const cost = u.cost ?? u.totalCost ?? 0;
+
+  setUsageInfo({
+    promptTokens: inTokens,
+    completionTokens: outTokens,
+    cost,
+  });
+
+  setTotalUsage(prev => ({
+    totalInput: prev.totalInput + inTokens,
+    totalOutput: prev.totalOutput + outTokens,
+    totalCalls: prev.totalCalls + 1,
+    totalCost: prev.totalCost + cost,
+  }));
+}
+
+
+    if (data && data.assistantText) {
+      setMessages([{ type: "bot", content: data.assistantText, timestamp: new Date() }]);
+      playNotificationSound();
+    } else {
+      // If API returns a different shape, log it for debugging and show friendly message
+      console.warn("startEditConversation: unexpected response:", response.data);
+      setMessages([{ type: "bot", content: "Received unexpected response from server.", timestamp: new Date() }]);
     }
-  };
+  } catch (err: any) {
+    console.error("Error starting edit conversation:", err, err?.response?.data);
+    setMessages([
+      {
+        type: "bot",
+        content: "Sorry, I couldn't start the edit conversation. Please try again.",
+        timestamp: new Date(),
+      },
+    ]);
+  } finally {
+    setIsTyping(false);
+  }
+};
 
   // ====================================================================
   // ✅ UPDATED: Finalize Edit Placeholder (Save Only Conversation)
@@ -2461,6 +2516,31 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
       }));
 
       const data = response.data.response;
+if (data?.usage || response.data?.usage) {
+  const u = data?.usage ?? response.data.usage;
+
+  const inTokens =
+    u.promptTokens ?? u.prompt_tokens ?? u.inputTokens ?? 0;
+  const outTokens =
+    u.completionTokens ?? u.completion_tokens ?? u.outputTokens ?? 0;
+  const cost = u.cost ?? u.totalCost ?? 0;
+
+  setUsageInfo({
+    promptTokens: inTokens,
+    completionTokens: outTokens,
+    cost,
+  });
+
+  setTotalUsage(prev => ({
+    totalInput: prev.totalInput + inTokens,
+    totalOutput: prev.totalOutput + outTokens,
+    totalCalls: prev.totalCalls + 1,
+    totalCost: prev.totalCost + cost,
+  }));
+}
+
+
+
       if (data) {
         // if it's already marked complete, only push completion message
         if (data.isComplete) {
@@ -2544,14 +2624,37 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
           model: selectedModel,
         };
 
-      const response = await axios.post(endpoint, requestBody);
+    const response = await axios.post(endpoint, requestBody);
+    
+    // Dispatch credit update event after successful API call
+    window.dispatchEvent(new CustomEvent('creditUpdated', {
+      detail: { clientId: effectiveUserId }
+    }));
+    
+    const data = response.data.response;
+if (data?.usage || response.data?.usage) {
+  const u = data?.usage ?? response.data.usage;
 
-      // Dispatch credit update event after successful API call
-      window.dispatchEvent(new CustomEvent('creditUpdated', {
-        detail: { clientId: effectiveUserId }
-      }));
+  const inTokens =
+    u.promptTokens ?? u.prompt_tokens ?? u.inputTokens ?? 0;
+  const outTokens =
+    u.completionTokens ?? u.completion_tokens ?? u.outputTokens ?? 0;
+  const cost = u.cost ?? u.totalCost ?? 0;
 
-      const data = response.data.response;
+  setUsageInfo({
+    promptTokens: inTokens,
+    completionTokens: outTokens,
+    cost,
+  });
+
+  setTotalUsage(prev => ({
+    totalInput: prev.totalInput + inTokens,
+    totalOutput: prev.totalOutput + outTokens,
+    totalCalls: prev.totalCalls + 1,
+    totalCost: prev.totalCost + cost,
+  }));
+}
+
 
       const cleanAssistantMessage = (text: string): string => {
         if (!text) return '';
@@ -2946,10 +3049,50 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
       {/* ================= TOP TABS ================= */}
 
 
-      <div className="sticky-tabs">
-        <ul className="flex items-center gap-6">
-          {/* LEFT TABS */}
-          {userRole === "ADMIN" && (
+                    <div className="sticky-tabs">
+  <ul className="flex items-center gap-6">
+    {/* LEFT TABS */}
+
+                      {/* ================= ADMIN USAGE PANEL ================= */}
+{userRole === "ADMIN" && usageInfo && (
+  <div style={{
+    marginTop: "4px",
+    padding: "6px 10px",
+    background: "#f1f5f9",
+    border: "1px solid #e2e8f0",
+    borderRadius: "6px",
+    fontSize: "11px",
+    lineHeight: "1.3",
+    display: "inline-block",
+  }}>
+    
+    {/* Last Call */}
+    <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+      <strong>Last:</strong>
+      <span>In {usageInfo.promptTokens ?? 0}</span>
+      <span>Out {usageInfo.completionTokens ?? 0}</span>
+      <span>💲{(usageInfo.cost ?? 0).toFixed(6)}</span>
+    </div>
+
+    {/* Total */}
+    {totalUsage.totalCost > 0 && (
+      <div style={{
+        marginTop: "2px",
+        display: "flex",
+        gap: "10px",
+        flexWrap: "wrap",
+      }}>
+        <strong>Total:</strong>
+        <span>In {totalUsage.totalInput}</span>
+        <span>Out {totalUsage.totalOutput}</span>
+        <span>💲{totalUsage.totalCost.toFixed(6)}</span>
+      </div>
+    )}
+
+  </div>
+)}
+
+        {userRole === "ADMIN" && (
 
             <div className="flex items-center gap-2">
               {["build", "instructions"].map((t) => (
@@ -2984,29 +3127,35 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
               🔔
             </span>
 
-            <img
-              src={soundEnabled ? toggleOn : toggleOff}
-              alt="Notifications Toggle"
-              style={{
-                height: "24px",
-                width: "42px",
-                objectFit: "contain",
-              }}
-              onClick={toggleNotifications}
-            />
-          </li>
-        </ul>
-      </div>
+      <img
+        src={soundEnabled  ? toggleOn : toggleOff}
+        alt="Notifications Toggle"
+        style={{
+          height: "24px",
+          width: "42px",
+          objectFit: "contain",
+        }}
+        onClick={toggleNotifications}
+      />
+    </li>
+  </ul>
+                  
 
-      {/* ================= LOADING OVERLAYS ================= */}
-      {isLoadingTemplate && (
-        <div className="loading-overlay">
-          <div className="loading-content">
-            <Loader2 size={48} className="spinning" />
-            <p>Loading template for editing...</p>
-          </div>
+
+                  </div>
+
+
+
+    
+    {/* ================= LOADING OVERLAYS ================= */}
+    {isLoadingTemplate && (
+      <div className="loading-overlay">
+        <div className="loading-content">
+          <Loader2 size={48} className="spinning" />
+          <p>Loading template for editing...</p>
         </div>
-      )}
+      </div>
+    )}
 
       {isLoadingDefinitions && (
         <div className="loading-overlay">
@@ -3455,30 +3604,32 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({ sele
                           className="text-input"
                         />
 
-                        {/* Category */}
-                        <select
-                          value={p.category}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            setUiPlaceholders(prev =>
-                              prev.map(x =>
-                                x.placeholderKey === p.placeholderKey
-                                  ? { ...x, category: v }
-                                  : x
-                              )
-                            );
-                          }}
-                          className="definition-select"
-                        >
-                          <option>Your company</option>
-                          <option>Core message focus</option>
-                          <option>Dos and Don'ts</option>
-                          <option>Message writing style</option>
-                          <option>Call-to-action</option>
-                          <option>Greetings & farewells</option>
-                          <option>Subject line</option>
-                          <option>Images</option>
-                        </select>
+              {/* Category */}
+              <select
+                value={p.category}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setUiPlaceholders((prev) =>
+                    prev.map((x) =>
+                      x.placeholderKey === p.placeholderKey
+                        ? { ...x, category: v }
+                        : x
+                    )
+                  );
+                }}
+                className="definition-select"
+              >
+                <option>Your company</option>
+                <option>Core message focus</option>
+                <option>Dos and Don'ts</option>
+                <option>Message writing style</option>
+                <option>Call-to-action</option>
+                <option>Greetings & farewells</option>
+                <option>Subject line</option>
+                <option>Extra visuals</option>
+                <option>Extra assets</option>
+
+              </select>
 
                         {/* Input Type + Options */}
                         <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>

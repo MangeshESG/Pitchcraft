@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 
+import API_BASE_URL from "../../config";
+
+
 interface DomainAuthModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -242,7 +245,7 @@ const DomainAuthModal: React.FC<DomainAuthModalProps> = ({
                 }
                 
                 const response = await fetch(
-                  `https://localhost:7216/api/domain-verification/verify-email-signature?${params.toString()}`,
+                  `${API_BASE_URL}/api/domain-verification/verify-email-signature?${params.toString()}`,
                   {
                     method: 'GET',
                     headers: {

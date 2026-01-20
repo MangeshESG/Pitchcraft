@@ -2711,3 +2711,26 @@
   overflow-wrap: break-word;
   max-width: 100%;
 }
+
+.expand-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.expand-content {
+  background: white;
+  padding: 20px;
+  width: 80%;
+  height: 80%;
+  overflow: auto;
+  border-radius: 8px;
+}
+
