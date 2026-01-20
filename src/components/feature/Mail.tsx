@@ -1479,11 +1479,53 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [selectedOtpDomain, setSelectedOtpDomain] = useState<any>(null);
   const [showDomainAuthModal, setShowDomainAuthModal] = useState(false);
+  const [showDeleteDomainModal, setShowDeleteDomainModal] = useState(false);
+  const [selectedDeleteDomain, setSelectedDeleteDomain] = useState<any>(null);
+  const [deletingDomain, setDeletingDomain] = useState(false);
 
   // Handle domain validation click
   const handleDomainValidateClick = (domain: any) => {
     setSelectedDomain(domain);
     setShowDomainAuthModal(true);
+  };
+
+  // Handle domain delete click
+  const handleDomainDeleteClick = (domain: any) => {
+    setSelectedDeleteDomain(domain);
+    setShowDeleteDomainModal(true);
+  };
+
+  // Handle domain delete confirmation
+  const handleDeleteDomain = async () => {
+    if (!selectedDeleteDomain) return;
+    
+    setDeletingDomain(true);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/domain-verification/delete-domain?domainId=${selectedDeleteDomain.domainid}&clientId=${effectiveUserId}`,
+        {
+          method: 'POST',
+          headers: {
+            'accept': '*/*'
+          },
+          body: ''
+        }
+      );
+      
+      if (response.ok) {
+        appModal.showSuccess('Domain deleted successfully!');
+        fetchDomainData();
+      } else {
+        appModal.showError('Failed to delete domain. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error deleting domain:', error);
+      appModal.showError('Error deleting domain. Please check your connection.');
+    } finally {
+      setDeletingDomain(false);
+      setShowDeleteDomainModal(false);
+      setSelectedDeleteDomain(null);
+    }
   };
 
   // Fetch domain verification data
@@ -2164,9 +2206,9 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                   <thead>
                     <tr>
                       <th>Domain</th>
-                      <th>Email status</th>
                       <th>Domain owner authentication</th>
                       <th>Domain status</th>
+                      <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2180,19 +2222,6 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                       domainData.map((domain, index) => (
                         <tr key={domain.emailDomainId || index}>
                           <td>{domain.domain || "-"}</td>
-                          <td>
-                            {domain.emailDomainverified ? (
-                              <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                                <span style={{ color: "#28a745", fontSize: "14px" }}>✓</span>
-                                <span style={{ color: "#28a745", fontSize: "14px" }}>Verified</span>
-                              </div>
-                            ) : (
-                              <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                                <span style={{ color: "#dc3545", fontSize: "14px" }}>✗</span>
-                                <span style={{ color: "#dc3545", fontSize: "14px" }}>Not Verified</span>
-                              </div>
-                            )}
-                          </td>
                           <td>
                             {domain.domainverified ? (
                               <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
@@ -2224,6 +2253,22 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                               domain={domain} 
                               onValidateClick={handleDomainValidateClick} 
                             />
+                          </td>
+                          <td>
+                            <button
+                              onClick={() => handleDomainDeleteClick(domain)}
+                              style={{
+                                padding: "6px 12px",
+                                fontSize: "14px",
+                                background: "#dc3545",
+                                color: "#fff",
+                                border: "none",
+                                borderRadius: "4px",
+                                cursor: "pointer",
+                              }}
+                            >
+                              Delete
+                            </button>
                           </td>
                         </tr>
                       ))
@@ -2879,6 +2924,63 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
           }
         }}
       />
+
+      {/* Delete Domain Modal */}
+      {showDeleteDomainModal && (
+        <div
+          style={{
+            position: "fixed",
+            zIndex: 99999,
+            inset: 0,
+            background: "rgba(0,0,0,0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              padding: "24px",
+              borderRadius: "8px",
+              width: "400px",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ marginBottom: 16, color: "#333" }}>Delete Domain</h3>
+            <p style={{ marginBottom: 16, color: "#666" }}>
+              Are you sure you want to delete this domain? If you delete this domain, all related mailboxes will also be deleted.
+            </p>
+            <p style={{ marginBottom: 16, color: "#dc3545", fontWeight: "bold" }}>
+              Domain: {selectedDeleteDomain?.domain}
+            </p>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button
+                className="button secondary small"
+                onClick={() => {
+                  setShowDeleteDomainModal(false);
+                  setSelectedDeleteDomain(null);
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                className="button small"
+                style={{
+                  background: "#dc3545",
+                  color: "#fff",
+                  border: "none",
+                }}
+                onClick={handleDeleteDomain}
+                disabled={deletingDomain}
+              >
+                {deletingDomain ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
