@@ -56,6 +56,8 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showEmailBodyPopup, setShowEmailBodyPopup] = useState(false);
+  const [showNotesPopup, setShowNotesPopup] = useState(false);
+
 
   useEffect(() => {
     if (contact) {
@@ -91,9 +93,14 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
     temp.innerHTML = html;
     return temp.textContent || temp.innerText || "";
   };
-  const inputStyle =
-    "w-full h-10 px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-bg-[#3f9f42]-200 focus:ring-bg-[#3f9f42]-200 focus:border-green-00 transition-colors placeholder-gray-400"
+  // const inputStyle =
+  //   "w-full h-10 px-3.5 py-2.5 text-sm bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-bg-[#3f9f42]-200 focus:ring-bg-[#3f9f42]-200 focus:border-green-00 transition-colors placeholder-gray-400"
   const labelStyle = "block text-sm font-semibold text-gray-700 mb-2.5"
+  const wideInputStyle =
+    "w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#3f9f42]";
+  const inputStyle =
+    "w-full max-w-lg px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#3f9f42]";
+
   const sectionTitleStyle =
     "text-xs font-bold text-gray-600 uppercase tracking-widest mb-5 mt-7 first:mt-0 pb-3 border-b border-gray-200"
   const dividerStyle = "h-px bg-gray-200 my-7"
@@ -147,6 +154,32 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   const handleClose = () => {
     onClose();
   };
+  {
+    showNotesPopup && (
+      <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
+        <div className="bg-white w-full max-w-3xl rounded-lg shadow-lg p-4">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-lg font-semibold">Notes</h3>
+            <button
+              onClick={() => setShowNotesPopup(false)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              ✕
+            </button>
+          </div>
+
+          <textarea
+            name="notes"
+            value={formData.notes || ""}
+            onChange={handleInputChange}
+            rows={15}
+            className="w-full border border-gray-300 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-[#3f9f42]"
+          />
+        </div>
+      </div>
+    )
+  }
+
 
   if (!isOpen || !contact) return null;
   const content = (
@@ -327,7 +360,32 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
           </div>
 
           <div className={dividerStyle} />
+          {/* NOTES */}
+          <div>
+            <h2 className={sectionTitleStyle}>Additional Information</h2>
+            <label className={labelStyle}>Notes</label>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowNotesPopup(true)}
+                title="Expand notes"
+                className="absolute top-3.5 right-3.5 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors z-10 p-1.5 text-gray-600"
+              >
+                ⤢
+              </button>
 
+              <textarea
+                name="notes"
+                value={formData.notes || ""}
+                onChange={handleInputChange}
+                rows={6}
+                placeholder="Add internal notes about this contact"
+                className={`${wideInputStyle} resize-none py-2.5`}
+              />
+            </div>
+          </div>
+
+          <div className={dividerStyle} />
           {/* EMAIL CONTENT */}
           <div>
             <h2 className={sectionTitleStyle}>Email Content</h2>
@@ -340,7 +398,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                   value={formData.emailSubject || ""}
                   onChange={handleInputChange}
                   placeholder="Enter email subject"
-                  className={inputStyle}
+                  className={wideInputStyle}
                 />
               </div>
 
@@ -361,7 +419,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                     onChange={handleInputChange}
                     rows={8}
                     placeholder="Enter email body"
-                    className={`${inputStyle} resize-none h-auto py-2.5`}
+                    className={`${wideInputStyle} resize-none h-auto py-2.5`}
                   />
                 </div>
               </div>
@@ -369,21 +427,6 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
           </div>
 
           <div className={dividerStyle} />
-
-          {/* NOTES */}
-          <div>
-            <h2 className={sectionTitleStyle}>Additional Information</h2>
-            <label className={labelStyle}>Notes</label>
-            <textarea
-              name="notes"
-              value={formData.notes || ""}
-              onChange={handleInputChange}
-              rows={8}
-              placeholder="Add any additional notes about this contact"
-              className={`${inputStyle} resize-none h-auto py-2.5`}
-            />
-          </div>
-
           {/* Buttons for form submission */}
           <div className="flex justify-end gap-4 pt-4 mt-8 border-t border-gray-200">
             <button

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Tooltip as ReactTooltip } from "react-tooltip";
+import { Tooltip as ReactTooltip, Tooltip } from "react-tooltip";
 import ReactQuill from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
 import API_BASE_URL from "../../../config";
@@ -131,6 +131,8 @@ const Template: React.FC<TemplateProps> = ({
   const [templateDefinitions, setTemplateDefinitions] = useState<TemplateDefinition[]>([]);
   const [selectedTemplateDefinitionId, setSelectedTemplateDefinitionId] = useState<number | null>(null);
   const [isCreatingCampaign, setIsCreatingCampaign] = useState(false);
+  const [hoveredTemplateId, setHoveredTemplateId] = useState<number | null>(null);
+  const [exampleCache, setExampleCache] = useState<Record<number, string | undefined>>({});
 
 
   const DEFAULT_USER_TEMPLATE_ID = 62;
@@ -227,42 +229,42 @@ const Template: React.FC<TemplateProps> = ({
   };
 
   // ✅ NEW: Handle template name submission
- // ✅ UPDATED: Handle template name submission
-const handleTemplateNameSubmit = async () => {
-  if (!templateNameInput.trim()) {
-    appModal.showError("Please enter a campaign name");
-    return;
-  }
-
-  // ✅ ROLE-BASED TEMPLATE RESOLUTION (TS SAFE)
-  let finalTemplateDefinitionId: number;
-
-  if (isAdmin) {
-    if (selectedTemplateDefinitionId == null) {
-      appModal.showError("Please select a template definition first");
+  // ✅ UPDATED: Handle template name submission
+  const handleTemplateNameSubmit = async () => {
+    if (!templateNameInput.trim()) {
+      appModal.showError("Please enter a campaign name");
       return;
     }
-    finalTemplateDefinitionId = selectedTemplateDefinitionId;
-  } else {
-    // 🔒 USER → force PKB-Final
-    finalTemplateDefinitionId = DEFAULT_USER_TEMPLATE_ID;
-  }
+
+    // ✅ ROLE-BASED TEMPLATE RESOLUTION (TS SAFE)
+    let finalTemplateDefinitionId: number;
+
+    if (isAdmin) {
+      if (selectedTemplateDefinitionId == null) {
+        appModal.showError("Please select a template definition first");
+        return;
+      }
+      finalTemplateDefinitionId = selectedTemplateDefinitionId;
+    } else {
+      // 🔒 USER → force PKB-Final
+      finalTemplateDefinitionId = DEFAULT_USER_TEMPLATE_ID;
+    }
 
     setIsCreatingCampaign(true);
 
-  try {
-    const response = await fetch(
-      `${API_BASE_URL}/api/CampaignPrompt/campaign/start`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clientId: effectiveUserId,
-          templateDefinitionId: finalTemplateDefinitionId,
-          templateName: templateNameInput,
-        }),
-      }
-    );
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/CampaignPrompt/campaign/start`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientId: effectiveUserId,
+            templateDefinitionId: finalTemplateDefinitionId,
+            templateName: templateNameInput,
+          }),
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Failed to create campaign");
@@ -270,30 +272,30 @@ const handleTemplateNameSubmit = async () => {
 
       const data = await response.json();
 
-    if (data.success || data.Success) {
-      // ✅ Store campaign info
-      sessionStorage.setItem("newCampaignId", data.campaignId.toString());
-      sessionStorage.setItem("newCampaignName", data.templateName);
-      sessionStorage.setItem(
-        "selectedTemplateDefinitionId",
-        finalTemplateDefinitionId.toString()
-      );
-      sessionStorage.setItem("autoStartConversation", "true");
-      sessionStorage.setItem("openConversationTab", "true");
+      if (data.success || data.Success) {
+        // ✅ Store campaign info
+        sessionStorage.setItem("newCampaignId", data.campaignId.toString());
+        sessionStorage.setItem("newCampaignName", data.templateName);
+        sessionStorage.setItem(
+          "selectedTemplateDefinitionId",
+          finalTemplateDefinitionId.toString()
+        );
+        sessionStorage.setItem("autoStartConversation", "true");
+        sessionStorage.setItem("openConversationTab", "true");
 
-      // ✅ Close modal and open builder
-      setShowTemplateNameModal(false);
-      setShowCampaignBuilder(true);
-    } else {
-      throw new Error(data.message || data.Message || "Failed to create campaign");
+        // ✅ Close modal and open builder
+        setShowTemplateNameModal(false);
+        setShowCampaignBuilder(true);
+      } else {
+        throw new Error(data.message || data.Message || "Failed to create campaign");
+      }
+    } catch (error) {
+      console.error("Error creating campaign:", error);
+      appModal.showError("Failed to create campaign");
+    } finally {
+      setIsCreatingCampaign(false);
     }
-  } catch (error) {
-    console.error("Error creating campaign:", error);
-    appModal.showError("Failed to create campaign");
-  } finally {
-    setIsCreatingCampaign(false);
-  }
-};
+  };
 
 
   // Update template
@@ -470,6 +472,39 @@ const handleTemplateNameSubmit = async () => {
 
     return template.campaignBlueprint || "";
   };
+  const preloadExampleEmail = async (template: CampaignTemplate) => {
+    if (template.id in exampleCache) return; // 👈 IMPORTANT
+
+    // Mark as loading
+    setExampleCache((prev) => ({
+      ...prev,
+      [template.id]: undefined,
+    }));
+
+    try {
+      const fullTemplate = await fetchCampaignTemplateDetails(template.id);
+
+      const example =
+        extractExampleFromPlaceholderList(
+          fullTemplate?.placeholderListWithValue
+        ) ||
+        fullTemplate?.placeholderValues?.example_output_email ||
+        "";
+
+      setExampleCache((prev) => ({
+        ...prev,
+        [template.id]: example, // empty string means "no example"
+      }));
+    } catch (e) {
+      setExampleCache((prev) => ({
+        ...prev,
+        [template.id]: "",
+      }));
+    }
+  };
+
+
+
 
   const fetchCampaignTemplateDetails = async (templateId: number) => {
     try {
@@ -498,30 +533,47 @@ const handleTemplateNameSubmit = async () => {
 
     return match ? match[1].trim() : "";
   };
+  const extractExampleFromPlaceholderList = (
+    placeholderListWithValue?: any
+  ): string => {
+    if (!placeholderListWithValue) return "";
+
+    // CASE 1: API returns ARRAY
+    if (Array.isArray(placeholderListWithValue)) {
+      const exampleItem = placeholderListWithValue.find(
+        (item) =>
+          item.key === "example_output_email" ||
+          item.name === "example_output_email"
+      );
+
+      return exampleItem?.value?.trim() || "";
+    }
+
+    // CASE 2: API returns STRING
+    if (typeof placeholderListWithValue === "string") {
+      const match = placeholderListWithValue.match(
+        /\{example_output_email\}\s*=\s*([\s\S]*)/i
+      );
+      return match?.[1]?.trim() || "";
+    }
+
+    return "";
+  };
+
   const handleViewCampaignTemplate = async (template: CampaignTemplate) => {
     setIsLoading(true);
     try {
       const fullTemplate = await fetchCampaignTemplateDetails(template.id);
       if (fullTemplate) {
         setSelectedCampaignTemplate(fullTemplate);
-        // const exampleEmailHtml = extractExampleOutputEmail(
-        //   fullTemplate.placeholderListWithValue
-        // )
-       // setExampleEmail(exampleEmailHtml);
-        // setExampleEmail(generateExampleEmail(fullTemplate));
-        //setEditableCampaignTemplate(fullTemplate.campaignBlueprint || "");
-        //setCurrentPlaceholderValues(fullTemplate.placeholderValues || {});
-        //setViewCampaignTab("example");
-        //setShowViewCampaignModal(true);
-         // ✅ ONLY show example_output_email
-      setExampleEmail(
-        fullTemplate.placeholderValues?.example_output_email || ""
-      );
+        setExampleEmail(
+          fullTemplate.placeholderValues?.example_output_email || ""
+        );
 
-      setEditableCampaignTemplate(fullTemplate.campaignBlueprint || "");
-      setCurrentPlaceholderValues(fullTemplate.placeholderValues || {});
-      setViewCampaignTab("example");
-      setShowViewCampaignModal(true);
+        setEditableCampaignTemplate(fullTemplate.campaignBlueprint || "");
+        setCurrentPlaceholderValues(fullTemplate.placeholderValues || {});
+        setViewCampaignTab("example");
+        setShowViewCampaignModal(true);
       }
     } catch (error) {
       appModal.showError("Failed to load template details");
@@ -529,6 +581,19 @@ const handleTemplateNameSubmit = async () => {
       setIsLoading(false);
     }
   };
+  const getTooltipText = (html?: string) => {
+    if (!html || html === "No example email available") {
+      return "No example email available";
+    }
+
+    const div = document.createElement("div");
+    div.innerHTML = html;
+
+    const text = div.textContent || div.innerText || "";
+    return text.trim() || "No example email available";
+  };
+
+
 
   const handleSaveCampaignTemplateChanges = async () => {
     if (!selectedCampaignTemplate) return;
@@ -624,14 +689,61 @@ const handleTemplateNameSubmit = async () => {
                 ) : (
                   paginatedTemplates.map((template) => (
                     <tr key={template.id}>
-                      <td>
+                      {/* <td>
                         <span
                           className="template-link"
                           onClick={() => handleViewCampaignTemplate(template)}
                         >
                           {template.templateName}
                         </span>
+                      </td> */}
+                      <td>
+                        <span
+                          id={`blueprint-${template.id}`}   // ✅ ADD THIS
+                          className="template-link"
+                          onMouseEnter={() => {
+                            setHoveredTemplateId(template.id);
+                            preloadExampleEmail(template);
+                          }}
+                          onClick={async () => {
+                            sessionStorage.setItem("editTemplateId", template.id.toString());
+                            sessionStorage.setItem("editTemplateMode", "true");
+                            sessionStorage.setItem("newCampaignId", template.id.toString());
+                            sessionStorage.setItem("newCampaignName", template.templateName);
+
+                            const example =
+                              getTooltipText(exampleCache[template.id] || generateExampleEmail(template));
+
+                            sessionStorage.setItem("initialExampleEmail", example);
+                            setShowCampaignBuilder(true);
+                          }}
+                        >
+                          {template.templateName}
+                        </span>
+
+
+                        {/* Tooltip */}
+                        <Tooltip
+                          anchorId={`blueprint-${template.id}`}
+                          place="right"
+                          offset={20}
+                          positionStrategy="fixed"   // ✅ ESCAPES TABLE CLIPPING
+                          className="example-tooltip"
+                        >
+                          {exampleCache[template.id] === undefined ? (
+                            <div>Loading example email...</div>
+                          ) : (
+                            <div
+                              className="tooltip-email-content"
+                              dangerouslySetInnerHTML={{
+                                __html: exampleCache[template.id] || "<p>No example email available</p>",
+                              }}
+                            />
+                          )}
+                        </Tooltip>
+
                       </td>
+
                       <td>#{template.id}</td>
                       <td>{formatDate(template.createdAt)}</td>
                       <td style={{ position: "relative" }}>
@@ -815,52 +927,52 @@ const handleTemplateNameSubmit = async () => {
           {/* ✅ UPDATED: Template Name Modal */}
           {showTemplateNameModal && (
 
-  <div className="modal-backdrop">
-    <div
-      className="modal-content"
-      onClick={(e) => e.stopPropagation()}
-      style={{ maxWidth: "600px" }}
-    >
-      <div className="modal-header">
-        <h2>📝 Create new campaign blueprint</h2>
-        <button 
-          className="modal-close-btn"
-          onClick={() => setShowTemplateNameModal(false)}
-          style={{
-            background: "none",
-            border: "none",
-            fontSize: "24px",
-            cursor: "pointer",
-            color: "#6b7280"
-          }}
-        >
-          ✕
-        </button>
-      </div>
-      
-      <div className="modal-body" style={{ padding: "24px" }}>
-        {/* ✅ Template Definition Selector */}
-        {isAdmin && (
-          <div className="form-group" style={{ marginBottom: "20px" }}>
-            <label>
-              Select base template <span style={{ color: "red" }}>*</span>
-            </label>
+            <div className="modal-backdrop">
+              <div
+                className="modal-content"
+                onClick={(e) => e.stopPropagation()}
+                style={{ maxWidth: "600px" }}
+              >
+                <div className="modal-header">
+                  <h2>📝 Create new campaign blueprint</h2>
+                  <button
+                    className="modal-close-btn"
+                    onClick={() => setShowTemplateNameModal(false)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      fontSize: "24px",
+                      cursor: "pointer",
+                      color: "#6b7280"
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
 
-            <select
-              value={selectedTemplateDefinitionId || ""}
-              onChange={(e) =>
-                setSelectedTemplateDefinitionId(parseInt(e.target.value))
-              }
-            >
-              <option value="">-- Select a template definition --</option>
-              {templateDefinitions.map((def) => (
-                <option key={def.id} value={def.id}>
-                  {def.templateName}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+                <div className="modal-body" style={{ padding: "24px" }}>
+                  {/* ✅ Template Definition Selector */}
+                  {isAdmin && (
+                    <div className="form-group" style={{ marginBottom: "20px" }}>
+                      <label>
+                        Select base template <span style={{ color: "red" }}>*</span>
+                      </label>
+
+                      <select
+                        value={selectedTemplateDefinitionId || ""}
+                        onChange={(e) =>
+                          setSelectedTemplateDefinitionId(parseInt(e.target.value))
+                        }
+                      >
+                        <option value="">-- Select a template definition --</option>
+                        {templateDefinitions.map((def) => (
+                          <option key={def.id} value={def.id}>
+                            {def.templateName}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
 
                   {/* Template Name Input */}

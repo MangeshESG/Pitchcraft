@@ -2620,140 +2620,160 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                       )}
 
                       {/* 🔹 EMAIL TIMELINE */}
-                      {emailTimeline.map((email: any, index: number) => (
-                        <div key={email.trackingId || index}>
-                          <div
-                            key={index}
-                            style={{
-                              display: "flex",
-                              gap: 16,
-                              paddingBottom: 24,
-                            }}
-                          >
-                            {/* Timeline dot */}
-                            <div style={{ position: "relative" }}>
-                              <div
-                                style={{
-                                  width: 10,
-                                  height: 10,
-                                  background: "#3f9f42",
-                                  borderRadius: "50%",
-                                  marginTop: 6,
-                                }}
-                              />
-                              <div
-                                style={{
-                                  position: "absolute",
-                                  top: 16,
-                                  left: 4,
-                                  width: 2,
-                                  height: "100%",
-                                  background: "#e5e7eb",
-                                }}
-                              />
-                            </div>
-
-                            {/* Content */}
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontWeight: 600 }}>Email sent</div>
-
-                              <div
-                                style={{
-                                  fontSize: 13,
-                                  color: "#666",
-                                  marginBottom: 8,
-                                }}
-                              >
-                                {formatDateTime(email.sentAt)} • {email.senderEmailId}
-                              </div>
-
-                              <div
-                                style={{
-                                  background: "#f9fafb",
-                                  padding: 12,
-                                  borderRadius: 8,
-                                }}
-                              >
-                                {/* Subject */}
-                                {/* Subject */}
-                                <div style={{ marginBottom: 8 }}>
-                                  <div
-                                    style={{
-                                      fontSize: 13,
-                                      color: "#000", // gray
-                                      fontWeight: 600,
-                                      marginBottom: 2,
-                                    }}
-                                  >
-                                    Subject
-                                  </div>
-                                  <div style={{ color: "#666", fontSize: 13 }}>
-                                    {email.subject || "No subject"}
-                                  </div>
-                                </div>
-                                {/* Source */}
-                                <div>
-                                  <div style={{ fontWeight: 600, marginBottom: 2, fontSize: 13 }}>Source</div>
-                                  <div style={{ color: "#666", fontSize: 13, marginBottom: 5 }}>{email.source || "Unknown source"}</div>
-                                </div>
-
-                                {/* Events */}
-                                {email.events?.map((ev: any, i: number) => (
-                                  <div key={i} style={{ fontSize: 13, marginBottom: 4 }}>
-                                    • <b>{ev.eventType}</b> at {formatTime(ev.eventAt)}
-                                    {ev.targetUrl && (
-                                      <>
-                                        {" "}—{" "}
-                                        <a
-                                          href={ev.targetUrl}
-                                          target="_blank"
-                                          rel="noreferrer"
-                                          style={{ color: "#3f9f42" }}
-                                        >
-                                          {ev.targetUrl}
-                                        </a>
-                                      </>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                          <div
-                            className={`email-preview-toggle ${expandedEmailId === email.trackingId ? "submenu-open" : ""
-                              }`}
-                            onClick={() => toggleEmailBody(email.trackingId)}
-                          >
-                            <span>
-                              {expandedEmailId === email.trackingId
-                                ? "Hide email preview"
-                                : "Show email preview"}
-                            </span>
-
-                            <span className="submenu-arrow">
-                              <FontAwesomeIcon icon={faAngleRight} />
-                            </span>
-                          </div>
-
-                          {expandedEmailId === email.trackingId && (
+                      {[...emailTimeline]
+                        .sort(
+                          (a, b) =>
+                            new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime()
+                        ).map((email: any, index: number) => (
+                          <div key={email.trackingId || index}>
                             <div
                               style={{
-                                background: "#f3f4f6",
-                                padding: 12,
-                                borderRadius: 6,
-                                marginBottom: 8,
-                                fontSize: 14,
-                                whiteSpace: "pre-wrap",
+                                display: "flex",
+                                gap: 16,
+                                paddingBottom: 24,
                               }}
                             >
-                              {/* Email Body */}
-                              <div style={{ color: "#333", whiteSpace: "pre-wrap" }}>
-                                {stripHtml(email.body) || "No email body available"}
+                              {/* Timeline dot */}
+                              <div style={{ position: "relative" }}>
+                                <div
+                                  style={{
+                                    width: 10,
+                                    height: 10,
+                                    background: "#3f9f42",
+                                    borderRadius: "50%",
+                                    marginTop: 6,
+                                  }}
+                                />
+                                <div
+                                  style={{
+                                    position: "absolute",
+                                    top: 16,
+                                    left: 4,
+                                    width: 2,
+                                    height: "100%",
+                                    background: "#e5e7eb",
+                                  }}
+                                />
+                              </div>
+
+                              {/* Content */}
+                              <div style={{ flex: 1 }}>
+                                {/* 2️⃣ SOURCE */}
+                                <div style={{ fontSize: 13, marginBottom: 6 }}>
+                                  <b>Source:</b>{" "}
+                                  <span style={{ color: "#666" }}>
+                                    {email.source || "Unknown source"}
+                                  </span>
+                                </div>
+
+                                {/* 3️⃣ EMAIL SENT */}
+                                <div style={{ fontWeight: 600 }}>Email sent</div>
+                                <div
+                                  style={{
+                                    fontSize: 13,
+                                    color: "#666",
+                                    marginBottom: 8,
+                                  }}
+                                >
+                                  {formatDateTime(email.sentAt)} from {email.senderEmailId}
+                                </div>
+                                {/* • */}
+                                <div
+                                  style={{
+                                    background: "#f9fafb",
+                                    padding: 12,
+                                    borderRadius: 8,
+                                  }}
+                                >
+                                  {/* 4️⃣ EVENTS */}
+                                  {email.events?.length > 0 && (
+                                    <div style={{ marginBottom: 10 }}>
+                                      <div
+                                        style={{
+                                          fontSize: 13,
+                                          fontWeight: 600,
+                                          marginBottom: 4,
+                                        }}
+                                      >
+                                        Events
+                                      </div>
+
+                                      {email.events.map((ev: any, i: number) => (
+                                        <div key={i} style={{ fontSize: 13, marginBottom: 4 }}>
+                                          • <b>{ev.eventType}ed</b> at {formatTime(ev.eventAt)} 
+                                          {ev.targetUrl && (
+                                            <>
+                                                 {" "}—{" "} <strong>target Url: </strong>
+                                              <a
+                                                href={ev.targetUrl}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                style={{ color: "#3f9f42" }}
+                                              >
+                                                {ev.targetUrl}
+                                              </a>
+                                            </>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  {/* 5️⃣ SUBJECT */}
+                                  <div>
+                                    <div
+                                      style={{
+                                        fontSize: 13,
+                                        fontWeight: 600,
+                                        marginBottom: 2,
+                                      }}
+                                    >
+                                      Subject
+                                    </div>
+                                    <div style={{ color: "#666", fontSize: 13 }}>
+                                      {email.subject || "No subject"}
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
                             </div>
-                          )}
-                        </div>
-                      ))}
+
+                            {/* 6️⃣ EMAIL BODY */}
+                            <div
+                              className={`email-preview-toggle ${expandedEmailId === email.trackingId ? "submenu-open" : ""
+                                }`}
+                              onClick={() => toggleEmailBody(email.trackingId)}
+                            >
+                              <span>
+                                {expandedEmailId === email.trackingId
+                                  ? "Hide email preview"
+                                  : "Show email preview"}
+                              </span>
+
+                              <span className="submenu-arrow">
+                                <FontAwesomeIcon icon={faAngleRight} />
+                              </span>
+                            </div>
+
+                            {expandedEmailId === email.trackingId && (
+                              <div
+                                style={{
+                                  background: "#f3f4f6",
+                                  padding: 12,
+                                  borderRadius: 6,
+                                  marginBottom: 8,
+                                  fontSize: 14,
+                                  whiteSpace: "pre-wrap",
+                                }}
+                              >
+                                <div style={{ color: "#333" }}>
+                                  {stripHtml(email.body) || "No email body available"}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+
                     </>
                   )}
                 </div>
@@ -3509,140 +3529,160 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                           </div>
                         </div>
                       )}
-                      {/* 🔹 EMAIL TIMELINE */}
-                      {emailTimeline.map((email: any, index: number) => (
-                        <div key={email.trackingId || index}>
-                          <div
-                            key={index}
-                            style={{
-                              display: "flex",
-                              gap: 16,
-                              paddingBottom: 24,
-                            }}
-                          >
-                            {/* Timeline dot */}
-                            <div style={{ position: "relative" }}>
-                              <div
-                                style={{
-                                  width: 10,
-                                  height: 10,
-                                  background: "#3f9f42",
-                                  borderRadius: "50%",
-                                  marginTop: 6,
-                                }}
-                              />
-                              <div
-                                style={{
-                                  position: "absolute",
-                                  top: 16,
-                                  left: 4,
-                                  width: 2,
-                                  height: "100%",
-                                  background: "#e5e7eb",
-                                }}
-                              />
-                            </div>
-
-                            {/* Content */}
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontWeight: 600 }}>Email sent</div>
-
-                              <div
-                                style={{
-                                  fontSize: 13,
-                                  color: "#666",
-                                  marginBottom: 8,
-                                }}
-                              >
-                                {formatDateTime(email.sentAt)} • {email.senderEmailId}
-                              </div>
-
-                              <div
-                                style={{
-                                  background: "#f9fafb",
-                                  padding: 12,
-                                  borderRadius: 8,
-                                }}
-                              >
-                                {/* Subject */}
-                                <div style={{ marginBottom: 8 }}>
-                                  <div
-                                    style={{
-                                      fontSize: 13,
-                                      color: "#000", // gray
-                                      fontWeight: 600,
-                                      marginBottom: 2,
-                                    }}
-                                  >
-                                    Subject
-                                  </div>
-                                  <div style={{ color: "#666", fontSize: 13 }}>
-                                    {email.subject || "No subject"}
-                                  </div>
-                                </div>
-                                {/* Source */}
-                                <div>
-                                  <div style={{ fontWeight: 600, marginBottom: 2, fontSize: 13 }}>Source</div>
-                                  <div style={{ color: "#666", fontSize: 13, marginBottom: 5 }}>{email.source || "Unknown source"}</div>
-                                </div>
-
-                                {/* Events */}
-                                {email.events?.map((ev: any, i: number) => (
-                                  <div key={i} style={{ fontSize: 13, marginBottom: 4 }}>
-                                    • <b>{ev.eventType}</b> at {formatTime(ev.eventAt)}
-                                    {ev.targetUrl && (
-                                      <>
-                                        {" "}—{" "}
-                                        <a
-                                          href={ev.targetUrl}
-                                          target="_blank"
-                                          rel="noreferrer"
-                                          style={{ color: "#3f9f42" }}
-                                        >
-                                          {ev.targetUrl}
-                                        </a>
-                                      </>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                          <div
-                            className={`email-preview-toggle ${expandedEmailId === email.trackingId ? "submenu-open" : ""
-                              }`}
-                            onClick={() => toggleEmailBody(email.trackingId)}
-                          >
-                            <span>
-                              {expandedEmailId === email.trackingId
-                                ? "Hide email preview"
-                                : "Show email preview"}
-                            </span>
-
-                            <span className="submenu-arrow">
-                              <FontAwesomeIcon icon={faAngleRight} />
-                            </span>
-                          </div>
-                          {expandedEmailId === email.trackingId && (
+                       {/* 🔹 EMAIL TIMELINE */}
+                      {[...emailTimeline]
+                        .sort(
+                          (a, b) =>
+                            new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime()
+                        ).map((email: any, index: number) => (
+                          <div key={email.trackingId || index}>
                             <div
                               style={{
-                                background: "#f3f4f6",
-                                padding: 12,
-                                borderRadius: 6,
-                                marginBottom: 8,
-                                fontSize: 14,
-                                whiteSpace: "pre-wrap",
+                                display: "flex",
+                                gap: 16,
+                                paddingBottom: 24,
                               }}
                             >
-                              {/* Email Body */}
-                              <div style={{ color: "#333", whiteSpace: "pre-wrap" }}>
-                                {stripHtml(email.body) || "No email body available"}
+                              {/* Timeline dot */}
+                              <div style={{ position: "relative" }}>
+                                <div
+                                  style={{
+                                    width: 10,
+                                    height: 10,
+                                    background: "#3f9f42",
+                                    borderRadius: "50%",
+                                    marginTop: 6,
+                                  }}
+                                />
+                                <div
+                                  style={{
+                                    position: "absolute",
+                                    top: 16,
+                                    left: 4,
+                                    width: 2,
+                                    height: "100%",
+                                    background: "#e5e7eb",
+                                  }}
+                                />
+                              </div>
+
+                              {/* Content */}
+                              <div style={{ flex: 1 }}>
+                                {/* 2️⃣ SOURCE */}
+                                <div style={{ fontSize: 13, marginBottom: 6 }}>
+                                  <b>Source:</b>{" "}
+                                  <span style={{ color: "#666" }}>
+                                    {email.source || "Unknown source"}
+                                  </span>
+                                </div>
+
+                                {/* 3️⃣ EMAIL SENT */}
+                                <div style={{ fontWeight: 600 }}>Email sent</div>
+                                <div
+                                  style={{
+                                    fontSize: 13,
+                                    color: "#666",
+                                    marginBottom: 8,
+                                  }}
+                                >
+                                  {formatDateTime(email.sentAt)} from {email.senderEmailId}
+                                </div>
+                                {/* • */}
+                                <div
+                                  style={{
+                                    background: "#f9fafb",
+                                    padding: 12,
+                                    borderRadius: 8,
+                                  }}
+                                >
+                                  {/* 4️⃣ EVENTS */}
+                                  {email.events?.length > 0 && (
+                                    <div style={{ marginBottom: 10 }}>
+                                      <div
+                                        style={{
+                                          fontSize: 13,
+                                          fontWeight: 600,
+                                          marginBottom: 4,
+                                        }}
+                                      >
+                                        Events
+                                      </div>
+
+                                      {email.events.map((ev: any, i: number) => (
+                                        <div key={i} style={{ fontSize: 13, marginBottom: 4 }}>
+                                          • <b>{ev.eventType}ed</b> at {formatTime(ev.eventAt)} 
+                                          {ev.targetUrl && (
+                                            <>
+                                                 {" "}—{" "} <strong>target Url: </strong>
+                                              <a
+                                                href={ev.targetUrl}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                style={{ color: "#3f9f42" }}
+                                              >
+                                                {ev.targetUrl}
+                                              </a>
+                                            </>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  {/* 5️⃣ SUBJECT */}
+                                  <div>
+                                    <div
+                                      style={{
+                                        fontSize: 13,
+                                        fontWeight: 600,
+                                        marginBottom: 2,
+                                      }}
+                                    >
+                                      Subject
+                                    </div>
+                                    <div style={{ color: "#666", fontSize: 13 }}>
+                                      {email.subject || "No subject"}
+                                    </div>
+                                  </div>
+                                </div>
                               </div>
                             </div>
-                          )}
 
-                        </div>
-                      ))}
+                            {/* 6️⃣ EMAIL BODY */}
+                            <div
+                              className={`email-preview-toggle ${expandedEmailId === email.trackingId ? "submenu-open" : ""
+                                }`}
+                              onClick={() => toggleEmailBody(email.trackingId)}
+                            >
+                              <span>
+                                {expandedEmailId === email.trackingId
+                                  ? "Hide email preview"
+                                  : "Show email preview"}
+                              </span>
+
+                              <span className="submenu-arrow">
+                                <FontAwesomeIcon icon={faAngleRight} />
+                              </span>
+                            </div>
+
+                            {expandedEmailId === email.trackingId && (
+                              <div
+                                style={{
+                                  background: "#f3f4f6",
+                                  padding: 12,
+                                  borderRadius: 6,
+                                  marginBottom: 8,
+                                  fontSize: 14,
+                                  whiteSpace: "pre-wrap",
+                                }}
+                              >
+                                <div style={{ color: "#333" }}>
+                                  {stripHtml(email.body) || "No email body available"}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
                     </>
                   )}
                 </div>
