@@ -22,7 +22,7 @@ export const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="mx-auto">
+    <div className="mx-auto" style={{marginLeft:"-30px",marginTop:"-30px"}}>
       {/* Toggle */}
       <div className="flex justify-start items-center mb-2">
         <div className="flex border border-gray-200 rounded-lg overflow-hidden">

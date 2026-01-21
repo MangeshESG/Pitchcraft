@@ -403,3 +403,16 @@ select:focus {
   height: auto;
   overflow: visible;
 } */
+.example-tooltip {
+  max-width: 600px;
+   width: 600px; 
+  background: #111827;
+  color: #ffffff;
+   /* background-color: #ffffff !important;
+  color: #333333 !important; */
+  padding: 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  z-index: 99999;
+  white-space: normal;
+}
