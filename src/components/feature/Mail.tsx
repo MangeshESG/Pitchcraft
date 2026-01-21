@@ -694,12 +694,14 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     let selectedName = "";
     let dataFileId: number | null = null;
     let segmentId: number | null = null;
+    let campaignId: number | null = null;
 
     if (type === "campaign") {
       const selectedCampaign = scheduleCampaigns.find(
         (campaign) => campaign.id.toString() === id
       );
       selectedName = selectedCampaign?.campaignName || "";
+      campaignId = selectedCampaign?.id || null;
       
       if (selectedCampaign?.dataSource === "DataFile") {
         dataFileId = parseInt(selectedCampaign.zohoViewId) || null;
@@ -719,6 +721,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       bccEmail: formData.bccEmail,
       dataFileId: dataFileId,
       segmentId: segmentId,
+      campaignId: campaignId,
       testIsSent: false,
       isFollowUp: isFollowUp,
     };
@@ -878,12 +881,14 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     let selectedName = "";
     let dataFileId: number | null = null;
     let segmentId: number | null = null;
+    let campaignId: number | null = null;
 
     if (type === "campaign") {
       const selectedCampaign = scheduleCampaigns.find(
         (campaign) => campaign.id.toString() === id
       );
       selectedName = selectedCampaign?.campaignName || "";
+      campaignId = selectedCampaign?.id || null;
       
       if (selectedCampaign?.dataSource === "DataFile") {
         dataFileId = parseInt(selectedCampaign.zohoViewId) || null;
@@ -903,6 +908,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       bccEmail: formData.bccEmail,
       dataFileId: dataFileId,
       segmentId: segmentId,
+      campaignId: campaignId,
       testIsSent: false,
       isFollowUp: isFollowUp,
     };
