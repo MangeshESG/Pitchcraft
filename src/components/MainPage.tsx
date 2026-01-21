@@ -341,8 +341,7 @@ useEffect(() => {
   const [promptList, setPromptList]: any = useState([]);
   const [pitchResponses, setPitchResponses] = useState([]);
   const [, forceUpdate] = useState(false); // Force re-render
-  const [subjectMode, setSubjectMode] = useState("AI generated");
-  const [subjectText, setSubjectText] = useState("");
+
   const [recentlyAddedOrUpdatedId, setRecentlyAddedOrUpdatedId] = useState<
     string | number | null
   >(null);
@@ -859,14 +858,7 @@ useEffect(() => {
           dateFarewell: data.dateFarewell,
         });
 
-        // Set subjectMode based on whether subjectTemplate exists
-        if (data.subjectTemplate && data.subjectTemplate.trim() !== "") {
-          setSubjectMode?.("With Placeholder");
-          setSubjectText?.(data.subjectTemplate);
-        } else {
-          setSubjectMode?.("AI generated");
-          setSubjectText?.("");
-        }
+
       }
     } catch (error) {
       console.error("Error fetching tone settings:", error);
@@ -874,16 +866,7 @@ useEffect(() => {
   };
 
   const handleSubjectTextChange = (value: string) => {
-    // Only call if setSubjectText is defined
-    if (setSubjectText) {
-      setSubjectText(value);
-    }
 
-    // Also update toneSettings.subjectTemplate
-    setToneSettings((prev) => ({
-      ...prev,
-      subjectTemplate: value,
-    }));
   };
   // Update your saveToneSettings to use effectiveUserId
   const saveToneSettings = async () => {
@@ -891,8 +874,7 @@ useEffect(() => {
       const clientId = effectiveUserId || sessionStorage.getItem("clientId");
       const payload = {
         language: toneSettings.language,
-        subjectTemplate:
-          subjectMode === "With Placeholder" ? subjectText || "" : "",
+        subjectTemplate: "",
         emojis: toneSettings.emojis,
         tone: toneSettings.tone,
         chattyLevel: toneSettings.chatty,
@@ -1307,7 +1289,6 @@ useEffect(() => {
   ) => {
     // Calculate effectiveUserId first
     const tempEffectiveUserId = selectedClient !== "" ? selectedClient : userId;
-
     // Check credits before starting generation process
     if (tab === "Output" && !options?.regenerate && sessionStorage.getItem("isDemoAccount") !== "true") {
       const currentCredits = await checkUserCredits(tempEffectiveUserId);
@@ -1391,12 +1372,6 @@ useEffect(() => {
           return {};
         }
       })();
-
-      const isSubjectAI = campaignSubjectConfig?.isAI === true;
-      const manualSubjectTemplate =
-      campaignSubjectConfig?.manualTemplate || "";
-
-
     const selectedModelNameA = selectedModelName;
     const searchterm = searchTermForm.searchTerm;
     const searchCount = searchTermForm.searchCount;
@@ -1613,65 +1588,59 @@ if (!scrappedData) {
         }));
 
         //----------------------------------------------------------------------------------------
-        let subjectLine = "";
-        if (isSubjectAI) {
-          const filledSubjectInstruction = replaceAllPlaceholders(
-            subject_instruction,
-            {
-              ...replacements,
-              generated_pitch: pitchData.response.content || "",
-              search_output_summary: scrappedData || "",
-            }
-          );
+       // ---------------- SUBJECT GENERATION (PLACEHOLDER CONTROLLED ONLY) ----------------
+const subjectConfig = JSON.parse(
+  sessionStorage.getItem("campaignSubjectConfig") || "{}"
+);
 
-          const subjectRequestBody = {
-            scrappedData: filledSubjectInstruction,
-            prompt: pitchData.response.content,
-            ModelName: selectedModelNameA,
-          };
+// Normalize placeholder AI value
+let normalizedAI =
+  (subjectConfig?.isAI === true || subjectConfig?.isAI === "yes")
+    ? true
+    : false;
 
-          setOutputForm((prev) => ({
-            ...prev,
-            generatedContent:
-              `<span style="color: blue">[${formatDateTime(
-                new Date()
-              )}] Crafting phase #2 concinnus, for contact ${full_name} with company name ${company_name} and domain ${entry.email
-              }</span><br/>` + prev.generatedContent,
-          }));
+if (subjectConfig?.isAI !== "yes" && subjectConfig?.isAI !== "no") {
+  normalizedAI = true; // fallback → treat invalid as YES
+}
 
-          const subjectResponse = await fetch(
-            `${API_BASE_URL}/api/auth/generatepitch`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(subjectRequestBody),
-            }
-          );
+const isSubjectAI = normalizedAI;
+const manualSubjectTemplate = subjectConfig.manualTemplate || "";
 
-          if (subjectResponse.ok) {
-            const subjectData = await subjectResponse.json();
-            subjectLine = subjectData.response?.content || "";
+let subjectLine = "";
 
-            setOutputForm((prev) => ({
-              ...prev,
-              generatedContent:
-                `<span style="color: green">[${formatDateTime(
-                  new Date()
-                )}] Subject successfully crafted, for contact ${full_name} with company name ${company_name} and domain ${entry.email
-                }</span><br/>` + prev.generatedContent,
-              emailSubject: subjectLine,
-            }));
-          } else {
-            setOutputForm((prev) => ({
-              ...prev,
-              generatedContent:
-                `<span style="color: orange">[${formatDateTime(
-                  new Date()
-                )}] Email subject generation failed for contact ${full_name}, using default</span><br/>` +
-                prev.generatedContent,
-            }));
-          }
-        } else if (manualSubjectTemplate) {
+// --- CASE 1: SUBJECT VIA AI (placeholder email_subject-AI = yes) ---
+if (isSubjectAI) {
+  const filledSubjectInstruction = replaceAllPlaceholders(
+    subject_instruction,
+    {
+      ...replacements,
+      generated_pitch: pitchData.response?.content || "",
+    }
+  );
+
+  const subjectRequestBody = {
+    scrappedData: filledSubjectInstruction,
+    prompt: pitchData.response?.content,
+    ModelName: selectedModelNameA,
+  };
+
+  const subjectResponse = await fetch(
+    `${API_BASE_URL}/api/auth/generatepitch`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(subjectRequestBody),
+    }
+  );
+
+  if (subjectResponse.ok) {
+    const subjectData = await subjectResponse.json();
+    subjectLine = subjectData.response?.content || "";
+  }
+}
+
+// --- CASE 2: MANUAL SUBJECT (placeholder email_subject-manual) ---
+else if (manualSubjectTemplate.trim() !== "") {
   subjectLine = replaceAllPlaceholders(
     manualSubjectTemplate,
     {
@@ -1686,18 +1655,13 @@ if (!scrappedData) {
       generated_pitch: pitchData.response?.content || "",
     }
   );
-
-  setOutputForm((prev) => ({
-    ...prev,
-    generatedContent:
-      `<span style="color: green">[${formatDateTime(
-        new Date()
-      )}] Subject generated from campaign placeholder for ${full_name}</span><br/>`
-      + prev.generatedContent,
-    emailSubject: subjectLine,
-  }));
 }
 
+// --- CASE 3: NOTHING SET ---
+else {
+  subjectLine = "";
+}
+// ---------------- SUBJECT GENERATION END ----------------
         // ✅ Replace the database update logic in REGENERATION BLOCK
         try {
           if (id && pitchData.response?.content) {
@@ -2104,28 +2068,19 @@ if (!scrappedData) {
 
 
             setallSearchTermBodies((prevSearchTermBodies) => {
-
               const updated = [...prevSearchTermBodies];
-
               if (responseIndex < updated.length) {
-
                 updated[responseIndex] = "";
-
               } else {
-
                 updated.push("");
-
               }
-
               return updated;
-
             });
 
 
             continue;
           } else {
             foundRecordWithoutPitch = true;
-
             if (isDemoAccount) {
               setOutputForm((prevOutputForm) => ({
                 ...prevOutputForm,
@@ -2293,64 +2248,69 @@ if (!scrappedData) {
           });
 
           // Generate subject line
-          let subjectLine = "";
-          if (isSubjectAI) {
-            const filledSubjectInstruction = replaceAllPlaceholders(
-              subject_instruction,
-              {
-                ...replacements,
-                generated_pitch: pitchData.response.content || "",
-                search_output_summary: scrappedData || "",
-              }
-            );
+// ---------------- SUBJECT GENERATION (PLACEHOLDER CONTROLLED ONLY) ----------------
 
-            const subjectRequestBody = {
-              scrappedData: filledSubjectInstruction,
-              prompt: pitchData.response.content,
-              ModelName: selectedModelNameA,
-            };
+// Always sanitize placeholder values FIRST
+// If value is NOT exactly "yes" or "no", FORCE it to "yes"
+let normalizedAI =
+  (campaignSubjectConfig?.isAI === true ||
+    campaignSubjectConfig?.isAI === "yes")
+    ? true
+    : false;
 
-            setOutputForm((prev) => ({
-              ...prev,
-              generatedContent:
-                `<span style="color: blue">[${formatDateTime(
-                  new Date()
-                )}] Crafting phase #2 concinnus, for contact ${full_name} with company name ${company_name} and domain ${entry.email
-                }</span><br/>` + prev.generatedContent,
-            }));
-            const subjectResponse = await fetch(
-              `${API_BASE_URL}/api/auth/generatepitch`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(subjectRequestBody),
-              }
-            );
+if (
+  campaignSubjectConfig?.isAI !== "yes" &&
+  campaignSubjectConfig?.isAI !== "no"
+) {
+  normalizedAI = true; // force AI to YES if invalid
+}
 
-            if (subjectResponse.ok) {
-              const subjectData = await subjectResponse.json();
-              subjectLine = subjectData.response?.content || "";
+const isSubjectAI = normalizedAI;
 
-              setOutputForm((prev) => ({
-                ...prev,
-                generatedContent:
-                  `<span style="color: green">[${formatDateTime(
-                    new Date()
-                  )}] Subject successfully crafted, for contact ${full_name} with company name ${company_name} and domain ${entry.email
-                  }</span><br/>` + prev.generatedContent,
-                emailSubject: subjectLine,
-              }));
-            } else {
-              setOutputForm((prev) => ({
-                ...prev,
-                generatedContent:
-                  `<span style="color: orange">[${formatDateTime(
-                    new Date()
-                  )}] Subject generation failed for contact ${full_name} with company name ${company_name} and domain ${entry.email
-                  }</span><br/>` + prev.generatedContent,
-              }));
-            }
-} else if (manualSubjectTemplate) {
+let manualSubjectTemplate =
+  typeof campaignSubjectConfig?.manualTemplate === "string"
+    ? campaignSubjectConfig.manualTemplate
+    : "";
+
+if (!manualSubjectTemplate.trim()) {
+  manualSubjectTemplate = "";
+}
+
+let subjectLine = "";
+
+// --- CASE 1: AI SUBJECT (placeholder email_subject-AI = "yes" or invalid) ---
+if (isSubjectAI) {
+  const filledSubjectInstruction = replaceAllPlaceholders(
+    subject_instruction,
+    {
+      ...replacements,
+      generated_pitch: pitchData.response?.content || "",
+    }
+  );
+
+  const subjectRequestBody = {
+    scrappedData: filledSubjectInstruction,
+    prompt: pitchData.response?.content,
+    ModelName: selectedModelNameA,
+  };
+
+  const subjectResponse = await fetch(
+    `${API_BASE_URL}/api/auth/generatepitch`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(subjectRequestBody),
+    }
+  );
+
+  if (subjectResponse.ok) {
+    const subjectData = await subjectResponse.json();
+    subjectLine = subjectData.response?.content || "";
+  }
+}
+
+// --- CASE 2: MANUAL SUBJECT (placeholder email_subject-manual exists) ---
+else if (manualSubjectTemplate.trim() !== "") {
   subjectLine = replaceAllPlaceholders(
     manualSubjectTemplate,
     {
@@ -2365,17 +2325,13 @@ if (!scrappedData) {
       generated_pitch: pitchData.response?.content || "",
     }
   );
-
-  setOutputForm((prev) => ({
-    ...prev,
-    generatedContent:
-      `<span style="color: green">[${formatDateTime(
-        new Date()
-      )}] Subject generated from campaign placeholder for ${full_name}</span><br/>`
-      + prev.generatedContent,
-    emailSubject: subjectLine,
-  }));
 }
+
+// --- CASE 3: NEITHER SET ---
+else {
+  subjectLine = "";
+}
+
 
 
           // Update the linkLabel to show both subject and pitch
@@ -3105,7 +3061,7 @@ if (!scrappedData) {
           id: `excel_${index + 1}`,
           full_Name: contact.name,
           email: contact.email,
-          email_subject: subjectMode === "With Placeholder" ? subjectText : "", // Use your subject logic
+          email_subject: "",
           job_Title: contact.job_title || "",
           account_name_friendlySingle_Line_12: contact.company || "",
           mailing_Country: contact.location || "",
@@ -3667,10 +3623,7 @@ if (!scrappedData) {
                 languages={Object.values(Languages)}
                 selectedLanguage={selectedLanguage}
                 handleLanguageChange={handleLanguageChange}
-                subjectMode={subjectMode}
-                setSubjectMode={setSubjectMode}
-                subjectText={subjectText}
-                setSubjectText={setSubjectText}
+                
                 selectedPrompt={selectedPrompt} // Make sure this is passed
                 handleStop={handleStop}
                 isStopRequested={stopRef.current} // Add this line

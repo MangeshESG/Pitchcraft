@@ -2349,3 +2349,50 @@ textarea {
 .segment-actions-menu button:hover {
   background: rgba(0, 0, 0, 0.05) !important;
 }
+
+
+.preview-content-area {
+  font-family: Arial, Helvetica, sans-serif !important;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #000;
+
+  /* Ensure email line spacing looks correct */
+  white-space: normal;
+
+  /* Proper paragraph spacing like email clients */
+  word-break: break-word;
+}
+
+.preview-content-area p {
+  margin: 0 0 15px 0 !important;
+}
+
+.preview-content-area h1,
+.preview-content-area h2,
+.preview-content-area h3 {
+  margin: 20px 0 10px 0 !important;
+}
+
+.preview-content-area ul,
+.preview-content-area ol {
+  padding-left: 20px !important;
+  margin-bottom: 15px !important;
+}
+
+.preview-content-area table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.preview-content-area td,
+.preview-content-area th {
+  padding: 8px;
+  border: 1px solid #ddd;
+}
+
+.preview-content-area img {
+  max-width: 100% !important;
+  height: auto !important;
+  display: block;
+}
