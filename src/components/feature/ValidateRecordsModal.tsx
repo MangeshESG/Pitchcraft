@@ -104,6 +104,13 @@ const ValidateRecordsModal: React.FC<ValidateRecordsModalProps> = ({
           </div>
         </div>
 
+        <div style={{ marginBottom: 24 }}>
+          <h3 style={{ margin: 0, marginBottom: 12, fontSize: "16px", fontWeight: "600", color: "#333" }}>Note</h3>
+          <p style={{ margin: 0, color: "#666", fontSize: "14px", lineHeight: "1.5" }}>
+            Please note that it may take up to 24 to 48 hours for DNS changes to fully take effect. Hopefully it will be much sooner. Any problems please contact support.
+          </p>
+        </div>
+
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
           <button
             onClick={onClose}
