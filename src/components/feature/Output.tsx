@@ -995,6 +995,7 @@ const { playSound } = useSoundAlert();
       const requestBody = {
         clientId: effectiveUserId,
         contactid: currentContact.id,
+        campaignId: selectedCampaign ? parseInt(selectedCampaign) : null,
 
         // Priority: segmentId first, then dataFileId, ensure at least one is always set
         segmentId:
@@ -1414,6 +1415,7 @@ const { playSound } = useSoundAlert();
         const requestBody = {
           clientId: effectiveUserId,
           contactid: contact.id,
+          campaignId: selectedCampaign ? parseInt(selectedCampaign) : null,
 
           // Priority: segmentId first, then dataFileId
           segmentId:
