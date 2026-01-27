@@ -334,7 +334,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       // Only send test email
       await axios.post(
         `${API_BASE_URL}/api/email/configTestMail?ClientId=${effectiveUserId}`,
-        JSON.stringify(form),
+        JSON.stringify({ ...form, IsUpdate: !!editingId }),
         {
           headers: {
             "Content-Type": "application/json",
@@ -350,7 +350,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
         setShowSmtpOtpModal(true);
       } else {
         // For Edit operation, just show success
-        appModal.showSuccess("Test email sent successfully");
+        appModal.showSuccess("Updated successfully");
         setForm({
           server: "",
           port: "",
@@ -1659,6 +1659,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                       <th>Port</th>
                       <th>Username</th>
                       <th>From email</th>
+                      <th>Sender name</th>
                       <th>SSL</th>
                       <th>Actions</th>
                     </tr>
@@ -1666,7 +1667,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                   <tbody>
                     {currentMailboxes.length === 0 ? (
                       <tr>
-                        <td colSpan={6} style={{ textAlign: "center" }}>
+                        <td colSpan={7} style={{ textAlign: "center" }}>
                           No mailboxes configured.
                         </td>
                       </tr>
@@ -1677,6 +1678,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                           <td>{item.port}</td>
                           <td>{item.username}</td>
                           <td>{item.fromEmail}</td>
+                          <td>{(item as any).senderName || "-"}</td>
                           <td>{Boolean(item.useSsl || item.usessl) ? "Yes" : "No"}</td>
                           <td style={{ position: "relative" }}>
                             <button

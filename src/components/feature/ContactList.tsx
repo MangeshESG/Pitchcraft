@@ -558,6 +558,9 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   const [segmentName, setSegmentName] = useState("");
   const [segmentDescription, setSegmentDescription] = useState("");
   const [savingSegment, setSavingSegment] = useState(false);
+  const [segmentModalTab, setSegmentModalTab] = useState<"create" | "move">("create");
+  const [selectedExistingSegment, setSelectedExistingSegment] = useState<string>("");
+  const [movingToSegment, setMovingToSegment] = useState(false);
 
   // Delete contacts from Lists
   const handleDeleteListContacts = async () => {
@@ -796,6 +799,69 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
       appModal.showError("Failed to save segment");
     } finally {
       setSavingSegment(false);
+    }
+  };
+
+  const handleMoveToExistingSegment = async () => {
+    if (!selectedExistingSegment) return;
+    setMovingToSegment(true);
+
+    // Determine which contacts to use based on view mode
+    const contactsToUse =
+      viewMode === "detail"
+        ? Array.from(detailSelectedContacts).map(Number)
+        : segmentViewMode === "detail"
+          ? Array.from(detailSelectedContacts).map(Number)
+          : Array.from(selectedContacts).map(Number);
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/Crm/add-contacts-to-existing-segment?ClientId=${effectiveUserId}&SegmentId=${selectedExistingSegment}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(contactsToUse),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to move contacts to segment");
+      }
+
+      const result = await response.json();
+      
+      if (result.alreadyPresentCount > 0 && result.contactsAdded === 0) {
+        appModal.showInfo(result.message);
+      } else if (result.contactsAdded > 0) {
+        let message = result.message;
+        if (result.alreadyPresentCount > 0) {
+          message += ` (${result.contactsAdded} added, ${result.alreadyPresentCount} already present)`;
+        }
+        appModal.showSuccess(message);
+      } else {
+        appModal.showSuccess(result.message || "Contacts moved to segment successfully!");
+      }
+      setShowSaveSegmentModal(false);
+      setSelectedExistingSegment("");
+      setSegmentModalTab("create");
+
+      // Clear selections after moving
+      if (viewMode === "detail" || segmentViewMode === "detail") {
+        setDetailSelectedContacts(new Set());
+      } else {
+        setSelectedContacts(new Set());
+      }
+
+      // Refresh segments if on segment tab
+      if (activeSubTab === "Segment") {
+        fetchSegments();
+      }
+    } catch (error) {
+      appModal.showError("Failed to move contacts to segment");
+    } finally {
+      setMovingToSegment(false);
     }
   };
 
@@ -2232,10 +2298,15 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                         )} */}
                           <button
                             className="button primary"
-                            onClick={() => setShowSaveSegmentModal(true)}
+                            onClick={() => {
+                              setShowSaveSegmentModal(true);
+                              if (segments.length === 0) {
+                                fetchSegments();
+                              }
+                            }}
                             style={{ backgroundColor: "#3f9f42" }}
                           >
-                            Create segment
+                            Segment
                           </button>
                         </div>
                       </div>
@@ -3841,24 +3912,46 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
       {showSaveSegmentModal && (
         <div className="modal-overlay">
           <div className="modal-content popup-modal">
-            <div className="headerr">
-              <h2 style={{ color: "#000", fontWeight: "600" }}>Create segment</h2>
-              <span
-                onClick={() => setShowSaveSegmentModal(false)}
+            {/* Tabs at the very top */}
+            <div style={{ 
+              display: "flex", 
+              borderBottom: "1px solid #e5e7eb", 
+              marginBottom: "16px" 
+            }}>
+              <button
+                onClick={() => setSegmentModalTab("create")}
                 style={{
-                  marginLeft: "auto",
-                  fontSize: "25px",
+                  padding: "12px 16px",
+                  background: "none",
+                  border: "none",
+                  borderBottom: segmentModalTab === "create" ? "2px solid #3f9f42" : "2px solid transparent",
+                  color: segmentModalTab === "create" ? "#3f9f42" : "#666",
                   fontWeight: 600,
-                  color: "#9e9e9e",
                   cursor: "pointer",
-                  lineHeight: 1
+                  fontSize: "16px"
                 }}
               >
-                ×
-              </span>
+                Create new segment
+              </button>
+              <button
+                onClick={() => setSegmentModalTab("move")}
+                style={{
+                  padding: "12px 16px",
+                  background: "none",
+                  border: "none",
+                  borderBottom: segmentModalTab === "move" ? "2px solid #3f9f42" : "2px solid transparent",
+                  color: segmentModalTab === "move" ? "#3f9f42" : "#666",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  fontSize: "16px"
+                }}
+              >
+                Copy to existing segment
+              </button>
             </div>
+
             <p style={{ marginRight: "auto", marginBottom: "16px" }}>
-              Creating segment with{" "}
+              {segmentModalTab === "create" ? "Creating segment" : "Copying"} with{" "}
               {viewMode === "detail" || segmentViewMode === "detail"
                 ? detailSelectedContacts.size
                 : selectedContacts.size}{" "}
@@ -3869,56 +3962,98 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                 ? "s"
                 : ""}
             </p>
-            <div style={{ marginBottom: "16px", width: "100%", textAlign: "left" }}>
-              <label style={{
-                display: "block",
-                marginBottom: "4px",
-                fontSize: "14px",
-                fontWeight: "500",
-                color: "#333"
-              }}>Segment name <span style={{ color: "red" }}>*</span></label>
-              <input
-                type="text"
-                placeholder="Enter segment name"
-                value={segmentName}
-                onChange={(e) => setSegmentName(e.target.value)}
-                autoFocus
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "1px solid #ddd",
-                  borderRadius: "4px",
-                  fontSize: "14px"
-                }}
-              />
-            </div>
-            <div style={{ marginBottom: "20px", width: "100%", textAlign: "left" }}>
-              <label style={{
-                display: "block",
-                marginBottom: "4px",
-                fontSize: "14px",
-                fontWeight: "500",
-                color: "#333"
-              }}>Description</label>
-              <textarea
-                placeholder="Enter description (optional)"
-                value={segmentDescription}
-                onChange={(e) => setSegmentDescription(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "1px solid #ddd",
-                  borderRadius: "4px",
+
+            {/* Create new segment tab content */}
+            {segmentModalTab === "create" && (
+              <>
+                <div style={{ marginBottom: "16px", width: "100%", textAlign: "left" }}>
+                  <label style={{
+                    display: "block",
+                    marginBottom: "4px",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    color: "#333"
+                  }}>Segment name <span style={{ color: "red" }}>*</span></label>
+                  <input
+                    type="text"
+                    placeholder="Enter segment name"
+                    value={segmentName}
+                    onChange={(e) => setSegmentName(e.target.value)}
+                    autoFocus
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: "1px solid #ddd",
+                      borderRadius: "4px",
+                      fontSize: "14px"
+                    }}
+                  />
+                </div>
+                <div style={{ marginBottom: "20px", width: "100%", textAlign: "left" }}>
+                  <label style={{
+                    display: "block",
+                    marginBottom: "4px",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    color: "#333"
+                  }}>Description</label>
+                  <textarea
+                    placeholder="Enter description (optional)"
+                    value={segmentDescription}
+                    onChange={(e) => setSegmentDescription(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: "1px solid #ddd",
+                      borderRadius: "4px",
+                      fontSize: "14px",
+                      minHeight: "80px",
+                      resize: "vertical"
+                    }}
+                    rows={3}
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Move to existing segment tab content */}
+            {segmentModalTab === "move" && (
+              <div style={{ marginBottom: "20px", width: "100%", textAlign: "left" }}>
+                <label style={{
+                  display: "block",
+                  marginBottom: "4px",
                   fontSize: "14px",
-                  minHeight: "80px",
-                  resize: "vertical"
-                }}
-                rows={3}
-              />
-            </div>
+                  fontWeight: "500",
+                  color: "#333"
+                }}>Select segment <span style={{ color: "red" }}>*</span></label>
+                <select
+                  value={selectedExistingSegment}
+                  onChange={(e) => setSelectedExistingSegment(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    border: "1px solid #ddd",
+                    borderRadius: "4px",
+                    fontSize: "14px"
+                  }}
+                >
+                  <option value="">Choose a segment</option>
+                  {segments.map((segment) => (
+                    <option key={segment.id} value={segment.id}>
+                      {segment.name} ({segment.contactCount || 0} contacts)
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             <div style={{ display: "flex", gap: "12px", marginLeft: "auto" }}>
               <button
-                onClick={() => setShowSaveSegmentModal(false)}
+                onClick={() => {
+                  setShowSaveSegmentModal(false);
+                  setSegmentModalTab("create");
+                  setSelectedExistingSegment("");
+                }}
                 style={{
                   background: "#fff",
                   padding: "8px 16px",
@@ -3932,19 +4067,36 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                 Cancel
               </button>
               <button
-                onClick={handleSaveSegment}
-                disabled={!segmentName || savingSegment}
+                onClick={segmentModalTab === "create" ? handleSaveSegment : handleMoveToExistingSegment}
+                disabled={
+                  segmentModalTab === "create" 
+                    ? (!segmentName || savingSegment)
+                    : (!selectedExistingSegment || movingToSegment)
+                }
                 style={{
-                  background: !segmentName || savingSegment ? "#ccc" : "#218838",
+                  background: 
+                    (segmentModalTab === "create" ? (!segmentName || savingSegment) : (!selectedExistingSegment || movingToSegment))
+                      ? "#ccc" 
+                      : "#218838",
                   padding: "8px 16px",
                   color: "#fff",
                   borderRadius: "4px",
-                  border: `2px solid ${!segmentName || savingSegment ? "#ccc" : "#218838"}`,
-                  cursor: !segmentName || savingSegment ? "not-allowed" : "pointer",
+                  border: `2px solid ${
+                    (segmentModalTab === "create" ? (!segmentName || savingSegment) : (!selectedExistingSegment || movingToSegment))
+                      ? "#ccc" 
+                      : "#218838"
+                  }`,
+                  cursor: 
+                    (segmentModalTab === "create" ? (!segmentName || savingSegment) : (!selectedExistingSegment || movingToSegment))
+                      ? "not-allowed" 
+                      : "pointer",
                   fontSize: "14px"
                 }}
               >
-                {savingSegment ? "Saving..." : "Create"}
+                {segmentModalTab === "create" 
+                  ? (savingSegment ? "Creating..." : "Create")
+                  : (movingToSegment ? "Copying..." : "Copy")
+                }
               </button>
             </div>
           </div>
