@@ -399,6 +399,7 @@ useEffect(() => {
 
 const renderMessageContent = (rawContent: string) => {
   if (!rawContent) return null;
+  debugger
 
   // 🧹 CLEAN PLACEHOLDER BLOCK EVERY TIME
   let content = rawContent
@@ -558,25 +559,32 @@ return (
             </select>
              <div
                 style={{
-                  marginBottom: "15px",
+                  //marginBottom: "15px",
                   padding: "10px",
                   background: "#f3f4f6",
-                  borderRadius: "6px",
-                  fontSize: "14px",
+                  //borderRadius: "6px",
+                  //fontSize: "14px",
                   color: "#111827",
-                  whiteSpace: "pre-wrap",
-                  maxHeight: "370px",   // ✅ limit height
-                  overflowY: "auto",    // ✅ enable vertical scroll
+                 // whiteSpace: "pre-wrap",
+                 // maxHeight: "370px",   // ✅ limit height
+                  //overflowY: "visible",    // ✅ enable vertical scroll
                 }}
               >
-                <div>{initialExampleEmail || "No example email loaded."}</div>
+                <div
+  className="email-preview-content"
+  dangerouslySetInnerHTML={{
+    __html: initialExampleEmail || "<p>No example email loaded.</p>",
+  }}
+/>
               </div>
           </div>
         )}
 
         {/* ===== CHAT BODY ===== */}
         {showChat && (
-        <div className="messages-area" ref={messagesContainerRef}>
+        <div className="messages-area" ref={messagesContainerRef} style={{
+    flex: showInitialEmail ? "0 0 auto" : "1 1 auto",
+  }}>
 
           {/* EDIT MODE – no placeholder yet */}
           {/* {isEditMode && !conversationStarted && !selectedPlaceholder && (

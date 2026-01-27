@@ -460,6 +460,7 @@ const Template: React.FC<TemplateProps> = ({
   }, [effectiveUserId, fetchCampaignTemplates]);
 
   const generateExampleEmail = (template: CampaignTemplate) => {
+    debugger
     if (!template) return "";
 
     if ((template as any).exampleOutput) {       // ✅ DB field preferred
@@ -473,6 +474,7 @@ const Template: React.FC<TemplateProps> = ({
     return template.campaignBlueprint || "";
   };
   const preloadExampleEmail = async (template: CampaignTemplate) => {
+    debugger
     if (template.id in exampleCache) return; // 👈 IMPORTANT
 
     // Mark as loading
@@ -727,10 +729,15 @@ const handleBlueprintSwitch = (blueprintId: number) => {
                             sessionStorage.setItem("newCampaignId", template.id.toString());
                             sessionStorage.setItem("newCampaignName", template.templateName);
 
-                            const example =
-                              getTooltipText(exampleCache[template.id] || generateExampleEmail(template));
+                            // const example =
+                            //   getTooltipText(exampleCache[template.id] || generateExampleEmail(template));
 
-                            sessionStorage.setItem("initialExampleEmail", example);
+                            // sessionStorage.setItem("initialExampleEmail", example);
+                            const example =
+                              exampleCache[template.id] || generateExampleEmail(template);
+
+                              sessionStorage.setItem("initialExampleEmail", example);
+
                             setShowCampaignBuilder(true);
                           }}
                         >
