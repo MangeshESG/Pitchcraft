@@ -503,7 +503,23 @@ const Template: React.FC<TemplateProps> = ({
     }
   };
 
+//for picklist of blueprint
+const handleBlueprintSwitch = (blueprintId: number) => {
+  const blueprint = campaignTemplates.find(b => b.id === blueprintId);
+  if (!blueprint) return;
 
+  // Update session storage (builder depends on this)
+  sessionStorage.setItem("newCampaignId", blueprint.id.toString());
+  sessionStorage.setItem("newCampaignName", blueprint.templateName);
+  sessionStorage.setItem("editTemplateId", blueprint.id.toString());
+  sessionStorage.setItem("editTemplateMode", "true");
+
+  // Force builder re-mount
+  setShowCampaignBuilder(false);
+  setTimeout(() => {
+    setShowCampaignBuilder(true);
+  }, 0);
+};
 
 
   const fetchCampaignTemplateDetails = async (templateId: number) => {
@@ -1442,8 +1458,29 @@ const Template: React.FC<TemplateProps> = ({
             >
               ← Back
             </button>
+            <select
+  value={sessionStorage.getItem("newCampaignId") || ""}
+  onChange={(e) => handleBlueprintSwitch(Number(e.target.value))}
+  style={{
+    padding: "6px 12px",
+    borderRadius: "6px",
+    border: "1px solid #d1d5db",
+    fontSize: "14px",
+    fontWeight: 600,
+    cursor: "pointer",
+    backgroundColor: "#fff",
+    minWidth: "220px"
+  }}
+>
+  {campaignTemplates.map((template) => (
+    <option key={template.id} value={template.id}>
+      {template.templateName}
+    </option>
+  ))}
+</select>
 
-            <h2 className="font-[600]">{sessionStorage.getItem("newCampaignName") || "Blueprint"}</h2>
+
+            {/* <h2 className="font-[600]">{sessionStorage.getItem("newCampaignName") || "Blueprint"}</h2> */}
 
           </div>
 

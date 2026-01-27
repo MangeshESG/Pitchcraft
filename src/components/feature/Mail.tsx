@@ -2710,6 +2710,38 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                         )}
                       </select>
                     </div>
+                     <div className="form-group">
+                      <label>
+                        From <span style={{ color: "red" }}>*</span>
+                      </label>
+                      <select
+                        value={selectedUser}
+                        onChange={handleChangeSmtpUsers}
+                        required
+                        style={{ width: "100%" }}
+                      >
+                        <option value="">Email</option>
+                        {smtpUsers.map((user) => (
+                          <option key={user.id} value={user.id}>
+                            {user.username}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                     <div className="form-group">
+                      <label>BCC email</label>
+                      <input
+                        type="email"
+                        name="bccEmail"
+                        value={formData.bccEmail || ""}
+                        onChange={handleChange}
+                        placeholder="Optional BCC email"
+                        style={{ width: "100%" }}
+                      />
+                      {bccError && (
+                        <small style={{ color: "red" }}>{bccError}</small>
+                      )}
+                    </div>
 
                     <div className="form-group">
                       <label>
@@ -2729,40 +2761,6 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                           </option>
                         ))}
                       </select>
-                    </div>
-
-                    <div className="form-group">
-                      <label>
-                        From <span style={{ color: "red" }}>*</span>
-                      </label>
-                      <select
-                        value={selectedUser}
-                        onChange={handleChangeSmtpUsers}
-                        required
-                        style={{ width: "100%" }}
-                      >
-                        <option value="">Email</option>
-                        {smtpUsers.map((user) => (
-                          <option key={user.id} value={user.id}>
-                            {user.username}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="form-group">
-                      <label>BCC email</label>
-                      <input
-                        type="email"
-                        name="bccEmail"
-                        value={formData.bccEmail || ""}
-                        onChange={handleChange}
-                        placeholder="Optional BCC email"
-                        style={{ width: "100%" }}
-                      />
-                      {bccError && (
-                        <small style={{ color: "red" }}>{bccError}</small>
-                      )}
                     </div>
 
                     <div className="form-group">
