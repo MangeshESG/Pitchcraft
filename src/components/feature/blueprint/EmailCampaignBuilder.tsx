@@ -159,7 +159,7 @@ interface ConversationTabProps {
   editTemplateId?: number | null;
 
   groupedPlaceholders: Record<string, PlaceholderDefinitionUI[]>;
-
+  initialExampleEmail: string;
 
 
 }
@@ -312,6 +312,7 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   filledTemplate,
   editTemplateId,   // ⭐ ADD THIS
   groupedPlaceholders,
+  initialExampleEmail
 
      
 
@@ -484,7 +485,11 @@ const saveExampleEmail = async () => {
     showModal("Error","Failed to save example email.");
   }
 };
-
+const showInitialEmail =
+  isEditMode && !selectedPlaceholder && !conversationStarted;
+ 
+const showChat =
+  !isEditMode || selectedPlaceholder || conversationStarted;
 
 
 
@@ -516,8 +521,8 @@ return (
 
 
         {/* ===== PLACEHOLDER DROPDOWN (INSIDE CHAT) ===== */}
-        {isEditMode && (
-          <div className="chat-placeholder-panel">
+        {isEditMode &&showInitialEmail && (
+          <div className="chat-placeholder-panel"style={{color:'#3f9f42'}}>
             
 
             <select
@@ -526,7 +531,7 @@ return (
               onChange={(e) => onPlaceholderSelect?.(e.target.value)}
               disabled={isTyping}
             >
-              <option value="">-- Edit elements --</option>
+              <option value="">Edit elements</option>
 
               {Object.entries(groupedPlaceholders).map(
                 ([category, placeholders]) => (
@@ -551,18 +556,34 @@ return (
                 )
               )}
             </select>
+             <div
+                style={{
+                  marginBottom: "15px",
+                  padding: "10px",
+                  background: "#f3f4f6",
+                  borderRadius: "6px",
+                  fontSize: "14px",
+                  color: "#111827",
+                  whiteSpace: "pre-wrap",
+                  maxHeight: "370px",   // ✅ limit height
+                  overflowY: "auto",    // ✅ enable vertical scroll
+                }}
+              >
+                <div>{initialExampleEmail || "No example email loaded."}</div>
+              </div>
           </div>
         )}
 
         {/* ===== CHAT BODY ===== */}
+        {showChat && (
         <div className="messages-area" ref={messagesContainerRef}>
 
           {/* EDIT MODE – no placeholder yet */}
-          {isEditMode && !conversationStarted && !selectedPlaceholder && (
+          {/* {isEditMode && !conversationStarted && !selectedPlaceholder && (
             <div className="empty-conversation">
               <p>Please select element to edit.</p>
             </div>
-          )}
+          )} */}
 
           {/* EDIT MODE – preparing */}
           {isEditMode && !conversationStarted && selectedPlaceholder && (
@@ -606,7 +627,7 @@ return (
             </div>
           )}
         </div>
-
+        )}
         {/* ===== INPUT BAR ===== */}
         {conversationStarted && (
           <div className="input-area">
@@ -2370,7 +2391,13 @@ const groupedPlaceholders = uiPlaceholders
     return acc;
   }, {});
 
-
+const [initialExampleEmail, setInitialExampleEmail] = useState<string>("");
+ useEffect(() => {
+    const storedExample = sessionStorage.getItem("initialExampleEmail");
+    if (storedExample) {
+      setInitialExampleEmail(storedExample);
+    }
+  }, []);
 const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
   const key = p.placeholderKey;
   const value = formValues[key] ?? "";
@@ -2385,6 +2412,7 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
   };
 
   switch (p.inputType) {
+    
 
     case "richtext":
       return (
@@ -3349,6 +3377,7 @@ return (
             sourcedSummary={sourcedSummary}
             filledTemplate={filledTemplate}
             groupedPlaceholders={groupedPlaceholders}
+            initialExampleEmail={initialExampleEmail}
           />
         )}
 

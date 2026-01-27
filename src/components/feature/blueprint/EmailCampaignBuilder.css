@@ -1917,12 +1917,12 @@
 }
 
 .email-campaign-builder .placeholder-dropdown:hover {
-  border-color: #667eea;
+  border-color: #3f9f42;
 }
 
 .email-campaign-builder .placeholder-dropdown:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: #3f9f42;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
