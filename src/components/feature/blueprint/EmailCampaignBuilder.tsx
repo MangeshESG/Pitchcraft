@@ -521,14 +521,14 @@ const showChat =
 
           {/* ===== PLACEHOLDER DROPDOWN (INSIDE CHAT) ===== */}
           {isEditMode && showInitialEmail &&(
-            <div className="chat-placeholder-panel">
+            <div className="chat-placeholder-panel" style={{color:'#3f9f42'}}>
               <select
                 className="placeholder-dropdown"
                 value={selectedPlaceholder || ""}
                 onChange={(e) => onPlaceholderSelect?.(e.target.value)}
                 disabled={isTyping}
               >
-                <option value="">-- Edit elements --</option>
+                <option value=""> Edit elements </option>
 
                 {Object.entries(groupedPlaceholders).map(
                   ([category, placeholders]) => (
@@ -3619,15 +3619,15 @@ if (data?.usage || response.data?.usage) {
                 }}
                 className="definition-select"
               >
-                <option>Your company</option>
-                <option>Core message focus</option>
-                <option>Dos and Don'ts</option>
-                <option>Message writing style</option>
-                <option>Call-to-action</option>
-                <option>Greetings & farewells</option>
-                <option>Subject line</option>
-                <option>Extra visuals</option>
-                <option>Extra assets</option>
+                <option>YOUR COMPANY</option>
+                <option>CORE MESSAGE FOCUS</option>
+                <option>DOS AND DON'TS</option>
+                <option>MESSAGE WRITING STYLE</option>
+                <option>CALL-TO-ACTION</option>
+                <option>GREETINGS & FAREWELLS</option>
+                <option>SUBJECT LINE</option>
+                <option>EXTRA VISUALS</option>
+                <option>EXTRA ASSETS</option>
 
               </select>
 

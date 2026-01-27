@@ -326,6 +326,32 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
       prev === trackingId ? null : trackingId
     );
   };
+  //IST Formatter
+  const formatDateTimeIST = (dateString?: string) => {
+  if (!dateString) return "-";
+
+  return new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  }).format(new Date(dateString));
+};
+
+const formatTimeIST = (dateString?: string) => {
+  if (!dateString) return "-";
+
+  return new Intl.DateTimeFormat("en-IN", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  }).format(new Date(dateString));
+};
+
   // Handle data file change
   const handleDataFileChange = (dataFileId: string) => {
     setSelectedDataFile(dataFileId);
@@ -2613,18 +2639,14 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                           <div style={{ flex: 1 }}>
                             <div style={{ fontWeight: 600 }}>Contact created</div>
                             <div style={{ fontSize: 13, color: "#666" }}>
-                              {formatDateTime(editingContact.contactCreatedAt)}
+                              {formatDateTimeIST(editingContact.contactCreatedAt)}
                             </div>
                           </div>
                         </div>
                       )}
 
                       {/* 🔹 EMAIL TIMELINE */}
-                      {[...emailTimeline]
-                        .sort(
-                          (a, b) =>
-                            new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime()
-                        ).map((email: any, index: number) => (
+                      { emailTimeline.map((email: any, index: number) => (
                           <div key={email.trackingId || index}>
                             <div
                               style={{
@@ -2675,7 +2697,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                                     marginBottom: 8,
                                   }}
                                 >
-                                  {formatDateTime(email.sentAt)} from {email.senderEmailId}
+                                  {formatDateTimeIST(email.sentAt)} from {email.senderEmailId}
                                 </div>
                                 {/* • */}
                                 <div
@@ -2700,10 +2722,10 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
 
                                       {email.events.map((ev: any, i: number) => (
                                         <div key={i} style={{ fontSize: 13, marginBottom: 4 }}>
-                                          • <b>{ev.eventType}ed</b> at {formatTime(ev.eventAt)} 
+                                          • <b>{ev.eventType}ed</b> at {formatDateTimeIST(ev.eventAt)} 
                                           {ev.targetUrl && (
                                             <>
-                                                 {" "}—{" "} <strong>target Url: </strong>
+                                                 {" "}—{" "} <strong>target URL: </strong>
                                               <a
                                                 href={ev.targetUrl}
                                                 target="_blank"
@@ -3524,17 +3546,14 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                           <div style={{ flex: 1 }}>
                             <div style={{ fontWeight: 600 }}>Contact created</div>
                             <div style={{ fontSize: 13, color: "#666" }}>
-                              {formatDateTime(editingContact.contactCreatedAt)}
+                              {formatDateTimeIST(editingContact.contactCreatedAt)}
                             </div>
                           </div>
                         </div>
                       )}
                        {/* 🔹 EMAIL TIMELINE */}
-                      {[...emailTimeline]
-                        .sort(
-                          (a, b) =>
-                            new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime()
-                        ).map((email: any, index: number) => (
+                      {emailTimeline
+                        .map((email: any, index: number) => (
                           <div key={email.trackingId || index}>
                             <div
                               style={{
@@ -3585,7 +3604,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
                                     marginBottom: 8,
                                   }}
                                 >
-                                  {formatDateTime(email.sentAt)} from {email.senderEmailId}
+                                  {formatDateTimeIST(email.sentAt)} from {email.senderEmailId}
                                 </div>
                                 {/* • */}
                                 <div
@@ -3610,10 +3629,10 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
 
                                       {email.events.map((ev: any, i: number) => (
                                         <div key={i} style={{ fontSize: 13, marginBottom: 4 }}>
-                                          • <b>{ev.eventType}ed</b> at {formatTime(ev.eventAt)} 
+                                          • <b>{ev.eventType}ed</b> at {formatDateTimeIST(ev.eventAt)} 
                                           {ev.targetUrl && (
                                             <>
-                                                 {" "}—{" "} <strong>target Url: </strong>
+                                                 {" "}—{" "} <strong>target URL: </strong>
                                               <a
                                                 href={ev.targetUrl}
                                                 target="_blank"
