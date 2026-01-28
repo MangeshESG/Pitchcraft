@@ -2615,7 +2615,7 @@ const MainPage: React.FC = () => {
     setAllRecordsProcessed(false);
     setIsStarted(true);
     setIsPaused(false);
-    setIsProcessing(true);
+    //setIsProcessing(true);
     stopRef.current = false;
 
     goToTab("Output", {
