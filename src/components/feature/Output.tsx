@@ -10,7 +10,7 @@ import { useAppData } from "../../contexts/AppDataContext";
 import * as XLSX from "xlsx";
 import FileSaver from "file-saver";
 import { toast } from "react-toastify";
-import 'quill/dist/quill.snow.css'; // Import styles
+import "quill/dist/quill.snow.css"; // Import styles
 import API_BASE_URL from "../../config";
 import axios from "axios";
 import AppModal from "../common/AppModal";
@@ -21,9 +21,6 @@ import { useSoundAlert } from "../common/useSoundAlert";
 import toggleOn from "../../assets/images/on-button.png";
 import toggleOff from "../../assets/images/off-button.png";
 import DOMPurify from "dompurify";
-
-
-
 
 // In Output.tsx
 interface ZohoClient {
@@ -40,9 +37,8 @@ interface Prompt {
   text: string;
   userId?: number; // userId might not always be returned from the API
   createdAt?: string;
-  template?: string;  
+  template?: string;
   templateId?: number; // ✅ added for campaign blueprint
-
 }
 
 interface Campaign {
@@ -63,9 +59,9 @@ interface OutputInterface {
     searchResults: string[];
     allScrapedData: string;
   };
-  isResetEnabled: boolean; 
-   isSoundEnabled: boolean;
-  setIsSoundEnabled: React.Dispatch<React.SetStateAction<boolean>>;// Add this prop
+  isResetEnabled: boolean;
+  isSoundEnabled: boolean;
+  setIsSoundEnabled: React.Dispatch<React.SetStateAction<boolean>>; // Add this prop
 
   onRegenerateContact?: (
     tab: string,
@@ -74,7 +70,7 @@ interface OutputInterface {
       regenerateIndex: number;
       nextPageToken?: string | null;
       prevPageToken?: string | null;
-    }
+    },
   ) => void;
 
   outputFormHandler: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
@@ -114,7 +110,7 @@ interface OutputInterface {
   fetchAndDisplayEmailBodies: (
     zohoviewId: string,
     pageToken?: string | null,
-    direction?: "next" | "previous" | null
+    direction?: "next" | "previous" | null,
   ) => Promise<void>;
   selectedZohoviewId: string;
   onClearExistingResponse?: (clearFunction: () => void) => void; // Define the prop to accept a function
@@ -167,7 +163,13 @@ interface OutputInterface {
   setSelectedPrompt?: React.Dispatch<React.SetStateAction<Prompt | null>>; // ✅ added
 
   showCreditModal?: boolean; // Add this
-  checkUserCredits?: (clientId?: string | number | null) => Promise<{total: number, canGenerate: boolean, monthlyLimitExceeded: boolean} | number | null>; // Add this
+  checkUserCredits?: (
+    clientId?: string | number | null,
+  ) => Promise<
+    | { total: number; canGenerate: boolean; monthlyLimitExceeded: boolean }
+    | number
+    | null
+  >; // Add this
   userId?: string | null; // Add this
   followupEnabled?: boolean;
   setFollowupEnabled?: (value: boolean) => void;
@@ -254,11 +256,10 @@ const Output: React.FC<OutputInterface> = ({
   followupEnabled,
   setFollowupEnabled,
   isSoundEnabled,
-setIsSoundEnabled,
+  setIsSoundEnabled,
 }) => {
   const appModal = useAppModal();
   const [loading, setLoading] = useState(true);
-
 
   const [isCopyText, setIsCopyText] = useState(false);
   const { refreshTrigger } = useAppData(); // Make sure this includes refreshTrigger
@@ -286,7 +287,7 @@ setIsSoundEnabled,
     return text
       .replace(
         /successfully generated/gi,
-        '<span style="color: green;">successfully generated</span>'
+        '<span style="color: green;">successfully generated</span>',
       )
       .replace(/error/gi, '<span style="color: red;">error</span>');
   };
@@ -346,8 +347,8 @@ setIsSoundEnabled,
     setCurrentIndex(0); // Use the prop to reset currentIndex
     setCurrentPage(0); // Resetting the
   };
-//----------------------------------------------------------------------
- useEffect(() => {
+  //----------------------------------------------------------------------
+  useEffect(() => {
     const stored = sessionStorage.getItem("selectedPrompt");
     if (stored) {
       try {
@@ -361,106 +362,105 @@ setIsSoundEnabled,
   }, [setSelectedPrompt]);
 
   // ✅ Load blueprint when campaign changes
-useEffect(() => {
-  const loadCampaignBlueprint = async () => {
-    if (!selectedCampaign || !campaigns?.length) return; // ✅ safely check campaigns
+  useEffect(() => {
+    const loadCampaignBlueprint = async () => {
+      if (!selectedCampaign || !campaigns?.length) return; // ✅ safely check campaigns
 
-    const campaign = campaigns.find(
-      (c) => c.id.toString() === selectedCampaign
-    );
+      const campaign = campaigns.find(
+        (c) => c.id.toString() === selectedCampaign,
+      );
 
-    if (campaign?.templateId) {
-      try {
-        console.log("Fetching campaign blueprint for:", campaign.templateId);
-        const response = await fetch(
-          `${API_BASE_URL}/api/CampaignPrompt/campaign/${campaign.templateId}`
-        );
+      if (campaign?.templateId) {
+        try {
+          console.log("Fetching campaign blueprint for:", campaign.templateId);
+          const response = await fetch(
+            `${API_BASE_URL}/api/CampaignPrompt/campaign/${campaign.templateId}`,
+          );
 
-        if (!response.ok)
-          throw new Error("Failed to fetch campaign blueprint");
+          if (!response.ok)
+            throw new Error("Failed to fetch campaign blueprint");
 
-        const data = await response.json();
+          const data = await response.json();
 
-        const blueprintPrompt = {
-          id: data.id,
-          name: data.templateName,
-          text: data.campaignBlueprint,
-          model: data.selectedModel || "gpt-5",
-        };
+          const blueprintPrompt = {
+            id: data.id,
+            name: data.templateName,
+            text: data.campaignBlueprint,
+            model: data.selectedModel || "gpt-5",
+          };
 
-        // ✅ Safely call if function exists
-        setSelectedPrompt && setSelectedPrompt(blueprintPrompt);
+          // ✅ Safely call if function exists
+          setSelectedPrompt && setSelectedPrompt(blueprintPrompt);
 
-        // ✅ Save to sessionStorage
-        sessionStorage.setItem(
-          "selectedPrompt",
-          JSON.stringify(blueprintPrompt)
-        );
+          // ✅ Save to sessionStorage
+          sessionStorage.setItem(
+            "selectedPrompt",
+            JSON.stringify(blueprintPrompt),
+          );
 
-        console.log("✅ Loaded Campaign Blueprint:", blueprintPrompt);
-      } catch (error) {
-        console.error("Error loading campaign blueprint:", error);
+          console.log("✅ Loaded Campaign Blueprint:", blueprintPrompt);
+        } catch (error) {
+          console.error("Error loading campaign blueprint:", error);
+        }
+      } else {
+        console.log("No Campaign Blueprint found for this campaign");
       }
-    } else {
-      console.log("No Campaign Blueprint found for this campaign");
-    }
-  };
+    };
 
-  loadCampaignBlueprint();
-}, [selectedCampaign, campaigns, setSelectedPrompt]);
+    loadCampaignBlueprint();
+  }, [selectedCampaign, campaigns, setSelectedPrompt]);
 
-
-//----------------------------------------------------------------------
+  //----------------------------------------------------------------------
   const [userRole, setUserRole] = useState<string>(""); // Store user role
-// === Load Campaign Blueprint when campaign is selected ===
-useEffect(() => {
-  const loadCampaignBlueprint = async () => {
-    if (!selectedCampaign || !campaigns || campaigns.length === 0) return;
+  // === Load Campaign Blueprint when campaign is selected ===
+  useEffect(() => {
+    const loadCampaignBlueprint = async () => {
+      if (!selectedCampaign || !campaigns || campaigns.length === 0) return;
 
-    const campaign = campaigns.find(
-      (c) => c.id.toString() === selectedCampaign
-    );
+      const campaign = campaigns.find(
+        (c) => c.id.toString() === selectedCampaign,
+      );
 
-    // If campaign exists and has a blueprint ID (templateId)
-    if (campaign && campaign.templateId) {
-      try {
-        console.log("Fetching campaign blueprint for:", campaign.templateId);
-        const response = await fetch(
-          `${API_BASE_URL}/api/CampaignPrompt/campaign/${campaign.templateId}`
-        );
+      // If campaign exists and has a blueprint ID (templateId)
+      if (campaign && campaign.templateId) {
+        try {
+          console.log("Fetching campaign blueprint for:", campaign.templateId);
+          const response = await fetch(
+            `${API_BASE_URL}/api/CampaignPrompt/campaign/${campaign.templateId}`,
+          );
 
-        if (!response.ok)
-          throw new Error("Failed to fetch campaign blueprint");
+          if (!response.ok)
+            throw new Error("Failed to fetch campaign blueprint");
 
-        const data = await response.json();
+          const data = await response.json();
 
-        const blueprintPrompt = {
-          id: data.id,
-          name: data.templateName,
-          text: data.campaignBlueprint,
-          model: data.selectedModel || "gpt-5",
-        };
+          const blueprintPrompt = {
+            id: data.id,
+            name: data.templateName,
+            text: data.campaignBlueprint,
+            model: data.selectedModel || "gpt-5",
+          };
 
-        // ✅ Update selectedPrompt state
+          // ✅ Update selectedPrompt state
           setSelectedPrompt?.(blueprintPrompt);
 
-        // ✅ Save it in sessionStorage so Output persists across tabs
-        sessionStorage.setItem(
-          "selectedPrompt",
-          JSON.stringify(blueprintPrompt)
-        );
+          // ✅ Save it in sessionStorage so Output persists across tabs
+          sessionStorage.setItem(
+            "selectedPrompt",
+            JSON.stringify(blueprintPrompt),
+          );
 
-        console.log("✅ Loaded Campaign Blueprint:", blueprintPrompt);
-      } catch (error) {
-        console.error("Error loading campaign blueprint:", error);
+          console.log("✅ Loaded Campaign Blueprint:", blueprintPrompt);
+        } catch (error) {
+          console.error("Error loading campaign blueprint:", error);
+        }
+      } else {
+        console.log("No Campaign Blueprint found for selected campaign");
       }
-    } else {
-      console.log("No Campaign Blueprint found for selected campaign");
-    }
-  };
+    };
 
-  loadCampaignBlueprint();
-}, [selectedCampaign, campaigns]);
+    loadCampaignBlueprint();
+  }, [selectedCampaign, campaigns]);
 
   useEffect(() => {
     const isAdminString = sessionStorage.getItem("isAdmin");
@@ -536,7 +536,7 @@ useEffect(() => {
           await fetchAndDisplayEmailBodies(
             selectedZohoviewId,
             lastItem.nextPageToken,
-            "next"
+            "next",
           );
           // Jump to the first item of the newly fetched page
           //setCurrentIndex(previousLength);
@@ -559,7 +559,7 @@ useEffect(() => {
           await fetchAndDisplayEmailBodies(
             selectedZohoviewId,
             firstItem.prevPageToken,
-            "previous"
+            "previous",
           );
           // currentIndex will be adjusted in fetchAndDisplayEmailBodies when direction is "previous"
         } finally {
@@ -579,7 +579,7 @@ useEffect(() => {
 
   // Add this state to track the input value separately from the currentIndex
   const [inputValue, setInputValue] = useState<string>(
-    (currentIndex + 1).toString()
+    (currentIndex + 1).toString(),
   );
 
   // Update inputValue whenever currentIndex changes
@@ -635,7 +635,7 @@ useEffect(() => {
         Pitch: item.pitch || item.sample_email_body || "N/A",
         Timestamp: item.timestamp || new Date().toISOString(),
         Generated: item.generated ? "Yes" : "No",
-        Subject: item.subject || "N/A", 
+        Subject: item.subject || "N/A",
       }));
 
       // Create worksheet with the data
@@ -671,7 +671,7 @@ useEffect(() => {
       } catch (writeError) {
         console.warn(
           "XLSX.writeFile failed, falling back to FileSaver:",
-          writeError
+          writeError,
         );
 
         // Fallback to FileSaver if writeFile doesn't work
@@ -712,7 +712,7 @@ useEffect(() => {
   useEffect(() => {
     if (recentlyAddedOrUpdatedId && combinedResponses.length > 0) {
       const ix = combinedResponses.findIndex(
-        (r) => r.id === recentlyAddedOrUpdatedId
+        (r) => r.id === recentlyAddedOrUpdatedId,
       );
       if (ix !== -1) {
         setCurrentIndex(ix);
@@ -723,7 +723,7 @@ useEffect(() => {
 
   //----------------------------------------------------------------------
   const [editableContent, setEditableContent] = useState(
-    combinedResponses[currentIndex]?.pitch || ""
+    combinedResponses[currentIndex]?.pitch || "",
   );
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -741,7 +741,7 @@ useEffect(() => {
     emailSubject: string;
     emailBody: string;
   }
-const { playSound } = useSoundAlert();
+  const { playSound } = useSoundAlert();
   const saveToCrmUpdateEmail = async ({
     clientId,
     contactId,
@@ -766,21 +766,21 @@ const { playSound } = useSoundAlert();
             emailBody: emailBody ?? "",
             // dataFileId removed from request body
           }),
-        }
+        },
       );
 
       if (!response.ok) {
         const errJson = await response.json();
         throw new Error(
-          errJson.message || "Failed to update contact via CRM API"
+          errJson.message || "Failed to update contact via CRM API",
         );
       }
- const result = await response.json();
+      const result = await response.json();
 
-    // 🔔 PLAY SOUND AFTER SUCCESS
-    playSound();
+      // 🔔 PLAY SOUND AFTER SUCCESS
+      playSound();
 
-    return result;
+      return result;
     } catch (error) {
       console.error("Error saving to CRM contacts API:", error);
       throw error;
@@ -814,7 +814,8 @@ const { playSound } = useSoundAlert();
 
       // First save to Zoho before updating UI - now passing the subject
       const currentItem = combinedResponses[currentIndex];
-      const effectiveUserId = selectedClient !== "" ? selectedClient : reduxUserId;
+      const effectiveUserId =
+        selectedClient !== "" ? selectedClient : reduxUserId;
 
       await saveToCrmUpdateEmail({
         clientId: Number(effectiveUserId),
@@ -831,7 +832,7 @@ const { playSound } = useSoundAlert();
       // Also update the source arrays to ensure persistence
       // First, check if the item exists in allResponses
       const allResponsesIndex = allResponses.findIndex(
-        (item) => item.id === combinedResponses[currentIndex].id
+        (item) => item.id === combinedResponses[currentIndex].id,
       );
 
       if (allResponsesIndex !== -1) {
@@ -842,7 +843,7 @@ const { playSound } = useSoundAlert();
       } else {
         // Check if it exists in existingResponse
         const existingResponseIndex = existingResponse.findIndex(
-          (item) => item.id === combinedResponses[currentIndex].id
+          (item) => item.id === combinedResponses[currentIndex].id,
         );
 
         if (existingResponseIndex !== -1) {
@@ -870,7 +871,7 @@ const { playSound } = useSoundAlert();
   useEffect(() => {
     if (combinedResponses[currentIndex]?.pitch) {
       setEditableContent(
-        aggressiveCleanHTML(combinedResponses[currentIndex].pitch)
+        aggressiveCleanHTML(combinedResponses[currentIndex].pitch),
       );
     } else {
       setEditableContent("");
@@ -897,14 +898,10 @@ const { playSound } = useSoundAlert();
   //   }
   // }, [isEditing, editableContent, currentIndex]);
   useEffect(() => {
-  if (
-    editorRef.current &&
-    editorRef.current.innerHTML !== editableContent
-  ) {
-    editorRef.current.innerHTML = editableContent || "";
-  }
-}, [editableContent]);
-
+    if (editorRef.current && editorRef.current.innerHTML !== editableContent) {
+      editorRef.current.innerHTML = editableContent || "";
+    }
+  }, [editableContent]);
 
   const [openDeviceDropdown, setOpenDeviceDropdown] = useState(false);
   const [outputEmailWidth, setOutputEmailWidth] = useState<string>("");
@@ -956,7 +953,7 @@ const { playSound } = useSoundAlert();
             headers: {
               ...(token && { Authorization: `Bearer ${token}` }),
             },
-          }
+          },
         );
         setSmtpUsers(response.data?.data || []);
       } catch (error) {
@@ -972,7 +969,7 @@ const { playSound } = useSoundAlert();
   const handleSendEmail = async (
     subjectFromButton: string,
 
-    targetContact: (typeof combinedResponses)[number] | null = null
+    targetContact: (typeof combinedResponses)[number] | null = null,
   ) => {
     setEmailMessage("");
 
@@ -982,7 +979,7 @@ const { playSound } = useSoundAlert();
 
     if (!subjectToUse || !selectedSmtpUser) {
       setEmailError(
-        "Please fill in all required fields: Subject and From Email."
+        "Please fill in all required fields: Subject and From Email.",
       );
 
       return;
@@ -1012,9 +1009,9 @@ const { playSound } = useSoundAlert();
         // Priority: segmentId first, then dataFileId, ensure at least one is always set
         segmentId:
           currentContact.segmentId &&
-            currentContact.segmentId !== "null" &&
-            currentContact.segmentId !== "" &&
-            !isNaN(parseInt(currentContact.segmentId))
+          currentContact.segmentId !== "null" &&
+          currentContact.segmentId !== "" &&
+          !isNaN(parseInt(currentContact.segmentId))
             ? parseInt(currentContact.segmentId)
             : null,
 
@@ -1024,10 +1021,10 @@ const { playSound } = useSoundAlert();
             currentContact.segmentId === "null" ||
             currentContact.segmentId === "" ||
             isNaN(parseInt(currentContact.segmentId))) &&
-            currentContact.dataFileId &&
-            currentContact.dataFileId !== "null" &&
-            currentContact.dataFileId !== "" &&
-            !isNaN(parseInt(currentContact.dataFileId))
+          currentContact.dataFileId &&
+          currentContact.dataFileId !== "null" &&
+          currentContact.dataFileId !== "" &&
+          !isNaN(parseInt(currentContact.dataFileId))
             ? parseInt(currentContact.dataFileId)
             : null,
 
@@ -1048,7 +1045,9 @@ const { playSound } = useSoundAlert();
       if (!requestBody.segmentId && !requestBody.dataFileId) {
         setEmailError("Contact must have either a Segment ID or Data File ID");
         setSendingEmail(false);
-        toast.error("Missing required ID: Contact must have either Segment ID or Data File ID");
+        toast.error(
+          "Missing required ID: Contact must have either Segment ID or Data File ID",
+        );
         return;
       }
 
@@ -1063,7 +1062,7 @@ const { playSound } = useSoundAlert();
 
             ...(token && { Authorization: `Bearer ${token}` }),
           },
-        }
+        },
       );
 
       setEmailMessage(response.data.message || "Email sent successfully!");
@@ -1082,11 +1081,11 @@ const { playSound } = useSoundAlert();
         };
 
         setCombinedResponses((prev) =>
-          prev.map((item, i) => (i === currentIndex ? updatedItem : item))
+          prev.map((item, i) => (i === currentIndex ? updatedItem : item)),
         );
 
         const allResponsesIndex = allResponses.findIndex(
-          (item) => item.id === updatedItem.id
+          (item) => item.id === updatedItem.id,
         );
 
         if (allResponsesIndex !== -1) {
@@ -1098,7 +1097,7 @@ const { playSound } = useSoundAlert();
         }
 
         const existingResponseIndex = existingResponse.findIndex(
-          (item) => item.id === updatedItem.id
+          (item) => item.id === updatedItem.id,
         );
 
         if (existingResponseIndex !== -1) {
@@ -1129,15 +1128,18 @@ const { playSound } = useSoundAlert();
       }, 2000);
     } catch (err) {
       if (axios.isAxiosError(err)) {
-        const errorMessage = err.response?.data?.message || err.response?.data || "Failed to send email.";
-        
+        const errorMessage =
+          err.response?.data?.message ||
+          err.response?.data ||
+          "Failed to send email.";
+
         // Check for specific error message
         if (errorMessage === "Email body or subject is incorrect.") {
           appModal.showModal({
             type: "error",
             title: "Email Error",
-            message: `Email body or subject is incorrect for ${combinedResponses[currentIndex]?.name || combinedResponses[currentIndex]?.email || 'this contact'}. Please check your email content and subject line.`,
-            confirmText: "OK"
+            message: `Email body or subject is incorrect for ${combinedResponses[currentIndex]?.name || combinedResponses[currentIndex]?.email || "this contact"}. Please check your email content and subject line.`,
+            confirmText: "OK",
           });
         } else {
           setEmailError(errorMessage);
@@ -1211,7 +1213,7 @@ const { playSound } = useSoundAlert();
             "Status:",
             error.response?.status,
             "Data:",
-            error.response?.data
+            error.response?.data,
           );
         }
       }
@@ -1337,7 +1339,7 @@ const { playSound } = useSoundAlert();
     console.log(
       "combinedResponses updated:",
       combinedResponses.length,
-      "items"
+      "items",
     );
     console.log("Current index:", currentIndex);
     console.log("Current contact:", combinedResponses[currentIndex]);
@@ -1382,19 +1384,21 @@ const { playSound } = useSoundAlert();
       setCurrentIndex(index);
 
       const contact = combinedResponses[index];
-      
+
       // Check if we should skip this contact based on include email trail setting
       if (followupEnabled) {
         const emailedDate = contact.emailsentdate;
         const kraftedDate = contact.lastemailupdateddate;
-        
+
         if (emailedDate && kraftedDate) {
           const emailedTime = new Date(emailedDate).getTime();
           const kraftedTime = new Date(kraftedDate).getTime();
-          
+
           // Skip if emailed date is greater than krafted date
           if (emailedTime > kraftedTime) {
-            console.log(`Skipping contact ${contact.id}: Email already sent after last kraft`);
+            console.log(
+              `Skipping contact ${contact.id}: Email already sent after last kraft`,
+            );
             skippedCount++;
             index++;
             setBulkSendIndex(index);
@@ -1403,7 +1407,7 @@ const { playSound } = useSoundAlert();
           }
         }
       }
-      
+
       try {
         // Prepare subject and request body
 
@@ -1432,9 +1436,9 @@ const { playSound } = useSoundAlert();
           // Priority: segmentId first, then dataFileId
           segmentId:
             contact.segmentId &&
-              contact.segmentId !== "null" &&
-              contact.segmentId !== "" &&
-              !isNaN(parseInt(contact.segmentId))
+            contact.segmentId !== "null" &&
+            contact.segmentId !== "" &&
+            !isNaN(parseInt(contact.segmentId))
               ? parseInt(contact.segmentId)
               : null,
 
@@ -1443,10 +1447,10 @@ const { playSound } = useSoundAlert();
               contact.segmentId === "null" ||
               contact.segmentId === "" ||
               isNaN(parseInt(contact.segmentId))) &&
-              contact.dataFileId &&
-              contact.dataFileId !== "null" &&
-              contact.dataFileId !== "" &&
-              !isNaN(parseInt(contact.dataFileId))
+            contact.dataFileId &&
+            contact.dataFileId !== "null" &&
+            contact.dataFileId !== "" &&
+            !isNaN(parseInt(contact.dataFileId))
               ? parseInt(contact.dataFileId)
               : null,
 
@@ -1465,7 +1469,9 @@ const { playSound } = useSoundAlert();
 
         // Add validation before sending
         if (!requestBody.segmentId && !requestBody.dataFileId) {
-          console.error(`Skipping contact ${contact.id}: Missing both segmentId and dataFileId`);
+          console.error(
+            `Skipping contact ${contact.id}: Missing both segmentId and dataFileId`,
+          );
           skippedCount++;
           index++;
           setBulkSendIndex(index);
@@ -1484,7 +1490,7 @@ const { playSound } = useSoundAlert();
 
               ...(token && { Authorization: `Bearer ${token}` }),
             },
-          }
+          },
         );
 
         sentCount++;
@@ -1502,13 +1508,13 @@ const { playSound } = useSoundAlert();
         // Update combinedResponses
 
         setCombinedResponses((prev) =>
-          prev.map((item, i) => (i === index ? updatedItem : item))
+          prev.map((item, i) => (i === index ? updatedItem : item)),
         );
 
         // Update allResponses if needed
 
         const allResponsesIndex = allResponses.findIndex(
-          (item) => item.id === contact.id
+          (item) => item.id === contact.id,
         );
 
         if (allResponsesIndex !== -1) {
@@ -1524,7 +1530,7 @@ const { playSound } = useSoundAlert();
         // Update existingResponse if needed
 
         const existingResponseIndex = existingResponse.findIndex(
-          (item) => item.id === contact.id
+          (item) => item.id === contact.id,
         );
 
         if (existingResponseIndex !== -1) {
@@ -1541,18 +1547,21 @@ const { playSound } = useSoundAlert();
 
         if (axios.isAxiosError(err)) {
           console.error("API Error:", err.response?.data);
-          
-          const errorMessage = err.response?.data?.message || err.response?.data || "Failed to send email.";
-          
+
+          const errorMessage =
+            err.response?.data?.message ||
+            err.response?.data ||
+            "Failed to send email.";
+
           // Check for specific error message and show popup
           if (errorMessage === "Email body or subject is incorrect.") {
             appModal.showModal({
               type: "error",
               title: "Email Error",
               message: `Email body or subject is incorrect for ${contact.name || contact.email}. Please check your email content and subject line.`,
-              confirmText: "OK"
+              confirmText: "OK",
             });
-            
+
             // Wait 3 seconds before closing popup and continuing
             await new Promise((resolve) => {
               setTimeout(() => {
@@ -1586,7 +1595,7 @@ const { playSound } = useSoundAlert();
     stopBulkRef.current = false;
 
     console.log(
-      `Bulk send completed. Sent: ${sentCount}, Skipped: ${skippedCount}`
+      `Bulk send completed. Sent: ${sentCount}, Skipped: ${skippedCount}`,
     );
   };
 
@@ -1615,13 +1624,14 @@ const { playSound } = useSoundAlert();
   const [sendEmailControls, setSendEmailControls] = useState(false);
   const preserveIndexRef = useRef(false);
 
-
-
   return (
     <div className="login-box gap-down">
       {/* Add the selection dropdowns and subject line section */}
       {/* Add the selection dropdowns and subject line section */}
-      <div className="d-flex justify-between align-center mb-0" style={{marginTop: "-60px"}}>
+      <div
+        className="d-flex justify-between align-center mb-0"
+        style={{ marginTop: "-60px" }}
+      >
         <div className="input-section edit-section w-[100%]">
           {/* Dropdowns Row */}
           <div className="flex items-start justify-between gap-4 w-full">
@@ -1654,7 +1664,7 @@ const { playSound } = useSoundAlert();
                       <small className="campaign-description">
                         {
                           campaigns.find(
-                            (c) => c.id.toString() === selectedCampaign
+                            (c) => c.id.toString() === selectedCampaign,
                           )?.description
                         }
                       </small>
@@ -1675,24 +1685,33 @@ const { playSound } = useSoundAlert();
                         if (showCreditModal) {
                           return;
                         }
-                        
+
                         // Check credits before starting
-                        if (sessionStorage.getItem("isDemoAccount") !== "true") {
-                          const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
-                          const currentCredits = await checkUserCredits?.(effectiveUserId);
-                          if (currentCredits && typeof currentCredits === 'object' && !currentCredits.canGenerate) {
+                        if (
+                          sessionStorage.getItem("isDemoAccount") !== "true"
+                        ) {
+                          const effectiveUserId =
+                            selectedClient !== "" ? selectedClient : userId;
+                          const currentCredits =
+                            await checkUserCredits?.(effectiveUserId);
+                          if (
+                            currentCredits &&
+                            typeof currentCredits === "object" &&
+                            !currentCredits.canGenerate
+                          ) {
                             return; // Stop if can't generate
                           }
                         }
-                        
+
                         handleStart?.(currentIndex);
                       }}
                       disabled={
                         (!selectedPrompt?.name || !selectedZohoviewId) &&
                         !selectedCampaign
                       }
-                      title={`Click to generate hyper-personalized emails starting from contact ${currentIndex + 1
-                        }`}
+                      title={`Click to generate hyper-personalized emails starting from contact ${
+                        currentIndex + 1
+                      }`}
                     >
                       Kraft emails
                     </button>
@@ -1708,153 +1727,152 @@ const { playSound } = useSoundAlert();
                   )}
                 </div>
                 {!isDemoAccount && (
-    <div className="flex items-center">
-      <label className="checkbox-label !mb-[0px] mr-[5px] flex items-center">
-        <input
-          type="checkbox"
-          checked={settingsForm?.overwriteDatabase}
-          name="overwriteDatabase"
-          id="overwriteDatabase"
-          onChange={settingsFormHandler}
-          className="!mr-0"
-        />
-        <span className="text-[14px]">Overwrite</span>
-      </label>
-    </div>
-  )}
+                  <div className="flex items-center">
+                    <label className="checkbox-label !mb-[0px] mr-[5px] flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={settingsForm?.overwriteDatabase}
+                        name="overwriteDatabase"
+                        id="overwriteDatabase"
+                        onChange={settingsFormHandler}
+                        className="!mr-0"
+                      />
+                      <span className="text-[14px]">Overwrite</span>
+                    </label>
+                  </div>
+                )}
 
                 {!isDemoAccount && (
                   <div className="flex items-center gap-2">
-                  <button
-                    className="secondary-button nowrap"
-                    onClick={handleClearAll}
-                    disabled={!isResetEnabled}
-                    title="Reset all company level intel"
-                  //  title="Clear all data and reset the application state"
-                  >
-                    Reset
-                  </button>
-                   <span>
-        <ReactTooltip anchorSelect="#overwrite-info" place="top">
-          Reset all company level intel
-        </ReactTooltip>
-      </span>
-    </div>
+                    <button
+                      className="secondary-button nowrap"
+                      onClick={handleClearAll}
+                      disabled={!isResetEnabled}
+                      title="Reset all company level intel"
+                      //  title="Clear all data and reset the application state"
+                    >
+                      Reset
+                    </button>
+                    <span>
+                      <ReactTooltip anchorSelect="#overwrite-info" place="top">
+                        Reset all company level intel
+                      </ReactTooltip>
+                    </span>
+                  </div>
                 )}
-                 
               </div>
             </div>
 
             {/* Right side - Download button */}
             <div className="flex items-center mt-[26px] gap-2 ">
               <div className="flex items-center">
-              <ReactTooltip anchorSelect="#download-data-tooltip" place="top">
-                Download all loaded emails to a spreadsheet
-              </ReactTooltip>
-              <a
-                href="#"
-                id="download-data-tooltip"
-                onClick={(e) => {
-                  e.preventDefault();
-                  if (!isExporting && combinedResponses.length > 0) {
-                    exportToExcel();
-                  }
-                }}
-                className="export-link green flex items-center"
-                style={{
-                  color: "#3f9f42",
-                  textDecoration: "none",
-                  cursor:
-                    combinedResponses.length === 0 || isExporting
-                      ? "not-allowed"
-                      : "pointer",
-                  opacity:
-                    combinedResponses.length === 0 || isExporting ? 0.6 : 1,
-                  display: "flex",
-                  alignItems: "center",
-                }}
-              >
-                {isExporting ? (
-                  <span>Exporting...</span>
-                ) : (
-                  <>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="20px"
-                      height="20px"
-                      viewBox="0 0 32 32"
-                    >
-                      <title>file_type_excel2</title>
-                      <path
-                        d="M28.781,4.405H18.651V2.018L2,4.588V27.115l16.651,2.868V26.445H28.781A1.162,1.162,0,0,0,30,25.349V5.5A1.162,1.162,0,0,0,28.781,4.405Zm.16,21.126H18.617L18.6,23.642h2.487v-2.2H18.581l-.012-1.3h2.518v-2.2H18.55l-.012-1.3h2.549v-2.2H18.53v-1.3h2.557v-2.2H18.53v-1.3h2.557v-2.2H18.53v-2H28.941Z"
-                        style={{ fill: "#20744a", fillRule: "evenodd" }}
-                      />
-                      <rect
-                        x="22.487"
-                        y="7.439"
-                        width="4.323"
-                        height="2.2"
-                        style={{ fill: "#20744a" }}
-                      />
-                      <rect
-                        x="22.487"
-                        y="10.94"
-                        width="4.323"
-                        height="2.2"
-                        style={{ fill: "#20744a" }}
-                      />
-                      <rect
-                        x="22.487"
-                        y="14.441"
-                        width="4.323"
-                        height="2.2"
-                        style={{ fill: "#20744a" }}
-                      />
-                      <rect
-                        x="22.487"
-                        y="17.942"
-                        width="4.323"
-                        height="2.2"
-                        style={{ fill: "#20744a" }}
-                      />
-                      <rect
-                        x="22.487"
-                        y="21.443"
-                        width="4.323"
-                        height="2.2"
-                        style={{ fill: "#20744a" }}
-                      />
-                      <polygon
-                        points="6.347 10.673 8.493 10.55 9.842 14.259 11.436 10.397 13.582 10.274 10.976 15.54 13.582 20.819 11.313 20.666 9.781 16.642 8.248 20.513 6.163 20.329 8.585 15.666 6.347 10.673"
-                        style={{ fill: "#ffffff", fillRule: "evenodd" }}
-                      />
-                    </svg>
-                    <span className="ml-5 green">Download</span>
-                  </>
-                )}
-              </a>
+                <ReactTooltip anchorSelect="#download-data-tooltip" place="top">
+                  Download all loaded emails to a spreadsheet
+                </ReactTooltip>
+                <a
+                  href="#"
+                  id="download-data-tooltip"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (!isExporting && combinedResponses.length > 0) {
+                      exportToExcel();
+                    }
+                  }}
+                  className="export-link green flex items-center"
+                  style={{
+                    color: "#3f9f42",
+                    textDecoration: "none",
+                    cursor:
+                      combinedResponses.length === 0 || isExporting
+                        ? "not-allowed"
+                        : "pointer",
+                    opacity:
+                      combinedResponses.length === 0 || isExporting ? 0.6 : 1,
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                >
+                  {isExporting ? (
+                    <span>Exporting...</span>
+                  ) : (
+                    <>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="20px"
+                        height="20px"
+                        viewBox="0 0 32 32"
+                      >
+                        <title>file_type_excel2</title>
+                        <path
+                          d="M28.781,4.405H18.651V2.018L2,4.588V27.115l16.651,2.868V26.445H28.781A1.162,1.162,0,0,0,30,25.349V5.5A1.162,1.162,0,0,0,28.781,4.405Zm.16,21.126H18.617L18.6,23.642h2.487v-2.2H18.581l-.012-1.3h2.518v-2.2H18.55l-.012-1.3h2.549v-2.2H18.53v-1.3h2.557v-2.2H18.53v-1.3h2.557v-2.2H18.53v-2H28.941Z"
+                          style={{ fill: "#20744a", fillRule: "evenodd" }}
+                        />
+                        <rect
+                          x="22.487"
+                          y="7.439"
+                          width="4.323"
+                          height="2.2"
+                          style={{ fill: "#20744a" }}
+                        />
+                        <rect
+                          x="22.487"
+                          y="10.94"
+                          width="4.323"
+                          height="2.2"
+                          style={{ fill: "#20744a" }}
+                        />
+                        <rect
+                          x="22.487"
+                          y="14.441"
+                          width="4.323"
+                          height="2.2"
+                          style={{ fill: "#20744a" }}
+                        />
+                        <rect
+                          x="22.487"
+                          y="17.942"
+                          width="4.323"
+                          height="2.2"
+                          style={{ fill: "#20744a" }}
+                        />
+                        <rect
+                          x="22.487"
+                          y="21.443"
+                          width="4.323"
+                          height="2.2"
+                          style={{ fill: "#20744a" }}
+                        />
+                        <polygon
+                          points="6.347 10.673 8.493 10.55 9.842 14.259 11.436 10.397 13.582 10.274 10.976 15.54 13.582 20.819 11.313 20.666 9.781 16.642 8.248 20.513 6.163 20.329 8.585 15.666 6.347 10.673"
+                          style={{ fill: "#ffffff", fillRule: "evenodd" }}
+                        />
+                      </svg>
+                      <span className="ml-5 green">Download</span>
+                    </>
+                  )}
+                </a>
               </div>
               <div
-    className="flex items-center cursor-pointer"
-    title={isSoundEnabled ? "Sound ON" : "Sound OFF"}
-    onClick={() => {
-  setIsSoundEnabled(prev => {
-    console.log("Toggle clicked, new value:", !prev);
-    return !prev;
-  });
-}}
-  >
-    <h1  style={{ color: "#3f9f42", fontWeight: 500 }}> 🔔  </h1>
-    <img
-      src={isSoundEnabled ? toggleOn : toggleOff}
-      alt="Sound Toggle"
-      style={{
-        height: "28px",
-        width: "32px",
-        objectFit: "contain",
-      }}
-    />
-  </div>
+                className="flex items-center cursor-pointer"
+                title={isSoundEnabled ? "Sound ON" : "Sound OFF"}
+                onClick={() => {
+                  setIsSoundEnabled((prev) => {
+                    console.log("Toggle clicked, new value:", !prev);
+                    return !prev;
+                  });
+                }}
+              >
+                <h1 style={{ color: "#3f9f42", fontWeight: 500 }}> 🔔 </h1>
+                <img
+                  src={isSoundEnabled ? toggleOn : toggleOff}
+                  alt="Sound Toggle"
+                  style={{
+                    height: "28px",
+                    width: "32px",
+                    objectFit: "contain",
+                  }}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -1875,12 +1893,13 @@ const { playSound } = useSoundAlert();
       )}
 
       <span className="pos-relative">
-        <pre style={{
-          overflow: "hidden", // hides scrollbars
-          whiteSpace: "pre-wrap", // wraps text nicely
-          wordBreak: "break-word", // prevents long words from overflowing
-          maxHeight: "70vh", // optional, keeps height reasonable
-        }}
+        <pre
+          style={{
+            overflow: "hidden", // hides scrollbars
+            whiteSpace: "pre-wrap", // wraps text nicely
+            wordBreak: "break-word", // prevents long words from overflowing
+            maxHeight: "70vh", // optional, keeps height reasonable
+          }}
           className="w-full p-3 py-[5px] border border-gray-300 rounded-lg overflow-y-auto h-[30px] min-h-[30px] break-words whitespace-pre-wrap text-[13px]"
           dangerouslySetInnerHTML={{
             __html: formatOutput(outputForm.generatedContent),
@@ -1893,12 +1912,14 @@ const { playSound } = useSoundAlert();
           buttonLabel="Ok"
           size="100%"
         >
-          <div style={{
-            backgroundColor: "white",
-            padding: "20px",
-            borderRadius: "10px",
-            boxShadow: "0 4px 8px rgba(0,0,0,0.1)"
-          }}>
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "10px",
+              boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
+            }}
+          >
             <label>Output</label>
             <pre
               className="height-full--25 w-full p-3 border border-gray-300 rounded-lg overflow-y-auto textarea-height-600"
@@ -2044,23 +2065,28 @@ const { playSound } = useSoundAlert();
             min="1"
             max={combinedResponses.length}
             className="form-control text-center !mx-2"
-            style={{ width: "70px", padding: "8px",border: "1px solid #ddd",borderRadius: "4px" }}
+            style={{
+              width: "70px",
+              padding: "8px",
+              border: "1px solid #ddd",
+              borderRadius: "4px",
+            }}
           />
           <span className="flex items-center">
             of{" "}
             {selectedZohoviewId
               ? (() => {
-                const selectedView = zohoClient.find(
-                  (client) => client.zohoviewId === selectedZohoviewId
-                );
-                return selectedView
-                  ? selectedView.totalContact
-                  : combinedResponses.length;
-              })()
+                  const selectedView = zohoClient.find(
+                    (client) => client.zohoviewId === selectedZohoviewId,
+                  );
+                  return selectedView
+                    ? selectedView.totalContact
+                    : combinedResponses.length;
+                })()
               : zohoClient.reduce(
-                (sum, client) => sum + client.totalContact,
-                0
-              )}
+                  (sum, client) => sum + client.totalContact,
+                  0,
+                )}
           </span>
         </div>
         {/* Add this inside your green box area */}
@@ -2090,12 +2116,13 @@ const { playSound } = useSoundAlert();
                   </button>
                 </li>
               )}
-              <li>
-
-              </li>
+              <li></li>
             </ul>
             {!isDemoAccount && (
-              <div className="flex items-center" style={{marginRight:'890px'}}>
+              <div
+                className="flex items-center"
+                style={{ marginRight: "890px" }}
+              >
                 <label className="checkbox-label !mb-[0px] mr-[5px] flex items-center">
                   <input
                     type="checkbox"
@@ -2105,9 +2132,9 @@ const { playSound } = useSoundAlert();
                     }}
                     className="!mr-0"
                   />
-                      <span style={{ fontSize: "14px", whiteSpace: "nowrap" }}>
-                        Include email trail
-                      </span>
+                  <span style={{ fontSize: "14px", whiteSpace: "nowrap" }}>
+                    Include email trail
+                  </span>
                 </label>
               </div>
             )}
@@ -2125,7 +2152,10 @@ const { playSound } = useSoundAlert();
                     </button>
                   )}
                 </div> */}
-                <p>The Output tab shows the contact details and dynamic fields for review before sending the email.</p>
+                <p>
+                  The Output tab shows the contact details and dynamic fields
+                  for review before sending the email.
+                </p>
               </div>
               <div className="form-group mb-0 mt-2">
                 <div className="d-flex justify-between w-full">
@@ -2163,9 +2193,9 @@ const { playSound } = useSoundAlert();
                     <a
                       href={
                         combinedResponses[currentIndex]?.website &&
-                          !combinedResponses[currentIndex]?.website.startsWith(
-                            "http"
-                          )
+                        !combinedResponses[currentIndex]?.website.startsWith(
+                          "http",
+                        )
                           ? `https://${combinedResponses[currentIndex]?.website}`
                           : combinedResponses[currentIndex]?.website
                       }
@@ -2240,12 +2270,13 @@ const { playSound } = useSoundAlert();
                       Open this email in your local email client
                     </ReactTooltip>
                     <a
-                      href={`mailto:${combinedResponses[currentIndex]?.email || ""
-                        }?subject=${encodeURIComponent(
-                          combinedResponses[currentIndex]?.subject || ""
-                        )}&body=${encodeURIComponent(
-                          combinedResponses[currentIndex]?.pitch || ""
-                        )}`}
+                      href={`mailto:${
+                        combinedResponses[currentIndex]?.email || ""
+                      }?subject=${encodeURIComponent(
+                        combinedResponses[currentIndex]?.subject || "",
+                      )}&body=${encodeURIComponent(
+                        combinedResponses[currentIndex]?.pitch || "",
+                      )}`}
                       title="Open this email in your local email client"
                       className="ml-[3px]"
                       style={{
@@ -2290,7 +2321,7 @@ const { playSound } = useSoundAlert();
                         verticalAlign: "middle",
                         height: "34px",
                         display: "inline-block",
-                        marginLeft: "3px"
+                        marginLeft: "3px",
                       }}
                     >
                       <svg
@@ -2339,9 +2370,9 @@ const { playSound } = useSoundAlert();
                     >
                       {combinedResponses[currentIndex]?.lastemailupdateddate
                         ? `Krafted: ${formatLocalDateTime(
-                          combinedResponses[currentIndex]
-                            ?.lastemailupdateddate
-                        )}`
+                            combinedResponses[currentIndex]
+                              ?.lastemailupdateddate,
+                          )}`
                         : ""}
                     </span>
 
@@ -2356,8 +2387,8 @@ const { playSound } = useSoundAlert();
                     >
                       {combinedResponses[currentIndex]?.emailsentdate
                         ? `Emailed: ${formatLocalDateTime(
-                          combinedResponses[currentIndex]?.emailsentdate
-                        )}`
+                            combinedResponses[currentIndex]?.emailsentdate,
+                          )}`
                         : ""}
                     </span>
                   </div>
@@ -2443,7 +2474,7 @@ const { playSound } = useSoundAlert();
                                   });
                                   localStorage.setItem(
                                     "lastBCCOtherMode",
-                                    "true"
+                                    "true",
                                   );
                                   // Do NOT clear lastBCC, keep it if exists
                                 } else {
@@ -2454,7 +2485,7 @@ const { playSound } = useSoundAlert();
                                   });
                                   localStorage.setItem(
                                     "lastBCCOtherMode",
-                                    "false"
+                                    "false",
                                   );
                                   localStorage.setItem("lastBCC", selected);
                                 }
@@ -2492,7 +2523,7 @@ const { playSound } = useSoundAlert();
                                   });
                                   localStorage.setItem(
                                     "lastBCC",
-                                    e.target.value
+                                    e.target.value,
                                   ); // <== store as soon as typed
                                 }}
                                 style={{
@@ -2590,69 +2621,91 @@ const { playSound } = useSoundAlert();
                               }}
                               disabled={(() => {
                                 const contact = combinedResponses[currentIndex];
-                                if (!contact || sendingEmail || sessionStorage.getItem("isDemoAccount") === "true") {
+                                if (
+                                  !contact ||
+                                  sendingEmail ||
+                                  sessionStorage.getItem("isDemoAccount") ===
+                                    "true"
+                                ) {
                                   return true;
                                 }
-                                
+
                                 // If include email trail is checked, compare dates
                                 if (followupEnabled) {
                                   const emailedDate = contact.emailsentdate;
-                                  const kraftedDate = contact.lastemailupdateddate;
-                                  
+                                  const kraftedDate =
+                                    contact.lastemailupdateddate;
+
                                   if (emailedDate && kraftedDate) {
-                                    const emailedTime = new Date(emailedDate).getTime();
-                                    const kraftedTime = new Date(kraftedDate).getTime();
-                                    
+                                    const emailedTime = new Date(
+                                      emailedDate,
+                                    ).getTime();
+                                    const kraftedTime = new Date(
+                                      kraftedDate,
+                                    ).getTime();
+
                                     // Disable if emailed date is greater than krafted date
                                     if (emailedTime > kraftedTime) {
                                       return true;
                                     }
                                   }
                                 }
-                                
+
                                 return false;
-                              })()
-                              }
+                              })()}
                               style={{
                                 cursor: (() => {
-                                  const contact = combinedResponses[currentIndex];
-                                  if (!contact || sendingEmail) return "not-allowed";
-                                  
+                                  const contact =
+                                    combinedResponses[currentIndex];
+                                  if (!contact || sendingEmail)
+                                    return "not-allowed";
+
                                   if (followupEnabled) {
                                     const emailedDate = contact.emailsentdate;
-                                    const kraftedDate = contact.lastemailupdateddate;
-                                    
+                                    const kraftedDate =
+                                      contact.lastemailupdateddate;
+
                                     if (emailedDate && kraftedDate) {
-                                      const emailedTime = new Date(emailedDate).getTime();
-                                      const kraftedTime = new Date(kraftedDate).getTime();
-                                      
+                                      const emailedTime = new Date(
+                                        emailedDate,
+                                      ).getTime();
+                                      const kraftedTime = new Date(
+                                        kraftedDate,
+                                      ).getTime();
+
                                       if (emailedTime > kraftedTime) {
                                         return "not-allowed";
                                       }
                                     }
                                   }
-                                  
+
                                   return "pointer";
                                 })(),
                                 padding: "5px 15px",
                                 opacity: (() => {
-                                  const contact = combinedResponses[currentIndex];
+                                  const contact =
+                                    combinedResponses[currentIndex];
                                   if (!contact || sendingEmail) return 0.6;
-                                  
+
                                   if (followupEnabled) {
                                     const emailedDate = contact.emailsentdate;
-                                    const kraftedDate = contact.lastemailupdateddate;
-                                    
+                                    const kraftedDate =
+                                      contact.lastemailupdateddate;
+
                                     if (emailedDate && kraftedDate) {
-                                      const emailedTime = new Date(emailedDate).getTime();
-                                      const kraftedTime = new Date(kraftedDate).getTime();
-                                      
+                                      const emailedTime = new Date(
+                                        emailedDate,
+                                      ).getTime();
+                                      const kraftedTime = new Date(
+                                        kraftedDate,
+                                      ).getTime();
+
                                       if (emailedTime > kraftedTime) {
                                         return 0.6;
                                       }
                                     }
                                   }
-                                  
+
                                   return 1;
                                 })(),
                                 height: "40px",
@@ -2677,17 +2730,20 @@ const { playSound } = useSoundAlert();
                           <ReactTooltip anchorSelect="#send-email-info" place="top">
                             Send this email
                           </ReactTooltip> */}
-                            <ReactTooltip anchorSelect="#send-all-btn" place="top">
+                            <ReactTooltip
+                              anchorSelect="#send-all-btn"
+                              place="top"
+                            >
                               Send all emails
                             </ReactTooltip>
                             <button
-                             id="send-all-btn"
+                              id="send-all-btn"
                               type="button"
                               className="nowrap ml-1 button save-button x-small d-flex align-center align-self-center my-5-640 mr-[5px]"
                               onClick={() => {
                                 console.log(
                                   "Button clicked, isBulkSending:",
-                                  isBulkSending
+                                  isBulkSending,
                                 );
 
                                 if (isBulkSending) {
@@ -2697,7 +2753,7 @@ const { playSound } = useSoundAlert();
                                   // Check if SMTP is selected before starting
                                   if (!selectedSmtpUser) {
                                     toast.error(
-                                      "Please select From email first"
+                                      "Please select From email first",
                                     );
                                     return;
                                   }
@@ -2706,77 +2762,113 @@ const { playSound } = useSoundAlert();
                                 }
                               }}
                               disabled={(() => {
-                                if (sessionStorage.getItem("isDemoAccount") === "true") {
+                                if (
+                                  sessionStorage.getItem("isDemoAccount") ===
+                                  "true"
+                                ) {
                                   return true;
                                 }
-                                
+
                                 // If include email trail is checked, check if any contacts can be sent
                                 if (followupEnabled) {
-                                  const canSendAny = combinedResponses.some(contact => {
-                                    const emailedDate = contact.emailsentdate;
-                                    const kraftedDate = contact.lastemailupdateddate;
-                                    
-                                    if (!emailedDate || !kraftedDate) return true;
-                                    
-                                    const emailedTime = new Date(emailedDate).getTime();
-                                    const kraftedTime = new Date(kraftedDate).getTime();
-                                    
-                                    // Can send if krafted date is greater than or equal to emailed date
-                                    return kraftedTime >= emailedTime;
-                                  });
-                                  
+                                  const canSendAny = combinedResponses.some(
+                                    (contact) => {
+                                      const emailedDate = contact.emailsentdate;
+                                      const kraftedDate =
+                                        contact.lastemailupdateddate;
+
+                                      if (!emailedDate || !kraftedDate)
+                                        return true;
+
+                                      const emailedTime = new Date(
+                                        emailedDate,
+                                      ).getTime();
+                                      const kraftedTime = new Date(
+                                        kraftedDate,
+                                      ).getTime();
+
+                                      // Can send if krafted date is greater than or equal to emailed date
+                                      return kraftedTime >= emailedTime;
+                                    },
+                                  );
+
                                   return !canSendAny;
                                 }
-                                
+
                                 return false;
-                              })()
-                              }
+                              })()}
                               style={{
                                 cursor: (() => {
-                                  if (sessionStorage.getItem("isDemoAccount") === "true") {
+                                  if (
+                                    sessionStorage.getItem("isDemoAccount") ===
+                                    "true"
+                                  ) {
                                     return "not-allowed";
                                   }
-                                  
+
                                   if (followupEnabled) {
-                                    const canSendAny = combinedResponses.some(contact => {
-                                      const emailedDate = contact.emailsentdate;
-                                      const kraftedDate = contact.lastemailupdateddate;
-                                      
-                                      if (!emailedDate || !kraftedDate) return true;
-                                      
-                                      const emailedTime = new Date(emailedDate).getTime();
-                                      const kraftedTime = new Date(kraftedDate).getTime();
-                                      
-                                      return kraftedTime >= emailedTime;
-                                    });
-                                    
-                                    return canSendAny ? "pointer" : "not-allowed";
+                                    const canSendAny = combinedResponses.some(
+                                      (contact) => {
+                                        const emailedDate =
+                                          contact.emailsentdate;
+                                        const kraftedDate =
+                                          contact.lastemailupdateddate;
+
+                                        if (!emailedDate || !kraftedDate)
+                                          return true;
+
+                                        const emailedTime = new Date(
+                                          emailedDate,
+                                        ).getTime();
+                                        const kraftedTime = new Date(
+                                          kraftedDate,
+                                        ).getTime();
+
+                                        return kraftedTime >= emailedTime;
+                                      },
+                                    );
+
+                                    return canSendAny
+                                      ? "pointer"
+                                      : "not-allowed";
                                   }
-                                  
+
                                   return "pointer";
                                 })(),
                                 padding: "5px 15px",
                                 opacity: (() => {
-                                  if (sessionStorage.getItem("isDemoAccount") === "true") {
+                                  if (
+                                    sessionStorage.getItem("isDemoAccount") ===
+                                    "true"
+                                  ) {
                                     return 0.6;
                                   }
-                                  
+
                                   if (followupEnabled) {
-                                    const canSendAny = combinedResponses.some(contact => {
-                                      const emailedDate = contact.emailsentdate;
-                                      const kraftedDate = contact.lastemailupdateddate;
-                                      
-                                      if (!emailedDate || !kraftedDate) return true;
-                                      
-                                      const emailedTime = new Date(emailedDate).getTime();
-                                      const kraftedTime = new Date(kraftedDate).getTime();
-                                      
-                                      return kraftedTime >= emailedTime;
-                                    });
-                                    
+                                    const canSendAny = combinedResponses.some(
+                                      (contact) => {
+                                        const emailedDate =
+                                          contact.emailsentdate;
+                                        const kraftedDate =
+                                          contact.lastemailupdateddate;
+
+                                        if (!emailedDate || !kraftedDate)
+                                          return true;
+
+                                        const emailedTime = new Date(
+                                          emailedDate,
+                                        ).getTime();
+                                        const kraftedTime = new Date(
+                                          kraftedDate,
+                                        ).getTime();
+
+                                        return kraftedTime >= emailedTime;
+                                      },
+                                    );
+
                                     return canSendAny ? 1 : 0.6;
                                   }
-                                  
+
                                   return 1;
                                 })(),
                                 height: "40px",
@@ -2807,12 +2899,13 @@ const { playSound } = useSoundAlert();
                       className="editor-container"
                       style={{
                         width: "100%",
-                        maxWidth: `${outputEmailWidth === "Mobile"
-                          ? "480px"
-                          : outputEmailWidth === "Tab"
-                            ? "768px"
-                            : "100%"
-                          }`,
+                        maxWidth: `${
+                          outputEmailWidth === "Mobile"
+                            ? "480px"
+                            : outputEmailWidth === "Tab"
+                              ? "768px"
+                              : "100%"
+                        }`,
                       }}
                     >
                       <div
@@ -2833,7 +2926,7 @@ const { playSound } = useSoundAlert();
                             document.execCommand(
                               "formatBlock",
                               false,
-                              e.target.value
+                              e.target.value,
                             );
                           }}
                           style={{
@@ -2976,28 +3069,28 @@ const { playSound } = useSoundAlert();
                         </button>
                       </div>
 
-<div
-  ref={editorRef}
-  contentEditable
-  suppressContentEditableWarning
-  className="textarea-full-height preview-content-area"
-  onInput={(e) => {
-    setEditableContent(e.currentTarget.innerHTML);
-  }}
-  style={{
-    minHeight: "500px",
-    padding: "10px",
-    border: "1px solid #ccc",
-    borderTop: "none",
-    borderRadius: "0 0 4px 4px",
-    whiteSpace: "normal",
-    overflowY: "auto",
-    overflowX: "auto",
-    wordWrap: "break-word",
-    width: "100%",
-    outline: "none",
-  }}
-/>
+                      <div
+                        ref={editorRef}
+                        contentEditable
+                        suppressContentEditableWarning
+                        className="textarea-full-height preview-content-area"
+                        onInput={(e) => {
+                          setEditableContent(e.currentTarget.innerHTML);
+                        }}
+                        style={{
+                          minHeight: "500px",
+                          padding: "10px",
+                          border: "1px solid #ccc",
+                          borderTop: "none",
+                          borderRadius: "0 0 4px 4px",
+                          whiteSpace: "normal",
+                          overflowY: "auto",
+                          overflowX: "auto",
+                          wordWrap: "break-word",
+                          width: "100%",
+                          outline: "none",
+                        }}
+                      />
 
                       <div className="editor-actions mt-10 d-flex">
                         <button
@@ -3017,7 +3110,7 @@ const { playSound } = useSoundAlert();
                           onClick={() => {
                             setIsEditing(false);
                             setEditableContent(
-                              combinedResponses[currentIndex]?.pitch || ""
+                              combinedResponses[currentIndex]?.pitch || "",
                             );
                           }}
                         >
@@ -3042,16 +3135,17 @@ const { playSound } = useSoundAlert();
                           boxSizing: "border-box",
                           wordWrap: "break-word",
                           width: "100%",
-                          maxWidth: `${outputEmailWidth === "Mobile"
-                            ? "480px"
-                            : outputEmailWidth === "Tab"
-                              ? "768px"
-                              : "100%"
-                            }`,
+                          maxWidth: `${
+                            outputEmailWidth === "Mobile"
+                              ? "480px"
+                              : outputEmailWidth === "Tab"
+                                ? "768px"
+                                : "100%"
+                          }`,
                         }}
                         dangerouslySetInnerHTML={{
                           __html: aggressiveCleanHTML(
-                            combinedResponses[currentIndex]?.pitch || ""
+                            combinedResponses[currentIndex]?.pitch || "",
                           ),
                         }}
                       ></div>
@@ -3208,9 +3302,10 @@ const { playSound } = useSoundAlert();
                                     <button
                                       id="mobile-device-view"
                                       className={`w-[55px] button pad-10 d-flex align-center align-self-center output-email-width-button-mobile justify-center
-                                    ${outputEmailWidth === "Mobile" &&
-                                        "bg-active"
-                                        }
+                                    ${
+                                      outputEmailWidth === "Mobile" &&
+                                      "bg-active"
+                                    }
                                     `}
                                       onClick={() =>
                                         toggleOutputEmailWidth("Mobile")
@@ -3421,32 +3516,43 @@ const { playSound } = useSoundAlert();
                               if (showCreditModal) {
                                 return;
                               }
-                              
+
                               if (!combinedResponses[currentIndex]) {
                                 alert(
-                                  "No contact selected to regenerate pitch for."
+                                  "No contact selected to regenerate pitch for.",
                                 );
                                 return;
                               }
                               if (!onRegenerateContact) {
                                 alert(
-                                  "Regenerate logic not wired up! Consult admin."
+                                  "Regenerate logic not wired up! Consult admin.",
                                 );
                                 return;
                               }
 
                               // Check credits before regenerating
-                              if (sessionStorage.getItem("isDemoAccount") !== "true") {
-                                const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
-                                const currentCredits = await checkUserCredits?.(effectiveUserId);
-                                if (currentCredits && typeof currentCredits === 'object' && !currentCredits.canGenerate) {
+                              if (
+                                sessionStorage.getItem("isDemoAccount") !==
+                                "true"
+                              ) {
+                                const effectiveUserId =
+                                  selectedClient !== ""
+                                    ? selectedClient
+                                    : userId;
+                                const currentCredits =
+                                  await checkUserCredits?.(effectiveUserId);
+                                if (
+                                  currentCredits &&
+                                  typeof currentCredits === "object" &&
+                                  !currentCredits.canGenerate
+                                ) {
                                   return; // Stop if can't generate
                                 }
                               }
-                              
+
                               setIsRegenerating(true);
                               setRegenerationTargetId(
-                                combinedResponses[currentIndex].id
+                                combinedResponses[currentIndex].id,
                               );
 
                               const regenerateIndex = currentIndex;
@@ -3456,10 +3562,7 @@ const { playSound } = useSoundAlert();
                                 regenerateIndex: regenerateIndex, // Use currentIndex instead of 0
                               });
 
-                              setTimeout(
-                                () => setIsRegenerating(false),
-                                2500
-                              );
+                              setTimeout(() => setIsRegenerating(false), 2500);
                             }}
                             disabled={
                               !combinedResponses[currentIndex] ||
@@ -3474,12 +3577,12 @@ const { playSound } = useSoundAlert();
                               background: "none !important",
                               cursor:
                                 combinedResponses[currentIndex] &&
-                                  !isRegenerating
+                                !isRegenerating
                                   ? "pointer"
                                   : "not-allowed",
                               opacity:
                                 combinedResponses[currentIndex] &&
-                                  !isRegenerating
+                                !isRegenerating
                                   ? 1
                                   : 0.6,
                             }}
@@ -3507,8 +3610,9 @@ const { playSound } = useSoundAlert();
                           </ReactTooltip>
                           <button
                             id="copy-to-clipboard-tooltip"
-                            className={`button d-flex align-center square-40 justify-center ${isCopyText && "save-button auto-width"
-                              }`}
+                            className={`button d-flex align-center square-40 justify-center ${
+                              isCopyText && "save-button auto-width"
+                            }`}
                             onClick={copyToClipboardHandler}
                           >
                             {isCopyText ? (
@@ -3625,12 +3729,16 @@ const { playSound } = useSoundAlert();
                 }}
                 buttonLabel=""
                 size="100%"
-              > <div style={{
-                backgroundColor: "white",
-                padding: "20px",
-                borderRadius: "10px",
-                boxShadow: "0 4px 8px rgba(0,0,0,0.1)"
-              }}>
+              >
+                {" "}
+                <div
+                  style={{
+                    backgroundColor: "white",
+                    padding: "20px",
+                    borderRadius: "10px",
+                    boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
+                  }}
+                >
                   <form
                     className="full-height"
                     style={{
@@ -3641,7 +3749,9 @@ const { playSound } = useSoundAlert();
                       minWidth: 0,
                     }}
                   >
-                    <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                    <div
+                      style={{ display: "flex", justifyContent: "flex-end" }}
+                    >
                       <button
                         type="button"
                         className="button save-button"
@@ -3707,8 +3817,9 @@ const { playSound } = useSoundAlert();
                   <li className="flex-50percent-991 flex-full-640">
                     <button
                       onClick={tabHandler3}
-                      className={`button full-width ${tab3 === "Stages" ? "active" : ""
-                        }`}
+                      className={`button full-width ${
+                        tab3 === "Stages" ? "active" : ""
+                      }`}
                     >
                       Stages
                     </button>
@@ -4102,7 +4213,6 @@ const { playSound } = useSoundAlert();
             </>
           )}
           {/* Add this after the Output tab and before the Stages tab */}
-
         </>
       )}
       <AppModal
@@ -4114,7 +4224,7 @@ const { playSound } = useSoundAlert();
       {/* Email Sending Loader Modal */}
       <AppModal
         isOpen={sendingEmail}
-        onClose={() => { }}
+        onClose={() => {}}
         type="loader"
         loaderMessage="Sending email..."
         closeOnOverlayClick={false}
@@ -4162,7 +4272,7 @@ const { playSound } = useSoundAlert();
                 ×
               </span>
             </div> */}
-            
+
             <>
               <textarea
                 value={currentNotes}
@@ -4176,19 +4286,23 @@ const { playSound } = useSoundAlert();
                   borderRadius: 4,
                   fontSize: 14,
                   resize: "vertical",
-                  marginBottom: 16
+                  marginBottom: 16,
                 }}
               />
               {notesMessage && (
-                <div style={{ 
-                  color: "green", 
-                  marginBottom: 16, 
-                  fontSize: 14 
-                }}>
+                <div
+                  style={{
+                    color: "green",
+                    marginBottom: 16,
+                    fontSize: 14,
+                  }}
+                >
                   {notesMessage}
                 </div>
               )}
-              <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+              <div
+                style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}
+              >
                 <button
                   onClick={async () => {
                     setIsSavingNotes(true);
@@ -4197,35 +4311,37 @@ const { playSound } = useSoundAlert();
                       const response = await fetch(
                         `https://localhost:7216/api/Crm/Update-Notes?contactid=${contact.id}&Notes=${encodeURIComponent(currentNotes)}`,
                         {
-                          method: 'POST',
+                          method: "POST",
                           headers: {
-                            'accept': '*/*'
-                          }
-                        }
+                            accept: "*/*",
+                          },
+                        },
                       );
-                      
+
                       if (response.ok) {
                         // Update the contact in combinedResponses
                         const updatedCombinedResponses = [...combinedResponses];
                         updatedCombinedResponses[currentIndex] = {
                           ...updatedCombinedResponses[currentIndex],
-                          notes: currentNotes
+                          notes: currentNotes,
                         };
                         setCombinedResponses(updatedCombinedResponses);
-                        
+
                         setNotesMessage("Notes updated successfully!");
-                        
+
                         setTimeout(() => {
                           setNotesMessage("");
                           setShowNotesModal(false);
                           setIsEditingNotes(false);
                         }, 1000);
                       } else {
-                        throw new Error('Failed to update notes');
+                        throw new Error("Failed to update notes");
                       }
                     } catch (error) {
-                      console.error('Error updating notes:', error);
-                      setNotesMessage("Failed to update notes. Please try again.");
+                      console.error("Error updating notes:", error);
+                      setNotesMessage(
+                        "Failed to update notes. Please try again.",
+                      );
                     } finally {
                       setIsSavingNotes(false);
                     }
