@@ -20,6 +20,8 @@ import { RootState } from "../../Redux/store";
 import { useSoundAlert } from "../common/useSoundAlert";
 import toggleOn from "../../assets/images/on-button.png";
 import toggleOff from "../../assets/images/off-button.png";
+import DOMPurify from "dompurify";
+
 
 
 
@@ -888,12 +890,21 @@ const { playSound } = useSoundAlert();
   const editorRef = useRef<HTMLDivElement>(null);
 
   // Add this useEffect to handle the initialization
+  // useEffect(() => {
+  //   if (isEditing && editorRef.current) {
+  //     // Update editor content whenever the current index changes or when entering edit mode
+  //     editorRef.current.innerHTML = editableContent;
+  //   }
+  // }, [isEditing, editableContent, currentIndex]);
   useEffect(() => {
-    if (isEditing && editorRef.current) {
-      // Update editor content whenever the current index changes or when entering edit mode
-      editorRef.current.innerHTML = editableContent;
-    }
-  }, [isEditing, editableContent, currentIndex]);
+  if (
+    editorRef.current &&
+    editorRef.current.innerHTML !== editableContent
+  ) {
+    editorRef.current.innerHTML = editableContent || "";
+  }
+}, [editableContent]);
+
 
   const [openDeviceDropdown, setOpenDeviceDropdown] = useState(false);
   const [outputEmailWidth, setOutputEmailWidth] = useState<string>("");
@@ -1603,6 +1614,8 @@ const { playSound } = useSoundAlert();
 
   const [sendEmailControls, setSendEmailControls] = useState(false);
   const preserveIndexRef = useRef(false);
+
+
 
   return (
     <div className="login-box gap-down">
@@ -2963,37 +2976,28 @@ const { playSound } = useSoundAlert();
                         </button>
                       </div>
 
-                      <div
-                        ref={editorRef}
-                        contentEditable={true}
-                        className="textarea-full-height preview-content-area"
-                        onBlur={(e) => {
-                          setEditableContent(e.currentTarget.innerHTML);
-                        }}
-                        onFocus={() => {
-                          // Set focus to the contentEditable div when toolbar buttons are used
-                          if (editorRef.current) {
-                            editorRef.current.focus();
-                          }
-                        }}
-                        style={{
-                          minHeight: "500px",
-                          padding: "10px",
-                          border: "1px solid #ccc",
-                          borderTop: "none", // Remove top border since toolbar has bottom border
-                          borderRadius: "0 0 4px 4px",
-                          fontFamily: "inherit",
-                          fontSize: "inherit",
-                          whiteSpace: "normal",
-                          overflowY: "auto",
-                          overflowX: "auto", // Add horizontal overflow
-                          boxSizing: "border-box", // Add box-sizing
-                          wordWrap: "break-word", // Add word-wrap
-                          width: "100%", // Add width
-
-                          outline: "none",
-                        }}
-                      />
+<div
+  ref={editorRef}
+  contentEditable
+  suppressContentEditableWarning
+  className="textarea-full-height preview-content-area"
+  onInput={(e) => {
+    setEditableContent(e.currentTarget.innerHTML);
+  }}
+  style={{
+    minHeight: "500px",
+    padding: "10px",
+    border: "1px solid #ccc",
+    borderTop: "none",
+    borderRadius: "0 0 4px 4px",
+    whiteSpace: "normal",
+    overflowY: "auto",
+    overflowX: "auto",
+    wordWrap: "break-word",
+    width: "100%",
+    outline: "none",
+  }}
+/>
 
                       <div className="editor-actions mt-10 d-flex">
                         <button

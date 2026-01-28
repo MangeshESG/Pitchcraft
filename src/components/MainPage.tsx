@@ -23,7 +23,6 @@ import Template from "./feature/blueprint/Template"; // Add this import
 import { useAppModal } from "../hooks/useAppModal";
 import { useSelector } from "react-redux";
 import ReactQuill from "react-quill-new";
-import { Tooltip as ReactTooltip } from "react-tooltip";
 import Mail from "./feature/Mail";
 import "react-quill-new/dist/quill.snow.css";
 import { RootState } from "../Redux/store";

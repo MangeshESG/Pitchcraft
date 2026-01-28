@@ -11,7 +11,6 @@ import { AlertCircle } from 'lucide-react';
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import PaginationControls from '../PaginationControls';
-import { Tooltip as ReactTooltip } from "react-tooltip";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBars } from '@fortawesome/free-solid-svg-icons';
 import downArrow from "../../assets/images/down.png";
@@ -758,6 +757,13 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
 
   const safe = (v: any) => (v?.trim ? v.trim() : v) || "NA";
   const selectedContact = contacts.find(c => c.id === selectedContactId);
+  const [userRole, setUserRole] = useState<string>(""); // Store user role
+
+    useEffect(() => {
+    const isAdminString = sessionStorage.getItem("isAdmin");
+    const isAdmin = isAdminString === "true"; // Correct comparison
+    setUserRole(isAdmin ? "ADMIN" : "USER");
+  }, []);
 
   return (
     <div className="example-section !h-[calc(100%-60px)] shadow-[3px_3px_10px_rgba(0,0,0,0.2)]">
@@ -865,17 +871,22 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
           marginTop: "0px",
         }}
       >
-        <div style={{ display: "flex", gap: "12px" }}>
-           {["output", "pt"].map((t) => (                //{["output", "pt", "stages"].map((t) => (
-            <button
-              key={t}
-              className={`stage-tab-btn ${activeMainTab === t ? "active" : ""}`}
-              onClick={() => setActiveMainTab(t as any)}
-            >
-              {t.toUpperCase()}
-            </button>
-          ))}
-        </div>
+<div style={{ display: "flex", gap: "12px" }}>
+  {["output", "pt"].map((t) => {
+    if (t === "pt" && userRole !== "ADMIN") return null;
+
+    return (
+      <button
+        key={t}
+        className={`stage-tab-btn ${activeMainTab === t ? "active" : ""}`}
+        onClick={() => setActiveMainTab(t as any)}
+      >
+        {t.toUpperCase()}
+      </button>
+    );
+  })}
+</div>
+
 
         {activeMainTab === "output" && editableExampleOutput && (
           <button
