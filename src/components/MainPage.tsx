@@ -326,8 +326,7 @@ useEffect(() => {
     "manual"
   );
 
-  const [lastProcessedToken, setLastProcessedToken] = useState(null);
-  const [lastProcessedIndex, setLastProcessedIndex] = useState(0);
+
   const stopRef = useRef(false);
   const [isStarted, setIsStarted] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -394,128 +393,6 @@ useEffect(() => {
   const [showContactsSubmenu, setShowContactsSubmenu] = useState(false);
 
 
-  // Load Campaign Blueprint when a campaign is selected
-  // 🧠 Define this function above goToTab (not inside useEffect)
-  // Load Campaign Blueprint when a campaign is selected
-  const loadCampaignBlueprint = async (selectedCampaign: string) => {
-    console.log("Fetching campaign details for selected campaign:", selectedCampaign);
-
-    const campaignResponse = await fetch(`${API_BASE_URL}/api/auth/campaigns/${selectedCampaign}`);
-    if (!campaignResponse.ok) throw new Error("Failed to fetch campaign details");
-    const campaignData = await campaignResponse.json();
-
-    const clientId = campaignData.clientId;
-    const templateId = campaignData.templateId;
-
-    if (!templateId || !clientId) throw new Error("Missing templateId or clientId");
-
-    let blueprint = "";
-    let matchedTemplate: any = null;
-
-    // 🔹 1. Fetch blueprint + placeholderValues from template
-    const bpResp = await fetch(`${API_BASE_URL}/api/CampaignPrompt/campaign/${templateId}`);
-    let bpJson: any = {};
-    if (bpResp.ok) {
-      bpJson = await bpResp.json();
-
-      blueprint =
-        (bpJson.campaignBlueprint ||
-          bpJson.aiInstructions ||
-          bpJson.masterBlueprint ||
-          bpJson.templateBlueprint ||
-          "").toString();
-
-      // ---------------------------------------------------------
-      // ⭐⭐⭐ ADD YOUR REQUIRED LOGIC HERE
-      // ---------------------------------------------------------
-
-      const pv = bpJson.placeholderValues || {};
-
-      // ✅ Subject config from placeholderValues
-        const subjectConfig = {
-          isAI: pv["email_subject-AI"] === "yes",
-          manualTemplate: pv["email_subject-manual"] || "",
-        };
-
-        sessionStorage.setItem(
-          "campaignSubjectConfig",
-          JSON.stringify(subjectConfig)
-        );
-
-
-      setSearchTermForm({
-        searchTerm: pv.hook_search_terms || "",
-        instructions: pv.search_objective || "",
-        searchCount: bpJson.searchURLCount?.toString() || "1",
-        output: ""
-      });
-
-      // Set selected GPT Model
-      setSelectedModelName(bpJson.selectedModel || "gpt-5");
-
-      if (bpJson.subjectInstructions) {
-        setSettingsForm((prev: any) => ({
-          ...prev,
-          subjectInstructions: bpJson.subjectInstructions
-        }));
-      }
-      console.log("🎯 Loaded from DB:", {
-        searchTerm: pv.hook_search_terms,
-        instructions: pv.search_objective,
-        searchCount: bpJson.searchURLCount,
-        model: bpJson.selectedModel
-      });
-
-      // ---------------------------------------------------------
-    }
-
-    // 🔹 2. Fallback: fetch from client templates
-    if (!blueprint.trim()) {
-      const templatesResp = await fetch(`${API_BASE_URL}/api/CampaignPrompt/templates/${clientId}`);
-      if (templatesResp.ok) {
-        const templatesJson = await templatesResp.json();
-        matchedTemplate = (templatesJson.templates || []).find((t: any) => t.id === templateId);
-        blueprint =
-          (matchedTemplate?.campaignBlueprint ||
-            matchedTemplate?.aiInstructions ||
-            matchedTemplate?.masterBlueprint ||
-            "").toString();
-      }
-    }
-
-    if (!blueprint.trim()) throw new Error(`No blueprint found for templateId: ${templateId}`);
-
-    // Prepare prompt
-    const campaignBlueprintPrompt = {
-      id: templateId,
-      name: matchedTemplate?.templateName || campaignData.templateName || `Template ${templateId}`,
-      text: blueprint,
-      model: matchedTemplate?.selectedModel || "gpt-5",
-    };
-
-    // Save to React + sessionStorage
-    setSelectedPrompt(campaignBlueprintPrompt);
-    sessionStorage.setItem("selectedPrompt", JSON.stringify(campaignBlueprintPrompt));
-
-    console.log(
-      "✅ Blueprint set:",
-      campaignBlueprintPrompt.name,
-      campaignBlueprintPrompt.text.substring(0, 120)
-    );
-
-    return campaignBlueprintPrompt;
-  };
-
-
-
-  useEffect(() => {
-    if (selectedCampaign) {
-      loadCampaignBlueprint(selectedCampaign).catch((err) =>
-        console.error("❌ Blueprint load failed in useEffect:", err)
-      );
-    }
-  }, [selectedCampaign]);
-
 
 
   useEffect(() => {
@@ -577,12 +454,7 @@ useEffect(() => {
     // They will be used when resuming
   };
 
-  const reset = () => {
-    stopRef.current = false;
-    setIsPaused(false);
-    setLastProcessedToken(null);
-    setLastProcessedIndex(0);
-  };
+
 
   // Campaign fetching effect
 
@@ -790,25 +662,9 @@ useEffect(() => {
   const [cachedContacts, setCachedContacts] = useState<any[]>([]);
   const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
 
-  const [toneSettings, setToneSettings] = useState({
-    language: "English",
-    subjectTemplate: "",
-    emojis: "None",
-    tone: "Professional",
-    chatty: "Medium",
-    creativity: "Medium",
-    reasoning: "Medium",
-    dateGreeting: "No",
-    dateFarewell: "No",
-  });
 
-  const toneSettingsHandler = (e: any) => {
-    const { name, value } = e.target;
-    setToneSettings((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
+
+
   //  Close popup when clicking outside for support details
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -828,93 +684,14 @@ useEffect(() => {
     };
   }, []);
 
-  const fetchToneSettings = async (clientId?: string) => {
-    try {
-      const id =
-        clientId || effectiveUserId || sessionStorage.getItem("clientId");
-      const response = await fetch(
-        `${API_BASE_URL}/api/Crm/get-tone-settings?clientId=${id}`,
-        {
-          method: "GET",
-          headers: {
-            Accept: "*/*",
-            "Content-Type": "application/json",
-          },
-        }
-      );
 
-      if (response.ok) {
-        const data = await response.json();
-        setToneSettings({
-          language: data.language,
-          subjectTemplate: data.subjectTemplate,
-          emojis: data.emojis,
-          tone: data.tone,
-          chatty: data.chattyLevel,
-          creativity: data.creativityLevel,
-          reasoning: data.reasoningLevel,
-          dateGreeting: data.dateGreeting,
-          dateFarewell: data.dateFarewell,
-        });
-
-
-      }
-    } catch (error) {
-      console.error("Error fetching tone settings:", error);
-    }
-  };
 
   const handleSubjectTextChange = (value: string) => {
 
   };
-  // Update your saveToneSettings to use effectiveUserId
-  const saveToneSettings = async () => {
-    try {
-      const clientId = effectiveUserId || sessionStorage.getItem("clientId");
-      const payload = {
-        language: toneSettings.language,
-        subjectTemplate: "",
-        emojis: toneSettings.emojis,
-        tone: toneSettings.tone,
-        chattyLevel: toneSettings.chatty,
-        creativityLevel: toneSettings.creativity,
-        reasoningLevel: toneSettings.reasoning,
-        dateGreeting: toneSettings.dateGreeting,
-        dateFarewell: toneSettings.dateFarewell,
-      };
 
-      const response = await fetch(
-        `${API_BASE_URL}/api/Crm/save-tone-settings?clientId=${clientId}`,
-        {
-          method: "POST",
-          headers: {
-            Accept: "*/*",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        }
-      );
 
-      if (response.ok) {
-        appModal.showSuccess("Settings saved successfully!");
-        return true;
-      } else {
-        appModal.showError("Failed to save settings. Please try again.");
-        return false;
-      }
-    } catch (error) {
-      console.error("Error saving tone settings:", error);
-      appModal.showError("Error saving settings. Please try again.");
-      return false;
-    }
-  };
 
-  // Replace your existing useEffect with this one that watches for effectiveUserId changes
-  useEffect(() => {
-    if (sessionStorage.getItem("isDemoAccount") !== "true" && effectiveUserId) {
-      fetchToneSettings();
-    }
-  }, [effectiveUserId]); 
 
 
 
@@ -1275,6 +1052,160 @@ useEffect(() => {
     return { original: originalCount, assisted: assistedCount };
   };
 
+    // Load Campaign Blueprint when a campaign is selected
+  // 🧠 Define this function above goToTab (not inside useEffect)
+  // Load Campaign Blueprint when a campaign is selected
+  const loadCampaignBlueprint = async (selectedCampaign: string) => {
+    console.log("Fetching campaign details for selected campaign:", selectedCampaign);
+
+    const campaignResponse = await fetch(`${API_BASE_URL}/api/auth/campaigns/${selectedCampaign}`);
+    if (!campaignResponse.ok) throw new Error("Failed to fetch campaign details");
+    const campaignData = await campaignResponse.json();
+
+    const clientId = campaignData.clientId;
+    const templateId = campaignData.templateId;
+
+    if (!templateId || !clientId) throw new Error("Missing templateId or clientId");
+
+    let blueprint = "";
+    let matchedTemplate: any = null;
+
+    // 🔹 1. Fetch blueprint + placeholderValues from template
+    const bpResp = await fetch(`${API_BASE_URL}/api/CampaignPrompt/campaign/${templateId}`);
+    let bpJson: any = {};
+    if (bpResp.ok) {
+      bpJson = await bpResp.json();
+
+      blueprint =
+        (bpJson.campaignBlueprint ||
+          bpJson.aiInstructions ||
+          bpJson.masterBlueprint ||
+          bpJson.templateBlueprint ||
+          "").toString();
+
+      // ---------------------------------------------------------
+      // ⭐⭐⭐ ADD YOUR REQUIRED LOGIC HERE
+      // ---------------------------------------------------------
+
+      const pv = bpJson.placeholderValues || {};
+
+      // ✅ Subject config from placeholderValues
+// ✅ Subject config from placeholderValues (STORE RAW STRING)
+          const subjectConfig = {
+            aiMode: (pv["email_subject-AI"] || "").toString().toLowerCase(), // "yes" | "no"
+            manualTemplate: pv["email_subject-manual"] || "",
+          };
+
+          sessionStorage.setItem(
+            "campaignSubjectConfig",
+            JSON.stringify(subjectConfig)
+          );
+
+
+      setSearchTermForm({
+        searchTerm: pv.hook_search_terms || "",
+        instructions: pv.search_objective || "",
+        searchCount: bpJson.searchURLCount?.toString() || "1",
+        output: ""
+      });
+
+      // Set selected GPT Model
+      setSelectedModelName(bpJson.selectedModel || "gpt-5");
+
+      if (bpJson.subjectInstructions) {
+        setSettingsForm((prev: any) => ({
+          ...prev,
+          subjectInstructions: bpJson.subjectInstructions
+        }));
+      }
+      console.log("🎯 Loaded from DB:", {
+        searchTerm: pv.hook_search_terms,
+        instructions: pv.search_objective,
+        searchCount: bpJson.searchURLCount,
+        model: bpJson.selectedModel
+      });
+
+      // ---------------------------------------------------------
+    }
+
+    // 🔹 2. Fallback: fetch from client templates
+    if (!blueprint.trim()) {
+      const templatesResp = await fetch(`${API_BASE_URL}/api/CampaignPrompt/templates/${clientId}`);
+      if (templatesResp.ok) {
+        const templatesJson = await templatesResp.json();
+        matchedTemplate = (templatesJson.templates || []).find((t: any) => t.id === templateId);
+        blueprint =
+          (matchedTemplate?.campaignBlueprint ||
+            matchedTemplate?.aiInstructions ||
+            matchedTemplate?.masterBlueprint ||
+            "").toString();
+      }
+    }
+
+    if (!blueprint.trim()) throw new Error(`No blueprint found for templateId: ${templateId}`);
+
+    // Prepare prompt
+    const campaignBlueprintPrompt = {
+      id: templateId,
+      name: matchedTemplate?.templateName || campaignData.templateName || `Template ${templateId}`,
+      text: blueprint,
+      model: matchedTemplate?.selectedModel || "gpt-5",
+    };
+
+    // Save to React + sessionStorage
+    setSelectedPrompt(campaignBlueprintPrompt);
+    sessionStorage.setItem("selectedPrompt", JSON.stringify(campaignBlueprintPrompt));
+
+    console.log(
+      "✅ Blueprint set:",
+      campaignBlueprintPrompt.name,
+      campaignBlueprintPrompt.text.substring(0, 120)
+    );
+
+    return campaignBlueprintPrompt;
+  };
+
+
+
+  useEffect(() => {
+    if (selectedCampaign) {
+      loadCampaignBlueprint(selectedCampaign).catch((err) =>
+        console.error("❌ Blueprint load failed in useEffect:", err)
+      );
+    }
+  }, [selectedCampaign]);
+
+          // =====================================================
+      // 🟢 STEP 3: READ subject config from campaign placeholders
+      // =====================================================
+      const getSubjectMode = () => {
+            try {
+              const cfg = JSON.parse(
+                sessionStorage.getItem("campaignSubjectConfig") || "{}"
+              );
+
+              // Explicit NO → manual subject
+              if (cfg.aiMode === "no") {
+                return {
+                  isAI: false,
+                  manualTemplate: cfg.manualTemplate || "",
+                };
+              }
+
+              // YES / missing / invalid → AI subject
+              return {
+                isAI: true,
+                manualTemplate: cfg.manualTemplate || "",
+              };
+            } catch {
+              return {
+                isAI: true,
+                manualTemplate: "",
+              };
+            }
+          };
+
+
   const goToTab = async (
     tab: string,
     options?: {
@@ -1359,18 +1290,8 @@ useEffect(() => {
       return;
     }
 
-          // =====================================================
-      // 🟢 STEP 3: READ subject config from campaign placeholders
-      // =====================================================
-      const campaignSubjectConfig = (() => {
-        try {
-          return JSON.parse(
-            sessionStorage.getItem("campaignSubjectConfig") || "{}"
-          );
-        } catch {
-          return {};
-        }
-      })();
+
+
     const selectedModelNameA = selectedModelName;
     const searchterm = searchTermForm.searchTerm;
     const searchCount = searchTermForm.searchCount;
@@ -1489,7 +1410,7 @@ useEffect(() => {
           day: "numeric",
         });
         // --- Generate new pitch as per your normal contact process ---
-        let replacements = buildReplacements(entry, currentDate, toneSettings);
+        let replacements = buildReplacements(entry, currentDate, {  });
 
         replacements.notes = entry.notes || "";
 
@@ -1587,28 +1508,14 @@ if (!scrappedData) {
         }));
 
         //----------------------------------------------------------------------------------------
-       // ---------------- SUBJECT GENERATION (PLACEHOLDER CONTROLLED ONLY) ----------------
-const subjectConfig = JSON.parse(
-  sessionStorage.getItem("campaignSubjectConfig") || "{}"
-);
-
-// Normalize placeholder AI value
-let normalizedAI =
-  (subjectConfig?.isAI === true || subjectConfig?.isAI === "yes")
-    ? true
-    : false;
-
-if (subjectConfig?.isAI !== "yes" && subjectConfig?.isAI !== "no") {
-  normalizedAI = true; // fallback → treat invalid as YES
-}
-
-const isSubjectAI = normalizedAI;
-const manualSubjectTemplate = subjectConfig.manualTemplate || "";
+      
+// ---------------- SUBJECT GENERATION (PLACEHOLDER CONTROLLED ONLY) ----------------
+const { isAI, manualTemplate } = getSubjectMode();
 
 let subjectLine = "";
 
-// --- CASE 1: SUBJECT VIA AI (placeholder email_subject-AI = yes) ---
-if (isSubjectAI) {
+// --- CASE 1: AI SUBJECT ---
+if (isAI) {
   const filledSubjectInstruction = replaceAllPlaceholders(
     subject_instruction,
     {
@@ -1638,29 +1545,27 @@ if (isSubjectAI) {
   }
 }
 
-// --- CASE 2: MANUAL SUBJECT (placeholder email_subject-manual) ---
-else if (manualSubjectTemplate.trim() !== "") {
-  subjectLine = replaceAllPlaceholders(
-    manualSubjectTemplate,
-    {
-      company_name,
-      job_title,
-      location,
-      full_name,
-      linkedin_url,
-      website,
-      date: currentDate,
-      search_output_summary: scrappedData || "",
-      generated_pitch: pitchData.response?.content || "",
-    }
-  );
+// --- CASE 2: MANUAL SUBJECT ---
+else if (manualTemplate.trim()) {
+  subjectLine = replaceAllPlaceholders(manualTemplate, {
+    company_name,
+    job_title,
+    location,
+    full_name,
+    linkedin_url,
+    website,
+    date: currentDate,
+    search_output_summary: scrappedData || "",
+    generated_pitch: pitchData.response?.content || "",
+  });
 }
 
-// --- CASE 3: NOTHING SET ---
+// --- CASE 3: NOTHING ---
 else {
   subjectLine = "";
 }
 // ---------------- SUBJECT GENERATION END ----------------
+
         // ✅ Replace the database update logic in REGENERATION BLOCK
         try {
           if (id && pitchData.response?.content) {
@@ -1902,8 +1807,6 @@ else {
         const entry = contacts[i];
 
         if (stopRef.current === true) {
-          setLastProcessedToken(null);
-          setLastProcessedIndex(i); // This should be the actual index being processed
           setIsProcessing(false); // Now set processing to false
 
           return;
@@ -2092,8 +1995,7 @@ else {
 
               moreRecords = false;
               stopRef.current = true;
-              setLastProcessedToken(null);
-              setLastProcessedIndex(i);
+        
               break;
             }
           }
@@ -2101,8 +2003,7 @@ else {
           // Step 1: Scrape Website with caching
           let replacements = buildReplacements(
             entry,
-            currentDate,
-            toneSettings
+            currentDate, { urlParam }
           );
           replacements.notes = entry.notes || "";
 
@@ -2249,36 +2150,13 @@ else {
           // Generate subject line
 // ---------------- SUBJECT GENERATION (PLACEHOLDER CONTROLLED ONLY) ----------------
 
-// Always sanitize placeholder values FIRST
-// If value is NOT exactly "yes" or "no", FORCE it to "yes"
-let normalizedAI =
-  (campaignSubjectConfig?.isAI === true ||
-    campaignSubjectConfig?.isAI === "yes")
-    ? true
-    : false;
-
-if (
-  campaignSubjectConfig?.isAI !== "yes" &&
-  campaignSubjectConfig?.isAI !== "no"
-) {
-  normalizedAI = true; // force AI to YES if invalid
-}
-
-const isSubjectAI = normalizedAI;
-
-let manualSubjectTemplate =
-  typeof campaignSubjectConfig?.manualTemplate === "string"
-    ? campaignSubjectConfig.manualTemplate
-    : "";
-
-if (!manualSubjectTemplate.trim()) {
-  manualSubjectTemplate = "";
-}
+// ---------------- SUBJECT GENERATION (PLACEHOLDER CONTROLLED ONLY) ----------------
+const { isAI, manualTemplate } = getSubjectMode();
 
 let subjectLine = "";
 
-// --- CASE 1: AI SUBJECT (placeholder email_subject-AI = "yes" or invalid) ---
-if (isSubjectAI) {
+// --- CASE 1: AI SUBJECT ---
+if (isAI) {
   const filledSubjectInstruction = replaceAllPlaceholders(
     subject_instruction,
     {
@@ -2308,28 +2186,26 @@ if (isSubjectAI) {
   }
 }
 
-// --- CASE 2: MANUAL SUBJECT (placeholder email_subject-manual exists) ---
-else if (manualSubjectTemplate.trim() !== "") {
-  subjectLine = replaceAllPlaceholders(
-    manualSubjectTemplate,
-    {
-      company_name,
-      job_title,
-      location,
-      full_name,
-      linkedin_url,
-      website,
-      date: currentDate,
-      search_output_summary: scrappedData || "",
-      generated_pitch: pitchData.response?.content || "",
-    }
-  );
+// --- CASE 2: MANUAL SUBJECT ---
+else if (manualTemplate.trim()) {
+  subjectLine = replaceAllPlaceholders(manualTemplate, {
+    company_name,
+    job_title,
+    location,
+    full_name,
+    linkedin_url,
+    website,
+    date: currentDate,
+    search_output_summary: scrappedData || "",
+    generated_pitch: pitchData.response?.content || "",
+  });
 }
 
-// --- CASE 3: NEITHER SET ---
+// --- CASE 3: NOTHING ---
 else {
   subjectLine = "";
 }
+// ---------------- SUBJECT GENERATION END ----------------
 
 
 
@@ -2540,8 +2416,7 @@ else {
       // Process completed successfully
       if (!stopRef.current) {
         // Reset all tracking variables
-        setLastProcessedToken(null);
-        setLastProcessedIndex(0);
+
         stopRef.current = false;
         setIsPaused(true);
       }
@@ -2857,8 +2732,7 @@ else {
     setIsPitchUpdateCompleted(false);
 
     // Reset last processed token and index
-    setLastProcessedToken(null);
-    setLastProcessedIndex(0);
+
 
     // Clear all accumulated data
     setAllResponses([]);
@@ -3012,8 +2886,7 @@ else {
     setIsPitchUpdateCompleted(false);
 
     // Reset last processed token and index
-    setLastProcessedToken(null);
-    setLastProcessedIndex(0);
+   
 
     // Clear all accumulated data
     setAllResponses([]);
@@ -3626,11 +3499,9 @@ else {
                 selectedPrompt={selectedPrompt} // Make sure this is passed
                 handleStop={handleStop}
                 isStopRequested={stopRef.current} // Add this line
-                toneSettings={toneSettings}
-                toneSettingsHandler={toneSettingsHandler} // Add this line
+              
                 selectedSegmentId={selectedSegmentId}
-                fetchToneSettings={fetchToneSettings}
-                saveToneSettings={saveToneSettings}
+
                 handleSubjectTextChange={handleSubjectTextChange}
                 showCreditModal={showCreditModal}
                 checkUserCredits={checkUserCredits}
