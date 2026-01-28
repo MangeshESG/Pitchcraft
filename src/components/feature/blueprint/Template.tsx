@@ -135,8 +135,8 @@ const Template: React.FC<TemplateProps> = ({
   const [exampleCache, setExampleCache] = useState<Record<number, string | undefined>>({});
 
 
-  const DEFAULT_USER_TEMPLATE_ID = 62;
-  const DEFAULT_USER_TEMPLATE_NAME = "PKB- Final";
+  const DEFAULT_USER_TEMPLATE_ID = 64;
+  const DEFAULT_USER_TEMPLATE_NAME = "PKB- FINAL";
   const isAdmin = userRole?.toUpperCase() === "ADMIN";
 
 
