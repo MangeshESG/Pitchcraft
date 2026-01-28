@@ -13,7 +13,7 @@ import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 
 // ✅ Stripe publishable key (replace with your live or test key)
-const stripePromise = loadStripe("pk_test_51SMm5UHDCkj9hBmZl4yRaVsoNfGevHcE3aceEogIAULDMp6EibUTAZ6dCOsfimlofEUBRbwiisKPt0IOBjkvEWVm00OhJDFN0r");
+const stripePromise = loadStripe("pk_live_51SJCuRFNcXTjravQ7KGvF9oNuYEAMKJNd7EkYdvOHTyLX63R7YY92DryJzECjetGm9VQaa34wAnjPWOxNQd0oC2W00F2HOLLhF");
 
 export type Plan = {
   icon: string;
@@ -40,7 +40,7 @@ const plans: Plan[] = [
       "Additional hyper-personalized emails $0.20",
     ],
     buttonText: "Upgrade",
-    planCode: "price_1SMmZiHDCkj9hBmZ5u4UA72M",
+    planCode: "price_1SuX1aFNcXTjravQlGph5Xom",
   },
   {
     icon: AeroplaneImg,
@@ -56,7 +56,7 @@ const plans: Plan[] = [
       "Additional hyper-personalized emails $0.15",
     ],
     buttonText: "Upgrade",
-    planCode: "price_1SMmZ6HDCkj9hBmZNyIzVJQL",
+    planCode: "price_1SuX36FNcXTjravQ9pemJ0nJ",
   },
   {
     icon: PetrolPumpImg,
@@ -259,7 +259,7 @@ const [errorPopup, setErrorPopup] = useState<string | null>(null);
    setLoadingPlanCode(plan.planCode);
     try {
       setSelectedPlan(plan);
-      const priceId = isYearly ? (plan.title.toLowerCase() === 'standard' ? 'price_1SPgOFHDCkj9hBmZxSnUTzAT' : plan.title.toLowerCase() === 'premium' ? 'price_1SPh0hHDCkj9hBmZXtVBJ1QG' : plan.planCode) : plan.planCode;
+      const priceId = isYearly ? (plan.title.toLowerCase() === 'standard' ? 'price_1SuX1aFNcXTjravQUEKMY8Jl' : plan.title.toLowerCase() === 'premium' ? 'price_1SuX36FNcXTjravQYJ6fs6i4' : plan.planCode) : plan.planCode;
       const response = await fetch(`${API_BASE_URL}/api/stripe/create-subscription`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
