@@ -3267,6 +3267,58 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
     });
   };
 
+
+  const deletePlaceholderDefinition = async (placeholderKey: string) => {
+    if (!selectedTemplateDefinitionId) return;
+
+    const confirmDelete = window.confirm(
+      `Delete placeholder {${placeholderKey}}?\n\nThis will remove it from the template definition.`
+    );
+
+    if (!confirmDelete) return;
+
+    try {
+      await axios.post(
+        `${API_BASE_URL}/api/CampaignPrompt/placeholders/delete`,
+        {
+          templateDefinitionId: selectedTemplateDefinitionId,
+          placeholderKey,
+        }
+      );
+
+      // 🔥 REMOVE + RE-NORMALIZE ORDER
+      setUiPlaceholders((prev) => {
+        const filtered = prev.filter(
+          (p) => p.placeholderKey !== placeholderKey
+        );
+
+        return filtered.map((p, idx) => ({
+          ...p,
+          placeholderSequence: idx + 1,
+        }));
+      });
+
+      // Clean values
+      setFormValues((prev) => {
+        const copy = { ...prev };
+        delete copy[placeholderKey];
+        return copy;
+      });
+
+      setPlaceholderValues((prev) => {
+        const copy = { ...prev };
+        delete copy[placeholderKey];
+        return copy;
+      });
+
+      console.log(`🗑️ Placeholder deleted: ${placeholderKey}`);
+    } catch (err) {
+      console.error("❌ Failed to delete placeholder", err);
+      showModal("Error", "Failed to delete placeholder definition.");
+    }
+  };
+
+
   // ====================================================================
   // RENDER
   // ====================================================================
@@ -3774,7 +3826,7 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr 1fr 60px",
+                        gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr 1fr 60px 60px",
                         gap: "10px",
                         fontWeight: 600,
                         fontSize: "13px",
@@ -3788,12 +3840,14 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
                       <div>Input / Options</div>
                       <div>Size</div>
                       <div>Expand</div>
-                      <div></div>
+                      <div>Move</div>
+                      <div>Delete</div>
+
                     </div>
 
                     {/* ======================================================
-        CATEGORY GROUPS (replaces the old uiPlaceholders.map)
-       ====================================================== */}
+                      CATEGORY GROUPS (replaces the old uiPlaceholders.map)
+                    ====================================================== */}
                     {categoryList.map((cat) => (
                       <div key={cat.name} style={{ marginBottom: "20px" }}>
                         {/* CATEGORY HEADER */}
@@ -3850,8 +3904,8 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
                               key={p.placeholderKey}
                               style={{
                                 display: "grid",
-                                gridTemplateColumns:
-                                  "2fr 2fr 2fr 2fr 1fr 1fr 60px",
+                                gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr 1fr 60px 60px",
+
                                 gap: "10px",
                                 alignItems: "center",
                                 marginBottom: "10px",
@@ -4105,35 +4159,53 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
                               </label>
 
                               {/* Placeholder move buttons */}
-                              <div style={{ display: "flex", gap: "6px" }}>
+                                {/* Move buttons */}
+                                <div style={{ display: "flex", gap: "6px" }}>
+                                  <button
+                                    style={{
+                                      padding: "4px 8px",
+                                      borderRadius: "6px",
+                                      background: "#e5e7eb",
+                                      cursor: "pointer",
+                                    }}
+                                    onClick={() => movePlaceholder(p.placeholderKey, "up")}
+                                  >
+                                    ↑
+                                  </button>
+
+                                  <button
+                                    style={{
+                                      padding: "4px 8px",
+                                      borderRadius: "6px",
+                                      background: "#e5e7eb",
+                                      cursor: "pointer",
+                                    }}
+                                    onClick={() => movePlaceholder(p.placeholderKey, "down")}
+                                  >
+                                    ↓
+                                  </button>
+                                </div>
+
+                                {/* DELETE BUTTON */}
                                 <button
-                                  style={{
-                                    padding: "4px 8px",
-                                    borderRadius: "6px",
-                                    background: "#e5e7eb",
-                                    cursor: "pointer",
-                                  }}
-                                  onClick={() =>
-                                    movePlaceholder(p.placeholderKey, "up")
+                                  disabled={p.isRuntimeOnly}
+                                  onClick={() => deletePlaceholderDefinition(p.placeholderKey)}
+                                  title={
+                                    p.isRuntimeOnly
+                                      ? "Runtime placeholders cannot be deleted"
+                                      : "Delete placeholder"
                                   }
+                                  style={{
+                                    background: p.isRuntimeOnly ? "#9ca3af" : "#dc2626",
+                                    cursor: p.isRuntimeOnly ? "not-allowed" : "pointer",
+                                    color: "#fff",
+                                    borderRadius: "6px",
+                                    padding: "6px 10px",
+                                  }}
                                 >
-                                  ↑
+                                  🗑️
                                 </button>
 
-                                <button
-                                  style={{
-                                    padding: "4px 8px",
-                                    borderRadius: "6px",
-                                    background: "#e5e7eb",
-                                    cursor: "pointer",
-                                  }}
-                                  onClick={() =>
-                                    movePlaceholder(p.placeholderKey, "down")
-                                  }
-                                >
-                                  ↓
-                                </button>
-                              </div>
                             </div>
                           ))}
                       </div>
