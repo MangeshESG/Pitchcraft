@@ -460,7 +460,6 @@ const Template: React.FC<TemplateProps> = ({
   }, [effectiveUserId, fetchCampaignTemplates]);
 
   const generateExampleEmail = (template: CampaignTemplate) => {
-    debugger
     if (!template) return "";
 
     if ((template as any).exampleOutput) {       // ✅ DB field preferred
@@ -474,7 +473,6 @@ const Template: React.FC<TemplateProps> = ({
     return template.campaignBlueprint || "";
   };
   const preloadExampleEmail = async (template: CampaignTemplate) => {
-    debugger
     if (template.id in exampleCache) return; // 👈 IMPORTANT
 
     // Mark as loading
@@ -506,9 +504,26 @@ const Template: React.FC<TemplateProps> = ({
   };
 
 //for picklist of blueprint
-const handleBlueprintSwitch = (blueprintId: number) => {
+//for picklist of blueprint
+const handleBlueprintSwitch = async (blueprintId: number) => {
   const blueprint = campaignTemplates.find(b => b.id === blueprintId);
   if (!blueprint) return;
+
+  // Fetch the example email for this blueprint
+  try {
+    const fullTemplate = await fetchCampaignTemplateDetails(blueprintId);
+    
+    // Extract the example email
+    const example = fullTemplate?.placeholderListWithValue 
+      ? extractExampleFromPlaceholderList(fullTemplate.placeholderListWithValue)
+      : (fullTemplate?.placeholderValues?.example_output_email || "");
+    
+    // Update session storage with the example email
+    sessionStorage.setItem("initialExampleEmail", example);
+  } catch (error) {
+    console.error("Error loading blueprint example:", error);
+    sessionStorage.setItem("initialExampleEmail", "");
+  }
 
   // Update session storage (builder depends on this)
   sessionStorage.setItem("newCampaignId", blueprint.id.toString());
@@ -533,7 +548,7 @@ const handleBlueprintSwitch = (blueprintId: number) => {
       }
 
       const data = await response.json();
-      console.log("AI data", data);
+     // console.log("AI data", data);
       return data;
     } catch (error) {
       console.error("Error fetching template details:", error);
@@ -541,7 +556,6 @@ const handleBlueprintSwitch = (blueprintId: number) => {
     }
   };
   const extractExampleOutputEmail = (placeholderListWithValue?: string) => {
-    debugger
     if (!placeholderListWithValue) return "";
 
     // Match everything after {example_output_email} =
@@ -645,6 +659,10 @@ const handleBlueprintSwitch = (blueprintId: number) => {
       setIsLoading(false);
     }
   };
+  const [activeBlueprintId, setActiveBlueprintId] = useState<number | null>(
+  Number(sessionStorage.getItem("newCampaignId")) || null
+);
+
   return (
     <div className="template-container">
       {!showCampaignBuilder ? (
@@ -733,10 +751,17 @@ const handleBlueprintSwitch = (blueprintId: number) => {
                             //   getTooltipText(exampleCache[template.id] || generateExampleEmail(template));
 
                             // sessionStorage.setItem("initialExampleEmail", example);
-                            const example =
-                              exampleCache[template.id] || generateExampleEmail(template);
-
+                            // ✅ FIXED: Load example email immediately, not from tooltip cache
+                            try {
+                              const fullTemplate = await fetchCampaignTemplateDetails(template.id);
+                              const example = fullTemplate?.placeholderListWithValue 
+                                ? extractExampleFromPlaceholderList(fullTemplate.placeholderListWithValue)
+                                : (fullTemplate?.placeholderValues?.example_output_email || "");
                               sessionStorage.setItem("initialExampleEmail", example);
+                            } catch (error) {
+                              console.error("Error loading example email:", error);
+                              sessionStorage.setItem("initialExampleEmail", "");
+                            }
 
                             setShowCampaignBuilder(true);
                           }}
@@ -820,14 +845,24 @@ const handleBlueprintSwitch = (blueprintId: number) => {
 
                             <>
                               <button
-                                onClick={() => {
+                                onClick={async () => {
                                   sessionStorage.setItem("editTemplateId", template.id.toString());
                                   sessionStorage.setItem("editTemplateMode", "true");
 
                                   // REQUIRED FIX 🔥 (builder reads this!)
                                   sessionStorage.setItem("newCampaignId", template.id.toString());
                                   sessionStorage.setItem("newCampaignName", template.templateName);
-
+                                 // ✅ FIXED: Load example email immediately
+                                  try {
+                                    const fullTemplate = await fetchCampaignTemplateDetails(template.id);
+                                    const example = fullTemplate?.placeholderListWithValue 
+                                      ? extractExampleFromPlaceholderList(fullTemplate.placeholderListWithValue)
+                                      : (fullTemplate?.placeholderValues?.example_output_email || "");
+                                    sessionStorage.setItem("initialExampleEmail", example);
+                                  } catch (error) {
+                                    console.error("Error loading example email:", error);
+                                    sessionStorage.setItem("initialExampleEmail", "");
+                                  }
 
                                   // Safe delay
                                   setTimeout(() => {
@@ -1310,6 +1345,7 @@ const handleBlueprintSwitch = (blueprintId: number) => {
 
                 {/* Render ONLY Example Output */}
                 <div className="modal-body">
+                    <h3 style={{ marginBottom: "16px", fontSize: "16px", fontWeight: "600" }}>Example Output</h3>
                   <div
                     className="example-output-preview"
                     style={{
@@ -1321,9 +1357,38 @@ const handleBlueprintSwitch = (blueprintId: number) => {
                       overflowY: "hidden"
                     }}
                     dangerouslySetInnerHTML={{
-                      __html: exampleEmail || "<p>No example email available</p>"
+                      __html: exampleEmail || "<p style='color: #9ca3af; text-align: center; padding: 40px 0;'>No example email available</p>"
                     }}
                   />
+                </div>
+                 {/* Modal Footer with Edit Button */}
+                <div className="modal-footer" style={{ display: "flex", gap: "10px", justifyContent: "flex-end", padding: "16px", borderTop: "1px solid #e5e7eb" }}>
+                  <button
+                    onClick={() => {
+                      setShowViewCampaignModal(false);
+                      setSelectedCampaignTemplate(null);
+                      setShowEditCampaignModal(true);
+                      setEditCampaignForm({
+                        templateName: selectedCampaignTemplate?.templateName || "",
+                        aiInstructions: selectedCampaignTemplate?.aiInstructions || "",
+                        placeholderListInfo: selectedCampaignTemplate?.placeholderListInfo || "",
+                        masterBlueprintUnpopulated: selectedCampaignTemplate?.masterBlueprintUnpopulated || "",
+                        selectedModel: selectedCampaignTemplate?.selectedModel || "gpt-4.1",
+                      });
+                    }}
+                    style={{
+                      padding: "8px 16px",
+                      background: "#3b82f6",
+                      color: "#ffffff",
+                      border: "none",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      fontSize: "14px",
+                      fontWeight: "500"
+                    }}
+                  >
+                    Edit
+                  </button>
                 </div>
               </div>
             </div>
@@ -1388,6 +1453,22 @@ const handleBlueprintSwitch = (blueprintId: number) => {
                     <option value="gpt-5-mini">GPT-5 mini</option>
                     <option value="gpt-5-nano">GPT-5 nano</option>
                   </select>
+                </div>
+                 <div className="form-group">
+                  <label>Example Output Preview</label>
+                  <div
+                    style={{
+                      background: "#ffffff",
+                      padding: "20px",
+                      borderRadius: "8px",
+                      border: "1px solid #e5e7eb",
+                      minHeight: "200px",
+                      overflowY: "auto"
+                    }}
+                    dangerouslySetInnerHTML={{
+                      __html: exampleEmail || "<p style='color: #9ca3af; text-align: center; padding: 40px 0;'>No example email loaded</p>"
+                    }}
+                  />
                 </div>
 
                 <div className="modal-footer">

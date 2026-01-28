@@ -399,7 +399,6 @@ useEffect(() => {
 
 const renderMessageContent = (rawContent: string) => {
   if (!rawContent) return null;
-  debugger
 
   // 🧹 CLEAN PLACEHOLDER BLOCK EVERY TIME
   let content = rawContent
@@ -522,7 +521,7 @@ return (
 
 
         {/* ===== PLACEHOLDER DROPDOWN (INSIDE CHAT) ===== */}
-        {isEditMode &&showInitialEmail && (
+        {isEditMode && (
           <div className="chat-placeholder-panel"style={{color:'#3f9f42'}}>
             
 
@@ -572,19 +571,23 @@ return (
               >
                 <div
   className="email-preview-content"
-  dangerouslySetInnerHTML={{
-    __html: initialExampleEmail || "<p>No example email loaded.</p>",
-  }}
+ dangerouslySetInnerHTML={{
+          __html: initialExampleEmail?.trim()
+            ? initialExampleEmail
+            : "<p style='color:#6b7280'>No example email loaded.</p>",
+        }}
+
 />
               </div>
           </div>
         )}
 
         {/* ===== CHAT BODY ===== */}
-        {showChat && (
         <div className="messages-area" ref={messagesContainerRef} style={{
     flex: showInitialEmail ? "0 0 auto" : "1 1 auto",
+     display: showInitialEmail || showChat ? "flex" : "none",
   }}>
+    
 
           {/* EDIT MODE – no placeholder yet */}
           {/* {isEditMode && !conversationStarted && !selectedPlaceholder && (
@@ -635,7 +638,6 @@ return (
             </div>
           )}
         </div>
-        )}
         {/* ===== INPUT BAR ===== */}
         {conversationStarted && (
           <div className="input-area">
@@ -2400,12 +2402,33 @@ const groupedPlaceholders = uiPlaceholders
   }, {});
 
 const [initialExampleEmail, setInitialExampleEmail] = useState<string>("");
+const [currentCampaignId, setCurrentCampaignId] = useState<string | null>(null);
  useEffect(() => {
     const storedExample = sessionStorage.getItem("initialExampleEmail");
+    const campaignId = sessionStorage.getItem("newCampaignId") || sessionStorage.getItem("editTemplateId");
+    setCurrentCampaignId(campaignId);
     if (storedExample) {
       setInitialExampleEmail(storedExample);
+    }else {
+      setInitialExampleEmail("");
     }
   }, []);
+   // ✅ NEW: Watch for blueprint changes and update example email every 500ms
+  useEffect(() => {
+    const checkInterval = setInterval(() => {
+      const newCampaignId = sessionStorage.getItem("newCampaignId") || sessionStorage.getItem("editTemplateId");
+      
+      // If campaign ID changed, update the example email
+      if (newCampaignId && newCampaignId !== currentCampaignId) {
+        setCurrentCampaignId(newCampaignId);
+        
+        const storedExample = sessionStorage.getItem("initialExampleEmail");
+        setInitialExampleEmail(storedExample || "");
+      }
+    }, 500);
+    
+    return () => clearInterval(checkInterval);
+  }, [currentCampaignId]);
 const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
   const key = p.placeholderKey;
   const value = formValues[key] ?? "";
