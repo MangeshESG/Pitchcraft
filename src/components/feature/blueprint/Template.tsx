@@ -155,8 +155,8 @@ const Template: React.FC<TemplateProps> = ({
     Record<number, string | undefined>
   >({});
 
-  const DEFAULT_USER_TEMPLATE_ID = 64;
-  const DEFAULT_USER_TEMPLATE_NAME = "PKB- FINAL";
+  const DEFAULT_USER_TEMPLATE_ID = 65;
+  const DEFAULT_USER_TEMPLATE_NAME = "PKB- FINAL 2.0";
   const isAdmin = userRole?.toUpperCase() === "ADMIN";
 
   // Utility functions

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef , useMemo } from "react";
 import Modal from "../common/Modal";
 import { Tooltip as ReactTooltip } from "react-tooltip";
 import { copyToClipboard } from "../../utils/utils";
@@ -187,21 +187,14 @@ const Output: React.FC<OutputInterface> = ({
   onClearOutput,
   allprompt,
   setallprompt,
-  allsearchResults,
   setallsearchResults,
-  everyscrapedData,
   seteveryscrapedData,
-  allSearchTermBodies,
   setallSearchTermBodies,
   onClearContent,
-  allsummery,
   setallsummery,
   existingResponse,
   setexistingResponse,
-  currentPage,
   setCurrentPage,
-  prevPageToken,
-  nextPageToken,
   fetchAndDisplayEmailBodies,
   selectedZohoviewId,
   onClearExistingResponse,
@@ -211,45 +204,20 @@ const Output: React.FC<OutputInterface> = ({
   recentlyAddedOrUpdatedId,
   setRecentlyAddedOrUpdatedId,
   selectedClient,
-  isStarted,
   handleStart,
-  handlePauseResume,
-  handleReset,
   handleStop, // Add this line
-  isPitchUpdateCompleted,
-  allRecordsProcessed,
   isDemoAccount,
   settingsForm,
   settingsFormHandler,
-  delayTime,
-  setDelay,
   selectedPrompt,
   selectedCampaign,
   isProcessing,
   handleClearAll,
   campaigns,
   handleCampaignChange,
-  selectionMode,
-  promptList,
-  handleSelectChange,
-  dataFiles,
-  handleZohoModelChange,
-  languages,
-  selectedLanguage,
-  handleLanguageChange,
-  subjectMode,
-  setSubjectMode,
-  subjectText,
-  setSubjectText,
   isStopRequested,
-  toneSettings,
-  toneSettingsHandler,
-  fetchToneSettings,
   saveToneSettings,
-  selectedSegmentId,
-  handleSubjectTextChange,
   setSelectedPrompt,
-
   showCreditModal,
   checkUserCredits,
   userId,
@@ -1624,6 +1592,42 @@ const Output: React.FC<OutputInterface> = ({
   const [sendEmailControls, setSendEmailControls] = useState(false);
   const preserveIndexRef = useRef(false);
 
+  const usageInfo = useMemo(() => {
+  if (!outputForm?.usage) return null;
+
+  const getNumber = (regex: RegExp) => {
+    const match = outputForm.usage.match(regex);
+    return match ? Number(match[1]) : 0;
+  };
+
+  return {
+    cost: getNumber(/Cost:\s*\$([0-9.]+)/),
+    promptTokens: getNumber(/Prompt Tokens:\s*([0-9]+)/),
+    completionTokens: getNumber(/Completion Tokens:\s*([0-9]+)/),
+    totalTokens: getNumber(/Total Tokens Used:\s*([0-9]+)/),
+    success: getNumber(/Success Requests:\s*([0-9]+)/),
+    failed: getNumber(/Failed Requests:\s*([0-9]+)/),
+  };
+}, [outputForm.usage]);
+
+const totalUsage = useMemo(() => {
+  if (!usageInfo) {
+    return {
+      totalInput: 0,
+      totalOutput: 0,
+      totalCost: 0,
+    };
+  }
+
+  return {
+    totalInput: usageInfo.promptTokens,
+    totalOutput: usageInfo.completionTokens,
+    totalCost: usageInfo.cost,
+  };
+}, [usageInfo]);
+
+
+
   return (
     <div className="login-box gap-down">
       {/* Add the selection dropdowns and subject line section */}
@@ -1764,11 +1768,55 @@ const Output: React.FC<OutputInterface> = ({
             </div>
 
             {/* Right side - Download button */}
-            <div className="flex items-center mt-[26px] gap-2 ">
+            {/* Right side - Usage + Download */}
+            <div className="flex items-center mt-[26px] gap-3">
+
+              {/* ================= ADMIN USAGE PANEL ================= */}
+              {userRole === "ADMIN" && usageInfo && (
+                <div
+                  style={{
+                    padding: "6px 10px",
+                    background: "#f1f5f9",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "6px",
+                    fontSize: "11px",
+                    lineHeight: "1.3",
+                    display: "inline-block",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {/* Last Call */}
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    <strong>Last:</strong>
+                    <span>In {usageInfo.promptTokens}</span>
+                    <span>Out {usageInfo.completionTokens}</span>
+                    <span>💲{usageInfo.cost.toFixed(6)}</span>
+                  </div>
+
+                  {/* Total */}
+                  {totalUsage.totalCost > 0 && (
+                    <div
+                      style={{
+                        marginTop: "2px",
+                        display: "flex",
+                        gap: "10px",
+                      }}
+                    >
+                      <strong>Total:</strong>
+                      <span>In {totalUsage.totalInput}</span>
+                      <span>Out {totalUsage.totalOutput}</span>
+                      <span>💲{totalUsage.totalCost.toFixed(6)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Download button */}
               <div className="flex items-center">
                 <ReactTooltip anchorSelect="#download-data-tooltip" place="top">
                   Download all loaded emails to a spreadsheet
                 </ReactTooltip>
+
                 <a
                   href="#"
                   id="download-data-tooltip"
@@ -1779,101 +1827,26 @@ const Output: React.FC<OutputInterface> = ({
                     }
                   }}
                   className="export-link green flex items-center"
-                  style={{
-                    color: "#3f9f42",
-                    textDecoration: "none",
-                    cursor:
-                      combinedResponses.length === 0 || isExporting
-                        ? "not-allowed"
-                        : "pointer",
-                    opacity:
-                      combinedResponses.length === 0 || isExporting ? 0.6 : 1,
-                    display: "flex",
-                    alignItems: "center",
-                  }}
                 >
-                  {isExporting ? (
-                    <span>Exporting...</span>
-                  ) : (
-                    <>
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="20px"
-                        height="20px"
-                        viewBox="0 0 32 32"
-                      >
-                        <title>file_type_excel2</title>
-                        <path
-                          d="M28.781,4.405H18.651V2.018L2,4.588V27.115l16.651,2.868V26.445H28.781A1.162,1.162,0,0,0,30,25.349V5.5A1.162,1.162,0,0,0,28.781,4.405Zm.16,21.126H18.617L18.6,23.642h2.487v-2.2H18.581l-.012-1.3h2.518v-2.2H18.55l-.012-1.3h2.549v-2.2H18.53v-1.3h2.557v-2.2H18.53v-1.3h2.557v-2.2H18.53v-2H28.941Z"
-                          style={{ fill: "#20744a", fillRule: "evenodd" }}
-                        />
-                        <rect
-                          x="22.487"
-                          y="7.439"
-                          width="4.323"
-                          height="2.2"
-                          style={{ fill: "#20744a" }}
-                        />
-                        <rect
-                          x="22.487"
-                          y="10.94"
-                          width="4.323"
-                          height="2.2"
-                          style={{ fill: "#20744a" }}
-                        />
-                        <rect
-                          x="22.487"
-                          y="14.441"
-                          width="4.323"
-                          height="2.2"
-                          style={{ fill: "#20744a" }}
-                        />
-                        <rect
-                          x="22.487"
-                          y="17.942"
-                          width="4.323"
-                          height="2.2"
-                          style={{ fill: "#20744a" }}
-                        />
-                        <rect
-                          x="22.487"
-                          y="21.443"
-                          width="4.323"
-                          height="2.2"
-                          style={{ fill: "#20744a" }}
-                        />
-                        <polygon
-                          points="6.347 10.673 8.493 10.55 9.842 14.259 11.436 10.397 13.582 10.274 10.976 15.54 13.582 20.819 11.313 20.666 9.781 16.642 8.248 20.513 6.163 20.329 8.585 15.666 6.347 10.673"
-                          style={{ fill: "#ffffff", fillRule: "evenodd" }}
-                        />
-                      </svg>
-                      <span className="ml-5 green">Download</span>
-                    </>
-                  )}
+                  {isExporting ? <span>Exporting...</span> : <>Download</>}
                 </a>
               </div>
+
+              {/* Sound toggle */}
               <div
                 className="flex items-center cursor-pointer"
                 title={isSoundEnabled ? "Sound ON" : "Sound OFF"}
-                onClick={() => {
-                  setIsSoundEnabled((prev) => {
-                    console.log("Toggle clicked, new value:", !prev);
-                    return !prev;
-                  });
-                }}
+                onClick={() => setIsSoundEnabled((prev) => !prev)}
               >
-                <h1 style={{ color: "#3f9f42", fontWeight: 500 }}> 🔔 </h1>
+                <h1 style={{ color: "#3f9f42", fontWeight: 500 }}>🔔</h1>
                 <img
                   src={isSoundEnabled ? toggleOn : toggleOff}
                   alt="Sound Toggle"
-                  style={{
-                    height: "28px",
-                    width: "32px",
-                    objectFit: "contain",
-                  }}
+                  style={{ height: "28px", width: "32px" }}
                 />
               </div>
             </div>
+
           </div>
         </div>
       </div>
