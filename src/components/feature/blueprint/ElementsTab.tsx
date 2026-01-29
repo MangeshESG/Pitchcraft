@@ -34,6 +34,12 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
     xl: 12,
   };
 
+  const formatCategoryLabel = (category: string) =>
+  category
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+
+
   return (
     <div
       className="elements-tab-container !mt-[0] !rounded-none"
@@ -105,9 +111,11 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
                 justifyContent: "space-between",
               }}
             >
-              <span style={{ color: "green", textTransform: "uppercase" }}>
-                {category}
-              </span>
+            <span style={{ color: "green" }}>
+              {formatCategoryLabel(category)}
+            </span>
+
+
 
               <FontAwesomeIcon
                 icon={faAngleDown}

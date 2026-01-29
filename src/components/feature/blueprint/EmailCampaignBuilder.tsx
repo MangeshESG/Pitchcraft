@@ -1119,6 +1119,19 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
     totalCost: 0,
   });
 
+  const normalizePlaceholderKey = (key: string) => {
+  return key.trim().toLowerCase();
+  };
+
+  const normalizeCategory = (category: string) =>
+  category.trim().toLowerCase();
+
+  const formatCategoryLabel = (category: string) =>
+    category
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+
+
   const showModal = (title: string, message: string) => {
     setPopupModalInfo({ open: true, title, message });
   };
@@ -1211,13 +1224,16 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       )
       .then((res) => {
         if (Array.isArray(res.data) && res.data.length > 0) {
-          setUiPlaceholders(
-            res.data.map((p: any, index: number) => ({
-              ...p,
-              categorySequence: p.categorySequence ?? 999, // default sort
-              placeholderSequence: p.placeholderSequence ?? index + 1,
-            })),
-          );
+
+            setUiPlaceholders(
+              res.data.map((p: any, index: number) => ({
+                ...p,
+                category: normalizeCategory(p.category),
+                categorySequence: p.categorySequence ?? 999,
+                placeholderSequence: p.placeholderSequence ?? index + 1,
+              }))
+            );
+
           console.log("✅ Loaded element definitions from backend");
         }
       })
@@ -2422,24 +2438,26 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       return;
     }
 
-    const keys = extractPlaceholders(masterPrompt);
+    const keys = extractPlaceholders(masterPrompt).map(normalizePlaceholderKey);
 
-    // Create minimal default items ONLY when no backend data exists
-    setUiPlaceholders(
-      keys.map((key, index) => ({
-        placeholderKey: key,
-        friendlyName: key.replace(/_/g, " "),
-        category: "General",
-        categorySequence: 99,
-        placeholderSequence: index + 1,
-        inputType: "text",
-        options: [],
-        uiSize: "md",
-        isRichText: false,
-        isExpandable: false,
-        isRuntimeOnly: RUNTIME_ONLY_PLACEHOLDERS.includes(key),
-      })),
-    );
+      const uniqueKeys = Array.from(new Set(keys));
+
+      setUiPlaceholders(
+        uniqueKeys.map((key, index) => ({
+          placeholderKey: key,
+          friendlyName: key.replace(/_/g, " "),
+          category: "general",
+          categorySequence: 99,
+          placeholderSequence: index + 1,
+          inputType: "text",
+          options: [],
+          uiSize: "md",
+          isRichText: false,
+          isExpandable: false,
+          isRuntimeOnly: RUNTIME_ONLY_PLACEHOLDERS.includes(key),
+        }))
+      );
+
   }, [masterPrompt]);
 
   useEffect(() => {
@@ -3883,7 +3901,7 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
                             paddingBottom: "6px",
                           }}
                         >
-                          <span>{cat.name}</span>
+                          <span>{formatCategoryLabel(cat.name)}</span>
 
                           <div style={{ display: "flex", gap: "6px" }}>
                             <button
@@ -3953,27 +3971,29 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
                               {/* Category */}
                               <select
                                 value={p.category}
-                                onChange={(e) => {
-                                  const v = e.target.value;
-                                  setUiPlaceholders((prev) =>
-                                    prev.map((x) =>
-                                      x.placeholderKey === p.placeholderKey
-                                        ? { ...x, category: v }
-                                        : x,
-                                    ),
-                                  );
-                                }}
+                                  onChange={(e) => {
+                                    const v = e.target.value.toLowerCase().trim();
+                                    setUiPlaceholders((prev) =>
+                                      prev.map((x) =>
+                                        x.placeholderKey === p.placeholderKey
+                                          ? { ...x, category: v }
+                                          : x,
+                                      ),
+                                    );
+                                  }}
+
                                 className="definition-select"
                               >
-                                <option>YOUR COMPANY</option>
-                                <option>CORE MESSAGE FOCUS</option>
-                                <option>DOS AND DON'TS</option>
-                                <option>MESSAGE WRITING STYLE</option>
-                                <option>CALL-TO-ACTION</option>
-                                <option>GREETINGS & FAREWELLS</option>
-                                <option>SUBJECT LINE</option>
-                                <option>EXTRA VISUALS</option>
-                                <option>EXTRA ASSETS</option>
+                                <option value="your company">YOUR COMPANY</option>
+                                <option value="core message focus">CORE MESSAGE FOCUS</option>
+                                <option value="dos and don'ts">DOS AND DON'TS</option>
+                                <option value="message writing style">MESSAGE WRITING STYLE</option>
+                                <option value="call-to-action">CALL-TO-ACTION</option>
+                                <option value="greetings & farewells">GREETINGS & FAREWELLS</option>
+                                <option value="subject line">SUBJECT LINE</option>
+                                <option value="extra visuals">EXTRA VISUALS</option>
+                                <option value="extra assets">EXTRA ASSETS</option>
+
                               </select>
 
                               {/* INPUT TYPE + OPTIONS */}
