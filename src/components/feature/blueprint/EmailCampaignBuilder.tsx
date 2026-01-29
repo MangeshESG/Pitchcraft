@@ -88,6 +88,9 @@ export interface PlaceholderDefinitionUI {
 
   // ✅ TEMP UI-only raw editor value (NOT saved to backend)
   _rawOptions?: string;
+    helpLink?: string;
+  defaultValue?: string;
+
 }
 
 interface TemplateTabProps {
@@ -2487,7 +2490,10 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   }, []);
   const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
     const key = p.placeholderKey;
-    const value = formValues[key] ?? "";
+    const value =
+      formValues[key] !== undefined && formValues[key] !== ""
+        ? formValues[key]
+        : p.defaultValue ?? "";
 
     const baseStyle: React.CSSProperties = {
       width: "100%",
@@ -3287,16 +3293,28 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       );
 
       // 🔥 REMOVE + RE-NORMALIZE ORDER
-      setUiPlaceholders((prev) => {
-        const filtered = prev.filter(
-          (p) => p.placeholderKey !== placeholderKey
-        );
+        setUiPlaceholders((prev) => {
+          const filtered = prev.filter(
+            (p) => p.placeholderKey !== placeholderKey
+          );
 
-        return filtered.map((p, idx) => ({
-          ...p,
-          placeholderSequence: idx + 1,
-        }));
-      });
+          const grouped: Record<string, PlaceholderDefinitionUI[]> = {};
+
+          filtered.forEach((p) => {
+            if (!grouped[p.category]) grouped[p.category] = [];
+            grouped[p.category].push(p);
+          });
+
+          return Object.values(grouped).flatMap((list) =>
+            list
+              .sort((a, b) => a.placeholderSequence - b.placeholderSequence)
+              .map((p, idx) => ({
+                ...p,
+                placeholderSequence: idx + 1,
+              }))
+          );
+        });
+
 
       // Clean values
       setFormValues((prev) => {
@@ -3826,7 +3844,7 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr 1fr 60px 60px",
+                        gridTemplateColumns: "2fr 2fr 2fr 2fr 2fr 2fr 1fr 1fr 60px 60px",
                         gap: "10px",
                         fontWeight: 600,
                         fontSize: "13px",
@@ -3838,6 +3856,8 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
                       <div>Friendly name</div>
                       <div>Category</div>
                       <div>Input / Options</div>
+                      <div>Default value</div>
+                      <div>Help link</div>
                       <div>Size</div>
                       <div>Expand</div>
                       <div>Move</div>
@@ -3904,7 +3924,7 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
                               key={p.placeholderKey}
                               style={{
                                 display: "grid",
-                                gridTemplateColumns: "2fr 2fr 2fr 2fr 1fr 1fr 60px 60px",
+                                gridTemplateColumns: "2fr 2fr 2fr 2fr 2fr 2fr 1fr 1fr 60px 60px",
 
                                 gap: "10px",
                                 alignItems: "center",
@@ -4103,6 +4123,69 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
                                   </div>
                                 )}
                               </div>
+                              {/* DEFAULT VALUE */}
+                              <div>
+                                {p.inputType === "select" ? (
+                                  <select
+                                    value={p.defaultValue ?? ""}
+                                    onChange={(e) => {
+                                      const v = e.target.value;
+                                      setUiPlaceholders((prev) =>
+                                        prev.map((x) =>
+                                          x.placeholderKey === p.placeholderKey
+                                            ? { ...x, defaultValue: v }
+                                            : x
+                                        )
+                                      );
+                                    }}
+                                    className="definition-select"
+                                  >
+                                    <option value="">-- Default --</option>
+                                    {(p.options || []).map((opt) => (
+                                      <option key={opt} value={opt}>
+                                        {opt}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <input
+                                    type="text"
+                                    value={p.defaultValue ?? ""}
+                                    onChange={(e) => {
+                                      const v = e.target.value;
+                                      setUiPlaceholders((prev) =>
+                                        prev.map((x) =>
+                                          x.placeholderKey === p.placeholderKey
+                                            ? { ...x, defaultValue: v }
+                                            : x
+                                        )
+                                      );
+                                    }}
+                                    className="text-input"
+                                    placeholder="Default value"
+                                  />
+                                )}
+                              </div>
+                              {/* HELP LINK */}
+                              <div>
+                                <input
+                                  type="url"
+                                  value={p.helpLink ?? ""}
+                                  placeholder="https://docs.example.com/placeholder"
+                                  onChange={(e) => {
+                                    const v = e.target.value;
+                                    setUiPlaceholders((prev) =>
+                                      prev.map((x) =>
+                                        x.placeholderKey === p.placeholderKey
+                                          ? { ...x, helpLink: v }
+                                          : x
+                                      )
+                                    );
+                                  }}
+                                  className="text-input"
+                                />
+                              </div>
+
 
                               {/* UI Size */}
                               <select

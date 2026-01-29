@@ -1,7 +1,7 @@
 import React from "react";
 import type { PlaceholderDefinitionUI } from "./EmailCampaignBuilder";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faAngleDown } from "@fortawesome/free-solid-svg-icons";
+import { faAngleDown, faCircleInfo } from "@fortawesome/free-solid-svg-icons";
 
 export interface ElementsTabProps {
   groupedPlaceholders: Record<string, PlaceholderDefinitionUI[]>;
@@ -26,32 +26,25 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
   setExpandedKey,
   saveAllPlaceholders,
   renderPlaceholderInput,
-
-  dataFiles,
-  contacts,
-  selectedDataFileId,
-  selectedContactId,
-  handleSelectDataFile,
-  setSelectedContactId,
-  applyContactPlaceholders,
 }) => {
   const UI_SIZE_TO_SPAN: Record<string, number> = {
-    sm: 3, // 25%
-    md: 4, // 33.33%
-    lg: 6, // 50%
-    xl: 12, // 100%
+    sm: 3,
+    md: 4,
+    lg: 6,
+    xl: 12,
   };
 
   return (
     <div
-      className="elements-tab-container !mt-[0] !rounded-none "
+      className="elements-tab-container !mt-[0] !rounded-none"
       style={{
         padding: "20px",
-        height: "calc(100% - 60px)", // ✅ take full available height
+        height: "calc(100% - 60px)",
         display: "flex",
         flexDirection: "column",
       }}
     >
+      {/* HEADER */}
       <div
         style={{
           display: "flex",
@@ -63,9 +56,8 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
       >
         <h2 style={{ fontSize: "22px", fontWeight: 600 }}>Edit elements</h2>
 
-        {/* EDIT BUTTON */}
         <button
-          onClick={saveAllPlaceholders} // ✅ CALL THE SAVE FUNCTION
+          onClick={saveAllPlaceholders}
           style={{
             padding: "6px 14px",
             fontSize: "14px",
@@ -81,117 +73,137 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
         </button>
       </div>
 
-      {/* ✅ SCROLLABLE CONTENT */}
+      {/* SCROLLABLE CONTENT */}
       <div
         style={{
-          flex: 1, // ✅ takes remaining height
-          overflowY: "auto", // ✅ enables scrolling
+          flex: 1,
+          overflowY: "auto",
           paddingRight: "8px",
         }}
       >
         {Object.entries(groupedPlaceholders).map(([category, placeholders]) => (
-          <div key={category}>
-            <details
-              key={category}
+          <details
+            key={category}
+            style={{
+              marginBottom: "10px",
+              border: "1px solid #e5e7eb",
+              borderRadius: "8px",
+              background: "#fff",
+            }}
+          >
+            {/* CATEGORY HEADER */}
+            <summary
               style={{
-                marginBottom: "10px",
-                border: "1px solid #e5e7eb",
-                borderRadius: "8px",
-                background: "#fff",
+                listStyle: "none",
+                cursor: "pointer",
+                padding: "12px 16px",
+                fontSize: "16px",
+                fontWeight: 600,
+                borderBottom: "1px solid #e5e7eb",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
               }}
             >
-              {/* Accordion Title */}
-              <summary
-                style={{
-                  listStyle: "none",
-                  cursor: "pointer",
-                  padding: "12px 16px",
-                  fontSize: "16px",
-                  fontWeight: 600,
-                  borderBottom: "1px solid #e5e7eb",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <span style={{ color: "green", textTransform: "uppercase" }}>
-                  {category}
-                </span>
+              <span style={{ color: "green", textTransform: "uppercase" }}>
+                {category}
+              </span>
 
-                <FontAwesomeIcon
-                  icon={faAngleDown}
-                  className="accordion-chevron"
-                  style={{ transition: "transform 0.2s ease" }}
-                />
-              </summary>
+              <FontAwesomeIcon
+                icon={faAngleDown}
+                style={{ transition: "transform 0.2s ease" }}
+              />
+            </summary>
 
-              {/* Accordion Body (Input) */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(12, 1fr)",
-                  gap: "20px",
-                  padding: "16px",
-                  maxHeight: "60vh", // ⭐ LIMIT HEIGHT
-                  overflowY: "auto", // ⭐ ENABLE SCROLLING
-                }}
-              >
-                {placeholders.map((p) => (
-                  <div
-                    key={p.placeholderKey}
+            {/* PLACEHOLDERS */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(12, 1fr)",
+                gap: "20px",
+                padding: "16px",
+                maxHeight: "60vh",
+                overflowY: "auto",
+              }}
+            >
+              {placeholders.map((p) => (
+                <div
+                  key={p.placeholderKey}
+                  style={{
+                    gridColumn: `span ${UI_SIZE_TO_SPAN[p.uiSize || "md"]}`,
+                  }}
+                >
+                  {/* LABEL ROW */}
+                  <label
                     style={{
-                      gridColumn: `span ${UI_SIZE_TO_SPAN[p.uiSize || "md"]}`,
+                      fontWeight: 600,
+                      marginBottom: "6px",
+                      fontSize: "13px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: "8px",
                     }}
                   >
-                    <label
+                    {/* LEFT: NAME + HELP ICON */}
+                    <div
                       style={{
-                        fontWeight: 600,
-                        marginBottom: "6px",
-                        fontSize: "13px",
                         display: "flex",
-                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: "6px",
                       }}
                     >
-                      {p.friendlyName}
+                      <span>{p.friendlyName}</span>
 
-                      {p.isExpandable && p.isRichText && (
-                        <button
-                          onClick={() =>
-                            setExpandedKey(p.placeholderKey, p.friendlyName)
-                          }
+                      {p.helpLink && (
+                        <a
+                          href={p.helpLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Learn more"
                           style={{
-                            fontSize: "12px",
-                            padding: "4px 8px",
-                            borderRadius: "4px",
-                            border: "1px solid #d1d5db",
-                            background: "#f9fafb",
+                            color: "#2563eb",
+                            cursor: "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
                           }}
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          Expand
-                        </button>
+                          <FontAwesomeIcon icon={faCircleInfo} />
+                        </a>
                       )}
-                    </label>
+                    </div>
 
-                    {renderPlaceholderInput({
-                      ...p,
-                      options: p.options || [],
-                    })}
-                  </div>
-                ))}
-              </div>
-            </details>
-          </div>
+                    {/* RIGHT: EXPAND */}
+                    {p.isExpandable && p.isRichText && (
+                      <button
+                        onClick={() =>
+                          setExpandedKey(p.placeholderKey, p.friendlyName)
+                        }
+                        style={{
+                          fontSize: "12px",
+                          padding: "4px 8px",
+                          borderRadius: "4px",
+                          border: "1px solid #d1d5db",
+                          background: "#f9fafb",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Expand
+                      </button>
+                    )}
+                  </label>
+
+                  {renderPlaceholderInput({
+                    ...p,
+                    options: p.options || [],
+                  })}
+                </div>
+              ))}
+            </div>
+          </details>
         ))}
       </div>
-
-      {/* FOOTER (fixed) */}
-      <div
-        style={{
-          flexShrink: 0,
-          textAlign: "right",
-          marginTop: "12px",
-        }}
-      ></div>
     </div>
   );
 };

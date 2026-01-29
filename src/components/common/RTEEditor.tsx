@@ -153,7 +153,10 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             ref={editorRef}
             contentEditable
             className="border border-t-0 border-gray-300 p-3 outline-none overflow-auto rounded-b"
-            style={{ minHeight: height }}
+            style={{
+            height,
+            overflowY: "auto",
+            }}            
             onBlur={(e) => onChange(e.currentTarget.innerHTML)}
             onKeyUp={saveSelection}
             onMouseUp={saveSelection}
