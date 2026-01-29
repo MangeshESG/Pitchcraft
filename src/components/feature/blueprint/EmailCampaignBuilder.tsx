@@ -324,7 +324,7 @@ const [placeholderConfirmed, setPlaceholderConfirmed] = useState(false);
 const messagesContainerRef = useRef<HTMLDivElement>(null);
 
 const inputRef = useRef<HTMLTextAreaElement | null>(null);
-
+ const hasExampleEmail = initialExampleEmail.trim().length > 0;
 
 useEffect(() => {
   if (exampleOutput) {
@@ -486,7 +486,11 @@ const saveExampleEmail = async () => {
   }
 };
 const showInitialEmail =
-  isEditMode && !selectedPlaceholder && !conversationStarted;
+  isEditMode &&
+  hasExampleEmail &&
+  !selectedPlaceholder &&
+  !conversationStarted;
+
  
 const showChat =
   !isEditMode || selectedPlaceholder || conversationStarted;
@@ -521,7 +525,7 @@ return (
 
 
         {/* ===== PLACEHOLDER DROPDOWN (INSIDE CHAT) ===== */}
-        {isEditMode && (
+        {(
           <div className="chat-placeholder-panel"style={{color:'#3f9f42'}}>
             
 
@@ -572,10 +576,10 @@ return (
                 <div
   className="email-preview-content"
  dangerouslySetInnerHTML={{
-          __html: initialExampleEmail?.trim()
-            ? initialExampleEmail
-            : "<p style='color:#6b7280'>No example email loaded.</p>",
-        }}
+    __html: hasExampleEmail
+      ? initialExampleEmail
+      : "<p style='color:#6b7280'>No example email loaded.</p>",
+  }}
 
 />
               </div>
@@ -2403,11 +2407,12 @@ const groupedPlaceholders = uiPlaceholders
 
 const [initialExampleEmail, setInitialExampleEmail] = useState<string>("");
 const [currentCampaignId, setCurrentCampaignId] = useState<string | null>(null);
+const hasExampleEmail = initialExampleEmail.trim().length > 0;
  useEffect(() => {
     const storedExample = sessionStorage.getItem("initialExampleEmail");
     const campaignId = sessionStorage.getItem("newCampaignId") || sessionStorage.getItem("editTemplateId");
     setCurrentCampaignId(campaignId);
-    if (storedExample) {
+    if (storedExample&& storedExample.trim().length > 0) {
       setInitialExampleEmail(storedExample);
     }else {
       setInitialExampleEmail("");
@@ -2423,7 +2428,11 @@ const [currentCampaignId, setCurrentCampaignId] = useState<string | null>(null);
         setCurrentCampaignId(newCampaignId);
         
         const storedExample = sessionStorage.getItem("initialExampleEmail");
-        setInitialExampleEmail(storedExample || "");
+        if (storedExample && storedExample.trim().length > 0) {
+  setInitialExampleEmail(storedExample);
+} else {
+  setInitialExampleEmail("null");
+}
       }
     }, 500);
     

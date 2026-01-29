@@ -99,7 +99,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   const wideInputStyle =
     "w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#3f9f42]";
   const inputStyle =
-    "w-full max-w-lg px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#3f9f42]";
+    "w-[90%] max-w-[13rem] px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#3f9f42]";
 
   const sectionTitleStyle =
     "text-xs font-bold text-gray-600 uppercase tracking-widest mb-5 mt-7 first:mt-0 pb-3 border-b border-gray-200"
@@ -194,7 +194,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
           {/* PERSONAL INFORMATION */}
           <div>
             <h2 className={sectionTitleStyle}>Personal Information</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-1">
               <div>
                 <label className={labelStyle}>
                   Full name <span className="text-red-500 font-bold">*</span>
@@ -233,7 +233,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
           <div>
             <h2 className={sectionTitleStyle}>Professional Information</h2>
             <div className="space-y-5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-1">
                 <div>
                   <label className={labelStyle}>Job title</label>
                   <input
@@ -257,10 +257,20 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                     className={inputStyle}
                   />
                 </div>
+                <div>
+                  <label className={labelStyle}>Company industry</label>
+                  <input
+                    type="text"
+                    name="companyIndustry"
+                    value={formData.companyIndustry || ""}
+                    onChange={handleInputChange}
+                    className={inputStyle}
+                  />
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                <div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-1">
+                {/* <div>
                   <label className={labelStyle}>Company industry</label>
                   <input
                     type="text"
@@ -270,7 +280,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                     placeholder="e.g., Technology"
                     className={inputStyle}
                   />
-                </div>
+                </div> */}
 
                 <div>
                   <label className={labelStyle}>Company employee count</label>
@@ -283,9 +293,9 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                     className={inputStyle}
                   />
                 </div>
-              </div>
+              {/* </div> */}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              {/* <div className="grid grid-cols-1 sm:grid-cols-2 gap-5"> */}
                 <div>
                   <label className={labelStyle}>Company telephone</label>
                   <input
@@ -318,8 +328,8 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
           {/* CONTACT & SOCIAL */}
           <div>
             <h2 className={sectionTitleStyle}>Contact & Social</h2>
-            <div className="space-y-5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            {/* <div className="space-y-5"> */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-1">
                 <div>
                   <label className={labelStyle}>Website</label>
                   <input
@@ -343,9 +353,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                     className={inputStyle}
                   />
                 </div>
-              </div>
-
-              <div>
+                <div>
                 <label className={labelStyle}>Company LinkedIn URL</label>
                 <input
                   type="text"
@@ -356,7 +364,8 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                   className={inputStyle}
                 />
               </div>
-            </div>
+              </div>
+            {/* </div> */}
           </div>
 
           <div className={dividerStyle} />
@@ -399,6 +408,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                   onChange={handleInputChange}
                   placeholder="Enter email subject"
                   className={wideInputStyle}
+                  style={{width:"70%"}}
                 />
               </div>
 

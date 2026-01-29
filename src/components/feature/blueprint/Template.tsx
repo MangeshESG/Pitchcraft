@@ -484,12 +484,8 @@ const Template: React.FC<TemplateProps> = ({
     try {
       const fullTemplate = await fetchCampaignTemplateDetails(template.id);
 
-      const example =
-        extractExampleFromPlaceholderList(
-          fullTemplate?.placeholderListWithValue
-        ) ||
-        fullTemplate?.placeholderValues?.example_output_email ||
-        "";
+       // ✅ Take ONLY example_output_email from placeholderValues
+    const example = fullTemplate?.placeholderValues?.example_output_email || "";
 
       setExampleCache((prev) => ({
         ...prev,
@@ -514,9 +510,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
     const fullTemplate = await fetchCampaignTemplateDetails(blueprintId);
     
     // Extract the example email
-    const example = fullTemplate?.placeholderListWithValue 
-      ? extractExampleFromPlaceholderList(fullTemplate.placeholderListWithValue)
-      : (fullTemplate?.placeholderValues?.example_output_email || "");
+    const example =  fullTemplate?.placeholderValues?.example_output_email || "";
     
     // Update session storage with the example email
     sessionStorage.setItem("initialExampleEmail", example);
@@ -548,7 +542,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
       }
 
       const data = await response.json();
-     // console.log("AI data", data);
+      console.log("AI data", data);
       return data;
     } catch (error) {
       console.error("Error fetching template details:", error);
@@ -754,9 +748,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                             // ✅ FIXED: Load example email immediately, not from tooltip cache
                             try {
                               const fullTemplate = await fetchCampaignTemplateDetails(template.id);
-                              const example = fullTemplate?.placeholderListWithValue 
-                                ? extractExampleFromPlaceholderList(fullTemplate.placeholderListWithValue)
-                                : (fullTemplate?.placeholderValues?.example_output_email || "");
+                              const example = fullTemplate?.placeholderValues?.example_output_email || "";
                               sessionStorage.setItem("initialExampleEmail", example);
                             } catch (error) {
                               console.error("Error loading example email:", error);
@@ -855,19 +847,17 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                                  // ✅ FIXED: Load example email immediately
                                   try {
                                     const fullTemplate = await fetchCampaignTemplateDetails(template.id);
-                                    const example = fullTemplate?.placeholderListWithValue 
-                                      ? extractExampleFromPlaceholderList(fullTemplate.placeholderListWithValue)
-                                      : (fullTemplate?.placeholderValues?.example_output_email || "");
+                                    const example =  fullTemplate?.placeholderValues?.example_output_email || "";
                                     sessionStorage.setItem("initialExampleEmail", example);
                                   } catch (error) {
                                     console.error("Error loading example email:", error);
                                     sessionStorage.setItem("initialExampleEmail", "");
                                   }
-
+                                   setShowCampaignBuilder(true);
                                   // Safe delay
-                                  setTimeout(() => {
-                                    setShowCampaignBuilder(true);
-                                  }, 0);
+                                  // setTimeout(() => {
+                                  //   setShowCampaignBuilder(true);
+                                  // }, 0);
 
                                   setTemplateActionsAnchor(null);
                                 }}
