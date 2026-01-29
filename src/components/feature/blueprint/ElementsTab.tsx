@@ -34,10 +34,9 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
     xl: 12,
   };
 
-  const formatCategoryLabel = (category: string) =>
-  category
-    .toLowerCase()
-    .replace(/\b\w/g, (c) => c.toUpperCase());
+const formatCategoryLabel = (category: string) =>
+  category.toUpperCase();
+
 
 
   return (
