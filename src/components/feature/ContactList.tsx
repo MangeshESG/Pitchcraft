@@ -266,6 +266,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
       }
 
       const data: ContactsResponse = await response.json();
+      console.log("Contactdata",data);
       setContacts(data.contacts || []);
       setTotalContacts(data.contactCount || 0);
     } catch (error) {
@@ -2648,11 +2649,17 @@ const formatTimeIST = (dateString?: string) => {
                       setShowContactPage(false);
                       setEditingContact(null);
                     }}
-                    onContactUpdated={() => {
-                      fetchContacts();
-                      setShowContactPage(false);
-                      setEditingContact(null);
-                    }}
+                     onContactUpdated={(updatedContact) => {
+                     // 🔥 update profile contact immediately
+                     setEditingContact(updatedContact);
+
+                     // 🔥 update detail list if used
+                     setDetailContacts(prev =>
+                       prev.map(c =>
+                     c.id === updatedContact.id ? updatedContact : c
+                     ));
+                     fetchContacts(); // optional, for list sync
+                     }}
                     onShowMessage={(msg, type) => {
                       type === "success"
                         ? appModal.showSuccess(msg)
@@ -3556,11 +3563,16 @@ const formatTimeIST = (dateString?: string) => {
                       setShowContactPage(false);
                       setEditingContact(null);
                     }}
-                    onContactUpdated={() => {
-                      fetchContacts();
-                      setShowContactPage(false);
-                      setEditingContact(null);
-                    }}
+                     onContactUpdated={(updatedContact) => {
+                     // 🔥 update profile contact immediately
+                     setEditingContact(updatedContact);
+                     // 🔥 update detail list if used
+                     setDetailContacts(prev =>
+                     prev.map(c =>
+                     c.id === updatedContact.id ? updatedContact : c
+                     ));
+                     fetchContacts(); // optional, for list sync
+                     }}
                     onShowMessage={(msg, type) => {
                       type === "success"
                         ? appModal.showSuccess(msg)

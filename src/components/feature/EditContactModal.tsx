@@ -23,7 +23,7 @@ interface EditContactModalProps {
   isOpen: boolean;
   onClose: () => void;
   contact: Contact | null;
-  onContactUpdated: () => void;
+  onContactUpdated: (updatedContact: Contact) => void;
   onShowMessage: (message: string, type: 'success' | 'error') => void;
   hideOverlay?: boolean;
   asPage?: boolean;
@@ -61,7 +61,8 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
 
   useEffect(() => {
     if (contact) {
-      setFormData({
+      setFormData(prev => ({
+    ...prev,
         fullName: contact.full_name || '',
         email: contact.email || '',
         website: contact.website || '',
@@ -76,9 +77,10 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
         companyEmployeeCount: contact.companyEmployeeCount || '',
         companyIndustry: contact.companyIndustry || '',
         companyLinkedInURL: contact.companyLinkedInURL || '',
-        notes: contact.notes || ''
-      });
+        notes: contact.notes ?? prev.notes
+       }));
     }
+      console.log("Contact received:", contact);
   }, [contact]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -99,7 +101,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   const wideInputStyle =
     "w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#3f9f42]";
   const inputStyle =
-    "w-[90%] max-w-[13rem] px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#3f9f42]";
+    "w-full max-w-[19rem] px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#3f9f42]";
 
   const sectionTitleStyle =
     "text-xs font-bold text-gray-600 uppercase tracking-widest mb-5 mt-7 first:mt-0 pb-3 border-b border-gray-200"
@@ -139,9 +141,29 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
       if (!response.ok) {
         throw new Error('Failed to update contact');
       }
-
+        // const updatedContact = await response.json();
       onShowMessage('Contact updated successfully!', 'success');
-      onContactUpdated();
+      //onContactUpdated(updatedContact);
+      await response.json()
+      const updatedContact: Contact = {
+  ...contact,
+  full_name: formData.fullName,
+  email: formData.email,
+  website: formData.website,
+  company_name: formData.companyName,
+  job_title: formData.jobTitle,
+  linkedin_url: formData.linkedInUrl,
+  country_or_address: formData.countryOrAddress,
+  email_subject: formData.emailSubject,
+  email_body: formData.emailBody,
+  companyTelephone: formData.companyTelephone,
+  companyEmployeeCount: formData.companyEmployeeCount,
+  companyIndustry: formData.companyIndustry,
+  companyLinkedInURL: formData.companyLinkedInURL,
+  notes: formData.notes, // 🔥 THIS WAS MISSING
+};
+
+onContactUpdated(updatedContact);
       handleClose();
     } catch (error) {
       console.error('Error updating contact:', error);
@@ -154,31 +176,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   const handleClose = () => {
     onClose();
   };
-  {
-    showNotesPopup && (
-      <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
-        <div className="bg-white w-full max-w-3xl rounded-lg shadow-lg p-4">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="text-lg font-semibold">Notes</h3>
-            <button
-              onClick={() => setShowNotesPopup(false)}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              ✕
-            </button>
-          </div>
-
-          <textarea
-            name="notes"
-            value={formData.notes || ""}
-            onChange={handleInputChange}
-            rows={15}
-            className="w-full border border-gray-300 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-[#3f9f42]"
-          />
-        </div>
-      </div>
-    )
-  }
+ 
 
 
   if (!isOpen || !contact) return null;
@@ -194,7 +192,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
           {/* PERSONAL INFORMATION */}
           <div>
             <h2 className={sectionTitleStyle}>Personal Information</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-1">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-3 gap-y-4">
               <div>
                 <label className={labelStyle}>
                   Full name <span className="text-red-500 font-bold">*</span>
@@ -233,7 +231,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
           <div>
             <h2 className={sectionTitleStyle}>Professional Information</h2>
             <div className="space-y-5">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-1">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-3 gap-y-4">
                 <div>
                   <label className={labelStyle}>Job title</label>
                   <input
@@ -269,19 +267,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-1">
-                {/* <div>
-                  <label className={labelStyle}>Company industry</label>
-                  <input
-                    type="text"
-                    name="companyIndustry"
-                    value={formData.companyIndustry || ""}
-                    onChange={handleInputChange}
-                    placeholder="e.g., Technology"
-                    className={inputStyle}
-                  />
-                </div> */}
-
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-3 gap-y-4">
                 <div>
                   <label className={labelStyle}>Company employee count</label>
                   <input
@@ -329,7 +315,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
           <div>
             <h2 className={sectionTitleStyle}>Contact & Social</h2>
             {/* <div className="space-y-5"> */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-1">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-3 gap-y-4">
                 <div>
                   <label className={labelStyle}>Website</label>
                   <input
@@ -376,7 +362,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
             <div className="relative">
               <button
                 type="button"
-                onClick={() => setShowNotesPopup(true)}
+                onClick={() => {console.log("Expand notes clicked");setShowNotesPopup(true)}}
                 title="Expand notes"
                 className="absolute top-3.5 right-3.5 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors z-10 p-1.5 text-gray-600"
               >
@@ -448,7 +434,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
             <button
               type="submit"
               disabled={isSubmitting || !formData.fullName?.trim() || !formData.email?.trim()}
-              className="px-5 py-2.5 bg-[#3f9f42] text-white rounded-md font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+              className="px-5 py-2.5 bg-[#3f9f42] text-white rounded-md font-medium hover:bg-[#3f9f42] transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
               {isSubmitting ? "Updating..." : "Update contact"}
             </button>
@@ -457,6 +443,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
       </div>
     </div>
   );
+  
   if (asPage) {
     return (
       <>
@@ -521,6 +508,31 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
             </div>
           </div>
         )}
+         {
+    showNotesPopup && (
+      <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center">
+        <div className="bg-white w-full max-w-3xl rounded-lg shadow-lg p-4">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-lg font-semibold">Notes</h3>
+            <button
+              onClick={() => setShowNotesPopup(false)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              ✕
+            </button>
+          </div>
+
+          <textarea
+            name="notes"
+            value={formData.notes || ""}
+            onChange={handleInputChange}
+            rows={15}
+            className="w-full border border-gray-300 rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-[#3f9f42]"
+          />
+        </div>
+      </div>
+    )
+  }
       </>
     );
   }
