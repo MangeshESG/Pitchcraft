@@ -497,7 +497,7 @@
 
 /* Conversation Tab */
 .email-campaign-builder .conversation-container {
-  height: calc(100vh - 260px);
+  height: 90%;
   display: flex;
   flex-direction: column;
   overflow: hidden; /* Prevent layout breaking */
@@ -1940,8 +1940,8 @@
   border: 1px solid #dddddd;
   display: flex;
   flex-direction: column;
-  min-height: 0; /* critical for scroll */
-  overflow: hidden; /* stop container from stretching */
+ height: 100%;
+  overflow-y: auto;
 }
 
 /* Right Example Area */
@@ -2732,5 +2732,22 @@
   height: 80%;
   overflow: auto;
   border-radius: 8px;
+}
+.email-preview-content p {
+  margin: 0 0 8px 0;   /* control spacing */
+}
+
+.email-preview-content p:last-child {
+  margin-bottom: 0;
+}
+@media (max-width: 768px) {
+ .email-preview-content p {
+  margin: 0 0 8px 0;   /* control spacing */
+  margin-bottom: 0;
+}
+
+.email-preview-content p:last-child {
+  margin-bottom: 0;
+}
 }
 

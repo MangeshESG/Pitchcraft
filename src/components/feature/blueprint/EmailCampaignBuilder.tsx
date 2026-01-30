@@ -330,7 +330,8 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   const [placeholderConfirmed, setPlaceholderConfirmed] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
-  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+const inputRef = useRef<HTMLTextAreaElement | null>(null);
+ const hasExampleEmail = initialExampleEmail.trim().length > 0;
 
   useEffect(() => {
     if (exampleOutput) {
@@ -465,16 +466,24 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
         },
       );
 
-      showModal("Success", "✅ Example email saved successfully");
-    } catch (error) {
-      console.error("❌ Save example output failed:", error);
-      showModal("Error", "Failed to save example email.");
-    }
-  };
-  const showInitialEmail =
-    isEditMode && !selectedPlaceholder && !conversationStarted;
+    showModal("Success","✅ Example email saved successfully");
+  } catch (error) {
+    console.error("❌ Save example output failed:", error);
+    showModal("Error","Failed to save example email.");
+  }
+};
+const showInitialEmail =
+  isEditMode &&
+  hasExampleEmail &&
+  !selectedPlaceholder &&
+  !conversationStarted;
 
-  const showChat = !isEditMode || selectedPlaceholder || conversationStarted;
+ 
+const showChat =
+  !isEditMode || selectedPlaceholder || conversationStarted;
+
+
+
 
   // ===============================
   // TYPES
@@ -490,26 +499,28 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   // GROUP PLACEHOLDERS (CATEGORY WISE)
   // ===============================
 
-  return (
-    <div className="conversation-container shadow-[3px_3px_10px_rgba(0,0,0,0.2)]">
-      <div className="chat-layout">
-        {/* ===================== LEFT : CHAT ===================== */}
-        <div className="chat-section">
-          {/* ===== CHAT HEADING ===== */}
+return (
+  <div className="conversation-container shadow-[3px_3px_10px_rgba(0,0,0,0.2)]">
+    <div className="chat-layout">
 
-          {/* ===== PLACEHOLDER DROPDOWN (INSIDE CHAT) ===== */}
-          {isEditMode && showInitialEmail && (
-            <div
-              className="chat-placeholder-panel"
-              style={{ color: "#3f9f42" }}
+      {/* ===================== LEFT : CHAT ===================== */}
+      <div className="chat-section">
+
+        {/* ===== CHAT HEADING ===== */}
+
+
+        {/* ===== PLACEHOLDER DROPDOWN (INSIDE CHAT) ===== */}
+        {(
+          <div className="chat-placeholder-panel"style={{color:'#3f9f42'}}>
+            
+
+            <select
+              className="placeholder-dropdown"
+              value={selectedPlaceholder || ""}
+              onChange={(e) => onPlaceholderSelect?.(e.target.value)}
+              disabled={isTyping}
             >
-              <select
-                className="placeholder-dropdown"
-                value={selectedPlaceholder || ""}
-                onChange={(e) => onPlaceholderSelect?.(e.target.value)}
-                disabled={isTyping}
-              >
-                <option value="">Edit elements</option>
+              <option value="">Edit elements</option>
 
                 {Object.entries(groupedPlaceholders).map(
                   ([category, placeholders]) => (
@@ -534,27 +545,39 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
               </select>
               <div
                 style={{
-                  marginBottom: "15px",
+                  //marginBottom: "15px",
                   padding: "10px",
                   background: "#f3f4f6",
-                  borderRadius: "6px",
-                  fontSize: "14px",
+                  //borderRadius: "6px",
+                  //fontSize: "14px",
                   color: "#111827",
-                  whiteSpace: "pre-wrap",
-                  maxHeight: "370px", // ✅ limit height
-                  overflowY: "auto", // ✅ enable vertical scroll
+                 // whiteSpace: "pre-wrap",
+                 // maxHeight: "370px",   // ✅ limit height
+                  //overflowY: "visible",    // ✅ enable vertical scroll
                 }}
               >
-                <div>{initialExampleEmail || "No example email loaded."}</div>
+                <div
+  className="email-preview-content"
+ dangerouslySetInnerHTML={{
+    __html: hasExampleEmail
+      ? initialExampleEmail
+      : "<p style='color:#6b7280'>No example email loaded.</p>",
+  }}
+
+/>
               </div>
             </div>
           )}
 
-          {/* ===== CHAT BODY ===== */}
-          {showChat && (
-            <div className="messages-area" ref={messagesContainerRef}>
-              {/* EDIT MODE – no placeholder yet */}
-              {/* {isEditMode && !conversationStarted && !selectedPlaceholder && (
+        {/* ===== CHAT BODY ===== */}
+        <div className="messages-area" ref={messagesContainerRef} style={{
+    flex: showInitialEmail ? "0 0 auto" : "1 1 auto",
+     display: showInitialEmail || showChat ? "flex" : "none",
+  }}>
+    
+
+          {/* EDIT MODE – no placeholder yet */}
+          {/* {isEditMode && !conversationStarted && !selectedPlaceholder && (
             <div className="empty-conversation">
               <p>Please select element to edit.</p>
             </div>
@@ -589,30 +612,31 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
                     </div>
                   ))}
 
-                  {isTyping && (
-                    <div className="typing-indicator flex items-center gap-[5px]">
-                      <Loader2 className="typing-spinner" />
-                      <span>Blueprint builder is thinking…</span>
-                    </div>
-                  )}
+              {isTyping && (
+                <div className="typing-indicator flex items-center gap-[5px]">
+                  <Loader2 className="typing-spinner" />
+                  <span>Blueprint builder is thinking…</span>
                 </div>
               )}
+
+              
             </div>
           )}
-          {/* ===== INPUT BAR ===== */}
-          {conversationStarted && (
-            <div className="input-area">
-              <div className="input-container">
-                <textarea
-                  ref={inputRef}
-                  value={currentAnswer}
-                  onChange={(e) => setCurrentAnswer(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Type your answer…"
-                  className="message-input"
-                  rows={2}
-                  disabled={isTyping}
-                />
+        </div>
+        {/* ===== INPUT BAR ===== */}
+        {conversationStarted && (
+          <div className="input-area">
+            <div className="input-container">
+              <textarea
+                ref={inputRef}
+                value={currentAnswer}
+                onChange={(e) => setCurrentAnswer(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Type your answer…"
+                className="message-input"
+                rows={2}
+                disabled={isTyping}
+              />
 
                 <button
                   onClick={handleSendMessage}
@@ -2499,19 +2523,42 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       return acc;
     }, {});
 
-  const [initialExampleEmail, setInitialExampleEmail] = useState<string>("");
-  useEffect(() => {
+const [initialExampleEmail, setInitialExampleEmail] = useState<string>("");
+const [currentCampaignId, setCurrentCampaignId] = useState<string | null>(null);
+const hasExampleEmail = initialExampleEmail.trim().length > 0;
+ useEffect(() => {
     const storedExample = sessionStorage.getItem("initialExampleEmail");
-    if (storedExample) {
+    const campaignId = sessionStorage.getItem("newCampaignId") || sessionStorage.getItem("editTemplateId");
+    setCurrentCampaignId(campaignId);
+    if (storedExample&& storedExample.trim().length > 0) {
       setInitialExampleEmail(storedExample);
+    }else {
+      setInitialExampleEmail("");
     }
   }, []);
-  const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
-    const key = p.placeholderKey;
-    const value =
-      formValues[key] !== undefined && formValues[key] !== ""
-        ? formValues[key]
-        : p.defaultValue ?? "";
+   // ✅ NEW: Watch for blueprint changes and update example email every 500ms
+  useEffect(() => {
+    const checkInterval = setInterval(() => {
+      const newCampaignId = sessionStorage.getItem("newCampaignId") || sessionStorage.getItem("editTemplateId");
+      
+      // If campaign ID changed, update the example email
+      if (newCampaignId && newCampaignId !== currentCampaignId) {
+        setCurrentCampaignId(newCampaignId);
+        
+        const storedExample = sessionStorage.getItem("initialExampleEmail");
+        if (storedExample && storedExample.trim().length > 0) {
+  setInitialExampleEmail(storedExample);
+} else {
+  setInitialExampleEmail("null");
+}
+      }
+    }, 500);
+    
+    return () => clearInterval(checkInterval);
+  }, [currentCampaignId]);
+const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
+  const key = p.placeholderKey;
+  const value = formValues[key] ?? "";
 
     const baseStyle: React.CSSProperties = {
       width: "100%",
