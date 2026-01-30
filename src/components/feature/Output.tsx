@@ -153,6 +153,7 @@ interface OutputInterface {
   selectedPrompt: Prompt | null;
   handleStop?: () => void; // Move this here - as a separate property
   isStopRequested?: boolean; // Add this line
+  clearUsage: () => void;
 
   toneSettings?: any;
   toneSettingsHandler?: (e: any) => void;
@@ -225,6 +226,8 @@ const Output: React.FC<OutputInterface> = ({
   setFollowupEnabled,
   isSoundEnabled,
   setIsSoundEnabled,
+  clearUsage, 
+
 }) => {
   const appModal = useAppModal();
   const [loading, setLoading] = useState(true);
@@ -1592,39 +1595,15 @@ const Output: React.FC<OutputInterface> = ({
   const [sendEmailControls, setSendEmailControls] = useState(false);
   const preserveIndexRef = useRef(false);
 
-  const usageInfo = useMemo(() => {
+
+const usageData = useMemo(() => {
   if (!outputForm?.usage) return null;
-
-  const getNumber = (regex: RegExp) => {
-    const match = outputForm.usage.match(regex);
-    return match ? Number(match[1]) : 0;
-  };
-
-  return {
-    cost: getNumber(/Cost:\s*\$([0-9.]+)/),
-    promptTokens: getNumber(/Prompt Tokens:\s*([0-9]+)/),
-    completionTokens: getNumber(/Completion Tokens:\s*([0-9]+)/),
-    totalTokens: getNumber(/Total Tokens Used:\s*([0-9]+)/),
-    success: getNumber(/Success Requests:\s*([0-9]+)/),
-    failed: getNumber(/Failed Requests:\s*([0-9]+)/),
-  };
-}, [outputForm.usage]);
-
-const totalUsage = useMemo(() => {
-  if (!usageInfo) {
-    return {
-      totalInput: 0,
-      totalOutput: 0,
-      totalCost: 0,
-    };
+  try {
+    return JSON.parse(outputForm.usage);
+  } catch {
+    return null;
   }
-
-  return {
-    totalInput: usageInfo.promptTokens,
-    totalOutput: usageInfo.completionTokens,
-    totalCost: usageInfo.cost,
-  };
-}, [usageInfo]);
+}, [outputForm.usage]);
 
 
 
@@ -1772,44 +1751,55 @@ const totalUsage = useMemo(() => {
             <div className="flex items-center mt-[26px] gap-3">
 
               {/* ================= ADMIN USAGE PANEL ================= */}
-              {userRole === "ADMIN" && usageInfo && (
-                <div
-                  style={{
-                    padding: "6px 10px",
-                    background: "#f1f5f9",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "6px",
-                    fontSize: "11px",
-                    lineHeight: "1.3",
-                    display: "inline-block",
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {/* Last Call */}
-                  <div style={{ display: "flex", gap: "10px" }}>
-                    <strong>Last:</strong>
-                    <span>In {usageInfo.promptTokens}</span>
-                    <span>Out {usageInfo.completionTokens}</span>
-                    <span>💲{usageInfo.cost.toFixed(6)}</span>
-                  </div>
+{userRole === "ADMIN" && usageData && (
+  <div
+    style={{
+      padding: "6px 10px",
+      background: "#f1f5f9",
+      border: "1px solid #e2e8f0",
+      borderRadius: "6px",
+      fontSize: "11px",
+      lineHeight: "1.3",
+      whiteSpace: "nowrap",
+      position: "relative",
+    }}
+  >
+    {/* ❌ CLEAR BUTTON */}
+    <button
+      onClick={clearUsage}
+      title="Clear usage"
+      style={{
+        position: "absolute",
+        top: "4px",
+        right: "6px",
+        border: "none",
+        background: "transparent",
+        cursor: "pointer",
+        fontSize: "12px",
+        color: "#64748b",
+      }}
+    >
+      ✕
+    </button>
 
-                  {/* Total */}
-                  {totalUsage.totalCost > 0 && (
-                    <div
-                      style={{
-                        marginTop: "2px",
-                        display: "flex",
-                        gap: "10px",
-                      }}
-                    >
-                      <strong>Total:</strong>
-                      <span>In {totalUsage.totalInput}</span>
-                      <span>Out {totalUsage.totalOutput}</span>
-                      <span>💲{totalUsage.totalCost.toFixed(6)}</span>
-                    </div>
-                  )}
-                </div>
-              )}
+    {/* LAST EMAIL */}
+    <div style={{ display: "flex", gap: "10px" }}>
+      <strong>Last:</strong>
+      <span>Tokens {usageData.last.tokens}</span>
+      <span>💲{usageData.last.cost.toFixed(6)}</span>
+    </div>
+
+    {/* TOTAL */}
+    <div style={{ display: "flex", gap: "10px", marginTop: "2px" }}>
+      <strong>Total:</strong>
+      <span>Emails {usageData.total.emails}</span>
+      <span>Tokens {usageData.total.tokens}</span>
+      <span>💲{usageData.total.cost.toFixed(6)}</span>
+    </div>
+  </div>
+)}
+
+
 
               {/* Download button */}
               <div className="flex items-center">

@@ -1225,6 +1225,10 @@ const MainPage: React.FC = () => {
       };
     }
   };
+  const totalEmailTokensRef = useRef(0);
+const totalEmailCostRef = useRef(0);
+const totalEmailCountRef = useRef(0); // <-- emails, NOT api calls
+
 
   const goToTab = async (
     tab: string,
@@ -1237,6 +1241,11 @@ const MainPage: React.FC = () => {
       useCachedData?: boolean;
     },
   ) => {
+    let lastEmailTokens = 0;
+    let lastEmailCost = 0;
+    let lastEmailGenerations = 0;
+
+  
     // Calculate effectiveUserId first
     const tempEffectiveUserId = selectedClient !== "" ? selectedClient : userId;
     // Check credits before starting generation process
@@ -1398,6 +1407,10 @@ const MainPage: React.FC = () => {
       }
 
       if (options?.regenerate) {
+        lastEmailTokens = 0;
+        lastEmailCost = 0;
+        lastEmailGenerations = 0;
+
         // Use the regenerateIndex to get the specific contact from allResponses
         const index =
           typeof options.regenerateIndex === "number"
@@ -1508,9 +1521,7 @@ const MainPage: React.FC = () => {
               prev.generatedContent,
           }));
 
-          pitchData.response = {
-            content: `Hi ${full_name},\n\nI wanted to reach out regarding a potential opportunity.`,
-          };
+
         }
 
         setOutputForm((prev) => ({
@@ -1557,9 +1568,11 @@ const MainPage: React.FC = () => {
           );
 
           if (subjectResponse.ok) {
+            
             const subjectData = await subjectResponse.json();
             subjectLine = subjectData.response?.content || "";
           }
+          
         }
 
         // --- CASE 2: MANUAL SUBJECT ---
@@ -1824,6 +1837,12 @@ const MainPage: React.FC = () => {
 
       // Process all contacts
       for (let i = currentIndex; i < contacts.length; i++) {
+
+        // 🔄 Reset LAST email counters per contact
+        lastEmailTokens = 0;
+        lastEmailCost = 0;
+        lastEmailGenerations = 0;
+
         // Start from currentIndex instead of 0
         const entry = contacts[i];
 
@@ -2052,9 +2071,11 @@ const MainPage: React.FC = () => {
           const pitchData = await pitchResponse.json();
           if (!pitchResponse.ok) {
             const formattedTime = formatDateTime(new Date());
-            failedReq += 1;
-            cost += parseFloat(pitchData?.response?.currentCost);
-            totaltokensused += parseFloat(pitchData?.response?.totalTokens);
+
+
+           
+
+            
             setOutputForm((prevOutputForm) => ({
               ...prevOutputForm,
 
@@ -2064,12 +2085,7 @@ const MainPage: React.FC = () => {
                 )}] Phase #1 integritas incomplete for contact ${full_name} with company name ${company_name} and domain ${
                   entry.email
                 }</span><br/>` + prevOutputForm.generatedContent,
-              usage:
-                `Cost: $${cost.toFixed(6)}    ` +
-                `Failed Requests: ${failedReq}    ` +
-                `Success Requests: ${successReq}                ` +
-                `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
-                `Total Tokens Used: ${totaltokensused}   `,
+             
             }));
             generatedPitches.push({
               ...entry,
@@ -2078,10 +2094,29 @@ const MainPage: React.FC = () => {
             continue;
           }
 
-          successReq += 1;
-          cost += parseFloat(pitchData?.response?.currentCost);
-          totaltokensused += parseFloat(pitchData?.response?.totalTokens);
-          console.log(`Cosstdata ${pitchData}`);
+            successReq += 1;
+
+            const bodyTokens = Number(pitchData.response.totalTokens);
+            const bodyCost = Number(pitchData.response.currentCost);
+
+            // LAST
+// LAST
+lastEmailTokens += bodyTokens;
+lastEmailCost += bodyCost;
+
+// TOTAL (persisted)
+totalEmailTokensRef.current += bodyTokens;
+totalEmailCostRef.current += bodyCost;
+
+// ✅ ONE EMAIL GENERATED (body is mandatory)
+lastEmailGenerations = 1;
+totalEmailCountRef.current += 1;
+
+
+            // keep legacy totals
+            cost += bodyCost;
+            totaltokensused += bodyTokens;
+
 
           // Success: Update UI with the generated pitch
           setOutputForm((prevOutputForm) => ({
@@ -2093,12 +2128,8 @@ const MainPage: React.FC = () => {
               )}] Pitch successfully crafted for contact ${full_name} with company name ${company_name} and domain ${
                 entry.email
               }</span><br/>` + prevOutputForm.generatedContent,
-            usage:
-              `Cost: $${cost.toFixed(6)}    ` +
-              `Failed Requests: ${failedReq}    ` +
-              `Success Requests: ${successReq}                  ` +
-              `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
-              `Total Tokens Used: ${totaltokensused}   `,
+     
+            
           }));
 
           setOutputForm((prevOutputForm) => ({
@@ -2153,10 +2184,33 @@ const MainPage: React.FC = () => {
               },
             );
 
-            if (subjectResponse.ok) {
-              const subjectData = await subjectResponse.json();
-              subjectLine = subjectData.response?.content || "";
-            }
+          if (subjectResponse.ok) {
+            const subjectData = await subjectResponse.json();
+
+            subjectLine = subjectData.response?.content || "";
+
+            const subjectTokens = Number(subjectData?.response?.totalTokens || 0);
+            const subjectCost = Number(subjectData?.response?.currentCost || 0);
+
+            // LAST (same email)
+// LAST (same email)
+lastEmailTokens += subjectTokens;
+lastEmailCost += subjectCost;
+
+// TOTAL
+totalEmailTokensRef.current += subjectTokens;
+totalEmailCostRef.current += subjectCost;
+
+// ⚠️ DO NOT increment email count here
+// subject is part of SAME email
+
+
+            // legacy totals (if still used elsewhere)
+            cost += subjectCost;
+            totaltokensused += subjectTokens;
+          }
+
+
           }
 
           // --- CASE 2: MANUAL SUBJECT ---
@@ -2179,6 +2233,22 @@ const MainPage: React.FC = () => {
             subjectLine = "";
           }
           // ---------------- SUBJECT GENERATION END ----------------
+          setOutputForm((prev) => ({
+  ...prev,
+  usage: JSON.stringify({
+    last: {
+      tokens: lastEmailTokens,
+      cost: Number(lastEmailCost.toFixed(6)),
+      emails: lastEmailGenerations, // always 1
+    },
+    total: {
+      tokens: totalEmailTokensRef.current,
+      cost: Number(totalEmailCostRef.current.toFixed(6)),
+      emails: totalEmailCountRef.current,
+    },
+  }),
+}));
+
 
           // Update the linkLabel to show both subject and pitch
           setOutputForm((prevOutputForm) => ({
@@ -3298,25 +3368,11 @@ const MainPage: React.FC = () => {
               </div>
             </nav>
             {/* Rest of Output component content */}
-            {userRole === "ADMIN" && (
               <div className="pb-2 d-flex align-center justify-end p-4 w-[100%] border-t-[3px] border-t-[#eeeeee]">
                 <div className="form-group w-[100%]">
-                  <label>Usage</label>
+                 
                   <span className="pos-relative full-width flex flex-col">
-                    <textarea
-                      placeholder="Usage"
-                      rows={4}
-                      name="tkUsage"
-                      value={outputForm.usage}
-                      className="full-width p-[0.5rem]"
-                      onChange={outputFormHandler}
-                    ></textarea>
-                    <button
-                      className="!bg-[#f5f5f5] mt-2 secondary-button button clear-button small d-flex align-center h-[100%] justify-center"
-                      onClick={clearUsage}
-                    >
-                      Clear Usage
-                    </button>
+
 
                     <div
                       ref={popupRef}
@@ -3345,7 +3401,7 @@ const MainPage: React.FC = () => {
                   </span>
                 </div>
               </div>
-            )}
+            
           </div>
         </aside>
       )}
@@ -3494,6 +3550,8 @@ const MainPage: React.FC = () => {
                 setFollowupEnabled={setFollowupEnabled}
                 isSoundEnabled={isSoundEnabled}
                 setIsSoundEnabled={setIsSoundEnabled}
+                clearUsage={clearUsage}
+
               />
             )}
 
