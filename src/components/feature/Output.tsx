@@ -2693,7 +2693,7 @@ const usageData = useMemo(() => {
                                 whiteSpace: "nowrap",
                               }}
                             >
-                              Delay
+                              Delay(Sec)
                             </label>
 
                             {/* MIN */}
