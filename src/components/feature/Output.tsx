@@ -698,68 +698,68 @@ const [isEditingSubject, setIsEditingSubject] = useState(false);
 const [editableSubject, setEditableSubject] = useState("");
 const [isSavingSubject, setIsSavingSubject] = useState(false);
 
-useEffect(() => {
-  const subject = combinedResponses[currentIndex]?.subject || "";
-  setEditableSubject(subject);
-  setIsEditingSubject(false);
-}, [currentIndex, combinedResponses]);
+  useEffect(() => {
+    const subject = combinedResponses[currentIndex]?.subject || "";
+    setEditableSubject(subject);
+    setIsEditingSubject(false);
+  }, [currentIndex, combinedResponses]);
 
 // Function to save the edited subject
-const saveEditedSubject = async () => {
-  setIsSavingSubject(true);
+  const saveEditedSubject = async () => {
+    setIsSavingSubject(true);
 
-  try {
-    const currentItem = combinedResponses[currentIndex];
-    const effectiveUserId =
-      selectedClient !== "" ? selectedClient : reduxUserId;
+    try {
+      const currentItem = combinedResponses[currentIndex];
+      const effectiveUserId =
+        selectedClient !== "" ? selectedClient : reduxUserId;
 
-    await saveToCrmUpdateEmail({
-      clientId: Number(effectiveUserId),
-      contactId: Number(currentItem.id),
-      emailSubject: editableSubject,
-      emailBody: currentItem.pitch || "",
-    });
+      await saveToCrmUpdateEmail({
+        clientId: Number(effectiveUserId),
+        contactId: Number(currentItem.id),
+        emailSubject: editableSubject,
+        emailBody: currentItem.pitch || "",
+      });
 
-    // Update combinedResponses
-    const updatedItem = {
-      ...currentItem,
-      subject: editableSubject,
-    };
+      // Update combinedResponses
+      const updatedItem = {
+        ...currentItem,
+        subject: editableSubject,
+      };
 
-    setCombinedResponses((prev) =>
-      prev.map((item, i) =>
-        i === currentIndex ? updatedItem : item,
-      ),
-    );
+      setCombinedResponses((prev) =>
+        prev.map((item, i) =>
+          i === currentIndex ? updatedItem : item,
+        ),
+      );
 
-    // Update source arrays
-    const allIdx = allResponses.findIndex(
-      (r) => r.id === currentItem.id,
-    );
-    if (allIdx !== -1) {
-      const updated = [...allResponses];
-      updated[allIdx] = updatedItem;
-      setAllResponses(updated);
+      // Update source arrays
+      const allIdx = allResponses.findIndex(
+        (r) => r.id === currentItem.id,
+      );
+      if (allIdx !== -1) {
+        const updated = [...allResponses];
+        updated[allIdx] = updatedItem;
+        setAllResponses(updated);
+      }
+
+      const existingIdx = existingResponse.findIndex(
+        (r) => r.id === currentItem.id,
+      );
+      if (existingIdx !== -1) {
+        const updated = [...existingResponse];
+        updated[existingIdx] = updatedItem;
+        setexistingResponse(updated);
+      }
+
+      setIsEditingSubject(false);
+      toast.success("Subject updated successfully!");
+    } catch (error) {
+      console.error("Failed to update subject:", error);
+      toast.error("Failed to update subject");
+    } finally {
+      setIsSavingSubject(false);
     }
-
-    const existingIdx = existingResponse.findIndex(
-      (r) => r.id === currentItem.id,
-    );
-    if (existingIdx !== -1) {
-      const updated = [...existingResponse];
-      updated[existingIdx] = updatedItem;
-      setexistingResponse(updated);
-    }
-
-    setIsEditingSubject(false);
-    toast.success("Subject updated successfully!");
-  } catch (error) {
-    console.error("Failed to update subject:", error);
-    toast.error("Failed to update subject");
-  } finally {
-    setIsSavingSubject(false);
-  }
-};
+  };
 
 
 
