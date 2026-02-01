@@ -1388,14 +1388,47 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
     console.log("Campaigns updated in Output component:", campaigns?.length);
   }, [campaigns, refreshTrigger]); // Add refreshTrigger dependency
 
+
+ //-----------------------------------------bulk email sending logic------------------//
+ const DELAY_OPTIONS = [
+  5, 10, 15, 20, 30, 40, 50, 70, 90, 130, 150, 200, 300,
+];
+
+  const [minDelay, setMinDelay] = useState(30);
+  const [maxDelay, setMaxDelay] = useState(90);
+
+  const [countdown, setCountdown] = useState<number | null>(null);
+
   const [isBulkSending, setIsBulkSending] = useState(false);
 
   const [bulkSendIndex, setBulkSendIndex] = useState(currentIndex);
 
   const stopBulkRef = useRef(false);
 
+  const getRandomDelayMs = (min: number, max: number) => {
+  const minMs = min * 1000;
+  const maxMs = max * 1000;
+  return Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
+};
+
+const sleepWithCountdown = async (ms: number) => {
+  let remaining = Math.ceil(ms / 1000);
+  setCountdown(remaining);
+
+  while (remaining > 0 && !stopBulkRef.current) {
+    await new Promise((res) => setTimeout(res, 1000));
+    remaining -= 1;
+    setCountdown(remaining);
+  }
+
+  setCountdown(null);
+};
+
+
   const sendEmailsInBulk = async (startIndex = 0) => {
     // Check if we have SMTP user selected BEFORE starting
+    if (isBulkSending) return;
+
 
     if (!selectedSmtpUser) {
       return; // Exit early
@@ -1616,10 +1649,18 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
 
       // Wait before processing next email
 
-      await new Promise((res) => setTimeout(res, 1200)); // Throttle emails
+        // Wait ONLY if next email exists
+        if (index < combinedResponses.length - 1 && !stopBulkRef.current) {
+          const delayMs = getRandomDelayMs(minDelay, maxDelay);
+          console.log(`⏳ Waiting ${delayMs / 1000}s before next email`);
+          await sleepWithCountdown(delayMs);
+        }
+
+    // Throttle emails
     }
 
     setIsBulkSending(false);
+    setCountdown(null); // 👈 ADD THIS
 
     stopBulkRef.current = false;
 
@@ -1630,25 +1671,12 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
 
   const stopBulkSending = () => {
     stopBulkRef.current = true;
-
     setIsBulkSending(false);
+    setCountdown(null);
   };
 
-  const [isSavingSettings, setIsSavingSettings] = useState(false);
 
-  const handleSaveSettings = async () => {
-    setIsSavingSettings(true);
 
-    try {
-      if (saveToneSettings) {
-        await saveToneSettings();
-      }
-    } catch (error) {
-      console.error("Error saving settings:", error);
-    } finally {
-      setIsSavingSettings(false);
-    }
-  };
 
   const [sendEmailControls, setSendEmailControls] = useState(false);
   const preserveIndexRef = useRef(false);
@@ -1809,53 +1837,53 @@ const usageData = useMemo(() => {
             <div className="flex items-center mt-[26px] gap-3">
 
               {/* ================= ADMIN USAGE PANEL ================= */}
-{userRole === "ADMIN" && usageData && (
-  <div
-    style={{
-      padding: "6px 10px",
-      background: "#f1f5f9",
-      border: "1px solid #e2e8f0",
-      borderRadius: "6px",
-      fontSize: "11px",
-      lineHeight: "1.3",
-      whiteSpace: "nowrap",
-      position: "relative",
-    }}
-  >
-    {/* ❌ CLEAR BUTTON */}
-    <button
-      onClick={clearUsage}
-      title="Clear usage"
-      style={{
-        position: "absolute",
-        top: "4px",
-        right: "6px",
-        border: "none",
-        background: "transparent",
-        cursor: "pointer",
-        fontSize: "12px",
-        color: "#64748b",
-      }}
-    >
-      ✕
-    </button>
+              {userRole === "ADMIN" && usageData && (
+                <div
+                  style={{
+                    padding: "6px 10px",
+                    background: "#f1f5f9",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "6px",
+                    fontSize: "11px",
+                    lineHeight: "1.3",
+                    whiteSpace: "nowrap",
+                    position: "relative",
+                  }}
+                >
+                  {/* ❌ CLEAR BUTTON */}
+                  <button
+                    onClick={clearUsage}
+                    title="Clear usage"
+                    style={{
+                      position: "absolute",
+                      top: "4px",
+                      right: "6px",
+                      border: "none",
+                      background: "transparent",
+                      cursor: "pointer",
+                      fontSize: "12px",
+                      color: "#64748b",
+                    }}
+                  >
+                    ✕
+                  </button>
 
-    {/* LAST EMAIL */}
-    <div style={{ display: "flex", gap: "10px" }}>
-      <strong>Last:</strong>
-      <span>Tokens {usageData.last.tokens}</span>
-      <span>💲{usageData.last.cost.toFixed(6)}</span>
-    </div>
+                  {/* LAST EMAIL */}
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    <strong>Last:</strong>
+                    <span>Tokens {usageData.last.tokens}</span>
+                    <span>💲{usageData.last.cost.toFixed(6)}</span>
+                  </div>
 
-    {/* TOTAL */}
-    <div style={{ display: "flex", gap: "10px", marginTop: "2px" }}>
-      <strong>Total:</strong>
-      <span>Emails {usageData.total.emails}</span>
-      <span>Tokens {usageData.total.tokens}</span>
-      <span>💲{usageData.total.cost.toFixed(6)}</span>
-    </div>
-  </div>
-)}
+                  {/* TOTAL */}
+                  <div style={{ display: "flex", gap: "10px", marginTop: "2px" }}>
+                    <strong>Total:</strong>
+                    <span>Emails {usageData.total.emails}</span>
+                    <span>Tokens {usageData.total.tokens}</span>
+                    <span>💲{usageData.total.cost.toFixed(6)}</span>
+                  </div>
+                </div>
+              )}
 
 
 
@@ -2511,8 +2539,7 @@ const usageData = useMemo(() => {
                     <div className="relative ml-[auto] flex">
                       {sendEmailControls && (
                         <div
-                          className="right-angle flex w-[100%] items-start justify-end absolute right-[140px] top-[13px] p-[15px] w-auto bg-white rounded-md shadow-[0_0_15px_rgba(0,0,0,0.2)] z-[100] border border-[#3f9f42] border-r-[5px] border-r-[#3f9f42]
-"
+                          className="right-angle flex  items-start justify-end absolute right-[140px] top-[13px] p-[15px] w-auto bg-white rounded-md shadow-[0_0_15px_rgba(0,0,0,0.2)] z-[100] border border-[#3f9f42] border-r-[5px] border-r-[#3f9f42]"
                         >
                           <div
                             style={{ flex: "0 0 15%", paddingRight: "15px" }}
@@ -2653,6 +2680,68 @@ const usageData = useMemo(() => {
                               ))}
                             </select>
                           </div>
+
+                          {/* Delay Controls */}
+                          <div
+                            style={{ flex: "0 0 auto", paddingRight: "10px" }}
+                            className="flex items-center gap-1"
+                          >
+                            <label
+                              style={{
+                                fontWeight: "600",
+                                fontSize: "13px",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              Delay
+                            </label>
+
+                            {/* MIN */}
+                            <select
+                              className="form-control"
+                              value={minDelay}
+                              onChange={(e) => setMinDelay(Number(e.target.value))}
+                              style={{
+                                width: "52px",
+                                minWidth: "52px",
+                                maxWidth: "52px",
+                                height: "40px",
+                                padding: "2px 4px",
+                                fontSize: "12px",
+                              }}
+                            >
+                              {DELAY_OPTIONS.map((v) => (
+                                <option key={v} value={v}>
+                                  {v}
+                                </option>
+                              ))}
+                            </select>
+
+                            <span style={{ fontSize: "12px", margin: "0 2px" }}>–</span>
+
+                            {/* MAX */}
+                            <select
+                              className="form-control"
+                              value={maxDelay}
+                              onChange={(e) => setMaxDelay(Number(e.target.value))}
+                              style={{
+                                width: "52px",
+                                minWidth: "52px",
+                                maxWidth: "52px",
+                                height: "40px",
+                                padding: "2px 4px",
+                                fontSize: "12px",
+                              }}
+                            >
+                              {DELAY_OPTIONS.filter((v) => v >= minDelay).map((v) => (
+                                <option key={v} value={v}>
+                                  {v}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+
 
                           {/* Send Button - 10% width to align in row */}
                           <div
@@ -2820,6 +2909,11 @@ const usageData = useMemo(() => {
                                     );
                                     return;
                                   }
+                                  if (minDelay > maxDelay) {
+                                    toast.error("Min delay cannot be greater than max delay");
+                                    return;
+                                  }
+
                                   console.log("Starting bulk send...");
                                   sendEmailsInBulk(currentIndex);
                                 }
@@ -2943,6 +3037,19 @@ const usageData = useMemo(() => {
                             >
                               {isBulkSending ? "Stop" : "Send all"}
                             </button>
+                            {isBulkSending && countdown !== null && (
+                              <div
+                                style={{
+                                  marginTop: "8px",
+                                  fontSize: "13px",
+                                  color: "#3f9f42",
+                                  fontWeight: 500,
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                ⏳ Next email in {countdown}s
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}
