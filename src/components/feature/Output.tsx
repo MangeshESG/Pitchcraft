@@ -2433,76 +2433,76 @@ const usageData = useMemo(() => {
                       >
                         Subject
                       </label>
-<div style={{ width: "100%" }}>
-  {!isEditingSubject ? (
-    /* READ MODE */
-    <div
-      className="textarea-full-height"
-      style={{
-        minHeight: "30px",
-        maxHeight: "120px",
-        padding: "8px",
-        border: "1px solid #ccc",
-        borderRadius: "4px",
-        fontFamily: "inherit",
-        fontSize: "14px",
-        backgroundColor: "#f9f9f9",
-        overflowY: "auto",
-        width: "100%",
-        whiteSpace: "normal",
-        wordWrap: "break-word",
-        cursor: "pointer",
-      }}
-      onClick={() => {
-        setEditableSubject(
-          combinedResponses[currentIndex]?.subject || "",
-        );
-        setIsEditingSubject(true);
-      }}
-      title="Click to edit subject"
-    >
-      {combinedResponses[currentIndex]?.subject || "Click to add subject"}
-    </div>
-  ) : (
-    /* EDIT MODE */
-    <>
-      <input
-        type="text"
-        value={editableSubject}
-        onChange={(e) => setEditableSubject(e.target.value)}
-        autoFocus
-        className="form-control"
-        style={{
-          width: "100%",
-          padding: "8px",
-          fontSize: "14px",
-        }}
-      />
+                    <div style={{ width: "100%" }}>
+                      {!isEditingSubject ? (
+                        /* READ MODE */
+                        <div
+                          className="textarea-full-height"
+                          style={{
+                            minHeight: "30px",
+                            maxHeight: "120px",
+                            padding: "8px",
+                            border: "1px solid #ccc",
+                            borderRadius: "4px",
+                            fontFamily: "inherit",
+                            fontSize: "14px",
+                            backgroundColor: "#f9f9f9",
+                            overflowY: "auto",
+                            width: "100%",
+                            whiteSpace: "normal",
+                            wordWrap: "break-word",
+                            cursor: "pointer",
+                          }}
+                          onClick={() => {
+                            setEditableSubject(
+                              combinedResponses[currentIndex]?.subject || "",
+                            );
+                            setIsEditingSubject(true);
+                          }}
+                          title="Click to edit subject"
+                        >
+                          {combinedResponses[currentIndex]?.subject || "Click to add subject"}
+                        </div>
+                      ) : (
+                        /* EDIT MODE */
+                        <>
+                          <input
+                            type="text"
+                            value={editableSubject}
+                            onChange={(e) => setEditableSubject(e.target.value)}
+                            autoFocus
+                            className="form-control"
+                            style={{
+                              width: "100%",
+                              padding: "8px",
+                              fontSize: "14px",
+                            }}
+                          />
 
-      <div className="flex gap-2 mt-2">
-        <button
-          className="button save-button small"
-          onClick={saveEditedSubject}
-          disabled={isSavingSubject}
-        >
-          {isSavingSubject ? "Saving..." : "Save"}
-        </button>
+                          <div className="flex gap-2 mt-2">
+                            <button
+                              className="button save-button small"
+                              onClick={saveEditedSubject}
+                              disabled={isSavingSubject}
+                            >
+                              {isSavingSubject ? "Saving..." : "Save"}
+                            </button>
 
-        <button
-          className="button secondary small"
-          onClick={() => {
-            setEditableSubject(
-              combinedResponses[currentIndex]?.subject || "",
-            );
-            setIsEditingSubject(false);
-          }}
-        >
-          Cancel
-        </button>
-      </div>
-    </>
-  )}
-</div>
+                            <button
+                              className="button secondary small"
+                              onClick={() => {
+                                setEditableSubject(
+                                  combinedResponses[currentIndex]?.subject || "",
+                                );
+                                setIsEditingSubject(false);
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
 
                     </div>
 
