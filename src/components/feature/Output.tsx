@@ -693,6 +693,76 @@ const Output: React.FC<OutputInterface> = ({
   }, [combinedResponses, recentlyAddedOrUpdatedId]);
 
   //----------------------------------------------------------------------
+// Editable content state for Subject
+const [isEditingSubject, setIsEditingSubject] = useState(false);
+const [editableSubject, setEditableSubject] = useState("");
+const [isSavingSubject, setIsSavingSubject] = useState(false);
+
+useEffect(() => {
+  const subject = combinedResponses[currentIndex]?.subject || "";
+  setEditableSubject(subject);
+  setIsEditingSubject(false);
+}, [currentIndex, combinedResponses]);
+
+// Function to save the edited subject
+const saveEditedSubject = async () => {
+  setIsSavingSubject(true);
+
+  try {
+    const currentItem = combinedResponses[currentIndex];
+    const effectiveUserId =
+      selectedClient !== "" ? selectedClient : reduxUserId;
+
+    await saveToCrmUpdateEmail({
+      clientId: Number(effectiveUserId),
+      contactId: Number(currentItem.id),
+      emailSubject: editableSubject,
+      emailBody: currentItem.pitch || "",
+    });
+
+    // Update combinedResponses
+    const updatedItem = {
+      ...currentItem,
+      subject: editableSubject,
+    };
+
+    setCombinedResponses((prev) =>
+      prev.map((item, i) =>
+        i === currentIndex ? updatedItem : item,
+      ),
+    );
+
+    // Update source arrays
+    const allIdx = allResponses.findIndex(
+      (r) => r.id === currentItem.id,
+    );
+    if (allIdx !== -1) {
+      const updated = [...allResponses];
+      updated[allIdx] = updatedItem;
+      setAllResponses(updated);
+    }
+
+    const existingIdx = existingResponse.findIndex(
+      (r) => r.id === currentItem.id,
+    );
+    if (existingIdx !== -1) {
+      const updated = [...existingResponse];
+      updated[existingIdx] = updatedItem;
+      setexistingResponse(updated);
+    }
+
+    setIsEditingSubject(false);
+    toast.success("Subject updated successfully!");
+  } catch (error) {
+    console.error("Failed to update subject:", error);
+    toast.error("Failed to update subject");
+  } finally {
+    setIsSavingSubject(false);
+  }
+};
+
+
+
   const [editableContent, setEditableContent] = useState(
     combinedResponses[currentIndex]?.pitch || "",
   );
@@ -1195,26 +1265,14 @@ const Output: React.FC<OutputInterface> = ({
     }
   }, [effectiveUserId, token]);
 
-  // useEffect(() => {
-  //   const fetchCampaign = async () => {
-  //     try {
-  //       const response = await fetch(`${API_BASE_URL}/api/auth/campaigns/client/${effectiveUserId}`);
-  //       if (!response.ok) {
-  //         throw new Error('Failed to fetch campaign data');
-  //       }
-  //       const data = await response.json();
-  //       console.log("data:", data);
-  //       setCampaign(data);
-  //     } catch (error: unknown) {
-  //       console.error("Failed at data:", error);
-  //     } finally {
-  //       setLoading(false);
-  //     }
-  //   };
 
-  //   fetchCampaign();
-  // }, [effectiveUserId]);
-  // On BCC change, after setEmailFormData...
+
+  useEffect(() => {
+  if (isEditing && combinedResponses[currentIndex]?.pitch) {
+    setEditableContent(combinedResponses[currentIndex].pitch);
+  }
+}, [currentIndex]);
+
 
   useEffect(() => {
     if (emailFormData.BccEmail) {
@@ -2375,26 +2433,77 @@ const usageData = useMemo(() => {
                       >
                         Subject
                       </label>
-                      <div
-                        className="textarea-full-height"
-                        style={{
-                          minHeight: "30px",
-                          maxHeight: "120px",
-                          padding: "8px",
-                          border: "1px solid #ccc",
-                          borderRadius: "4px",
-                          fontFamily: "inherit",
-                          fontSize: "14px",
-                          backgroundColor: "#f9f9f9",
-                          overflowY: "auto",
-                          width: "100%",
-                          whiteSpace: "normal",
-                          wordWrap: "break-word",
-                        }}
-                      >
-                        {combinedResponses[currentIndex]?.subject ||
-                          "No subject available"}
-                      </div>
+<div style={{ width: "100%" }}>
+  {!isEditingSubject ? (
+    /* READ MODE */
+    <div
+      className="textarea-full-height"
+      style={{
+        minHeight: "30px",
+        maxHeight: "120px",
+        padding: "8px",
+        border: "1px solid #ccc",
+        borderRadius: "4px",
+        fontFamily: "inherit",
+        fontSize: "14px",
+        backgroundColor: "#f9f9f9",
+        overflowY: "auto",
+        width: "100%",
+        whiteSpace: "normal",
+        wordWrap: "break-word",
+        cursor: "pointer",
+      }}
+      onClick={() => {
+        setEditableSubject(
+          combinedResponses[currentIndex]?.subject || "",
+        );
+        setIsEditingSubject(true);
+      }}
+      title="Click to edit subject"
+    >
+      {combinedResponses[currentIndex]?.subject || "Click to add subject"}
+    </div>
+  ) : (
+    /* EDIT MODE */
+    <>
+      <input
+        type="text"
+        value={editableSubject}
+        onChange={(e) => setEditableSubject(e.target.value)}
+        autoFocus
+        className="form-control"
+        style={{
+          width: "100%",
+          padding: "8px",
+          fontSize: "14px",
+        }}
+      />
+
+      <div className="flex gap-2 mt-2">
+        <button
+          className="button save-button small"
+          onClick={saveEditedSubject}
+          disabled={isSavingSubject}
+        >
+          {isSavingSubject ? "Saving..." : "Save"}
+        </button>
+
+        <button
+          className="button secondary small"
+          onClick={() => {
+            setEditableSubject(
+              combinedResponses[currentIndex]?.subject || "",
+            );
+            setIsEditingSubject(false);
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+    </>
+  )}
+</div>
+
                     </div>
 
                     {/* Toggle Send Email controls */}
@@ -2683,16 +2792,7 @@ const usageData = useMemo(() => {
                               {!sendingEmail && emailMessage && "Sent"}
                             </button>
 
-                            {/* <span className="relative top-[15px]">
-                              <svg id="send-email-info" width="14px" height="14px" viewBox="0 0 24 24" fill="#555555" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M12 17.75C12.4142 17.75 12.75 17.4142 12.75 17V11C12.75 10.5858 12.4142 10.25 12 10.25C11.5858 10.25 11.25 10.5858 11.25 11V17C11.25 17.4142 11.5858 17.75 12 17.75Z" fill="#1C274C"/>
-                              <path d="M12 7C12.5523 7 13 7.44772 13 8C13 8.55228 12.5523 9 12 9C11.4477 9 11 8.55228 11 8C11 7.44772 11.4477 7 12 7Z" fill="#1C274C"/>
-                              <path fill-rule="evenodd" clip-rule="evenodd" d="M1.25 12C1.25 6.06294 6.06294 1.25 12 1.25C17.9371 1.25 22.75 6.06294 22.75 12C22.75 17.9371 17.9371 22.75 12 22.75C6.06294 22.75 1.25 17.9371 1.25 12ZM12 2.75C6.89137 2.75 2.75 6.89137 2.75 12C2.75 17.1086 6.89137 21.25 12 21.25C17.1086 21.25 21.25 17.1086 21.25 12C21.25 6.89137 17.1086 2.75 12 2.75Z" fill="#1C274C"/>
-                            </svg>
-                          </span>
-                          <ReactTooltip anchorSelect="#send-email-info" place="top">
-                            Send this email
-                          </ReactTooltip> */}
+
                             <ReactTooltip
                               anchorSelect="#send-all-btn"
                               place="top"
@@ -3032,28 +3132,32 @@ const usageData = useMemo(() => {
                         </button>
                       </div>
 
-                      <div
-                        ref={editorRef}
-                        contentEditable
-                        suppressContentEditableWarning
-                        className="textarea-full-height preview-content-area"
-                        onInput={(e) => {
-                          setEditableContent(e.currentTarget.innerHTML);
-                        }}
-                        style={{
-                          minHeight: "500px",
-                          padding: "10px",
-                          border: "1px solid #ccc",
-                          borderTop: "none",
-                          borderRadius: "0 0 4px 4px",
-                          whiteSpace: "normal",
-                          overflowY: "auto",
-                          overflowX: "auto",
-                          wordWrap: "break-word",
-                          width: "100%",
-                          outline: "none",
-                        }}
-                      />
+                        <div
+                          ref={editorRef}
+                          contentEditable
+                          suppressContentEditableWarning
+                          className="textarea-full-height preview-content-area"
+                          onInput={(e) => {
+                            setEditableContent(e.currentTarget.innerHTML);
+                          }}
+                          dangerouslySetInnerHTML={{
+                            __html: editableContent,
+                          }}
+                          style={{
+                            minHeight: "500px",
+                            padding: "10px",
+                            border: "1px solid #ccc",
+                            borderTop: "none",
+                            borderRadius: "0 0 4px 4px",
+                            whiteSpace: "normal",
+                            overflowY: "auto",
+                            overflowX: "auto",
+                            wordWrap: "break-word",
+                            width: "100%",
+                            outline: "none",
+                          }}
+                        />
+
 
                       <div className="editor-actions mt-10 d-flex">
                         <button
@@ -3444,8 +3548,12 @@ const usageData = useMemo(() => {
                           <button
                             id="edit-email-body-tooltip"
                             className="edit-button button d-flex align-center justify-center square-40"
-                            onClick={() => setIsEditing(true)}
-                          >
+                              onClick={() => {
+                                const pitch = combinedResponses[currentIndex]?.pitch || "";
+                                setEditableContent(pitch);
+                                setIsEditing(true);
+                              }}                         
+                            >
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
                               width="28px"
@@ -3788,31 +3896,7 @@ const usageData = useMemo(() => {
                     </button>
                   </li>
                   <li className="flex-50percent-991 flex-full-640">
-                    {/* <button
-                      onClick={() => setTab3("Search results")}
-                      className={`button full-width ${tab3 === "Search results" ? "active" : ""
-                        }`}
-                    >
-                      Search results
-                    </button>
-                  </li>
-                  <li className="flex-50percent-991 flex-full-640">
-                    <button
-                      onClick={tabHandler3}
-                      className={`button full-width ${tab3 === "All sourced data" ? "active" : ""
-                        }`}
-                    >
-                      All sourced data
-                    </button>
-                  </li>
-                  <li className="flex-50percent-991 flex-full-640">
-                    <button
-                      onClick={tabHandler3}
-                      className={`button full-width ${tab3 === "Sourced data summary" ? "active" : ""
-                        }`}
-                    >
-                      Sourced data summary
-                    </button> */}
+
                   </li>
                 </ul>
               </div>
@@ -3898,281 +3982,7 @@ const usageData = useMemo(() => {
                 </div>
               )}
 
-              {/* {tab3 === "Search results" && (
-                <div className="form-group">
-                  <h3>
-                    Search results for "
-                    {allSearchTermBodies[currentIndex] || "N/A"}"
-                  </h3>
-                  <span className="pos-relative">
-                    <div
-                      className="textarea-full-height preview-content-area"
-                      style={{
-                        height: "800px",
-                        width: "100%",
-                        padding: "10px",
-                        border: "1px solid #ccc",
-                        borderRadius: "4px",
-                        fontFamily: "inherit",
-                        fontSize: "inherit",
-                        whiteSpace: "pre-wrap",
-                        overflowY: "auto",
-                        overflowX: "auto",
-                        boxSizing: "border-box",
-                      }}
-                    >
-                      <ul>
-                        {(allsearchResults[currentIndex] ?? []).length === 0 ? (
-                          <li>No search results available.</li>
-                        ) : (
-                          allsearchResults[currentIndex].map(
-                            (result: string, index: number) => (
-                              <li key={index}>
-                                <a
-                                  href={result}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  {result}
-                                </a>
-                              </li>
-                            )
-                          )
-                        )}
-                      </ul>
-                    </div>
 
-                    <Modal
-                      show={openModals["modal-output-search"]}
-                      closeModal={() => handleModalClose("modal-output-search")}
-                      buttonLabel="Ok"
-                    >
-                      <label>
-                        Search results for "
-                        {allSearchTermBodies[currentIndex] || "N/A"}"
-                      </label>
-                      <pre className="textarea-full-height preview-content-area">
-                        <ul>
-                          {(allsearchResults[currentIndex] ?? []).length ===
-                            0 ? (
-                            <li>No search results available.</li>
-                          ) : (
-                            allsearchResults[currentIndex].map(
-                              (result: string, index: number) => (
-                                <li key={index}>
-                                  <a
-                                    href={result}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                  >
-                                    {result}
-                                  </a>
-                                </li>
-                              )
-                            )
-                          )}
-                        </ul>
-                      </pre>
-                    </Modal>
-                    <button
-                      className="full-view-icon d-flex align-center justify-center"
-                      onClick={() => handleModalOpen("modal-output-search")}
-                    >
-                      <svg width="40px" height="40px" viewBox="0 0 512 512">
-                        <polyline
-                          points="304 96 416 96 416 208"
-                          fill="none"
-                          stroke="#000000"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="32"
-                        />
-                        <line
-                          x1="405.77"
-                          y1="106.2"
-                          x2="111.98"
-                          y2="400.02"
-                          fill="none"
-                          stroke="#000000"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="32"
-                        />
-                        <polyline
-                          points="208 416 96 416 96 304"
-                          fill="none"
-                          stroke="#000000"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="32"
-                        />
-                      </svg>
-                    </button>
-                  </span>
-                </div>
-              )}
-
-              {tab3 === "All sourced data" && (
-                <div className="form-group">
-                  <h3>All sourced data</h3>
-                  <span className="pos-relative">
-                    <div
-                      className="textarea-full-height preview-content-area"
-                      style={{
-                        height: "800px",
-                        width: "100%",
-                        padding: "10px",
-                        border: "1px solid #ccc",
-                        borderRadius: "4px",
-                        fontFamily: "inherit",
-                        fontSize: "inherit",
-                        whiteSpace: "pre-wrap",
-                        overflowY: "auto",
-                        overflowX: "auto",
-                        boxSizing: "border-box",
-                      }}
-                    >
-                      <p>
-                        {typeof everyscrapedData[currentIndex] === "string"
-                          ? everyscrapedData[currentIndex]
-                          : "No sourced data available."}
-                      </p>{" "}
-                    </div>
-
-                    <Modal
-                      show={openModals["modal-output-scraped"]}
-                      closeModal={() =>
-                        handleModalClose("modal-output-scraped")
-                      }
-                      buttonLabel="Ok"
-                    >
-                      <label>All sourced data</label>
-                      <pre className="textarea-full-height preview-content-area">
-                        <p>
-                          {typeof everyscrapedData[currentIndex] === "string"
-                            ? everyscrapedData[currentIndex]
-                            : "No sourced data available."}
-                        </p>{" "}
-                      </pre>
-                    </Modal>
-                    <button
-                      className="full-view-icon d-flex align-center justify-center"
-                      onClick={() => handleModalOpen("modal-output-scraped")}
-                    >
-                      <svg width="40px" height="40px" viewBox="0 0 512 512">
-                        <polyline
-                          points="304 96 416 96 416 208"
-                          fill="none"
-                          stroke="#000000"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="32"
-                        />
-                        <line
-                          x1="405.77"
-                          y1="106.2"
-                          x2="111.98"
-                          y2="400.02"
-                          fill="none"
-                          stroke="#000000"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="32"
-                        />
-                        <polyline
-                          points="208 416 96 416 96 304"
-                          fill="none"
-                          stroke="#000000"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="32"
-                        />
-                      </svg>
-                    </button>
-                  </span>
-                </div>
-              )}
-
-              {tab3 === "Sourced data summary" && (
-                <div className="form-group">
-                  <h3>Sourced data summary</h3>
-                  <span className="pos-relative">
-                    <div
-                      className="textarea-full-height preview-content-area"
-                      style={{
-                        height: "800px",
-                        width: "100%",
-                        padding: "10px",
-                        border: "1px solid #ccc",
-                        borderRadius: "4px",
-                        fontFamily: "inherit",
-                        fontSize: "inherit",
-                        whiteSpace: "pre-wrap",
-                        overflowY: "auto",
-                        overflowX: "auto",
-                        boxSizing: "border-box",
-                      }}
-                    >
-                      <p>
-                        {typeof allsummery[currentIndex] === "string"
-                          ? allsummery[currentIndex]
-                          : "No summary available."}
-                      </p>
-                    </div>
-
-                    <Modal
-                      show={openModals["modal-output-summary"]}
-                      closeModal={() =>
-                        handleModalClose("modal-output-summary")
-                      }
-                      buttonLabel="Ok"
-                    >
-                      <label>Sourced data summary</label>
-                      <pre className="textarea-full-height preview-content-area">
-                        <p>
-                          {typeof allsummery[currentIndex] === "string"
-                            ? allsummery[currentIndex]
-                            : "No summary available."}
-                        </p>
-                      </pre>
-                    </Modal>
-                    <button
-                      className="full-view-icon d-flex align-center justify-center"
-                      onClick={() => handleModalOpen("modal-output-summary")}
-                    >
-                      <svg width="40px" height="40px" viewBox="0 0 512 512">
-                        <polyline
-                          points="304 96 416 96 416 208"
-                          fill="none"
-                          stroke="#000000"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="32"
-                        />
-                        <line
-                          x1="405.77"
-                          y1="106.2"
-                          x2="111.98"
-                          y2="400.02"
-                          fill="none"
-                          stroke="#000000"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="32"
-                        />
-                        <polyline
-                          points="208 416 96 416 96 304"
-                          fill="none"
-                          stroke="#000000"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="32"
-                        />
-                      </svg>
-                    </button>
-                  </span>
-                </div>
-              )} */}
             </>
           )}
           {/* Add this after the Output tab and before the Stages tab */}
@@ -4216,25 +4026,7 @@ const usageData = useMemo(() => {
               boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
             }}
           >
-            {/* <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h3 style={{ marginTop: 0, marginBottom: 0 }}>Notes for {combinedResponses[currentIndex]?.name}</h3>
-              <span
-                onClick={() => {
-                  setShowNotesModal(false);
-                  setIsEditingNotes(false);
-                  setNotesMessage("");
-                }}
-                style={{
-                  fontSize: "25px",
-                  fontWeight: 600,
-                  color: "#9e9e9e",
-                  cursor: "pointer",
-                  lineHeight: 1
-                }}
-              >
-                ×
-              </span>
-            </div> */}
+
 
             <>
               <textarea
@@ -4272,7 +4064,7 @@ const usageData = useMemo(() => {
                     try {
                       const contact = combinedResponses[currentIndex];
                       const response = await fetch(
-                        `https://localhost:7216/api/Crm/Update-Notes?contactid=${contact.id}&Notes=${encodeURIComponent(currentNotes)}`,
+                        `${API_BASE_URL}/api/Crm/Update-Notes?contactid=${contact.id}&Notes=${encodeURIComponent(currentNotes)}`,
                         {
                           method: "POST",
                           headers: {
