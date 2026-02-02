@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef , useMemo } from "react";
 import Modal from "../common/Modal";
 import { Tooltip as ReactTooltip } from "react-tooltip";
 import { copyToClipboard } from "../../utils/utils";
@@ -10,7 +10,7 @@ import { useAppData } from "../../contexts/AppDataContext";
 import * as XLSX from "xlsx";
 import FileSaver from "file-saver";
 import { toast } from "react-toastify";
-import 'quill/dist/quill.snow.css'; // Import styles
+import "quill/dist/quill.snow.css"; // Import styles
 import API_BASE_URL from "../../config";
 import axios from "axios";
 import AppModal from "../common/AppModal";
@@ -20,8 +20,7 @@ import { RootState } from "../../Redux/store";
 import { useSoundAlert } from "../common/useSoundAlert";
 import toggleOn from "../../assets/images/on-button.png";
 import toggleOff from "../../assets/images/off-button.png";
-
-
+import DOMPurify from "dompurify";
 
 // In Output.tsx
 interface ZohoClient {
@@ -38,9 +37,8 @@ interface Prompt {
   text: string;
   userId?: number; // userId might not always be returned from the API
   createdAt?: string;
-  template?: string;  
+  template?: string;
   templateId?: number; // ✅ added for campaign blueprint
-
 }
 
 interface Campaign {
@@ -61,9 +59,9 @@ interface OutputInterface {
     searchResults: string[];
     allScrapedData: string;
   };
-  isResetEnabled: boolean; 
-   isSoundEnabled: boolean;
-  setIsSoundEnabled: React.Dispatch<React.SetStateAction<boolean>>;// Add this prop
+  isResetEnabled: boolean;
+  isSoundEnabled: boolean;
+  setIsSoundEnabled: React.Dispatch<React.SetStateAction<boolean>>; // Add this prop
 
   onRegenerateContact?: (
     tab: string,
@@ -72,7 +70,7 @@ interface OutputInterface {
       regenerateIndex: number;
       nextPageToken?: string | null;
       prevPageToken?: string | null;
-    }
+    },
   ) => void;
 
   outputFormHandler: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
@@ -112,7 +110,7 @@ interface OutputInterface {
   fetchAndDisplayEmailBodies: (
     zohoviewId: string,
     pageToken?: string | null,
-    direction?: "next" | "previous" | null
+    direction?: "next" | "previous" | null,
   ) => Promise<void>;
   selectedZohoviewId: string;
   onClearExistingResponse?: (clearFunction: () => void) => void; // Define the prop to accept a function
@@ -155,6 +153,7 @@ interface OutputInterface {
   selectedPrompt: Prompt | null;
   handleStop?: () => void; // Move this here - as a separate property
   isStopRequested?: boolean; // Add this line
+  clearUsage: () => void;
 
   toneSettings?: any;
   toneSettingsHandler?: (e: any) => void;
@@ -165,7 +164,13 @@ interface OutputInterface {
   setSelectedPrompt?: React.Dispatch<React.SetStateAction<Prompt | null>>; // ✅ added
 
   showCreditModal?: boolean; // Add this
-  checkUserCredits?: (clientId?: string | number | null) => Promise<{total: number, canGenerate: boolean, monthlyLimitExceeded: boolean} | number | null>; // Add this
+  checkUserCredits?: (
+    clientId?: string | number | null,
+  ) => Promise<
+    | { total: number; canGenerate: boolean; monthlyLimitExceeded: boolean }
+    | number
+    | null
+  >; // Add this
   userId?: string | null; // Add this
   followupEnabled?: boolean;
   setFollowupEnabled?: (value: boolean) => void;
@@ -183,21 +188,14 @@ const Output: React.FC<OutputInterface> = ({
   onClearOutput,
   allprompt,
   setallprompt,
-  allsearchResults,
   setallsearchResults,
-  everyscrapedData,
   seteveryscrapedData,
-  allSearchTermBodies,
   setallSearchTermBodies,
   onClearContent,
-  allsummery,
   setallsummery,
   existingResponse,
   setexistingResponse,
-  currentPage,
   setCurrentPage,
-  prevPageToken,
-  nextPageToken,
   fetchAndDisplayEmailBodies,
   selectedZohoviewId,
   onClearExistingResponse,
@@ -207,56 +205,32 @@ const Output: React.FC<OutputInterface> = ({
   recentlyAddedOrUpdatedId,
   setRecentlyAddedOrUpdatedId,
   selectedClient,
-  isStarted,
   handleStart,
-  handlePauseResume,
-  handleReset,
   handleStop, // Add this line
-  isPitchUpdateCompleted,
-  allRecordsProcessed,
   isDemoAccount,
   settingsForm,
   settingsFormHandler,
-  delayTime,
-  setDelay,
   selectedPrompt,
   selectedCampaign,
   isProcessing,
   handleClearAll,
   campaigns,
   handleCampaignChange,
-  selectionMode,
-  promptList,
-  handleSelectChange,
-  dataFiles,
-  handleZohoModelChange,
-  languages,
-  selectedLanguage,
-  handleLanguageChange,
-  subjectMode,
-  setSubjectMode,
-  subjectText,
-  setSubjectText,
   isStopRequested,
-  toneSettings,
-  toneSettingsHandler,
-  fetchToneSettings,
   saveToneSettings,
-  selectedSegmentId,
-  handleSubjectTextChange,
   setSelectedPrompt,
-
   showCreditModal,
   checkUserCredits,
   userId,
   followupEnabled,
   setFollowupEnabled,
   isSoundEnabled,
-setIsSoundEnabled,
+  setIsSoundEnabled,
+  clearUsage, 
+
 }) => {
   const appModal = useAppModal();
   const [loading, setLoading] = useState(true);
-
 
   const [isCopyText, setIsCopyText] = useState(false);
   const { refreshTrigger } = useAppData(); // Make sure this includes refreshTrigger
@@ -284,7 +258,7 @@ setIsSoundEnabled,
     return text
       .replace(
         /successfully generated/gi,
-        '<span style="color: green;">successfully generated</span>'
+        '<span style="color: green;">successfully generated</span>',
       )
       .replace(/error/gi, '<span style="color: red;">error</span>');
   };
@@ -344,8 +318,8 @@ setIsSoundEnabled,
     setCurrentIndex(0); // Use the prop to reset currentIndex
     setCurrentPage(0); // Resetting the
   };
-//----------------------------------------------------------------------
- useEffect(() => {
+  //----------------------------------------------------------------------
+  useEffect(() => {
     const stored = sessionStorage.getItem("selectedPrompt");
     if (stored) {
       try {
@@ -359,106 +333,105 @@ setIsSoundEnabled,
   }, [setSelectedPrompt]);
 
   // ✅ Load blueprint when campaign changes
-useEffect(() => {
-  const loadCampaignBlueprint = async () => {
-    if (!selectedCampaign || !campaigns?.length) return; // ✅ safely check campaigns
+  useEffect(() => {
+    const loadCampaignBlueprint = async () => {
+      if (!selectedCampaign || !campaigns?.length) return; // ✅ safely check campaigns
 
-    const campaign = campaigns.find(
-      (c) => c.id.toString() === selectedCampaign
-    );
+      const campaign = campaigns.find(
+        (c) => c.id.toString() === selectedCampaign,
+      );
 
-    if (campaign?.templateId) {
-      try {
-        console.log("Fetching campaign blueprint for:", campaign.templateId);
-        const response = await fetch(
-          `${API_BASE_URL}/api/CampaignPrompt/campaign/${campaign.templateId}`
-        );
+      if (campaign?.templateId) {
+        try {
+          console.log("Fetching campaign blueprint for:", campaign.templateId);
+          const response = await fetch(
+            `${API_BASE_URL}/api/CampaignPrompt/campaign/${campaign.templateId}`,
+          );
 
-        if (!response.ok)
-          throw new Error("Failed to fetch campaign blueprint");
+          if (!response.ok)
+            throw new Error("Failed to fetch campaign blueprint");
 
-        const data = await response.json();
+          const data = await response.json();
 
-        const blueprintPrompt = {
-          id: data.id,
-          name: data.templateName,
-          text: data.campaignBlueprint,
-          model: data.selectedModel || "gpt-5",
-        };
+          const blueprintPrompt = {
+            id: data.id,
+            name: data.templateName,
+            text: data.campaignBlueprint,
+            model: data.selectedModel || "gpt-5",
+          };
 
-        // ✅ Safely call if function exists
-        setSelectedPrompt && setSelectedPrompt(blueprintPrompt);
+          // ✅ Safely call if function exists
+          setSelectedPrompt && setSelectedPrompt(blueprintPrompt);
 
-        // ✅ Save to sessionStorage
-        sessionStorage.setItem(
-          "selectedPrompt",
-          JSON.stringify(blueprintPrompt)
-        );
+          // ✅ Save to sessionStorage
+          sessionStorage.setItem(
+            "selectedPrompt",
+            JSON.stringify(blueprintPrompt),
+          );
 
-        console.log("✅ Loaded Campaign Blueprint:", blueprintPrompt);
-      } catch (error) {
-        console.error("Error loading campaign blueprint:", error);
+          console.log("✅ Loaded Campaign Blueprint:", blueprintPrompt);
+        } catch (error) {
+          console.error("Error loading campaign blueprint:", error);
+        }
+      } else {
+        console.log("No Campaign Blueprint found for this campaign");
       }
-    } else {
-      console.log("No Campaign Blueprint found for this campaign");
-    }
-  };
+    };
 
-  loadCampaignBlueprint();
-}, [selectedCampaign, campaigns, setSelectedPrompt]);
+    loadCampaignBlueprint();
+  }, [selectedCampaign, campaigns, setSelectedPrompt]);
 
-
-//----------------------------------------------------------------------
+  //----------------------------------------------------------------------
   const [userRole, setUserRole] = useState<string>(""); // Store user role
-// === Load Campaign Blueprint when campaign is selected ===
-useEffect(() => {
-  const loadCampaignBlueprint = async () => {
-    if (!selectedCampaign || !campaigns || campaigns.length === 0) return;
+  // === Load Campaign Blueprint when campaign is selected ===
+  useEffect(() => {
+    const loadCampaignBlueprint = async () => {
+      if (!selectedCampaign || !campaigns || campaigns.length === 0) return;
 
-    const campaign = campaigns.find(
-      (c) => c.id.toString() === selectedCampaign
-    );
+      const campaign = campaigns.find(
+        (c) => c.id.toString() === selectedCampaign,
+      );
 
-    // If campaign exists and has a blueprint ID (templateId)
-    if (campaign && campaign.templateId) {
-      try {
-        console.log("Fetching campaign blueprint for:", campaign.templateId);
-        const response = await fetch(
-          `${API_BASE_URL}/api/CampaignPrompt/campaign/${campaign.templateId}`
-        );
+      // If campaign exists and has a blueprint ID (templateId)
+      if (campaign && campaign.templateId) {
+        try {
+          console.log("Fetching campaign blueprint for:", campaign.templateId);
+          const response = await fetch(
+            `${API_BASE_URL}/api/CampaignPrompt/campaign/${campaign.templateId}`,
+          );
 
-        if (!response.ok)
-          throw new Error("Failed to fetch campaign blueprint");
+          if (!response.ok)
+            throw new Error("Failed to fetch campaign blueprint");
 
-        const data = await response.json();
+          const data = await response.json();
 
-        const blueprintPrompt = {
-          id: data.id,
-          name: data.templateName,
-          text: data.campaignBlueprint,
-          model: data.selectedModel || "gpt-5",
-        };
+          const blueprintPrompt = {
+            id: data.id,
+            name: data.templateName,
+            text: data.campaignBlueprint,
+            model: data.selectedModel || "gpt-5",
+          };
 
-        // ✅ Update selectedPrompt state
+          // ✅ Update selectedPrompt state
           setSelectedPrompt?.(blueprintPrompt);
 
-        // ✅ Save it in sessionStorage so Output persists across tabs
-        sessionStorage.setItem(
-          "selectedPrompt",
-          JSON.stringify(blueprintPrompt)
-        );
+          // ✅ Save it in sessionStorage so Output persists across tabs
+          sessionStorage.setItem(
+            "selectedPrompt",
+            JSON.stringify(blueprintPrompt),
+          );
 
-        console.log("✅ Loaded Campaign Blueprint:", blueprintPrompt);
-      } catch (error) {
-        console.error("Error loading campaign blueprint:", error);
+          console.log("✅ Loaded Campaign Blueprint:", blueprintPrompt);
+        } catch (error) {
+          console.error("Error loading campaign blueprint:", error);
+        }
+      } else {
+        console.log("No Campaign Blueprint found for selected campaign");
       }
-    } else {
-      console.log("No Campaign Blueprint found for selected campaign");
-    }
-  };
+    };
 
-  loadCampaignBlueprint();
-}, [selectedCampaign, campaigns]);
+    loadCampaignBlueprint();
+  }, [selectedCampaign, campaigns]);
 
   useEffect(() => {
     const isAdminString = sessionStorage.getItem("isAdmin");
@@ -534,7 +507,7 @@ useEffect(() => {
           await fetchAndDisplayEmailBodies(
             selectedZohoviewId,
             lastItem.nextPageToken,
-            "next"
+            "next",
           );
           // Jump to the first item of the newly fetched page
           //setCurrentIndex(previousLength);
@@ -557,7 +530,7 @@ useEffect(() => {
           await fetchAndDisplayEmailBodies(
             selectedZohoviewId,
             firstItem.prevPageToken,
-            "previous"
+            "previous",
           );
           // currentIndex will be adjusted in fetchAndDisplayEmailBodies when direction is "previous"
         } finally {
@@ -577,7 +550,7 @@ useEffect(() => {
 
   // Add this state to track the input value separately from the currentIndex
   const [inputValue, setInputValue] = useState<string>(
-    (currentIndex + 1).toString()
+    (currentIndex + 1).toString(),
   );
 
   // Update inputValue whenever currentIndex changes
@@ -633,7 +606,7 @@ useEffect(() => {
         Pitch: item.pitch || item.sample_email_body || "N/A",
         Timestamp: item.timestamp || new Date().toISOString(),
         Generated: item.generated ? "Yes" : "No",
-        Subject: item.subject || "N/A", 
+        Subject: item.subject || "N/A",
       }));
 
       // Create worksheet with the data
@@ -669,7 +642,7 @@ useEffect(() => {
       } catch (writeError) {
         console.warn(
           "XLSX.writeFile failed, falling back to FileSaver:",
-          writeError
+          writeError,
         );
 
         // Fallback to FileSaver if writeFile doesn't work
@@ -710,7 +683,7 @@ useEffect(() => {
   useEffect(() => {
     if (recentlyAddedOrUpdatedId && combinedResponses.length > 0) {
       const ix = combinedResponses.findIndex(
-        (r) => r.id === recentlyAddedOrUpdatedId
+        (r) => r.id === recentlyAddedOrUpdatedId,
       );
       if (ix !== -1) {
         setCurrentIndex(ix);
@@ -720,8 +693,78 @@ useEffect(() => {
   }, [combinedResponses, recentlyAddedOrUpdatedId]);
 
   //----------------------------------------------------------------------
+// Editable content state for Subject
+const [isEditingSubject, setIsEditingSubject] = useState(false);
+const [editableSubject, setEditableSubject] = useState("");
+const [isSavingSubject, setIsSavingSubject] = useState(false);
+
+  useEffect(() => {
+    const subject = combinedResponses[currentIndex]?.subject || "";
+    setEditableSubject(subject);
+    setIsEditingSubject(false);
+  }, [currentIndex, combinedResponses]);
+
+// Function to save the edited subject
+  const saveEditedSubject = async () => {
+    setIsSavingSubject(true);
+
+    try {
+      const currentItem = combinedResponses[currentIndex];
+      const effectiveUserId =
+        selectedClient !== "" ? selectedClient : reduxUserId;
+
+      await saveToCrmUpdateEmail({
+        clientId: Number(effectiveUserId),
+        contactId: Number(currentItem.id),
+        emailSubject: editableSubject,
+        emailBody: currentItem.pitch || "",
+      });
+
+      // Update combinedResponses
+      const updatedItem = {
+        ...currentItem,
+        subject: editableSubject,
+      };
+
+      setCombinedResponses((prev) =>
+        prev.map((item, i) =>
+          i === currentIndex ? updatedItem : item,
+        ),
+      );
+
+      // Update source arrays
+      const allIdx = allResponses.findIndex(
+        (r) => r.id === currentItem.id,
+      );
+      if (allIdx !== -1) {
+        const updated = [...allResponses];
+        updated[allIdx] = updatedItem;
+        setAllResponses(updated);
+      }
+
+      const existingIdx = existingResponse.findIndex(
+        (r) => r.id === currentItem.id,
+      );
+      if (existingIdx !== -1) {
+        const updated = [...existingResponse];
+        updated[existingIdx] = updatedItem;
+        setexistingResponse(updated);
+      }
+
+      setIsEditingSubject(false);
+      toast.success("Subject updated successfully!");
+    } catch (error) {
+      console.error("Failed to update subject:", error);
+      toast.error("Failed to update subject");
+    } finally {
+      setIsSavingSubject(false);
+    }
+  };
+
+
+
   const [editableContent, setEditableContent] = useState(
-    combinedResponses[currentIndex]?.pitch || ""
+    combinedResponses[currentIndex]?.pitch || "",
   );
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -739,7 +782,7 @@ useEffect(() => {
     emailSubject: string;
     emailBody: string;
   }
-const { playSound } = useSoundAlert();
+  const { playSound } = useSoundAlert();
   const saveToCrmUpdateEmail = async ({
     clientId,
     contactId,
@@ -764,21 +807,21 @@ const { playSound } = useSoundAlert();
             emailBody: emailBody ?? "",
             // dataFileId removed from request body
           }),
-        }
+        },
       );
 
       if (!response.ok) {
         const errJson = await response.json();
         throw new Error(
-          errJson.message || "Failed to update contact via CRM API"
+          errJson.message || "Failed to update contact via CRM API",
         );
       }
- const result = await response.json();
+      const result = await response.json();
 
-    // 🔔 PLAY SOUND AFTER SUCCESS
-    playSound();
+      // 🔔 PLAY SOUND AFTER SUCCESS
+      playSound();
 
-    return result;
+      return result;
     } catch (error) {
       console.error("Error saving to CRM contacts API:", error);
       throw error;
@@ -812,7 +855,8 @@ const { playSound } = useSoundAlert();
 
       // First save to Zoho before updating UI - now passing the subject
       const currentItem = combinedResponses[currentIndex];
-      const effectiveUserId = selectedClient !== "" ? selectedClient : reduxUserId;
+      const effectiveUserId =
+        selectedClient !== "" ? selectedClient : reduxUserId;
 
       await saveToCrmUpdateEmail({
         clientId: Number(effectiveUserId),
@@ -829,7 +873,7 @@ const { playSound } = useSoundAlert();
       // Also update the source arrays to ensure persistence
       // First, check if the item exists in allResponses
       const allResponsesIndex = allResponses.findIndex(
-        (item) => item.id === combinedResponses[currentIndex].id
+        (item) => item.id === combinedResponses[currentIndex].id,
       );
 
       if (allResponsesIndex !== -1) {
@@ -840,7 +884,7 @@ const { playSound } = useSoundAlert();
       } else {
         // Check if it exists in existingResponse
         const existingResponseIndex = existingResponse.findIndex(
-          (item) => item.id === combinedResponses[currentIndex].id
+          (item) => item.id === combinedResponses[currentIndex].id,
         );
 
         if (existingResponseIndex !== -1) {
@@ -868,7 +912,7 @@ const { playSound } = useSoundAlert();
   useEffect(() => {
     if (combinedResponses[currentIndex]?.pitch) {
       setEditableContent(
-        aggressiveCleanHTML(combinedResponses[currentIndex].pitch)
+        aggressiveCleanHTML(combinedResponses[currentIndex].pitch),
       );
     } else {
       setEditableContent("");
@@ -888,12 +932,17 @@ const { playSound } = useSoundAlert();
   const editorRef = useRef<HTMLDivElement>(null);
 
   // Add this useEffect to handle the initialization
+  // useEffect(() => {
+  //   if (isEditing && editorRef.current) {
+  //     // Update editor content whenever the current index changes or when entering edit mode
+  //     editorRef.current.innerHTML = editableContent;
+  //   }
+  // }, [isEditing, editableContent, currentIndex]);
   useEffect(() => {
-    if (isEditing && editorRef.current) {
-      // Update editor content whenever the current index changes or when entering edit mode
-      editorRef.current.innerHTML = editableContent;
+    if (editorRef.current && editorRef.current.innerHTML !== editableContent) {
+      editorRef.current.innerHTML = editableContent || "";
     }
-  }, [isEditing, editableContent, currentIndex]);
+  }, [editableContent]);
 
   const [openDeviceDropdown, setOpenDeviceDropdown] = useState(false);
   const [outputEmailWidth, setOutputEmailWidth] = useState<string>("");
@@ -945,7 +994,7 @@ const { playSound } = useSoundAlert();
             headers: {
               ...(token && { Authorization: `Bearer ${token}` }),
             },
-          }
+          },
         );
         setSmtpUsers(response.data?.data || []);
       } catch (error) {
@@ -961,7 +1010,7 @@ const { playSound } = useSoundAlert();
   const handleSendEmail = async (
     subjectFromButton: string,
 
-    targetContact: (typeof combinedResponses)[number] | null = null
+    targetContact: (typeof combinedResponses)[number] | null = null,
   ) => {
     setEmailMessage("");
 
@@ -971,7 +1020,7 @@ const { playSound } = useSoundAlert();
 
     if (!subjectToUse || !selectedSmtpUser) {
       setEmailError(
-        "Please fill in all required fields: Subject and From Email."
+        "Please fill in all required fields: Subject and From Email.",
       );
 
       return;
@@ -1001,9 +1050,9 @@ const { playSound } = useSoundAlert();
         // Priority: segmentId first, then dataFileId, ensure at least one is always set
         segmentId:
           currentContact.segmentId &&
-            currentContact.segmentId !== "null" &&
-            currentContact.segmentId !== "" &&
-            !isNaN(parseInt(currentContact.segmentId))
+          currentContact.segmentId !== "null" &&
+          currentContact.segmentId !== "" &&
+          !isNaN(parseInt(currentContact.segmentId))
             ? parseInt(currentContact.segmentId)
             : null,
 
@@ -1013,10 +1062,10 @@ const { playSound } = useSoundAlert();
             currentContact.segmentId === "null" ||
             currentContact.segmentId === "" ||
             isNaN(parseInt(currentContact.segmentId))) &&
-            currentContact.dataFileId &&
-            currentContact.dataFileId !== "null" &&
-            currentContact.dataFileId !== "" &&
-            !isNaN(parseInt(currentContact.dataFileId))
+          currentContact.dataFileId &&
+          currentContact.dataFileId !== "null" &&
+          currentContact.dataFileId !== "" &&
+          !isNaN(parseInt(currentContact.dataFileId))
             ? parseInt(currentContact.dataFileId)
             : null,
 
@@ -1037,7 +1086,9 @@ const { playSound } = useSoundAlert();
       if (!requestBody.segmentId && !requestBody.dataFileId) {
         setEmailError("Contact must have either a Segment ID or Data File ID");
         setSendingEmail(false);
-        toast.error("Missing required ID: Contact must have either Segment ID or Data File ID");
+        toast.error(
+          "Missing required ID: Contact must have either Segment ID or Data File ID",
+        );
         return;
       }
 
@@ -1052,7 +1103,7 @@ const { playSound } = useSoundAlert();
 
             ...(token && { Authorization: `Bearer ${token}` }),
           },
-        }
+        },
       );
 
       setEmailMessage(response.data.message || "Email sent successfully!");
@@ -1071,11 +1122,11 @@ const { playSound } = useSoundAlert();
         };
 
         setCombinedResponses((prev) =>
-          prev.map((item, i) => (i === currentIndex ? updatedItem : item))
+          prev.map((item, i) => (i === currentIndex ? updatedItem : item)),
         );
 
         const allResponsesIndex = allResponses.findIndex(
-          (item) => item.id === updatedItem.id
+          (item) => item.id === updatedItem.id,
         );
 
         if (allResponsesIndex !== -1) {
@@ -1087,7 +1138,7 @@ const { playSound } = useSoundAlert();
         }
 
         const existingResponseIndex = existingResponse.findIndex(
-          (item) => item.id === updatedItem.id
+          (item) => item.id === updatedItem.id,
         );
 
         if (existingResponseIndex !== -1) {
@@ -1118,15 +1169,18 @@ const { playSound } = useSoundAlert();
       }, 2000);
     } catch (err) {
       if (axios.isAxiosError(err)) {
-        const errorMessage = err.response?.data?.message || err.response?.data || "Failed to send email.";
-        
+        const errorMessage =
+          err.response?.data?.message ||
+          err.response?.data ||
+          "Failed to send email.";
+
         // Check for specific error message
         if (errorMessage === "Email body or subject is incorrect.") {
           appModal.showModal({
             type: "error",
             title: "Email Error",
-            message: `Email body or subject is incorrect for ${combinedResponses[currentIndex]?.name || combinedResponses[currentIndex]?.email || 'this contact'}. Please check your email content and subject line.`,
-            confirmText: "OK"
+            message: `Email body or subject is incorrect for ${combinedResponses[currentIndex]?.name || combinedResponses[currentIndex]?.email || "this contact"}. Please check your email content and subject line.`,
+            confirmText: "OK",
           });
         } else {
           setEmailError(errorMessage);
@@ -1200,7 +1254,7 @@ const { playSound } = useSoundAlert();
             "Status:",
             error.response?.status,
             "Data:",
-            error.response?.data
+            error.response?.data,
           );
         }
       }
@@ -1211,26 +1265,14 @@ const { playSound } = useSoundAlert();
     }
   }, [effectiveUserId, token]);
 
-  // useEffect(() => {
-  //   const fetchCampaign = async () => {
-  //     try {
-  //       const response = await fetch(`${API_BASE_URL}/api/auth/campaigns/client/${effectiveUserId}`);
-  //       if (!response.ok) {
-  //         throw new Error('Failed to fetch campaign data');
-  //       }
-  //       const data = await response.json();
-  //       console.log("data:", data);
-  //       setCampaign(data);
-  //     } catch (error: unknown) {
-  //       console.error("Failed at data:", error);
-  //     } finally {
-  //       setLoading(false);
-  //     }
-  //   };
 
-  //   fetchCampaign();
-  // }, [effectiveUserId]);
-  // On BCC change, after setEmailFormData...
+
+  useEffect(() => {
+  if (isEditing && combinedResponses[currentIndex]?.pitch) {
+    setEditableContent(combinedResponses[currentIndex].pitch);
+  }
+}, [currentIndex]);
+
 
   useEffect(() => {
     if (emailFormData.BccEmail) {
@@ -1326,7 +1368,7 @@ const { playSound } = useSoundAlert();
     console.log(
       "combinedResponses updated:",
       combinedResponses.length,
-      "items"
+      "items",
     );
     console.log("Current index:", currentIndex);
     console.log("Current contact:", combinedResponses[currentIndex]);
@@ -1346,14 +1388,47 @@ const { playSound } = useSoundAlert();
     console.log("Campaigns updated in Output component:", campaigns?.length);
   }, [campaigns, refreshTrigger]); // Add refreshTrigger dependency
 
+
+ //-----------------------------------------bulk email sending logic------------------//
+ const DELAY_OPTIONS = [
+  5, 10, 15, 20, 30, 40, 50, 70, 90, 130, 150, 200, 300,
+];
+
+  const [minDelay, setMinDelay] = useState(30);
+  const [maxDelay, setMaxDelay] = useState(90);
+
+  const [countdown, setCountdown] = useState<number | null>(null);
+
   const [isBulkSending, setIsBulkSending] = useState(false);
 
   const [bulkSendIndex, setBulkSendIndex] = useState(currentIndex);
 
   const stopBulkRef = useRef(false);
 
+  const getRandomDelayMs = (min: number, max: number) => {
+  const minMs = min * 1000;
+  const maxMs = max * 1000;
+  return Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
+};
+
+const sleepWithCountdown = async (ms: number) => {
+  let remaining = Math.ceil(ms / 1000);
+  setCountdown(remaining);
+
+  while (remaining > 0 && !stopBulkRef.current) {
+    await new Promise((res) => setTimeout(res, 1000));
+    remaining -= 1;
+    setCountdown(remaining);
+  }
+
+  setCountdown(null);
+};
+
+
   const sendEmailsInBulk = async (startIndex = 0) => {
     // Check if we have SMTP user selected BEFORE starting
+    if (isBulkSending) return;
+
 
     if (!selectedSmtpUser) {
       return; // Exit early
@@ -1371,19 +1446,21 @@ const { playSound } = useSoundAlert();
       setCurrentIndex(index);
 
       const contact = combinedResponses[index];
-      
+
       // Check if we should skip this contact based on include email trail setting
       if (followupEnabled) {
         const emailedDate = contact.emailsentdate;
         const kraftedDate = contact.lastemailupdateddate;
-        
+
         if (emailedDate && kraftedDate) {
           const emailedTime = new Date(emailedDate).getTime();
           const kraftedTime = new Date(kraftedDate).getTime();
-          
+
           // Skip if emailed date is greater than krafted date
           if (emailedTime > kraftedTime) {
-            console.log(`Skipping contact ${contact.id}: Email already sent after last kraft`);
+            console.log(
+              `Skipping contact ${contact.id}: Email already sent after last kraft`,
+            );
             skippedCount++;
             index++;
             setBulkSendIndex(index);
@@ -1392,7 +1469,7 @@ const { playSound } = useSoundAlert();
           }
         }
       }
-      
+
       try {
         // Prepare subject and request body
 
@@ -1421,9 +1498,9 @@ const { playSound } = useSoundAlert();
           // Priority: segmentId first, then dataFileId
           segmentId:
             contact.segmentId &&
-              contact.segmentId !== "null" &&
-              contact.segmentId !== "" &&
-              !isNaN(parseInt(contact.segmentId))
+            contact.segmentId !== "null" &&
+            contact.segmentId !== "" &&
+            !isNaN(parseInt(contact.segmentId))
               ? parseInt(contact.segmentId)
               : null,
 
@@ -1432,10 +1509,10 @@ const { playSound } = useSoundAlert();
               contact.segmentId === "null" ||
               contact.segmentId === "" ||
               isNaN(parseInt(contact.segmentId))) &&
-              contact.dataFileId &&
-              contact.dataFileId !== "null" &&
-              contact.dataFileId !== "" &&
-              !isNaN(parseInt(contact.dataFileId))
+            contact.dataFileId &&
+            contact.dataFileId !== "null" &&
+            contact.dataFileId !== "" &&
+            !isNaN(parseInt(contact.dataFileId))
               ? parseInt(contact.dataFileId)
               : null,
 
@@ -1454,7 +1531,9 @@ const { playSound } = useSoundAlert();
 
         // Add validation before sending
         if (!requestBody.segmentId && !requestBody.dataFileId) {
-          console.error(`Skipping contact ${contact.id}: Missing both segmentId and dataFileId`);
+          console.error(
+            `Skipping contact ${contact.id}: Missing both segmentId and dataFileId`,
+          );
           skippedCount++;
           index++;
           setBulkSendIndex(index);
@@ -1473,7 +1552,7 @@ const { playSound } = useSoundAlert();
 
               ...(token && { Authorization: `Bearer ${token}` }),
             },
-          }
+          },
         );
 
         sentCount++;
@@ -1491,13 +1570,13 @@ const { playSound } = useSoundAlert();
         // Update combinedResponses
 
         setCombinedResponses((prev) =>
-          prev.map((item, i) => (i === index ? updatedItem : item))
+          prev.map((item, i) => (i === index ? updatedItem : item)),
         );
 
         // Update allResponses if needed
 
         const allResponsesIndex = allResponses.findIndex(
-          (item) => item.id === contact.id
+          (item) => item.id === contact.id,
         );
 
         if (allResponsesIndex !== -1) {
@@ -1513,7 +1592,7 @@ const { playSound } = useSoundAlert();
         // Update existingResponse if needed
 
         const existingResponseIndex = existingResponse.findIndex(
-          (item) => item.id === contact.id
+          (item) => item.id === contact.id,
         );
 
         if (existingResponseIndex !== -1) {
@@ -1530,18 +1609,21 @@ const { playSound } = useSoundAlert();
 
         if (axios.isAxiosError(err)) {
           console.error("API Error:", err.response?.data);
-          
-          const errorMessage = err.response?.data?.message || err.response?.data || "Failed to send email.";
-          
+
+          const errorMessage =
+            err.response?.data?.message ||
+            err.response?.data ||
+            "Failed to send email.";
+
           // Check for specific error message and show popup
           if (errorMessage === "Email body or subject is incorrect.") {
             appModal.showModal({
               type: "error",
               title: "Email Error",
               message: `Email body or subject is incorrect for ${contact.name || contact.email}. Please check your email content and subject line.`,
-              confirmText: "OK"
+              confirmText: "OK",
             });
-            
+
             // Wait 3 seconds before closing popup and continuing
             await new Promise((resolve) => {
               setTimeout(() => {
@@ -1567,48 +1649,58 @@ const { playSound } = useSoundAlert();
 
       // Wait before processing next email
 
-      await new Promise((res) => setTimeout(res, 1200)); // Throttle emails
+        // Wait ONLY if next email exists
+        if (index < combinedResponses.length - 1 && !stopBulkRef.current) {
+          const delayMs = getRandomDelayMs(minDelay, maxDelay);
+          console.log(`⏳ Waiting ${delayMs / 1000}s before next email`);
+          await sleepWithCountdown(delayMs);
+        }
+
+    // Throttle emails
     }
 
     setIsBulkSending(false);
+    setCountdown(null); // 👈 ADD THIS
 
     stopBulkRef.current = false;
 
     console.log(
-      `Bulk send completed. Sent: ${sentCount}, Skipped: ${skippedCount}`
+      `Bulk send completed. Sent: ${sentCount}, Skipped: ${skippedCount}`,
     );
   };
 
   const stopBulkSending = () => {
     stopBulkRef.current = true;
-
     setIsBulkSending(false);
+    setCountdown(null);
   };
 
-  const [isSavingSettings, setIsSavingSettings] = useState(false);
 
-  const handleSaveSettings = async () => {
-    setIsSavingSettings(true);
 
-    try {
-      if (saveToneSettings) {
-        await saveToneSettings();
-      }
-    } catch (error) {
-      console.error("Error saving settings:", error);
-    } finally {
-      setIsSavingSettings(false);
-    }
-  };
 
   const [sendEmailControls, setSendEmailControls] = useState(false);
   const preserveIndexRef = useRef(false);
+
+
+const usageData = useMemo(() => {
+  if (!outputForm?.usage) return null;
+  try {
+    return JSON.parse(outputForm.usage);
+  } catch {
+    return null;
+  }
+}, [outputForm.usage]);
+
+
 
   return (
     <div className="login-box gap-down">
       {/* Add the selection dropdowns and subject line section */}
       {/* Add the selection dropdowns and subject line section */}
-      <div className="d-flex justify-between align-center mb-0" style={{marginTop: "-60px"}}>
+      <div
+        className="d-flex justify-between align-center mb-0"
+        style={{ marginTop: "-60px" }}
+      >
         <div className="input-section edit-section w-[100%]">
           {/* Dropdowns Row */}
           <div className="flex items-start justify-between gap-4 w-full">
@@ -1641,7 +1733,7 @@ const { playSound } = useSoundAlert();
                       <small className="campaign-description">
                         {
                           campaigns.find(
-                            (c) => c.id.toString() === selectedCampaign
+                            (c) => c.id.toString() === selectedCampaign,
                           )?.description
                         }
                       </small>
@@ -1662,24 +1754,33 @@ const { playSound } = useSoundAlert();
                         if (showCreditModal) {
                           return;
                         }
-                        
+
                         // Check credits before starting
-                        if (sessionStorage.getItem("isDemoAccount") !== "true") {
-                          const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
-                          const currentCredits = await checkUserCredits?.(effectiveUserId);
-                          if (currentCredits && typeof currentCredits === 'object' && !currentCredits.canGenerate) {
+                        if (
+                          sessionStorage.getItem("isDemoAccount") !== "true"
+                        ) {
+                          const effectiveUserId =
+                            selectedClient !== "" ? selectedClient : userId;
+                          const currentCredits =
+                            await checkUserCredits?.(effectiveUserId);
+                          if (
+                            currentCredits &&
+                            typeof currentCredits === "object" &&
+                            !currentCredits.canGenerate
+                          ) {
                             return; // Stop if can't generate
                           }
                         }
-                        
+
                         handleStart?.(currentIndex);
                       }}
                       disabled={
                         (!selectedPrompt?.name || !selectedZohoviewId) &&
                         !selectedCampaign
                       }
-                      title={`Click to generate hyper-personalized emails starting from contact ${currentIndex + 1
-                        }`}
+                      title={`Click to generate hyper-personalized emails starting from contact ${
+                        currentIndex + 1
+                      }`}
                     >
                       Kraft emails
                     </button>
@@ -1695,154 +1796,133 @@ const { playSound } = useSoundAlert();
                   )}
                 </div>
                 {!isDemoAccount && (
-    <div className="flex items-center">
-      <label className="checkbox-label !mb-[0px] mr-[5px] flex items-center">
-        <input
-          type="checkbox"
-          checked={settingsForm?.overwriteDatabase}
-          name="overwriteDatabase"
-          id="overwriteDatabase"
-          onChange={settingsFormHandler}
-          className="!mr-0"
-        />
-        <span className="text-[14px]">Overwrite</span>
-      </label>
-    </div>
-  )}
+                  <div className="flex items-center">
+                    <label className="checkbox-label !mb-[0px] mr-[5px] flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={settingsForm?.overwriteDatabase}
+                        name="overwriteDatabase"
+                        id="overwriteDatabase"
+                        onChange={settingsFormHandler}
+                        className="!mr-0"
+                      />
+                      <span className="text-[14px]">Overwrite</span>
+                    </label>
+                  </div>
+                )}
 
                 {!isDemoAccount && (
                   <div className="flex items-center gap-2">
-                  <button
-                    className="secondary-button nowrap"
-                    onClick={handleClearAll}
-                    disabled={!isResetEnabled}
-                    title="Reset all company level intel"
-                  //  title="Clear all data and reset the application state"
-                  >
-                    Reset
-                  </button>
-                   <span>
-        <ReactTooltip anchorSelect="#overwrite-info" place="top">
-          Reset all company level intel
-        </ReactTooltip>
-      </span>
-    </div>
+                    <button
+                      className="secondary-button nowrap"
+                      onClick={handleClearAll}
+                      disabled={!isResetEnabled}
+                      title="Reset all company level intel"
+                      //  title="Clear all data and reset the application state"
+                    >
+                      Reset
+                    </button>
+                    <span>
+                      <ReactTooltip anchorSelect="#overwrite-info" place="top">
+                        Reset all company level intel
+                      </ReactTooltip>
+                    </span>
+                  </div>
                 )}
-                 
               </div>
             </div>
 
             {/* Right side - Download button */}
-            <div className="flex items-center mt-[26px] gap-2 ">
+            {/* Right side - Usage + Download */}
+            <div className="flex items-center mt-[26px] gap-3">
+
+              {/* ================= ADMIN USAGE PANEL ================= */}
+              {userRole === "ADMIN" && usageData && (
+                <div
+                  style={{
+                    padding: "6px 10px",
+                    background: "#f1f5f9",
+                    border: "1px solid #e2e8f0",
+                    borderRadius: "6px",
+                    fontSize: "11px",
+                    lineHeight: "1.3",
+                    whiteSpace: "nowrap",
+                    position: "relative",
+                  }}
+                >
+                  {/* ❌ CLEAR BUTTON */}
+                  <button
+                    onClick={clearUsage}
+                    title="Clear usage"
+                    style={{
+                      position: "absolute",
+                      top: "4px",
+                      right: "6px",
+                      border: "none",
+                      background: "transparent",
+                      cursor: "pointer",
+                      fontSize: "12px",
+                      color: "#64748b",
+                    }}
+                  >
+                    ✕
+                  </button>
+
+                  {/* LAST EMAIL */}
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    <strong>Last:</strong>
+                    <span>Tokens {usageData.last.tokens}</span>
+                    <span>💲{usageData.last.cost.toFixed(6)}</span>
+                  </div>
+
+                  {/* TOTAL */}
+                  <div style={{ display: "flex", gap: "10px", marginTop: "2px" }}>
+                    <strong>Total:</strong>
+                    <span>Emails {usageData.total.emails}</span>
+                    <span>Tokens {usageData.total.tokens}</span>
+                    <span>💲{usageData.total.cost.toFixed(6)}</span>
+                  </div>
+                </div>
+              )}
+
+
+
+              {/* Download button */}
               <div className="flex items-center">
-              <ReactTooltip anchorSelect="#download-data-tooltip" place="top">
-                Download all loaded emails to a spreadsheet
-              </ReactTooltip>
-              <a
-                href="#"
-                id="download-data-tooltip"
-                onClick={(e) => {
-                  e.preventDefault();
-                  if (!isExporting && combinedResponses.length > 0) {
-                    exportToExcel();
-                  }
-                }}
-                className="export-link green flex items-center"
-                style={{
-                  color: "#3f9f42",
-                  textDecoration: "none",
-                  cursor:
-                    combinedResponses.length === 0 || isExporting
-                      ? "not-allowed"
-                      : "pointer",
-                  opacity:
-                    combinedResponses.length === 0 || isExporting ? 0.6 : 1,
-                  display: "flex",
-                  alignItems: "center",
-                }}
-              >
-                {isExporting ? (
-                  <span>Exporting...</span>
-                ) : (
-                  <>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="20px"
-                      height="20px"
-                      viewBox="0 0 32 32"
-                    >
-                      <title>file_type_excel2</title>
-                      <path
-                        d="M28.781,4.405H18.651V2.018L2,4.588V27.115l16.651,2.868V26.445H28.781A1.162,1.162,0,0,0,30,25.349V5.5A1.162,1.162,0,0,0,28.781,4.405Zm.16,21.126H18.617L18.6,23.642h2.487v-2.2H18.581l-.012-1.3h2.518v-2.2H18.55l-.012-1.3h2.549v-2.2H18.53v-1.3h2.557v-2.2H18.53v-1.3h2.557v-2.2H18.53v-2H28.941Z"
-                        style={{ fill: "#20744a", fillRule: "evenodd" }}
-                      />
-                      <rect
-                        x="22.487"
-                        y="7.439"
-                        width="4.323"
-                        height="2.2"
-                        style={{ fill: "#20744a" }}
-                      />
-                      <rect
-                        x="22.487"
-                        y="10.94"
-                        width="4.323"
-                        height="2.2"
-                        style={{ fill: "#20744a" }}
-                      />
-                      <rect
-                        x="22.487"
-                        y="14.441"
-                        width="4.323"
-                        height="2.2"
-                        style={{ fill: "#20744a" }}
-                      />
-                      <rect
-                        x="22.487"
-                        y="17.942"
-                        width="4.323"
-                        height="2.2"
-                        style={{ fill: "#20744a" }}
-                      />
-                      <rect
-                        x="22.487"
-                        y="21.443"
-                        width="4.323"
-                        height="2.2"
-                        style={{ fill: "#20744a" }}
-                      />
-                      <polygon
-                        points="6.347 10.673 8.493 10.55 9.842 14.259 11.436 10.397 13.582 10.274 10.976 15.54 13.582 20.819 11.313 20.666 9.781 16.642 8.248 20.513 6.163 20.329 8.585 15.666 6.347 10.673"
-                        style={{ fill: "#ffffff", fillRule: "evenodd" }}
-                      />
-                    </svg>
-                    <span className="ml-5 green">Download</span>
-                  </>
-                )}
-              </a>
+                <ReactTooltip anchorSelect="#download-data-tooltip" place="top">
+                  Download all loaded emails to a spreadsheet
+                </ReactTooltip>
+
+                <a
+                  href="#"
+                  id="download-data-tooltip"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    if (!isExporting && combinedResponses.length > 0) {
+                      exportToExcel();
+                    }
+                  }}
+                  className="export-link green flex items-center"
+                >
+                  {isExporting ? <span>Exporting...</span> : <>Download</>}
+                </a>
               </div>
+
+              {/* Sound toggle */}
               <div
-    className="flex items-center cursor-pointer"
-    title={isSoundEnabled ? "Sound ON" : "Sound OFF"}
-    onClick={() => {
-  setIsSoundEnabled(prev => {
-    console.log("Toggle clicked, new value:", !prev);
-    return !prev;
-  });
-}}
-  >
-    <h1  style={{ color: "#3f9f42", fontWeight: 500 }}> 🔔  </h1>
-    <img
-      src={isSoundEnabled ? toggleOn : toggleOff}
-      alt="Sound Toggle"
-      style={{
-        height: "28px",
-        width: "32px",
-        objectFit: "contain",
-      }}
-    />
-  </div>
+                className="flex items-center cursor-pointer"
+                title={isSoundEnabled ? "Sound ON" : "Sound OFF"}
+                onClick={() => setIsSoundEnabled((prev) => !prev)}
+              >
+                <h1 style={{ color: "#3f9f42", fontWeight: 500 }}>🔔</h1>
+                <img
+                  src={isSoundEnabled ? toggleOn : toggleOff}
+                  alt="Sound Toggle"
+                  style={{ height: "28px", width: "32px" }}
+                />
+              </div>
             </div>
+
           </div>
         </div>
       </div>
@@ -1862,12 +1942,13 @@ const { playSound } = useSoundAlert();
       )}
 
       <span className="pos-relative">
-        <pre style={{
-          overflow: "hidden", // hides scrollbars
-          whiteSpace: "pre-wrap", // wraps text nicely
-          wordBreak: "break-word", // prevents long words from overflowing
-          maxHeight: "70vh", // optional, keeps height reasonable
-        }}
+        <pre
+          style={{
+            overflow: "hidden", // hides scrollbars
+            whiteSpace: "pre-wrap", // wraps text nicely
+            wordBreak: "break-word", // prevents long words from overflowing
+            maxHeight: "70vh", // optional, keeps height reasonable
+          }}
           className="w-full p-3 py-[5px] border border-gray-300 rounded-lg overflow-y-auto h-[30px] min-h-[30px] break-words whitespace-pre-wrap text-[13px]"
           dangerouslySetInnerHTML={{
             __html: formatOutput(outputForm.generatedContent),
@@ -1880,12 +1961,14 @@ const { playSound } = useSoundAlert();
           buttonLabel="Ok"
           size="100%"
         >
-          <div style={{
-            backgroundColor: "white",
-            padding: "20px",
-            borderRadius: "10px",
-            boxShadow: "0 4px 8px rgba(0,0,0,0.1)"
-          }}>
+          <div
+            style={{
+              backgroundColor: "white",
+              padding: "20px",
+              borderRadius: "10px",
+              boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
+            }}
+          >
             <label>Output</label>
             <pre
               className="height-full--25 w-full p-3 border border-gray-300 rounded-lg overflow-y-auto textarea-height-600"
@@ -2031,23 +2114,28 @@ const { playSound } = useSoundAlert();
             min="1"
             max={combinedResponses.length}
             className="form-control text-center !mx-2"
-            style={{ width: "70px", padding: "8px",border: "1px solid #ddd",borderRadius: "4px" }}
+            style={{
+              width: "70px",
+              padding: "8px",
+              border: "1px solid #ddd",
+              borderRadius: "4px",
+            }}
           />
           <span className="flex items-center">
             of{" "}
             {selectedZohoviewId
               ? (() => {
-                const selectedView = zohoClient.find(
-                  (client) => client.zohoviewId === selectedZohoviewId
-                );
-                return selectedView
-                  ? selectedView.totalContact
-                  : combinedResponses.length;
-              })()
+                  const selectedView = zohoClient.find(
+                    (client) => client.zohoviewId === selectedZohoviewId,
+                  );
+                  return selectedView
+                    ? selectedView.totalContact
+                    : combinedResponses.length;
+                })()
               : zohoClient.reduce(
-                (sum, client) => sum + client.totalContact,
-                0
-              )}
+                  (sum, client) => sum + client.totalContact,
+                  0,
+                )}
           </span>
         </div>
         {/* Add this inside your green box area */}
@@ -2077,12 +2165,13 @@ const { playSound } = useSoundAlert();
                   </button>
                 </li>
               )}
-              <li>
-
-              </li>
+              <li></li>
             </ul>
             {!isDemoAccount && (
-              <div className="flex items-center" style={{marginRight:'890px'}}>
+              <div
+                className="flex items-center"
+                style={{ marginRight: "890px" }}
+              >
                 <label className="checkbox-label !mb-[0px] mr-[5px] flex items-center">
                   <input
                     type="checkbox"
@@ -2092,9 +2181,9 @@ const { playSound } = useSoundAlert();
                     }}
                     className="!mr-0"
                   />
-                      <span style={{ fontSize: "14px", whiteSpace: "nowrap" }}>
-                        Include email trail
-                      </span>
+                  <span style={{ fontSize: "14px", whiteSpace: "nowrap" }}>
+                    Include email trail
+                  </span>
                 </label>
               </div>
             )}
@@ -2112,7 +2201,10 @@ const { playSound } = useSoundAlert();
                     </button>
                   )}
                 </div> */}
-                <p>The Output tab shows the contact details and dynamic fields for review before sending the email.</p>
+                <p>
+                  The Output tab shows the contact details and dynamic fields
+                  for review before sending the email.
+                </p>
               </div>
               <div className="form-group mb-0 mt-2">
                 <div className="d-flex justify-between w-full">
@@ -2150,9 +2242,9 @@ const { playSound } = useSoundAlert();
                     <a
                       href={
                         combinedResponses[currentIndex]?.website &&
-                          !combinedResponses[currentIndex]?.website.startsWith(
-                            "http"
-                          )
+                        !combinedResponses[currentIndex]?.website.startsWith(
+                          "http",
+                        )
                           ? `https://${combinedResponses[currentIndex]?.website}`
                           : combinedResponses[currentIndex]?.website
                       }
@@ -2227,12 +2319,13 @@ const { playSound } = useSoundAlert();
                       Open this email in your local email client
                     </ReactTooltip>
                     <a
-                      href={`mailto:${combinedResponses[currentIndex]?.email || ""
-                        }?subject=${encodeURIComponent(
-                          combinedResponses[currentIndex]?.subject || ""
-                        )}&body=${encodeURIComponent(
-                          combinedResponses[currentIndex]?.pitch || ""
-                        )}`}
+                      href={`mailto:${
+                        combinedResponses[currentIndex]?.email || ""
+                      }?subject=${encodeURIComponent(
+                        combinedResponses[currentIndex]?.subject || "",
+                      )}&body=${encodeURIComponent(
+                        combinedResponses[currentIndex]?.pitch || "",
+                      )}`}
                       title="Open this email in your local email client"
                       className="ml-[3px]"
                       style={{
@@ -2277,7 +2370,7 @@ const { playSound } = useSoundAlert();
                         verticalAlign: "middle",
                         height: "34px",
                         display: "inline-block",
-                        marginLeft: "3px"
+                        marginLeft: "3px",
                       }}
                     >
                       <svg
@@ -2326,9 +2419,9 @@ const { playSound } = useSoundAlert();
                     >
                       {combinedResponses[currentIndex]?.lastemailupdateddate
                         ? `Krafted: ${formatLocalDateTime(
-                          combinedResponses[currentIndex]
-                            ?.lastemailupdateddate
-                        )}`
+                            combinedResponses[currentIndex]
+                              ?.lastemailupdateddate,
+                          )}`
                         : ""}
                     </span>
 
@@ -2343,8 +2436,8 @@ const { playSound } = useSoundAlert();
                     >
                       {combinedResponses[currentIndex]?.emailsentdate
                         ? `Emailed: ${formatLocalDateTime(
-                          combinedResponses[currentIndex]?.emailsentdate
-                        )}`
+                            combinedResponses[currentIndex]?.emailsentdate,
+                          )}`
                         : ""}
                     </span>
                   </div>
@@ -2368,26 +2461,77 @@ const { playSound } = useSoundAlert();
                       >
                         Subject
                       </label>
-                      <div
-                        className="textarea-full-height"
-                        style={{
-                          minHeight: "30px",
-                          maxHeight: "120px",
-                          padding: "8px",
-                          border: "1px solid #ccc",
-                          borderRadius: "4px",
-                          fontFamily: "inherit",
-                          fontSize: "14px",
-                          backgroundColor: "#f9f9f9",
-                          overflowY: "auto",
-                          width: "100%",
-                          whiteSpace: "normal",
-                          wordWrap: "break-word",
-                        }}
-                      >
-                        {combinedResponses[currentIndex]?.subject ||
-                          "No subject available"}
-                      </div>
+                    <div style={{ width: "100%" }}>
+                      {!isEditingSubject ? (
+                        /* READ MODE */
+                        <div
+                          className="textarea-full-height"
+                          style={{
+                            minHeight: "30px",
+                            maxHeight: "120px",
+                            padding: "8px",
+                            border: "1px solid #ccc",
+                            borderRadius: "4px",
+                            fontFamily: "inherit",
+                            fontSize: "14px",
+                            backgroundColor: "#f9f9f9",
+                            overflowY: "auto",
+                            width: "100%",
+                            whiteSpace: "normal",
+                            wordWrap: "break-word",
+                            cursor: "pointer",
+                          }}
+                          onClick={() => {
+                            setEditableSubject(
+                              combinedResponses[currentIndex]?.subject || "",
+                            );
+                            setIsEditingSubject(true);
+                          }}
+                          title="Click to edit subject"
+                        >
+                          {combinedResponses[currentIndex]?.subject || "Click to add subject"}
+                        </div>
+                      ) : (
+                        /* EDIT MODE */
+                        <>
+                          <input
+                            type="text"
+                            value={editableSubject}
+                            onChange={(e) => setEditableSubject(e.target.value)}
+                            autoFocus
+                            className="form-control"
+                            style={{
+                              width: "100%",
+                              padding: "8px",
+                              fontSize: "14px",
+                            }}
+                          />
+
+                          <div className="flex gap-2 mt-2">
+                            <button
+                              className="button save-button small"
+                              onClick={saveEditedSubject}
+                              disabled={isSavingSubject}
+                            >
+                              {isSavingSubject ? "Saving..." : "Save"}
+                            </button>
+
+                            <button
+                              className="button secondary small"
+                              onClick={() => {
+                                setEditableSubject(
+                                  combinedResponses[currentIndex]?.subject || "",
+                                );
+                                setIsEditingSubject(false);
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
                     </div>
 
                     {/* Toggle Send Email controls */}
@@ -2395,8 +2539,7 @@ const { playSound } = useSoundAlert();
                     <div className="relative ml-[auto] flex">
                       {sendEmailControls && (
                         <div
-                          className="right-angle flex w-[100%] items-start justify-end absolute right-[140px] top-[13px] p-[15px] w-auto bg-white rounded-md shadow-[0_0_15px_rgba(0,0,0,0.2)] z-[100] border border-[#3f9f42] border-r-[5px] border-r-[#3f9f42]
-"
+                          className="right-angle flex  items-start justify-end absolute right-[140px] top-[13px] p-[15px] w-auto bg-white rounded-md shadow-[0_0_15px_rgba(0,0,0,0.2)] z-[100] border border-[#3f9f42] border-r-[5px] border-r-[#3f9f42]"
                         >
                           <div
                             style={{ flex: "0 0 15%", paddingRight: "15px" }}
@@ -2430,7 +2573,7 @@ const { playSound } = useSoundAlert();
                                   });
                                   localStorage.setItem(
                                     "lastBCCOtherMode",
-                                    "true"
+                                    "true",
                                   );
                                   // Do NOT clear lastBCC, keep it if exists
                                 } else {
@@ -2441,7 +2584,7 @@ const { playSound } = useSoundAlert();
                                   });
                                   localStorage.setItem(
                                     "lastBCCOtherMode",
-                                    "false"
+                                    "false",
                                   );
                                   localStorage.setItem("lastBCC", selected);
                                 }
@@ -2479,7 +2622,7 @@ const { playSound } = useSoundAlert();
                                   });
                                   localStorage.setItem(
                                     "lastBCC",
-                                    e.target.value
+                                    e.target.value,
                                   ); // <== store as soon as typed
                                 }}
                                 style={{
@@ -2538,6 +2681,68 @@ const { playSound } = useSoundAlert();
                             </select>
                           </div>
 
+                          {/* Delay Controls */}
+                          <div
+                            style={{ flex: "0 0 auto", paddingRight: "10px" }}
+                            className="flex items-center gap-1"
+                          >
+                            <label
+                              style={{
+                                fontWeight: "600",
+                                fontSize: "13px",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              Delay(Sec)
+                            </label>
+
+                            {/* MIN */}
+                            <select
+                              className="form-control"
+                              value={minDelay}
+                              onChange={(e) => setMinDelay(Number(e.target.value))}
+                              style={{
+                                width: "52px",
+                                minWidth: "52px",
+                                maxWidth: "52px",
+                                height: "40px",
+                                padding: "2px 4px",
+                                fontSize: "12px",
+                              }}
+                            >
+                              {DELAY_OPTIONS.map((v) => (
+                                <option key={v} value={v}>
+                                  {v}
+                                </option>
+                              ))}
+                            </select>
+
+                            <span style={{ fontSize: "12px", margin: "0 2px" }}>–</span>
+
+                            {/* MAX */}
+                            <select
+                              className="form-control"
+                              value={maxDelay}
+                              onChange={(e) => setMaxDelay(Number(e.target.value))}
+                              style={{
+                                width: "52px",
+                                minWidth: "52px",
+                                maxWidth: "52px",
+                                height: "40px",
+                                padding: "2px 4px",
+                                fontSize: "12px",
+                              }}
+                            >
+                              {DELAY_OPTIONS.filter((v) => v >= minDelay).map((v) => (
+                                <option key={v} value={v}>
+                                  {v}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+
+
                           {/* Send Button - 10% width to align in row */}
                           <div
                             style={{
@@ -2577,69 +2782,91 @@ const { playSound } = useSoundAlert();
                               }}
                               disabled={(() => {
                                 const contact = combinedResponses[currentIndex];
-                                if (!contact || sendingEmail || sessionStorage.getItem("isDemoAccount") === "true") {
+                                if (
+                                  !contact ||
+                                  sendingEmail ||
+                                  sessionStorage.getItem("isDemoAccount") ===
+                                    "true"
+                                ) {
                                   return true;
                                 }
-                                
+
                                 // If include email trail is checked, compare dates
                                 if (followupEnabled) {
                                   const emailedDate = contact.emailsentdate;
-                                  const kraftedDate = contact.lastemailupdateddate;
-                                  
+                                  const kraftedDate =
+                                    contact.lastemailupdateddate;
+
                                   if (emailedDate && kraftedDate) {
-                                    const emailedTime = new Date(emailedDate).getTime();
-                                    const kraftedTime = new Date(kraftedDate).getTime();
-                                    
+                                    const emailedTime = new Date(
+                                      emailedDate,
+                                    ).getTime();
+                                    const kraftedTime = new Date(
+                                      kraftedDate,
+                                    ).getTime();
+
                                     // Disable if emailed date is greater than krafted date
                                     if (emailedTime > kraftedTime) {
                                       return true;
                                     }
                                   }
                                 }
-                                
+
                                 return false;
-                              })()
-                              }
+                              })()}
                               style={{
                                 cursor: (() => {
-                                  const contact = combinedResponses[currentIndex];
-                                  if (!contact || sendingEmail) return "not-allowed";
-                                  
+                                  const contact =
+                                    combinedResponses[currentIndex];
+                                  if (!contact || sendingEmail)
+                                    return "not-allowed";
+
                                   if (followupEnabled) {
                                     const emailedDate = contact.emailsentdate;
-                                    const kraftedDate = contact.lastemailupdateddate;
-                                    
+                                    const kraftedDate =
+                                      contact.lastemailupdateddate;
+
                                     if (emailedDate && kraftedDate) {
-                                      const emailedTime = new Date(emailedDate).getTime();
-                                      const kraftedTime = new Date(kraftedDate).getTime();
-                                      
+                                      const emailedTime = new Date(
+                                        emailedDate,
+                                      ).getTime();
+                                      const kraftedTime = new Date(
+                                        kraftedDate,
+                                      ).getTime();
+
                                       if (emailedTime > kraftedTime) {
                                         return "not-allowed";
                                       }
                                     }
                                   }
-                                  
+
                                   return "pointer";
                                 })(),
                                 padding: "5px 15px",
                                 opacity: (() => {
-                                  const contact = combinedResponses[currentIndex];
+                                  const contact =
+                                    combinedResponses[currentIndex];
                                   if (!contact || sendingEmail) return 0.6;
-                                  
+
                                   if (followupEnabled) {
                                     const emailedDate = contact.emailsentdate;
-                                    const kraftedDate = contact.lastemailupdateddate;
-                                    
+                                    const kraftedDate =
+                                      contact.lastemailupdateddate;
+
                                     if (emailedDate && kraftedDate) {
-                                      const emailedTime = new Date(emailedDate).getTime();
-                                      const kraftedTime = new Date(kraftedDate).getTime();
-                                      
+                                      const emailedTime = new Date(
+                                        emailedDate,
+                                      ).getTime();
+                                      const kraftedTime = new Date(
+                                        kraftedDate,
+                                      ).getTime();
+
                                       if (emailedTime > kraftedTime) {
                                         return 0.6;
                                       }
                                     }
                                   }
-                                  
+
                                   return 1;
                                 })(),
                                 height: "40px",
@@ -2654,27 +2881,21 @@ const { playSound } = useSoundAlert();
                               {!sendingEmail && emailMessage && "Sent"}
                             </button>
 
-                            {/* <span className="relative top-[15px]">
-                              <svg id="send-email-info" width="14px" height="14px" viewBox="0 0 24 24" fill="#555555" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M12 17.75C12.4142 17.75 12.75 17.4142 12.75 17V11C12.75 10.5858 12.4142 10.25 12 10.25C11.5858 10.25 11.25 10.5858 11.25 11V17C11.25 17.4142 11.5858 17.75 12 17.75Z" fill="#1C274C"/>
-                              <path d="M12 7C12.5523 7 13 7.44772 13 8C13 8.55228 12.5523 9 12 9C11.4477 9 11 8.55228 11 8C11 7.44772 11.4477 7 12 7Z" fill="#1C274C"/>
-                              <path fill-rule="evenodd" clip-rule="evenodd" d="M1.25 12C1.25 6.06294 6.06294 1.25 12 1.25C17.9371 1.25 22.75 6.06294 22.75 12C22.75 17.9371 17.9371 22.75 12 22.75C6.06294 22.75 1.25 17.9371 1.25 12ZM12 2.75C6.89137 2.75 2.75 6.89137 2.75 12C2.75 17.1086 6.89137 21.25 12 21.25C17.1086 21.25 21.25 17.1086 21.25 12C21.25 6.89137 17.1086 2.75 12 2.75Z" fill="#1C274C"/>
-                            </svg>
-                          </span>
-                          <ReactTooltip anchorSelect="#send-email-info" place="top">
-                            Send this email
-                          </ReactTooltip> */}
-                            <ReactTooltip anchorSelect="#send-all-btn" place="top">
+
+                            <ReactTooltip
+                              anchorSelect="#send-all-btn"
+                              place="top"
+                            >
                               Send all emails
                             </ReactTooltip>
                             <button
-                             id="send-all-btn"
+                              id="send-all-btn"
                               type="button"
                               className="nowrap ml-1 button save-button x-small d-flex align-center align-self-center my-5-640 mr-[5px]"
                               onClick={() => {
                                 console.log(
                                   "Button clicked, isBulkSending:",
-                                  isBulkSending
+                                  isBulkSending,
                                 );
 
                                 if (isBulkSending) {
@@ -2684,86 +2905,127 @@ const { playSound } = useSoundAlert();
                                   // Check if SMTP is selected before starting
                                   if (!selectedSmtpUser) {
                                     toast.error(
-                                      "Please select From email first"
+                                      "Please select From email first",
                                     );
                                     return;
                                   }
+                                  if (minDelay > maxDelay) {
+                                    toast.error("Min delay cannot be greater than max delay");
+                                    return;
+                                  }
+
                                   console.log("Starting bulk send...");
                                   sendEmailsInBulk(currentIndex);
                                 }
                               }}
                               disabled={(() => {
-                                if (sessionStorage.getItem("isDemoAccount") === "true") {
+                                if (
+                                  sessionStorage.getItem("isDemoAccount") ===
+                                  "true"
+                                ) {
                                   return true;
                                 }
-                                
+
                                 // If include email trail is checked, check if any contacts can be sent
                                 if (followupEnabled) {
-                                  const canSendAny = combinedResponses.some(contact => {
-                                    const emailedDate = contact.emailsentdate;
-                                    const kraftedDate = contact.lastemailupdateddate;
-                                    
-                                    if (!emailedDate || !kraftedDate) return true;
-                                    
-                                    const emailedTime = new Date(emailedDate).getTime();
-                                    const kraftedTime = new Date(kraftedDate).getTime();
-                                    
-                                    // Can send if krafted date is greater than or equal to emailed date
-                                    return kraftedTime >= emailedTime;
-                                  });
-                                  
+                                  const canSendAny = combinedResponses.some(
+                                    (contact) => {
+                                      const emailedDate = contact.emailsentdate;
+                                      const kraftedDate =
+                                        contact.lastemailupdateddate;
+
+                                      if (!emailedDate || !kraftedDate)
+                                        return true;
+
+                                      const emailedTime = new Date(
+                                        emailedDate,
+                                      ).getTime();
+                                      const kraftedTime = new Date(
+                                        kraftedDate,
+                                      ).getTime();
+
+                                      // Can send if krafted date is greater than or equal to emailed date
+                                      return kraftedTime >= emailedTime;
+                                    },
+                                  );
+
                                   return !canSendAny;
                                 }
-                                
+
                                 return false;
-                              })()
-                              }
+                              })()}
                               style={{
                                 cursor: (() => {
-                                  if (sessionStorage.getItem("isDemoAccount") === "true") {
+                                  if (
+                                    sessionStorage.getItem("isDemoAccount") ===
+                                    "true"
+                                  ) {
                                     return "not-allowed";
                                   }
-                                  
+
                                   if (followupEnabled) {
-                                    const canSendAny = combinedResponses.some(contact => {
-                                      const emailedDate = contact.emailsentdate;
-                                      const kraftedDate = contact.lastemailupdateddate;
-                                      
-                                      if (!emailedDate || !kraftedDate) return true;
-                                      
-                                      const emailedTime = new Date(emailedDate).getTime();
-                                      const kraftedTime = new Date(kraftedDate).getTime();
-                                      
-                                      return kraftedTime >= emailedTime;
-                                    });
-                                    
-                                    return canSendAny ? "pointer" : "not-allowed";
+                                    const canSendAny = combinedResponses.some(
+                                      (contact) => {
+                                        const emailedDate =
+                                          contact.emailsentdate;
+                                        const kraftedDate =
+                                          contact.lastemailupdateddate;
+
+                                        if (!emailedDate || !kraftedDate)
+                                          return true;
+
+                                        const emailedTime = new Date(
+                                          emailedDate,
+                                        ).getTime();
+                                        const kraftedTime = new Date(
+                                          kraftedDate,
+                                        ).getTime();
+
+                                        return kraftedTime >= emailedTime;
+                                      },
+                                    );
+
+                                    return canSendAny
+                                      ? "pointer"
+                                      : "not-allowed";
                                   }
-                                  
+
                                   return "pointer";
                                 })(),
                                 padding: "5px 15px",
                                 opacity: (() => {
-                                  if (sessionStorage.getItem("isDemoAccount") === "true") {
+                                  if (
+                                    sessionStorage.getItem("isDemoAccount") ===
+                                    "true"
+                                  ) {
                                     return 0.6;
                                   }
-                                  
+
                                   if (followupEnabled) {
-                                    const canSendAny = combinedResponses.some(contact => {
-                                      const emailedDate = contact.emailsentdate;
-                                      const kraftedDate = contact.lastemailupdateddate;
-                                      
-                                      if (!emailedDate || !kraftedDate) return true;
-                                      
-                                      const emailedTime = new Date(emailedDate).getTime();
-                                      const kraftedTime = new Date(kraftedDate).getTime();
-                                      
-                                      return kraftedTime >= emailedTime;
-                                    });
-                                    
+                                    const canSendAny = combinedResponses.some(
+                                      (contact) => {
+                                        const emailedDate =
+                                          contact.emailsentdate;
+                                        const kraftedDate =
+                                          contact.lastemailupdateddate;
+
+                                        if (!emailedDate || !kraftedDate)
+                                          return true;
+
+                                        const emailedTime = new Date(
+                                          emailedDate,
+                                        ).getTime();
+                                        const kraftedTime = new Date(
+                                          kraftedDate,
+                                        ).getTime();
+
+                                        return kraftedTime >= emailedTime;
+                                      },
+                                    );
+
                                     return canSendAny ? 1 : 0.6;
                                   }
-                                  
+
                                   return 1;
                                 })(),
                                 height: "40px",
@@ -2775,6 +3037,19 @@ const { playSound } = useSoundAlert();
                             >
                               {isBulkSending ? "Stop" : "Send all"}
                             </button>
+                            {isBulkSending && countdown !== null && (
+                              <div
+                                style={{
+                                  marginTop: "8px",
+                                  fontSize: "13px",
+                                  color: "#3f9f42",
+                                  fontWeight: 500,
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                ⏳ Next email in {countdown}s
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}
@@ -2794,12 +3069,13 @@ const { playSound } = useSoundAlert();
                       className="editor-container"
                       style={{
                         width: "100%",
-                        maxWidth: `${outputEmailWidth === "Mobile"
-                          ? "480px"
-                          : outputEmailWidth === "Tab"
-                            ? "768px"
-                            : "100%"
-                          }`,
+                        maxWidth: `${
+                          outputEmailWidth === "Mobile"
+                            ? "480px"
+                            : outputEmailWidth === "Tab"
+                              ? "768px"
+                              : "100%"
+                        }`,
                       }}
                     >
                       <div
@@ -2820,7 +3096,7 @@ const { playSound } = useSoundAlert();
                             document.execCommand(
                               "formatBlock",
                               false,
-                              e.target.value
+                              e.target.value,
                             );
                           }}
                           style={{
@@ -2963,37 +3239,32 @@ const { playSound } = useSoundAlert();
                         </button>
                       </div>
 
-                      <div
-                        ref={editorRef}
-                        contentEditable={true}
-                        className="textarea-full-height preview-content-area"
-                        onBlur={(e) => {
-                          setEditableContent(e.currentTarget.innerHTML);
-                        }}
-                        onFocus={() => {
-                          // Set focus to the contentEditable div when toolbar buttons are used
-                          if (editorRef.current) {
-                            editorRef.current.focus();
-                          }
-                        }}
-                        style={{
-                          minHeight: "500px",
-                          padding: "10px",
-                          border: "1px solid #ccc",
-                          borderTop: "none", // Remove top border since toolbar has bottom border
-                          borderRadius: "0 0 4px 4px",
-                          fontFamily: "inherit",
-                          fontSize: "inherit",
-                          whiteSpace: "normal",
-                          overflowY: "auto",
-                          overflowX: "auto", // Add horizontal overflow
-                          boxSizing: "border-box", // Add box-sizing
-                          wordWrap: "break-word", // Add word-wrap
-                          width: "100%", // Add width
+                        <div
+                          ref={editorRef}
+                          contentEditable
+                          suppressContentEditableWarning
+                          className="textarea-full-height preview-content-area"
+                          onInput={(e) => {
+                            setEditableContent(e.currentTarget.innerHTML);
+                          }}
+                          dangerouslySetInnerHTML={{
+                            __html: editableContent,
+                          }}
+                          style={{
+                            minHeight: "500px",
+                            padding: "10px",
+                            border: "1px solid #ccc",
+                            borderTop: "none",
+                            borderRadius: "0 0 4px 4px",
+                            whiteSpace: "normal",
+                            overflowY: "auto",
+                            overflowX: "auto",
+                            wordWrap: "break-word",
+                            width: "100%",
+                            outline: "none",
+                          }}
+                        />
 
-                          outline: "none",
-                        }}
-                      />
 
                       <div className="editor-actions mt-10 d-flex">
                         <button
@@ -3013,7 +3284,7 @@ const { playSound } = useSoundAlert();
                           onClick={() => {
                             setIsEditing(false);
                             setEditableContent(
-                              combinedResponses[currentIndex]?.pitch || ""
+                              combinedResponses[currentIndex]?.pitch || "",
                             );
                           }}
                         >
@@ -3038,16 +3309,17 @@ const { playSound } = useSoundAlert();
                           boxSizing: "border-box",
                           wordWrap: "break-word",
                           width: "100%",
-                          maxWidth: `${outputEmailWidth === "Mobile"
-                            ? "480px"
-                            : outputEmailWidth === "Tab"
-                              ? "768px"
-                              : "100%"
-                            }`,
+                          maxWidth: `${
+                            outputEmailWidth === "Mobile"
+                              ? "480px"
+                              : outputEmailWidth === "Tab"
+                                ? "768px"
+                                : "100%"
+                          }`,
                         }}
                         dangerouslySetInnerHTML={{
                           __html: aggressiveCleanHTML(
-                            combinedResponses[currentIndex]?.pitch || ""
+                            combinedResponses[currentIndex]?.pitch || "",
                           ),
                         }}
                       ></div>
@@ -3204,9 +3476,10 @@ const { playSound } = useSoundAlert();
                                     <button
                                       id="mobile-device-view"
                                       className={`w-[55px] button pad-10 d-flex align-center align-self-center output-email-width-button-mobile justify-center
-                                    ${outputEmailWidth === "Mobile" &&
-                                        "bg-active"
-                                        }
+                                    ${
+                                      outputEmailWidth === "Mobile" &&
+                                      "bg-active"
+                                    }
                                     `}
                                       onClick={() =>
                                         toggleOutputEmailWidth("Mobile")
@@ -3382,8 +3655,12 @@ const { playSound } = useSoundAlert();
                           <button
                             id="edit-email-body-tooltip"
                             className="edit-button button d-flex align-center justify-center square-40"
-                            onClick={() => setIsEditing(true)}
-                          >
+                              onClick={() => {
+                                const pitch = combinedResponses[currentIndex]?.pitch || "";
+                                setEditableContent(pitch);
+                                setIsEditing(true);
+                              }}                         
+                            >
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
                               width="28px"
@@ -3417,32 +3694,43 @@ const { playSound } = useSoundAlert();
                               if (showCreditModal) {
                                 return;
                               }
-                              
+
                               if (!combinedResponses[currentIndex]) {
                                 alert(
-                                  "No contact selected to regenerate pitch for."
+                                  "No contact selected to regenerate pitch for.",
                                 );
                                 return;
                               }
                               if (!onRegenerateContact) {
                                 alert(
-                                  "Regenerate logic not wired up! Consult admin."
+                                  "Regenerate logic not wired up! Consult admin.",
                                 );
                                 return;
                               }
 
                               // Check credits before regenerating
-                              if (sessionStorage.getItem("isDemoAccount") !== "true") {
-                                const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
-                                const currentCredits = await checkUserCredits?.(effectiveUserId);
-                                if (currentCredits && typeof currentCredits === 'object' && !currentCredits.canGenerate) {
+                              if (
+                                sessionStorage.getItem("isDemoAccount") !==
+                                "true"
+                              ) {
+                                const effectiveUserId =
+                                  selectedClient !== ""
+                                    ? selectedClient
+                                    : userId;
+                                const currentCredits =
+                                  await checkUserCredits?.(effectiveUserId);
+                                if (
+                                  currentCredits &&
+                                  typeof currentCredits === "object" &&
+                                  !currentCredits.canGenerate
+                                ) {
                                   return; // Stop if can't generate
                                 }
                               }
-                              
+
                               setIsRegenerating(true);
                               setRegenerationTargetId(
-                                combinedResponses[currentIndex].id
+                                combinedResponses[currentIndex].id,
                               );
 
                               const regenerateIndex = currentIndex;
@@ -3452,10 +3740,7 @@ const { playSound } = useSoundAlert();
                                 regenerateIndex: regenerateIndex, // Use currentIndex instead of 0
                               });
 
-                              setTimeout(
-                                () => setIsRegenerating(false),
-                                2500
-                              );
+                              setTimeout(() => setIsRegenerating(false), 2500);
                             }}
                             disabled={
                               !combinedResponses[currentIndex] ||
@@ -3470,12 +3755,12 @@ const { playSound } = useSoundAlert();
                               background: "none !important",
                               cursor:
                                 combinedResponses[currentIndex] &&
-                                  !isRegenerating
+                                !isRegenerating
                                   ? "pointer"
                                   : "not-allowed",
                               opacity:
                                 combinedResponses[currentIndex] &&
-                                  !isRegenerating
+                                !isRegenerating
                                   ? 1
                                   : 0.6,
                             }}
@@ -3503,8 +3788,9 @@ const { playSound } = useSoundAlert();
                           </ReactTooltip>
                           <button
                             id="copy-to-clipboard-tooltip"
-                            className={`button d-flex align-center square-40 justify-center ${isCopyText && "save-button auto-width"
-                              }`}
+                            className={`button d-flex align-center square-40 justify-center ${
+                              isCopyText && "save-button auto-width"
+                            }`}
                             onClick={copyToClipboardHandler}
                           >
                             {isCopyText ? (
@@ -3621,12 +3907,16 @@ const { playSound } = useSoundAlert();
                 }}
                 buttonLabel=""
                 size="100%"
-              > <div style={{
-                backgroundColor: "white",
-                padding: "20px",
-                borderRadius: "10px",
-                boxShadow: "0 4px 8px rgba(0,0,0,0.1)"
-              }}>
+              >
+                {" "}
+                <div
+                  style={{
+                    backgroundColor: "white",
+                    padding: "20px",
+                    borderRadius: "10px",
+                    boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
+                  }}
+                >
                   <form
                     className="full-height"
                     style={{
@@ -3637,7 +3927,9 @@ const { playSound } = useSoundAlert();
                       minWidth: 0,
                     }}
                   >
-                    <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                    <div
+                      style={{ display: "flex", justifyContent: "flex-end" }}
+                    >
                       <button
                         type="button"
                         className="button save-button"
@@ -3703,38 +3995,15 @@ const { playSound } = useSoundAlert();
                   <li className="flex-50percent-991 flex-full-640">
                     <button
                       onClick={tabHandler3}
-                      className={`button full-width ${tab3 === "Stages" ? "active" : ""
-                        }`}
+                      className={`button full-width ${
+                        tab3 === "Stages" ? "active" : ""
+                      }`}
                     >
                       Stages
                     </button>
                   </li>
                   <li className="flex-50percent-991 flex-full-640">
-                    {/* <button
-                      onClick={() => setTab3("Search results")}
-                      className={`button full-width ${tab3 === "Search results" ? "active" : ""
-                        }`}
-                    >
-                      Search results
-                    </button>
-                  </li>
-                  <li className="flex-50percent-991 flex-full-640">
-                    <button
-                      onClick={tabHandler3}
-                      className={`button full-width ${tab3 === "All sourced data" ? "active" : ""
-                        }`}
-                    >
-                      All sourced data
-                    </button>
-                  </li>
-                  <li className="flex-50percent-991 flex-full-640">
-                    <button
-                      onClick={tabHandler3}
-                      className={`button full-width ${tab3 === "Sourced data summary" ? "active" : ""
-                        }`}
-                    >
-                      Sourced data summary
-                    </button> */}
+
                   </li>
                 </ul>
               </div>
@@ -3820,285 +4089,10 @@ const { playSound } = useSoundAlert();
                 </div>
               )}
 
-              {/* {tab3 === "Search results" && (
-                <div className="form-group">
-                  <h3>
-                    Search results for "
-                    {allSearchTermBodies[currentIndex] || "N/A"}"
-                  </h3>
-                  <span className="pos-relative">
-                    <div
-                      className="textarea-full-height preview-content-area"
-                      style={{
-                        height: "800px",
-                        width: "100%",
-                        padding: "10px",
-                        border: "1px solid #ccc",
-                        borderRadius: "4px",
-                        fontFamily: "inherit",
-                        fontSize: "inherit",
-                        whiteSpace: "pre-wrap",
-                        overflowY: "auto",
-                        overflowX: "auto",
-                        boxSizing: "border-box",
-                      }}
-                    >
-                      <ul>
-                        {(allsearchResults[currentIndex] ?? []).length === 0 ? (
-                          <li>No search results available.</li>
-                        ) : (
-                          allsearchResults[currentIndex].map(
-                            (result: string, index: number) => (
-                              <li key={index}>
-                                <a
-                                  href={result}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  {result}
-                                </a>
-                              </li>
-                            )
-                          )
-                        )}
-                      </ul>
-                    </div>
 
-                    <Modal
-                      show={openModals["modal-output-search"]}
-                      closeModal={() => handleModalClose("modal-output-search")}
-                      buttonLabel="Ok"
-                    >
-                      <label>
-                        Search results for "
-                        {allSearchTermBodies[currentIndex] || "N/A"}"
-                      </label>
-                      <pre className="textarea-full-height preview-content-area">
-                        <ul>
-                          {(allsearchResults[currentIndex] ?? []).length ===
-                            0 ? (
-                            <li>No search results available.</li>
-                          ) : (
-                            allsearchResults[currentIndex].map(
-                              (result: string, index: number) => (
-                                <li key={index}>
-                                  <a
-                                    href={result}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                  >
-                                    {result}
-                                  </a>
-                                </li>
-                              )
-                            )
-                          )}
-                        </ul>
-                      </pre>
-                    </Modal>
-                    <button
-                      className="full-view-icon d-flex align-center justify-center"
-                      onClick={() => handleModalOpen("modal-output-search")}
-                    >
-                      <svg width="40px" height="40px" viewBox="0 0 512 512">
-                        <polyline
-                          points="304 96 416 96 416 208"
-                          fill="none"
-                          stroke="#000000"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="32"
-                        />
-                        <line
-                          x1="405.77"
-                          y1="106.2"
-                          x2="111.98"
-                          y2="400.02"
-                          fill="none"
-                          stroke="#000000"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="32"
-                        />
-                        <polyline
-                          points="208 416 96 416 96 304"
-                          fill="none"
-                          stroke="#000000"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="32"
-                        />
-                      </svg>
-                    </button>
-                  </span>
-                </div>
-              )}
-
-              {tab3 === "All sourced data" && (
-                <div className="form-group">
-                  <h3>All sourced data</h3>
-                  <span className="pos-relative">
-                    <div
-                      className="textarea-full-height preview-content-area"
-                      style={{
-                        height: "800px",
-                        width: "100%",
-                        padding: "10px",
-                        border: "1px solid #ccc",
-                        borderRadius: "4px",
-                        fontFamily: "inherit",
-                        fontSize: "inherit",
-                        whiteSpace: "pre-wrap",
-                        overflowY: "auto",
-                        overflowX: "auto",
-                        boxSizing: "border-box",
-                      }}
-                    >
-                      <p>
-                        {typeof everyscrapedData[currentIndex] === "string"
-                          ? everyscrapedData[currentIndex]
-                          : "No sourced data available."}
-                      </p>{" "}
-                    </div>
-
-                    <Modal
-                      show={openModals["modal-output-scraped"]}
-                      closeModal={() =>
-                        handleModalClose("modal-output-scraped")
-                      }
-                      buttonLabel="Ok"
-                    >
-                      <label>All sourced data</label>
-                      <pre className="textarea-full-height preview-content-area">
-                        <p>
-                          {typeof everyscrapedData[currentIndex] === "string"
-                            ? everyscrapedData[currentIndex]
-                            : "No sourced data available."}
-                        </p>{" "}
-                      </pre>
-                    </Modal>
-                    <button
-                      className="full-view-icon d-flex align-center justify-center"
-                      onClick={() => handleModalOpen("modal-output-scraped")}
-                    >
-                      <svg width="40px" height="40px" viewBox="0 0 512 512">
-                        <polyline
-                          points="304 96 416 96 416 208"
-                          fill="none"
-                          stroke="#000000"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="32"
-                        />
-                        <line
-                          x1="405.77"
-                          y1="106.2"
-                          x2="111.98"
-                          y2="400.02"
-                          fill="none"
-                          stroke="#000000"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="32"
-                        />
-                        <polyline
-                          points="208 416 96 416 96 304"
-                          fill="none"
-                          stroke="#000000"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="32"
-                        />
-                      </svg>
-                    </button>
-                  </span>
-                </div>
-              )}
-
-              {tab3 === "Sourced data summary" && (
-                <div className="form-group">
-                  <h3>Sourced data summary</h3>
-                  <span className="pos-relative">
-                    <div
-                      className="textarea-full-height preview-content-area"
-                      style={{
-                        height: "800px",
-                        width: "100%",
-                        padding: "10px",
-                        border: "1px solid #ccc",
-                        borderRadius: "4px",
-                        fontFamily: "inherit",
-                        fontSize: "inherit",
-                        whiteSpace: "pre-wrap",
-                        overflowY: "auto",
-                        overflowX: "auto",
-                        boxSizing: "border-box",
-                      }}
-                    >
-                      <p>
-                        {typeof allsummery[currentIndex] === "string"
-                          ? allsummery[currentIndex]
-                          : "No summary available."}
-                      </p>
-                    </div>
-
-                    <Modal
-                      show={openModals["modal-output-summary"]}
-                      closeModal={() =>
-                        handleModalClose("modal-output-summary")
-                      }
-                      buttonLabel="Ok"
-                    >
-                      <label>Sourced data summary</label>
-                      <pre className="textarea-full-height preview-content-area">
-                        <p>
-                          {typeof allsummery[currentIndex] === "string"
-                            ? allsummery[currentIndex]
-                            : "No summary available."}
-                        </p>
-                      </pre>
-                    </Modal>
-                    <button
-                      className="full-view-icon d-flex align-center justify-center"
-                      onClick={() => handleModalOpen("modal-output-summary")}
-                    >
-                      <svg width="40px" height="40px" viewBox="0 0 512 512">
-                        <polyline
-                          points="304 96 416 96 416 208"
-                          fill="none"
-                          stroke="#000000"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="32"
-                        />
-                        <line
-                          x1="405.77"
-                          y1="106.2"
-                          x2="111.98"
-                          y2="400.02"
-                          fill="none"
-                          stroke="#000000"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="32"
-                        />
-                        <polyline
-                          points="208 416 96 416 96 304"
-                          fill="none"
-                          stroke="#000000"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="32"
-                        />
-                      </svg>
-                    </button>
-                  </span>
-                </div>
-              )} */}
             </>
           )}
           {/* Add this after the Output tab and before the Stages tab */}
-
         </>
       )}
       <AppModal
@@ -4110,7 +4104,7 @@ const { playSound } = useSoundAlert();
       {/* Email Sending Loader Modal */}
       <AppModal
         isOpen={sendingEmail}
-        onClose={() => { }}
+        onClose={() => {}}
         type="loader"
         loaderMessage="Sending email..."
         closeOnOverlayClick={false}
@@ -4139,26 +4133,8 @@ const { playSound } = useSoundAlert();
               boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
             }}
           >
-            {/* <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h3 style={{ marginTop: 0, marginBottom: 0 }}>Notes for {combinedResponses[currentIndex]?.name}</h3>
-              <span
-                onClick={() => {
-                  setShowNotesModal(false);
-                  setIsEditingNotes(false);
-                  setNotesMessage("");
-                }}
-                style={{
-                  fontSize: "25px",
-                  fontWeight: 600,
-                  color: "#9e9e9e",
-                  cursor: "pointer",
-                  lineHeight: 1
-                }}
-              >
-                ×
-              </span>
-            </div> */}
-            
+
+
             <>
               <textarea
                 value={currentNotes}
@@ -4172,56 +4148,62 @@ const { playSound } = useSoundAlert();
                   borderRadius: 4,
                   fontSize: 14,
                   resize: "vertical",
-                  marginBottom: 16
+                  marginBottom: 16,
                 }}
               />
               {notesMessage && (
-                <div style={{ 
-                  color: "green", 
-                  marginBottom: 16, 
-                  fontSize: 14 
-                }}>
+                <div
+                  style={{
+                    color: "green",
+                    marginBottom: 16,
+                    fontSize: 14,
+                  }}
+                >
                   {notesMessage}
                 </div>
               )}
-              <div style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}>
+              <div
+                style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}
+              >
                 <button
                   onClick={async () => {
                     setIsSavingNotes(true);
                     try {
                       const contact = combinedResponses[currentIndex];
                       const response = await fetch(
-                        `https://localhost:7216/api/Crm/Update-Notes?contactid=${contact.id}&Notes=${encodeURIComponent(currentNotes)}`,
+                        `${API_BASE_URL}/api/Crm/Update-Notes?contactid=${contact.id}&Notes=${encodeURIComponent(currentNotes)}`,
                         {
-                          method: 'POST',
+                          method: "POST",
                           headers: {
-                            'accept': '*/*'
-                          }
-                        }
+                            accept: "*/*",
+                          },
+                        },
                       );
-                      
+
                       if (response.ok) {
                         // Update the contact in combinedResponses
                         const updatedCombinedResponses = [...combinedResponses];
                         updatedCombinedResponses[currentIndex] = {
                           ...updatedCombinedResponses[currentIndex],
-                          notes: currentNotes
+                          notes: currentNotes,
                         };
                         setCombinedResponses(updatedCombinedResponses);
-                        
+
                         setNotesMessage("Notes updated successfully!");
-                        
+
                         setTimeout(() => {
                           setNotesMessage("");
                           setShowNotesModal(false);
                           setIsEditingNotes(false);
                         }, 1000);
                       } else {
-                        throw new Error('Failed to update notes');
+                        throw new Error("Failed to update notes");
                       }
                     } catch (error) {
-                      console.error('Error updating notes:', error);
-                      setNotesMessage("Failed to update notes. Please try again.");
+                      console.error("Error updating notes:", error);
+                      setNotesMessage(
+                        "Failed to update notes. Please try again.",
+                      );
                     } finally {
                       setIsSavingNotes(false);
                     }

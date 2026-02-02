@@ -10,20 +10,18 @@ import {
   faGear,
   faList,
   faRobot, // Add this for Campaign Builder
-
 } from "@fortawesome/free-solid-svg-icons";
 import { faEnvelope, faFileAlt } from "@fortawesome/free-regular-svg-icons";
 import { usePageTitle } from "../hooks/usePageTitle";
 import "./MainPage.css";
 import Modal from "./common/Modal";
 import AppModal from "../components/common/AppModal";
-import pitchLogo from '../assets/images/pitch_logo.png';
+import pitchLogo from "../assets/images/pitch_logo.png";
 import Template from "./feature/blueprint/Template"; // Add this import
 
 import { useAppModal } from "../hooks/useAppModal";
 import { useSelector } from "react-redux";
 import ReactQuill from "react-quill-new";
-import { Tooltip as ReactTooltip } from "react-tooltip";
 import Mail from "./feature/Mail";
 import "react-quill-new/dist/quill.snow.css";
 import { RootState } from "../Redux/store";
@@ -47,7 +45,6 @@ import { useCreditCheck } from "../hooks/useCreditCheck";
 import CreditCheckModal from "./common/CreditCheckModal";
 import Myplan from "./feature/Myplan";
 import { useSoundAlert } from "./common/useSoundAlert";
-
 
 interface Prompt {
   id: number;
@@ -128,7 +125,7 @@ interface OutputInterface {
       regenerateIndex: number;
       nextPageToken?: string | null;
       prevPageToken?: string | null;
-    }
+    },
   ) => void;
 
   outputFormHandler: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
@@ -168,7 +165,7 @@ interface OutputInterface {
   fetchAndDisplayEmailBodies: (
     zohoviewId: string,
     pageToken?: string | null,
-    direction?: "next" | "previous" | null
+    direction?: "next" | "previous" | null,
   ) => Promise<void>;
   selectedZohoviewId: string;
   onClearExistingResponse?: (clearFunction: () => void) => void;
@@ -232,36 +229,45 @@ interface SettingsFormType {
 }
 const MainPage: React.FC = () => {
   const unlockAudio = () => {
-  const audio = new Audio(process.env.PUBLIC_URL + "/assets/sound/notification.mp3");
-  audio.volume = 0; // silent
-  audio.play().catch(() => {});
-};
+    const audio = new Audio(
+      process.env.PUBLIC_URL + "/assets/sound/notification.mp3",
+    );
+    audio.volume = 0; // silent
+    audio.play().catch(() => {});
+  };
   const { playSound } = useSoundAlert();
   const [isSoundEnabled, setIsSoundEnabled] = useState<boolean>(() => {
-  return localStorage.getItem("soundEnabled") !== "false";
-});
-useEffect(() => {
-  localStorage.setItem("soundEnabled", String(isSoundEnabled));
-}, [isSoundEnabled]);
-const isSoundEnabledRef = useRef(isSoundEnabled);
+    return localStorage.getItem("soundEnabled") !== "false";
+  });
+  useEffect(() => {
+    localStorage.setItem("soundEnabled", String(isSoundEnabled));
+  }, [isSoundEnabled]);
+  const isSoundEnabledRef = useRef(isSoundEnabled);
 
-useEffect(() => {
-  isSoundEnabledRef.current = isSoundEnabled;
-  localStorage.setItem("soundEnabled", String(isSoundEnabled));
-}, [isSoundEnabled]);
+  useEffect(() => {
+    isSoundEnabledRef.current = isSoundEnabled;
+    localStorage.setItem("soundEnabled", String(isSoundEnabled));
+  }, [isSoundEnabled]);
   // Credit check hook
-  const { credits, showCreditModal, checkUserCredits, closeCreditModal, handleSkipModal } = useCreditCheck();
+  const {
+    credits,
+    showCreditModal,
+    checkUserCredits,
+    closeCreditModal,
+    handleSkipModal,
+  } = useCreditCheck();
 
   // Listen for credit modal event from login
   useEffect(() => {
     const handleShowCreditModal = () => {
-      if (credits === 0 && !localStorage.getItem('creditModalSkipped')) {
+      if (credits === 0 && !localStorage.getItem("creditModalSkipped")) {
         checkUserCredits();
       }
     };
 
-    window.addEventListener('showCreditModal', handleShowCreditModal);
-    return () => window.removeEventListener('showCreditModal', handleShowCreditModal);
+    window.addEventListener("showCreditModal", handleShowCreditModal);
+    return () =>
+      window.removeEventListener("showCreditModal", handleShowCreditModal);
   }, [credits, checkUserCredits]);
 
   // Modal states
@@ -270,8 +276,8 @@ useEffect(() => {
     title: "",
     message: "",
     type: "info" as "success" | "error" | "warning" | "info" | "confirm",
-    onConfirm: () => { },
-    onCancel: () => { },
+    onConfirm: () => {},
+    onCancel: () => {},
   });
 
   // Context and hooks
@@ -314,7 +320,7 @@ useEffect(() => {
   const [existingResponse, setexistingResponse] = useState<any[]>([]);
   const [clearExistingResponse, setClearExistingResponse] = useState<
     () => void
-  >(() => { });
+  >(() => {});
   const [selectedClient, setSelectedClient] = useState<string>("");
   const [clientNames, setClientNames] = useState<Client[]>([]);
 
@@ -324,11 +330,9 @@ useEffect(() => {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [selectedCampaign, setSelectedCampaign] = useState<string>("");
   const [selectionMode, setSelectionMode] = useState<"manual" | "campaign">(
-    "manual"
+    "manual",
   );
 
-  const [lastProcessedToken, setLastProcessedToken] = useState(null);
-  const [lastProcessedIndex, setLastProcessedIndex] = useState(0);
   const stopRef = useRef(false);
   const [isStarted, setIsStarted] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -370,21 +374,38 @@ useEffect(() => {
   // states initialized correctly
   const [tab, setTab] = useState<string>(initialTab);
   const [mailSubTab, setMailSubTab] = useState<string>(initialMailSubTab);
-  const [contactsSubTab, setContactsSubTab] = useState<string>(initialContactsSubTab);
+  const [contactsSubTab, setContactsSubTab] = useState<string>(
+    initialContactsSubTab,
+  );
 
   // Update page title when tab changes
   useEffect(() => {
     const getPageTitle = () => {
       switch (tab) {
-        case "Dashboard": return "Dashboard - View progress and help videos";
-        case "TestTemplate": return "Blueprints - Create and manage email blueprints";
-        case "Playground": return "Playground - Experiment with email generation";
-        case "DataCampaigns": return contactsSubTab === "List" ? "Contact Lists - Create and manage contacts and segments" : "Contact Segments - Create and manage contacts and segments";
-        case "Campaigns": return "Campaigns - Create and manage email campaigns";
-        case "Output": return "Kraft Emails - Generate hyper-personalized emails";
-        case "Mail": return mailSubTab === "Dashboard" ? "Mail Dashboard - Configure email, schedule sends and review analytics" : mailSubTab === "Configuration" ? "Mail Configuration - Configure email, schedule sends and review analytics" : "Mail Schedules - Configure email, schedule sends and review analytics";
-        case "MyPlan": return "My Plan";
-        default: return "Dashboard";
+        case "Dashboard":
+          return "Dashboard - View progress and help videos";
+        case "TestTemplate":
+          return "Blueprints - Create and manage email blueprints";
+        case "Playground":
+          return "Playground - Experiment with email generation";
+        case "DataCampaigns":
+          return contactsSubTab === "List"
+            ? "Contact Lists - Create and manage contacts and segments"
+            : "Contact Segments - Create and manage contacts and segments";
+        case "Campaigns":
+          return "Campaigns - Create and manage email campaigns";
+        case "Output":
+          return "Kraft Emails - Generate hyper-personalized emails";
+        case "Mail":
+          return mailSubTab === "Dashboard"
+            ? "Mail Dashboard - Configure email, schedule sends and review analytics"
+            : mailSubTab === "Configuration"
+              ? "Mail Configuration - Configure email, schedule sends and review analytics"
+              : "Mail Schedules - Configure email, schedule sends and review analytics";
+        case "MyPlan":
+          return "My Plan";
+        default:
+          return "Dashboard";
       }
     };
 
@@ -393,131 +414,6 @@ useEffect(() => {
 
   const [showMailSubmenu, setShowMailSubmenu] = useState(initialTab === "Mail");
   const [showContactsSubmenu, setShowContactsSubmenu] = useState(false);
-
-
-  // Load Campaign Blueprint when a campaign is selected
-  // 🧠 Define this function above goToTab (not inside useEffect)
-  // Load Campaign Blueprint when a campaign is selected
-  const loadCampaignBlueprint = async (selectedCampaign: string) => {
-    console.log("Fetching campaign details for selected campaign:", selectedCampaign);
-
-    const campaignResponse = await fetch(`${API_BASE_URL}/api/auth/campaigns/${selectedCampaign}`);
-    if (!campaignResponse.ok) throw new Error("Failed to fetch campaign details");
-    const campaignData = await campaignResponse.json();
-
-    const clientId = campaignData.clientId;
-    const templateId = campaignData.templateId;
-
-    if (!templateId || !clientId) throw new Error("Missing templateId or clientId");
-
-    let blueprint = "";
-    let matchedTemplate: any = null;
-
-    // 🔹 1. Fetch blueprint + placeholderValues from template
-    const bpResp = await fetch(`${API_BASE_URL}/api/CampaignPrompt/campaign/${templateId}`);
-    let bpJson: any = {};
-    if (bpResp.ok) {
-      bpJson = await bpResp.json();
-
-      blueprint =
-        (bpJson.campaignBlueprint ||
-          bpJson.aiInstructions ||
-          bpJson.masterBlueprint ||
-          bpJson.templateBlueprint ||
-          "").toString();
-
-      // ---------------------------------------------------------
-      // ⭐⭐⭐ ADD YOUR REQUIRED LOGIC HERE
-      // ---------------------------------------------------------
-
-      const pv = bpJson.placeholderValues || {};
-
-      // ✅ Subject config from placeholderValues
-        const subjectConfig = {
-          isAI: pv["email_subject-AI"] === "yes",
-          manualTemplate: pv["email_subject-manual"] || "",
-        };
-
-        sessionStorage.setItem(
-          "campaignSubjectConfig",
-          JSON.stringify(subjectConfig)
-        );
-
-
-      setSearchTermForm({
-        searchTerm: pv.hook_search_terms || "",
-        instructions: pv.search_objective || "",
-        searchCount: bpJson.searchURLCount?.toString() || "1",
-        output: ""
-      });
-
-      // Set selected GPT Model
-      setSelectedModelName(bpJson.selectedModel || "gpt-5");
-
-      if (bpJson.subjectInstructions) {
-        setSettingsForm((prev: any) => ({
-          ...prev,
-          subjectInstructions: bpJson.subjectInstructions
-        }));
-      }
-      console.log("🎯 Loaded from DB:", {
-        searchTerm: pv.hook_search_terms,
-        instructions: pv.search_objective,
-        searchCount: bpJson.searchURLCount,
-        model: bpJson.selectedModel
-      });
-
-      // ---------------------------------------------------------
-    }
-
-    // 🔹 2. Fallback: fetch from client templates
-    if (!blueprint.trim()) {
-      const templatesResp = await fetch(`${API_BASE_URL}/api/CampaignPrompt/templates/${clientId}`);
-      if (templatesResp.ok) {
-        const templatesJson = await templatesResp.json();
-        matchedTemplate = (templatesJson.templates || []).find((t: any) => t.id === templateId);
-        blueprint =
-          (matchedTemplate?.campaignBlueprint ||
-            matchedTemplate?.aiInstructions ||
-            matchedTemplate?.masterBlueprint ||
-            "").toString();
-      }
-    }
-
-    if (!blueprint.trim()) throw new Error(`No blueprint found for templateId: ${templateId}`);
-
-    // Prepare prompt
-    const campaignBlueprintPrompt = {
-      id: templateId,
-      name: matchedTemplate?.templateName || campaignData.templateName || `Template ${templateId}`,
-      text: blueprint,
-      model: matchedTemplate?.selectedModel || "gpt-5",
-    };
-
-    // Save to React + sessionStorage
-    setSelectedPrompt(campaignBlueprintPrompt);
-    sessionStorage.setItem("selectedPrompt", JSON.stringify(campaignBlueprintPrompt));
-
-    console.log(
-      "✅ Blueprint set:",
-      campaignBlueprintPrompt.name,
-      campaignBlueprintPrompt.text.substring(0, 120)
-    );
-
-    return campaignBlueprintPrompt;
-  };
-
-
-
-  useEffect(() => {
-    if (selectedCampaign) {
-      loadCampaignBlueprint(selectedCampaign).catch((err) =>
-        console.error("❌ Blueprint load failed in useEffect:", err)
-      );
-    }
-  }, [selectedCampaign]);
-
-
 
   useEffect(() => {
     // Safety reset for stuck loader after login
@@ -528,30 +424,25 @@ useEffect(() => {
     return () => clearTimeout(timer);
   }, []);
 
-
   // update states when query changes
 
   useEffect(() => {
-
     setTab(initialTab);
 
     setContactsSubTab(initialContactsSubTab);
 
     setMailSubTab(initialMailSubTab);
-
   }, [initialTab, initialContactsSubTab, initialMailSubTab]);
-
-
 
   const [showDataFileUpload, setShowDataFileUpload] = useState(false);
 
   const [isLoadingClientSettings, setIsLoadingClientSettings] = useState(false);
   const clientID = sessionStorage.getItem("clientId");
   const [lastLoadedClientId, setLastLoadedClientId] = useState<string | null>(
-    null
+    null,
   );
   const [selectedSegmentId, setSelectedSegmentId] = useState<number | null>(
-    null
+    null,
   );
   const appModal = useAppModal();
 
@@ -578,18 +469,11 @@ useEffect(() => {
     // They will be used when resuming
   };
 
-  const reset = () => {
-    stopRef.current = false;
-    setIsPaused(false);
-    setLastProcessedToken(null);
-    setLastProcessedIndex(0);
-  };
-
   // Campaign fetching effect
 
   useEffect(() => {
     const fetchCampaigns = async () => {
-      console.log(selectedClient, clientID)
+      console.log(selectedClient, clientID);
       if (!selectedClient && !clientID) {
         setCampaigns([]);
         return;
@@ -648,8 +532,6 @@ useEffect(() => {
     }
   };
 
-
-
   const handleNewDataFileSelection = () => {
     // Call the clear function when a new data file is selected
     if (clearExistingResponse) {
@@ -661,7 +543,7 @@ useEffect(() => {
 
   // Handle change event for the select element
   const handleZohoModelChange = async (
-    event: React.ChangeEvent<HTMLSelectElement>
+    event: React.ChangeEvent<HTMLSelectElement>,
   ) => {
     const selectedId = event.target.value;
 
@@ -674,7 +556,7 @@ useEffect(() => {
     // ✅ Fix: Set selectedZohoviewId in the correct format
     const formattedZohoviewId = `${clientID || effectiveUserId},${selectedId}`;
     setSelectedZohoviewId(formattedZohoviewId);
-    console.log('Setting selectedZohoviewId to:', formattedZohoviewId);
+    console.log("Setting selectedZohoviewId to:", formattedZohoviewId);
 
     // Call the clear function when a new data file is selected
     handleNewDataFileSelection();
@@ -702,7 +584,7 @@ useEffect(() => {
   };
 
   const handleDescriptionChange = (
-    e: React.ChangeEvent<HTMLTextAreaElement>
+    e: React.ChangeEvent<HTMLTextAreaElement>,
   ) => {
     setSelectedPrompt((prev) => ({
       ...prev!,
@@ -714,13 +596,13 @@ useEffect(() => {
   const [selectedLanguage, setSelectedLanguage] = useState<Languages>(
     Object.values(Languages).includes("English" as Languages)
       ? ("English" as Languages)
-      : Object.values(Languages)[0]
+      : Object.values(Languages)[0],
   );
 
   const [zohoClient, setZohoClient] = useState<ZohoClient[]>([]);
 
   const handleLanguageChange = (
-    event: React.ChangeEvent<HTMLSelectElement>
+    event: React.ChangeEvent<HTMLSelectElement>,
   ) => {
     setSelectedLanguage(event.target.value as Languages);
   };
@@ -735,12 +617,8 @@ useEffect(() => {
     setOpenModals((prev) => ({ ...prev, [id]: false }));
   };
 
-
-
-
-
   const handleClientChange = async (
-    event: React.ChangeEvent<HTMLSelectElement>
+    event: React.ChangeEvent<HTMLSelectElement>,
   ) => {
     const newClientId = event.target.value;
     setSelectedClient(newClientId);
@@ -774,13 +652,11 @@ useEffect(() => {
     triggerRefresh();
   };
 
-
   useEffect(() => {
     const isAdminString = sessionStorage.getItem("isAdmin");
     const isAdmin = isAdminString === "true"; // Correct comparison
     setUserRole(isAdmin ? "ADMIN" : "USER");
   }, []);
-
 
   const [delayTime, setDelay] = useState<number>(0);
   const delay = (ms: number) =>
@@ -791,25 +667,6 @@ useEffect(() => {
   const [cachedContacts, setCachedContacts] = useState<any[]>([]);
   const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
 
-  const [toneSettings, setToneSettings] = useState({
-    language: "English",
-    subjectTemplate: "",
-    emojis: "None",
-    tone: "Professional",
-    chatty: "Medium",
-    creativity: "Medium",
-    reasoning: "Medium",
-    dateGreeting: "No",
-    dateFarewell: "No",
-  });
-
-  const toneSettingsHandler = (e: any) => {
-    const { name, value } = e.target;
-    setToneSettings((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
   //  Close popup when clicking outside for support details
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -829,101 +686,13 @@ useEffect(() => {
     };
   }, []);
 
-  const fetchToneSettings = async (clientId?: string) => {
-    try {
-      const id =
-        clientId || effectiveUserId || sessionStorage.getItem("clientId");
-      const response = await fetch(
-        `${API_BASE_URL}/api/Crm/get-tone-settings?clientId=${id}`,
-        {
-          method: "GET",
-          headers: {
-            Accept: "*/*",
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        setToneSettings({
-          language: data.language,
-          subjectTemplate: data.subjectTemplate,
-          emojis: data.emojis,
-          tone: data.tone,
-          chatty: data.chattyLevel,
-          creativity: data.creativityLevel,
-          reasoning: data.reasoningLevel,
-          dateGreeting: data.dateGreeting,
-          dateFarewell: data.dateFarewell,
-        });
-
-
-      }
-    } catch (error) {
-      console.error("Error fetching tone settings:", error);
-    }
-  };
-
-  const handleSubjectTextChange = (value: string) => {
-
-  };
-  // Update your saveToneSettings to use effectiveUserId
-  const saveToneSettings = async () => {
-    try {
-      const clientId = effectiveUserId || sessionStorage.getItem("clientId");
-      const payload = {
-        language: toneSettings.language,
-        subjectTemplate: "",
-        emojis: toneSettings.emojis,
-        tone: toneSettings.tone,
-        chattyLevel: toneSettings.chatty,
-        creativityLevel: toneSettings.creativity,
-        reasoningLevel: toneSettings.reasoning,
-        dateGreeting: toneSettings.dateGreeting,
-        dateFarewell: toneSettings.dateFarewell,
-      };
-
-      const response = await fetch(
-        `${API_BASE_URL}/api/Crm/save-tone-settings?clientId=${clientId}`,
-        {
-          method: "POST",
-          headers: {
-            Accept: "*/*",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        }
-      );
-
-      if (response.ok) {
-        appModal.showSuccess("Settings saved successfully!");
-        return true;
-      } else {
-        appModal.showError("Failed to save settings. Please try again.");
-        return false;
-      }
-    } catch (error) {
-      console.error("Error saving tone settings:", error);
-      appModal.showError("Error saving settings. Please try again.");
-      return false;
-    }
-  };
-
-  // Replace your existing useEffect with this one that watches for effectiveUserId changes
-  useEffect(() => {
-    if (sessionStorage.getItem("isDemoAccount") !== "true" && effectiveUserId) {
-      fetchToneSettings();
-    }
-  }, [effectiveUserId]); 
-
-
+  const handleSubjectTextChange = (value: string) => {};
 
   const buildReplacements = (
     entry: any,
     currentDate: string,
     toneSettings: any,
-    scrappedData?: string
+    scrappedData?: string,
   ) => {
     return {
       company_name: entry.company_name || entry.company || "",
@@ -959,10 +728,9 @@ useEffect(() => {
       zohoviewId: string, // Format: "clientId,dataFileId" OR "segment_segmentId"
       pageToken: string | null = null,
       direction: "next" | "previous" | null = null,
-      forceFollowup?: boolean
+      forceFollowup?: boolean,
     ) => {
       try {
-
         setIsFetchingContacts(true); // Start loader
 
         setEmailLoading(true);
@@ -1004,7 +772,12 @@ useEffect(() => {
 
           // ✅ Validation: ensure dataFileId is not undefined
           if (!dataFileId || dataFileId === "undefined") {
-            console.error("Invalid dataFileId:", dataFileId, "from zohoviewId:", zohoviewId);
+            console.error(
+              "Invalid dataFileId:",
+              dataFileId,
+              "from zohoviewId:",
+              zohoviewId,
+            );
             throw new Error("Invalid dataFileId - cannot fetch contacts");
           }
 
@@ -1075,7 +848,7 @@ useEffect(() => {
               break;
             }
           }
-          
+
           // Set to the valid index directly
           setCurrentIndex(validIndex);
           console.log("Setting current index to:", validIndex);
@@ -1085,38 +858,42 @@ useEffect(() => {
       } finally {
         setEmailLoading(false);
         setIsFetchingContacts(false); // Stop loader
-
       }
     },
-    [selectedClient, userId, followupEnabled]
+    [selectedClient, userId, followupEnabled],
   );
-
 
   // Refetch data when followup checkbox changes
   useEffect(() => {
     if (selectedZohoviewId) {
-      console.log('Followup checkbox changed, refetching data:', followupEnabled);
-      console.log('Current selectedZohoviewId:', selectedZohoviewId);
-      console.log('Current index before refetch:', currentIndex);
-      
+      console.log(
+        "Followup checkbox changed, refetching data:",
+        followupEnabled,
+      );
+      console.log("Current selectedZohoviewId:", selectedZohoviewId);
+      console.log("Current index before refetch:", currentIndex);
+
       // Store current index before refetch
       const savedIndex = currentIndex;
-      
+
       // ✅ Fix: Ensure selectedZohoviewId is in correct format
       let correctedZohoviewId = selectedZohoviewId;
-      
+
       // If it's just a number (dataFileId) and not segment format, fix it
-      if (!selectedZohoviewId.startsWith('segment_') && !selectedZohoviewId.includes(',')) {
+      if (
+        !selectedZohoviewId.startsWith("segment_") &&
+        !selectedZohoviewId.includes(",")
+      ) {
         correctedZohoviewId = `${effectiveUserId},${selectedZohoviewId}`;
-        console.log('Corrected selectedZohoviewId to:', correctedZohoviewId);
+        console.log("Corrected selectedZohoviewId to:", correctedZohoviewId);
         // Also update the state to prevent future issues
         setSelectedZohoviewId(correctedZohoviewId);
       }
-      
+
       fetchAndDisplayEmailBodies(correctedZohoviewId).then(() => {
         // Restore index after data is fetched
         setTimeout(() => {
-          console.log('Restoring index to:', savedIndex);
+          console.log("Restoring index to:", savedIndex);
           setCurrentIndex(savedIndex);
         }, 100);
       });
@@ -1139,7 +916,7 @@ useEffect(() => {
     endTime: Date | null,
     generatedPitches: any[] = [],
     promptText: string = "No prompt template was selected",
-    isPauseReport: boolean = false
+    isPauseReport: boolean = false,
   ) => {
     // use the values from the top of your component!
     const formattedStartTime = startTime ? startTime.toLocaleString() : "N/A";
@@ -1167,17 +944,19 @@ useEffect(() => {
                 div { margin: 0 0 10px 0 !important; }
                 .section { margin-bottom: 20px !important; padding-bottom: 10px !important; border-bottom: 1px solid #eee; }
                 .pitch { background-color: #f9f9f9; padding: 15px; border-left: 4px solid #4CAF50; margin: 10px 0; }
-                .report-type { color: ${isPauseReport ? "orange" : "green"
-        }; font-weight: bold; }
+                .report-type { color: ${
+                  isPauseReport ? "orange" : "green"
+                }; font-weight: bold; }
             </style>
         </head>
         <body>
             <div class="section">
                 <h2><span class="report-type">${reportType}</span></h2>
-                ${isPauseReport
-          ? "<p><strong>Status:</strong> Process was paused by the user</p>"
-          : ""
-        }
+                ${
+                  isPauseReport
+                    ? "<p><strong>Status:</strong> Process was paused by the user</p>"
+                    : ""
+                }
             </div>
             <div class="section">
                 <h2>User Info:</h2>
@@ -1191,8 +970,9 @@ useEffect(() => {
                 <h2>Device Info:</h2>
                 <p><strong>IP Address:</strong> ${ipLink}</p>
                 <p><strong>Browser:</strong> ${browserName || "N/A"}</p>
-                <p><strong>Browser Version:</strong> ${browserVersion || "N/A"
-        }</p>
+                <p><strong>Browser Version:</strong> ${
+                  browserVersion || "N/A"
+                }</p>
             </div>
             <div class="section">
                 <h2>Timings:</h2>
@@ -1207,8 +987,8 @@ useEffect(() => {
                 <p><strong>Total scrap data failed requests:</strong> ${scrapfailedReq}</p>
                 <p><strong>Total tokens used:</strong> ${totaltokensused}</p>
                 <p><strong>Total cost of the transaction:</strong> $${cost.toFixed(
-          2
-        )}</p>
+                  2,
+                )}</p>
             </div>
             <div class="section">
                 <h2>Prompt Template Used:</h2>
@@ -1262,10 +1042,8 @@ useEffect(() => {
     return `${day}.${month}.${year} ${hours}:${minutes}:${seconds}`;
   }
 
-
-
   const analyzeScrapedData = (
-    scrapedData: string
+    scrapedData: string,
   ): { original: number; assisted: number } => {
     if (!scrapedData) return { original: 0, assisted: 0 };
 
@@ -1276,6 +1054,182 @@ useEffect(() => {
     return { original: originalCount, assisted: assistedCount };
   };
 
+  // Load Campaign Blueprint when a campaign is selected
+  // 🧠 Define this function above goToTab (not inside useEffect)
+  // Load Campaign Blueprint when a campaign is selected
+  const loadCampaignBlueprint = async (selectedCampaign: string) => {
+    console.log(
+      "Fetching campaign details for selected campaign:",
+      selectedCampaign,
+    );
+
+    const campaignResponse = await fetch(
+      `${API_BASE_URL}/api/auth/campaigns/${selectedCampaign}`,
+    );
+    if (!campaignResponse.ok)
+      throw new Error("Failed to fetch campaign details");
+    const campaignData = await campaignResponse.json();
+
+    const clientId = campaignData.clientId;
+    const templateId = campaignData.templateId;
+
+    if (!templateId || !clientId)
+      throw new Error("Missing templateId or clientId");
+
+    let blueprint = "";
+    let matchedTemplate: any = null;
+
+    // 🔹 1. Fetch blueprint + placeholderValues from template
+    const bpResp = await fetch(
+      `${API_BASE_URL}/api/CampaignPrompt/campaign/${templateId}`,
+    );
+    let bpJson: any = {};
+    if (bpResp.ok) {
+      bpJson = await bpResp.json();
+
+      blueprint = (
+        bpJson.campaignBlueprint ||
+        bpJson.aiInstructions ||
+        bpJson.masterBlueprint ||
+        bpJson.templateBlueprint ||
+        ""
+      ).toString();
+
+      // ---------------------------------------------------------
+      // ⭐⭐⭐ ADD YOUR REQUIRED LOGIC HERE
+      // ---------------------------------------------------------
+
+      const pv = bpJson.placeholderValues || {};
+
+      // ✅ Subject config from placeholderValues
+      // ✅ Subject config from placeholderValues (STORE RAW STRING)
+      const subjectConfig = {
+        aiMode: (pv["email_subject-AI"] || "").toString().toLowerCase(), // "yes" | "no"
+        manualTemplate: pv["email_subject-manual"] || "",
+      };
+
+      sessionStorage.setItem(
+        "campaignSubjectConfig",
+        JSON.stringify(subjectConfig),
+      );
+
+      setSearchTermForm({
+        searchTerm: pv.hook_search_terms || "",
+        instructions: pv.search_objective || "",
+        searchCount: bpJson.searchURLCount?.toString() || "1",
+        output: "",
+      });
+
+      // Set selected GPT Model
+      setSelectedModelName(bpJson.selectedModel || "gpt-5");
+
+      if (bpJson.subjectInstructions) {
+        setSettingsForm((prev: any) => ({
+          ...prev,
+          subjectInstructions: bpJson.subjectInstructions,
+        }));
+      }
+      console.log("🎯 Loaded from DB:", {
+        searchTerm: pv.hook_search_terms,
+        instructions: pv.search_objective,
+        searchCount: bpJson.searchURLCount,
+        model: bpJson.selectedModel,
+      });
+
+      // ---------------------------------------------------------
+    }
+
+    // 🔹 2. Fallback: fetch from client templates
+    if (!blueprint.trim()) {
+      const templatesResp = await fetch(
+        `${API_BASE_URL}/api/CampaignPrompt/templates/${clientId}`,
+      );
+      if (templatesResp.ok) {
+        const templatesJson = await templatesResp.json();
+        matchedTemplate = (templatesJson.templates || []).find(
+          (t: any) => t.id === templateId,
+        );
+        blueprint = (
+          matchedTemplate?.campaignBlueprint ||
+          matchedTemplate?.aiInstructions ||
+          matchedTemplate?.masterBlueprint ||
+          ""
+        ).toString();
+      }
+    }
+
+    if (!blueprint.trim())
+      throw new Error(`No blueprint found for templateId: ${templateId}`);
+
+    // Prepare prompt
+    const campaignBlueprintPrompt = {
+      id: templateId,
+      name:
+        matchedTemplate?.templateName ||
+        campaignData.templateName ||
+        `Template ${templateId}`,
+      text: blueprint,
+      model: matchedTemplate?.selectedModel || "gpt-5",
+    };
+
+    // Save to React + sessionStorage
+    setSelectedPrompt(campaignBlueprintPrompt);
+    sessionStorage.setItem(
+      "selectedPrompt",
+      JSON.stringify(campaignBlueprintPrompt),
+    );
+
+    console.log(
+      "✅ Blueprint set:",
+      campaignBlueprintPrompt.name,
+      campaignBlueprintPrompt.text.substring(0, 120),
+    );
+
+    return campaignBlueprintPrompt;
+  };
+
+  useEffect(() => {
+    if (selectedCampaign) {
+      loadCampaignBlueprint(selectedCampaign).catch((err) =>
+        console.error("❌ Blueprint load failed in useEffect:", err),
+      );
+    }
+  }, [selectedCampaign]);
+
+  // =====================================================
+  // 🟢 STEP 3: READ subject config from campaign placeholders
+  // =====================================================
+  const getSubjectMode = () => {
+    try {
+      const cfg = JSON.parse(
+        sessionStorage.getItem("campaignSubjectConfig") || "{}",
+      );
+
+      // Explicit NO → manual subject
+      if (cfg.aiMode === "no") {
+        return {
+          isAI: false,
+          manualTemplate: cfg.manualTemplate || "",
+        };
+      }
+
+      // YES / missing / invalid → AI subject
+      return {
+        isAI: true,
+        manualTemplate: cfg.manualTemplate || "",
+      };
+    } catch {
+      return {
+        isAI: true,
+        manualTemplate: "",
+      };
+    }
+  };
+  const totalEmailTokensRef = useRef(0);
+const totalEmailCostRef = useRef(0);
+const totalEmailCountRef = useRef(0); // <-- emails, NOT api calls
+
+
   const goToTab = async (
     tab: string,
     options?: {
@@ -1285,12 +1239,21 @@ useEffect(() => {
       prevPageToken?: string | null;
       startFromIndex?: number;
       useCachedData?: boolean;
-    }
+    },
   ) => {
+    let lastEmailTokens = 0;
+    let lastEmailCost = 0;
+    let lastEmailGenerations = 0;
+
+  
     // Calculate effectiveUserId first
     const tempEffectiveUserId = selectedClient !== "" ? selectedClient : userId;
     // Check credits before starting generation process
-    if (tab === "Output" && !options?.regenerate && sessionStorage.getItem("isDemoAccount") !== "true") {
+    if (
+      tab === "Output" &&
+      !options?.regenerate &&
+      sessionStorage.getItem("isDemoAccount") !== "true"
+    ) {
       const currentCredits = await checkUserCredits(tempEffectiveUserId);
       if (currentCredits && !currentCredits.canGenerate) {
         return; // Stop execution if can't generate
@@ -1314,7 +1277,7 @@ useEffect(() => {
 
     const replaceAllPlaceholders = (
       text: string,
-      replacements: { [key: string]: any }
+      replacements: { [key: string]: any },
     ) => {
       if (!text) return "";
 
@@ -1330,15 +1293,16 @@ useEffect(() => {
         const cleanValue = value || "";
 
         console.log(
-          `Looking for: "${placeholder}", replacing with: "${cleanValue}"`
+          `Looking for: "${placeholder}", replacing with: "${cleanValue}"`,
         );
         console.log(
-          `Found ${(
-            text.match(
-              new RegExp(placeholder.replace(/[{}]/g, "\\$&"), "g")
-            ) || []
-          ).length
-          } occurrences`
+          `Found ${
+            (
+              text.match(
+                new RegExp(placeholder.replace(/[{}]/g, "\\$&"), "g"),
+              ) || []
+            ).length
+          } occurrences`,
         );
 
         // Use split-join which is more reliable than regex for literal strings
@@ -1348,7 +1312,7 @@ useEffect(() => {
       console.log("Result (first 200 chars):", result.substring(0, 200));
       console.log(
         "Remaining placeholders:",
-        result.match(/\{[^}]+\}/g) || "none"
+        result.match(/\{[^}]+\}/g) || "none",
       );
 
       return result;
@@ -1360,18 +1324,6 @@ useEffect(() => {
       return;
     }
 
-          // =====================================================
-      // 🟢 STEP 3: READ subject config from campaign placeholders
-      // =====================================================
-      const campaignSubjectConfig = (() => {
-        try {
-          return JSON.parse(
-            sessionStorage.getItem("campaignSubjectConfig") || "{}"
-          );
-        } catch {
-          return {};
-        }
-      })();
     const selectedModelNameA = selectedModelName;
     const searchterm = searchTermForm.searchTerm;
     const searchCount = searchTermForm.searchCount;
@@ -1399,7 +1351,7 @@ useEffect(() => {
         parsedDataFileId = parseInt(dataFileIdStr);
         console.log(
           "Using datafile-based campaign, dataFileId:",
-          parsedDataFileId
+          parsedDataFileId,
         );
       } else {
         // ✅ Fallback for different format
@@ -1436,9 +1388,9 @@ useEffect(() => {
 
         // Create error message
         const errorMessage = `<span style="color: red">[${formatDateTime(
-          new Date()
+          new Date(),
         )}] Error: Cannot generate pitch  Missing required parameters: ${missingVars.join(
-          ", "
+          ", ",
         )}</span>`;
 
         // Update the form with error message
@@ -1455,6 +1407,10 @@ useEffect(() => {
       }
 
       if (options?.regenerate) {
+        lastEmailTokens = 0;
+        lastEmailCost = 0;
+        lastEmailGenerations = 0;
+
         // Use the regenerateIndex to get the specific contact from allResponses
         const index =
           typeof options.regenerateIndex === "number"
@@ -1490,36 +1446,31 @@ useEffect(() => {
           day: "numeric",
         });
         // --- Generate new pitch as per your normal contact process ---
-        let replacements = buildReplacements(entry, currentDate, toneSettings);
+        let replacements = buildReplacements(entry, currentDate, {});
 
         replacements.notes = entry.notes || "";
-
 
         const searchTermBody = replaceAllPlaceholders(searchterm, replacements);
 
         const filledInstructions = replaceAllPlaceholders(
           instructionsParamA,
-          replacements
+          replacements,
         );
 
+        const summary = {};
+        const searchResults = [];
+        const scrappedData = "";
 
-
-
-        const summary =   {};
-        const searchResults =  [];
-        const scrappedData ="";
-
-if (!scrappedData) {
-  setOutputForm(prev => ({
-    ...prev,
-    generatedContent:
-      `<span style="color: orange">[${formatDateTime(
-        new Date()
-      )}] No scraped data for ${full_name}. Generating pitch anyway.</span><br/>`
-      + prev.generatedContent,
-  }));
-}
-
+        if (!scrappedData) {
+          setOutputForm((prev) => ({
+            ...prev,
+            generatedContent:
+              `<span style="color: orange">[${formatDateTime(
+                new Date(),
+              )}] No scraped data for ${full_name}. Generating pitch anyway.</span><br/>` +
+              prev.generatedContent,
+          }));
+        }
 
         replacements = {
           ...replacements,
@@ -1528,11 +1479,11 @@ if (!scrappedData) {
 
         let systemPrompt = replaceAllPlaceholders(
           systemInstructionsA,
-          replacements
+          replacements,
         );
         let replacedPromptText = replaceAllPlaceholders(
           selectedPrompt?.text || "",
-          replacements
+          replacements,
         );
 
         const promptToSend = `\n${systemPrompt}\n${replacedPromptText}`;
@@ -1540,8 +1491,8 @@ if (!scrappedData) {
         setOutputForm((prev) => ({
           ...prev,
           currentPrompt: promptToSend,
-          searchResults:  [],
-          allScrapedData:  "",
+          searchResults: [],
+          allScrapedData: "",
         }));
 
         // Request body
@@ -1556,112 +1507,95 @@ if (!scrappedData) {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(requestBody),
-          }
+          },
         );
 
         const pitchData = await pitchResponse.json();
         if (!pitchResponse.ok) {
-          setOutputForm(prev => ({
+          setOutputForm((prev) => ({
             ...prev,
             generatedContent:
               `<span style="color: red">[${formatDateTime(
-                new Date()
-              )}] Pitch generation failed for ${full_name}. Using fallback pitch.</span><br/>`
-              + prev.generatedContent,
+                new Date(),
+              )}] Pitch generation failed for ${full_name}. Using fallback pitch.</span><br/>` +
+              prev.generatedContent,
           }));
 
-          pitchData.response = {
-            content: `Hi ${full_name},\n\nI wanted to reach out regarding a potential opportunity.`,
-          };
+
         }
-
-
 
         setOutputForm((prev) => ({
           ...prev,
           generatedContent:
             `<span style="color: green">[${formatDateTime(
-              new Date()
-            )}] Pitch successfully crafted, for contact ${full_name} with company name ${company_name} and domain ${entry.email
+              new Date(),
+            )}] Pitch successfully crafted, for contact ${full_name} with company name ${company_name} and domain ${
+              entry.email
             }</span><br/>` + prev.generatedContent,
           linkLabel: pitchData.response.content,
         }));
 
         //----------------------------------------------------------------------------------------
-       // ---------------- SUBJECT GENERATION (PLACEHOLDER CONTROLLED ONLY) ----------------
-const subjectConfig = JSON.parse(
-  sessionStorage.getItem("campaignSubjectConfig") || "{}"
-);
 
-// Normalize placeholder AI value
-let normalizedAI =
-  (subjectConfig?.isAI === true || subjectConfig?.isAI === "yes")
-    ? true
-    : false;
+        // ---------------- SUBJECT GENERATION (PLACEHOLDER CONTROLLED ONLY) ----------------
+        const { isAI, manualTemplate } = getSubjectMode();
 
-if (subjectConfig?.isAI !== "yes" && subjectConfig?.isAI !== "no") {
-  normalizedAI = true; // fallback → treat invalid as YES
-}
+        let subjectLine = "";
 
-const isSubjectAI = normalizedAI;
-const manualSubjectTemplate = subjectConfig.manualTemplate || "";
+        // --- CASE 1: AI SUBJECT ---
+        if (isAI) {
+          const filledSubjectInstruction = replaceAllPlaceholders(
+            subject_instruction,
+            {
+              ...replacements,
+              generated_pitch: pitchData.response?.content || "",
+            },
+          );
 
-let subjectLine = "";
+          const subjectRequestBody = {
+            scrappedData: filledSubjectInstruction,
+            prompt: pitchData.response?.content,
+            ModelName: selectedModelNameA,
+          };
 
-// --- CASE 1: SUBJECT VIA AI (placeholder email_subject-AI = yes) ---
-if (isSubjectAI) {
-  const filledSubjectInstruction = replaceAllPlaceholders(
-    subject_instruction,
-    {
-      ...replacements,
-      generated_pitch: pitchData.response?.content || "",
-    }
-  );
+          const subjectResponse = await fetch(
+            `${API_BASE_URL}/api/auth/generatepitch`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(subjectRequestBody),
+            },
+          );
 
-  const subjectRequestBody = {
-    scrappedData: filledSubjectInstruction,
-    prompt: pitchData.response?.content,
-    ModelName: selectedModelNameA,
-  };
+          if (subjectResponse.ok) {
+            
+            const subjectData = await subjectResponse.json();
+            subjectLine = subjectData.response?.content || "";
+          }
+          
+        }
 
-  const subjectResponse = await fetch(
-    `${API_BASE_URL}/api/auth/generatepitch`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(subjectRequestBody),
-    }
-  );
+        // --- CASE 2: MANUAL SUBJECT ---
+        else if (manualTemplate.trim()) {
+          subjectLine = replaceAllPlaceholders(manualTemplate, {
+            company_name,
+            job_title,
+            location,
+            full_name,
+            linkedin_url,
+            website,
+            date: currentDate,
+            search_output_summary: scrappedData || "",
+            generated_pitch: pitchData.response?.content || "",
+          });
+        }
 
-  if (subjectResponse.ok) {
-    const subjectData = await subjectResponse.json();
-    subjectLine = subjectData.response?.content || "";
-  }
-}
+        // --- CASE 3: NOTHING ---
+        else {
+          subjectLine = "";
+        }
+        // ---------------- SUBJECT GENERATION END ----------------
 
-// --- CASE 2: MANUAL SUBJECT (placeholder email_subject-manual) ---
-else if (manualSubjectTemplate.trim() !== "") {
-  subjectLine = replaceAllPlaceholders(
-    manualSubjectTemplate,
-    {
-      company_name,
-      job_title,
-      location,
-      full_name,
-      linkedin_url,
-      website,
-      date: currentDate,
-      search_output_summary: scrappedData || "",
-      generated_pitch: pitchData.response?.content || "",
-    }
-  );
-}
-
-// --- CASE 3: NOTHING SET ---
-else {
-  subjectLine = "";
-}
-// ---------------- SUBJECT GENERATION END ----------------
         // ✅ Replace the database update logic in REGENERATION BLOCK
         try {
           if (id && pitchData.response?.content) {
@@ -1688,8 +1622,8 @@ else {
                   "Content-Type": "application/json",
                 },
                 body: JSON.stringify(requestBody),
-              }
-            );///
+              },
+            ); ///
 
             if (!updateContactResponse.ok) {
               const updateContactError = await updateContactResponse.json();
@@ -1697,44 +1631,46 @@ else {
                 ...prevOutputForm,
                 generatedContent:
                   `<span style="color: orange">[${formatDateTime(
-                    new Date()
-                  )}] Updating contact in database incomplete for ${full_name}. Error: ${updateContactError.Message || "Unknown error"
+                    new Date(),
+                  )}] Updating contact in database incomplete for ${full_name}. Error: ${
+                    updateContactError.Message || "Unknown error"
                   }</span><br/>` + prevOutputForm.generatedContent,
               }));
               if (isSoundEnabledRef.current) {
-               playSound();
+                playSound();
               }
             } else {
               setOutputForm((prevOutputForm) => ({
                 ...prevOutputForm,
                 generatedContent:
                   `<span style="color: green">[${formatDateTime(
-                    new Date()
+                    new Date(),
                   )}] Updated pitch in database for ${full_name}.</span><br/>` +
                   prevOutputForm.generatedContent,
               }));
-               if (isSoundEnabledRef.current) {
+              if (isSoundEnabledRef.current) {
                 playSound();
-               }
-                try {
-                  const userCreditResponse = await fetch(
-                    `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`
-                  );
-                  if (!userCreditResponse.ok) throw new Error("Failed to fetch user credit");
+              }
+              try {
+                const userCreditResponse = await fetch(
+                  `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`,
+                );
+                if (!userCreditResponse.ok)
+                  throw new Error("Failed to fetch user credit");
 
-                  const userCreditData = await userCreditResponse.json();
-                  console.log("User credit data:", userCreditData);
-                  dispatch(saveUserCredit(userCreditData));
-                  
-                  // Dispatch custom event to notify credit update
-                  window.dispatchEvent(new CustomEvent('creditUpdated', {
-                    detail: { clientId: effectiveUserId }
-                  }));
-                  
+                const userCreditData = await userCreditResponse.json();
+                console.log("User credit data:", userCreditData);
+                dispatch(saveUserCredit(userCreditData));
 
-                } catch (creditError) {
-                  console.error("User credit API error:", creditError);
-                }
+                // Dispatch custom event to notify credit update
+                window.dispatchEvent(
+                  new CustomEvent("creditUpdated", {
+                    detail: { clientId: effectiveUserId },
+                  }),
+                );
+              } catch (creditError) {
+                console.error("User credit API error:", creditError);
+              }
             }
           }
         } catch (updateError) {
@@ -1742,7 +1678,7 @@ else {
             ...prevOutputForm,
             generatedContent:
               `<span style="color: orange">[${formatDateTime(
-                new Date()
+                new Date(),
               )}] Database update error for ${full_name}.</span><br/>` +
               prevOutputForm.generatedContent,
           }));
@@ -1772,11 +1708,11 @@ else {
 
         // ---- Update all relevant state arrays by id ----
         setexistingResponse((prev) =>
-          prev.map((resp) => (resp.id === id ? newResponse : resp))
+          prev.map((resp) => (resp.id === id ? newResponse : resp)),
         );
 
         setAllResponses((prev) =>
-          prev.map((resp) => (resp.id === id ? newResponse : resp))
+          prev.map((resp) => (resp.id === id ? newResponse : resp)),
         );
 
         setallprompt((prev) => {
@@ -1785,10 +1721,6 @@ else {
           else updated.push(promptToSend);
           return updated;
         });
-
-
-
-
 
         setRecentlyAddedOrUpdatedId(id);
 
@@ -1835,13 +1767,16 @@ else {
       let contacts: any[] = [];
 
       // Check if we have contacts to process from the Output component
-      const contactsToProcessStr = sessionStorage.getItem('contactsToProcess');
+      const contactsToProcessStr = sessionStorage.getItem("contactsToProcess");
       if (contactsToProcessStr) {
         // Use the contacts passed from Output (already filtered if filters were active)
         contacts = JSON.parse(contactsToProcessStr);
-        sessionStorage.removeItem('contactsToProcess');
+        sessionStorage.removeItem("contactsToProcess");
         console.log("Using contacts from Output component:", contacts.length);
-        console.log("First contact:", contacts[0]?.full_name || contacts[0]?.name);
+        console.log(
+          "First contact:",
+          contacts[0]?.full_name || contacts[0]?.name,
+        );
         currentIndex = 0; // Start from beginning since we already sliced from currentIndex
       } else {
         // Fallback: fetch contacts if not provided (for backward compatibility)
@@ -1852,9 +1787,12 @@ else {
           // ✅ Fetch contacts based on campaign type
           if (segmentId) {
             // Fetch from segment API
-            console.log("Fetching contacts from segment API, segmentId:", segmentId);
+            console.log(
+              "Fetching contacts from segment API, segmentId:",
+              segmentId,
+            );
             const response = await fetch(
-              `${API_BASE_URL}/api/Crm/segment/${segmentId}/contacts`
+              `${API_BASE_URL}/api/Crm/segment/${segmentId}/contacts`,
             );
 
             if (!response.ok) {
@@ -1866,9 +1804,12 @@ else {
             console.log("Fetched segment contacts:", contacts.length);
           } else if (parsedDataFileId) {
             // Fetch from datafile API (existing logic)
-            console.log("Fetching contacts from datafile API, dataFileId:", parsedDataFileId);
+            console.log(
+              "Fetching contacts from datafile API, dataFileId:",
+              parsedDataFileId,
+            );
             const response = await fetch(
-              `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${parsedDataFileId}`
+              `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${parsedDataFileId}`,
             );
 
             if (!response.ok) {
@@ -1880,7 +1821,7 @@ else {
             console.log("Fetched datafile contacts:", contacts.length);
           } else {
             throw new Error(
-              "No valid data source found (neither segment nor datafile)"
+              "No valid data source found (neither segment nor datafile)",
             );
           }
         }
@@ -1894,17 +1835,18 @@ else {
         return;
       }
 
-
-
-
       // Process all contacts
       for (let i = currentIndex; i < contacts.length; i++) {
+
+        // 🔄 Reset LAST email counters per contact
+        lastEmailTokens = 0;
+        lastEmailCost = 0;
+        lastEmailGenerations = 0;
+
         // Start from currentIndex instead of 0
         const entry = contacts[i];
 
         if (stopRef.current === true) {
-          setLastProcessedToken(null);
-          setLastProcessedIndex(i); // This should be the actual index being processed
           setIsProcessing(false); // Now set processing to false
 
           return;
@@ -1932,8 +1874,9 @@ else {
               ...prevOutputForm,
               generatedContent:
                 `<span style="color: orange">[${formatDateTime(
-                  new Date()
-                )}] Pitch crafted for contact ${full_name} with company name ${company_name} and domain ${entry.email
+                  new Date(),
+                )}] Pitch crafted for contact ${full_name} with company name ${company_name} and domain ${
+                  entry.email
                 } </span><br/>` + prevOutputForm.generatedContent,
               linkLabel: entry.email_body,
             }));
@@ -1961,111 +1904,69 @@ else {
               segmentId: segmentId ? parseInt(segmentId) : null, // Also preserve segmentId
             };
 
-
-
             setAllResponses((prevResponses) => {
-
               const updated = [...prevResponses];
 
               if (responseIndex < updated.length) {
-
                 updated[responseIndex] = existingResponse;
-
               } else {
-
                 updated.push(existingResponse);
-
               }
 
               setCurrentIndex(responseIndex);
 
               return updated;
-
             });
-
-
 
             // Update these to use responseIndex logic
 
             setallprompt((prevPrompts) => {
-
               const updated = [...prevPrompts];
 
               if (responseIndex < updated.length) {
-
                 updated[responseIndex] = "";
-
               } else {
-
                 updated.push("");
-
               }
 
               return updated;
-
             });
 
-
-
             setallsearchResults((prevSearchResults) => {
-
               const updated = [...prevSearchResults];
 
               if (responseIndex < updated.length) {
-
                 updated[responseIndex] = [];
-
               } else {
-
                 updated.push([]);
-
               }
 
               return updated;
-
             });
 
-
-
             seteveryscrapedData((prevScrapedData) => {
-
               const updated = [...prevScrapedData];
 
               if (responseIndex < updated.length) {
-
                 updated[responseIndex] = "";
-
               } else {
-
                 updated.push("");
-
               }
 
               return updated;
-
             });
 
-
-
             setallsummery((prevSummery) => {
-
               const updated = [...prevSummery];
 
               if (responseIndex < updated.length) {
-
                 updated[responseIndex] = "";
-
               } else {
-
                 updated.push("");
-
               }
 
               return updated;
-
             });
-
-
 
             setallSearchTermBodies((prevSearchTermBodies) => {
               const updated = [...prevSearchTermBodies];
@@ -2077,7 +1978,6 @@ else {
               return updated;
             });
 
-
             continue;
           } else {
             foundRecordWithoutPitch = true;
@@ -2086,44 +1986,36 @@ else {
                 ...prevOutputForm,
                 generatedContent:
                   `<span style="color: blue">[${formatDateTime(
-                    new Date()
+                    new Date(),
                   )}] Subscription: Trial mode. Processing is paused. Contact support on Live Chat (bottom right) or London: +44 (0) 207 660 4243 | New York: +1 (0) 315 400 2402 or email info@dataji.co </span><br/>` +
                   prevOutputForm.generatedContent,
               }));
 
               moreRecords = false;
               stopRef.current = true;
-              setLastProcessedToken(null);
-              setLastProcessedIndex(i);
+
               break;
             }
           }
 
           // Step 1: Scrape Website with caching
-          let replacements = buildReplacements(
-            entry,
-            currentDate,
-            toneSettings
-          );
+          let replacements = buildReplacements(entry, currentDate, {
+            urlParam,
+          });
           replacements.notes = entry.notes || "";
-
 
           const searchTermBody = replaceAllPlaceholders(
             searchterm,
-            replacements
+            replacements,
           );
           const filledInstructions = replaceAllPlaceholders(
             instructionsParamA,
-            replacements
+            replacements,
           );
 
-
-
-          const summary =  {};
-          const searchResults =  [];
+          const summary = {};
+          const searchResults = [];
           const scrappedData = "";
-
-
 
           replacements = {
             ...replacements,
@@ -2132,12 +2024,12 @@ else {
 
           let systemPrompt = replaceAllPlaceholders(
             systemInstructionsA,
-            replacements
+            replacements,
           );
 
           let replacedPromptText = replaceAllPlaceholders(
             selectedPrompt?.text || "",
-            replacements
+            replacements,
           );
 
           const promptToSend = `
@@ -2149,18 +2041,16 @@ else {
           setOutputForm((prevState) => ({
             ...prevState,
             currentPrompt: promptToSend,
-
           }));
-
-
 
           setOutputForm((prevOutputForm) => ({
             ...prevOutputForm,
-            
+
             generatedContent:
               `<span style="color: blue">[${formatDateTime(
-                new Date()
-              )}] Crafting phase #1 integritas , for contact ${full_name} with company name ${company_name} and domain ${entry.email
+                new Date(),
+              )}] Crafting phase #1 integritas , for contact ${full_name} with company name ${company_name} and domain ${
+                entry.email
               }</span><br/>` + prevOutputForm.generatedContent,
           }));
 
@@ -2175,29 +2065,27 @@ else {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(requestBody),
-            }
+            },
           );
 
           const pitchData = await pitchResponse.json();
           if (!pitchResponse.ok) {
             const formattedTime = formatDateTime(new Date());
-            failedReq += 1;
-            cost += parseFloat(pitchData?.response?.currentCost);
-            totaltokensused += parseFloat(pitchData?.response?.totalTokens);
+
+
+           
+
+            
             setOutputForm((prevOutputForm) => ({
               ...prevOutputForm,
-              
+
               generatedContent:
                 `<span style="color: red">[${formatDateTime(
-                  new Date()
-                )}] Phase #1 integritas incomplete for contact ${full_name} with company name ${company_name} and domain ${entry.email
+                  new Date(),
+                )}] Phase #1 integritas incomplete for contact ${full_name} with company name ${company_name} and domain ${
+                  entry.email
                 }</span><br/>` + prevOutputForm.generatedContent,
-              usage:
-                `Cost: $${cost.toFixed(6)}    ` +
-                `Failed Requests: ${failedReq}    ` +
-                `Success Requests: ${successReq}                ` +
-                `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
-                `Total Tokens Used: ${totaltokensused}   `,
+             
             }));
             generatedPitches.push({
               ...entry,
@@ -2206,26 +2094,42 @@ else {
             continue;
           }
 
-          successReq += 1;
-          cost += parseFloat(pitchData?.response?.currentCost);
-          totaltokensused += parseFloat(pitchData?.response?.totalTokens);
-          console.log(`Cosstdata ${pitchData}`);
+            successReq += 1;
+
+            const bodyTokens = Number(pitchData.response.totalTokens);
+            const bodyCost = Number(pitchData.response.currentCost);
+
+            // LAST
+// LAST
+lastEmailTokens += bodyTokens;
+lastEmailCost += bodyCost;
+
+// TOTAL (persisted)
+totalEmailTokensRef.current += bodyTokens;
+totalEmailCostRef.current += bodyCost;
+
+// ✅ ONE EMAIL GENERATED (body is mandatory)
+lastEmailGenerations = 1;
+totalEmailCountRef.current += 1;
+
+
+            // keep legacy totals
+            cost += bodyCost;
+            totaltokensused += bodyTokens;
+
 
           // Success: Update UI with the generated pitch
           setOutputForm((prevOutputForm) => ({
             ...prevOutputForm,
-            
+
             generatedContent:
               `<span style="color: green">[${formatDateTime(
-                new Date()
-              )}] Pitch successfully crafted for contact ${full_name} with company name ${company_name} and domain ${entry.email
+                new Date(),
+              )}] Pitch successfully crafted for contact ${full_name} with company name ${company_name} and domain ${
+                entry.email
               }</span><br/>` + prevOutputForm.generatedContent,
-            usage:
-              `Cost: $${cost.toFixed(6)}    ` +
-              `Failed Requests: ${failedReq}    ` +
-              `Success Requests: ${successReq}                  ` +
-              `Scraped Data Failed Requests: ${scrapfailedreq}   ` +
-              `Total Tokens Used: ${totaltokensused}   `,
+     
+            
           }));
 
           setOutputForm((prevOutputForm) => ({
@@ -2248,90 +2152,102 @@ else {
           });
 
           // Generate subject line
-// ---------------- SUBJECT GENERATION (PLACEHOLDER CONTROLLED ONLY) ----------------
+          // ---------------- SUBJECT GENERATION (PLACEHOLDER CONTROLLED ONLY) ----------------
 
-// Always sanitize placeholder values FIRST
-// If value is NOT exactly "yes" or "no", FORCE it to "yes"
-let normalizedAI =
-  (campaignSubjectConfig?.isAI === true ||
-    campaignSubjectConfig?.isAI === "yes")
-    ? true
-    : false;
+          // ---------------- SUBJECT GENERATION (PLACEHOLDER CONTROLLED ONLY) ----------------
+          const { isAI, manualTemplate } = getSubjectMode();
 
-if (
-  campaignSubjectConfig?.isAI !== "yes" &&
-  campaignSubjectConfig?.isAI !== "no"
-) {
-  normalizedAI = true; // force AI to YES if invalid
-}
+          let subjectLine = "";
 
-const isSubjectAI = normalizedAI;
+          // --- CASE 1: AI SUBJECT ---
+          if (isAI) {
+            const filledSubjectInstruction = replaceAllPlaceholders(
+              subject_instruction,
+              {
+                ...replacements,
+                generated_pitch: pitchData.response?.content || "",
+              },
+            );
 
-let manualSubjectTemplate =
-  typeof campaignSubjectConfig?.manualTemplate === "string"
-    ? campaignSubjectConfig.manualTemplate
-    : "";
+            const subjectRequestBody = {
+              scrappedData: filledSubjectInstruction,
+              prompt: pitchData.response?.content,
+              ModelName: selectedModelNameA,
+            };
 
-if (!manualSubjectTemplate.trim()) {
-  manualSubjectTemplate = "";
-}
+            const subjectResponse = await fetch(
+              `${API_BASE_URL}/api/auth/generatepitch`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(subjectRequestBody),
+              },
+            );
 
-let subjectLine = "";
+          if (subjectResponse.ok) {
+            const subjectData = await subjectResponse.json();
 
-// --- CASE 1: AI SUBJECT (placeholder email_subject-AI = "yes" or invalid) ---
-if (isSubjectAI) {
-  const filledSubjectInstruction = replaceAllPlaceholders(
-    subject_instruction,
-    {
-      ...replacements,
-      generated_pitch: pitchData.response?.content || "",
-    }
-  );
+            subjectLine = subjectData.response?.content || "";
 
-  const subjectRequestBody = {
-    scrappedData: filledSubjectInstruction,
-    prompt: pitchData.response?.content,
-    ModelName: selectedModelNameA,
-  };
+            const subjectTokens = Number(subjectData?.response?.totalTokens || 0);
+            const subjectCost = Number(subjectData?.response?.currentCost || 0);
 
-  const subjectResponse = await fetch(
-    `${API_BASE_URL}/api/auth/generatepitch`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(subjectRequestBody),
-    }
-  );
+            // LAST (same email)
+// LAST (same email)
+lastEmailTokens += subjectTokens;
+lastEmailCost += subjectCost;
 
-  if (subjectResponse.ok) {
-    const subjectData = await subjectResponse.json();
-    subjectLine = subjectData.response?.content || "";
-  }
-}
+// TOTAL
+totalEmailTokensRef.current += subjectTokens;
+totalEmailCostRef.current += subjectCost;
 
-// --- CASE 2: MANUAL SUBJECT (placeholder email_subject-manual exists) ---
-else if (manualSubjectTemplate.trim() !== "") {
-  subjectLine = replaceAllPlaceholders(
-    manualSubjectTemplate,
-    {
-      company_name,
-      job_title,
-      location,
-      full_name,
-      linkedin_url,
-      website,
-      date: currentDate,
-      search_output_summary: scrappedData || "",
-      generated_pitch: pitchData.response?.content || "",
-    }
-  );
-}
+// ⚠️ DO NOT increment email count here
+// subject is part of SAME email
 
-// --- CASE 3: NEITHER SET ---
-else {
-  subjectLine = "";
-}
 
+            // legacy totals (if still used elsewhere)
+            cost += subjectCost;
+            totaltokensused += subjectTokens;
+          }
+
+
+          }
+
+          // --- CASE 2: MANUAL SUBJECT ---
+          else if (manualTemplate.trim()) {
+            subjectLine = replaceAllPlaceholders(manualTemplate, {
+              company_name,
+              job_title,
+              location,
+              full_name,
+              linkedin_url,
+              website,
+              date: currentDate,
+              search_output_summary: scrappedData || "",
+              generated_pitch: pitchData.response?.content || "",
+            });
+          }
+
+          // --- CASE 3: NOTHING ---
+          else {
+            subjectLine = "";
+          }
+          // ---------------- SUBJECT GENERATION END ----------------
+          setOutputForm((prev) => ({
+  ...prev,
+  usage: JSON.stringify({
+    last: {
+      tokens: lastEmailTokens,
+      cost: Number(lastEmailCost.toFixed(6)),
+      emails: lastEmailGenerations, // always 1
+    },
+    total: {
+      tokens: totalEmailTokensRef.current,
+      cost: Number(totalEmailCostRef.current.toFixed(6)),
+      emails: totalEmailCountRef.current,
+    },
+  }),
+}));
 
 
           // Update the linkLabel to show both subject and pitch
@@ -2382,28 +2298,20 @@ else {
             : allResponses.length;
 
           setAllResponses((prevResponses) => {
-
             const updated = [...prevResponses];
 
             if (responseIndex < updated.length) {
-
               // Replace existing entry
 
               updated[responseIndex] = newResponse;
-
             } else {
-
               // Add new entry
 
               updated.push(newResponse);
-
             }
 
             return updated;
-
           });
-
-
 
           // Similarly update other arrays at the correct index
 
@@ -2446,7 +2354,7 @@ else {
                     "Content-Type": "application/json",
                   },
                   body: JSON.stringify(requestBody),
-                }
+                },
               );
 
               if (!updateContactResponse.ok) {
@@ -2455,8 +2363,9 @@ else {
                   ...prevOutputForm,
                   generatedContent:
                     `<span style="color: orange">[${formatDateTime(
-                      new Date()
-                    )}] Updating contact in database incomplete for ${full_name}. Error: ${updateContactError.Message || "Unknown error"
+                      new Date(),
+                    )}] Updating contact in database incomplete for ${full_name}. Error: ${
+                      updateContactError.Message || "Unknown error"
                     }</span><br/>` + prevOutputForm.generatedContent,
                 }));
                 if (isSoundEnabledRef.current) {
@@ -2467,28 +2376,30 @@ else {
                   ...prevOutputForm,
                   generatedContent:
                     `<span style="color: green">[${formatDateTime(
-                      new Date()
+                      new Date(),
                     )}] Updated pitch in database for ${full_name}.</span><br/>` +
                     prevOutputForm.generatedContent,
                 }));
                 if (isSoundEnabledRef.current) {
-                 playSound();
+                  playSound();
                 }
                 try {
                   const userCreditResponse = await fetch(
-                    `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`
+                    `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`,
                   );
-                  if (!userCreditResponse.ok) throw new Error("Failed to fetch user credit");
+                  if (!userCreditResponse.ok)
+                    throw new Error("Failed to fetch user credit");
 
                   const userCreditData = await userCreditResponse.json();
                   console.log("User credit data:", userCreditData);
                   dispatch(saveUserCredit(userCreditData));
-                  
-                  // Dispatch custom event to notify credit update
-                  window.dispatchEvent(new CustomEvent('creditUpdated', {
-                    detail: { clientId: effectiveUserId }
-                  }));
 
+                  // Dispatch custom event to notify credit update
+                  window.dispatchEvent(
+                    new CustomEvent("creditUpdated", {
+                      detail: { clientId: effectiveUserId },
+                    }),
+                  );
                 } catch (creditError) {
                   console.error("User credit API error:", creditError);
                 }
@@ -2499,7 +2410,7 @@ else {
               ...prevOutputForm,
               generatedContent:
                 `<span style="color: orange">[${formatDateTime(
-                  new Date()
+                  new Date(),
                 )}] Database update error for ${full_name}.</span><br/>` +
                 prevOutputForm.generatedContent,
             }));
@@ -2512,9 +2423,11 @@ else {
             ...prevOutputForm,
             generatedContent:
               `<span style="color: red">[${formatDateTime(
-                new Date()
-              )}] Phase #1 integritas incomplete for contact ${entry.full_name
-              } with company name ${entry.company_name} and domain ${entry.email
+                new Date(),
+              )}] Phase #1 integritas incomplete for contact ${
+                entry.full_name
+              } with company name ${entry.company_name} and domain ${
+                entry.email
               }</span><br/>` + prevOutputForm.generatedContent,
             usage:
               `Cost: $${cost.toFixed(6)}    ` +
@@ -2541,8 +2454,7 @@ else {
       // Process completed successfully
       if (!stopRef.current) {
         // Reset all tracking variables
-        setLastProcessedToken(null);
-        setLastProcessedIndex(0);
+
         stopRef.current = false;
         setIsPaused(true);
       }
@@ -2568,7 +2480,7 @@ else {
         startTime,
         endTime,
         generatedPitches,
-        selectedPrompt?.text
+        selectedPrompt?.text,
       );
     } catch (error) {
       // Ensure processing is set to false even if there's an error
@@ -2610,7 +2522,7 @@ else {
         [name]: value,
       }));
     },
-    []
+    [],
   );
 
   const clearOutputForm = () => {
@@ -2635,7 +2547,7 @@ else {
         [name]: value,
       }));
     },
-    []
+    [],
   );
 
   // Also update the state declaration
@@ -2645,8 +2557,6 @@ else {
     instructions: "",
     output: "",
   });
-
-
 
   const [settingsForm, setSettingsForm] = useState({
     emailTemplate: "",
@@ -2668,7 +2578,7 @@ else {
       }
 
       console.log(
-        `settingsFormHandler called for ${name} with value: ${newValue}`
+        `settingsFormHandler called for ${name} with value: ${newValue}`,
       ); // Debug log
 
       setSettingsForm((prevSettings: any) => ({
@@ -2676,7 +2586,7 @@ else {
         [name]: newValue,
       }));
     },
-    [] 
+    [],
   );
 
   // Convert line break to br
@@ -2756,7 +2666,7 @@ else {
   }, [selectedClient, clientID]);
 
   const handleModelChange = async (
-    event: React.ChangeEvent<HTMLSelectElement>
+    event: React.ChangeEvent<HTMLSelectElement>,
   ) => {
     const modelName = event.target.value;
     const selectedId = event.target.value;
@@ -2775,7 +2685,7 @@ else {
     setAllRecordsProcessed(false);
     setIsStarted(true);
     setIsPaused(false);
-    setIsProcessing(true);
+    //setIsProcessing(true);
     stopRef.current = false;
 
     goToTab("Output", {
@@ -2808,10 +2718,10 @@ else {
       const failedReqMatch = usageText.match(/Failed Requests: ([0-9]+)/);
       const successReqMatch = usageText.match(/Success Requests: ([0-9]+)/);
       const scrapfailedReqMatch = usageText.match(
-        /Scraped Data Failed Requests: ([0-9]+)/
+        /Scraped Data Failed Requests: ([0-9]+)/,
       );
       const totaltokensusedMatch = usageText.match(
-        /Total Tokens Used: ([0-9]+)/
+        /Total Tokens Used: ([0-9]+)/,
       );
 
       const currentCost = costMatch ? parseFloat(costMatch[1]) : cost;
@@ -2840,7 +2750,7 @@ else {
         currentTime,
         allResponses,
         selectedPrompt?.text || "No prompt template was selected",
-        true // Flag to indicate this is a stop report
+        true, // Flag to indicate this is a stop report
       );
     }
   };
@@ -2858,8 +2768,6 @@ else {
     setIsPitchUpdateCompleted(false);
 
     // Reset last processed token and index
-    setLastProcessedToken(null);
-    setLastProcessedIndex(0);
 
     // Clear all accumulated data
     setAllResponses([]);
@@ -2913,13 +2821,15 @@ else {
       }));
     }
   }, [isDemoAccount]);
-  //for output 
+  //for output
 
   // fetch campaigns in parent
   useEffect(() => {
     const fetchCampaigns = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/campaigns/client/${effectiveUserId}`);
+        const response = await fetch(
+          `${API_BASE_URL}/api/auth/campaigns/client/${effectiveUserId}`,
+        );
         const data = await response.json();
         setCampaigns(data);
         // setCampaigns(data.campaigns || []);
@@ -2930,7 +2840,7 @@ else {
     fetchCampaigns();
   }, []);
   const handleCampaignChange = async (
-    event: React.ChangeEvent<HTMLSelectElement>
+    event: React.ChangeEvent<HTMLSelectElement>,
   ) => {
     const campaignId = event.target.value;
     setSelectedCampaign(campaignId);
@@ -2950,7 +2860,7 @@ else {
       if (campaign) {
         // Set the corresponding prompt
         const promptMatch = promptList.find(
-          (p: Prompt) => p.id === campaign.promptId
+          (p: Prompt) => p.id === campaign.promptId,
         );
         if (promptMatch) {
           setSelectedPrompt(promptMatch);
@@ -3013,8 +2923,6 @@ else {
     setIsPitchUpdateCompleted(false);
 
     // Reset last processed token and index
-    setLastProcessedToken(null);
-    setLastProcessedIndex(0);
 
     // Clear all accumulated data
     setAllResponses([]);
@@ -3071,7 +2979,7 @@ else {
           generated: false,
           last_Email_Body_updated: "",
           pG_Processed_on1: "",
-        })
+        }),
       );
 
       // Update your existing state with the Excel data
@@ -3094,11 +3002,11 @@ else {
     }));
   };
 
-
-  const [showBlueprintSubmenu, setShowBlueprintSubmenu] = useState<boolean>(false);
+  const [showBlueprintSubmenu, setShowBlueprintSubmenu] =
+    useState<boolean>(false);
   const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
 
-  <Header onUpgradeClick={() => setTab("MyPlan")} connectTo={true} />
+  <Header onUpgradeClick={() => setTab("MyPlan")} connectTo={true} />;
 
   return (
     // <div className="login-container pitch-page flex-col d-flex">
@@ -3148,19 +3056,32 @@ else {
                             icon={faDashboard}
                             className=" text-[#333333] text-lg"
                           /> */}
-                          <svg xmlns="http://www.w3.org/2000/svg" width="20px" height="20px" viewBox="0 0 24 24" fill={tab === "Dashboard" ? '#3f9f42' : '#111111'}>
-                            <path stroke={tab === "Dashboard" ? '#3f9f42' : '#111111'} stroke-width="2" d="M4 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5ZM14 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V5ZM4 16a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3ZM14 13a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-6Z" />
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="20px"
+                            height="20px"
+                            viewBox="0 0 24 24"
+                            fill={tab === "Dashboard" ? "#3f9f42" : "#111111"}
+                          >
+                            <path
+                              stroke={
+                                tab === "Dashboard" ? "#3f9f42" : "#111111"
+                              }
+                              stroke-width="2"
+                              d="M4 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5ZM14 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V5ZM4 16a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3ZM14 13a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-6Z"
+                            />
                           </svg>
                         </span>
                         <span className="menu-text">Dashboard</span>
                       </button>
                     </li>
 
-
-
                     <li
-                      className={`${tab === "TestTemplate" ? "active" : ""} ${showBlueprintSubmenu ? "has-submenu submenu-open" : "has-submenu"
-                        }`}
+                      className={`${tab === "TestTemplate" ? "active" : ""} ${
+                        showBlueprintSubmenu
+                          ? "has-submenu submenu-open"
+                          : "has-submenu"
+                      }`}
                     >
                       <button
                         onClick={() => {
@@ -3178,7 +3099,10 @@ else {
                         title="Create and manage email blueprints"
                       >
                         <span className="menu-icon">
-                          <FontAwesomeIcon icon={faFileAlt} className="text-[#333333] text-lg" />
+                          <FontAwesomeIcon
+                            icon={faFileAlt}
+                            className="text-[#333333] text-lg"
+                          />
                         </span>
                         <span className="menu-text">Blueprints</span>
                         <span className="submenu-arrow">
@@ -3193,7 +3117,11 @@ else {
                       {showBlueprintSubmenu && (
                         <ul className="submenu">
                           {/* Normal Blueprint list */}
-                          <li className={blueprintSubTab === "List" ? "active" : ""}>
+                          <li
+                            className={
+                              blueprintSubTab === "List" ? "active" : ""
+                            }
+                          >
                             <button
                               onClick={() => {
                                 setBlueprintSubTab("List");
@@ -3201,7 +3129,10 @@ else {
 
                                 // FIX: Delay writing to session to avoid breaking navigation
                                 setTimeout(() => {
-                                  sessionStorage.setItem("campaign_activeTab", "build");
+                                  sessionStorage.setItem(
+                                    "campaign_activeTab",
+                                    "build",
+                                  );
                                 }, 0);
 
                                 navigate("/main?tab=TestTemplate");
@@ -3212,10 +3143,13 @@ else {
                             </button>
                           </li>
 
-
                           {/* ADMIN only Playground */}
                           {userRole === "ADMIN" && (
-                            <li className={blueprintSubTab === "Playground" ? "active" : ""}>
+                            <li
+                              className={
+                                blueprintSubTab === "Playground" ? "active" : ""
+                              }
+                            >
                               <button
                                 onClick={() => {
                                   setBlueprintSubTab("Playground");
@@ -3232,12 +3166,12 @@ else {
                       )}
                     </li>
 
-
                     <li
-                      className={`${tab === "DataCampaigns" ? "active" : ""} ${showContactsSubmenu
-                        ? "has-submenu submenu-open"
-                        : "has-submenu"
-                        }`}
+                      className={`${tab === "DataCampaigns" ? "active" : ""} ${
+                        showContactsSubmenu
+                          ? "has-submenu submenu-open"
+                          : "has-submenu"
+                      }`}
                     >
                       <button
                         onClick={() => {
@@ -3346,10 +3280,11 @@ else {
                       </button>
                     </li>
                     <li
-                      className={`${tab === "Mail" ? "active" : ""} ${showMailSubmenu
-                        ? "has-submenu submenu-open"
-                        : "has-submenu"
-                        }`}
+                      className={`${tab === "Mail" ? "active" : ""} ${
+                        showMailSubmenu
+                          ? "has-submenu submenu-open"
+                          : "has-submenu"
+                      }`}
                     >
                       <button
                         onClick={() => {
@@ -3363,7 +3298,6 @@ else {
                         }}
                         className="side-menu-button"
                         title="Configure email, schedule sends and review analytics"
-
                       >
                         <span className="menu-icon">
                           <FontAwesomeIcon
@@ -3434,28 +3368,12 @@ else {
               </div>
             </nav>
             {/* Rest of Output component content */}
-            {userRole === "ADMIN" && (
               <div className="pb-2 d-flex align-center justify-end p-4 w-[100%] border-t-[3px] border-t-[#eeeeee]">
                 <div className="form-group w-[100%]">
-                  <label>Usage</label>
+                 
                   <span className="pos-relative full-width flex flex-col">
-                    <textarea
-                      placeholder="Usage"
-                      rows={4}
-                      name="tkUsage"
-                      value={outputForm.usage}
-                      className="full-width p-[0.5rem]"
-                      onChange={outputFormHandler}
-                    ></textarea>
-                    <button
-                      className="!bg-[#f5f5f5] mt-2 secondary-button button clear-button small d-flex align-center h-[100%] justify-center"
-                      onClick={clearUsage}
-                    >
-                      Clear Usage
-                    </button>
 
 
-                    
                     <div
                       ref={popupRef}
                       className="absolute left-0 top-full mt-2 bg-white border border-gray-300 rounded-md shadow-lg p-3 w-50"
@@ -3483,7 +3401,7 @@ else {
                   </span>
                 </div>
               </div>
-            )}
+            
           </div>
         </aside>
       )}
@@ -3515,23 +3433,20 @@ else {
 
         {/* Inner Main Content */}
         <main className="flex-1 overflow-y-auto h-[calc(100%-87px)] p-[20px] bg-[#eeeeee]">
-          <div className={`
+          <div
+            className={`
                rounded-md p-6
-              ${tab !== "Dashboard" && 'bg-white p-4 shadow-md'}
-            `}>
+              ${tab !== "Dashboard" && "bg-white p-4 shadow-md"}
+            `}
+          >
             {/* Main Content Area */}
 
             <div className="tab-content">
-              {tab === "Dashboard" && (
-                <Dashboard />
-              )
-              }
+              {tab === "Dashboard" && <Dashboard />}
             </div>
 
             {/* Tab Content */}
-            <div className="tab-content">
-
-            </div>
+            <div className="tab-content"></div>
 
             {tab === "DataCampaigns" && !showDataFileUpload && (
               <DataCampaigns
@@ -3623,15 +3538,10 @@ else {
                 languages={Object.values(Languages)}
                 selectedLanguage={selectedLanguage}
                 handleLanguageChange={handleLanguageChange}
-                
                 selectedPrompt={selectedPrompt} // Make sure this is passed
                 handleStop={handleStop}
                 isStopRequested={stopRef.current} // Add this line
-                toneSettings={toneSettings}
-                toneSettingsHandler={toneSettingsHandler} // Add this line
                 selectedSegmentId={selectedSegmentId}
-                fetchToneSettings={fetchToneSettings}
-                saveToneSettings={saveToneSettings}
                 handleSubjectTextChange={handleSubjectTextChange}
                 showCreditModal={showCreditModal}
                 checkUserCredits={checkUserCredits}
@@ -3640,10 +3550,10 @@ else {
                 setFollowupEnabled={setFollowupEnabled}
                 isSoundEnabled={isSoundEnabled}
                 setIsSoundEnabled={setIsSoundEnabled}
+                clearUsage={clearUsage}
+
               />
             )}
-
-
 
             {tab === "Mail" && (
               <Mail
@@ -3699,7 +3609,6 @@ else {
               />
             )}
 
-
             {/* Stop Confirmation Popup */}
             {showPopup && (
               <div className="popup">
@@ -3719,7 +3628,7 @@ else {
       />
       <AppModal
         isOpen={isFetchingContacts || isLoadingClientSettings}
-        onClose={() => { }}
+        onClose={() => {}}
         type="loader"
         loaderMessage={
           isFetchingContacts

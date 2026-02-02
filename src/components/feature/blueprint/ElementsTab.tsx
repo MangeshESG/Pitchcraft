@@ -1,9 +1,7 @@
 import React from "react";
-import type { PlaceholderDefinitionUI } 
-  from "./EmailCampaignBuilder";
+import type { PlaceholderDefinitionUI } from "./EmailCampaignBuilder";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faAngleDown } from "@fortawesome/free-solid-svg-icons";
-
+import { faAngleDown, faCircleInfo } from "@fortawesome/free-solid-svg-icons";
 
 export interface ElementsTabProps {
   groupedPlaceholders: Record<string, PlaceholderDefinitionUI[]>;
@@ -28,87 +26,77 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
   setExpandedKey,
   saveAllPlaceholders,
   renderPlaceholderInput,
-
-  dataFiles,
-  contacts,
-  selectedDataFileId,
-  selectedContactId,
-  handleSelectDataFile,
-  setSelectedContactId,
-  applyContactPlaceholders
 }) => {
-
   const UI_SIZE_TO_SPAN: Record<string, number> = {
-    sm: 3,  // 25%
-    md: 4,  // 33.33%
-    lg: 6,  // 50%
-    xl: 12  // 100%
+    sm: 3,
+    md: 4,
+    lg: 6,
+    xl: 12,
   };
 
-return (
-  <div
-    className="elements-tab-container !mt-[0] !rounded-none "
-    style={{
-      padding: "20px",
-      height: "calc(100% - 60px)",          // ✅ take full available height
-      display: "flex",
-      flexDirection: "column"
-    }}
-  >
+const formatCategoryLabel = (category: string) =>
+  category.toUpperCase();
+
+
+
+  return (
     <div
+      className="elements-tab-container !mt-[0] !rounded-none"
       style={{
+        padding: "20px",
+        height: "calc(100% - 60px)",
         display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: "15px",
-        flexShrink: 0
+        flexDirection: "column",
       }}
     >
-      <h2 style={{ fontSize: "22px", fontWeight: 600 }}>
-        Edit elements
-      </h2>
+      {/* HEADER */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "15px",
+          flexShrink: 0,
+        }}
+      >
+        <h2 style={{ fontSize: "22px", fontWeight: 600 }}>Edit elements</h2>
 
-      {/* EDIT BUTTON */}
-    <button
-      onClick={saveAllPlaceholders}   // ✅ CALL THE SAVE FUNCTION
-      style={{
-        padding: "6px 14px",
-        fontSize: "14px",
-        fontWeight: 600,
-        borderRadius: "4px",
-        border: "1px solid #d1d5db",
-        background: "#3f9f42",
-        color: "#fff",
-        cursor: "pointer"
-      }}
-    >
-      Save
-    </button>
+        <button
+          onClick={saveAllPlaceholders}
+          style={{
+            padding: "6px 14px",
+            fontSize: "14px",
+            fontWeight: 600,
+            borderRadius: "4px",
+            border: "1px solid #d1d5db",
+            background: "#3f9f42",
+            color: "#fff",
+            cursor: "pointer",
+          }}
+        >
+          Save
+        </button>
+      </div>
 
-    </div>
-
-
-    {/* ✅ SCROLLABLE CONTENT */}
-    <div
-      style={{
-        flex: 1,               // ✅ takes remaining height
-        overflowY: "auto",     // ✅ enables scrolling
-        paddingRight: "8px"
-      }}
-    >
-      {Object.entries(groupedPlaceholders).map(([category, placeholders]) => (
-        <div key={category}>
-         
+      {/* SCROLLABLE CONTENT */}
+      <div
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          paddingRight: "8px",
+        }}
+      >
+        {Object.entries(groupedPlaceholders).map(([category, placeholders]) => (
           <details
             key={category}
             style={{
               marginBottom: "10px",
               border: "1px solid #e5e7eb",
               borderRadius: "8px",
-              background: "#fff"
+              background: "#fff",
             }}
           >
-            {/* Accordion Title */}
+            {/* CATEGORY HEADER */}
             <summary
               style={{
                 listStyle: "none",
@@ -119,91 +107,112 @@ return (
                 borderBottom: "1px solid #e5e7eb",
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "space-between"
+                justifyContent: "space-between",
               }}
             >
-              <span style={{ color: "green", textTransform: "uppercase" }}>
-                {category}
-              </span>
+            <span style={{ color: "green" }}>
+              {formatCategoryLabel(category)}
+            </span>
+
+
 
               <FontAwesomeIcon
                 icon={faAngleDown}
-                className="accordion-chevron"
                 style={{ transition: "transform 0.2s ease" }}
               />
             </summary>
 
-            {/* Accordion Body (Input) */}
+            {/* PLACEHOLDERS */}
             <div
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(12, 1fr)",
                 gap: "20px",
                 padding: "16px",
-                maxHeight: "60vh",       // ⭐ LIMIT HEIGHT
-                overflowY: "auto"        // ⭐ ENABLE SCROLLING
+                maxHeight: "60vh",
+                overflowY: "auto",
               }}
             >
               {placeholders.map((p) => (
                 <div
                   key={p.placeholderKey}
                   style={{
-                    gridColumn: `span ${UI_SIZE_TO_SPAN[p.uiSize || "md"]}`
+                    gridColumn: `span ${UI_SIZE_TO_SPAN[p.uiSize || "md"]}`,
                   }}
                 >
+                  {/* LABEL ROW */}
                   <label
                     style={{
                       fontWeight: 600,
                       marginBottom: "6px",
                       fontSize: "13px",
                       display: "flex",
-                      justifyContent: "space-between"
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: "8px",
                     }}
                   >
-                    {p.friendlyName}
-
-                  {p.isExpandable && p.isRichText && (
-                    <button
-                      onClick={() => setExpandedKey(p.placeholderKey, p.friendlyName)}
+                    {/* LEFT: NAME + HELP ICON */}
+                    <div
                       style={{
-                        fontSize: "12px",
-                        padding: "4px 8px",
-                        borderRadius: "4px",
-                        border: "1px solid #d1d5db",
-                        background: "#f9fafb"
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
                       }}
                     >
-                      Expand
-                    </button>
-                  )}
-                </label>
+                      <span>{p.friendlyName}</span>
+
+                      {p.helpLink && (
+                        <a
+                          href={p.helpLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Learn more"
+                          style={{
+                            color: "#2563eb",
+                            cursor: "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <FontAwesomeIcon icon={faCircleInfo} />
+                        </a>
+                      )}
+                    </div>
+
+                    {/* RIGHT: EXPAND */}
+                    {p.isExpandable && p.isRichText && (
+                      <button
+                        onClick={() =>
+                          setExpandedKey(p.placeholderKey, p.friendlyName)
+                        }
+                        style={{
+                          fontSize: "12px",
+                          padding: "4px 8px",
+                          borderRadius: "4px",
+                          border: "1px solid #d1d5db",
+                          background: "#f9fafb",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Expand
+                      </button>
+                    )}
+                  </label>
 
                   {renderPlaceholderInput({
                     ...p,
-                    options: p.options || []
+                    options: p.options || [],
                   })}
                 </div>
               ))}
             </div>
           </details>
-
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
-
-    {/* FOOTER (fixed) */}
-    <div
-      style={{
-        flexShrink: 0,
-        textAlign: "right",
-        marginTop: "12px"
-      }}
-    >
-
-    </div>
-  </div>
-);
-
+  );
 };
 
 export default ElementsTab;

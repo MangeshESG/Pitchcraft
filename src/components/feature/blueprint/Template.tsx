@@ -11,7 +11,6 @@ import PaginationControls from "../PaginationControls";
 import duplicateIcon from "../../../assets/images/icons/duplicate.png";
 import CreditCheckModal from "../../common/CreditCheckModal";
 
-
 const menuBtnStyle = {
   width: "100%",
   padding: "8px 18px",
@@ -89,11 +88,16 @@ const Template: React.FC<TemplateProps> = ({
   onTemplateSelect,
 }) => {
   // States
-  const [campaignTemplates, setCampaignTemplates] = useState<CampaignTemplate[]>([]);
+  const [campaignTemplates, setCampaignTemplates] = useState<
+    CampaignTemplate[]
+  >([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedCampaignTemplate, setSelectedCampaignTemplate] = useState<CampaignTemplate | null>(null);
-  const [templateActionsAnchor, setTemplateActionsAnchor] = useState<string | null>(null);
+  const [selectedCampaignTemplate, setSelectedCampaignTemplate] =
+    useState<CampaignTemplate | null>(null);
+  const [templateActionsAnchor, setTemplateActionsAnchor] = useState<
+    string | null
+  >(null);
 
   // Modal states
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
@@ -105,10 +109,14 @@ const Template: React.FC<TemplateProps> = ({
   const [showCloneNameModal, setShowCloneNameModal] = useState(false);
   const [cloneNameInput, setCloneNameInput] = useState("");
 
-  const [viewCampaignTab, setViewCampaignTab] = useState<"example" | "template">("example");
+  const [viewCampaignTab, setViewCampaignTab] = useState<
+    "example" | "template"
+  >("example");
   const [exampleEmail, setExampleEmail] = useState("");
   const [editableCampaignTemplate, setEditableCampaignTemplate] = useState("");
-  const [currentPlaceholderValues, setCurrentPlaceholderValues] = useState<Record<string, string>>({});
+  const [currentPlaceholderValues, setCurrentPlaceholderValues] = useState<
+    Record<string, string>
+  >({});
 
   const [editCampaignForm, setEditCampaignForm] = useState({
     templateName: "",
@@ -119,7 +127,13 @@ const Template: React.FC<TemplateProps> = ({
   });
 
   const appModal = useAppModal();
-  const { checkUserCredits, showCreditModal, closeCreditModal, handleSkipModal, credits } = useCreditCheck();
+  const {
+    checkUserCredits,
+    showCreditModal,
+    closeCreditModal,
+    handleSkipModal,
+    credits,
+  } = useCreditCheck();
   const userId = sessionStorage.getItem("clientId");
   const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
 
@@ -128,17 +142,22 @@ const Template: React.FC<TemplateProps> = ({
   // ✅ NEW: Template name modal states
   const [showTemplateNameModal, setShowTemplateNameModal] = useState(false);
   const [templateNameInput, setTemplateNameInput] = useState("");
-  const [templateDefinitions, setTemplateDefinitions] = useState<TemplateDefinition[]>([]);
-  const [selectedTemplateDefinitionId, setSelectedTemplateDefinitionId] = useState<number | null>(null);
+  const [templateDefinitions, setTemplateDefinitions] = useState<
+    TemplateDefinition[]
+  >([]);
+  const [selectedTemplateDefinitionId, setSelectedTemplateDefinitionId] =
+    useState<number | null>(null);
   const [isCreatingCampaign, setIsCreatingCampaign] = useState(false);
-  const [hoveredTemplateId, setHoveredTemplateId] = useState<number | null>(null);
-  const [exampleCache, setExampleCache] = useState<Record<number, string | undefined>>({});
+  const [hoveredTemplateId, setHoveredTemplateId] = useState<number | null>(
+    null,
+  );
+  const [exampleCache, setExampleCache] = useState<
+    Record<number, string | undefined>
+  >({});
 
-
-  const DEFAULT_USER_TEMPLATE_ID = 62;
-  const DEFAULT_USER_TEMPLATE_NAME = "PKB- Final";
+  const DEFAULT_USER_TEMPLATE_ID = 65;
+  const DEFAULT_USER_TEMPLATE_NAME = "PKB- FINAL 2.0";
   const isAdmin = userRole?.toUpperCase() === "ADMIN";
-
 
   // Utility functions
   const formatDate = (dateString?: string | null) => {
@@ -158,7 +177,7 @@ const Template: React.FC<TemplateProps> = ({
   const fetchTemplateDefinitions = useCallback(async () => {
     try {
       const response = await fetch(
-        `${API_BASE_URL}/api/CampaignPrompt/template-definitions?activeOnly=true`
+        `${API_BASE_URL}/api/CampaignPrompt/template-definitions?activeOnly=true`,
       );
 
       if (!response.ok) throw new Error("Failed to load template definitions");
@@ -175,7 +194,7 @@ const Template: React.FC<TemplateProps> = ({
         }
       } else {
         // ✅ USER → force PKB-Final only
-        const pkbTemplate = defs.find(d => d.id === DEFAULT_USER_TEMPLATE_ID);
+        const pkbTemplate = defs.find((d) => d.id === DEFAULT_USER_TEMPLATE_ID);
 
         setTemplateDefinitions(pkbTemplate ? [pkbTemplate] : []);
         setSelectedTemplateDefinitionId(DEFAULT_USER_TEMPLATE_ID);
@@ -186,14 +205,15 @@ const Template: React.FC<TemplateProps> = ({
     }
   }, [isAdmin]);
 
-
   // Fetch campaign templates
   const fetchCampaignTemplates = useCallback(async () => {
     if (!effectiveUserId) return;
 
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/templates/${effectiveUserId}`);
+      const response = await fetch(
+        `${API_BASE_URL}/api/CampaignPrompt/templates/${effectiveUserId}`,
+      );
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -263,7 +283,7 @@ const Template: React.FC<TemplateProps> = ({
             templateDefinitionId: finalTemplateDefinitionId,
             templateName: templateNameInput,
           }),
-        }
+        },
       );
 
       if (!response.ok) {
@@ -278,7 +298,7 @@ const Template: React.FC<TemplateProps> = ({
         sessionStorage.setItem("newCampaignName", data.templateName);
         sessionStorage.setItem(
           "selectedTemplateDefinitionId",
-          finalTemplateDefinitionId.toString()
+          finalTemplateDefinitionId.toString(),
         );
         sessionStorage.setItem("autoStartConversation", "true");
         sessionStorage.setItem("openConversationTab", "true");
@@ -287,7 +307,9 @@ const Template: React.FC<TemplateProps> = ({
         setShowTemplateNameModal(false);
         setShowCampaignBuilder(true);
       } else {
-        throw new Error(data.message || data.Message || "Failed to create campaign");
+        throw new Error(
+          data.message || data.Message || "Failed to create campaign",
+        );
       }
     } catch (error) {
       console.error("Error creating campaign:", error);
@@ -296,7 +318,6 @@ const Template: React.FC<TemplateProps> = ({
       setIsCreatingCampaign(false);
     }
   };
-
 
   // Update template
   const handleUpdateCampaignTemplate = async () => {
@@ -307,18 +328,22 @@ const Template: React.FC<TemplateProps> = ({
 
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: selectedCampaignTemplate.id,
-          templateName: editCampaignForm.templateName,
-          aiInstructions: editCampaignForm.aiInstructions,
-          placeholderListInfo: editCampaignForm.placeholderListInfo,
-          masterBlueprintUnpopulated: editCampaignForm.masterBlueprintUnpopulated,
-          selectedModel: editCampaignForm.selectedModel,
-        }),
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/api/CampaignPrompt/template/update`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: selectedCampaignTemplate.id,
+            templateName: editCampaignForm.templateName,
+            aiInstructions: editCampaignForm.aiInstructions,
+            placeholderListInfo: editCampaignForm.placeholderListInfo,
+            masterBlueprintUnpopulated:
+              editCampaignForm.masterBlueprintUnpopulated,
+            selectedModel: editCampaignForm.selectedModel,
+          }),
+        },
+      );
 
       if (!response.ok) {
         throw new Error("Failed to update campaign template");
@@ -344,8 +369,8 @@ const Template: React.FC<TemplateProps> = ({
         `${API_BASE_URL}/api/CampaignPrompt/template/${selectedCampaignTemplate.id}/delete`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" }
-        }
+          headers: { "Content-Type": "application/json" },
+        },
       );
 
       if (!response.ok) {
@@ -372,18 +397,21 @@ const Template: React.FC<TemplateProps> = ({
 
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/rename-Template`, {
-        method: "POST",
-        headers: {
-          "accept": "*/*",
-          "Content-Type": "application/json"
+      const response = await fetch(
+        `${API_BASE_URL}/api/CampaignPrompt/rename-Template`,
+        {
+          method: "POST",
+          headers: {
+            accept: "*/*",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            clientId: effectiveUserId,
+            templateId: selectedCampaignTemplate.id,
+            templateName: renameInput.trim(),
+          }),
         },
-        body: JSON.stringify({
-          clientId: effectiveUserId,
-          templateId: selectedCampaignTemplate.id,
-          templateName: renameInput.trim()
-        }),
-      });
+      );
 
       if (!response.ok) {
         throw new Error("Failed to rename campaign template");
@@ -410,11 +438,14 @@ const Template: React.FC<TemplateProps> = ({
 
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/clone-template?clientId=${effectiveUserId}&templateId=${selectedCampaignTemplate.id}&Name=${encodeURIComponent(cloneNameInput.trim())}`, {
-        method: "POST",
-        headers: { "accept": "*/*" },
-        body: ""
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/api/CampaignPrompt/clone-template?clientId=${effectiveUserId}&templateId=${selectedCampaignTemplate.id}&Name=${encodeURIComponent(cloneNameInput.trim())}`,
+        {
+          method: "POST",
+          headers: { accept: "*/*" },
+          body: "",
+        },
+      );
 
       if (!response.ok) {
         throw new Error("Failed to clone campaign template");
@@ -444,14 +475,22 @@ const Template: React.FC<TemplateProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState<number | "All">(10);
   //const pageSize = 10;
-  const effectivePageSize = pageSize === "All" ? filteredCampaignTemplates.length : pageSize;
-  const totalPages = effectivePageSize === 0 ? 1 : Math.ceil(filteredCampaignTemplates.length / effectivePageSize);
+  const effectivePageSize =
+    pageSize === "All" ? filteredCampaignTemplates.length : pageSize;
+  const totalPages =
+    effectivePageSize === 0
+      ? 1
+      : Math.ceil(filteredCampaignTemplates.length / effectivePageSize);
 
-  const startIndex = pageSize === "All" ? 0 : (currentPage - 1) * effectivePageSize;
+  const startIndex =
+    pageSize === "All" ? 0 : (currentPage - 1) * effectivePageSize;
   const paginatedTemplates =
     pageSize === "All"
       ? filteredCampaignTemplates
-      : filteredCampaignTemplates.slice(startIndex, startIndex + (effectivePageSize || 0));
+      : filteredCampaignTemplates.slice(
+          startIndex,
+          startIndex + (effectivePageSize || 0),
+        );
   // Effects
   useEffect(() => {
     if (effectiveUserId) {
@@ -462,7 +501,8 @@ const Template: React.FC<TemplateProps> = ({
   const generateExampleEmail = (template: CampaignTemplate) => {
     if (!template) return "";
 
-    if ((template as any).exampleOutput) {       // ✅ DB field preferred
+    if ((template as any).exampleOutput) {
+      // ✅ DB field preferred
       return (template as any).exampleOutput;
     }
 
@@ -519,23 +559,24 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
     sessionStorage.setItem("initialExampleEmail", "");
   }
 
-  // Update session storage (builder depends on this)
-  sessionStorage.setItem("newCampaignId", blueprint.id.toString());
-  sessionStorage.setItem("newCampaignName", blueprint.templateName);
-  sessionStorage.setItem("editTemplateId", blueprint.id.toString());
-  sessionStorage.setItem("editTemplateMode", "true");
+    // Update session storage (builder depends on this)
+    sessionStorage.setItem("newCampaignId", blueprint.id.toString());
+    sessionStorage.setItem("newCampaignName", blueprint.templateName);
+    sessionStorage.setItem("editTemplateId", blueprint.id.toString());
+    sessionStorage.setItem("editTemplateMode", "true");
 
-  // Force builder re-mount
-  setShowCampaignBuilder(false);
-  setTimeout(() => {
-    setShowCampaignBuilder(true);
-  }, 0);
-};
-
+    // Force builder re-mount
+    setShowCampaignBuilder(false);
+    setTimeout(() => {
+      setShowCampaignBuilder(true);
+    }, 0);
+  };
 
   const fetchCampaignTemplateDetails = async (templateId: number) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/campaign/${templateId}`);
+      const response = await fetch(
+        `${API_BASE_URL}/api/CampaignPrompt/campaign/${templateId}`,
+      );
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -554,13 +595,13 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
 
     // Match everything after {example_output_email} =
     const match = placeholderListWithValue.match(
-      /\{example_output_email\}\s*=\s*([\s\S]*)/i
+      /\{example_output_email\}\s*=\s*([\s\S]*)/i,
     );
 
     return match ? match[1].trim() : "";
   };
   const extractExampleFromPlaceholderList = (
-    placeholderListWithValue?: any
+    placeholderListWithValue?: any,
   ): string => {
     if (!placeholderListWithValue) return "";
 
@@ -569,7 +610,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
       const exampleItem = placeholderListWithValue.find(
         (item) =>
           item.key === "example_output_email" ||
-          item.name === "example_output_email"
+          item.name === "example_output_email",
       );
 
       return exampleItem?.value?.trim() || "";
@@ -578,7 +619,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
     // CASE 2: API returns STRING
     if (typeof placeholderListWithValue === "string") {
       const match = placeholderListWithValue.match(
-        /\{example_output_email\}\s*=\s*([\s\S]*)/i
+        /\{example_output_email\}\s*=\s*([\s\S]*)/i,
       );
       return match?.[1]?.trim() || "";
     }
@@ -593,7 +634,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
       if (fullTemplate) {
         setSelectedCampaignTemplate(fullTemplate);
         setExampleEmail(
-          fullTemplate.placeholderValues?.example_output_email || ""
+          fullTemplate.placeholderValues?.example_output_email || "",
         );
 
         setEditableCampaignTemplate(fullTemplate.campaignBlueprint || "");
@@ -619,27 +660,29 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
     return text.trim() || "No example email available";
   };
 
-
-
   const handleSaveCampaignTemplateChanges = async () => {
     if (!selectedCampaignTemplate) return;
 
     setIsLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/template/update`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: selectedCampaignTemplate.id,
-          templateName: selectedCampaignTemplate.templateName,
-          aiInstructions: selectedCampaignTemplate.aiInstructions,
-          placeholderListInfo: selectedCampaignTemplate.placeholderListInfo,
-          masterBlueprintUnpopulated: selectedCampaignTemplate.masterBlueprintUnpopulated,
-          campaignBlueprint: editableCampaignTemplate,
-          selectedModel: selectedCampaignTemplate.selectedModel,
-          placeholderValues: currentPlaceholderValues,
-        }),
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/api/CampaignPrompt/template/update`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id: selectedCampaignTemplate.id,
+            templateName: selectedCampaignTemplate.templateName,
+            aiInstructions: selectedCampaignTemplate.aiInstructions,
+            placeholderListInfo: selectedCampaignTemplate.placeholderListInfo,
+            masterBlueprintUnpopulated:
+              selectedCampaignTemplate.masterBlueprintUnpopulated,
+            campaignBlueprint: editableCampaignTemplate,
+            selectedModel: selectedCampaignTemplate.selectedModel,
+            placeholderValues: currentPlaceholderValues,
+          }),
+        },
+      );
 
       if (!response.ok) {
         throw new Error("Failed to update campaign template");
@@ -661,7 +704,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
     <div className="template-container">
       {!showCampaignBuilder ? (
         <>
-          <div className="section-wrapper" style={{ marginTop: '-60px' }}>
+          <div className="section-wrapper" style={{ marginTop: "-60px" }}>
             <h2 className="section-title">Blueprints</h2>
 
             {/* Search and Create button */}
@@ -677,7 +720,8 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                 className="button save-button auto-width small"
                 onClick={handleCreateCampaignClick}
               >
-                <span className="text-[20px] mr-1">+</span> Create campaign blueprint
+                <span className="text-[20px] mr-1">+</span> Create campaign
+                blueprint
               </button>
             </div>
             <div style={{ marginBottom: "10px" }}>
@@ -729,17 +773,26 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                       </td> */}
                       <td>
                         <span
-                          id={`blueprint-${template.id}`}   // ✅ ADD THIS
+                          id={`blueprint-${template.id}`} // ✅ ADD THIS
                           className="template-link"
                           onMouseEnter={() => {
                             setHoveredTemplateId(template.id);
                             preloadExampleEmail(template);
                           }}
                           onClick={async () => {
-                            sessionStorage.setItem("editTemplateId", template.id.toString());
+                            sessionStorage.setItem(
+                              "editTemplateId",
+                              template.id.toString(),
+                            );
                             sessionStorage.setItem("editTemplateMode", "true");
-                            sessionStorage.setItem("newCampaignId", template.id.toString());
-                            sessionStorage.setItem("newCampaignName", template.templateName);
+                            sessionStorage.setItem(
+                              "newCampaignId",
+                              template.id.toString(),
+                            );
+                            sessionStorage.setItem(
+                              "newCampaignName",
+                              template.templateName,
+                            );
 
                             // const example =
                             //   getTooltipText(exampleCache[template.id] || generateExampleEmail(template));
@@ -761,13 +814,12 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                           {template.templateName}
                         </span>
 
-
                         {/* Tooltip */}
                         <Tooltip
                           anchorId={`blueprint-${template.id}`}
                           place="right"
                           offset={20}
-                          positionStrategy="fixed"   // ✅ ESCAPES TABLE CLIPPING
+                          positionStrategy="fixed" // ✅ ESCAPES TABLE CLIPPING
                           className="example-tooltip"
                         >
                           {exampleCache[template.id] === undefined ? (
@@ -776,12 +828,13 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                             <div
                               className="tooltip-email-content"
                               dangerouslySetInnerHTML={{
-                                __html: exampleCache[template.id] || "<p>No example email available</p>",
+                                __html:
+                                  exampleCache[template.id] ||
+                                  "<p>No example email available</p>",
                               }}
                             />
                           )}
                         </Tooltip>
-
                       </td>
 
                       <td>#{template.id}</td>
@@ -794,14 +847,15 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                               `campaign-${template.id}` ===
                                 templateActionsAnchor
                                 ? null
-                                : `campaign-${template.id}`
+                                : `campaign-${template.id}`,
                             )
                           }
                         >
                           ⋮
                         </button>
 
-                        {templateActionsAnchor === `campaign-${template.id}` && (
+                        {templateActionsAnchor ===
+                          `campaign-${template.id}` && (
                           <div className="template-actions-menu">
                             <button
                               onClick={() => {
@@ -917,14 +971,27 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                               <button
                                 onClick={() => {
                                   setSelectedCampaignTemplate(template);
-                                  setCloneNameInput(`${template.templateName} - copy`);
+                                  setCloneNameInput(
+                                    `${template.templateName} - copy`,
+                                  );
                                   setShowCloneNameModal(true);
                                   setTemplateActionsAnchor(null);
                                 }}
                                 style={menuBtnStyle}
                                 className="flex gap-2 items-center"
                               >
-                                <span> <img src={duplicateIcon} alt="Clone" style={{ width: "23px", height: "23px", objectFit: "contain", }} /></span>
+                                <span>
+                                  {" "}
+                                  <img
+                                    src={duplicateIcon}
+                                    alt="Clone"
+                                    style={{
+                                      width: "23px",
+                                      height: "23px",
+                                      objectFit: "contain",
+                                    }}
+                                  />
+                                </span>
                                 <span>Clone</span>
                               </button>
 
@@ -950,7 +1017,6 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                                 <span>Delete</span>
                               </button>
                             </>
-
                           </div>
                         )}
                       </td>
@@ -974,7 +1040,6 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
           {/* ✅ NEW: Template Name Modal */}
           {/* ✅ UPDATED: Template Name Modal */}
           {showTemplateNameModal && (
-
             <div className="modal-backdrop">
               <div
                 className="modal-content"
@@ -991,7 +1056,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                       border: "none",
                       fontSize: "24px",
                       cursor: "pointer",
-                      color: "#6b7280"
+                      color: "#6b7280",
                     }}
                   >
                     ✕
@@ -1001,18 +1066,26 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                 <div className="modal-body" style={{ padding: "24px" }}>
                   {/* ✅ Template Definition Selector */}
                   {isAdmin && (
-                    <div className="form-group" style={{ marginBottom: "20px" }}>
+                    <div
+                      className="form-group"
+                      style={{ marginBottom: "20px" }}
+                    >
                       <label>
-                        Select base template <span style={{ color: "red" }}>*</span>
+                        Select base template{" "}
+                        <span style={{ color: "red" }}>*</span>
                       </label>
 
                       <select
                         value={selectedTemplateDefinitionId || ""}
                         onChange={(e) =>
-                          setSelectedTemplateDefinitionId(parseInt(e.target.value))
+                          setSelectedTemplateDefinitionId(
+                            parseInt(e.target.value),
+                          )
                         }
                       >
-                        <option value="">-- Select a template definition --</option>
+                        <option value="">
+                          -- Select a template definition --
+                        </option>
                         {templateDefinitions.map((def) => (
                           <option key={def.id} value={def.id}>
                             {def.templateName}
@@ -1022,10 +1095,16 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                     </div>
                   )}
 
-
                   {/* Template Name Input */}
                   <div className="form-group" style={{ marginBottom: "20px" }}>
-                    <label htmlFor="templateName" style={{ display: "block", marginBottom: "8px", fontWeight: "500" }}>
+                    <label
+                      htmlFor="templateName"
+                      style={{
+                        display: "block",
+                        marginBottom: "8px",
+                        fontWeight: "500",
+                      }}
+                    >
                       Campaign name <span style={{ color: "red" }}>*</span>
                     </label>
                     <input
@@ -1036,7 +1115,11 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                       placeholder="e.g., IBM Sales Outreach - Q1 2024"
                       autoFocus
                       onKeyPress={(e) => {
-                        if (e.key === 'Enter' && templateNameInput.trim() && selectedTemplateDefinitionId) {
+                        if (
+                          e.key === "Enter" &&
+                          templateNameInput.trim() &&
+                          selectedTemplateDefinitionId
+                        ) {
                           handleTemplateNameSubmit();
                         }
                       }}
@@ -1045,29 +1128,33 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                         padding: "12px 16px",
                         border: "2px solid #e5e7eb",
                         borderRadius: "8px",
-                        fontSize: "15px"
+                        fontSize: "15px",
                       }}
                     />
-                    <p style={{
-                      marginTop: "8px",
-                      fontSize: "13px",
-                      color: "#6b7280"
-                    }}>
+                    <p
+                      style={{
+                        marginTop: "8px",
+                        fontSize: "13px",
+                        color: "#6b7280",
+                      }}
+                    >
                       💡 Give this specific campaign instance a unique name
                     </p>
                   </div>
 
                   {/* Template Definition Preview */}
-
                 </div>
 
-                <div className="modal-footer" style={{
-                  display: "flex",
-                  gap: "12px",
-                  padding: "16px 24px",
-                  borderTop: "1px solid #e5e7eb",
-                  justifyContent: "flex-end"
-                }}>
+                <div
+                  className="modal-footer"
+                  style={{
+                    display: "flex",
+                    gap: "12px",
+                    padding: "16px 24px",
+                    borderTop: "1px solid #e5e7eb",
+                    justifyContent: "flex-end",
+                  }}
+                >
                   <button
                     className="button secondary"
                     onClick={() => setShowTemplateNameModal(false)}
@@ -1075,7 +1162,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                     style={{
                       padding: "10px 20px",
                       borderRadius: "8px",
-                      cursor: "pointer"
+                      cursor: "pointer",
                     }}
                   >
                     Cancel
@@ -1083,17 +1170,24 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                   <button
                     className="button save-button"
                     onClick={handleTemplateNameSubmit}
-                    disabled={!templateNameInput.trim() || !selectedTemplateDefinitionId || isCreatingCampaign}
+                    disabled={
+                      !templateNameInput.trim() ||
+                      !selectedTemplateDefinitionId ||
+                      isCreatingCampaign
+                    }
                   >
                     {isCreatingCampaign ? (
                       <>
-                        <span className="spinner" style={{ marginRight: "8px" }}>⏳</span>
+                        <span
+                          className="spinner"
+                          style={{ marginRight: "8px" }}
+                        >
+                          ⏳
+                        </span>
                         Creating campaign...
                       </>
                     ) : (
-                      <>
-                        Create blueprint
-                      </>
+                      <>Create blueprint</>
                     )}
                   </button>
                 </div>
@@ -1103,12 +1197,34 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
           {/* Clone Name Input Modal */}
           {showCloneNameModal && selectedCampaignTemplate && (
             <div className="modal-backdrop">
-              <div className="modal-content" style={{ maxWidth: "500px", padding: "24px" }}>
-                <h2 style={{ fontSize: "18px", fontWeight: "600", marginBottom: "24px", color: "#1f2937" }}>Clone blueprint</h2>
+              <div
+                className="modal-content"
+                style={{ maxWidth: "500px", padding: "24px" }}
+              >
+                <h2
+                  style={{
+                    fontSize: "18px",
+                    fontWeight: "600",
+                    marginBottom: "24px",
+                    color: "#1f2937",
+                  }}
+                >
+                  Clone blueprint
+                </h2>
 
                 <div className="form-group" style={{ marginBottom: "16px" }}>
-                  <label htmlFor="cloneNameInput" style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px", color: "#374151" }}>
-                    New blueprint name <span style={{ color: "#ef4444" }}>*</span>
+                  <label
+                    htmlFor="cloneNameInput"
+                    style={{
+                      display: "block",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                      marginBottom: "8px",
+                      color: "#374151",
+                    }}
+                  >
+                    New blueprint name{" "}
+                    <span style={{ color: "#ef4444" }}>*</span>
                   </label>
                   <input
                     id="cloneNameInput"
@@ -1118,7 +1234,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                     placeholder="Enter name for cloned blueprint"
                     autoFocus
                     onKeyPress={(e) => {
-                      if (e.key === 'Enter' && cloneNameInput.trim()) {
+                      if (e.key === "Enter" && cloneNameInput.trim()) {
                         handleCloneCampaignTemplate();
                       }
                     }}
@@ -1129,21 +1245,31 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                       borderRadius: "8px",
                       fontSize: "14px",
                       outline: "none",
-                      transition: "border-color 0.2s"
+                      transition: "border-color 0.2s",
                     }}
-                    onFocus={(e) => e.target.style.borderColor = "#3b82f6"}
-                    onBlur={(e) => e.target.style.borderColor = "#d1d5db"}
+                    onFocus={(e) => (e.target.style.borderColor = "#3b82f6")}
+                    onBlur={(e) => (e.target.style.borderColor = "#d1d5db")}
                   />
-                  <p style={{
-                    marginTop: "8px",
-                    fontSize: "13px",
-                    color: "#6b7280"
-                  }}>
-                    💡 Cloning from: <strong>{selectedCampaignTemplate.templateName}</strong>
+                  <p
+                    style={{
+                      marginTop: "8px",
+                      fontSize: "13px",
+                      color: "#6b7280",
+                    }}
+                  >
+                    💡 Cloning from:{" "}
+                    <strong>{selectedCampaignTemplate.templateName}</strong>
                   </p>
                 </div>
 
-                <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end", marginTop: "24px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "12px",
+                    justifyContent: "flex-end",
+                    marginTop: "24px",
+                  }}
+                >
                   <button
                     onClick={() => {
                       setShowCloneNameModal(false);
@@ -1159,7 +1285,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                       color: "#374151",
                       fontSize: "14px",
                       fontWeight: "500",
-                      cursor: "pointer"
+                      cursor: "pointer",
                     }}
                   >
                     Cancel
@@ -1176,7 +1302,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                       fontSize: "14px",
                       fontWeight: "500",
                       cursor: cloneNameInput.trim() ? "pointer" : "not-allowed",
-                      opacity: cloneNameInput.trim() ? 1 : 0.6
+                      opacity: cloneNameInput.trim() ? 1 : 0.6,
                     }}
                   >
                     {isLoading ? "Cloning..." : "Clone Blueprint"}
@@ -1189,11 +1315,32 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
           {/* Rename Modal */}
           {showRenameModal && selectedCampaignTemplate && (
             <div className="modal-backdrop">
-              <div className="modal-content" style={{ maxWidth: "500px", padding: "24px" }}>
-                <h2 style={{ fontSize: "18px", fontWeight: "600", marginBottom: "24px", color: "#1f2937" }}>Rename blueprint</h2>
+              <div
+                className="modal-content"
+                style={{ maxWidth: "500px", padding: "24px" }}
+              >
+                <h2
+                  style={{
+                    fontSize: "18px",
+                    fontWeight: "600",
+                    marginBottom: "24px",
+                    color: "#1f2937",
+                  }}
+                >
+                  Rename blueprint
+                </h2>
 
                 <div className="form-group" style={{ marginBottom: "16px" }}>
-                  <label htmlFor="renameInput" style={{ display: "block", fontSize: "14px", fontWeight: "500", marginBottom: "8px", color: "#374151" }}>
+                  <label
+                    htmlFor="renameInput"
+                    style={{
+                      display: "block",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                      marginBottom: "8px",
+                      color: "#374151",
+                    }}
+                  >
                     Blueprint name <span style={{ color: "#ef4444" }}>*</span>
                   </label>
                   <input
@@ -1204,7 +1351,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                     placeholder="Enter blueprint name"
                     autoFocus
                     onKeyPress={(e) => {
-                      if (e.key === 'Enter' && renameInput.trim()) {
+                      if (e.key === "Enter" && renameInput.trim()) {
                         handleRenameCampaignTemplate();
                       }
                     }}
@@ -1215,14 +1362,21 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                       borderRadius: "8px",
                       fontSize: "14px",
                       outline: "none",
-                      transition: "border-color 0.2s"
+                      transition: "border-color 0.2s",
                     }}
-                    onFocus={(e) => e.target.style.borderColor = "#3b82f6"}
-                    onBlur={(e) => e.target.style.borderColor = "#d1d5db"}
+                    onFocus={(e) => (e.target.style.borderColor = "#3b82f6")}
+                    onBlur={(e) => (e.target.style.borderColor = "#d1d5db")}
                   />
                 </div>
 
-                <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end", marginTop: "24px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "12px",
+                    justifyContent: "flex-end",
+                    marginTop: "24px",
+                  }}
+                >
                   <button
                     onClick={() => {
                       setShowRenameModal(false);
@@ -1238,7 +1392,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                       color: "#374151",
                       fontSize: "14px",
                       fontWeight: "500",
-                      cursor: "pointer"
+                      cursor: "pointer",
                     }}
                   >
                     Cancel
@@ -1255,7 +1409,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                       fontSize: "14px",
                       fontWeight: "500",
                       cursor: renameInput.trim() ? "pointer" : "not-allowed",
-                      opacity: renameInput.trim() ? 1 : 0.6
+                      opacity: renameInput.trim() ? 1 : 0.6,
                     }}
                   >
                     {isLoading ? "Saving..." : "Save"}
@@ -1302,14 +1456,13 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
           {showViewCampaignModal && selectedCampaignTemplate && (
             <div className="modal-backdrop">
               <div className="modal-content modal-large">
-
                 {/* ✅ Header with close (✕) icon */}
                 <div
                   style={{
                     display: "flex",
                     justifyContent: "flex-end",
                     marginTop: "-22px",
-                    borderBottom: "1px solid #e5e7eb"
+                    borderBottom: "1px solid #e5e7eb",
                   }}
                 >
                   <button
@@ -1324,14 +1477,13 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                       fontSize: "22px",
                       cursor: "pointer",
                       color: "#6b7280",
-                      fontWeight: "bold"
+                      fontWeight: "bold",
                     }}
                     aria-label="Close"
                   >
                     ✕
                   </button>
                 </div>
-
 
                 {/* Render ONLY Example Output */}
                 <div className="modal-body">
@@ -1344,7 +1496,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                       borderRadius: "8px",
                       border: "1px solid #e5e7eb",
                       height: "auto",
-                      overflowY: "hidden"
+                      overflowY: "hidden",
                     }}
                     dangerouslySetInnerHTML={{
                       __html: exampleEmail || "<p style='color: #9ca3af; text-align: center; padding: 40px 0;'>No example email available</p>"
@@ -1384,7 +1536,6 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
             </div>
           )}
 
-
           {/* Edit Campaign Modal */}
           {showEditCampaignModal && selectedCampaignTemplate && (
             <div className="modal-backdrop">
@@ -1396,7 +1547,12 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                   <input
                     type="text"
                     value={editCampaignForm.templateName}
-                    onChange={(e) => setEditCampaignForm({ ...editCampaignForm, templateName: e.target.value })}
+                    onChange={(e) =>
+                      setEditCampaignForm({
+                        ...editCampaignForm,
+                        templateName: e.target.value,
+                      })
+                    }
                     placeholder="Template Name"
                   />
                 </div>
@@ -1405,7 +1561,12 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                   <label>AI instructions</label>
                   <textarea
                     value={editCampaignForm.aiInstructions}
-                    onChange={(e) => setEditCampaignForm({ ...editCampaignForm, aiInstructions: e.target.value })}
+                    onChange={(e) =>
+                      setEditCampaignForm({
+                        ...editCampaignForm,
+                        aiInstructions: e.target.value,
+                      })
+                    }
                     rows={6}
                     placeholder="AI Instructions for conversation"
                   />
@@ -1415,7 +1576,12 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                   <label>Placeholder list</label>
                   <textarea
                     value={editCampaignForm.placeholderListInfo}
-                    onChange={(e) => setEditCampaignForm({ ...editCampaignForm, placeholderListInfo: e.target.value })}
+                    onChange={(e) =>
+                      setEditCampaignForm({
+                        ...editCampaignForm,
+                        placeholderListInfo: e.target.value,
+                      })
+                    }
                     rows={4}
                     placeholder="{name}, {company}, {role}"
                   />
@@ -1425,7 +1591,12 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                   <label>Master blueprint (unpopulated)</label>
                   <textarea
                     value={editCampaignForm.masterBlueprintUnpopulated}
-                    onChange={(e) => setEditCampaignForm({ ...editCampaignForm, masterBlueprintUnpopulated: e.target.value })}
+                    onChange={(e) =>
+                      setEditCampaignForm({
+                        ...editCampaignForm,
+                        masterBlueprintUnpopulated: e.target.value,
+                      })
+                    }
                     rows={10}
                     placeholder="Template with {placeholders}"
                   />
@@ -1435,7 +1606,12 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                   <label>GPT model</label>
                   <select
                     value={editCampaignForm.selectedModel}
-                    onChange={(e) => setEditCampaignForm({ ...editCampaignForm, selectedModel: e.target.value })}
+                    onChange={(e) =>
+                      setEditCampaignForm({
+                        ...editCampaignForm,
+                        selectedModel: e.target.value,
+                      })
+                    }
                   >
                     <option value="gpt-4.1">GPT-4.1</option>
                     <option value="gpt-4.1-mini">GPT-4.1 mini</option>
@@ -1499,7 +1675,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
               gap: "16px",
               alignItems: "center",
               marginBottom: "20px",
-              marginTop: "-60px"
+              marginTop: "-60px",
               // borderBottom: "1px solid #e5e7eb",
               // background: "#f9fafb"
             }}
@@ -1531,41 +1707,36 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                 padding: "8px 16px",
                 cursor: "pointer",
                 fontSize: "14px",
-                fontWeight: "600"
+                fontWeight: "600",
               }}
             >
               ← Back
             </button>
             <select
-  value={sessionStorage.getItem("newCampaignId") || ""}
-  onChange={(e) => handleBlueprintSwitch(Number(e.target.value))}
-  style={{
-    padding: "6px 12px",
-    borderRadius: "6px",
-    border: "1px solid #d1d5db",
-    fontSize: "14px",
-    fontWeight: 600,
-    cursor: "pointer",
-    backgroundColor: "#fff",
-    minWidth: "220px"
-  }}
->
-  {campaignTemplates.map((template) => (
-    <option key={template.id} value={template.id}>
-      {template.templateName}
-    </option>
-  ))}
-</select>
-
+              value={sessionStorage.getItem("newCampaignId") || ""}
+              onChange={(e) => handleBlueprintSwitch(Number(e.target.value))}
+              style={{
+                padding: "6px 12px",
+                borderRadius: "6px",
+                border: "1px solid #d1d5db",
+                fontSize: "14px",
+                fontWeight: 600,
+                cursor: "pointer",
+                backgroundColor: "#fff",
+                minWidth: "220px",
+              }}
+            >
+              {campaignTemplates.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.templateName}
+                </option>
+              ))}
+            </select>
 
             {/* <h2 className="font-[600]">{sessionStorage.getItem("newCampaignName") || "Blueprint"}</h2> */}
-
           </div>
 
-
-
           <EmailCampaignBuilder selectedClient={selectedClient} />
-
         </div>
       )}
 
@@ -1575,7 +1746,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
         onClose={closeCreditModal}
         onSkip={handleSkipModal}
         credits={credits || 0}
-        setTab={() => { }} // Not needed in this context
+        setTab={() => {}} // Not needed in this context
       />
     </div>
   );
