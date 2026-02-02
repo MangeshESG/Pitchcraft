@@ -170,6 +170,7 @@ interface ConversationTabProps {
 
   groupedPlaceholders: Record<string, PlaceholderDefinitionUI[]>;
   initialExampleEmail: string;
+  selectedElement?: string | null;
 }
 
 // ✅ Add interface for EditInstructionsModal
@@ -322,6 +323,7 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   editTemplateId, // ⭐ ADD THIS
   groupedPlaceholders,
   initialExampleEmail,
+  selectedElement,
 }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [editableExampleOutput, setEditableExampleOutput] =
@@ -543,6 +545,10 @@ return (
                   ),
                 )}
               </select>
+              {!(
+  conversationStarted ||
+  (isEditMode && selectedElement)
+) && (
               <div
                 style={{
                   //marginBottom: "15px",
@@ -566,6 +572,7 @@ return (
 
 />
               </div>
+              )}
             </div>
           )}
 
@@ -1004,7 +1011,7 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   const [originalTemplateData, setOriginalTemplateData] = useState<any>(null);
   const [selectedPlaceholder, setSelectedPlaceholder] = useState<string>("");
   const [isLoadingTemplate, setIsLoadingTemplate] = useState(false);
-
+const [selectedElement, setSelectedElement] = useState<string | null>(null);
   const [selectedTemplateDefinitionId, setSelectedTemplateDefinitionId] =
     useState<number | null>(null);
 
@@ -3607,6 +3614,7 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
                       filledTemplate={filledTemplate}
                       groupedPlaceholders={groupedPlaceholders}
                       initialExampleEmail={initialExampleEmail}
+                      selectedElement={selectedElement}
                     />
                   )}
 
