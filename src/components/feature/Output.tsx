@@ -4050,16 +4050,25 @@ const usageData = useMemo(() => {
                               : "No prompt available.",
                         }}
                       ></pre> */}
-                      <div
-                        className="textarea-full-height preview-content-area"
-                        style={{ whiteSpace: "pre-wrap" }}
-                        dangerouslySetInnerHTML={{
-                          __html:
-                            typeof allprompt[currentIndex] === "string"
-                              ? allprompt[currentIndex]
-                              : "No prompt available.",
+                      <pre
+                        style={{
+                          height: "800px",
+                          width: "100%",
+                          padding: "10px",
+                          border: "1px solid #ccc",
+                          borderRadius: "4px",
+                          fontFamily: "inherit",
+                          fontSize: "inherit",
+                          whiteSpace: "pre-wrap",
+                          overflow: "auto",
+                          boxSizing: "border-box",
                         }}
-                      />
+                      >
+                        {typeof allprompt[currentIndex] === "string"
+                          ? allprompt[currentIndex]
+                          : "No prompt available."}
+                      </pre>
+
 
                     </Modal>
                     <button
