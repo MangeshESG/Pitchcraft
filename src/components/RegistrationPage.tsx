@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { useOtpTimer } from "../hooks/useOtpTimer";
 import { usePageTitle } from "../hooks/usePageTitle";
 import "./LoginPage.css";
+import API_BASE_URL from "../config";
+
 
 const RegistrationPage: React.FC = () => {
   usePageTitle("Register");
@@ -49,7 +51,7 @@ React.useEffect(() => {
     setError("");
 
     try {
-      const response = await fetch("https://test.pitchkraft.ai/api/Login/register", {
+      const response = await fetch(`${API_BASE_URL}/api/Login/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -84,7 +86,7 @@ React.useEffect(() => {
     setError("");
 
     try {
-      const response = await fetch("https://test.pitchkraft.ai/api/Login/registration-verify-otp", {
+      const response = await fetch(`${API_BASE_URL}/api/Login/registration-verify-otp`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -272,12 +274,12 @@ React.useEffect(() => {
       </div>
     </div>
 
-    <div className="form-group mb-0" style={{ marginTop: "20px" }}>
-      <button type="submit" className="button save-button d-flex justify-center">
-        Register
-      </button>
-    </div>
-  </form>
+        <div className="form-group mb-0" style={{ marginTop: "20px" }}>
+          <button type="submit" className="button save-button d-flex justify-center">
+            Register
+          </button>
+        </div>
+      </form>
 
           <div className="register-link mt-10">
             <p>Already have an account?</p>

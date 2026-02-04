@@ -171,6 +171,12 @@ interface ConversationTabProps {
   groupedPlaceholders: Record<string, PlaceholderDefinitionUI[]>;
   initialExampleEmail: string;
   selectedElement?: string | null;
+
+  attachedImages: string[];
+  setAttachedImages: React.Dispatch<React.SetStateAction<string[]>>;
+  handleImageUpload: (file: File) => Promise<void>;
+
+
 }
 
 // ✅ Add interface for EditInstructionsModal
@@ -324,6 +330,10 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   groupedPlaceholders,
   initialExampleEmail,
   selectedElement,
+
+  attachedImages,
+  setAttachedImages,
+  handleImageUpload,
 }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [editableExampleOutput, setEditableExampleOutput] =
@@ -334,6 +344,16 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
 
 const inputRef = useRef<HTMLTextAreaElement | null>(null);
  const hasExampleEmail = initialExampleEmail.trim().length > 0;
+
+ // ========================================
+  // IMAGE ATTACHMENT STATE
+
+
+
+
+
+
+
 
   useEffect(() => {
     if (exampleOutput) {
@@ -520,7 +540,7 @@ return (
               className="placeholder-dropdown"
               value={selectedPlaceholder || ""}
               onChange={(e) => onPlaceholderSelect?.(e.target.value)}
-              disabled={isTyping}
+              disabled={isTyping }
             >
               <option value="">Edit elements</option>
 
@@ -630,10 +650,55 @@ return (
             </div>
           )}
         </div>
+
+          {attachedImages.length > 0 && (
+          <div className="flex gap-2 px-3 pb-2 flex-wrap">
+            {attachedImages.map((url, idx) => (
+              <div key={idx} className="relative">
+                <img
+                  src={url}
+                  className="w-16 h-16 object-cover rounded border"
+                />
+                <button
+                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full text-xs px-1"
+                  onClick={() =>
+                    setAttachedImages((prev) =>
+                      prev.filter((_, i) => i !== idx)
+                    )
+                  }
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* ===== INPUT BAR ===== */}
         {conversationStarted && (
           <div className="input-area">
-            <div className="input-container">
+            <div className="input-container flex items-end gap-2">
+
+              {/* 📎 ATTACH IMAGE */}
+              <label
+                className="cursor-pointer p-2 rounded hover:bg-gray-100"
+                title="Attach image"
+              >
+                <input
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImageUpload(file);
+                    e.currentTarget.value = ""; // allow re-upload same file
+                  }}
+                  disabled={isTyping}
+                />
+                <span style={{ fontSize: "18px" }}>📎</span>
+              </label>
+
+              {/* TEXT INPUT */}
               <textarea
                 ref={inputRef}
                 value={currentAnswer}
@@ -645,16 +710,22 @@ return (
                 disabled={isTyping}
               />
 
-                <button
-                  onClick={handleSendMessage}
-                  disabled={isTyping || !currentAnswer.trim()}
-                  className="send-button"
-                >
-                  <Send size={18} />
-                </button>
-              </div>
+              {/* SEND BUTTON */}
+              <button
+                onClick={handleSendMessage}
+                disabled={
+                  isTyping ||
+                  (!currentAnswer.trim() && attachedImages.length === 0)
+                }
+                className="send-button"
+                title="Send message"
+              >
+                <Send size={18} />
+              </button>
             </div>
-          )}
+          </div>
+        )}
+
         </div>
 
         {/* ===== MODAL ===== */}
@@ -1112,6 +1183,52 @@ const [selectedElement, setSelectedElement] = useState<string | null>(null);
     return typeof html === "string" && getPlainTextLength(html) >= 20;
   }, [placeholderValues?.example_output_email]);
 
+// ========================================
+  // IMAGE UPLOAD STATE
+  // ========================================
+
+   const showModal = (title: string, message: string) => {
+    setPopupModalInfo({ open: true, title, message });
+  };
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+    const [attachedImages, setAttachedImages] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+
+const uploadImage = async (file: File) => {
+  if (!effectiveUserId) return;
+
+  if (!file.type.startsWith("image/")) {
+    showModal("Invalid file", "Only image files are allowed.");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("image", file);     // ✅ FIXED
+  formData.append("userId", effectiveUserId);
+
+  try {
+    setIsUploadingImage(true);
+
+    const res = await axios.post(
+      `${API_BASE_URL}/api/CampaignPrompt/images/upload-image`,
+      formData
+    );
+
+    if (res.data?.imageUrl) {         // ✅ FIXED
+      setAttachedImages(prev => [...prev, res.data.imageUrl]);
+    }
+
+  } catch (err) {
+    console.error("Image upload failed:", err);
+    showModal("Error", "Image upload failed.");
+  } finally {
+    setIsUploadingImage(false);
+  }
+};
+
+
+
+
   // ========================================
   // UI-ONLY PLACEHOLDER METADATA STATE
   // ========================================
@@ -1163,9 +1280,7 @@ const [selectedElement, setSelectedElement] = useState<string | null>(null);
       .replace(/\b\w/g, (c) => c.toUpperCase());
 
 
-  const showModal = (title: string, message: string) => {
-    setPopupModalInfo({ open: true, title, message });
-  };
+ 
 
   const closeModal = () => {
     setPopupModalInfo((prev) => ({ ...prev, open: false }));
@@ -2671,6 +2786,8 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
     setActiveBuildTab("chat");
     setIsTyping(true);
     setExampleOutput("");
+    setAttachedImages([]); // 🔥 clear images after start
+
 
     const cleanAssistantMessage = (text: string): string => {
       if (!text) return "";
@@ -2689,6 +2806,8 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
         {
           userId: effectiveUserId,
           message: masterPrompt,
+          images: attachedImages, // 🔥 ADD THIS
+
           systemPrompt: systemPrompt,
           model: selectedModel, // ✅ Use selected model
         },
@@ -2761,10 +2880,20 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
   };
 
   const handleSendMessage = async () => {
-    if (currentAnswer.trim() === "" || isTyping || !effectiveUserId) return;
+    if (
+        isTyping ||
+        !effectiveUserId ||
+        (currentAnswer.trim() === "" && attachedImages.length === 0)
+      ) {
+        return;
+      }
+
 
     // capture the user's text before we clear it
     const answerText = currentAnswer.trim();
+
+    const imagesToSend = [...attachedImages];
+
 
     const userMessage: Message = {
       type: "user",
@@ -2787,7 +2916,10 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
 
     // clear input AFTER capturing content
     setCurrentAnswer("");
+    setAttachedImages([]); // 🔥 ADD THIS
+
     setIsTyping(true);
+
 
     try {
       const endpoint = isEditMode
@@ -2797,15 +2929,17 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
       const requestBody = isEditMode
         ? {
             userId: effectiveUserId,
-            campaignTemplateId: campaignTemplateId,
+            campaignTemplateId,
             message: answerText,
             model: selectedModel,
+            images: imagesToSend,
           }
         : {
             userId: effectiveUserId,
             message: answerText,
             systemPrompt: "",
             model: selectedModel,
+            images: imagesToSend,
           };
 
       const response = await axios.post(endpoint, requestBody);
@@ -3615,6 +3749,9 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
                       groupedPlaceholders={groupedPlaceholders}
                       initialExampleEmail={initialExampleEmail}
                       selectedElement={selectedElement}
+                      attachedImages={attachedImages}
+                      setAttachedImages={setAttachedImages}
+                      handleImageUpload={uploadImage}
                     />
                   )}
 

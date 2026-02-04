@@ -1391,7 +1391,7 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
 
  //-----------------------------------------bulk email sending logic------------------//
  const DELAY_OPTIONS = [
-  5, 10, 15, 20, 30, 40, 50, 70, 90, 130, 150, 200, 300,
+  0, 5, 10, 15, 20, 30, 40, 50, 70, 90, 130, 150, 200, 300,
 ];
 
   const [minDelay, setMinDelay] = useState(30);
@@ -2681,65 +2681,6 @@ const usageData = useMemo(() => {
                             </select>
                           </div>
 
-                          {/* Delay Controls */}
-                          <div
-                            style={{ flex: "0 0 auto", paddingRight: "10px" }}
-                            className="flex items-center gap-1"
-                          >
-                            <label
-                              style={{
-                                fontWeight: "600",
-                                fontSize: "13px",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              Delay(Sec)
-                            </label>
-
-                            {/* MIN */}
-                            <select
-                              className="form-control"
-                              value={minDelay}
-                              onChange={(e) => setMinDelay(Number(e.target.value))}
-                              style={{
-                                width: "52px",
-                                minWidth: "52px",
-                                maxWidth: "52px",
-                                height: "40px",
-                                padding: "2px 4px",
-                                fontSize: "12px",
-                              }}
-                            >
-                              {DELAY_OPTIONS.map((v) => (
-                                <option key={v} value={v}>
-                                  {v}
-                                </option>
-                              ))}
-                            </select>
-
-                            <span style={{ fontSize: "12px", margin: "0 2px" }}>–</span>
-
-                            {/* MAX */}
-                            <select
-                              className="form-control"
-                              value={maxDelay}
-                              onChange={(e) => setMaxDelay(Number(e.target.value))}
-                              style={{
-                                width: "52px",
-                                minWidth: "52px",
-                                maxWidth: "52px",
-                                height: "40px",
-                                padding: "2px 4px",
-                                fontSize: "12px",
-                              }}
-                            >
-                              {DELAY_OPTIONS.filter((v) => v >= minDelay).map((v) => (
-                                <option key={v} value={v}>
-                                  {v}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
 
 
 
@@ -3036,7 +2977,69 @@ const usageData = useMemo(() => {
                               }}
                             >
                               {isBulkSending ? "Stop" : "Send all"}
+
+                              
                             </button>
+                          {/* Delay Controls */}
+                          <div
+                            style={{ flex: "0 0 auto", paddingRight: "10px" }}
+                            className="flex items-center gap-1"
+                          >
+                            <label
+                              style={{
+                                fontWeight: "600",
+                                fontSize: "13px",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              Delay(Sec)
+                            </label>
+
+                            {/* MIN */}
+                            <select
+                              className="form-control"
+                              value={minDelay}
+                              onChange={(e) => setMinDelay(Number(e.target.value))}
+                              style={{
+                                width: "52px",
+                                minWidth: "52px",
+                                maxWidth: "52px",
+                                height: "40px",
+                                padding: "2px 4px",
+                                fontSize: "12px",
+                              }}
+                            >
+                              {DELAY_OPTIONS.map((v) => (
+                                <option key={v} value={v}>
+                                  {v}
+                                </option>
+                              ))}
+                            </select>
+
+                            <span style={{ fontSize: "12px", margin: "0 2px" }}>–</span>
+
+                            {/* MAX */}
+                            <select
+                              className="form-control"
+                              value={maxDelay}
+                              onChange={(e) => setMaxDelay(Number(e.target.value))}
+                              style={{
+                                width: "52px",
+                                minWidth: "52px",
+                                maxWidth: "52px",
+                                height: "40px",
+                                padding: "2px 4px",
+                                fontSize: "12px",
+                              }}
+                            >
+                              {DELAY_OPTIONS.filter((v) => v >= minDelay).map((v) => (
+                                <option key={v} value={v}>
+                                  {v}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
                             {isBulkSending && countdown !== null && (
                               <div
                                 style={{

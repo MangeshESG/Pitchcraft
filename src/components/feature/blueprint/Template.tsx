@@ -303,10 +303,16 @@ const Template: React.FC<TemplateProps> = ({
         sessionStorage.setItem("autoStartConversation", "true");
         sessionStorage.setItem("openConversationTab", "true");
 
+        await fetchCampaignTemplates(); // ✅ CRITICAL
+
         // ✅ Close modal and open builder
+
         setShowTemplateNameModal(false);
         setShowCampaignBuilder(true);
-      } else {
+
+      } 
+      
+      else {
         throw new Error(
           data.message || data.Message || "Failed to create campaign",
         );
