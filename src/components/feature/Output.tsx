@@ -4014,28 +4014,25 @@ const usageData = useMemo(() => {
                 <div className="form-group">
                   <div className="d-flex mb-10"></div>
                   <span className="pos-relative d-flex justify-center">
-                    <div
-                      className="textarea-full-height preview-content-area"
-                      style={{
-                        height: "800px", // set a fixed height for scrolling
-                        width: "100%",
-                        padding: "10px",
-                        border: "1px solid #ccc",
-                        borderRadius: "4px",
-                        fontFamily: "inherit",
-                        fontSize: "inherit",
-                        whiteSpace: "pre-wrap", // keeps line breaks
-                        overflowY: "auto", // vertical scrollbar
-                        overflowX: "auto", // horizontal scrollbar if needed
-                        boxSizing: "border-box", // ensures padding doesn't exceed width
-                      }}
-                      dangerouslySetInnerHTML={{
-                        __html:
-                          typeof allprompt[currentIndex] === "string"
-                            ? allprompt[currentIndex]
-                            : "No prompt available.",
-                      }}
-                    ></div>
+<pre
+  style={{
+    height: "800px",
+    width: "100%",
+    padding: "10px",
+    border: "1px solid #ccc",
+    borderRadius: "4px",
+    fontFamily: "inherit",
+    fontSize: "inherit",
+    whiteSpace: "pre-wrap",
+    overflow: "auto",
+    boxSizing: "border-box",
+  }}
+>
+  {typeof allprompt[currentIndex] === "string"
+    ? allprompt[currentIndex]
+    : "No prompt available."}
+</pre>
+
 
                     <Modal
                       show={openModals["modal-output-3"]}
@@ -4044,7 +4041,7 @@ const usageData = useMemo(() => {
                     >
                       <label>Stages</label>
 
-                      <pre
+                      {/* <pre
                         className="textarea-full-height preview-content-area"
                         dangerouslySetInnerHTML={{
                           __html:
@@ -4052,7 +4049,18 @@ const usageData = useMemo(() => {
                               ? allprompt[currentIndex]
                               : "No prompt available.",
                         }}
-                      ></pre>
+                      ></pre> */}
+                      <div
+                        className="textarea-full-height preview-content-area"
+                        style={{ whiteSpace: "pre-wrap" }}
+                        dangerouslySetInnerHTML={{
+                          __html:
+                            typeof allprompt[currentIndex] === "string"
+                              ? allprompt[currentIndex]
+                              : "No prompt available.",
+                        }}
+                      />
+
                     </Modal>
                     <button
                       className="full-view-icon d-flex align-center justify-center"

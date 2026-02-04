@@ -1229,6 +1229,12 @@ const MainPage: React.FC = () => {
 const totalEmailCostRef = useRef(0);
 const totalEmailCountRef = useRef(0); // <-- emails, NOT api calls
 
+useEffect(() => {
+  console.log(
+    "Current prompt length:",
+    allprompt[currentIndex]?.length
+  );
+}, [allprompt, currentIndex]);
 
   const goToTab = async (
     tab: string,
@@ -1284,7 +1290,7 @@ const totalEmailCountRef = useRef(0); // <-- emails, NOT api calls
       let result = text;
 
       // Log what we're working with
-      console.log("Original text (first 200 chars):", text.substring(0, 200));
+      //console.log("Original text (first 200 chars):", text.substring(0, 200));
       console.log("Replacements:", replacements);
 
       // Simple split-join approach which is more reliable
@@ -1494,6 +1500,12 @@ const totalEmailCountRef = useRef(0); // <-- emails, NOT api calls
           searchResults: [],
           allScrapedData: "",
         }));
+        setallprompt((prev) => {
+        const updated = [...prev];
+        if (index < updated.length) updated[index] = promptToSend;
+        else updated.push(promptToSend);
+        return updated;
+      });
 
         // Request body
         const requestBody = {
@@ -1920,17 +1932,27 @@ const totalEmailCountRef = useRef(0); // <-- emails, NOT api calls
 
             // Update these to use responseIndex logic
 
-            setallprompt((prevPrompts) => {
-              const updated = [...prevPrompts];
+            // setallprompt((prevPrompts) => {
+            //   const updated = [...prevPrompts];
 
-              if (responseIndex < updated.length) {
-                updated[responseIndex] = "";
-              } else {
-                updated.push("");
-              }
+            //   if (responseIndex < updated.length) {
+            //     updated[responseIndex] = "";
+            //   } else {
+            //     updated.push("");
+            //   }
 
-              return updated;
-            });
+            //   return updated;
+            // });
+
+            // ❌ DO NOT WIPE PROMPT — KEEP EXISTING
+            // setallprompt((prevPrompts) => {
+            //   const updated = [...prevPrompts];
+            //   if (!updated[responseIndex]) {
+            //     updated[responseIndex] = "";
+            //   }
+            //   return updated;
+            // });
+
 
             setallsearchResults((prevSearchResults) => {
               const updated = [...prevSearchResults];
@@ -2037,6 +2059,19 @@ const totalEmailCountRef = useRef(0); // <-- emails, NOT api calls
 
           ${replacedPromptText}
           `;
+
+          setallprompt((prev) => {
+          const updated = [...prev];
+          const targetIndex = shouldReplaceFromIndex ? i : prev.length;
+
+          if (targetIndex < updated.length) {
+            updated[targetIndex] = promptToSend;
+          } else {
+            updated.push(promptToSend);
+          }
+
+          return updated;
+        });
 
           setOutputForm((prevState) => ({
             ...prevState,
@@ -2315,12 +2350,19 @@ totalEmailCostRef.current += subjectCost;
 
           // Similarly update other arrays at the correct index
 
+          // setallprompt((prevPrompts) => {
+          //   const updated = [...prevPrompts];
+          //   if (responseIndex < updated.length) {
+          //     updated[responseIndex] = promptToSend;
+          //   } else {
+          //     updated.push(promptToSend);
+          //   }
+          //   return updated;
+          // });
           setallprompt((prevPrompts) => {
-            const updated = [...prevPrompts];
-            if (responseIndex < updated.length) {
-              updated[responseIndex] = promptToSend;
-            } else {
-              updated.push(promptToSend);
+          const updated = [...prevPrompts];
+          if (!updated[responseIndex]) {
+            updated[responseIndex] = "";
             }
             return updated;
           });
