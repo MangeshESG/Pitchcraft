@@ -1691,6 +1691,15 @@ const usageData = useMemo(() => {
   }
 }, [outputForm.usage]);
 
+const [editingIndex, setEditingIndex] = useState<number | null>(null);
+useEffect(() => {
+  if (!isEditing) return;
+
+  if (editorRef.current) {
+    editorRef.current.innerHTML = editableContent || "";
+    editorRef.current.focus();
+  }
+}, [isEditing]);
 
 
   return (
@@ -3250,9 +3259,6 @@ const usageData = useMemo(() => {
                           onInput={(e) => {
                             setEditableContent(e.currentTarget.innerHTML);
                           }}
-                          dangerouslySetInnerHTML={{
-                            __html: editableContent,
-                          }}
                           style={{
                             minHeight: "500px",
                             padding: "10px",
@@ -3267,6 +3273,7 @@ const usageData = useMemo(() => {
                             outline: "none",
                           }}
                         />
+
 
 
                       <div className="editor-actions mt-10 d-flex">
@@ -3661,6 +3668,10 @@ const usageData = useMemo(() => {
                               onClick={() => {
                                 const pitch = combinedResponses[currentIndex]?.pitch || "";
                                 setEditableContent(pitch);
+                                  setEditableContent(pitch);       // store content
+
+                                setEditingIndex(currentIndex); // 🔒 lock index
+
                                 setIsEditing(true);
                               }}                         
                             >
@@ -4016,7 +4027,6 @@ const usageData = useMemo(() => {
                   <span className="pos-relative d-flex justify-center">
 <pre
   style={{
-    height: "800px",
     width: "100%",
     padding: "10px",
     border: "1px solid #ccc",
@@ -4024,8 +4034,9 @@ const usageData = useMemo(() => {
     fontFamily: "inherit",
     fontSize: "inherit",
     whiteSpace: "pre-wrap",
-    overflow: "auto",
-    boxSizing: "border-box",
+    /* ✅ IMPORTANT PART */
+    height: "auto",        // let content decide height
+    overflow: "visible",   // no inner scroll    boxSizing: "border-box",
   }}
 >
   {typeof allprompt[currentIndex] === "string"
@@ -4038,6 +4049,7 @@ const usageData = useMemo(() => {
                       show={openModals["modal-output-3"]}
                       closeModal={() => handleModalClose("modal-output-3")}
                       buttonLabel="Ok"
+                        size="90%" 
                     >
                       <label>Stages</label>
 
@@ -4059,8 +4071,14 @@ const usageData = useMemo(() => {
                           borderRadius: "4px",
                           fontFamily: "inherit",
                           fontSize: "inherit",
-                          whiteSpace: "pre-wrap",
-                          overflow: "auto",
+
+                          /* ✅ KEY FIXES */
+                          whiteSpace: "pre-wrap",     // keep line breaks
+                          wordBreak: "break-word",    // break long words
+                          overflowWrap: "anywhere",   // modern browsers
+                          overflowX: "hidden",        // ❌ no horizontal scroll
+                          overflowY: "auto",          // ✅ vertical scroll only
+
                           boxSizing: "border-box",
                         }}
                       >
