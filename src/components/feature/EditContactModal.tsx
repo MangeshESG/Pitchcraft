@@ -106,15 +106,15 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   const [noteToDelete, setNoteToDelete] = useState<number | null>(null);
   const [deletingNoteId, setDeletingNoteId] = useState<number | null>(null);
   const [deleteContactId, setDeleteContactId] = useState<number | null>(null);
-   const menuBtnStyle: React.CSSProperties = {
-      width: "100%",
-      padding: "8px 12px",
-      background: "transparent",
-      border: "none",
-      cursor: "pointer",
-      fontSize: 14,
-      textAlign: "left",
-    };
+  const menuBtnStyle: React.CSSProperties = {
+    width: "100%",
+    padding: "8px 12px",
+    background: "transparent",
+    border: "none",
+    cursor: "pointer",
+    fontSize: 14,
+    textAlign: "left",
+  };
 
   const Stat = ({ label, value }: { label: string; value: any }) => (
     <div
@@ -366,7 +366,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
       setNotesHistory([]);
     }
   };
- const handleEditNote = async (note: any) => {
+  const handleEditNote = async (note: any) => {
     if (!reduxUserId || !contact?.id) return;
 
     try {
@@ -435,28 +435,67 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
       hour12: true,
     }).format(new Date(dateString));
   };
-   const handleTogglePin = (noteId: number) => {
-    setNotesHistory((prev: any[]) =>
-      prev.map((n) =>
-        n.id === noteId ? { ...n, isPin: !n.isPin } : n
-      )
-    );
+  const handleTogglePin = async (noteId: number) => {
+  if (!reduxUserId || !contact?.id) return;
 
-    const pinned = notesHistory.find(n => n.id === noteId)?.isPin;
+  try {
+    await axios.post(`${API_BASE_URL}/api/notes/Toggle-Pin`, {
+      clientId: reduxUserId,
+      contactId: contact.id,
+      noteId,
+    });
 
-    setToastMessage(pinned ? "Note was unpinned" : "Note was pinned");
+    setToastMessage("Note pin status updated");
     setShowSuccessToast(true);
     setTimeout(() => setShowSuccessToast(false), 2500);
 
     setNoteActionsAnchor(null);
-  };
-   const handleDeleteNote = (noteId: number) => {
-     if (!contact?.id) return;
+
+    // 🔥 IMPORTANT
+    fetchNotesHistory();
+
+  } catch (err) {
+    console.error("Failed to toggle pin", err);
+    appModal.showError("Failed to update pin");
+  }
+};
+
+  const handleDeleteNote = (noteId: number) => {
+    if (!contact?.id) return;
     setNoteToDelete(noteId);
     setDeletingNoteId(noteId);
     setDeleteContactId(Number(contact.id));
     setDeletePopupOpen(true);
   };
+  const confirmDeleteNote = async () => {
+  if (!reduxUserId || !contact?.id || !noteToDelete) return;
+
+  try {
+    await axios.delete(`${API_BASE_URL}/api/notes/Delete-Note`, {
+      params: {
+        clientId: reduxUserId,
+        contactId: contact.id,
+        noteId: noteToDelete,
+      },
+    });
+
+    setDeletePopupOpen(false);
+    setNoteToDelete(null);
+    setDeletingNoteId(null);
+
+    setToastMessage("Note deleted successfully");
+    setShowSuccessToast(true);
+    setTimeout(() => setShowSuccessToast(false), 2500);
+
+    // 🔥 refresh list
+    fetchNotesHistory();
+
+  } catch (err) {
+    console.error("Failed to delete note", err);
+    appModal.showError("Failed to delete note");
+  }
+};
+
   if (!isOpen || !contact) return null;
   const content = (
     <div className={`${asPage ? "w-full" : "w-[45%] max-w-3xl"} ${!asPage && "shadow-xl rounded-lg"}`}>
@@ -924,154 +963,176 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
             </div> */}
           </form>
           <div className="flex flex-col gap-6">
-
-            {/* PINNED NOTES – FIRST */}
-            {pinnedNotes.length > 0 && (
-              <div style={{ marginTop: 24 }}>
-                <div
-                  style={{
-                    fontSize: 14,
-                    fontWeight: 600,
-                    marginBottom: 12,
-                  }}
-                >
-                  Pinned notes ({pinnedNotes.length})
-                </div>
-
-                {pinnedNotes.map((note: any, index: number) => (
+            <div
+              style={{
+                background: "#fff",
+                borderRadius: 16,
+                padding: 16,
+                marginBottom: 32,
+                boxShadow: "none",
+                // height: "20%",
+                border: "1px solid #e5e7eb",
+              }}
+            >
+              {/* PINNED NOTES – FIRST */}
+              {pinnedNotes.length > 0 && (
+                <div style={{ marginTop: 24 }}>
                   <div
-                    key={note.id}
                     style={{
-                      display: "flex",
-                      gap: 16,
-                      paddingBottom: index !== pinnedNotes.length - 1 ? 24 : 0,
+                      fontSize: 14,
+                      fontWeight: 600,
+                      marginBottom: 12,
                     }}
                   >
-                    {/* Timeline dot */}
-                    <div style={{ position: "relative" }}>
-                      <div
-                        style={{
-                          width: 10,
-                          height: 10,
-                          background: "#3f9f42",
-                          borderRadius: "50%",
-                          marginTop: 6,
-                        }}
-                      />
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: 16,
-                          left: 4,
-                          width: 2,
-                          height: "100%",
-                          background: "#e5e7eb",
-                        }}
-                      />
-                    </div>
+                    Pinned notes ({pinnedNotes.length})
+                  </div>
 
-                    {/* Note content */}
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 600 }}>Note created</div>
-
-                      <div style={{ fontSize: 13, color: "#666", marginBottom: 8 }}>
-                        {formatDateTimeIST(note.createdAt)}
-                      </div>
-
-                      <div
-                        style={{
-                          background: "#fefcf9",
-                          border: "1px solid #e5e7eb",
-                          borderRadius: 12,
-                          padding: 16,
-                          position: "relative",
-                        }}
-                      >
-                        {/* 3-dot menu */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setNoteActionsAnchor(
-                              noteActionsAnchor === note.id ? null : note.id
-                            );
-                          }}
+                  {pinnedNotes.map((note: any, index: number) => (
+                    <div
+                      key={note.id}
+                      style={{
+                        display: "flex",
+                        gap: 16,
+                        paddingBottom: index !== pinnedNotes.length - 1 ? 24 : 0,
+                      }}
+                    >
+                      {/* Note content */}
+                      <div style={{ flex: 1 }}>
+                        <div
                           style={{
-                            position: "absolute",
-                            top: 12,
-                            right: 12,
-                            border: "none",
-                            background: "#ede9fe",
-                            borderRadius: "50%",
-                            width: 32,
-                            height: 32,
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
+                            background: "#fefcf9",
+                            border: "1px solid #e5e7eb",
+                            borderRadius: 12,
+                            padding: 16,
+                            position: "relative",
                           }}
                         >
-                          <FontAwesomeIcon icon={faEllipsisV} />
-                        </button>
-
-                        {/* Action menu */}
-                        {noteActionsAnchor === note.id && (
-                          <div
+                          <div style={{ fontSize: 13, color: "#666", marginBottom: 8 }}>
+                            {formatDateTimeIST(note.createdAt)}
+                          </div>
+                          {/* 3-dot menu */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setNoteActionsAnchor(
+                                noteActionsAnchor === note.id ? null : note.id
+                              );
+                            }}
                             style={{
                               position: "absolute",
-                              right: 0,
-                              top: 48,
-                              background: "#fff",
-                              border: "1px solid #eee",
-                              borderRadius: 6,
-                              boxShadow: "0 2px 16px rgba(0,0,0,0.12)",
-                              zIndex: 101,
-                              minWidth: 160,
+                              top: 12,
+                              right: 12,
+                              border: "none",
+                              background: "#ede9fe",
+                              borderRadius: "50%",
+                              width: 32,
+                              height: 32,
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
                             }}
-                            onClick={(e) => e.stopPropagation()}
                           >
-                            <button
-                              style={menuBtnStyle}
-                              onClick={() => {
-                                handleEditNote(note);
-                                setNoteActionsAnchor(null);
+                            <FontAwesomeIcon icon={faEllipsisV} />
+                          </button>
+
+                          {/* Action menu */}
+                          {noteActionsAnchor === note.id && (
+                            <div
+                              style={{
+                                position: "absolute",
+                                right: 0,
+                                top: 48,
+                                background: "#fff",
+                                border: "1px solid #eee",
+                                borderRadius: 6,
+                                boxShadow: "0 2px 16px rgba(0,0,0,0.12)",
+                                zIndex: 101,
+                                minWidth: 160,
                               }}
+                              onClick={(e) => e.stopPropagation()}
                             >
-                              ✏️ Edit
-                            </button>
+                              <button
+                                onClick={() => {
+                                  handleEditNote(note);
+                                  setNoteActionsAnchor(null);
+                                }}
+                                style={menuBtnStyle}
+                                className="flex gap-2 items-center"
+                              >
+                                <span>
+                                  {/* same EDIT svg */}
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none">
+                                    <path
+                                      d="M12 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V12"
+                                      stroke="#000"
+                                      strokeWidth="2"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                    />
+                                    <path
+                                      d="M16.5 3.5a2.12 2.12 0 0 1 3 3L12 14l-4 1 1-4 7.5-7.5z"
+                                      stroke="#000"
+                                      strokeWidth="2"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                    />
+                                  </svg>
+                                </span>
+                                <span className="font-[600]">Edit</span>
+                              </button>
 
-                            <button
-                              style={menuBtnStyle}
-                              onClick={() => handleTogglePin(note.id)}
-                            >
-                              📌 Unpin
-                            </button>
+                              {/* 📌 PIN / UNPIN */}
+                              <button
+                                onClick={() => handleTogglePin(note.id)}
+                                style={menuBtnStyle}
+                                className="flex gap-2 items-center"
+                              >
+                                <span>
+                                  <FontAwesomeIcon
+                                    icon={faThumbtack}
+                                    style={{
+                                      transform: note.isPin ? "rotate(45deg)" : "none",
+                                    }}
+                                  />
+                                </span>
+                                <span className="font-[600]">
+                                  {note.isPin ? "Unpin" : "Pin"}
+                                </span>
+                              </button>
 
-                            <button
-                              style={{ ...menuBtnStyle, color: "red" }}
-                              onClick={() => handleDeleteNote(note.id)}
-                            >
-                              🗑️ Delete
-                            </button>
+                              {/* 🗑️ DELETE */}
+                              <button
+                                onClick={confirmDeleteNote}
+                                style={menuBtnStyle}
+                                className="flex gap-2 items-center text-red-600"
+                              >
+                                <span>
+                                  {/* same DELETE svg */}
+                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50" width="22px" height="22px">
+                                    <path d="M 21 2 C 19.354545 2 18 3.3545455 18 5 L 18 7 L 8 7
+                                                A 1.0001 1.0001 0 1 0 8 9 L 9 9 L 9 45 C 9 46.654 10.346 48
+                                                12 48 L 38 48 C 39.654 48 41 46.654 41 45 L 41 9 L 42 9
+                                                A 1.0001 1.0001 0 1 0 42 7 L 32 7 L 32 5 C 32 3.3545455
+                                              30.645455 2 29 2 Z" />
+                                  </svg>
+                                </span>
+                                <span className="font-[600]">Delete</span>
+                              </button>
+                            </div>
+                          )}
+
+                          {/* NOTE TEXT — ✅ NO <p> TAG */}
+                          <div style={{ fontSize: 14 }}>
+                            {stripHtml(note.note)}
                           </div>
-                        )}
-
-                        {/* NOTE TEXT — ✅ NO <p> TAG */}
-                        <div style={{ fontSize: 14 }}>
-                          {stripHtml(note.note)}
                         </div>
                       </div>
-
-                      {/* Badges */}
-                      <div style={{ marginTop: 8, fontSize: 12, color: "#6b7280" }}>
-                        📌 Pinned
-                        {note.isUseInGenration && " • ✉️ Used for email personalization"}
-                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
+                  ))}
+                </div>
+              )}
+            </div>
             {/* linkdin  SUMMARY */}
             <div
               style={{
