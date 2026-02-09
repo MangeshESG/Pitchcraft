@@ -667,9 +667,27 @@ const Output: React.FC<OutputInterface> = ({
     sessionStorage.setItem("currentIndex", currentIndex.toString());
   }, [currentIndex]);
 
+  // Restore contact index after campaign refresh
+  useEffect(() => {
+    const preservedIndex = sessionStorage.getItem('preserveContactIndex');
+    if (preservedIndex !== null && combinedResponses.length > 0) {
+      const index = parseInt(preservedIndex, 10);
+      if (index < combinedResponses.length) {
+        setTimeout(() => {
+          setCurrentIndex(index);
+          sessionStorage.removeItem('preserveContactIndex');
+        }, 100);
+      } else {
+        sessionStorage.removeItem('preserveContactIndex');
+      }
+    }
+  }, [combinedResponses]);
+
   useEffect(() => {
     const storedCurrentIndex = sessionStorage.getItem("currentIndex");
-    if (storedCurrentIndex !== null) {
+    const preservedIndex = sessionStorage.getItem('preserveContactIndex');
+    // Only restore from currentIndex if there's no preserved index
+    if (storedCurrentIndex !== null && !preservedIndex) {
       setCurrentIndex(parseInt(storedCurrentIndex, 10));
     }
   }, [setCurrentIndex]);
@@ -1425,23 +1443,22 @@ const sleepWithCountdown = async (ms: number) => {
 };
 
 
-  const sendEmailsInBulk = async (startIndex = 0) => {
-    // Check if we have SMTP user selected BEFORE starting
+  const sendEmailsInBulk = async (startIdx = 0, endIdx?: number) => {
     if (isBulkSending) return;
 
-
     if (!selectedSmtpUser) {
-      return; // Exit early
+      return;
     }
 
     setIsBulkSending(true);
-
     stopBulkRef.current = false;
 
-    let index = startIndex;
+    let index = startIdx;
+    const maxIndex = endIdx !== undefined ? Math.min(endIdx, combinedResponses.length - 1) : combinedResponses.length - 1;
     let sentCount = 0;
     let skippedCount = 0;
-    while (index < combinedResponses.length && !stopBulkRef.current) {
+
+    while (index <= maxIndex && !stopBulkRef.current) {
       // Update current index to show the contact being processed
       setCurrentIndex(index);
 
@@ -1681,6 +1698,10 @@ const sleepWithCountdown = async (ms: number) => {
   const [sendEmailControls, setSendEmailControls] = useState(false);
   const preserveIndexRef = useRef(false);
 
+  // Index range states for bulk email sending
+  const [startIndex, setStartIndex] = useState("");
+  const [endIndex, setEndIndex] = useState("");
+
 
 const usageData = useMemo(() => {
   if (!outputForm?.usage) return null;
@@ -1698,64 +1719,112 @@ const usageData = useMemo(() => {
       {/* Add the selection dropdowns and subject line section */}
       {/* Add the selection dropdowns and subject line section */}
       <div
-        className="d-flex justify-between align-center mb-0"
+        className="d-flex justify-between align-center mb-3"
         style={{ marginTop: "-60px" }}
       >
         <div className="input-section edit-section w-[100%]">
           {/* Dropdowns Row */}
           <div className="flex items-start justify-between gap-4 w-full">
-            {/* Left side - Campaign dropdown */}
+            {/* Left side - Campaign dropdown and refresh button in a panel */}
             <div className="flex items-start gap-4 flex-1">
               <div>
-                <div className="form-group">
-                  <label>
-                    Campaign <span className="required">*</span>
-                  </label>
-                  <select
-                    onChange={handleCampaignChange}
-                    value={selectedCampaign}
-                  >
-                    <option value="">Campaign</option>
-                    {(campaigns || []).map((campaign) => (
-                      <option key={campaign.id} value={campaign.id.toString()}>
-                        {campaign.campaignName}
-                      </option>
-                    ))}
-                  </select>
-                  {!selectedCampaign && (
-                    <small className="error-text">Select a campaign</small>
-                  )}
-                </div>
-                {selectedCampaign &&
-                  campaigns?.find((c) => c.id.toString() === selectedCampaign)
-                    ?.description && (
-                    <div className="campaign-description-container">
-                      <small className="campaign-description">
-                        {
-                          campaigns.find(
-                            (c) => c.id.toString() === selectedCampaign,
-                          )?.description
-                        }
-                      </small>
+                <label>
+                  Campaign <span className="required">*</span>
+                </label>
+                <div 
+                  className="flex items-center gap-3 px-4 py-2" 
+                  style={{
+                    border: "1px solid #ddd",
+                    borderRadius: "8px",
+                    backgroundColor: "#fff",
+                    minHeight: "48px"
+                  }}
+                >
+                  <div className="form-group !mb-0">
+                    <select
+                      onChange={handleCampaignChange}
+                      value={selectedCampaign}
+                    >
+                      <option value="">Campaign</option>
+                      {(campaigns || []).map((campaign) => (
+                        <option key={campaign.id} value={campaign.id.toString()}>
+                          {campaign.campaignName}
+                        </option>
+                      ))}
+                    </select>
+                    {!selectedCampaign && (
+                      <small className="error-text">Select a campaign</small>
+                    )}
+                  </div>
+                  {selectedCampaign &&
+                    campaigns?.find((c) => c.id.toString() === selectedCampaign)
+                      ?.description && (
+                      <div className="campaign-description-container">
+                        <small className="campaign-description">
+                          {
+                            campaigns.find(
+                              (c) => c.id.toString() === selectedCampaign,
+                            )?.description
+                          }
+                        </small>
+                      </div>
+                    )}
+
+                  {/* Refresh Button - Only show when campaign is selected */}
+                  {selectedCampaign && (
+                    <div className="flex items-center">
+                      <ReactTooltip anchorSelect="#refresh-campaign-tooltip" place="top">
+                        Refresh campaign
+                      </ReactTooltip>
+                      <button
+                        id="refresh-campaign-tooltip"
+                        className="secondary-button flex items-center gap-2 h-[40px] px-3"
+                        onClick={() => {
+                          const contactId = combinedResponses[currentIndex]?.id;
+                          sessionStorage.setItem('preserveContactIndex', currentIndex.toString());
+                          if (contactId) {
+                            sessionStorage.setItem('preserveContactId', contactId.toString());
+                          }
+                          handleCampaignChange?.({ target: { value: selectedCampaign } });
+                        }}
+                        title="Refresh campaign"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="18px"
+                          height="18px"
+                          viewBox="0 0 16 16"
+                          fill="none"
+                        >
+                          <g fill="#000000">
+                            <path d="M8 1.5A6.5 6.5 0 001.5 8 .75.75 0 010 8a8 8 0 0113.5-5.81v-.94a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zM15.25 7.25A.75.75 0 0116 8a8 8 0 01-13.5 5.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z" />
+                          </g>
+                        </svg>
+                      </button>
                     </div>
                   )}
+                </div>
               </div>
 
               {/* Middle section - Buttons and checkbox */}
               <div className="flex items-center gap-4 mt-[26px]">
-                <div className="flex">
+                <div 
+                  className="flex items-center gap-3 px-4 py-2" 
+                  style={{
+                    border: "1px solid #ddd",
+                    borderRadius: "8px",
+                    backgroundColor: "#fff",
+                    minHeight: "48px"
+                  }}
+                >
                   {isResetEnabled ? (
-                    // In Output.tsx, update the button click handler:
-
                     <button
                       className="primary-button bg-[#3f9f42]"
                       onClick={async () => {
-                        // Don't trigger if credit modal is showing
                         if (showCreditModal) {
                           return;
                         }
 
-                        // Check credits before starting
                         if (
                           sessionStorage.getItem("isDemoAccount") !== "true"
                         ) {
@@ -1768,7 +1837,7 @@ const usageData = useMemo(() => {
                             typeof currentCredits === "object" &&
                             !currentCredits.canGenerate
                           ) {
-                            return; // Stop if can't generate
+                            return;
                           }
                         }
 
@@ -1794,10 +1863,8 @@ const usageData = useMemo(() => {
                       Stop
                     </button>
                   )}
-                </div>
-                {!isDemoAccount && (
-                  <div className="flex items-center">
-                    <label className="checkbox-label !mb-[0px] mr-[5px] flex items-center">
+                  {!isDemoAccount && (
+                    <label className="checkbox-label !mb-[0px] flex items-center">
                       <input
                         type="checkbox"
                         checked={settingsForm?.overwriteDatabase}
@@ -1808,17 +1875,16 @@ const usageData = useMemo(() => {
                       />
                       <span className="text-[14px]">Overwrite</span>
                     </label>
-                  </div>
-                )}
+                  )}
+                </div>
 
-                {!isDemoAccount && (
+                {/* !isDemoAccount && (
                   <div className="flex items-center gap-2">
                     <button
                       className="secondary-button nowrap"
                       onClick={handleClearAll}
                       disabled={!isResetEnabled}
                       title="Reset all company level intel"
-                      //  title="Clear all data and reset the application state"
                     >
                       Reset
                     </button>
@@ -1828,7 +1894,7 @@ const usageData = useMemo(() => {
                       </ReactTooltip>
                     </span>
                   </div>
-                )}
+                ) */}
               </div>
             </div>
 
@@ -2741,6 +2807,78 @@ const usageData = useMemo(() => {
                             </select>
                           </div>
 
+                          {/* Index Range Controls */}
+                          <div
+                            style={{ flex: "0 0 auto", paddingRight: "10px" }}
+                            className="flex items-center gap-1"
+                          >
+                            <label
+                              style={{
+                                fontWeight: "600",
+                                fontSize: "13px",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              Index
+                            </label>
+
+                            {/* Start Index Dropdown */}
+                            <select
+                              className="form-control"
+                              value={startIndex}
+                              onChange={(e) => {
+                                setStartIndex(e.target.value);
+                                // Reset endIndex if it's less than new startIndex
+                                if (endIndex && parseInt(endIndex) <= parseInt(e.target.value)) {
+                                  setEndIndex("");
+                                }
+                              }}
+                              style={{
+                                width: "60px",
+                                minWidth: "60px",
+                                maxWidth: "60px",
+                                height: "40px",
+                                padding: "2px 4px",
+                                fontSize: "12px",
+                              }}
+                            >
+                              <option value="">From</option>
+                              {Array.from({ length: combinedResponses.length }, (_, i) => i + 1).map((num) => (
+                                <option key={num} value={num}>
+                                  {num}
+                                </option>
+                              ))}
+                            </select>
+
+                            <span style={{ fontSize: "12px", margin: "0 2px" }}>–</span>
+
+                            {/* End Index Dropdown */}
+                            <select
+                              className="form-control"
+                              value={endIndex}
+                              onChange={(e) => setEndIndex(e.target.value)}
+                              disabled={!startIndex}
+                              style={{
+                                width: "60px",
+                                minWidth: "60px",
+                                maxWidth: "60px",
+                                height: "40px",
+                                padding: "2px 4px",
+                                fontSize: "12px",
+                              }}
+                            >
+                              <option value="">To</option>
+                              {startIndex && Array.from(
+                                { length: combinedResponses.length - parseInt(startIndex) },
+                                (_, i) => parseInt(startIndex) + i + 1
+                              ).map((num) => (
+                                <option key={num} value={num}>
+                                  {num}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
 
 
                           {/* Send Button - 10% width to align in row */}
@@ -2915,7 +3053,22 @@ const usageData = useMemo(() => {
                                   }
 
                                   console.log("Starting bulk send...");
-                                  sendEmailsInBulk(currentIndex);
+                                  
+                                  // Calculate start and end indices
+                                  const start = startIndex ? parseInt(startIndex) - 1 : currentIndex;
+                                  const end = endIndex ? parseInt(endIndex) - 1 : undefined;
+                                  
+                                  // Validate indices
+                                  if (start < 0 || start >= combinedResponses.length) {
+                                    toast.error("Invalid start index");
+                                    return;
+                                  }
+                                  if (end !== undefined && (end < start || end >= combinedResponses.length)) {
+                                    toast.error("Invalid end index");
+                                    return;
+                                  }
+                                  
+                                  sendEmailsInBulk(start, end);
                                 }
                               }}
                               disabled={(() => {
