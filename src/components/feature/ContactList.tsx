@@ -162,6 +162,8 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   // Data file states
   const [dataFiles, setDataFiles] = useState<DataFileItem[]>([]);
   const [selectedDataFile, setSelectedDataFile] = useState<string>("");
+  const [selectedDataFileId, setSelectedDataFileId] = useState<number | null>(null);
+
 
   // Contact list states
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -244,6 +246,8 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
 
       const data: DataFileItem[] = await response.json();
       setDataFiles(data);
+       
+      console.log("datafiles",data);
     } catch (error) {
       console.error("Error fetching data files:", error);
     } finally {
@@ -2134,14 +2138,28 @@ const formatTimeIST = (dateString?: string) => {
                             cursor: "pointer",
                             fontWeight: 500,
                           }}
+                          // onClick={(e) => {
+                          //   e.stopPropagation(); // important
+                          //   setEditingContact(row);
+                          //   setShowContactPage(true);
+                          //   setActiveContactTab("profile");
+                          //   fetchEmailTimeline(row.id);
+                          //   // setShowEditContactModal(true);
+                          // }}
                           onClick={(e) => {
-                            e.stopPropagation(); // important
-                            setEditingContact(row);
-                            setShowContactPage(true);
-                            setActiveContactTab("profile");
-                            fetchEmailTimeline(row.id);
-                            // setShowEditContactModal(true);
-                          }}
+                           e.stopPropagation();
+                           if (!selectedDataFileForView?.id) {
+    console.error("No dataFileId for current list");
+    return;
+  }
+
+  const contactDetailsUrl =
+    `/contact-details/${row.id}?dataFileId=${selectedDataFileForView.id}`;
+
+  window.open(
+    contactDetailsUrl,
+    "_blank"
+  );}}
                         >
                           {value}
                         </span>
@@ -3294,14 +3312,30 @@ const formatTimeIST = (dateString?: string) => {
                             cursor: "pointer",
                             fontWeight: 500,
                           }}
+                          // onClick={(e) => {
+                          //   e.stopPropagation(); // important
+                          //   setEditingContact(row);
+                          //   setShowContactPage(true);
+                          //   //setShowEditContactModal(true);
+                          //   setActiveContactTab("profile");
+                          //   fetchEmailTimeline(row.id);
+                          // }}
                           onClick={(e) => {
-                            e.stopPropagation(); // important
-                            setEditingContact(row);
-                            setShowContactPage(true);
-                            //setShowEditContactModal(true);
-                            setActiveContactTab("profile");
-                            fetchEmailTimeline(row.id);
-                          }}
+  e.stopPropagation();
+
+  if (!selectedSegmentForView) {
+    console.error("No segment selected");
+    return;
+  }
+
+  const contactDetailsUrl =
+    `/contact-details/${row.id}?segmentId=${selectedSegmentForView.id}&dataFileId=${selectedSegmentForView.dataFileId}`;
+
+  window.open(
+    contactDetailsUrl,
+    "_blank"
+  );
+}}
                         >
                           {value}
                         </span>

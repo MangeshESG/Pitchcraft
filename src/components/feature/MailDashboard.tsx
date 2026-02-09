@@ -571,6 +571,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
 
       if (response.ok) {
         const logs = await response.json();
+        console.log("COntacts",logs);
         return logs;
       } else {
         console.error("Failed to fetch email logs");
@@ -581,7 +582,6 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
       return [];
     }
   };
-
   // Updated fetchLogsByCampaign function
   const fetchLogsByCampaign = async (campaignId: string) => {
     await withLoader("Loading campaign data...", async () => {
@@ -2208,12 +2208,15 @@ full_name: (value: any, item: any) => {
       }}
       onClick={(e) => {
         e.stopPropagation();
-
-        // 👇 OPEN IN NEW TAB
-        window.open(
-           `/contact-details/${item.contactId}`,
-          "_blank"
+       const campaign = availableCampaigns.find(
+          (c) => c.id.toString() === selectedCampaign
         );
+        const dataFileId = campaign?.zohoViewId || "";
+        // 👇 OPEN IN NEW TAB
+       window.open(
+          `/contact-details/${item.contactId}?dataFileId=${dataFileId}`,
+          "_blank"
+        )
       }}
     >
       {label}
@@ -2243,10 +2246,14 @@ name: (value: any, item: any) => {
       }}
       onClick={(e) => {
         e.stopPropagation();
-        window.open(
-          `/ContactDetailView/${item.contactId}`,
-          "_blank"
+         const campaign = availableCampaigns.find(
+          (c) => c.id.toString() === selectedCampaign
         );
+        const dataFileId = campaign?.zohoViewId || "";
+         window.open(
+          `/contact-details/${item.contactId}?dataFileId=${dataFileId}`,
+          "_blank"
+        )
       }}
     >
       {label}
@@ -2402,7 +2409,6 @@ name: (value: any, item: any) => {
                 : setEmailColumns
             }
           />
-
           {/* Email Logs Summary */}
           {emailFilterType === "email-logs" && (
             <div className="email-summary" style={{ marginTop: 20 }}>
