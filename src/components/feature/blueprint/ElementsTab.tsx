@@ -61,6 +61,23 @@ const sanitizeOnPaste = (html: string) => {
   });
 };
 
+const sanitizeRichText = (html: string) =>
+  DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: ["b", "strong", "i", "em", "u", "br", "p", "ul", "ol", "li", "a"],
+    ALLOWED_ATTR: ["href"],
+    FORBID_ATTR: ["style", "class"],
+    KEEP_CONTENT: true,
+  });
+
+const insertPlainText = (text: string) => {
+  const selection = window.getSelection();
+  if (!selection || !selection.rangeCount) return;
+
+  selection.deleteFromDocument();
+  selection.getRangeAt(0).insertNode(document.createTextNode(text));
+};
+
+
 
 
   return (
@@ -233,12 +250,29 @@ const sanitizeOnPaste = (html: string) => {
                       const html = clipboard.getData("text/html");
                       const text = clipboard.getData("text/plain");
 
-                      const clean = html
-                        ? sanitizeOnPaste(html)
-                        : text;
+                      const target = e.target as HTMLElement;
 
-                      document.execCommand("insertHTML", false, clean);
+                      const isContentEditable =
+                        target.isContentEditable ||
+                        target.closest('[contenteditable="true"]');
+
+                      if (isContentEditable && html) {
+                        const cleanHTML = sanitizeRichText(html);
+
+                        const selection = window.getSelection();
+                        if (!selection || !selection.rangeCount) return;
+
+                        const range = selection.getRangeAt(0);
+                        range.deleteContents();
+
+                        const fragment = range.createContextualFragment(cleanHTML);
+                        range.insertNode(fragment);
+                        range.collapse(false);
+                      } else {
+                        insertPlainText(text);
+                      }
                     }}
+
                   >
                     {renderPlaceholderInput({
                       ...p,
