@@ -19,6 +19,7 @@ import ContactsTable from "./ContactsTable";
 import API_BASE_URL from "../../config";
 import { useAppData } from "../../contexts/AppDataContext";
 import { Tooltip as ReactTooltip } from "react-tooltip";
+import ContactDetailView from "./contacts/ContactDetailView";
 
 // Interfaces
 interface DailyStats {
@@ -108,6 +109,11 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   const [missingLogs, setMissingLogs] = useState<any[]>([]);
   const [filteredEventData, setFilteredEventData] = useState<EventItem[]>([]);
   const [dailyStats, setDailyStats] = useState<DailyStats[]>([]);
+  //for fullname in contacts
+  const [viewMode, setViewMode] = useState<"table" | "detail">("table");
+  const [selectedContact, setSelectedContact] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<"profile" | "history">("profile");
+
   const [totalStats, setTotalStats] = useState({
     sent: 0,
     opens: 0,
@@ -565,6 +571,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
 
       if (response.ok) {
         const logs = await response.json();
+        console.log("COntacts",logs);
         return logs;
       } else {
         console.error("Failed to fetch email logs");
@@ -575,7 +582,6 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
       return [];
     }
   };
-
   // Updated fetchLogsByCampaign function
   const fetchLogsByCampaign = async (campaignId: string) => {
     await withLoader("Loading campaign data...", async () => {
@@ -2045,7 +2051,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
             </div>
           )}
 
-          {/* ContactsTable Component */}
+          {/* ContactsTable Component */}          
           <DynamicContactsTable
             data={
               emailFilterType === "email-logs"
@@ -2180,18 +2186,81 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
               hasClicked: (value: any) => (value ? "✅" : "-"),
 
               // Name formatting with warning
+              // full_name: (value: any, item: any) => {
+              //   if (item.contactId === 0) {
+              //     return `${value} ⚠️`;
+              //   }
+              //   return value || "-";
+              // },
               full_name: (value: any, item: any) => {
-                if (item.contactId === 0) {
-                  return `${value} ⚠️`;
-                }
-                return value || "-";
-              },
+              if (!value) return "-";
+ 
+              const label =
+              item.contactId === 0 ? `${value} ⚠️` : value;
+              return (
+              <span
+              style={{
+              color: "#186bf3",
+              cursor: "pointer",
+              fontWeight: 500,
+              textDecoration: "underline",
+              }}
+              onClick={(e) => {
+              e.stopPropagation();
+              const campaign = availableCampaigns.find(
+               (c) => c.id.toString() === selectedCampaign
+              );
+              const dataFileId = campaign?.zohoViewId || "";
+              const contactId = item.id || item.contactId;
+              console.log("[v0] Opening contact - id:", contactId, "dataFileId:", dataFileId, "item:", item);
+              // 👇 OPEN IN NEW TAB
+              window.open(
+              `/contact-details/${item.contactId}?dataFileId=${dataFileId}`,
+              "_blank"
+              )
+              }}
+              >
+              {label}
+             </span>
+             );
+             },
+
+              // name: (value: any, item: any) => {
+              //   if (item.contactId === 0) {
+              //     return `${value} ⚠️`;
+              //   }
+              //   return value || "-";
+              // },
               name: (value: any, item: any) => {
-                if (item.contactId === 0) {
-                  return `${value} ⚠️`;
-                }
-                return value || "-";
-              },
+              if (!value) return "-";
+              const label =
+              item.contactId === 0 ? `${value} ⚠️` : value;
+              return (
+              <span
+              style={{
+                   color: "#3f9f42",
+                   cursor: "pointer",
+                   fontWeight: 500,
+                   textDecoration: "underline",
+                  }}
+              onClick={(e) => {
+              e.stopPropagation();
+              const campaign = availableCampaigns.find(
+              (c) => c.id.toString() === selectedCampaign
+              );
+              const dataFileId = campaign?.zohoViewId || "";
+              const contactId = item.id || item.contactId;
+              console.log("[v0] Opening contact from name - id:", contactId, "dataFileId:", dataFileId);
+              window.open(
+              `/contact-details/${item.contactId}?dataFileId=${dataFileId}`,
+             "_blank"
+              )
+              }}
+              >
+            {label}
+            </span>
+            );
+            },
 
               // URL formatting
               linkedin_URL: (value: any) => {
@@ -2341,7 +2410,6 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
                 : setEmailColumns
             }
           />
-
           {/* Email Logs Summary */}
           {emailFilterType === "email-logs" && (
             <div className="email-summary" style={{ marginTop: 20 }}>
