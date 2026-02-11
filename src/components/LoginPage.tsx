@@ -190,7 +190,7 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
         response.ok &&
         (data.success || data.message?.toLowerCase().includes("otp"))
       ) {
-        localStorage.setItem("loginUser", username);
+        storeLoginCredentials(username, password);
         setView("otp");
       } else {
         setError(data.message || "Invalid login credentials.");
@@ -201,6 +201,11 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const storeLoginCredentials = (username: string, password: string) => {
+    localStorage.setItem("loginUser", username);
+    localStorage.setItem("loginPassword", password);
   };
 
 useEffect(() => {
@@ -517,6 +522,7 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
   const [error, setError] = useState("");
   const [trustThisDevice, setTrustThisDevice] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   const { timeLeft, isExpired, startTimer, formatTime } = useOtpTimer();
 
   React.useEffect(() => {
@@ -528,6 +534,7 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
   const registerPassword = localStorage.getItem("registerPassword");
   const resetEmail = localStorage.getItem("resetEmail");
   const loginUser = localStorage.getItem("loginUser");
+  const loginPassword = localStorage.getItem("loginPassword");
 
   const getUserIdFromToken = (token: string) => {
     try {
@@ -689,6 +696,7 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
           }
 
           localStorage.removeItem("loginUser");
+          localStorage.removeItem("loginPassword");
           localStorage.removeItem("trustThisDevice");
           localStorage.removeItem('creditModalSkipped');
 
@@ -702,6 +710,54 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
       setError("An error occurred while verifying OTP. Please try again.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setIsResending(true);
+    setError("");
+    setMsg("");
+
+    try {
+      if (loginUser && loginPassword) {
+        const trustedDeviceNumber = getCookie("trustedDeviceNumber");
+        const body: any = { username: loginUser, password: loginPassword };
+
+        if (
+          trustedDeviceNumber &&
+          trustedDeviceNumber.trim() !== "" &&
+          trustedDeviceNumber !== "undefined" &&
+          !isNaN(Number(trustedDeviceNumber))
+        ) {
+          body.trustednumber = Number(trustedDeviceNumber);
+        }
+
+        const response = await fetch(`${API_BASE_URL}/api/login/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+        let data: any;
+        try {
+          data = await response.json();
+        } catch {
+          data = {};
+        }
+
+        if (response.ok && (data.success || data.message?.toLowerCase().includes("otp"))) {
+          setMsg("OTP resent successfully!");
+          startTimer();
+          setTimeout(() => setMsg(""), 3000);
+        } else {
+          setError("Failed to resend OTP. Please try again.");
+        }
+      }
+    } catch (err) {
+      console.error("Resend OTP error:", err);
+      setError("Error resending OTP. Please try again.");
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -804,6 +860,29 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
         {isExpired ? 'OTP Expired' : `Time Remaining: ${formatTime}`}
       </div>
 
+      {isExpired && loginUser && (
+        <button
+          type="button"
+          onClick={handleResendOtp}
+          disabled={isResending}
+          className="login-button"
+          style={{
+            width: '100%',
+            marginTop: '15px',
+            backgroundColor: isResending ? '#ccc' : '#007bff'
+          }}
+        >
+          {isResending ? (
+            <>
+              <div className="spinner"></div>
+              Resending...
+            </>
+          ) : (
+            'Resend OTP'
+          )}
+        </button>
+      )}
+
       {msg && <div className="success-message">{msg}</div>}
       {error && <div className="error-message">{error}</div>}
 
@@ -815,6 +894,7 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
             localStorage.removeItem("registerPassword");
             localStorage.removeItem("resetEmail");
             localStorage.removeItem("loginUser");
+            localStorage.removeItem("loginPassword");
             localStorage.removeItem("trustThisDevice");
             setView("login");
           }}
