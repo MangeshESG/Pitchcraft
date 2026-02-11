@@ -2,6 +2,8 @@ import React from "react";
 import type { PlaceholderDefinitionUI } from "./EmailCampaignBuilder";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faAngleDown, faCircleInfo } from "@fortawesome/free-solid-svg-icons";
+import DOMPurify from "dompurify";
+
 
 export interface ElementsTabProps {
   groupedPlaceholders: Record<string, PlaceholderDefinitionUI[]>;
@@ -36,6 +38,28 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
 
 const formatCategoryLabel = (category: string) =>
   category.toUpperCase();
+
+const sanitizeOnPaste = (html: string) => {
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: [
+      "b",
+      "strong",
+      "i",
+      "em",
+      "u",
+      "br",
+      "p",
+      "ul",
+      "ol",
+      "li",
+      "a",
+    ],
+    ALLOWED_ATTR: ["href"],
+    FORBID_TAGS: ["span", "div"],
+    FORBID_ATTR: ["style", "class"],
+    KEEP_CONTENT: true,
+  });
+};
 
 
 
@@ -201,10 +225,27 @@ const formatCategoryLabel = (category: string) =>
                     )}
                   </label>
 
-                  {renderPlaceholderInput({
-                    ...p,
-                    options: p.options || [],
-                  })}
+                  <div
+                    onPaste={(e) => {
+                      e.preventDefault();
+
+                      const clipboard = e.clipboardData;
+                      const html = clipboard.getData("text/html");
+                      const text = clipboard.getData("text/plain");
+
+                      const clean = html
+                        ? sanitizeOnPaste(html)
+                        : text;
+
+                      document.execCommand("insertHTML", false, clean);
+                    }}
+                  >
+                    {renderPlaceholderInput({
+                      ...p,
+                      options: p.options || [],
+                    })}
+                  </div>
+
                 </div>
               ))}
             </div>

@@ -2,12 +2,8 @@ import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { faAngleRight, faAngleLeft } from "@fortawesome/free-solid-svg-icons";
 import {
   Send,
-  Copy,
-  Check,
   Loader2,
   RefreshCw,
-  Globe,
-  Eye,
   FileText,
   MessageSquare,
   CheckCircle,
@@ -32,6 +28,7 @@ import ElementsTab from "./ElementsTab";
 import toggleOn from "../../../assets/images/on-button.png";
 import toggleOff from "../../../assets/images/off-button.png";
 import RichTextEditor from "../../common/RTEEditor";
+import DOMPurify from "dompurify";
 
 // --- Type Definitions ---
 interface Message {
@@ -1514,47 +1511,120 @@ const uploadImage = async (file: File) => {
     }
   }, [systemPrompt, masterPrompt, selectedTemplateDefinitionId]);
 
-  const saveAllPlaceholders = async () => {
-    try {
-      const storedId = sessionStorage.getItem("newCampaignId");
-      const activeTemplateId =
-        editTemplateId ?? (storedId ? Number(storedId) : null);
 
-      if (!activeTemplateId) {
-        showModal("Error", "No campaign template found.");
-        return;
-      }
 
-      // ✅ only conversation placeholders (exclude contact placeholders)
-      //const conversationOnly = getConversationPlaceholders(formValues);
-      const conversationOnly = Object.fromEntries(
-        Object.entries(getConversationPlaceholders(formValues)).filter(
-          ([key]) => extractPlaceholders(masterPrompt).includes(key),
-        ),
-      );
+const stripToText = (html: string) => {
+  const div = document.createElement("div");
+  div.innerHTML = html;
+  return (div.textContent || "").replace(/\s+/g, " ").trim();
+};
 
-      await axios.post(
-        `${API_BASE_URL}/api/CampaignPrompt/template/update-placeholders`,
-        {
-          templateId: activeTemplateId,
-          placeholderValues: conversationOnly,
-        },
-      );
+const cleanRichHtml = (html: string) => {
+  return DOMPurify.sanitize(html, {
+    // 🚫 DO NOT use USE_PROFILES here
 
-      // ✅ update local UI
-      setPlaceholderValues((prev) => ({
-        ...prev,
-        ...conversationOnly,
-      }));
+    ALLOWED_TAGS: [
+      "b",
+      "strong",
+      "i",
+      "em",
+      "u",
+      "br",
+      "p",
+      "ul",
+      "ol",
+      "li",
+      "a",
+    ],
 
-      await reloadCampaignBlueprint();
+    ALLOWED_ATTR: ["href"],
 
-      showModal("Success", "✅ Element values updated successfully!");
-    } catch (error) {
-      console.error("❌ Failed to update elements:", error);
-      showModal("Warning", "Failed to update element values.");
+    FORBID_TAGS: ["span", "div"],
+
+    FORBID_ATTR: ["style", "class"],
+
+    KEEP_CONTENT: true,
+  });
+};
+
+
+
+const sanitizePlaceholders = (
+  values: Record<string, string>,
+  uiPlaceholders: PlaceholderDefinitionUI[],
+) => {
+  const cleaned: Record<string, string> = {};
+
+  Object.entries(values).forEach(([key, raw]) => {
+    // 🚫 keep example output untouched
+    if (key === "example_output_email") {
+      cleaned[key] = raw;
+      return;
     }
-  };
+
+    const meta = uiPlaceholders.find(p => p.placeholderKey === key);
+
+    const isRich =
+      meta?.isRichText === true ||
+      meta?.inputType === "richtext" ||
+      /signature|body|testimony|html/i.test(key);
+
+    cleaned[key] = isRich
+      ? cleanRichHtml(raw)
+      : stripToText(raw);
+  });
+
+  return cleaned;
+};
+
+
+
+
+const saveAllPlaceholders = async () => {
+  try {
+    const storedId = sessionStorage.getItem("newCampaignId");
+    const activeTemplateId =
+      editTemplateId ?? (storedId ? Number(storedId) : null);
+
+    if (!activeTemplateId) {
+      showModal("Error", "No campaign template found.");
+      return;
+    }
+
+    // ✅ ONE source of truth
+    const cleanedValues = sanitizePlaceholders(
+      formValues,
+      uiPlaceholders
+    );
+
+    console.log("FINAL PAYLOAD", cleanedValues);
+
+    await axios.post(
+      `${API_BASE_URL}/api/CampaignPrompt/template/update-placeholders`,
+      {
+        templateId: activeTemplateId,
+        placeholderValues: cleanedValues,
+      },
+    );
+
+    setPlaceholderValues((prev) => ({
+      ...prev,
+      ...cleanedValues,
+    }));
+
+    await reloadCampaignBlueprint();
+
+    showModal("Success", "✅ Element values updated successfully!");
+  } catch (error) {
+    console.error("❌ Failed to update elements:", error);
+    showModal("Warning", "Failed to update element values.");
+  }
+};
+
+
+
+
+
 
   // ====================================================================
   // SELECT DATA FILE AND LOAD CONTACTS
