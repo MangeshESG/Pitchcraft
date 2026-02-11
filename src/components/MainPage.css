@@ -2351,3 +2351,8 @@ textarea {
 }
 
 
+
+
+.output-email-floated-icons .device-icon:before {
+  display: none !important;
+}

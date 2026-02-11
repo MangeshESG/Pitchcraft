@@ -2349,7 +2349,11 @@ const formatTimeIST = (dateString?: string) => {
                                 fetchSegments();
                               }
                             }}
-                            style={{ backgroundColor: "#3f9f42" }}
+                            style={{ 
+                              backgroundColor: "#3f9f42",
+                              borderColor: "#3f9f42",
+                              color: "#fff"
+                            }}
                           >
                             Segment
                           </button>
@@ -3472,7 +3476,7 @@ const formatTimeIST = (dateString?: string) => {
                               border: "none",
                             }}
                           >
-                            {isLoading ? "Deleting..." : "Delete contacts"}
+                            {isLoading ? "Deleting..." : "Remove"}
                           </button>
                           <button
                             className="button secondary"
@@ -3509,8 +3513,13 @@ const formatTimeIST = (dateString?: string) => {
                           <button
                             className="button primary"
                             onClick={() => setShowSaveSegmentModal(true)}
+                            style={{ 
+                              backgroundColor: "#3f9f42",
+                              borderColor: "#3f9f42",
+                              color: "#fff"
+                            }}
                           >
-                            Create segment
+                            Segment
                           </button>
                         </div>
                       </div>

@@ -285,7 +285,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     password: "",
     fromEmail: "",
     senderName: "",
-    usessl: false,
+    usessl: "nossl",
   });
   const [editingId, setEditingId] = useState(null);
   const [smtpLoading, setSmtpLoading] = useState(false);
@@ -318,10 +318,10 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
 
   // Handle Form Change
   const handleChangeSMTP = (e: any) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value } = e.target;
     setForm((prevForm) => ({
       ...prevForm,
-      [name]: type === "checkbox" ? checked : value,
+      [name]: value,
     }));
   };
 
@@ -334,7 +334,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       // Only send test email
       await axios.post(
         `${API_BASE_URL}/api/email/configTestMail?ClientId=${effectiveUserId}`,
-        JSON.stringify({ ...form, IsUpdate: !!editingId }),
+        JSON.stringify({ ...form, usessl: form.usessl === "ssl" || form.usessl === "ssl/tls", SecurityType: form.usessl, IsUpdate: !!editingId }),
         {
           headers: {
             "Content-Type": "application/json",
@@ -358,7 +358,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
           password: "",
           fromEmail: "",
           senderName: "",
-          usessl: false,
+          usessl: "nossl",
         });
         setEditingId(null);
         handleModalClose("modal-add-mailbox");
@@ -398,7 +398,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
           password: "",
           fromEmail: "",
           senderName: "",
-          usessl: false,
+          usessl: "nossl",
         });
         setEditingId(null);
         // Refresh SMTP list instead of page reload
@@ -1679,7 +1679,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                           <td>{item.username}</td>
                           <td>{item.fromEmail}</td>
                           <td>{(item as any).senderName || "-"}</td>
-                          <td>{Boolean(item.useSsl || item.usessl) ? "Yes" : "No"}</td>
+                          <td>{((item as any).SecurityType || (item as any).securityType)?.toUpperCase()}</td>
                           <td style={{ position: "relative" }}>
                             <button
                               className="segment-actions-btn"
@@ -1906,19 +1906,27 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                             />
                           </div>
                         </div>
+                        <div className="form-group">
+                          <label>SSL Configuration</label>
+                          <select
+                            name="usessl"
+                            value={form.usessl}
+                            onChange={handleChangeSMTP}
+                            style={{
+                              width: "100%",
+                              padding: "8px 12px",
+                              border: "1px solid #ccc",
+                              borderRadius: "4px",
+                              fontSize: "14px",
+                              backgroundColor: "white"
+                            }}
+                          >
+                            <option value="nossl">No SSL</option>
+                            <option value="ssl">SSL</option>
+                            <option value="ssl/tls">SSL/TLS</option>
+                          </select>
+                        </div>
                         <div className="d-flex justify-end" style={{ marginTop: 16 }}>
-                          <span className="flex items-center">
-                            <input
-                              type="checkbox"
-                              name="usessl"
-                              checked={form.usessl}
-                              onChange={handleChangeSMTP}
-                              id="use-ssl"
-                            />
-                            <label className="ml-5 !mb-[0] font-size-12 nowrap mr-10 font-[600]" htmlFor="use-ssl">
-                              Use SSL
-                            </label>
-                          </span>
                           <button
                             type="button"
                             className="button secondary min-w-[120px] mr-10"
@@ -1932,7 +1940,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                                 password: "",
                                 fromEmail: "",
                                 senderName: "",
-                                usessl: false,
+                                usessl: "nossl",
                               })
                             }}
                           >
@@ -2005,7 +2013,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                               password: "",
                               fromEmail: "",
                               senderName: "",
-                              usessl: false,
+                              usessl: "nossl",
                             });
                             handleModalClose("modal-add-mailbox");
                           }}

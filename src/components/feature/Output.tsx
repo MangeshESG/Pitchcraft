@@ -17,6 +17,7 @@ import AppModal from "../common/AppModal";
 import { useAppModal } from "../../hooks/useAppModal";
 import { useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
+import SendEmailPanel from "./SendEmailPanel";
 import { useSoundAlert } from "../common/useSoundAlert";
 import toggleOn from "../../assets/images/on-button.png";
 import toggleOff from "../../assets/images/off-button.png";
@@ -667,9 +668,27 @@ const Output: React.FC<OutputInterface> = ({
     sessionStorage.setItem("currentIndex", currentIndex.toString());
   }, [currentIndex]);
 
+  // Restore contact index after campaign refresh
+  useEffect(() => {
+    const preservedIndex = sessionStorage.getItem('preserveContactIndex');
+    if (preservedIndex !== null && combinedResponses.length > 0) {
+      const index = parseInt(preservedIndex, 10);
+      if (index < combinedResponses.length) {
+        setTimeout(() => {
+          setCurrentIndex(index);
+          sessionStorage.removeItem('preserveContactIndex');
+        }, 100);
+      } else {
+        sessionStorage.removeItem('preserveContactIndex');
+      }
+    }
+  }, [combinedResponses]);
+
   useEffect(() => {
     const storedCurrentIndex = sessionStorage.getItem("currentIndex");
-    if (storedCurrentIndex !== null) {
+    const preservedIndex = sessionStorage.getItem('preserveContactIndex');
+    // Only restore from currentIndex if there's no preserved index
+    if (storedCurrentIndex !== null && !preservedIndex) {
       setCurrentIndex(parseInt(storedCurrentIndex, 10));
     }
   }, [setCurrentIndex]);
@@ -1425,23 +1444,22 @@ const sleepWithCountdown = async (ms: number) => {
 };
 
 
-  const sendEmailsInBulk = async (startIndex = 0) => {
-    // Check if we have SMTP user selected BEFORE starting
+  const sendEmailsInBulk = async (startIdx = 0, endIdx?: number) => {
     if (isBulkSending) return;
 
-
     if (!selectedSmtpUser) {
-      return; // Exit early
+      return;
     }
 
     setIsBulkSending(true);
-
     stopBulkRef.current = false;
 
-    let index = startIndex;
+    let index = startIdx;
+    const maxIndex = endIdx !== undefined ? Math.min(endIdx, combinedResponses.length - 1) : combinedResponses.length - 1;
     let sentCount = 0;
     let skippedCount = 0;
-    while (index < combinedResponses.length && !stopBulkRef.current) {
+
+    while (index <= maxIndex && !stopBulkRef.current) {
       // Update current index to show the contact being processed
       setCurrentIndex(index);
 
@@ -1649,8 +1667,8 @@ const sleepWithCountdown = async (ms: number) => {
 
       // Wait before processing next email
 
-        // Wait ONLY if next email exists
-        if (index < combinedResponses.length - 1 && !stopBulkRef.current) {
+        // Wait ONLY if next email exists AND delay is enabled
+        if (index < combinedResponses.length - 1 && !stopBulkRef.current && enableDelay) {
           const delayMs = getRandomDelayMs(minDelay, maxDelay);
           console.log(`⏳ Waiting ${delayMs / 1000}s before next email`);
           await sleepWithCountdown(delayMs);
@@ -1681,6 +1699,12 @@ const sleepWithCountdown = async (ms: number) => {
   const [sendEmailControls, setSendEmailControls] = useState(false);
   const preserveIndexRef = useRef(false);
 
+  // Index range states for bulk email sending
+  const [startIndex, setStartIndex] = useState("");
+  const [endIndex, setEndIndex] = useState("");
+  const [enableDelay, setEnableDelay] = useState(false);
+  const [enableIndexRange, setEnableIndexRange] = useState(false);
+
 
 const usageData = useMemo(() => {
   if (!outputForm?.usage) return null;
@@ -1707,64 +1731,112 @@ useEffect(() => {
       {/* Add the selection dropdowns and subject line section */}
       {/* Add the selection dropdowns and subject line section */}
       <div
-        className="d-flex justify-between align-center mb-0"
+        className="d-flex justify-between align-center mb-3"
         style={{ marginTop: "-60px" }}
       >
         <div className="input-section edit-section w-[100%]">
           {/* Dropdowns Row */}
           <div className="flex items-start justify-between gap-4 w-full">
-            {/* Left side - Campaign dropdown */}
+            {/* Left side - Campaign dropdown and refresh button in a panel */}
             <div className="flex items-start gap-4 flex-1">
               <div>
-                <div className="form-group">
-                  <label>
-                    Campaign <span className="required">*</span>
-                  </label>
-                  <select
-                    onChange={handleCampaignChange}
-                    value={selectedCampaign}
-                  >
-                    <option value="">Campaign</option>
-                    {(campaigns || []).map((campaign) => (
-                      <option key={campaign.id} value={campaign.id.toString()}>
-                        {campaign.campaignName}
-                      </option>
-                    ))}
-                  </select>
-                  {!selectedCampaign && (
-                    <small className="error-text">Select a campaign</small>
-                  )}
-                </div>
-                {selectedCampaign &&
-                  campaigns?.find((c) => c.id.toString() === selectedCampaign)
-                    ?.description && (
-                    <div className="campaign-description-container">
-                      <small className="campaign-description">
-                        {
-                          campaigns.find(
-                            (c) => c.id.toString() === selectedCampaign,
-                          )?.description
-                        }
-                      </small>
+                <label>
+                  Campaign <span className="required">*</span>
+                </label>
+                <div 
+                  className="flex items-center gap-3 px-4 py-2" 
+                  style={{
+                    border: "1px solid #ddd",
+                    borderRadius: "8px",
+                    backgroundColor: "#fff",
+                    minHeight: "48px"
+                  }}
+                >
+                  <div className="form-group !mb-0">
+                    <select
+                      onChange={handleCampaignChange}
+                      value={selectedCampaign}
+                    >
+                      <option value="">Campaign</option>
+                      {(campaigns || []).map((campaign) => (
+                        <option key={campaign.id} value={campaign.id.toString()}>
+                          {campaign.campaignName}
+                        </option>
+                      ))}
+                    </select>
+                    {!selectedCampaign && (
+                      <small className="error-text">Select a campaign</small>
+                    )}
+                  </div>
+                  {selectedCampaign &&
+                    campaigns?.find((c) => c.id.toString() === selectedCampaign)
+                      ?.description && (
+                      <div className="campaign-description-container">
+                        <small className="campaign-description">
+                          {
+                            campaigns.find(
+                              (c) => c.id.toString() === selectedCampaign,
+                            )?.description
+                          }
+                        </small>
+                      </div>
+                    )}
+
+                  {/* Refresh Button - Only show when campaign is selected */}
+                  {selectedCampaign && (
+                    <div className="flex items-center">
+                      <ReactTooltip anchorSelect="#refresh-campaign-tooltip" place="top">
+                        Refresh campaign
+                      </ReactTooltip>
+                      <button
+                        id="refresh-campaign-tooltip"
+                        className="secondary-button flex items-center gap-2 h-[40px] px-3"
+                        onClick={() => {
+                          const contactId = combinedResponses[currentIndex]?.id;
+                          sessionStorage.setItem('preserveContactIndex', currentIndex.toString());
+                          if (contactId) {
+                            sessionStorage.setItem('preserveContactId', contactId.toString());
+                          }
+                          handleCampaignChange?.({ target: { value: selectedCampaign } });
+                        }}
+                        title="Refresh campaign"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="18px"
+                          height="18px"
+                          viewBox="0 0 16 16"
+                          fill="none"
+                        >
+                          <g fill="#000000">
+                            <path d="M8 1.5A6.5 6.5 0 001.5 8 .75.75 0 010 8a8 8 0 0113.5-5.81v-.94a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zM15.25 7.25A.75.75 0 0116 8a8 8 0 01-13.5 5.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z" />
+                          </g>
+                        </svg>
+                      </button>
                     </div>
                   )}
+                </div>
               </div>
 
               {/* Middle section - Buttons and checkbox */}
               <div className="flex items-center gap-4 mt-[26px]">
-                <div className="flex">
+                <div 
+                  className="flex items-center gap-3 px-4 py-2" 
+                  style={{
+                    border: "1px solid #ddd",
+                    borderRadius: "8px",
+                    backgroundColor: "#fff",
+                    minHeight: "48px"
+                  }}
+                >
                   {isResetEnabled ? (
-                    // In Output.tsx, update the button click handler:
-
                     <button
                       className="primary-button bg-[#3f9f42]"
                       onClick={async () => {
-                        // Don't trigger if credit modal is showing
                         if (showCreditModal) {
                           return;
                         }
 
-                        // Check credits before starting
                         if (
                           sessionStorage.getItem("isDemoAccount") !== "true"
                         ) {
@@ -1777,7 +1849,7 @@ useEffect(() => {
                             typeof currentCredits === "object" &&
                             !currentCredits.canGenerate
                           ) {
-                            return; // Stop if can't generate
+                            return;
                           }
                         }
 
@@ -1803,10 +1875,8 @@ useEffect(() => {
                       Stop
                     </button>
                   )}
-                </div>
-                {!isDemoAccount && (
-                  <div className="flex items-center">
-                    <label className="checkbox-label !mb-[0px] mr-[5px] flex items-center">
+                  {!isDemoAccount && (
+                    <label className="checkbox-label !mb-[0px] flex items-center">
                       <input
                         type="checkbox"
                         checked={settingsForm?.overwriteDatabase}
@@ -1817,17 +1887,22 @@ useEffect(() => {
                       />
                       <span className="text-[14px]">Overwrite</span>
                     </label>
-                  </div>
-                )}
+                  )}
+                </div>
+                <button
+                  className="green rounded-md py-[5px] px-[15px] border border-[#3f9f42]"
+                  onClick={() => setSendEmailControls(!sendEmailControls)}
+                >
+                  Send emails
+                </button>
 
-                {!isDemoAccount && (
+                {/* !isDemoAccount && (
                   <div className="flex items-center gap-2">
                     <button
                       className="secondary-button nowrap"
                       onClick={handleClearAll}
                       disabled={!isResetEnabled}
                       title="Reset all company level intel"
-                      //  title="Clear all data and reset the application state"
                     >
                       Reset
                     </button>
@@ -1837,7 +1912,7 @@ useEffect(() => {
                       </ReactTooltip>
                     </span>
                   </div>
-                )}
+                ) */}
               </div>
             </div>
 
@@ -1913,7 +1988,50 @@ useEffect(() => {
                   }}
                   className="export-link green flex items-center"
                 >
-                  {isExporting ? <span>Exporting...</span> : <>Download</>}
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="22px"
+                    height="22px"
+                    viewBox="0 0 24 24"
+                  >
+                    <g id="Complete">
+                      <g id="download">
+                        <g>
+                          <path
+                            d="M3,12.3v7a2,2,0,0,0,2,2H19a2,2,0,0,0,2-2v-7"
+                            fill="none"
+                            stroke="#000000"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                          />
+                          <g>
+                            <polyline
+                              data-name="Right"
+                              fill="none"
+                              id="Right-2"
+                              points="7.9 12.3 12 16.3 16.1 12.3"
+                              stroke="#000000"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                            />
+                            <line
+                              fill="none"
+                              stroke="#000000"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              x1="12"
+                              x2="12"
+                              y1="2.7"
+                              y2="14.2"
+                            />
+                          </g>
+                        </g>
+                      </g>
+                    </g>
+                  </svg>
                 </a>
               </div>
 
@@ -2543,536 +2661,6 @@ useEffect(() => {
 
                     </div>
 
-                    {/* Toggle Send Email controls */}
-                    {/* BCC field - 20% width */}
-                    <div className="relative ml-[auto] flex">
-                      {sendEmailControls && (
-                        <div
-                          className="right-angle flex  items-start justify-end absolute right-[140px] top-[13px] p-[15px] w-auto bg-white rounded-md shadow-[0_0_15px_rgba(0,0,0,0.2)] z-[100] border border-[#3f9f42] border-r-[5px] border-r-[#3f9f42]"
-                        >
-                          <div
-                            style={{ flex: "0 0 15%", paddingRight: "15px" }}
-                            className="flex items-center"
-                          >
-                            <label
-                              style={{
-                                display: "block",
-                                marginRight: "10px",
-                                marginBottom: "0",
-                                fontWeight: "600",
-                                fontSize: "14px",
-                              }}
-                            >
-                              BCC
-                            </label>
-                            <select
-                              className="form-control"
-                              value={
-                                bccSelectMode === "other"
-                                  ? "Other"
-                                  : emailFormData.BccEmail
-                              }
-                              onChange={(e) => {
-                                const selected = e.target.value;
-                                if (selected === "Other") {
-                                  setBccSelectMode("other");
-                                  setEmailFormData({
-                                    ...emailFormData,
-                                    BccEmail: "",
-                                  });
-                                  localStorage.setItem(
-                                    "lastBCCOtherMode",
-                                    "true",
-                                  );
-                                  // Do NOT clear lastBCC, keep it if exists
-                                } else {
-                                  setBccSelectMode("dropdown");
-                                  setEmailFormData({
-                                    ...emailFormData,
-                                    BccEmail: selected,
-                                  });
-                                  localStorage.setItem(
-                                    "lastBCCOtherMode",
-                                    "false",
-                                  );
-                                  localStorage.setItem("lastBCC", selected);
-                                }
-                              }}
-                              style={{
-                                width: "100%",
-                                padding: "10px",
-                                border: "1px solid #ccc",
-                                borderRadius: "4px",
-                                fontSize: "inherit",
-                                minHeight: "30px",
-                                background: "#f8fff8",
-                              }}
-                            >
-                              <option value="">BCC email</option>
-                              {bccOptions.map((option) => (
-                                <option
-                                  key={option.id}
-                                  value={option.bccEmailAddress}
-                                >
-                                  {option.bccEmailAddress}
-                                </option>
-                              ))}
-                              <option value="Other">Other</option>
-                            </select>
-                            {bccSelectMode === "other" && (
-                              <input
-                                type="email"
-                                placeholder="Type BCC email"
-                                value={emailFormData.BccEmail}
-                                onChange={(e) => {
-                                  setEmailFormData({
-                                    ...emailFormData,
-                                    BccEmail: e.target.value,
-                                  });
-                                  localStorage.setItem(
-                                    "lastBCC",
-                                    e.target.value,
-                                  ); // <== store as soon as typed
-                                }}
-                                style={{
-                                  width: "100%",
-                                  padding: "10px",
-                                  border: "1px solid #ccc",
-                                  borderRadius: "4px",
-                                  fontSize: "inherit",
-                                  minHeight: "30px",
-                                  marginTop: "0",
-                                  background: "#f8fff8",
-                                  marginLeft: "15px",
-                                  minWidth: "200px",
-                                }}
-                              />
-                            )}
-                          </div>
-
-                          {/* From Email field - 20% width */}
-                          <div
-                            style={{ flex: "0 0 15%", paddingRight: "15px" }}
-                            className="flex items-center"
-                          >
-                            <label
-                              style={{
-                                display: "block",
-                                marginRight: "10px",
-                                marginBottom: "0",
-                                fontWeight: "600",
-                                fontSize: "14px",
-                              }}
-                            >
-                              From
-                            </label>
-                            <select
-                              className="form-control"
-                              value={selectedSmtpUser}
-                              onChange={(e) =>
-                                setSelectedSmtpUser(e.target.value)
-                              }
-                              style={{
-                                width: "100%",
-                                padding: "10px",
-                                border: "1px solid #ccc",
-                                borderRadius: "4px",
-                                fontSize: "inherit",
-                                minHeight: "30px",
-                              }}
-                            >
-                              <option value="">Sender</option>
-                              {smtpUsers.map((user) => (
-                                <option key={user.id} value={user.id}>
-                                  {user.username}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-
-
-
-                          {/* Send Button - 10% width to align in row */}
-                          <div
-                            style={{
-                              flex: "0 0 10%",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "flex-start",
-                              marginLeft: "auto",
-                            }}
-                          >
-                            <ReactTooltip
-                              anchorSelect="#output-send-email-tooltip"
-                              place="top"
-                            >
-                              Send email
-                            </ReactTooltip>
-                            <button
-                              id="output-send-email-tooltip"
-                              type="button"
-                              className="button save-button x-small d-flex align-center align-self-center my-5-640 mr-[5px]"
-                              onClick={async () => {
-                                if (!combinedResponses[currentIndex]) {
-                                  toast.error("No contact selected");
-                                  return;
-                                }
-
-                                if (!selectedSmtpUser) {
-                                  toast.error("Please select From email");
-                                  return;
-                                }
-
-                                const subject =
-                                  combinedResponses[currentIndex]?.subject ||
-                                  "No subject";
-
-                                await handleSendEmail(subject); // 👈 Pass subject here
-                              }}
-                              disabled={(() => {
-                                const contact = combinedResponses[currentIndex];
-                                if (
-                                  !contact ||
-                                  sendingEmail ||
-                                  sessionStorage.getItem("isDemoAccount") ===
-                                    "true"
-                                ) {
-                                  return true;
-                                }
-
-                                // If include email trail is checked, compare dates
-                                if (followupEnabled) {
-                                  const emailedDate = contact.emailsentdate;
-                                  const kraftedDate =
-                                    contact.lastemailupdateddate;
-
-                                  if (emailedDate && kraftedDate) {
-                                    const emailedTime = new Date(
-                                      emailedDate,
-                                    ).getTime();
-                                    const kraftedTime = new Date(
-                                      kraftedDate,
-                                    ).getTime();
-
-                                    // Disable if emailed date is greater than krafted date
-                                    if (emailedTime > kraftedTime) {
-                                      return true;
-                                    }
-                                  }
-                                }
-
-                                return false;
-                              })()}
-                              style={{
-                                cursor: (() => {
-                                  const contact =
-                                    combinedResponses[currentIndex];
-                                  if (!contact || sendingEmail)
-                                    return "not-allowed";
-
-                                  if (followupEnabled) {
-                                    const emailedDate = contact.emailsentdate;
-                                    const kraftedDate =
-                                      contact.lastemailupdateddate;
-
-                                    if (emailedDate && kraftedDate) {
-                                      const emailedTime = new Date(
-                                        emailedDate,
-                                      ).getTime();
-                                      const kraftedTime = new Date(
-                                        kraftedDate,
-                                      ).getTime();
-
-                                      if (emailedTime > kraftedTime) {
-                                        return "not-allowed";
-                                      }
-                                    }
-                                  }
-
-                                  return "pointer";
-                                })(),
-                                padding: "5px 15px",
-                                opacity: (() => {
-                                  const contact =
-                                    combinedResponses[currentIndex];
-                                  if (!contact || sendingEmail) return 0.6;
-
-                                  if (followupEnabled) {
-                                    const emailedDate = contact.emailsentdate;
-                                    const kraftedDate =
-                                      contact.lastemailupdateddate;
-
-                                    if (emailedDate && kraftedDate) {
-                                      const emailedTime = new Date(
-                                        emailedDate,
-                                      ).getTime();
-                                      const kraftedTime = new Date(
-                                        kraftedDate,
-                                      ).getTime();
-
-                                      if (emailedTime > kraftedTime) {
-                                        return 0.6;
-                                      }
-                                    }
-                                  }
-
-                                  return 1;
-                                })(),
-                                height: "40px",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                marginRight: 0,
-                              }}
-                            >
-                              {!sendingEmail && emailMessage === "" && "Send"}
-                              {sendingEmail && "Sending..."}
-                              {!sendingEmail && emailMessage && "Sent"}
-                            </button>
-
-
-                            <ReactTooltip
-                              anchorSelect="#send-all-btn"
-                              place="top"
-                            >
-                              Send all emails
-                            </ReactTooltip>
-                            <button
-                              id="send-all-btn"
-                              type="button"
-                              className="nowrap ml-1 button save-button x-small d-flex align-center align-self-center my-5-640 mr-[5px]"
-                              onClick={() => {
-                                console.log(
-                                  "Button clicked, isBulkSending:",
-                                  isBulkSending,
-                                );
-
-                                if (isBulkSending) {
-                                  console.log("Stopping bulk send...");
-                                  stopBulkSending();
-                                } else {
-                                  // Check if SMTP is selected before starting
-                                  if (!selectedSmtpUser) {
-                                    toast.error(
-                                      "Please select From email first",
-                                    );
-                                    return;
-                                  }
-                                  if (minDelay > maxDelay) {
-                                    toast.error("Min delay cannot be greater than max delay");
-                                    return;
-                                  }
-
-                                  console.log("Starting bulk send...");
-                                  sendEmailsInBulk(currentIndex);
-                                }
-                              }}
-                              disabled={(() => {
-                                if (
-                                  sessionStorage.getItem("isDemoAccount") ===
-                                  "true"
-                                ) {
-                                  return true;
-                                }
-
-                                // If include email trail is checked, check if any contacts can be sent
-                                if (followupEnabled) {
-                                  const canSendAny = combinedResponses.some(
-                                    (contact) => {
-                                      const emailedDate = contact.emailsentdate;
-                                      const kraftedDate =
-                                        contact.lastemailupdateddate;
-
-                                      if (!emailedDate || !kraftedDate)
-                                        return true;
-
-                                      const emailedTime = new Date(
-                                        emailedDate,
-                                      ).getTime();
-                                      const kraftedTime = new Date(
-                                        kraftedDate,
-                                      ).getTime();
-
-                                      // Can send if krafted date is greater than or equal to emailed date
-                                      return kraftedTime >= emailedTime;
-                                    },
-                                  );
-
-                                  return !canSendAny;
-                                }
-
-                                return false;
-                              })()}
-                              style={{
-                                cursor: (() => {
-                                  if (
-                                    sessionStorage.getItem("isDemoAccount") ===
-                                    "true"
-                                  ) {
-                                    return "not-allowed";
-                                  }
-
-                                  if (followupEnabled) {
-                                    const canSendAny = combinedResponses.some(
-                                      (contact) => {
-                                        const emailedDate =
-                                          contact.emailsentdate;
-                                        const kraftedDate =
-                                          contact.lastemailupdateddate;
-
-                                        if (!emailedDate || !kraftedDate)
-                                          return true;
-
-                                        const emailedTime = new Date(
-                                          emailedDate,
-                                        ).getTime();
-                                        const kraftedTime = new Date(
-                                          kraftedDate,
-                                        ).getTime();
-
-                                        return kraftedTime >= emailedTime;
-                                      },
-                                    );
-
-                                    return canSendAny
-                                      ? "pointer"
-                                      : "not-allowed";
-                                  }
-
-                                  return "pointer";
-                                })(),
-                                padding: "5px 15px",
-                                opacity: (() => {
-                                  if (
-                                    sessionStorage.getItem("isDemoAccount") ===
-                                    "true"
-                                  ) {
-                                    return 0.6;
-                                  }
-
-                                  if (followupEnabled) {
-                                    const canSendAny = combinedResponses.some(
-                                      (contact) => {
-                                        const emailedDate =
-                                          contact.emailsentdate;
-                                        const kraftedDate =
-                                          contact.lastemailupdateddate;
-
-                                        if (!emailedDate || !kraftedDate)
-                                          return true;
-
-                                        const emailedTime = new Date(
-                                          emailedDate,
-                                        ).getTime();
-                                        const kraftedTime = new Date(
-                                          kraftedDate,
-                                        ).getTime();
-
-                                        return kraftedTime >= emailedTime;
-                                      },
-                                    );
-
-                                    return canSendAny ? 1 : 0.6;
-                                  }
-
-                                  return 1;
-                                })(),
-                                height: "40px",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                marginRight: 0,
-                              }}
-                            >
-                              {isBulkSending ? "Stop" : "Send all"}
-
-                              
-                            </button>
-                          {/* Delay Controls */}
-                          <div
-                            style={{ flex: "0 0 auto", paddingRight: "10px" }}
-                            className="flex items-center gap-1"
-                          >
-                            <label
-                              style={{
-                                fontWeight: "600",
-                                fontSize: "13px",
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              Delay(Sec)
-                            </label>
-
-                            {/* MIN */}
-                            <select
-                              className="form-control"
-                              value={minDelay}
-                              onChange={(e) => setMinDelay(Number(e.target.value))}
-                              style={{
-                                width: "52px",
-                                minWidth: "52px",
-                                maxWidth: "52px",
-                                height: "40px",
-                                padding: "2px 4px",
-                                fontSize: "12px",
-                              }}
-                            >
-                              {DELAY_OPTIONS.map((v) => (
-                                <option key={v} value={v}>
-                                  {v}
-                                </option>
-                              ))}
-                            </select>
-
-                            <span style={{ fontSize: "12px", margin: "0 2px" }}>–</span>
-
-                            {/* MAX */}
-                            <select
-                              className="form-control"
-                              value={maxDelay}
-                              onChange={(e) => setMaxDelay(Number(e.target.value))}
-                              style={{
-                                width: "52px",
-                                minWidth: "52px",
-                                maxWidth: "52px",
-                                height: "40px",
-                                padding: "2px 4px",
-                                fontSize: "12px",
-                              }}
-                            >
-                              {DELAY_OPTIONS.filter((v) => v >= minDelay).map((v) => (
-                                <option key={v} value={v}>
-                                  {v}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                            {isBulkSending && countdown !== null && (
-                              <div
-                                style={{
-                                  marginTop: "8px",
-                                  fontSize: "13px",
-                                  color: "#3f9f42",
-                                  fontWeight: 500,
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                ⏳ Next email in {countdown}s
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      <button
-                        className="green rounded-md mt-[32px] ml-[5px] py-[5px] px-[15px] border border-[#3f9f42]"
-                        onClick={() => setSendEmailControls(!sendEmailControls)}
-                      >
-                        Send emails
-                      </button>
-                    </div>
                   </div>
                 </div>
                 <span className="pos-relative d-flex justify-center">
@@ -3341,6 +2929,7 @@ useEffect(() => {
                                 setOpenDeviceDropdown(!openDeviceDropdown)
                               }
                               className="w-[55px] justify-center px-3 py-2 bg-gray-200 rounded-md flex items-center device-icon"
+                              style={{ appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none' }}
                             >
                               {outputEmailWidth === "Mobile" && (
                                 <>
@@ -3704,54 +3293,31 @@ useEffect(() => {
                           <button
                             id="regenerate-email-body-tooltip"
                             onClick={async () => {
-                              // Don't trigger if credit modal is showing
-                              if (showCreditModal) {
-                                return;
-                              }
+                              if (showCreditModal) return;
 
                               if (!combinedResponses[currentIndex]) {
-                                alert(
-                                  "No contact selected to regenerate pitch for.",
-                                );
+                                alert("No contact selected to regenerate pitch for.");
                                 return;
                               }
                               if (!onRegenerateContact) {
-                                alert(
-                                  "Regenerate logic not wired up! Consult admin.",
-                                );
+                                alert("Regenerate logic not wired up! Consult admin.");
                                 return;
                               }
 
-                              // Check credits before regenerating
-                              if (
-                                sessionStorage.getItem("isDemoAccount") !==
-                                "true"
-                              ) {
-                                const effectiveUserId =
-                                  selectedClient !== ""
-                                    ? selectedClient
-                                    : userId;
-                                const currentCredits =
-                                  await checkUserCredits?.(effectiveUserId);
-                                if (
-                                  currentCredits &&
-                                  typeof currentCredits === "object" &&
-                                  !currentCredits.canGenerate
-                                ) {
-                                  return; // Stop if can't generate
+                              if (sessionStorage.getItem("isDemoAccount") !== "true") {
+                                const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
+                                const currentCredits = await checkUserCredits?.(effectiveUserId);
+                                if (currentCredits && typeof currentCredits === "object" && !currentCredits.canGenerate) {
+                                  return;
                                 }
                               }
 
                               setIsRegenerating(true);
-                              setRegenerationTargetId(
-                                combinedResponses[currentIndex].id,
-                              );
-
-                              const regenerateIndex = currentIndex;
+                              setRegenerationTargetId(combinedResponses[currentIndex].id);
 
                               onRegenerateContact("Output", {
                                 regenerate: true,
-                                regenerateIndex: regenerateIndex, // Use currentIndex instead of 0
+                                regenerateIndex: currentIndex,
                               });
 
                               setTimeout(() => setIsRegenerating(false), 2500);
@@ -4280,6 +3846,79 @@ useEffect(() => {
           </div>
         </div>
       )}
+
+      {/* Send Email Panel */}
+      <SendEmailPanel
+        isOpen={sendEmailControls}
+        onClose={() => setSendEmailControls(false)}
+        bccOptions={bccOptions}
+        emailFormData={emailFormData}
+        setEmailFormData={setEmailFormData}
+        bccSelectMode={bccSelectMode}
+        setBccSelectMode={setBccSelectMode}
+        smtpUsers={smtpUsers}
+        selectedSmtpUser={selectedSmtpUser}
+        setSelectedSmtpUser={setSelectedSmtpUser}
+        minDelay={minDelay}
+        setMinDelay={setMinDelay}
+        maxDelay={maxDelay}
+        setMaxDelay={setMaxDelay}
+        DELAY_OPTIONS={DELAY_OPTIONS}
+        startIndex={startIndex}
+        setStartIndex={setStartIndex}
+        endIndex={endIndex}
+        setEndIndex={setEndIndex}
+        combinedResponses={combinedResponses}
+        isBulkSending={isBulkSending}
+        countdown={countdown}
+        sendingEmail={sendingEmail}
+        emailMessage={emailMessage}
+        currentIndex={currentIndex}
+        followupEnabled={followupEnabled}
+        enableDelay={enableDelay}
+        setEnableDelay={setEnableDelay}
+        enableIndexRange={enableIndexRange}
+        setEnableIndexRange={setEnableIndexRange}
+        onSendSingle={async () => {
+          if (!combinedResponses[currentIndex]) {
+            toast.error("No contact selected");
+            return;
+          }
+          if (!selectedSmtpUser) {
+            toast.error("Please select From email");
+            return;
+          }
+          const subject = combinedResponses[currentIndex]?.subject || "No subject";
+          await handleSendEmail(subject);
+        }}
+        onSendAll={() => {
+          if (isBulkSending) {
+            stopBulkSending();
+          } else {
+            if (!selectedSmtpUser) {
+              toast.error("Please select From email first");
+              return;
+            }
+            if (enableDelay && minDelay > maxDelay) {
+              toast.error("Min delay cannot be greater than max delay");
+              return;
+            }
+            const start = enableIndexRange && startIndex ? parseInt(startIndex) - 1 : currentIndex;
+            const end = enableIndexRange && endIndex ? parseInt(endIndex) - 1 : undefined;
+            if (enableIndexRange) {
+              if (start < 0 || start >= combinedResponses.length) {
+                toast.error("Invalid start index");
+                return;
+              }
+              if (end !== undefined && (end < start || end >= combinedResponses.length)) {
+                toast.error("Invalid end index");
+                return;
+              }
+            }
+            sendEmailsInBulk(start, end);
+          }
+        }}
+      />
     </div>
   );
 };
