@@ -2192,37 +2192,38 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
               //   }
               //   return value || "-";
               // },
-full_name: (value: any, item: any) => {
-  if (!value) return "-";
-
-  const label =
-    item.contactId === 0 ? `${value} ⚠️` : value;
-
-  return (
-    <span
-      style={{
-        color: "#186bf3",
-        cursor: "pointer",
-        fontWeight: 500,
-        textDecoration: "underline",
-      }}
-      onClick={(e) => {
-        e.stopPropagation();
-       const campaign = availableCampaigns.find(
-          (c) => c.id.toString() === selectedCampaign
-        );
-        const dataFileId = campaign?.zohoViewId || "";
-        // 👇 OPEN IN NEW TAB
-       window.open(
-          `/contact-details/${item.contactId}?dataFileId=${dataFileId}`,
-          "_blank"
-        )
-      }}
-    >
-      {label}
-    </span>
-  );
-},
+              full_name: (value: any, item: any) => {
+              if (!value) return "-";
+ 
+              const label =
+              item.contactId === 0 ? `${value} ⚠️` : value;
+              return (
+              <span
+              style={{
+              color: "#186bf3",
+              cursor: "pointer",
+              fontWeight: 500,
+              textDecoration: "underline",
+              }}
+              onClick={(e) => {
+              e.stopPropagation();
+              const campaign = availableCampaigns.find(
+               (c) => c.id.toString() === selectedCampaign
+              );
+              const dataFileId = campaign?.zohoViewId || "";
+              const contactId = item.id || item.contactId;
+              console.log("[v0] Opening contact - id:", contactId, "dataFileId:", dataFileId, "item:", item);
+              // 👇 OPEN IN NEW TAB
+              window.open(
+              `/contact-details/${item.contactId}?dataFileId=${dataFileId}`,
+              "_blank"
+              )
+              }}
+              >
+              {label}
+             </span>
+             );
+             },
 
               // name: (value: any, item: any) => {
               //   if (item.contactId === 0) {
@@ -2230,36 +2231,36 @@ full_name: (value: any, item: any) => {
               //   }
               //   return value || "-";
               // },
-name: (value: any, item: any) => {
-  if (!value) return "-";
-
-  const label =
-    item.contactId === 0 ? `${value} ⚠️` : value;
-
-  return (
-    <span
-      style={{
-        color: "#3f9f42",
-        cursor: "pointer",
-        fontWeight: 500,
-        textDecoration: "underline",
-      }}
-      onClick={(e) => {
-        e.stopPropagation();
-         const campaign = availableCampaigns.find(
-          (c) => c.id.toString() === selectedCampaign
-        );
-        const dataFileId = campaign?.zohoViewId || "";
-         window.open(
-          `/contact-details/${item.contactId}?dataFileId=${dataFileId}`,
-          "_blank"
-        )
-      }}
-    >
-      {label}
-    </span>
-  );
-},
+              name: (value: any, item: any) => {
+              if (!value) return "-";
+              const label =
+              item.contactId === 0 ? `${value} ⚠️` : value;
+              return (
+              <span
+              style={{
+                   color: "#3f9f42",
+                   cursor: "pointer",
+                   fontWeight: 500,
+                   textDecoration: "underline",
+                  }}
+              onClick={(e) => {
+              e.stopPropagation();
+              const campaign = availableCampaigns.find(
+              (c) => c.id.toString() === selectedCampaign
+              );
+              const dataFileId = campaign?.zohoViewId || "";
+              const contactId = item.id || item.contactId;
+              console.log("[v0] Opening contact from name - id:", contactId, "dataFileId:", dataFileId);
+              window.open(
+              `/contact-details/${item.contactId}?dataFileId=${dataFileId}`,
+             "_blank"
+              )
+              }}
+              >
+            {label}
+            </span>
+            );
+            },
 
               // URL formatting
               linkedin_URL: (value: any) => {

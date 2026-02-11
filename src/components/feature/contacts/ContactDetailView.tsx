@@ -29,6 +29,8 @@ import { Console } from "console";
 import pitchLogo from "../../../assets/images/pitch_logo.png";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
+import emailPersonalizationIcon from "../../../assets/images/emailPersonal.png";
+
 
 interface Contact {
   id: number;
@@ -104,6 +106,8 @@ const ContactDetailView: React.FC = () => {
     ],
   };
   const [noteText, setNoteText] = useState("");
+  const noteEditorRef = useRef<HTMLDivElement | null>(null);
+
   const plainTextLength = noteText.replace(/<[^>]+>/g, "").length;
   useEffect(() => {
     const tooltips: Record<string, string> = {
@@ -208,6 +212,22 @@ const ContactDetailView: React.FC = () => {
       prev === trackingId ? null : trackingId
     );
   };
+  const toolbarBtnStyle: React.CSSProperties = {
+    minWidth: 32,
+    height: 32,
+    padding: "0 10px",
+    border: "1px solid #e5e7eb",
+    borderRadius: 4,
+    background: "#ffffff",
+    cursor: "pointer",
+    fontSize: 14,
+    fontWeight: 500,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    lineHeight: 1,
+  };
+
   //IST Formatter
   const formatDateTimeIST = (dateString?: string) => {
     if (!dateString) return "-";
@@ -480,21 +500,45 @@ const ContactDetailView: React.FC = () => {
     }
   };
 
+  const handleTogglePin = async (noteId: number) => {
+    if (!reduxUserId || !contactId) return;
 
-  const handleTogglePin = (noteId: number) => {
-    setNotesHistory((prev: any[]) =>
-      prev.map((n) =>
-        n.id === noteId ? { ...n, isPin: !n.isPin } : n
-      )
-    );
+    try {
+      // Get current note to find its current pin status
+      const noteToToggle = notesHistory.find(n => n.id === noteId);
+      if (!noteToToggle) return;
 
-    const pinned = notesHistory.find(n => n.id === noteId)?.isPin;
+      const newPinStatus = !noteToToggle.isPin;
 
-    setToastMessage(pinned ? "Note was unpinned" : "Note was pinned");
-    setShowSuccessToast(true);
-    setTimeout(() => setShowSuccessToast(false), 2500);
+      // ✅ Make API call to update pin status on backend
+      await axios.post(
+        `${API_BASE_URL}/api/notes/Update-Note`,
+        null,
+        {
+          params: {
+            NoteId: noteId,
+            clientId: reduxUserId,
+            contactId: contactId,
+            Note: noteToToggle.note,
+            IsPin: newPinStatus,
+            IsUseInGenration: noteToToggle.isUseInGenration,
+          },
+        }
+      );
 
-    setNoteActionsAnchor(null);
+      // ✅ Show toast message
+      setToastMessage(newPinStatus ? "Note was pinned" : "Note was unpinned");
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 2500);
+
+      setNoteActionsAnchor(null);
+
+      // ✅ REFRESH the notes to get latest pinned data
+      fetchNotesHistory();
+    } catch (error) {
+      console.error("Failed to toggle pin status", error);
+      appModal.showError("Failed to toggle pin status");
+    }
   };
   const handleDeleteNoteClick = async (note: any) => {
     if (!reduxUserId || !contactId) return;
@@ -525,6 +569,48 @@ const ContactDetailView: React.FC = () => {
       appModal.showError("Failed to load note");
     }
   };
+  // ✅ Sync noteText to contentEditable only when opening edit mode or when explicitly set
+  useEffect(() => {
+    if (noteEditorRef.current && isNoteOpen) {
+      // Only update if the content has changed from outside (e.g., loading edit note)
+      if (noteEditorRef.current.innerHTML !== noteText) {
+        noteEditorRef.current.innerHTML = noteText;
+      }
+    }
+  }, [isEditMode, isNoteOpen]);
+  const mergedHistory = React.useMemo(() => {
+    const items: any[] = [];
+
+    // Contact created
+    if (editingContact?.contactCreatedAt) {
+      items.push({
+        type: "contact",
+        time: new Date(editingContact.contactCreatedAt).getTime(),
+        data: editingContact,
+      });
+    }
+
+    // Emails
+    emailTimeline.forEach((email: any) => {
+      items.push({
+        type: "email",
+        time: new Date(email.sentAt).getTime(),
+        data: email,
+      });
+    });
+
+    // Notes
+    notesHistory.forEach((note: any) => {
+      items.push({
+        type: "note",
+        time: new Date(note.createdAt).getTime(),
+        data: note,
+      });
+    });
+
+    // newest → oldest
+    return items.sort((a, b) => b.time - a.time);
+  }, [editingContact, emailTimeline, notesHistory]);
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -961,6 +1047,12 @@ const ContactDetailView: React.FC = () => {
                 <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
                   <button
                     onClick={() => {
+                      // ✅ Reset all note states when opening "Add note" modal
+                      setIsEditMode(false);
+                      setEditingNoteId(null);
+                      setNoteText("");
+                      setIsPinned(false);
+                      setIsEmailPersonalization(false);
                       setIsNoteOpen(true)
                     }}
                     style={{
@@ -1057,6 +1149,11 @@ const ContactDetailView: React.FC = () => {
                           ? appModal.showSuccess(msg)
                           : appModal.showError(msg);
                       }}
+                      // ✅ Line 1118-1134: Pass note management callbacks to modal
+                      onEditNote={handleEditNote}
+                      onDeleteNote={handleDeleteNote}
+                      onTogglePin={handleTogglePin}
+                      onNotesHistoryUpdate={fetchNotesHistory}
                     />
                   )}
                 </>
@@ -1082,42 +1179,353 @@ const ContactDetailView: React.FC = () => {
 
                   {!isLoadingHistory && (
                     <>
-                      {/* 🔹 CONTACT CREATED EVENT */}
-                      {(historyFilter === "all" || historyFilter === "emails") && editingContact?.contactCreatedAt && (
-                        <div style={{ display: "flex", gap: 16, paddingBottom: 24 }}>
-                          <div style={{ position: "relative" }}>
-                            <div
-                              style={{
-                                width: 10,
-                                height: 10,
-                                background: "#3f9f42",
-                                borderRadius: "50%",
-                                marginTop: 6,
-                              }}
-                            />
-                            <div
-                              style={{
-                                position: "absolute",
-                                top: 16,
-                                left: 4,
-                                width: 2,
-                                height: "100%",
-                                background: "#e5e7eb",
-                              }}
-                            />
-                          </div>
+                      {historyFilter === "all" && (
+                        <>
+                          {mergedHistory.map((item, index) => {
+                            /* 🟢 CONTACT CREATED */
+                            if (item.type === "contact") {
+                              return (
+                                <div key={`contact-${index}`} style={{ display: "flex", gap: 16, paddingBottom: 24 }}>
+                                  <div style={{ position: "relative" }}>
+                                    <div
+                                      style={{
+                                        width: 10,
+                                        height: 10,
+                                        background: "#3f9f42",
+                                        borderRadius: "50%",
+                                        marginTop: 6,
+                                      }}
+                                    />
+                                    <div
+                                      style={{
+                                        position: "absolute",
+                                        top: 16,
+                                        left: 4,
+                                        width: 2,
+                                        height: "100%",
+                                        background: "#e5e7eb",
+                                      }}
+                                    />
+                                  </div>
 
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 600 }}>Contact created</div>
-                            <div style={{ fontSize: 13, color: "#666" }}>
-                              {formatDateTimeIST(editingContact.contactCreatedAt)}
-                            </div>
-                          </div>
-                        </div>
+                                  <div>
+                                    <div style={{ fontWeight: 600 }}>Contact created</div>
+                                    <div style={{ fontSize: 13, color: "#666" }}>
+                                      {formatDateTimeIST(item.data.contactCreatedAt)}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            }
+
+                            /* 🟢 EMAIL (REUSE YOUR EXISTING JSX) */
+                            if (item.type === "email") {
+                              const email = item.data;
+
+                              return (
+                                <div key={email.trackingId || index} style={{ marginBottom: 24 }}>
+                                  {/* Row: timeline dot + content */}
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      gap: 16,
+                                      paddingBottom: 8,
+                                    }}
+                                  >
+                                    {/* Timeline dot */}
+                                    <div style={{ position: "relative" }}>
+                                      <div
+                                        style={{
+                                          width: 10,
+                                          height: 10,
+                                          background: "#3f9f42",
+                                          borderRadius: "50%",
+                                          marginTop: 6,
+                                        }}
+                                      />
+                                      <div
+                                        style={{
+                                          position: "absolute",
+                                          top: 16,
+                                          left: 4,
+                                          width: 2,
+                                          height: "100%",
+                                          background: "#e5e7eb",
+                                        }}
+                                      />
+                                    </div>
+
+                                    {/* Content */}
+                                    <div style={{ flex: 1 }}>
+                                      {/* Source */}
+                                      <div style={{ fontSize: 13, marginBottom: 6 }}>
+                                        <b>Source:</b>{" "}
+                                        <span style={{ color: "#666" }}>{email.source || "Unknown source"}</span>
+                                      </div>
+
+                                      {/* Email sent */}
+                                      <div style={{ fontWeight: 600 }}>Email sent</div>
+                                      <div style={{ fontSize: 13, color: "#666", marginBottom: 8 }}>
+                                        {formatDateTimeIST(email.sentAt)} from {email.senderEmailId}
+                                      </div>
+
+                                      {/* Events + Subject */}
+                                      <div style={{ background: "#f9fafb", padding: 12, borderRadius: 8 }}>
+                                        {email.events?.length > 0 && (
+                                          <div style={{ marginBottom: 10 }}>
+                                            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Events</div>
+                                            {email.events.map((ev: any, i: number) => (
+                                              <div key={i} style={{ fontSize: 13, marginBottom: 4 }}>
+                                                • <b>{ev.eventType}ed</b> at {formatDateTimeIST(ev.eventAt)}
+                                                {ev.targetUrl && (
+                                                  <>
+                                                    {" "}— <strong>target URL: </strong>
+                                                    <a href={ev.targetUrl} target="_blank" rel="noreferrer" style={{ color: "#3f9f42" }}>
+                                                      {ev.targetUrl}
+                                                    </a>
+                                                  </>
+                                                )}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+
+                                        <div>
+                                          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 2 }}>Subject</div>
+                                          <div style={{ color: "#666", fontSize: 13 }}>{email.subject || "No subject"}</div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Email body toggle — OUTSIDE the flex row */}
+                                  <div
+                                    className={`email-preview-toggle ${expandedEmailId === email.trackingId ? "submenu-open" : ""}`}
+                                    onClick={() => toggleEmailBody(email.trackingId)}
+                                    style={{ marginTop: 15, cursor: "pointer" }}
+                                  >
+                                    <span>
+                                      {expandedEmailId === email.trackingId ? "Hide email preview" : "Show email preview"}
+                                    </span>
+                                    <span className="submenu-arrow">
+                                      <FontAwesomeIcon icon={faAngleRight} />
+                                    </span>
+                                  </div>
+
+                                  {/* Email body — OUTSIDE the flex row */}
+                                  {expandedEmailId === email.trackingId && (
+                                    <div
+                                      style={{
+                                        background: "#f3f4f6",
+                                        padding: 12,
+                                        borderRadius: 6,
+                                        marginTop: 4,
+                                        fontSize: 14,
+                                        whiteSpace: "pre-wrap",
+                                      }}
+                                    >
+                                      <div style={{ color: "#333" }}>
+                                        {stripHtml(email.body) || "No email body available"}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+
+                              );
+                            }
+
+                            /* 🟢 NOTE (REUSE YOUR EXISTING JSX) */
+                            if (item.type === "note") {
+                              const note = item.data;
+
+                              return (
+                                <div key={note.id}>
+                                  <div style={{ display: "flex", gap: 16, paddingBottom: 24 }}>
+                                    {/* Timeline dot */}
+                                    <div style={{ position: "relative" }}>
+                                      <div
+                                        style={{
+                                          width: 10,
+                                          height: 10,
+                                          background: "#3f9f42",
+                                          borderRadius: "50%",
+                                          marginTop: 6,
+                                        }}
+                                      />
+                                      <div
+                                        style={{
+                                          position: "absolute",
+                                          top: 16,
+                                          left: 4,
+                                          width: 2,
+                                          height: "100%",
+                                          background: "#e5e7eb",
+                                        }}
+                                      />
+                                    </div>
+
+                                    {/* Content */}
+                                    <div style={{ flex: 1 }}>
+                                      <div style={{ fontWeight: 600 }}>Note created</div>
+                                      <div style={{ fontSize: 13, color: "#666", marginBottom: 8 }}>
+                                        {formatDateTimeIST(note.createdAt)}
+                                      </div>
+
+                                      <div
+                                        style={{
+                                          background: "#fefcf9",
+                                          border: "1px solid #e5e7eb",
+                                          borderRadius: 12,
+                                          padding: 16,
+                                          position: "relative",
+                                        }}
+                                      >
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setNoteActionsAnchor(noteActionsAnchor === note.id ? null : note.id);
+                                          }}
+                                          style={{
+                                            position: "absolute",
+                                            top: 12,
+                                            right: 12,
+                                            border: "none",
+                                            background: "#ede9fe",
+                                            borderRadius: "50%",
+                                            width: 32,
+                                            height: 32,
+                                            cursor: "pointer",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                          }}
+                                        >
+                                          <FontAwesomeIcon icon={faEllipsisV} />
+                                        </button>
+
+                                        {noteActionsAnchor === note.id && (
+                                          <div
+                                            className="segment-actions-menu py-[10px]"
+                                            style={{
+                                              position: "absolute",
+                                              right: 0,
+                                              top: 32,
+                                              background: "#fff",
+                                              border: "1px solid #eee",
+                                              borderRadius: 6,
+                                              boxShadow: "0 2px 16px rgba(0,0,0,0.12)",
+                                              zIndex: 101,
+                                              minWidth: 160,
+                                            }}
+                                          >
+                                            <button
+                                              onClick={() => {
+                                                handleEditNote(note);
+                                                setNoteActionsAnchor(null);
+                                              }}
+                                              style={menuBtnStyle}
+                                              className="flex gap-2 items-center"
+                                            >
+                                              <span>
+                                                <svg
+                                                  xmlns="http://www.w3.org/2000/svg"
+                                                  width="28px"
+                                                  height="28px"
+                                                  viewBox="0 0 24 24"
+                                                  fill="none"
+                                                >
+                                                  <path
+                                                    d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
+                                                    stroke="#000000"
+                                                    stroke-width="2"
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                  ></path>
+                                                </svg>
+                                              </span>
+                                              <span className="font-[600]">Edit</span>
+                                            </button>
+
+                                            {/* 📌 PIN / UNPIN */}
+                                            <button
+                                              onClick={() => handleTogglePin(note.id)}
+                                              style={menuBtnStyle}
+                                              className="flex gap-2 items-center"
+                                            >
+                                              <span>
+                                                <FontAwesomeIcon
+                                                  icon={faThumbtack}
+                                                  style={{
+                                                    transform: note.isPin ? "rotate(45deg)" : "none",
+                                                    width: "25px",
+                                                    height: "25px"
+                                                  }}
+                                                />
+                                              </span>
+                                              <span className="font-[600]">
+                                                {note.isPin ? "Unpin" : "Pin"}
+                                              </span>
+                                            </button>
+
+                                            {/* 🗑️ DELETE */}
+                                            <button
+                                              onClick={() => {
+                                                handleDeleteNote(note.id);
+                                                setNoteActionsAnchor(null);
+                                              }}
+                                              style={menuBtnStyle}
+                                              className="flex gap-2 items-center "
+                                            >
+                                              <span className="ml-[3px]">
+                                                <svg
+                                                  xmlns="http://www.w3.org/2000/svg"
+                                                  viewBox="0 0 50 50"
+                                                  width="22px"
+                                                  height="22px"
+                                                >
+                                                  <path d="M 21 2 C 19.354545 2 18 3.3545455 18 5 L 18 7 L 8 7 A 1.0001 1.0001 0 1 0 8 9 L 9 9 L 9 45 C 9 46.654 10.346 48 12 48 L 38 48 C 39.654 48 41 46.654 41 45 L 41 9 L 42 9 A 1.0001 1.0001 0 1 0 42 7 L 32 7 L 32 5 C 32 3.3545455 30.645455 2 29 2 L 21 2 z M 21 4 L 29 4 C 29.554545 4 30 4.4454545 30 5 L 30 7 L 20 7 L 20 5 C 20 4.4454545 20.445455 4 21 4 z M 19 14 C 19.552 14 20 14.448 20 15 L 20 40 C 20 40.553 19.552 41 19 41 C 18.448 41 18 40.553 18 40 L 18 15 C 18 14.448 18.448 14 19 14 z M 25 14 C 25.552 14 26 14.448 26 15 L 26 40 C 26 40.553 25.552 41 25 41 C 24.448 41 24 40.553 24 40 L 24 15 C 24 14.448 24.448 14 25 14 z M 31 14 C 31.553 14 32 14.448 32 15 L 32 40 C 32 40.553 31.553 41 31 41 C 30.447 41 30 40.553 30 40 L 30 15 C 30 14.448 30.447 14 31 14 z"></path>
+                                                </svg>
+                                              </span>
+                                              <span className="font-[600]">Delete</span>
+                                            </button>
+                                          </div>
+                                        )}
+
+                                        <div style={{ fontSize: 14 }}>{stripHtml(note.note)}</div>
+                                      </div>
+
+                                      <div style={{
+                                        marginTop: 8, fontSize: 12, color: "#6b7280", display: "flex", alignItems: "center",
+                                        gap: 6,
+                                        flexWrap: "nowrap",
+                                      }}>
+                                        {note.isPin && "📌 Pinned"}
+                                        {note.isPin && note.isUseInGenration && " • "}
+                                        {note.isUseInGenration && (
+                                          <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                            <img
+                                              src={emailPersonalizationIcon}
+                                              alt="Used for email personalization"
+                                              style={{ width: 18, height: 14 }}
+                                            />
+                                            <span>Used for email personalization</span>
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                </div>
+                              );
+                            }
+
+                            return null;
+                          })}
+                        </>
                       )}
 
                       {/* 🔹 EMAIL TIMELINE */}
-                      {(historyFilter === "all" || historyFilter === "emails") &&
+                      {(historyFilter === "emails") &&
                         emailTimeline.map((email: any, index: number) => (
                           <div key={email.trackingId || index}>
                             <div
@@ -1268,7 +1676,7 @@ const ContactDetailView: React.FC = () => {
                           </div>
                         ))}
                       {/* 🔹 NOTES HISTORY */}
-                      {(historyFilter === "notes" || historyFilter === "all") && (
+                      {(historyFilter === "notes") && (
                         <>
                           {isLoadingNotes && <p>Loading notes...</p>}
 
@@ -1366,11 +1774,10 @@ const ContactDetailView: React.FC = () => {
                                       {noteActionsAnchor === note.id && (
                                         <div
                                           className="segment-actions-menu py-[10px]"
-                                          onClick={(e) => e.stopPropagation()}
                                           style={{
                                             position: "absolute",
                                             right: 0,
-                                            top: 48,
+                                            top: 32,
                                             background: "#fff",
                                             border: "1px solid #eee",
                                             borderRadius: 6,
@@ -1389,22 +1796,20 @@ const ContactDetailView: React.FC = () => {
                                             className="flex gap-2 items-center"
                                           >
                                             <span>
-                                              {/* same EDIT svg */}
-                                              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none">
+                                              <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                width="28px"
+                                                height="28px"
+                                                viewBox="0 0 24 24"
+                                                fill="none"
+                                              >
                                                 <path
-                                                  d="M12 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V12"
-                                                  stroke="#000"
-                                                  strokeWidth="2"
-                                                  strokeLinecap="round"
-                                                  strokeLinejoin="round"
-                                                />
-                                                <path
-                                                  d="M16.5 3.5a2.12 2.12 0 0 1 3 3L12 14l-4 1 1-4 7.5-7.5z"
-                                                  stroke="#000"
-                                                  strokeWidth="2"
-                                                  strokeLinecap="round"
-                                                  strokeLinejoin="round"
-                                                />
+                                                  d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
+                                                  stroke="#000000"
+                                                  stroke-width="2"
+                                                  stroke-linecap="round"
+                                                  stroke-linejoin="round"
+                                                ></path>
                                               </svg>
                                             </span>
                                             <span className="font-[600]">Edit</span>
@@ -1421,6 +1826,8 @@ const ContactDetailView: React.FC = () => {
                                                 icon={faThumbtack}
                                                 style={{
                                                   transform: note.isPin ? "rotate(45deg)" : "none",
+                                                  width: "25px",
+                                                  height: "25px"
                                                 }}
                                               />
                                             </span>
@@ -1436,16 +1843,16 @@ const ContactDetailView: React.FC = () => {
                                               setNoteActionsAnchor(null);
                                             }}
                                             style={menuBtnStyle}
-                                            className="flex gap-2 items-center text-red-600"
+                                            className="flex gap-2 items-center "
                                           >
-                                            <span>
-                                              {/* same DELETE svg */}
-                                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50" width="22px" height="22px">
-                                                <path d="M 21 2 C 19.354545 2 18 3.3545455 18 5 L 18 7 L 8 7
-                                                A 1.0001 1.0001 0 1 0 8 9 L 9 9 L 9 45 C 9 46.654 10.346 48
-                                                12 48 L 38 48 C 39.654 48 41 46.654 41 45 L 41 9 L 42 9
-                                                A 1.0001 1.0001 0 1 0 42 7 L 32 7 L 32 5 C 32 3.3545455
-                                              30.645455 2 29 2 Z" />
+                                            <span className="ml-[3px]">
+                                              <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                viewBox="0 0 50 50"
+                                                width="22px"
+                                                height="22px"
+                                              >
+                                                <path d="M 21 2 C 19.354545 2 18 3.3545455 18 5 L 18 7 L 8 7 A 1.0001 1.0001 0 1 0 8 9 L 9 9 L 9 45 C 9 46.654 10.346 48 12 48 L 38 48 C 39.654 48 41 46.654 41 45 L 41 9 L 42 9 A 1.0001 1.0001 0 1 0 42 7 L 32 7 L 32 5 C 32 3.3545455 30.645455 2 29 2 L 21 2 z M 21 4 L 29 4 C 29.554545 4 30 4.4454545 30 5 L 30 7 L 20 7 L 20 5 C 20 4.4454545 20.445455 4 21 4 z M 19 14 C 19.552 14 20 14.448 20 15 L 20 40 C 20 40.553 19.552 41 19 41 C 18.448 41 18 40.553 18 40 L 18 15 C 18 14.448 18.448 14 19 14 z M 25 14 C 25.552 14 26 14.448 26 15 L 26 40 C 26 40.553 25.552 41 25 41 C 24.448 41 24 40.553 24 40 L 24 15 C 24 14.448 24.448 14 25 14 z M 31 14 C 31.553 14 32 14.448 32 15 L 32 40 C 32 40.553 31.553 41 31 41 C 30.447 41 30 40.553 30 40 L 30 15 C 30 14.448 30.447 14 31 14 z"></path>
                                               </svg>
                                             </span>
                                             <span className="font-[600]">Delete</span>
@@ -1458,21 +1865,30 @@ const ContactDetailView: React.FC = () => {
                                         {stripHtml(note.note)}
                                       </div>
                                     </div>
-
-
                                     {/* Optional badges */}
-                                    <div style={{ marginTop: 8, fontSize: 12, color: "#6b7280" }}>
+                                    <div style={{
+                                      marginTop: 8, fontSize: 12, color: "#6b7280", display: "flex", alignItems: "center",
+                                      gap: 6,
+                                      flexWrap: "nowrap",
+                                    }}>
                                       {note.isPin && "📌 Pinned"}
                                       {note.isPin && note.isUseInGenration && " • "}
-                                      {note.isUseInGenration && "✉️ Used for email personalization"}
+                                      {note.isUseInGenration && (
+                                        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                          <img
+                                            src={emailPersonalizationIcon}
+                                            alt="Used for email personalization"
+                                            style={{ width: 18, height: 14 }}
+                                          />
+                                          <span>Used for email personalization</span>
+                                        </span>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
                               ))}
                         </>
                       )}
-
-
                     </>
                   )}
                 </div>
@@ -1496,11 +1912,11 @@ const ContactDetailView: React.FC = () => {
                   </p>
 
                   {/* Placeholder – replace with real list data */}
-                  <ul style={{ marginTop: 12, fontSize: 14 }}>
+                  {/* <ul style={{ marginTop: 12, fontSize: 14 }}>
                     <li>• Startup Founders – India</li>
                     <li>• SaaS Leads – Q1</li>
                     <li>• Cold Outreach – LinkedIn</li>
-                  </ul>
+                  </ul> */}
                 </div>
               )}
 
@@ -1553,7 +1969,7 @@ const ContactDetailView: React.FC = () => {
 
         {/* BODY */}
         <div style={{ padding: 20, flex: 1 }}>
-          <ReactQuill
+          {/* <ReactQuill
             value={noteText}
             onChange={setNoteText}
             modules={noteToolbar}
@@ -1563,7 +1979,83 @@ const ContactDetailView: React.FC = () => {
               marginBottom: 50,
               borderRadius: 8,
             }}
-          />
+          /> */}
+          {/* NOTE EDITOR */}
+          {/* NOTE EDITOR */}
+          <div
+            style={{
+              border: "1px solid #d1d5db",
+              borderRadius: 6,
+              marginBottom: 10,
+            }}
+          >
+            {/* TOOLBAR */}
+            <div
+              style={{
+                display: "flex",
+                gap: 4,
+                padding: 6,
+                borderBottom: "1px solid #d1d5db",
+                background: "#f9fafb",
+              }}
+            >
+              <button type="button" style={toolbarBtnStyle} onClick={() => document.execCommand("bold")}>
+                <b>B</b>
+              </button>
+
+              <button type="button" style={toolbarBtnStyle} onClick={() => document.execCommand("italic")}>
+                <i>I</i>
+              </button>
+
+              <button type="button" style={toolbarBtnStyle} onClick={() => document.execCommand("underline")}>
+                <u>U</u>
+              </button>
+
+              <button type="button" style={toolbarBtnStyle} onClick={() => document.execCommand("strikeThrough")}>
+                <s>S</s>
+              </button>
+
+              <button type="button" style={toolbarBtnStyle} onClick={() => document.execCommand("insertUnorderedList")}>
+                •
+              </button>
+
+              <button type="button" style={toolbarBtnStyle} onClick={() => document.execCommand("insertOrderedList")}>
+                1
+              </button>
+
+              <button
+                type="button"
+                style={toolbarBtnStyle}
+                onClick={() => {
+                  const url = prompt("Enter link URL");
+                  if (url) document.execCommand("createLink", false, url);
+                }}
+              >
+                🔗
+              </button>
+            </div>
+
+            {/* EDITABLE AREA */}
+            <div
+              ref={noteEditorRef}
+              contentEditable
+              suppressContentEditableWarning
+              onInput={(e) => setNoteText(e.currentTarget.innerHTML)}
+              // dangerouslySetInnerHTML={{ __html: noteText }}
+              dir="ltr"
+              style={{
+                minHeight: 220,
+                padding: 12,
+                outline: "none",
+                fontSize: 14,
+                whiteSpace: "normal",
+                direction: "ltr",        // ← NEW
+                textAlign: "left",
+              }}
+            />
+          </div>
+
+
 
 
           <div style={{ marginTop: 8, fontSize: 12, color: "#6b7280" }}>
@@ -1571,18 +2063,15 @@ const ContactDetailView: React.FC = () => {
           </div>
 
           {/* PIN */}
-          <div className="flex items-center gap-3 mt-4">
-            <button
-              type="button"
-              onClick={() => setIsPinned(!isPinned)}
-              className={`w-11 h-6 flex items-center rounded-full px-1 transition-colors ${isPinned ? "bg-[#3f9f42]" : "bg-gray-300"
+          <div className="flex items-start  gap-3 mt-4">
+            <input
+              type="checkbox"
+              checked={isPinned}
+              onChange={(e) => setIsPinned(e.target.checked)}
+              className={`mt-1 w-4 h-4 accent-[#3f9f42] cursor-pointer"
                 }`}
-            >
-              <span
-                className={`bg-white w-4 h-4 rounded-full shadow transform transition-transform ${isPinned ? "translate-x-5" : ""
-                  }`}
-              />
-            </button>
+            />
+
 
             <div>
               <div className="text-sm font-medium text-gray-900">Pin note</div>
