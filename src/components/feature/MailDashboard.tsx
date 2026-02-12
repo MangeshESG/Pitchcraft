@@ -40,6 +40,7 @@ interface EmailContact {
   linkedin_URL?: string;
   website?: string;
   timestamp: string;
+  sentAt?: string;
   eventType: "Open" | "Click";
   targetUrl?: string;
   hasOpened?: boolean;
@@ -165,6 +166,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     { key: "location", label: "Location", visible: true },
     { key: "eventType", label: "Event type", visible: true },
     { key: "timestamp", label: "Timestamp", visible: true },
+    { key: "sentAt", label: "Sent At", visible: true },
     { key: "targetUrl", label: "Target URL", visible: false },
     { key: "linkedin_URL", label: "LinkedIn", visible: false },
     { key: "website", label: "Website", visible: false },
@@ -931,6 +933,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
         linkedin_URL: item.linkedin_URL,
         website: item.website,
         timestamp: item.timestamp,
+        sentAt: (item as any).sentAt || undefined,
         eventType: item.eventType as "Open" | "Click",
         targetUrl: item.targetUrl || undefined,
         hasOpened: false,

@@ -72,6 +72,7 @@ const SendEmailPanel: React.FC<SendEmailPanelProps> = ({
 }) => {
   const [internalEnableDelay, setInternalEnableDelay] = useState(false);
   const [internalEnableIndexRange, setInternalEnableIndexRange] = useState(false);
+  const [indexRangeError, setIndexRangeError] = useState("");
 
   const enableDelay = externalEnableDelay ?? internalEnableDelay;
   const setEnableDelay = externalSetEnableDelay ?? setInternalEnableDelay;
@@ -123,69 +124,80 @@ const SendEmailPanel: React.FC<SendEmailPanelProps> = ({
 
       {/* BODY */}
       <div style={{ padding: 20, flex: 1, overflowY: "auto" }}>
-        {/* ROW 1: From */}
-        <div style={{ marginBottom: 20 }}>
-          <label style={{ display: "block", marginBottom: 6, fontSize: 13, fontWeight: 600 }}>
-            From
-          </label>
-          <select
-            className="form-control"
-            value={selectedSmtpUser}
-            onChange={(e) => setSelectedSmtpUser(e.target.value)}
-            style={{ width: "100%", padding: "8px", fontSize: 14 }}
-          >
-            <option value="">Sender</option>
-            {smtpUsers.map((user) => (
-              <option key={user.id} value={user.id}>
-                {user.username}
-              </option>
-            ))}
-          </select>
-        </div>
+        {/* ROW 1: From and BCC panel */}
+        <div
+          style={{
+            marginBottom: 20,
+            padding: "12px 16px",
+            border: "1px solid #ddd",
+            borderRadius: "8px",
+            backgroundColor: "#fff",
+          }}
+        >
+          {/* From */}
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ display: "block", marginBottom: 6, fontSize: "inherit", fontWeight: 600, fontFamily: "inherit" }}>
+              From
+            </label>
+            <select
+              className="form-control"
+              value={selectedSmtpUser}
+              onChange={(e) => setSelectedSmtpUser(e.target.value)}
+              style={{ width: "100%", padding: "8px", fontSize: 14 }}
+            >
+              <option value="">Sender</option>
+              {smtpUsers.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {user.username}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        {/* ROW 2: BCC */}
-        <div style={{ marginBottom: 20 }}>
-          <label style={{ display: "block", marginBottom: 6, fontSize: 13, fontWeight: 600 }}>
-            BCC
-          </label>
-          <select
-            className="form-control"
-            value={bccSelectMode === "other" ? "Other" : emailFormData.BccEmail}
-            onChange={(e) => {
-              const selected = e.target.value;
-              if (selected === "Other") {
-                setBccSelectMode("other");
-                setEmailFormData({ ...emailFormData, BccEmail: "" });
-                localStorage.setItem("lastBCCOtherMode", "true");
-              } else {
-                setBccSelectMode("dropdown");
-                setEmailFormData({ ...emailFormData, BccEmail: selected });
-                localStorage.setItem("lastBCCOtherMode", "false");
-                localStorage.setItem("lastBCC", selected);
-              }
-            }}
-            style={{ width: "100%", padding: "8px", fontSize: 14 }}
-          >
-            <option value="">BCC email</option>
-            {bccOptions.map((option) => (
-              <option key={option.id} value={option.bccEmailAddress}>
-                {option.bccEmailAddress}
-              </option>
-            ))}
-            <option value="Other">Other</option>
-          </select>
-          {bccSelectMode === "other" && (
-            <input
-              type="email"
-              placeholder="Type BCC email"
-              value={emailFormData.BccEmail}
+          {/* BCC */}
+          <div>
+            <label style={{ display: "block", marginBottom: 6, fontSize: "inherit", fontWeight: 600, fontFamily: "inherit" }}>
+              BCC
+            </label>
+            <select
+              className="form-control"
+              value={bccSelectMode === "other" ? "Other" : emailFormData.BccEmail}
               onChange={(e) => {
-                setEmailFormData({ ...emailFormData, BccEmail: e.target.value });
-                localStorage.setItem("lastBCC", e.target.value);
+                const selected = e.target.value;
+                if (selected === "Other") {
+                  setBccSelectMode("other");
+                  setEmailFormData({ ...emailFormData, BccEmail: "" });
+                  localStorage.setItem("lastBCCOtherMode", "true");
+                } else {
+                  setBccSelectMode("dropdown");
+                  setEmailFormData({ ...emailFormData, BccEmail: selected });
+                  localStorage.setItem("lastBCCOtherMode", "false");
+                  localStorage.setItem("lastBCC", selected);
+                }
               }}
-              style={{ width: "100%", padding: "8px", fontSize: 14, marginTop: 8 }}
-            />
-          )}
+              style={{ width: "100%", padding: "8px", fontSize: 14 }}
+            >
+              <option value="">BCC email</option>
+              {bccOptions.map((option) => (
+                <option key={option.id} value={option.bccEmailAddress}>
+                  {option.bccEmailAddress}
+                </option>
+              ))}
+              <option value="Other">Other</option>
+            </select>
+            {bccSelectMode === "other" && (
+              <input
+                type="email"
+                placeholder="Type BCC email"
+                value={emailFormData.BccEmail}
+                onChange={(e) => {
+                  setEmailFormData({ ...emailFormData, BccEmail: e.target.value });
+                  localStorage.setItem("lastBCC", e.target.value);
+                }}
+                style={{ width: "100%", padding: "8px", fontSize: 14, marginTop: 8 }}
+              />
+            )}
+          </div>
         </div>
 
         {/* ROW 3: Delay panel */}
@@ -206,14 +218,14 @@ const SendEmailPanel: React.FC<SendEmailPanelProps> = ({
               onChange={(e) => setEnableDelay(e.target.checked)}
               style={{ marginRight: 8, cursor: "pointer" }}
             />
-            <label htmlFor="enableDelay" style={{ fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-              Delay (Seconds)
+            <label htmlFor="enableDelay" style={{ fontSize: "inherit", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+              Delay (seconds)
             </label>
           </div>
           {enableDelay && (
             <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
               <div style={{ width: "80px" }}>
-                <label style={{ display: "block", marginBottom: 4, fontSize: 12, color: "#666" }}>
+                <label style={{ display: "block", marginBottom: 4, fontSize: "inherit", color: "#666", fontFamily: "inherit" }}>
                   Min
                 </label>
                 <select
@@ -230,7 +242,7 @@ const SendEmailPanel: React.FC<SendEmailPanelProps> = ({
                 </select>
               </div>
               <div style={{ width: "80px" }}>
-                <label style={{ display: "block", marginBottom: 4, fontSize: 12, color: "#666" }}>
+                <label style={{ display: "block", marginBottom: 4, fontSize: "inherit", color: "#666", fontFamily: "inherit" }}>
                   Max
                 </label>
                 <select
@@ -268,59 +280,89 @@ const SendEmailPanel: React.FC<SendEmailPanelProps> = ({
               onChange={(e) => setEnableIndexRange(e.target.checked)}
               style={{ marginRight: 8, cursor: "pointer" }}
             />
-            <label htmlFor="enableIndexRange" style={{ fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+            <label htmlFor="enableIndexRange" style={{ fontSize: "inherit", fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
               Restrict contacts
             </label>
           </div>
           {enableIndexRange && (
-            <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
-              <div style={{ width: "80px" }}>
-                <label style={{ display: "block", marginBottom: 4, fontSize: 12, color: "#666" }}>
-                  From
-                </label>
-                <select
-                  className="form-control"
-                  value={startIndex}
-                  onChange={(e) => {
-                    setStartIndex(e.target.value);
-                    if (endIndex && parseInt(endIndex) <= parseInt(e.target.value)) {
-                      setEndIndex("");
-                    }
+            <>
+              <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }}>
+                <div style={{ width: "80px" }}>
+                  <label style={{ display: "block", marginBottom: 4, fontSize: "inherit", color: "#666", fontFamily: "inherit" }}>
+                    From
+                  </label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    value={startIndex}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setIndexRangeError("");
+                      if (value === "" || (parseInt(value) >= 1 && parseInt(value) <= combinedResponses.length)) {
+                        setStartIndex(value);
+                        // Clear endIndex if it's equal to or less than new startIndex
+                        if (endIndex && parseInt(endIndex) <= parseInt(value)) {
+                          setEndIndex("");
+                        }
+                      }
+                    }}
+                    placeholder="From"
+                    min="1"
+                    max={combinedResponses.length}
+                    style={{ width: "100%", padding: "6px 8px", fontSize: 13 }}
+                  />
+                </div>
+                <div style={{ width: "80px" }}>
+                  <label style={{ display: "block", marginBottom: 4, fontSize: "inherit", color: "#666", fontFamily: "inherit" }}>
+                    To
+                  </label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    value={endIndex}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      const numValue = parseInt(value);
+                      const fromValue = parseInt(startIndex);
+                      
+                      setIndexRangeError("");
+                      
+                      if (value === "") {
+                        setEndIndex(value);
+                      } else if (!isNaN(numValue) && !isNaN(fromValue)) {
+                        if (numValue > combinedResponses.length) {
+                          setIndexRangeError(`Maximum contact count is ${combinedResponses.length}`);
+                        } else if (numValue === fromValue) {
+                          setIndexRangeError("To must be greater than From");
+                        } else if (numValue > fromValue && numValue <= combinedResponses.length) {
+                          setEndIndex(value);
+                        }
+                      }
+                    }}
+                    placeholder="To"
+                    min={startIndex || "1"}
+                    max={combinedResponses.length}
+                    disabled={!startIndex}
+                    style={{ width: "100%", padding: "6px 8px", fontSize: 13 }}
+                  />
+                </div>
+              </div>
+              {indexRangeError && (
+                <div
+                  style={{
+                    marginTop: 8,
+                    padding: "6px 10px",
+                    background: "#fee",
+                    border: "1px solid #fcc",
+                    borderRadius: 4,
+                    fontSize: 12,
+                    color: "#c33",
                   }}
-                  style={{ width: "100%", padding: "6px 8px", fontSize: 13 }}
                 >
-                  <option value="">From</option>
-                  {Array.from({ length: combinedResponses.length }, (_, i) => i + 1).map((num) => (
-                    <option key={num} value={num}>
-                      {num}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div style={{ width: "80px" }}>
-                <label style={{ display: "block", marginBottom: 4, fontSize: 12, color: "#666" }}>
-                  To
-                </label>
-                <select
-                  className="form-control"
-                  value={endIndex}
-                  onChange={(e) => setEndIndex(e.target.value)}
-                  disabled={!startIndex}
-                  style={{ width: "100%", padding: "6px 8px", fontSize: 13 }}
-                >
-                  <option value="">To</option>
-                  {startIndex &&
-                    Array.from(
-                      { length: combinedResponses.length - parseInt(startIndex) },
-                      (_, i) => parseInt(startIndex) + i + 1
-                    ).map((num) => (
-                      <option key={num} value={num}>
-                        {num}
-                      </option>
-                    ))}
-                </select>
-              </div>
-            </div>
+                  {indexRangeError}
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -338,7 +380,7 @@ const SendEmailPanel: React.FC<SendEmailPanelProps> = ({
               textAlign: "center",
             }}
           >
-            ⏳ Next email in {countdown}s
+            ⏳Next email will be sent in {countdown} seconds
           </div>
         )}
 
@@ -348,10 +390,11 @@ const SendEmailPanel: React.FC<SendEmailPanelProps> = ({
             {combinedResponses[currentIndex]?.lastemailupdateddate && (
               <div
                 style={{
-                  fontSize: 13,
+                  fontSize: "inherit",
                   color: "#666",
                   fontStyle: "italic",
                   marginBottom: 4,
+                  fontFamily: "inherit",
                 }}
               >
                 Krafted: {(() => {
@@ -386,9 +429,10 @@ const SendEmailPanel: React.FC<SendEmailPanelProps> = ({
             {combinedResponses[currentIndex]?.emailsentdate && (
               <div
                 style={{
-                  fontSize: 13,
+                  fontSize: "inherit",
                   color: "#666",
                   fontStyle: "italic",
+                  fontFamily: "inherit",
                 }}
               >
                 Emailed: {(() => {
