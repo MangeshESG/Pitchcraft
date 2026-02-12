@@ -2215,7 +2215,7 @@ const usageData = useMemo(() => {
 
         {/* Contact index */}
         <div className="d-flex align-items-center font-size-medium h-[35px]">
-          <strong className="flex items-center">Contact:</strong>
+          <span className="flex items-center">Contact:</span>
           <input
             type="number"
             value={inputValue}
