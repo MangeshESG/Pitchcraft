@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import LoginPage from "./components/LoginPage";
 import RegistrationPage from "./components/RegistrationPage";
 import ForgotPassword from "./components/ForgotPassword";
@@ -45,46 +45,45 @@ const App: React.FC = () => {
     <Provider store={store}>
       <PersistGate loading={null} persistor={persistor}>
         <AppDataProvider> {/* Add this line */}
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<LoginPage />} />
-              <Route path="/register" element={<RegistrationPage />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route element={<ProtectedRoute />}>
-                {/* <Route path="/main" element={<MainPage />} /> */}
-                <Route path="/main" element={<MainPage />}>
-                   <Route index element={<Planes />} />         {/* default page */}
-                   <Route path="myplan" element={<Myplan />} /> {/* nested page */}
-                </Route>
-                <Route path="/plans" element={<Planes/>} />
-                <Route path="/plan-history" element={<PlanHistory />} />
-                <Route
-                  path="/user"
-                  element={
-                    <Suspense
-                      fallback={
-                        <h4 className="d-flex align-center justify-center">
-                          Loading...
-                        </h4>
-                      }
-                    >
-                      <UserComp />
-                    </Suspense>
-                  }
-                />
-                <Route path="/amend-prompt/:id" element={<AmendPrompt />} />
-                {/* <Route path="/create-customer" element={<CustomerCreateForm plan={null} clientId={""} />} /> */}
-                <Route path="/create-customer" element={<CustomerCreateForm />} />
-              </Route>
-              <Route path="*" element={<Navigate to="/" replace />} />
-              <Route
-  path="/contact-details/:contactId"
-  element={<ContactDetailView/>}
-/>
+        <HashRouter>
+        <Routes>
+          <Route path="/" element={<LoginPage />} />
+          <Route path="/register" element={<RegistrationPage />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
 
+          <Route element={<ProtectedRoute />}>
+            <Route path="/main" element={<MainPage />}>
+              <Route index element={<Planes />} />
+              <Route path="myplan" element={<Myplan />} />
+            </Route>
 
-            </Routes>
-          </BrowserRouter>
+            <Route path="/plans" element={<Planes />} />
+            <Route path="/plan-history" element={<PlanHistory />} />
+
+            <Route
+              path="/user"
+              element={
+                <Suspense fallback={<h4>Loading...</h4>}>
+                  <UserComp />
+                </Suspense>
+              }
+            />
+
+            <Route path="/amend-prompt/:id" element={<AmendPrompt />} />
+            <Route path="/create-customer" element={<CustomerCreateForm />} />
+          </Route>
+
+          {/* ✅ CONTACT DETAILS MUST BE BEFORE WILDCARD */}
+          <Route
+            path="/contact-details/:contactId"
+            element={<ContactDetailView />}
+          />
+
+          {/* ✅ ALWAYS LAST */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+
+        </HashRouter>
         </AppDataProvider> 
       </PersistGate>
     </Provider>

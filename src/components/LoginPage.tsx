@@ -131,7 +131,9 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
       }
 
       if (response.ok && data.token) {
+        localStorage.setItem("token", data.token);   // ✅ ADD THIS LINE
         dispatch(setToken(data.token));
+
 
         const userId = getUserIdFromToken(data.token);
         const userRole = getUserRoleFromToken(data.token);
@@ -643,7 +645,9 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
         }
 
         if (res.ok && data.token) {
+          localStorage.setItem("token", data.token);   // ✅ ADD THIS LINE
           dispatch(setToken(data.token));
+
 
           const userId = getUserIdFromToken(data.token);
           const userRole = getUserRoleFromToken(data.token);

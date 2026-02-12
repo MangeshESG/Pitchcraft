@@ -4,9 +4,12 @@ import { useSelector } from "react-redux";
 import { RootState } from "./Redux/store";
 
 const ProtectedRoute: React.FC = () => {
-  const token = useSelector((state: RootState) => state.auth.token);
+  const reduxToken = useSelector((state: RootState) => state.auth.token);
 
-  return token ? <Outlet /> : <Navigate to="/" />;
+  // ✅ Critical Fix: fallback to localStorage
+  const token = reduxToken || localStorage.getItem("token");
+
+  return token ? <Outlet /> : <Navigate to="/" replace />;
 };
 
 export default ProtectedRoute;

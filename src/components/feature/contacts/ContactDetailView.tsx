@@ -25,7 +25,6 @@ import {
 } from "@fortawesome/free-solid-svg-icons"
 import EditContactModal from "../EditContactModal";
 import { useAppModal } from "../../../hooks/useAppModal";
-import { Console } from "console";
 import pitchLogo from "../../../assets/images/pitch_logo.png";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
@@ -63,7 +62,8 @@ const ContactDetailView: React.FC = () => {
 
   const [contact, setContact] = useState<any>(null);
   const [searchParams] = useSearchParams();
-  const dataFileId = searchParams.get("dataFileId");
+    const dataFileId =
+      searchParams.get("dataFileId") || searchParams.get("dataField");
 
   const [activeTab, setActiveTab] = useState<"profile" | "history" | "lists">("profile");
   const [loading, setLoading] = useState(true);
