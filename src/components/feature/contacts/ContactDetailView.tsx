@@ -907,6 +907,7 @@ const ContactDetailView: React.FC = () => {
                               onClick={() => {
                                 setMailSubTab("Dashboard");
                                 setTab("Mail");
+                                navigate("/main?tab=Mail&mailSubTab=Dashboard");
                               }}
                               className="submenu-button"
                             >
@@ -922,6 +923,7 @@ const ContactDetailView: React.FC = () => {
                               onClick={() => {
                                 setMailSubTab("Configuration");
                                 setTab("Mail");
+                                navigate("/main?tab=Mail&mailSubTab=Configuration");
                               }}
                               className="submenu-button"
                             >
@@ -937,6 +939,7 @@ const ContactDetailView: React.FC = () => {
                               onClick={() => {
                                 setMailSubTab("Schedule");
                                 setTab("Mail");
+                                navigate("/main?tab=Mail&mailSubTab=Schedules");
                               }}
                               className="submenu-button"
                             >
