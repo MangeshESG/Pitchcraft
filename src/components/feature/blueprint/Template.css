@@ -406,8 +406,8 @@ select:focus {
 .example-tooltip {
   max-width: 600px;
    width: 600px; 
-  background: #3f9f42 !important;
-  color: #ffffff;
+  background: #f3f4f6 !important;
+  color: #000 !important;
   padding: 12px;
   border-radius: 8px;
   font-size: 13px;

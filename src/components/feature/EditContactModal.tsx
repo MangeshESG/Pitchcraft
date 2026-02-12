@@ -6,6 +6,7 @@ import axios from 'axios';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faAngleRight,
+  faAngleUp,
   faBars,
   faBullhorn,
   faDashboard,
@@ -18,7 +19,7 @@ import {
   faList,
   faRobot,
   faThumbtack, // Add this for Campaign Builder
-
+  faAngleDown,
 } from "@fortawesome/free-solid-svg-icons"
 import { useAppModal } from '../../hooks/useAppModal';
 
@@ -49,11 +50,11 @@ interface EditContactModalProps {
   hideOverlay?: boolean;
   asPage?: boolean;
   // pinnedNotes: Note[];
-   // ✅ Note management callbacks - moved from contact-detail-view
+  // ✅ Note management callbacks - moved from contact-detail-view
   onEditNote?: (note: any) => void;
-onDeleteNote?: (noteId: number) => void;
-onTogglePin?: (noteId: number) => void;
-onNotesHistoryUpdate?: () => void;
+  onDeleteNote?: (noteId: number) => void;
+  onTogglePin?: (noteId: number) => void;
+  onNotesHistoryUpdate?: () => void;
 }
 interface Note {
   id: number;
@@ -117,6 +118,10 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   const [deletingNoteId, setDeletingNoteId] = useState<number | null>(null);
   const [deleteContactId, setDeleteContactId] = useState<number | null>(null);
   const [showLinkedInSummaryPopup, setShowLinkedInSummaryPopup] = useState(false);
+  // Collapsible section states - all expanded by default
+  const [expandedPersonalInfo, setExpandedPersonalInfo] = useState(true);
+  const [expandedCompanyInfo, setExpandedCompanyInfo] = useState(true);
+  const [expandedWebsiteSocial, setExpandedWebsiteSocial] = useState(true);
   const menuBtnStyle: React.CSSProperties = {
     width: "100%",
     padding: "8px 12px",
@@ -546,135 +551,195 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
           <form onSubmit={handleSubmit} className="flex flex-col gap-6">
             <div className="space-y-5 p-6 border border-gray-200 rounded-lg bg-white shadow-sm">
               {/* PERSONAL INFORMATION */}
-              <h3 className="text-sm font-semibold text-gray-900">Personal information</h3>
-              <div>
-                <label className={underlineLabel}>Full name</label>
-                <input
-                  type="text"
-                  name="fullName"
-                  value={formData.fullName}
-                  onChange={handleInputChange}
-                  className={underlineInput}
-                  placeholder="Full name"
+              <div
+                onClick={() => setExpandedPersonalInfo(!expandedPersonalInfo)}
+                className="flex items-center justify-between cursor-pointer p-3 rounded hover:bg-gray-50 transition-colors"
+                style={{ marginTop: -12, marginLeft: -12, marginRight: -12, marginBottom: 8, paddingLeft: 16, paddingRight: 273 }}
+              >
+                <h3 className="text-sm font-semibold text-[#3f9f42]">Personal information</h3>
+                <FontAwesomeIcon
+                  icon={faAngleDown}
+                  style={{
+                    transform: expandedPersonalInfo ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.25s ease',
+                    fontSize: 16,
+                    marginTop: "auto"
+                  }}
+                  className="text-[#3f9f42]"
+                />
+              </div>
+              {expandedPersonalInfo && (
+                <>
+                  <div>
+                    <label className={underlineLabel}>Full name</label>
+                    <input
+                      type="text"
+                      name="fullName"
+                      value={formData.fullName}
+                      onChange={handleInputChange}
+                      className={underlineInput}
+                      placeholder="Full name"
+                    />
+                  </div>
+
+                  <div>
+                    <label className={underlineLabel}>Email</label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      className={underlineInput}
+                      placeholder="Email"
+                    />
+                  </div>
+                </>
+              )}
+              <div
+                onClick={() => setExpandedCompanyInfo(!expandedCompanyInfo)}
+                className="flex items-center justify-between cursor-pointer p-3 rounded hover:bg-gray-50 transition-colors"
+                style={{ marginTop: 12, marginLeft: -12, marginRight: -12, marginBottom: 8, paddingLeft: 16, paddingRight: 273 }}
+              >
+                {/* COMPANY INFORMATION */}
+                <h3 className="text-sm font-semibold text-[#3f9f42] mt-4">Company information</h3>
+                <FontAwesomeIcon
+                  icon={faAngleDown}
+                  style={{
+                    transform: expandedCompanyInfo ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.25s eas',
+                    fontSize: 16,
+                    marginTop: "auto"
+                  }}
+                  className="text-[#3f9f42]"
                 />
               </div>
 
-              <div>
-                <label className={underlineLabel}>Email</label>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  className={underlineInput}
-                  placeholder="Email"
-                />
-              </div>
-
-              {/* COMPANY INFORMATION */}
-              <h3 className="text-sm font-semibold text-gray-900 mt-4">Company information</h3>
-              <div>
-                <label className={underlineLabel}>Job title</label>
-                <input
-                  type="text"
-                  name="jobTitle"
-                  value={formData.jobTitle}
-                  onChange={handleInputChange}
-                  placeholder="Job title"
-                  className={underlineInput}
-                />
-              </div>
-              <div>
-                <label className={underlineLabel}>Company name</label>
-                <input
-                  type="text"
-                  name="companyName"
-                  value={formData.companyName}
-                  onChange={handleInputChange}
-                  placeholder="Company name"
-                  className={underlineInput}
-                />
-              </div>
-              <div>
-                <label className={underlineLabel}>Company industry</label>
-                <input
-                  type="text"
-                  name="companyIndustry"
-                  value={formData.companyIndustry}
-                  onChange={handleInputChange}
-                  placeholder="Company industry"
-                  className={underlineInput}
-                />
-              </div>
-              <div>
-                <label className={underlineLabel}>Company employee count</label>
-                <input
-                  type="text"
-                  name="companyEmployeeCount"
-                  value={formData.companyEmployeeCount}
-                  onChange={handleInputChange}
-                  placeholder="Company employee count"
-                  className={underlineInput}
-                />
-              </div>
-              <div>
-                <label className={underlineLabel}>Company telephone</label>
-                <input
-                  type="text"
-                  name="companyTelephone"
-                  value={formData.companyTelephone}
-                  onChange={handleInputChange}
-                  placeholder="Company telephone"
-                  className={underlineInput}
-                />
-              </div>
-              <div>
-                <label className={underlineLabel}>Country/address</label>
-                <input
-                  type="text"
-                  name="countryOrAddress"
-                  value={formData.countryOrAddress}
-                  onChange={handleInputChange}
-                  placeholder="Country/address"
-                  className={underlineInput}
-                />
-              </div>
+              {expandedCompanyInfo && (
+                <>
+                  <div>
+                    <label className={underlineLabel}>Job title</label>
+                    <input
+                      type="text"
+                      name="jobTitle"
+                      value={formData.jobTitle}
+                      onChange={handleInputChange}
+                      placeholder="Job title"
+                      className={underlineInput}
+                    />
+                  </div>
+                  <div>
+                    <label className={underlineLabel}>Company name</label>
+                    <input
+                      type="text"
+                      name="companyName"
+                      value={formData.companyName}
+                      onChange={handleInputChange}
+                      placeholder="Company name"
+                      className={underlineInput}
+                    />
+                  </div>
+                  <div>
+                    <label className={underlineLabel}>Company industry</label>
+                    <input
+                      type="text"
+                      name="companyIndustry"
+                      value={formData.companyIndustry}
+                      onChange={handleInputChange}
+                      placeholder="Company industry"
+                      className={underlineInput}
+                    />
+                  </div>
+                  <div>
+                    <label className={underlineLabel}>Company employee count</label>
+                    <input
+                      type="text"
+                      name="companyEmployeeCount"
+                      value={formData.companyEmployeeCount}
+                      onChange={handleInputChange}
+                      placeholder="Company employee count"
+                      className={underlineInput}
+                    />
+                  </div>
+                  <div>
+                    <label className={underlineLabel}>Company telephone</label>
+                    <input
+                      type="text"
+                      name="companyTelephone"
+                      value={formData.companyTelephone}
+                      onChange={handleInputChange}
+                      placeholder="Company telephone"
+                      className={underlineInput}
+                    />
+                  </div>
+                  <div>
+                    <label className={underlineLabel}>Country/address</label>
+                    <input
+                      type="text"
+                      name="countryOrAddress"
+                      value={formData.countryOrAddress}
+                      onChange={handleInputChange}
+                      placeholder="Country/address"
+                      className={underlineInput}
+                    />
+                  </div>
+                </>
+              )}
 
               {/* WEBSITE & SOCIAL */}
-              <h3 className="text-sm font-semibold text-gray-900 mt-4">Website & social</h3>
-              <div>
-                <label className={underlineLabel}>Website</label>
-                <input
-                  type="text"
-                  name="website"
-                  value={formData.website}
-                  onChange={handleInputChange}
-                  placeholder="Website"
-                  className={underlineInput}
+              <div
+                onClick={() => setExpandedWebsiteSocial(!expandedWebsiteSocial)}
+                className="flex items-center justify-between cursor-pointer p-3 rounded hover:bg-gray-50 transition-colors"
+                style={{ marginTop: 12, marginLeft: -12, marginRight: -12, marginBottom: 8, paddingLeft: 16, paddingRight: 273 }}
+              >
+                <h3 className="text-sm font-semibold text-[#3f9f42] mt-4">Website & social</h3>
+                <FontAwesomeIcon
+                  icon={faAngleDown}
+                  style={{
+                    transform: expandedWebsiteSocial ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.25s eas',
+                    fontSize: 16,
+                    marginTop: "auto"
+                  }}
+                  className="text-[#3f9f42]"
                 />
               </div>
-              <div>
-                <label className={underlineLabel}>LinkedIn URL</label>
-                <input
-                  type="text"
-                  name="linkedInUrl"
-                  value={formData.linkedInUrl}
-                  onChange={handleInputChange}
-                  placeholder="LinkedIn URL"
-                  className={underlineInput}
-                />
-              </div>
-              <div>
-                <label className={underlineLabel}>Company linkedIn URL</label>
-                <input
-                  type="text"
-                  name="companyLinkedInURL"
-                  value={formData.companyLinkedInURL}
-                  onChange={handleInputChange}
-                  placeholder="Company LinkedIn URL"
-                  className={underlineInput}
-                />
-              </div>
+              {expandedWebsiteSocial && (
+                <>
+                  <div>
+                    <label className={underlineLabel}>Website</label>
+                    <input
+                      type="text"
+                      name="website"
+                      value={formData.website}
+                      onChange={handleInputChange}
+                      placeholder="Website"
+                      className={underlineInput}
+                    />
+                  </div>
+                  <div>
+                    <label className={underlineLabel}>LinkedIn URL</label>
+                    <input
+                      type="text"
+                      name="linkedInUrl"
+                      value={formData.linkedInUrl}
+                      onChange={handleInputChange}
+                      placeholder="LinkedIn URL"
+                      className={underlineInput}
+                    />
+                  </div>
+                  <div>
+                    <label className={underlineLabel}>Company linkedIn URL</label>
+                    <input
+                      type="text"
+                      name="companyLinkedInURL"
+                      value={formData.companyLinkedInURL}
+                      onChange={handleInputChange}
+                      placeholder="Company LinkedIn URL"
+                      className={underlineInput}
+                    />
+                  </div>
+                </>
+              )}
 
               {/* SAVE / CANCEL BUTTONS */}
               <div className="flex justify-start items-center gap-3 mt-6 pt-4 border-t border-gray-200 sticky bottom-0 bg-white z-10">
@@ -744,7 +809,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                             onClick={(e) => e.stopPropagation()} >
                             <button
                               onClick={() => {
-                                 onEditNote?.(note);
+                                onEditNote?.(note);
                                 setNoteActionsAnchor(null);
                               }}
                               style={menuBtnStyle}
@@ -794,7 +859,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                             {/* 🗑️ DELETE */}
                             <button
                               onClick={() => {
-                                 onDeleteNote?.(note.id);
+                                onDeleteNote?.(note.id);
                                 setNoteActionsAnchor(null);
                               }}
                               style={menuBtnStyle}
@@ -831,10 +896,9 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
               <button
                 type="button"
                 onClick={() => setShowLinkedInSummaryPopup(true)}
-                className="flex items-center gap-2 px-3 py-1 bg-[#3f9f42] text-white rounded hover:bg-[#3f9f42] transition-colors"
+                className="flex items-center gap-2 px-3 py-1  text-black rounded  transition-colors"
               >
                 <FontAwesomeIcon icon={faEdit} width="16" height="16" />
-                Edit
               </button>
             </div>
           </div>
@@ -943,258 +1007,266 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
             </div>
           )
         }
-         {/* LinkedIn Summary Popup with Toolbar */}
-        {showLinkedInSummaryPopup && (
+        {/* LinkedIn Summary Popup with Toolbar */}
+
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: showLinkedInSummaryPopup ? "rgba(0,0,0,0.6)" : "transparent",
+            zIndex: 100000,
+            display: "flex",
+            justifyContent: "flex-end",
+            transition: "background 0.3s ease",
+            pointerEvents: showLinkedInSummaryPopup ? "auto" : "none",
+          }}
+          onClick={() => setShowLinkedInSummaryPopup(false)}
+        >
           <div
             style={{
-              position: "fixed",
-              inset: 0,
-              background: "rgba(0,0,0,0.6)",
-              zIndex: 100000,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
+              background: "#fff",
+              padding: 24,
+              width: "70%",
+              maxWidth: 900,
+              height: "90vh",
+              boxShadow: "-4px 0 20px rgba(0,0,0,0.08)",
+              transform: showLinkedInSummaryPopup
+                ? "translateX(0)"
+                : "translateX(110%)",
+              transition: "transform 0.35s ease-in-out",
+              overflow: "auto",
             }}
+            onClick={(e) => e.stopPropagation()}
           >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h3 style={{ margin: 0 }}>LinkedIn Summary</h3>
+              <button
+                onClick={() => setShowLinkedInSummaryPopup(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: 24,
+                  cursor: "pointer",
+                  color: "#666",
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Formatting Toolbar */}
             <div
               style={{
-                background: "#fff",
-                padding: 24,
-                borderRadius: 8,
-                width: "70%",
-                maxWidth: 900,
-                boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "12px",
+                border: "1px solid #d1d5db",
+                borderBottom: "none",
+                // marginBottom: 12,
+                flexWrap: "wrap",
+                backgroundColor: "#f5f5f5",
+                borderRadius: "4px 4px 0 0",
               }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                <h3 style={{ margin: 0 }}>LinkedIn Summary</h3>
-                <button
-                  onClick={() => setShowLinkedInSummaryPopup(false)}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    fontSize: 24,
-                    cursor: "pointer",
-                    color: "#666",
-                  }}
-                >
-                  ✕
-                </button>
-              </div>
-
-              {/* Formatting Toolbar */}
-              <div
+              <select
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "12px",
+                  padding: "6px 10px",
                   border: "1px solid #d1d5db",
-                  borderBottom: "none",
-                 // marginBottom: 12,
-                  flexWrap: "wrap",
-                   backgroundColor: "#f5f5f5",
-                  borderRadius: "4px 4px 0 0",
-                }}
-              >
-                <select
-                  style={{
-                    padding: "6px 10px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: 4,
-                    fontSize: 14,
-                    cursor: "pointer",
-                  }}
-                  onChange={(e) => {
-                    if (e.target.value) document.execCommand("formatBlock", false, `<${e.target.value}>`);
-                  }}
-                >
-                  <option value="">Normal</option>
-                  <option value="h1">Heading 1</option>
-                  <option value="h2">Heading 2</option>
-                  <option value="h3">Heading 3</option>
-                  <option value="p">Paragraph</option>
-                </select>
-
-                <button
-                  type="button"
-                  onClick={() => document.execCommand("bold", false)}
-                  style={{
-                    padding: "6px 12px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: 4,
-                    background: "#f9fafb",
-                    cursor: "pointer",
-                    fontWeight: "bold",
-                  }}
-                  title="Bold"
-                >
-                  B
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => document.execCommand("italic", false)}
-                  style={{
-                    padding: "6px 12px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: 4,
-                    background: "#f9fafb",
-                    cursor: "pointer",
-                    fontStyle: "italic",
-                  }}
-                  title="Italic"
-                >
-                  I
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => document.execCommand("underline", false)}
-                  style={{
-                    padding: "6px 12px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: 4,
-                    background: "#f9fafb",
-                    cursor: "pointer",
-                    textDecoration: "underline",
-                  }}
-                  title="Underline"
-                >
-                  U
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => document.execCommand("strikethrough", false)}
-                  style={{
-                    padding: "6px 12px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: 4,
-                    background: "#f9fafb",
-                    cursor: "pointer",
-                    textDecoration: "line-through",
-                  }}
-                  title="Strikethrough"
-                >
-                  S
-                </button>
-
-                <div style={{ width: 1, height: 24, background: "#e5e7eb", margin: "0 4px" }}></div>
-
-                <button
-                  type="button"
-                  onClick={() => document.execCommand("insertUnorderedList", false)}
-                  style={{
-                    padding: "6px 12px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: 4,
-                    background: "#f9fafb",
-                    cursor: "pointer",
-                  }}
-                  title="Bullet list"
-                >
-                  •
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => document.execCommand("insertOrderedList", false)}
-                  style={{
-                    padding: "6px 12px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: 4,
-                    background: "#f9fafb",
-                    cursor: "pointer",
-                  }}
-                  title="Numbered list"
-                >
-                  1.
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    const url = prompt("Enter URL:");
-                    if (url) document.execCommand("createLink", false, url);
-                  }}
-                  style={{
-                    padding: "6px 12px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: 4,
-                    background: "#f9fafb",
-                    cursor: "pointer",
-                  }}
-                  title="Insert link"
-                >
-                  🔗
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    const url = prompt("Enter image URL:");
-                    if (url) document.execCommand("insertImage", false, url);
-                  }}
-                  style={{
-                    padding: "6px 12px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: 4,
-                    background: "#f9fafb",
-                    cursor: "pointer",
-                  }}
-                  title="Insert image"
-                >
-                  🖼️
-                </button>
-              </div>
-
-              {/* Editable Content Area */}
-              <div
-                contentEditable
-                style={{
-                  width: "100%",
-                  minHeight: "400px",
-                  padding: "12px",
-                  border: "1px solid #d1d5db",
-                  borderTop: "none",
-                  borderRadius: "0 0 4px 4px",
-                  outline: "none",
+                  borderRadius: 4,
                   fontSize: 14,
-                  lineHeight: 1.6,
+                  cursor: "pointer",
                 }}
-                onBlur={(e) => {
-                  setFormData((prev) => ({
-                    ...prev,
-                    linkedInUrl: (e.currentTarget as HTMLDivElement).innerHTML,
-                  }));
+                onChange={(e) => {
+                  if (e.target.value) document.execCommand("formatBlock", false, `<${e.target.value}>`);
                 }}
-                suppressContentEditableWarning
               >
-                {formData.linkedInUrl || ""}
-              </div>
+                <option value="">Normal</option>
+                <option value="h1">Heading 1</option>
+                <option value="h2">Heading 2</option>
+                <option value="h3">Heading 3</option>
+                <option value="p">Paragraph</option>
+              </select>
 
-              {/* Action Buttons */}
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 16 }}>
-                <button
-                  type="button"
-                  onClick={() => setShowLinkedInSummaryPopup(false)}
-                  style={{
-                    padding: "8px 16px",
-                    background: "#3f9f42",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: 4,
-                    cursor: "pointer",
-                    fontWeight: 500,
-                  }}
-                >
-                  Done
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => document.execCommand("bold", false)}
+                style={{
+                  padding: "6px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: 4,
+                  background: "#f9fafb",
+                  cursor: "pointer",
+                  fontWeight: "bold",
+                }}
+                title="Bold"
+              >
+                B
+              </button>
+
+              <button
+                type="button"
+                onClick={() => document.execCommand("italic", false)}
+                style={{
+                  padding: "6px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: 4,
+                  background: "#f9fafb",
+                  cursor: "pointer",
+                  fontStyle: "italic",
+                }}
+                title="Italic"
+              >
+                I
+              </button>
+
+              <button
+                type="button"
+                onClick={() => document.execCommand("underline", false)}
+                style={{
+                  padding: "6px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: 4,
+                  background: "#f9fafb",
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                }}
+                title="Underline"
+              >
+                U
+              </button>
+
+              <button
+                type="button"
+                onClick={() => document.execCommand("strikethrough", false)}
+                style={{
+                  padding: "6px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: 4,
+                  background: "#f9fafb",
+                  cursor: "pointer",
+                  textDecoration: "line-through",
+                }}
+                title="Strikethrough"
+              >
+                S
+              </button>
+
+              <div style={{ width: 1, height: 24, background: "#e5e7eb", margin: "0 4px" }}></div>
+
+              <button
+                type="button"
+                onClick={() => document.execCommand("insertUnorderedList", false)}
+                style={{
+                  padding: "6px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: 4,
+                  background: "#f9fafb",
+                  cursor: "pointer",
+                }}
+                title="Bullet list"
+              >
+                •
+              </button>
+
+              <button
+                type="button"
+                onClick={() => document.execCommand("insertOrderedList", false)}
+                style={{
+                  padding: "6px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: 4,
+                  background: "#f9fafb",
+                  cursor: "pointer",
+                }}
+                title="Numbered list"
+              >
+                1.
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const url = prompt("Enter URL:");
+                  if (url) document.execCommand("createLink", false, url);
+                }}
+                style={{
+                  padding: "6px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: 4,
+                  background: "#f9fafb",
+                  cursor: "pointer",
+                }}
+                title="Insert link"
+              >
+                🔗
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const url = prompt("Enter image URL:");
+                  if (url) document.execCommand("insertImage", false, url);
+                }}
+                style={{
+                  padding: "6px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: 4,
+                  background: "#f9fafb",
+                  cursor: "pointer",
+                }}
+                title="Insert image"
+              >
+                🖼️
+              </button>
+            </div>
+
+            {/* Editable Content Area */}
+            <div
+              contentEditable
+              style={{
+                width: "100%",
+                minHeight: "400px",
+                padding: "12px",
+                border: "1px solid #d1d5db",
+                borderTop: "none",
+                borderRadius: "0 0 4px 4px",
+                outline: "none",
+                fontSize: 14,
+                lineHeight: 1.6,
+              }}
+              onBlur={(e) => {
+                setFormData((prev) => ({
+                  ...prev,
+                  linkedInUrl: (e.currentTarget as HTMLDivElement).innerHTML,
+                }));
+              }}
+              suppressContentEditableWarning
+            >
+              {/* {formData.linkedInUrl || ""} */}
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 16 }}>
+              <button
+                type="button"
+                onClick={() => setShowLinkedInSummaryPopup(false)}
+                style={{
+                  padding: "8px 16px",
+                  background: "#3f9f42",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  fontWeight: 500,
+                }}
+              >
+                Done
+              </button>
             </div>
           </div>
-        )}
+        </div>
+
       </>
     );
   }
