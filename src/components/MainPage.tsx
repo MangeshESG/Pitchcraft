@@ -967,9 +967,8 @@ const MainPage: React.FC = () => {
 
     // Modify the subject line to indicate if this is a pause report
     const reportType = isPauseReport ? "Pause Report" : "Processing Report";
-
     const emailData = {
-      To: "info@groupji.co, rushikeshg@groupji.co",
+      To: "info@groupji.co, aamirs@groupji.co",
       Subject: reportType,
       Body: `
         <html>
@@ -1418,9 +1417,9 @@ useEffect(() => {
     setStartTime(startTime);
     let generatedPitches: any[] = []; // Declare and initialize generatedPitches
 
-    try {
-      setIsProcessing(true);
+    setIsProcessing(true);
 
+    try {
       // ======= REGENERATION BLOCK START =======
       if (!selectedPrompt) {
         // Determine which variables are missing
@@ -2545,20 +2544,53 @@ totalEmailCostRef.current += subjectCost;
       const hours = Math.floor((timeSpent % 86400000) / 3600000);
       const minutes = Math.floor(((timeSpent % 86400000) % 3600000) / 60000);
       const formattedTimeSpent = `${hours} hours ${minutes} minutes`;
-
+      const lastPitch =
+      allResponses.length > 0
+        ? allResponses[allResponses.length - 1].pitch
+        : "No pitches were generated in this session";
+        
+    const emailRequest = {
+        cost: cost,
+        userid: userId,
+        Role: userRole,
+        lastPitch:lastPitch,
+        totaltokensused: totaltokensused,
+        timeSpent: formattedTimeSpent,
+        startTime: startTime,
+        endTime: endTime,
+        generatedPitches: allResponses,
+        promptText: selectedPrompt?.text || "No prompt template was selected",
+        isPauseReport: false,
+      };
       // Send email report
-      sendEmail(
-        cost,
-        failedReq,
-        successReq,
-        scrapfailedreq,
-        totaltokensused,
-        formattedTimeSpent,
-        startTime,
-        endTime,
-        generatedPitches,
-        selectedPrompt?.text,
-      );
+      // sendEmail(
+      //   cost,
+      //   failedReq,
+      //   successReq,
+      //   scrapfailedreq,
+      //   totaltokensused,
+      //   formattedTimeSpent,
+      //   startTime,
+      //   endTime,
+      //   generatedPitches,
+      //   selectedPrompt?.text,
+      // );
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/sendemail`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(emailRequest),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to send email: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        console.log("Finish report email sent:", result);
+      } catch (error) {
+        console.error("Error sending email:", error);
+      }
     } catch (error) {
       // Ensure processing is set to false even if there's an error
       setIsProcessing(false);
@@ -2772,65 +2804,103 @@ totalEmailCostRef.current += subjectCost;
   };
 
   const handleStop = async () => {
-    if (isProcessing) {
-      setIsPaused(true);
-      stopRef.current = true;
+  if (!isProcessing) return;
 
-      // Calculate time spent so far
-      const currentTime = new Date();
-      let timeSpent = "";
+  setIsPaused(true);
+  stopRef.current = true;
 
-      if (startTime) {
-        const timeDiff = currentTime.getTime() - startTime.getTime();
-        const hours = Math.floor((timeDiff % 86400000) / 3600000);
-        const minutes = Math.floor(((timeDiff % 86400000) % 3600000) / 60000);
-        timeSpent = `${hours} hours ${minutes} minutes`;
-      }
+  // Calculate time spent so far
+  let timeSpent = "";
 
-      // Get the current values from the usage string
-      const usageText = outputForm.usage;
+  const currentTime = new Date();
 
-      // Extract values using regex
-      const costMatch = usageText.match(/Cost: \$([0-9.]+)/);
-      const failedReqMatch = usageText.match(/Failed Requests: ([0-9]+)/);
-      const successReqMatch = usageText.match(/Success Requests: ([0-9]+)/);
-      const scrapfailedReqMatch = usageText.match(
-        /Scraped Data Failed Requests: ([0-9]+)/,
-      );
-      const totaltokensusedMatch = usageText.match(
-        /Total Tokens Used: ([0-9]+)/,
-      );
+  if (startTime) {
+    const timeDiff = currentTime.getTime() - startTime.getTime();
+    const hours = Math.floor(timeDiff / 3600000);
+    const minutes = Math.floor((timeDiff % 3600000) / 60000);
+    timeSpent = `${hours} hours ${minutes} minutes`;
+  }
 
-      const currentCost = costMatch ? parseFloat(costMatch[1]) : cost;
-      const currentFailedReq = failedReqMatch
-        ? parseInt(failedReqMatch[1])
-        : failedReq;
-      const currentSuccessReq = successReqMatch
-        ? parseInt(successReqMatch[1])
-        : successReq;
-      const currentScrapfailedReq = scrapfailedReqMatch
-        ? parseInt(scrapfailedReqMatch[1])
-        : scrapfailedreq;
-      const currentTotaltokensused = totaltokensusedMatch
-        ? parseInt(totaltokensusedMatch[1])
-        : totaltokensused;
+  // Get the current values from the usage string
+  const usageText = outputForm.usage || "";
 
-      // Send email with the values from the usage display
-      await sendEmail(
-        currentCost,
-        currentFailedReq,
-        currentSuccessReq,
-        currentScrapfailedReq,
-        currentTotaltokensused,
-        timeSpent,
-        startTime,
-        currentTime,
-        allResponses,
-        selectedPrompt?.text || "No prompt template was selected",
-        true, // Flag to indicate this is a stop report
-      );
-    }
+  // Extract values using regex
+  const costMatch = usageText.match(/Cost: \$([0-9.]+)/);
+  const failedReqMatch = usageText.match(/Failed Requests: ([0-9]+)/);
+  const successReqMatch = usageText.match(/Success Requests: ([0-9]+)/);
+  const scrapFailedReqMatch = usageText.match(
+    /Scraped Data Failed Requests: ([0-9]+)/,
+  );
+  const totalTokensUsedMatch = usageText.match(
+    /Total Tokens Used: ([0-9]+)/,
+  );
+
+  const currentCost = costMatch ? parseFloat(costMatch[1]) : cost;
+  const currentFailedReq = failedReqMatch
+    ? parseInt(failedReqMatch[1])
+    : failedReq;
+  const currentSuccessReq = successReqMatch
+    ? parseInt(successReqMatch[1])
+    : successReq;
+  const currentScrapFailedReq = scrapFailedReqMatch
+    ? parseInt(scrapFailedReqMatch[1])
+    : scrapfailedreq;
+  const currentTotalTokensUsed = totalTokensUsedMatch
+    ? parseInt(totalTokensUsedMatch[1])
+    : totaltokensused;
+const lastPitch =
+      allResponses.length > 0
+        ? allResponses[allResponses.length - 1].pitch
+        : "No pitches were generated in this session";
+  // ✅ Correct EmailRequest object
+  const emailRequest = {
+    cost: currentCost.toFixed(2,),
+    successReq: currentSuccessReq,
+    userid: userId,
+    Role: userRole,
+    lastPitch:lastPitch,
+    totaltokensused: currentTotalTokensUsed,
+    timeSpent: timeSpent,
+    startTime: startTime,
+    endTime: currentTime,
+    generatedPitches: allResponses,
+    promptText: selectedPrompt?.text || "No prompt template was selected",
+    isPauseReport: true,
   };
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/auth/sendemail`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(emailRequest),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to send email: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    console.log("Pause report email sent:", result);
+
+    // Optional: existing email function
+    await sendEmail(
+      currentCost,
+      currentFailedReq,
+      currentSuccessReq,
+      currentScrapFailedReq,
+      currentTotalTokensUsed,
+      timeSpent,
+      startTime,
+      currentTime,
+      allResponses,
+      selectedPrompt?.text || "No prompt template was selected",
+      true,
+    );
+  } catch (error) {
+    console.error("Error sending pause report email:", error);
+  }
+};
+
 
   const handleReset = () => {
     // Only allow reset if paused
