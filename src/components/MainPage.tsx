@@ -658,6 +658,41 @@ const MainPage: React.FC = () => {
     setUserRole(isAdmin ? "ADMIN" : "USER");
   }, []);
 
+  // Listen for blueprint edit event from Output
+  useEffect(() => {
+    const handleSwitchToBlueprint = async (event: any) => {
+      const templateId = event.detail?.templateId;
+      if (templateId) {
+        setIsLoadingClientSettings(true);
+        // Load the template details first
+        try {
+          const response = await fetch(
+            `${API_BASE_URL}/api/CampaignPrompt/campaign/${templateId}`,
+          );
+          if (response.ok) {
+            const data = await response.json();
+            sessionStorage.setItem("newCampaignName", data.templateName);
+            const example = data.placeholderValues?.example_output_email || "";
+            sessionStorage.setItem("initialExampleEmail", example);
+          }
+        } catch (error) {
+          console.error("Error loading template:", error);
+        }
+        
+        setTab("TestTemplate");
+        setShowBlueprintSubmenu(true);
+        setShowMailSubmenu(false);
+        setShowContactsSubmenu(false);
+        navigate("/main?tab=TestTemplate");
+        
+        setTimeout(() => setIsLoadingClientSettings(false), 800);
+      }
+    };
+
+    window.addEventListener("switchToBlueprint", handleSwitchToBlueprint);
+    return () => window.removeEventListener("switchToBlueprint", handleSwitchToBlueprint);
+  }, [navigate]);
+
   const [delayTime, setDelay] = useState<number>(0);
   const delay = (ms: number) =>
     new Promise((resolve) => setTimeout(resolve, ms));
@@ -3675,6 +3710,8 @@ totalEmailCostRef.current += subjectCost;
         loaderMessage={
           isFetchingContacts
             ? "Loading contacts..."
+            : isLoadingClientSettings
+            ? "Loading blueprint..."
             : "Loading client settings..."
         }
         closeOnOverlayClick={false}

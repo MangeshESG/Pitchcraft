@@ -1889,6 +1889,23 @@ useEffect(() => {
                     </label>
                   )}
                 </div>
+                {selectedCampaign && campaigns?.find((c) => c.id.toString() === selectedCampaign)?.templateId && (
+                  <button
+                    className="green rounded-md py-[5px] px-[15px] border border-[#3f9f42]"
+                    onClick={() => {
+                      const campaign = campaigns.find((c) => c.id.toString() === selectedCampaign);
+                      if (campaign?.templateId) {
+                        sessionStorage.setItem("editTemplateId", campaign.templateId.toString());
+                        sessionStorage.setItem("editTemplateMode", "true");
+                        sessionStorage.setItem("newCampaignId", campaign.templateId.toString());
+                        window.dispatchEvent(new CustomEvent("switchToBlueprint", { detail: { templateId: campaign.templateId } }));
+                      }
+                    }}
+                    title="Edit this campaign's blueprint"
+                  >
+                    Edit blueprint
+                  </button>
+                )}
                 <button
                   className="green rounded-md py-[5px] px-[15px] border border-[#3f9f42]"
                   onClick={() => setSendEmailControls(!sendEmailControls)}
