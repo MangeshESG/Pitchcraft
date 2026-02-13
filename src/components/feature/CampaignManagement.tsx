@@ -6,6 +6,8 @@ import { useAppData } from "../../contexts/AppDataContext";
 import AppModal from "../common/AppModal";
 import { useAppModal } from "../../hooks/useAppModal";
 import PaginationControls from "./PaginationControls";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 interface CampaignManagementProps {
   selectedClient: string;
@@ -72,6 +74,44 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
 const [listSortKey, setListSortKey] = useState<string>("campaignName");
 const [listSortDirection, setListSortDirection] = useState<"asc" | "desc">("asc");
+const showSuccessToast = (message: string) => {
+  toast(
+    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+      <span
+        style={{
+          width: 22,
+          height: 22,
+          borderRadius: "50%",
+          background: "#22c55e",
+          color: "#fff",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 14,
+          fontWeight: 700,
+        }}
+      >
+        ✓
+      </span>
+      <span style={{ fontWeight: 500, whiteSpace: "nowrap", }}>{message}</span>
+    </div>,
+    {
+      position: "bottom-center" as const, // ✅ FIX
+      autoClose: 3000,
+      hideProgressBar: true,
+      closeOnClick: true,
+      pauseOnHover: true,
+      style: {
+        background: "#f1fdf6",
+        borderLeft: "6px solid #22c55e",
+        width: "fit-content",
+  maxWidth: "90vw",
+
+      },
+    }
+  );
+};
+
 
   const appModal = useAppModal();
   const { refreshTrigger, triggerRefresh } = useAppData();
@@ -329,7 +369,8 @@ const createCampaign = async () => {
         body: JSON.stringify(requestBody),
       });
       if (!res.ok) throw new Error("Failed to update campaign");
-      appModal.showSuccess("Campaign updated successfully");
+     // appModal.showSuccess("Campaign updated successfully");
+     showSuccessToast("The campaign has been updated with success!");
       setShowCreateCampaignModal(false);
       fetchCampaigns();
       triggerRefresh(); // Notify other components to refresh their campaign data
@@ -342,7 +383,8 @@ const createCampaign = async () => {
   const deleteCampaign = async (campaign: Campaign) => {
     try {
       await fetch(`${API_BASE_URL}/api/auth/deletecampaign/${campaign.id}`, { method: "POST" });
-      appModal.showSuccess("Campaign deleted successfully");
+      // appModal.showSuccess("Campaign deleted successfully");
+      showSuccessToast("The campaign has been deleted with success!");
       fetchCampaigns();
       triggerRefresh(); // Notify other components to refresh their campaign data
     } catch (err) {
@@ -614,7 +656,7 @@ const menuBtnStyle: React.CSSProperties = {
            pageLabel="Page:"
         />
       </div>
-
+ <ToastContainer/>
 {showCreateCampaignModal && (
   <div
     // onClick={() => {

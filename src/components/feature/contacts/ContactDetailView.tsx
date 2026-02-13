@@ -383,6 +383,12 @@ const ContactDetailView: React.FC = () => {
       setIsEditMode(false);
       setEditingNoteId(null);
 
+      // Set appropriate message based on action
+      if (isEditMode) {
+        setToastMessage("The note has been updated with success!");
+      } else {
+        setToastMessage("The note has been created with success!");
+      }
       setShowSuccessToast(true);
       setTimeout(() => setShowSuccessToast(false), 3000);
 
@@ -394,7 +400,11 @@ const ContactDetailView: React.FC = () => {
       setIsSavingNote(false);
     }
   };
-
+useEffect(() => {
+  if (contactId && reduxUserId) {
+    fetchNotesHistory();
+  }
+}, [contactId, reduxUserId]);
   const fetchNotesHistory = async () => {
     if (!reduxUserId || !contactId) return;
 
@@ -644,6 +654,8 @@ const ContactDetailView: React.FC = () => {
                     <li className={tab === "Dashboard" ? "active" : ""}>
                       <button
                         onClick={() => {
+                          setTab("Dashboard");
+                          navigate("/main");
                           setShowBlueprintSubmenu(false);
                           setShowContactsSubmenu(false);
                           setShowMailSubmenu(false);
@@ -795,6 +807,7 @@ const ContactDetailView: React.FC = () => {
                                 setContactsSubTab("List");
                                 setTab("DataCampaigns");
                                 setShowMailSubmenu(false);
+                                navigate("/main?tab=DataCampaigns&subtab=List");
                               }}
                               className="submenu-button"
                             >
@@ -811,6 +824,7 @@ const ContactDetailView: React.FC = () => {
                                 setContactsSubTab("Segment");
                                 setTab("DataCampaigns");
                                 setShowMailSubmenu(false);
+                                 navigate("/main?tab=DataCampaigns&subtab=Segment");
                               }}
                               className="submenu-button"
                             >
@@ -1021,9 +1035,9 @@ const ContactDetailView: React.FC = () => {
                             fetchEmailTimeline(Number(contactId));
                           }
 
-                          if (notesHistory.length === 0) {
-                            fetchNotesHistory();
-                          }
+                          // if (notesHistory.length === 0) {
+                          //   fetchNotesHistory();
+                          // }
                         }
                       }}
                       style={{
@@ -1153,6 +1167,7 @@ const ContactDetailView: React.FC = () => {
                           : appModal.showError(msg);
                       }}
                       // ✅ Line 1118-1134: Pass note management callbacks to modal
+                       notesHistory={notesHistory} 
                       onEditNote={handleEditNote}
                       onDeleteNote={handleDeleteNote}
                       onTogglePin={handleTogglePin}
@@ -2203,7 +2218,7 @@ const ContactDetailView: React.FC = () => {
 
           {/* Message */}
           <div style={{ fontSize: 14, flex: 1 }}>
-            The note has been created with success!
+            {toastMessage}
           </div>
 
           {/* Close */}

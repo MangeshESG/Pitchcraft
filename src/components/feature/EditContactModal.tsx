@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import API_BASE_URL from '../../config';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../Redux/store';
@@ -51,6 +51,7 @@ interface EditContactModalProps {
   asPage?: boolean;
   // pinnedNotes: Note[];
   // ✅ Note management callbacks - moved from contact-detail-view
+   notesHistory: any[];
   onEditNote?: (note: any) => void;
   onDeleteNote?: (noteId: number) => void;
   onTogglePin?: (noteId: number) => void;
@@ -62,6 +63,7 @@ interface Note {
   createdAt: string;
   createdByEmail?: string;
   isPin: boolean;
+  isUseInGenration:boolean;
 }
 
 
@@ -75,6 +77,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   asPage = false,
   //pinnedNotes,
   // ✅ Line 66-71: Destructure note management callbacks
+  notesHistory, 
   onEditNote,
   onDeleteNote,
   onTogglePin,
@@ -101,7 +104,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   const [showNotesPopup, setShowNotesPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [emailTimeline, setEmailTimeline] = useState<any[]>([]);
-  const [notesHistory, setNotesHistory] = useState<Note[]>([]);
+ // const [notesHistory, setNotesHistory] = useState<Note[]>([]);
   const reduxUserId = useSelector((state: RootState) => state.auth.userId);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
@@ -374,37 +377,37 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
       fetchEmailTimeline(contact.id);
     }
   }, [contact?.id]);
-  const fetchNotesHistory = async () => {
-    if (!reduxUserId || !contact?.id) return;
+  // const fetchNotesHistory = useCallback(async () => {
+  //   if (!reduxUserId || !contact?.id) return;
 
-    try {
-      const res = await axios.get(
-        `${API_BASE_URL}/api/notes/Get-All-Note`,
-        {
-          params: {
-            clientId: reduxUserId,
-            contactId: contact.id,
-          },
-        }
-      );
+  //   try {
+  //     const res = await axios.get(
+  //       `${API_BASE_URL}/api/notes/Get-All-Note`,
+  //       {
+  //         params: {
+  //           clientId: reduxUserId,
+  //           contactId: contact.id,
+  //         },
+  //       }
+  //     );
 
-      if (res.data?.success) {
-        setNotesHistory(res.data.data || []);
-      } else {
-        setNotesHistory([]);
-      }
-    } catch (err) {
-      console.error("Failed to fetch notes history", err);
-      setNotesHistory([]);
-    }
-  };
+  //     if (res.data?.success) {
+  //       setNotesHistory(res.data.data || []);
+  //     } else {
+  //       setNotesHistory([]);
+  //     }
+  //   } catch (err) {
+  //     console.error("Failed to fetch notes history", err);
+  //     setNotesHistory([]);
+  //   }
+  // },[reduxUserId, contact?.id]);
   const handleEditNote = async (note: any) => {
     if (!reduxUserId || !contact?.id) return;
 
     try {
       setIsEditMode(true);
       setEditingNoteId(note.id);
-      //  setNoteActionsAnchor(null);
+       setNoteActionsAnchor(null);
 
       const res = await axios.get(
         `${API_BASE_URL}/api/notes/Get-Note-By-Id`,
@@ -433,14 +436,14 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
       appModal.showError("Failed to load note");
     }
   };
-  useEffect(() => {
-    fetchNotesHistory();
-  }, [contact?.id, reduxUserId]);
+  // useEffect(() => {
+  //   fetchNotesHistory();
+  // }, [contact?.id, reduxUserId]);
 
   const pinnedNotes = React.useMemo(
-    () => notesHistory.filter(n => n.isPin),
-    [notesHistory]
-  );
+  () => (notesHistory || []).filter(n => n.isPin),
+  [notesHistory]
+);
 
   //IST Formatter
   const formatDateTimeIST = (dateString?: string) => {
@@ -467,34 +470,73 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
       hour12: true,
     }).format(new Date(dateString));
   };
-  const handleTogglePin = async (noteId: number) => {
+  // const handleTogglePin = async (noteId: number) => {
+  //   if (!reduxUserId || !contact?.id) return;
+
+  //   try {
+  //     await axios.post(`${API_BASE_URL}/api/notes/Toggle-Pin`, {
+  //       clientId: reduxUserId,
+  //       contactId: contact.id,
+  //       noteId,
+  //     });
+
+
+  //     setNoteActionsAnchor(null); // 🔥 REQUIRED
+  //     fetchNotesHistory();
+  //     setToastMessage("Note pin status updated");
+  //     setShowSuccessToast(true);
+  //     setTimeout(() => setShowSuccessToast(false), 2500);
+
+  //     setNoteActionsAnchor(null);
+  //     onNotesHistoryUpdate?.();
+  //     // 🔥 IMPORTANT
+  //     fetchNotesHistory();
+
+  //   } catch (err) {
+  //     console.error("Failed to toggle pin", err);
+  //     appModal.showError("Failed to update pin");
+  //   }
+  // };
+const handleTogglePin = async (noteId: number) => {
     if (!reduxUserId || !contact?.id) return;
 
     try {
-      await axios.post(`${API_BASE_URL}/api/notes/Toggle-Pin`, {
-        clientId: reduxUserId,
-        contactId: contact.id,
-        noteId,
-      });
+      // Get current note to find its current pin status
+      const noteToToggle = notesHistory.find(n => n.id === noteId);
+      if (!noteToToggle) return;
 
+      const newPinStatus = !noteToToggle.isPin;
 
-      setNoteActionsAnchor(null); // 🔥 REQUIRED
-      fetchNotesHistory();
-      setToastMessage("Note pin status updated");
+      // Make API call to update pin status on backend
+      await axios.post(
+        `${API_BASE_URL}/api/notes/Update-Note`,
+        null,
+        {
+          params: {
+            NoteId: noteId,
+            clientId: reduxUserId,
+            contactId: contact.id,
+            Note: noteToToggle.note,
+            IsPin: newPinStatus,
+            IsUseInGenration: noteToToggle.isUseInGenration,
+          },
+        }
+      );
+
+      setNoteActionsAnchor(null);
+      setToastMessage(newPinStatus ? "Note was pinned" : "Note was unpinned");
       setShowSuccessToast(true);
       setTimeout(() => setShowSuccessToast(false), 2500);
 
-      setNoteActionsAnchor(null);
+      // Refresh notes history to trigger re-render
+     // await fetchNotesHistory();
       onNotesHistoryUpdate?.();
-      // 🔥 IMPORTANT
-      fetchNotesHistory();
 
     } catch (err) {
       console.error("Failed to toggle pin", err);
       appModal.showError("Failed to update pin");
     }
   };
-
   const handleDeleteNote = (noteId: number) => {
     if (!contact?.id) return;
     setNoteToDelete(noteId);
@@ -523,7 +565,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
       setTimeout(() => setShowSuccessToast(false), 2500);
 
       // 🔥 refresh list
-      fetchNotesHistory();
+    //  await fetchNotesHistory();
       onNotesHistoryUpdate?.()
 
     } catch (err) {
@@ -808,9 +850,10 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                           <div style={{ position: "absolute", right: 0, top: 48, background: "#fff", border: "1px solid #eee", borderRadius: 6, boxShadow: "0 2px 16px rgba(0,0,0,0.12)", zIndex: 101, minWidth: 160, }}
                             onClick={(e) => e.stopPropagation()} >
                             <button
-                              onClick={() => {
-                                onEditNote?.(note);
+                              onClick={async() => {
+                                await onEditNote?.(note);
                                 setNoteActionsAnchor(null);
+                              //  await fetchNotesHistory();
                               }}
                               style={menuBtnStyle}
                               className="flex gap-2 items-center"
@@ -837,7 +880,11 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
 
                             {/* 📌 PIN / UNPIN */}
                             <button
-                              onClick={() => onTogglePin?.(note.id)}
+                               onClick={async () => {
+                                await onTogglePin?.(note.id);
+                                setNoteActionsAnchor(null);
+                               // await fetchNotesHistory();
+                              }}
                               style={menuBtnStyle}
                               className="flex gap-2 items-center"
                             >
@@ -858,9 +905,10 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
 
                             {/* 🗑️ DELETE */}
                             <button
-                              onClick={() => {
-                                onDeleteNote?.(note.id);
+                              onClick={async() => {
+                                await onDeleteNote?.(note.id);
                                 setNoteActionsAnchor(null);
+                               // await fetchNotesHistory();
                               }}
                               style={menuBtnStyle}
                               className="flex gap-2 items-center "
@@ -1008,264 +1056,233 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
           )
         }
         {/* LinkedIn Summary Popup with Toolbar */}
+{/* OVERLAY */}
+<div
+  style={{
+    position: "fixed",
+    inset: 0,
+    background: showLinkedInSummaryPopup
+      ? "rgba(0,0,0,0.6)"
+      : "transparent",
+    zIndex: 100000,
+    pointerEvents: showLinkedInSummaryPopup ? "auto" : "none",
+    transition: "background 0.3s ease",
+  }}
+  onClick={() => setShowLinkedInSummaryPopup(false)}
+>
+  {/* RIGHT DRAWER */}
+  <div
+    style={{
+      position: "absolute",
+      top: 0,
+      right: 0,
+      height: "100vh",
+      width: 420,
+      background: "#fff",
+      boxShadow: "-4px 0 20px rgba(0,0,0,0.08)",
+      transform: showLinkedInSummaryPopup
+        ? "translateX(0)"
+        : "translateX(100%)",
+      transition: "transform 0.35s ease-in-out",
+      display: "flex",
+      flexDirection: "column",
+    }}
+    onClick={(e) => e.stopPropagation()}
+  >
+    {/* HEADER */}
+    <div
+      style={{
+        background: "#d9fdd3",
+        padding: "16px 20px",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+      }}
+    >
+      <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>
+        LinkedIn Summary
+      </h3>
+      <button
+        onClick={() => setShowLinkedInSummaryPopup(false)}
+        style={{
+          border: "none",
+          background: "transparent",
+          fontSize: 22,
+          cursor: "pointer",
+        }}
+      >
+        ✕
+      </button>
+    </div>
 
-        <div
+    {/* BODY */}
+    <div style={{ padding: 20, flex: 1, overflow: "auto" }}>
+      {/* TOOLBAR */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          padding: 10,
+          border: "1px solid #d1d5db",
+          borderBottom: "none",
+          borderRadius: "6px 6px 0 0",
+          background: "#f5f5f5",
+          flexWrap: "wrap",
+        }}
+      >
+        {/* NORMAL DROPDOWN */}
+        <select
           style={{
-            position: "fixed",
-            inset: 0,
-            background: showLinkedInSummaryPopup ? "rgba(0,0,0,0.6)" : "transparent",
-            zIndex: 100000,
-            display: "flex",
-            justifyContent: "flex-end",
-            transition: "background 0.3s ease",
-            pointerEvents: showLinkedInSummaryPopup ? "auto" : "none",
+            padding: "4px 4px",
+            border: "1px solid #d1d5db",
+            borderRadius: 4,
+            fontSize: 12,
+            cursor: "pointer",
+            background: "#fff",
           }}
-          onClick={() => setShowLinkedInSummaryPopup(false)}
+          onChange={(e) => {
+            if (e.target.value) {
+              document.execCommand(
+                "formatBlock",
+                false,
+                e.target.value
+              );
+            }
+          }}
         >
-          <div
-            style={{
-              background: "#fff",
-              padding: 24,
-              width: "70%",
-              maxWidth: 900,
-              height: "90vh",
-              boxShadow: "-4px 0 20px rgba(0,0,0,0.08)",
-              transform: showLinkedInSummaryPopup
-                ? "translateX(0)"
-                : "translateX(110%)",
-              transition: "transform 0.35s ease-in-out",
-              overflow: "auto",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h3 style={{ margin: 0 }}>LinkedIn Summary</h3>
-              <button
-                onClick={() => setShowLinkedInSummaryPopup(false)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  fontSize: 24,
-                  cursor: "pointer",
-                  color: "#666",
-                }}
-              >
-                ✕
-              </button>
-            </div>
+          <option value="p">Normal</option>
+          <option value="h1">Heading 1</option>
+          <option value="h2">Heading 2</option>
+          <option value="h3">Heading 3</option>
+        </select>
 
-            {/* Formatting Toolbar */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "12px",
-                border: "1px solid #d1d5db",
-                borderBottom: "none",
-                // marginBottom: 12,
-                flexWrap: "wrap",
-                backgroundColor: "#f5f5f5",
-                borderRadius: "4px 4px 0 0",
-              }}
-            >
-              <select
-                style={{
-                  padding: "6px 10px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: 4,
-                  fontSize: 14,
-                  cursor: "pointer",
-                }}
-                onChange={(e) => {
-                  if (e.target.value) document.execCommand("formatBlock", false, `<${e.target.value}>`);
-                }}
-              >
-                <option value="">Normal</option>
-                <option value="h1">Heading 1</option>
-                <option value="h2">Heading 2</option>
-                <option value="h3">Heading 3</option>
-                <option value="p">Paragraph</option>
-              </select>
+        <button style={{
+    border: "1px solid rgb(209, 213, 219)",
+    borderRadius: 4,
+    background: "rgb(249, 250, 251)",
+    padding: "2px 6px",
+    cursor: "pointer",
+  }} onClick={() => document.execCommand("bold")}><b>B</b></button>
+        <button style={{
+    border: "1px solid rgb(209, 213, 219)",
+    borderRadius: 4,
+    background: "rgb(249, 250, 251)",
+    padding: "2px 6px",
+    cursor: "pointer",
+  }} onClick={() => document.execCommand("italic")}><i>I</i></button>
+        <button style={{
+    border: "1px solid rgb(209, 213, 219)",
+    borderRadius: 4,
+    background: "rgb(249, 250, 251)",
+    padding: "2px 6px",
+    cursor: "pointer",
+  }} onClick={() => document.execCommand("underline")}><u>U</u></button>
+        <button style={{
+    border: "1px solid rgb(209, 213, 219)",
+    borderRadius: 4,
+    background: "rgb(249, 250, 251)",
+    padding: "2px 6px",
+    cursor: "pointer",
+  }} onClick={() => document.execCommand("strikeThrough")}><s>S</s></button>
 
-              <button
-                type="button"
-                onClick={() => document.execCommand("bold", false)}
-                style={{
-                  padding: "6px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: 4,
-                  background: "#f9fafb",
-                  cursor: "pointer",
-                  fontWeight: "bold",
-                }}
-                title="Bold"
-              >
-                B
-              </button>
+        <button style={{
+    border: "1px solid rgb(209, 213, 219)",
+    borderRadius: 4,
+    background: "rgb(249, 250, 251)",
+    padding: "2px 6px",
+    cursor: "pointer",
+  }} onClick={() => document.execCommand("insertUnorderedList")}>•</button>
+        <button style={{
+    border: "1px solid rgb(209, 213, 219)",
+    borderRadius: 4,
+    background: "rgb(249, 250, 251)",
+    padding: "2px 6px",
+    cursor: "pointer",
+  }} onClick={() => document.execCommand("insertOrderedList")}>1.</button>
 
-              <button
-                type="button"
-                onClick={() => document.execCommand("italic", false)}
-                style={{
-                  padding: "6px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: 4,
-                  background: "#f9fafb",
-                  cursor: "pointer",
-                  fontStyle: "italic",
-                }}
-                title="Italic"
-              >
-                I
-              </button>
+        <button style={{
+    border: "1px solid rgb(209, 213, 219)",
+    borderRadius: 4,
+    background: "rgb(249, 250, 251)",
+    padding: "2px 6px",
+    cursor: "pointer",
+  }}
+          onClick={() => {
+            const url = prompt("Enter URL:");
+            if (url) document.execCommand("createLink", false, url);
+          }}
+        >
+          🔗
+        </button>
 
-              <button
-                type="button"
-                onClick={() => document.execCommand("underline", false)}
-                style={{
-                  padding: "6px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: 4,
-                  background: "#f9fafb",
-                  cursor: "pointer",
-                  textDecoration: "underline",
-                }}
-                title="Underline"
-              >
-                U
-              </button>
+        <button style={{
+    border: "1px solid rgb(209, 213, 219)",
+    borderRadius: 4,
+    background: "rgb(249, 250, 251)",
+    padding: "2px 6px",
+    cursor: "pointer",
+  }}
+          onClick={() => {
+            const url = prompt("Enter image URL:");
+            if (url) document.execCommand("insertImage", false, url);
+          }}
+        >
+          🖼️
+        </button>
+      </div>
 
-              <button
-                type="button"
-                onClick={() => document.execCommand("strikethrough", false)}
-                style={{
-                  padding: "6px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: 4,
-                  background: "#f9fafb",
-                  cursor: "pointer",
-                  textDecoration: "line-through",
-                }}
-                title="Strikethrough"
-              >
-                S
-              </button>
+      {/* EDITOR */}
+      <div
+        contentEditable
+        suppressContentEditableWarning
+        style={{
+          minHeight: 280,
+          padding: 12,
+          border: "1px solid #d1d5db",
+          borderTop: "none",
+          borderRadius: "0 0 6px 6px",
+          outline: "none",
+          fontSize: 14,
+          lineHeight: 1.6,
+        }}
+        onBlur={(e) =>
+          setFormData((prev) => ({
+            ...prev,
+            linkedInUrl: e.currentTarget.innerHTML,
+          }))
+        }
+      />
+    </div>
 
-              <div style={{ width: 1, height: 24, background: "#e5e7eb", margin: "0 4px" }}></div>
+    {/* FOOTER */}
+    <div
+      style={{
+        padding: 16,
+        borderTop: "1px solid #e5e7eb",
+        display: "flex",
+        justifyContent: "flex-end",
+      }}
+    >
+      <button
+        onClick={() => setShowLinkedInSummaryPopup(false)}
+        style={{
+          background: "#3f9f42",
+          color: "#fff",
+          border: "none",
+          padding: "8px 18px",
+          borderRadius: 18,
+          fontSize: 14,
+          cursor: "pointer",
+          fontWeight: 500,
+        }}
+      >
+        Done
+      </button>
+    </div>
+  </div>
+</div>
 
-              <button
-                type="button"
-                onClick={() => document.execCommand("insertUnorderedList", false)}
-                style={{
-                  padding: "6px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: 4,
-                  background: "#f9fafb",
-                  cursor: "pointer",
-                }}
-                title="Bullet list"
-              >
-                •
-              </button>
-
-              <button
-                type="button"
-                onClick={() => document.execCommand("insertOrderedList", false)}
-                style={{
-                  padding: "6px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: 4,
-                  background: "#f9fafb",
-                  cursor: "pointer",
-                }}
-                title="Numbered list"
-              >
-                1.
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  const url = prompt("Enter URL:");
-                  if (url) document.execCommand("createLink", false, url);
-                }}
-                style={{
-                  padding: "6px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: 4,
-                  background: "#f9fafb",
-                  cursor: "pointer",
-                }}
-                title="Insert link"
-              >
-                🔗
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  const url = prompt("Enter image URL:");
-                  if (url) document.execCommand("insertImage", false, url);
-                }}
-                style={{
-                  padding: "6px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: 4,
-                  background: "#f9fafb",
-                  cursor: "pointer",
-                }}
-                title="Insert image"
-              >
-                🖼️
-              </button>
-            </div>
-
-            {/* Editable Content Area */}
-            <div
-              contentEditable
-              style={{
-                width: "100%",
-                minHeight: "400px",
-                padding: "12px",
-                border: "1px solid #d1d5db",
-                borderTop: "none",
-                borderRadius: "0 0 4px 4px",
-                outline: "none",
-                fontSize: 14,
-                lineHeight: 1.6,
-              }}
-              onBlur={(e) => {
-                setFormData((prev) => ({
-                  ...prev,
-                  linkedInUrl: (e.currentTarget as HTMLDivElement).innerHTML,
-                }));
-              }}
-              suppressContentEditableWarning
-            >
-              {/* {formData.linkedInUrl || ""} */}
-            </div>
-
-            {/* Action Buttons */}
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 16 }}>
-              <button
-                type="button"
-                onClick={() => setShowLinkedInSummaryPopup(false)}
-                style={{
-                  padding: "8px 16px",
-                  background: "#3f9f42",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 4,
-                  cursor: "pointer",
-                  fontWeight: 500,
-                }}
-              >
-                Done
-              </button>
-            </div>
-          </div>
-        </div>
 
       </>
     );
