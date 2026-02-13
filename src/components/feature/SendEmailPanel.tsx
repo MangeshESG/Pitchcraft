@@ -73,6 +73,7 @@ const SendEmailPanel: React.FC<SendEmailPanelProps> = ({
   const [internalEnableDelay, setInternalEnableDelay] = useState(false);
   const [internalEnableIndexRange, setInternalEnableIndexRange] = useState(false);
   const [indexRangeError, setIndexRangeError] = useState("");
+  const [showValidationError, setShowValidationError] = useState(false);
 
   const enableDelay = externalEnableDelay ?? internalEnableDelay;
   const setEnableDelay = externalSetEnableDelay ?? setInternalEnableDelay;
@@ -296,15 +297,8 @@ const SendEmailPanel: React.FC<SendEmailPanelProps> = ({
                     className="form-control"
                     value={startIndex}
                     onChange={(e) => {
-                      const value = e.target.value;
-                      setIndexRangeError("");
-                      if (value === "" || (parseInt(value) >= 1 && parseInt(value) <= combinedResponses.length)) {
-                        setStartIndex(value);
-                        // Clear endIndex if it's equal to or less than new startIndex
-                        if (endIndex && parseInt(endIndex) <= parseInt(value)) {
-                          setEndIndex("");
-                        }
-                      }
+                      setStartIndex(e.target.value);
+                      setShowValidationError(false);
                     }}
                     placeholder="From"
                     min="1"
@@ -321,23 +315,8 @@ const SendEmailPanel: React.FC<SendEmailPanelProps> = ({
                     className="form-control"
                     value={endIndex}
                     onChange={(e) => {
-                      const value = e.target.value;
-                      const numValue = parseInt(value);
-                      const fromValue = parseInt(startIndex);
-                      
-                      setIndexRangeError("");
-                      
-                      if (value === "") {
-                        setEndIndex(value);
-                      } else if (!isNaN(numValue) && !isNaN(fromValue)) {
-                        if (numValue > combinedResponses.length) {
-                          setIndexRangeError(`Maximum contact count is ${combinedResponses.length}`);
-                        } else if (numValue === fromValue) {
-                          setIndexRangeError("To must be greater than From");
-                        } else if (numValue > fromValue && numValue <= combinedResponses.length) {
-                          setEndIndex(value);
-                        }
-                      }
+                      setEndIndex(e.target.value);
+                      setShowValidationError(false);
                     }}
                     placeholder="To"
                     min={startIndex || "1"}
@@ -347,7 +326,7 @@ const SendEmailPanel: React.FC<SendEmailPanelProps> = ({
                   />
                 </div>
               </div>
-              {indexRangeError && (
+              {showValidationError && indexRangeError && (
                 <div
                   style={{
                     marginTop: 8,
@@ -362,6 +341,7 @@ const SendEmailPanel: React.FC<SendEmailPanelProps> = ({
                   {indexRangeError}
                 </div>
               )}
+
             </>
           )}
         </div>
@@ -507,7 +487,26 @@ const SendEmailPanel: React.FC<SendEmailPanelProps> = ({
         <button
           type="button"
           className="button save-button"
-          onClick={onSendAll}
+          onClick={() => {
+            if (enableIndexRange && startIndex && endIndex) {
+              const fromValue = parseInt(startIndex);
+              const toValue = parseInt(endIndex);
+              
+              if (toValue > combinedResponses.length) {
+                setIndexRangeError(`Maximum contact count is ${combinedResponses.length}`);
+                setShowValidationError(true);
+                return;
+              } else if (toValue <= fromValue) {
+                setIndexRangeError("To must be greater than From");
+                setShowValidationError(true);
+                return;
+              }
+            }
+            
+            setIndexRangeError("");
+            setShowValidationError(false);
+            onSendAll();
+          }}
           disabled={(() => {
             if (sessionStorage.getItem("isDemoAccount") === "true") return true;
             if (followupEnabled) {

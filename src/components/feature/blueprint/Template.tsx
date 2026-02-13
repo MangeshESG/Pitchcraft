@@ -706,6 +706,18 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
   Number(sessionStorage.getItem("newCampaignId")) || null
 );
 
+  // Check if we should open builder directly on mount
+  useEffect(() => {
+    const editTemplateId = sessionStorage.getItem("editTemplateId");
+    const editMode = sessionStorage.getItem("editTemplateMode");
+    
+    if (editTemplateId && editMode === "true") {
+      setShowCampaignBuilder(true);
+      // Clear the flag so it doesn't trigger again
+      sessionStorage.removeItem("editTemplateMode");
+    }
+  }, []);
+
   return (
     <div className="template-container">
       {!showCampaignBuilder ? (

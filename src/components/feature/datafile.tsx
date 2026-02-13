@@ -38,7 +38,8 @@ interface ProcessedContact {
 }
 
 const REQUIRED_FIELDS = [
-  { key: "name", label: "Full name (First name and Surname)", required: true },
+  { key: "first_name", label: "First name", required: true },
+  { key: "last_name", label: "Last name", required: false },
   { key: "email", label: "Email address", required: true },
   { key: "job_title", label: <>Job title <span style={{ color: "blue" }}>*</span></>, required: false },
   { key: "company", label: <>Company <span style={{ color: "blue" }}>*</span></>, required: false },
@@ -108,8 +109,14 @@ const DataFile: React.FC<DataFileProps> = ({
     headers.forEach(header => {
       const lowerHeader = header.toLowerCase().trim();
       
-      if (lowerHeader === 'name') mappings.name = header;
-      else if (lowerHeader === 'email') mappings.email = header;
+      // Map full name to first_name
+      if (lowerHeader === 'name' || lowerHeader === 'full name' || lowerHeader === 'fullname' || lowerHeader === 'contact name') {
+        mappings.first_name = header;
+      } else if (lowerHeader === 'first name' || lowerHeader === 'firstname' || lowerHeader === 'first_name') {
+        mappings.first_name = header;
+      } else if (lowerHeader === 'last name' || lowerHeader === 'lastname' || lowerHeader === 'last_name') {
+        mappings.last_name = header;
+      } else if (lowerHeader === 'email') mappings.email = header;
       else if (lowerHeader === 'company') mappings.company = header;
       else if (lowerHeader === 'location') mappings.location = header;
       else if (lowerHeader === 'website') mappings.company_website = header;
@@ -119,7 +126,7 @@ const DataFile: React.FC<DataFileProps> = ({
     
     // Pattern matching for common variations
     const patterns = {
-      name: ['full name', 'fullname', 'contact name'],
+      first_name: ['full name', 'fullname', 'contact name'],
       email: ['email address', 'e-mail', 'mail'],
       job_title: ['title', 'position', 'role'],
       company: ['company name', 'organization'],
@@ -298,6 +305,11 @@ const effectiveUserId = selectedClient !== "" ? selectedClient : reduxUserId;
           mappedRow[field] = "";
         }
       });
+
+      // Handle first_name + last_name combination
+      const firstName = mappedRow.first_name || "";
+      const lastName = mappedRow.last_name || "";
+      mappedRow.name = `${firstName} ${lastName}`.trim();
 
       // Validate required fields
       if (!mappedRow.name) {
@@ -690,8 +702,10 @@ const effectiveUserId = selectedClient !== "" ? selectedClient : reduxUserId;
                   // Define helper text for each field
                   const getFieldDescription = (fieldKey: string) => {
                     switch (fieldKey) {
-                      case 'name':
-                        return 'Required – mapping the full name lets you address each recipient personally in your messages.';
+                      case 'first_name':
+                        return 'Required – map your first name column here. If your file has a full name column, map it here and it will be used as the complete name.';
+                      case 'last_name':
+                        return 'Optional – map your last name column here if it\'s separate. If you mapped full name to first name, leave this empty.';
                       case 'email':
                         return 'Required – mapping the email address is necessary for sending messages to each recipient.';
                       case 'company':
@@ -777,7 +791,7 @@ const effectiveUserId = selectedClient !== "" ? selectedClient : reduxUserId;
                 <button
                   onClick={generatePreview}
                   className="button action-button"
-                  disabled={!columnMappings.name || !columnMappings.email}
+                  disabled={!columnMappings.first_name || !columnMappings.email}
                 >
                   Continue to preview
                 </button>
