@@ -582,7 +582,7 @@ const handleTogglePin = async (noteId: number) => {
       <div className="flex flex-row gap-8">
 
         {/* LEFT SIDE (Edit Contact) */}
-        <div className="w-1/2 bg-white rounded-lg p-6 shadow-sm">
+        <div className="w-1/2 bg-white rounded-lg p-6 shadow-sm" style={{marginTop: "-47px"}}>
           {/* Header */}
           <div className="mb-6 border-b border-gray-200 pb-4">
             <h1 className="text-xl font-bold text-gray-900">Edit contact</h1>
@@ -590,8 +590,8 @@ const handleTogglePin = async (noteId: number) => {
           </div>
 
           {/* Personal Info Form */}
-          <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-            <div className="space-y-5 p-6 border border-gray-200 rounded-lg bg-white shadow-sm">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+            <div className="space-y- p-6 border border-gray-200 rounded-lg bg-white shadow-sm">
               {/* PERSONAL INFORMATION */}
               <div
                 onClick={() => setExpandedPersonalInfo(!expandedPersonalInfo)}
@@ -640,10 +640,10 @@ const handleTogglePin = async (noteId: number) => {
               <div
                 onClick={() => setExpandedCompanyInfo(!expandedCompanyInfo)}
                 className="flex items-center justify-between cursor-pointer p-3 rounded hover:bg-gray-50 transition-colors"
-                style={{ marginTop: 12, marginLeft: -12, marginRight: -12, marginBottom: 8, paddingLeft: 16, paddingRight: 273 }}
+                style={{ marginTop: 6, marginLeft: -12, marginRight: -12, marginBottom: 8, paddingLeft: 16, paddingRight: 273 }}
               >
                 {/* COMPANY INFORMATION */}
-                <h3 className="text-sm font-semibold text-[#3f9f42] mt-4">Company information</h3>
+                <h3 className="text-sm font-semibold text-[#3f9f42]">Company information</h3>
                 <FontAwesomeIcon
                   icon={faAngleDown}
                   style={{
@@ -733,7 +733,7 @@ const handleTogglePin = async (noteId: number) => {
                 className="flex items-center justify-between cursor-pointer p-3 rounded hover:bg-gray-50 transition-colors"
                 style={{ marginTop: 12, marginLeft: -12, marginRight: -12, marginBottom: 8, paddingLeft: 16, paddingRight: 273 }}
               >
-                <h3 className="text-sm font-semibold text-[#3f9f42] mt-4">Website & social</h3>
+                <h3 className="text-sm font-semibold text-[#3f9f42]">Website & social</h3>
                 <FontAwesomeIcon
                   icon={faAngleDown}
                   style={{
@@ -784,7 +784,7 @@ const handleTogglePin = async (noteId: number) => {
               )}
 
               {/* SAVE / CANCEL BUTTONS */}
-              <div className="flex justify-start items-center gap-3 mt-6 pt-4 border-t border-gray-200 sticky bottom-0 bg-white z-10">
+              <div className="flex justify-start items-center gap-3 mt-6 pt-4 border-gray-200 sticky bottom-0 bg-white z-10">
                 <button
                   type="button"
                   className="px-5 py-2 border border-gray-300 rounded-full text-sm"
@@ -944,7 +944,7 @@ const handleTogglePin = async (noteId: number) => {
               <button
                 type="button"
                 onClick={() => setShowLinkedInSummaryPopup(true)}
-                className="flex items-center gap-2 px-3 py-1  text-black rounded  transition-colors"
+                className="flex items-center gap-2 px-3 py-1  text-[#3f9f42] rounded  transition-colors"
               >
                 <FontAwesomeIcon icon={faEdit} width="16" height="16" />
               </button>

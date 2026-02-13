@@ -1074,7 +1074,7 @@ useEffect(() => {
                     }}
                     style={{
                       display: "flex",
-                      flexDirection: "column",
+                      flexDirection: "row",
                       alignItems: "center",
                       gap: 6,
                       border: "none",
@@ -1986,7 +1986,7 @@ useEffect(() => {
         </div>
 
         {/* BODY */}
-        <div style={{ padding: 20, flex: 1 }}>
+        <div style={{ padding: 20, flex: 1 , overflowY: "auto",}}>
           {/* <ReactQuill
             value={noteText}
             onChange={setNoteText}
@@ -2033,11 +2033,18 @@ useEffect(() => {
                 <s>S</s>
               </button>
 
-              <button type="button" style={toolbarBtnStyle} onClick={() => document.execCommand("insertUnorderedList")}>
+              <button type="button" style={toolbarBtnStyle}  onMouseDown={(e) => {
+    e.preventDefault();
+    noteEditorRef.current?.focus();
+    document.execCommand("insertUnorderedList", false);}}>
                 •
               </button>
 
-              <button type="button" style={toolbarBtnStyle} onClick={() => document.execCommand("insertOrderedList")}>
+              <button type="button" style={toolbarBtnStyle}   onMouseDown={(e) => {
+    e.preventDefault();
+    noteEditorRef.current?.focus();
+    document.execCommand("insertOrderedList", false);
+  }}>
                 1
               </button>
 
@@ -2069,6 +2076,7 @@ useEffect(() => {
                 whiteSpace: "normal",
                 direction: "ltr",        // ← NEW
                 textAlign: "left",
+                overflowY: "auto", 
               }}
             />
           </div>
@@ -2128,7 +2136,8 @@ useEffect(() => {
             display: "flex",
             justifyContent: "space-between",
             borderTop: "1px solid #e5e7eb",
-            marginBottom: 50
+            marginBottom: 50,
+            position: "sticky",
           }}
         >
           <button
