@@ -1333,20 +1333,31 @@ useEffect(() => {
                                   {/* Email body — OUTSIDE the flex row */}
                                   {expandedEmailId === email.trackingId && (
                                     <div
+                                      className="textarea-full-height preview-content-area"
                                       style={{
-                                        background: "#f3f4f6",
-                                        padding: 12,
-                                        borderRadius: 6,
-                                        marginTop: 4,
-                                        fontSize: 14,
-                                        whiteSpace: "pre-wrap",
+                                        minHeight: "500px",
+                                        padding: "10px",
+                                        border: "1px solid #ccc",
+                                        borderRadius: "4px",
+                                        fontFamily: "inherit",
+                                        fontSize: "inherit",
+
+                                        whiteSpace: "normal",        // ✅ CRITICAL
+                                        overflowY: "auto",
+                                        overflowX: "auto",
+                                        boxSizing: "border-box",
+                                        wordWrap: "break-word",
+
+                                        width: "100%",
+                                        maxWidth: "100%",            // or simulate device if needed
+                                        background: "white",
                                       }}
-                                    >
-                                      <div style={{ color: "#333" }}>
-                                        {stripHtml(email.body) || "No email body available"}
-                                      </div>
-                                    </div>
+                                      dangerouslySetInnerHTML={{
+                                        __html: email.body || "<p>No email body available</p>",
+                                      }}
+                                    />
                                   )}
+
                                 </div>
 
                               );
@@ -1675,22 +1686,33 @@ useEffect(() => {
                               </span>
                             </div>
 
-                            {expandedEmailId === email.trackingId && (
-                              <div
-                                style={{
-                                  background: "#f3f4f6",
-                                  padding: 12,
-                                  borderRadius: 6,
-                                  marginBottom: 8,
-                                  fontSize: 14,
-                                  whiteSpace: "pre-wrap",
-                                }}
-                              >
-                                <div style={{ color: "#333" }}>
-                                  {stripHtml(email.body) || "No email body available"}
-                                </div>
-                              </div>
-                            )}
+{expandedEmailId === email.trackingId && (
+  <div
+    className="textarea-full-height preview-content-area"
+    style={{
+      minHeight: "500px",
+      padding: "10px",
+      border: "1px solid #ccc",
+      borderRadius: "4px",
+      fontFamily: "inherit",
+      fontSize: "inherit",
+
+      whiteSpace: "normal",        // ✅ CRITICAL
+      overflowY: "auto",
+      overflowX: "auto",
+      boxSizing: "border-box",
+      wordWrap: "break-word",
+
+      width: "100%",
+      maxWidth: "100%",            // or simulate device if needed
+      background: "white",
+    }}
+    dangerouslySetInnerHTML={{
+      __html: email.body || "<p>No email body available</p>",
+    }}
+  />
+)}
+
                           </div>
                         ))}
                       {/* 🔹 NOTES HISTORY */}

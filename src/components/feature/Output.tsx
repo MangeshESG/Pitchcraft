@@ -2933,10 +2933,9 @@ useEffect(() => {
                           }`,
                         }}
                         dangerouslySetInnerHTML={{
-                          __html: aggressiveCleanHTML(
-                            combinedResponses[currentIndex]?.pitch || "",
-                          ),
+                          __html: combinedResponses[currentIndex]?.pitch || "",
                         }}
+
                       ></div>
                       <div className="output-email-floated-icons d-flex bg-[#ffffff] rounded-md">
                         <div className="d-flex align-items-center justify-between flex-col-991">
@@ -3584,6 +3583,7 @@ useEffect(() => {
                 </div>
               </Modal>
             </>
+          
           )}
           {tab2 === "Stages" && userRole === "ADMIN" && (
             <>
