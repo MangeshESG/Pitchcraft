@@ -1358,6 +1358,14 @@ const uploadImage = async (file: File) => {
     }
   }, [activeMainTab, activeBuildTab, exampleOutput]);
 
+  // Load selectedTemplateDefinitionId from sessionStorage on mount
+  useEffect(() => {
+    const storedDefId = sessionStorage.getItem("selectedTemplateDefinitionId");
+    if (storedDefId && !selectedTemplateDefinitionId) {
+      setSelectedTemplateDefinitionId(Number(storedDefId));
+    }
+  }, []);
+
   useEffect(() => {
     if (!selectedTemplateDefinitionId) return;
 
