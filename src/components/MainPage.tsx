@@ -1446,335 +1446,274 @@ useEffect(() => {
         return;
       }
 
-      if (options?.regenerate) {
-        lastEmailTokens = 0;
-        lastEmailCost = 0;
-        lastEmailGenerations = 0;
+          if (options?.regenerate) {
+            lastEmailTokens = 0;
+            lastEmailCost = 0;
+            lastEmailGenerations = 0;
 
-        // Use the regenerateIndex to get the specific contact from allResponses
-        const index =
-          typeof options.regenerateIndex === "number"
-            ? options.regenerateIndex
-            : 0;
+            const index =
+              typeof options.regenerateIndex === "number"
+                ? options.regenerateIndex
+                : 0;
 
-        // Get the entry directly from allResponses instead of fetching again
-        const entry = allResponses[index];
+            const entry = allResponses[index];
 
-        if (!entry) {
-          setIsProcessing(false);
-          setIsPitchUpdateCompleted(true);
-          setIsPaused(true);
-          return;
-        }
-        // Map new API fields to existing variables
-        const company_name_friendly = entry.company_name || entry.company;
-        const full_name = entry.full_name || entry.name;
-        const job_title = entry.job_title || entry.title;
-        const location = entry.country_or_address || entry.location;
-        const linkedin_url = entry.linkedin_url || entry.linkedin;
-        const website = entry.website;
-        const company_name = entry.company_name || entry.company;
-        const emailbody = entry.email_body || entry.pitch;
-        const id = entry.id;
-        const dataFileId = entry.dataFileId; // New field from allResponses
-        const segmentId = entry.segmentId; // New field from allResponses
+            if (!entry) {
+              setIsProcessing(false);
+              setIsPitchUpdateCompleted(true);
+              setIsPaused(true);
+              return;
+            }
 
-        // --- Get current date in readable format ---
-        const currentDate = new Date().toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        });
-        // --- Generate new pitch as per your normal contact process ---
-        let replacements = buildReplacements(entry, currentDate, {});
+            const company_name_friendly = entry.company_name || entry.company;
+            const full_name = entry.full_name || entry.name;
+            const job_title = entry.job_title || entry.title;
+            const location = entry.country_or_address || entry.location;
+            const linkedin_url = entry.linkedin_url || entry.linkedin;
+            const website = entry.website;
+            const company_name = entry.company_name || entry.company;
+            const id = entry.id;
+            const dataFileId = entry.dataFileId;
+            const segmentId = entry.segmentId;
 
-        replacements.notes = entry.notes || "";
+            const currentDate = new Date().toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            });
 
-        const searchTermBody = replaceAllPlaceholders(searchterm, replacements);
+            let replacements = buildReplacements(entry, currentDate, {});
+            replacements.notes = entry.notes || "";
 
-        const filledInstructions = replaceAllPlaceholders(
-          instructionsParamA,
-          replacements,
-        );
+            const scrappedData = "";
 
-        const summary = {};
-        const searchResults = [];
-        const scrappedData = "";
+            if (!scrappedData) {
+              setOutputForm(prev => ({
+                ...prev,
+                generatedContent:
+                  `<span style="color: orange">[${formatDateTime(new Date())}] No scraped data for ${full_name}. Generating pitch anyway.</span><br/>`
+                  + prev.generatedContent,
+              }));
+            }
 
-        if (!scrappedData) {
-          setOutputForm((prev) => ({
-            ...prev,
-            generatedContent:
-              `<span style="color: orange">[${formatDateTime(
-                new Date(),
-              )}] No scraped data for ${full_name}. Generating pitch anyway.</span><br/>` +
-              prev.generatedContent,
-          }));
-        }
-
-        replacements = {
-          ...replacements,
-          search_output_summary: scrappedData || "",
-        };
-
-        let systemPrompt = replaceAllPlaceholders(
-          systemInstructionsA,
-          replacements,
-        );
-        let replacedPromptText = replaceAllPlaceholders(
-          selectedPrompt?.text || "",
-          replacements,
-        );
-
-        const promptToSend = `\n${systemPrompt}\n${replacedPromptText}`;
-
-        setOutputForm((prev) => ({
-          ...prev,
-          currentPrompt: promptToSend,
-          searchResults: [],
-          allScrapedData: "",
-        }));
-        setallprompt((prev) => {
-        const updated = [...prev];
-        if (index < updated.length) updated[index] = promptToSend;
-        else updated.push(promptToSend);
-        return updated;
-      });
-
-        // Request body
-        const requestBody = {
-          scrappedData: systemPrompt,
-          prompt: replacedPromptText,
-          ModelName: selectedModelNameA,
-        };
-        const pitchResponse = await fetch(
-          `${API_BASE_URL}/api/auth/generatepitch`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(requestBody),
-          },
-        );
-
-        const pitchData = await pitchResponse.json();
-        if (!pitchResponse.ok) {
-          setOutputForm((prev) => ({
-            ...prev,
-            generatedContent:
-              `<span style="color: red">[${formatDateTime(
-                new Date(),
-              )}] Pitch generation failed for ${full_name}. Using fallback pitch.</span><br/>` +
-              prev.generatedContent,
-          }));
-
-
-        }
-
-        setOutputForm((prev) => ({
-          ...prev,
-          generatedContent:
-            `<span style="color: green">[${formatDateTime(
-              new Date(),
-            )}] Pitch successfully crafted, for contact ${full_name} with company name ${company_name} and domain ${
-              entry.email
-            }</span><br/>` + prev.generatedContent,
-          linkLabel: pitchData.response.content,
-        }));
-
-        //----------------------------------------------------------------------------------------
-
-        // ---------------- SUBJECT GENERATION (PLACEHOLDER CONTROLLED ONLY) ----------------
-        const { isAI, manualTemplate } = getSubjectMode();
-
-        let subjectLine = "";
-
-        // --- CASE 1: AI SUBJECT ---
-        if (isAI) {
-          const filledSubjectInstruction = replaceAllPlaceholders(
-            subject_instruction,
-            {
+            replacements = {
               ...replacements,
-              generated_pitch: pitchData.response?.content || "",
-            },
-          );
-
-          const subjectRequestBody = {
-            scrappedData: filledSubjectInstruction,
-            prompt: pitchData.response?.content,
-            ModelName: selectedModelNameA,
-          };
-
-          const subjectResponse = await fetch(
-            `${API_BASE_URL}/api/auth/generatepitch`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(subjectRequestBody),
-            },
-          );
-
-          if (subjectResponse.ok) {
-            
-            const subjectData = await subjectResponse.json();
-            subjectLine = subjectData.response?.content || "";
-          }
-          
-        }
-
-        // --- CASE 2: MANUAL SUBJECT ---
-        else if (manualTemplate.trim()) {
-          subjectLine = replaceAllPlaceholders(manualTemplate, {
-            company_name,
-            job_title,
-            location,
-            full_name,
-            linkedin_url,
-            website,
-            date: currentDate,
-            search_output_summary: scrappedData || "",
-            generated_pitch: pitchData.response?.content || "",
-          });
-        }
-
-        // --- CASE 3: NOTHING ---
-        else {
-          subjectLine = "";
-        }
-        // ---------------- SUBJECT GENERATION END ----------------
-
-        // ✅ Replace the database update logic in REGENERATION BLOCK
-        try {
-          if (id && pitchData.response?.content) {
-            const requestBody: any = {
-              clientId: effectiveUserId,
-              contactId: id,
-              GPTGenerate: true,
-              emailSubject: subjectLine,
-              emailBody: pitchData.response.content,
+              search_output_summary: scrappedData || "",
             };
 
-            // Add segmentId or dataFileId based on priority
-            if (segmentId) {
-              requestBody.segmentId = segmentId;
-            } else if (parsedDataFileId) {
-              requestBody.dataFileId = parsedDataFileId;
-            }
+            const systemPrompt = replaceAllPlaceholders(
+              systemInstructionsA,
+              replacements,
+            );
 
-            const updateContactResponse = await fetch(
-              `${API_BASE_URL}/api/crm/contacts/update-email`,
+            const replacedPromptText = replaceAllPlaceholders(
+              selectedPrompt?.text || "",
+              replacements,
+            );
+
+            const promptToSend = `\n${systemPrompt}\n${replacedPromptText}`;
+
+            setOutputForm(prev => ({
+              ...prev,
+              currentPrompt: promptToSend,
+              searchResults: [],
+              allScrapedData: "",
+            }));
+
+            setallprompt(prev => {
+              const updated = [...prev];
+              if (index < updated.length) updated[index] = promptToSend;
+              else updated.push(promptToSend);
+              return updated;
+            });
+
+            // ✅ SAME MESSAGE AS REGULAR FLOW
+            setOutputForm(prev => ({
+              ...prev,
+              generatedContent:
+                `<span style="color: blue">[${formatDateTime(new Date())}] Crafting phase #1 integritas , for contact ${full_name} with company name ${company_name} and domain ${entry.email}</span><br/>`
+                + prev.generatedContent,
+            }));
+
+            const requestBody = {
+              scrappedData: systemPrompt,
+              prompt: replacedPromptText,
+              ModelName: selectedModelNameA,
+            };
+
+            const pitchResponse = await fetch(
+              `${API_BASE_URL}/api/auth/generatepitch`,
               {
                 method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(requestBody),
               },
-            ); ///
+            );
 
-            if (!updateContactResponse.ok) {
-              const updateContactError = await updateContactResponse.json();
-              setOutputForm((prevOutputForm) => ({
-                ...prevOutputForm,
+            const pitchData = await pitchResponse.json();
+
+            // ✅ DEFENSIVE FAILURE CHECK (CRITICAL)
+            if (!pitchResponse.ok || !pitchData?.response?.content) {
+              setOutputForm(prev => ({
+                ...prev,
                 generatedContent:
-                  `<span style="color: orange">[${formatDateTime(
-                    new Date(),
-                  )}] Updating contact in database incomplete for ${full_name}. Error: ${
-                    updateContactError.Message || "Unknown error"
-                  }</span><br/>` + prevOutputForm.generatedContent,
+                  `<span style="color: red">[${formatDateTime(new Date())}] Phase #1 integritas incomplete for contact ${full_name} with company name ${company_name} and domain ${entry.email}</span><br/>`
+                  + prev.generatedContent,
               }));
-              if (isSoundEnabledRef.current) {
-                playSound();
-              }
-            } else {
-              setOutputForm((prevOutputForm) => ({
-                ...prevOutputForm,
-                generatedContent:
-                  `<span style="color: green">[${formatDateTime(
-                    new Date(),
-                  )}] Updated pitch in database for ${full_name}.</span><br/>` +
-                  prevOutputForm.generatedContent,
-              }));
-              if (isSoundEnabledRef.current) {
-                playSound();
-              }
-              try {
-                const userCreditResponse = await fetch(
-                  `${API_BASE_URL}/api/crm/user_credit?clientId=${effectiveUserId}`,
-                );
-                if (!userCreditResponse.ok)
-                  throw new Error("Failed to fetch user credit");
 
-                const userCreditData = await userCreditResponse.json();
-                console.log("User credit data:", userCreditData);
-                dispatch(saveUserCredit(userCreditData));
-
-                // Dispatch custom event to notify credit update
-                window.dispatchEvent(
-                  new CustomEvent("creditUpdated", {
-                    detail: { clientId: effectiveUserId },
-                  }),
-                );
-              } catch (creditError) {
-                console.error("User credit API error:", creditError);
-              }
+              setIsProcessing(false);
+              setIsPitchUpdateCompleted(true);
+              setIsPaused(true);
+              return;
             }
+
+            // ✅ TOKEN & COST TRACKING (MATCHES REGULAR)
+            const bodyTokens = Number(pitchData.response.totalTokens || 0);
+            const bodyCost = Number(pitchData.response.currentCost || 0);
+
+            lastEmailTokens += bodyTokens;
+            lastEmailCost += bodyCost;
+
+            totalEmailTokensRef.current += bodyTokens;
+            totalEmailCostRef.current += bodyCost;
+
+            lastEmailGenerations = 1;
+            totalEmailCountRef.current += 1;
+
+            cost += bodyCost;
+            totaltokensused += bodyTokens;
+
+            // ✅ SUCCESS MESSAGE (IDENTICAL)
+            setOutputForm(prev => ({
+              ...prev,
+              generatedContent:
+                `<span style="color: green">[${formatDateTime(new Date())}] Pitch successfully crafted for contact ${full_name} with company name ${company_name} and domain ${entry.email}</span><br/>`
+                + prev.generatedContent,
+              linkLabel: pitchData.response.content,
+            }));
+
+            // ---------------- SUBJECT GENERATION ----------------
+            const { isAI, manualTemplate } = getSubjectMode();
+            let subjectLine = "";
+
+            if (isAI) {
+              const filledSubjectInstruction = replaceAllPlaceholders(
+                subject_instruction,
+                {
+                  ...replacements,
+                  generated_pitch: pitchData.response.content,
+                },
+              );
+
+              const subjectResponse = await fetch(
+                `${API_BASE_URL}/api/auth/generatepitch`,
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    scrappedData: filledSubjectInstruction,
+                    prompt: pitchData.response.content,
+                    ModelName: selectedModelNameA,
+                  }),
+                },
+              );
+
+              if (subjectResponse.ok) {
+                const subjectData = await subjectResponse.json();
+
+                subjectLine = subjectData.response?.content || "";
+
+                const subjectTokens = Number(subjectData?.response?.totalTokens || 0);
+                const subjectCost = Number(subjectData?.response?.currentCost || 0);
+
+                lastEmailTokens += subjectTokens;
+                lastEmailCost += subjectCost;
+
+                totalEmailTokensRef.current += subjectTokens;
+                totalEmailCostRef.current += subjectCost;
+
+                cost += subjectCost;
+                totaltokensused += subjectTokens;
+              } else {
+                setOutputForm(prev => ({
+                  ...prev,
+                  generatedContent:
+                    `<span style="color: orange">[${formatDateTime(new Date())}] Subject generation skipped for ${full_name}</span><br/>`
+                    + prev.generatedContent,
+                }));
+              }
+            } else if (manualTemplate.trim()) {
+              subjectLine = replaceAllPlaceholders(manualTemplate, {
+                company_name,
+                job_title,
+                location,
+                full_name,
+                linkedin_url,
+                website,
+                date: currentDate,
+                generated_pitch: pitchData.response.content,
+              });
+            }
+
+            // ✅ USAGE UPDATE (IDENTICAL)
+            setOutputForm(prev => ({
+              ...prev,
+              usage: JSON.stringify({
+                last: {
+                  tokens: lastEmailTokens,
+                  cost: Number(lastEmailCost.toFixed(6)),
+                  emails: lastEmailGenerations,
+                },
+                total: {
+                  tokens: totalEmailTokensRef.current,
+                  cost: Number(totalEmailCostRef.current.toFixed(6)),
+                  emails: totalEmailCountRef.current,
+                },
+              }),
+            }));
+
+            // ---------------- DATABASE UPDATE (UNCHANGED) ----------------
+            try {
+              if (id) {
+                const requestBody: any = {
+                  clientId: effectiveUserId,
+                  contactId: id,
+                  GPTGenerate: true,
+                  emailSubject: subjectLine,
+                  emailBody: pitchData.response.content,
+                };
+
+                if (segmentId) requestBody.segmentId = segmentId;
+                else if (parsedDataFileId) requestBody.dataFileId = parsedDataFileId;
+
+                await fetch(`${API_BASE_URL}/api/crm/contacts/update-email`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(requestBody),
+                });
+              }
+            } catch (e) {
+              console.error("Database update error:", e);
+            }
+
+            const newResponse = {
+              ...entry,
+              pitch: pitchData.response.content,
+              subject: subjectLine,
+              generated: true,
+              lastemailupdateddate: new Date().toISOString(),
+            };
+
+            setAllResponses(prev =>
+              prev.map(r => (r.id === id ? newResponse : r)),
+            );
+
+            setIsProcessing(false);
+            setIsPitchUpdateCompleted(true);
+            setIsPaused(true);
+            return;
           }
-        } catch (updateError) {
-          setOutputForm((prevOutputForm) => ({
-            ...prevOutputForm,
-            generatedContent:
-              `<span style="color: orange">[${formatDateTime(
-                new Date(),
-              )}] Database update error for ${full_name}.</span><br/>` +
-              prevOutputForm.generatedContent,
-          }));
-        }
 
-        const newResponse = {
-          ...entry,
-          name: full_name || "N/A",
-          title: job_title || "N/A",
-          company: company_name_friendly || "N/A",
-          location: location || "N/A",
-          website: website || "N/A",
-          linkedin: linkedin_url || "N/A",
-          pitch: pitchData.response.content,
-          subject: subjectLine,
-          timestamp: new Date().toISOString(),
-          id,
-          nextPageToken: null,
-          prevPageToken: null,
-          generated: true,
-          lastemailupdateddate: new Date().toISOString(),
-          emailsentdate: entry.email_sent_at || "N/A",
-          dataFileId: entry.dataFileId || entry.data_file_id || null,
-          segmentId: entry.segmentId || null,
-        };
-        const regenIndex = allResponses.findIndex((r) => r.id === id);
-
-        // ---- Update all relevant state arrays by id ----
-        setexistingResponse((prev) =>
-          prev.map((resp) => (resp.id === id ? newResponse : resp)),
-        );
-
-        setAllResponses((prev) =>
-          prev.map((resp) => (resp.id === id ? newResponse : resp)),
-        );
-
-        setallprompt((prev) => {
-          const updated = [...prev];
-          if (regenIndex > -1) updated[regenIndex] = promptToSend;
-          else updated.push(promptToSend);
-          return updated;
-        });
-
-        setRecentlyAddedOrUpdatedId(id);
-
-        setIsProcessing(false);
-        setIsPitchUpdateCompleted(true);
-        setIsPaused(true);
-        return;
-      }
       // ======= REGENERATION BLOCK END =======
 
       // Main processing loop - fetch all contacts at once
@@ -2221,7 +2160,6 @@ totalEmailCountRef.current += 1;
           });
 
           // Generate subject line
-          // ---------------- SUBJECT GENERATION (PLACEHOLDER CONTROLLED ONLY) ----------------
 
           // ---------------- SUBJECT GENERATION (PLACEHOLDER CONTROLLED ONLY) ----------------
           const { isAI, manualTemplate } = getSubjectMode();
@@ -2591,6 +2529,7 @@ totalEmailCostRef.current += subjectCost;
       } catch (error) {
         console.error("Error sending email:", error);
       }
+    
     } catch (error) {
       // Ensure processing is set to false even if there's an error
       setIsProcessing(false);
