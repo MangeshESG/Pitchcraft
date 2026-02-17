@@ -18,6 +18,7 @@ import { useAppModal } from "../../hooks/useAppModal";
 import { useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
 import SendEmailPanel from "./SendEmailPanel";
+import KraftEmailPanel from "./KraftEmailPanel";
 import { useSoundAlert } from "../common/useSoundAlert";
 import toggleOn from "../../assets/images/on-button.png";
 import toggleOff from "../../assets/images/off-button.png";
@@ -1697,6 +1698,7 @@ const sleepWithCountdown = async (ms: number) => {
 
 
   const [sendEmailControls, setSendEmailControls] = useState(false);
+  const [kraftEmailControls, setKraftEmailControls] = useState(false);
   const preserveIndexRef = useRef(false);
 
   // Index range states for bulk email sending
@@ -1704,6 +1706,11 @@ const sleepWithCountdown = async (ms: number) => {
   const [endIndex, setEndIndex] = useState("");
   const [enableDelay, setEnableDelay] = useState(false);
   const [enableIndexRange, setEnableIndexRange] = useState(false);
+
+  // Kraft email index range states
+  const [kraftStartIndex, setKraftStartIndex] = useState("");
+  const [kraftEndIndex, setKraftEndIndex] = useState("");
+  const [kraftEnableIndexRange, setKraftEnableIndexRange] = useState(false);
 
 
 const usageData = useMemo(() => {
@@ -1784,7 +1791,7 @@ useEffect(() => {
 
                   {/* Refresh Button - Only show when campaign is selected */}
                   {selectedCampaign && (
-                    <div className="flex items-center">
+                    <div className="flex items-center gap-2">
                       <ReactTooltip anchorSelect="#refresh-campaign-tooltip" place="top">
                         Refresh campaign
                       </ReactTooltip>
@@ -1813,6 +1820,53 @@ useEffect(() => {
                           </g>
                         </svg>
                       </button>
+
+                      {campaigns?.find((c) => c.id.toString() === selectedCampaign)?.templateId && (
+                        <>
+                          <ReactTooltip
+                            anchorSelect="#edit-blueprint-tooltip"
+                            place="top"
+                          >
+                            Edit this campaign's blueprint
+                          </ReactTooltip>
+                          <button
+                            id="edit-blueprint-tooltip"
+                            className="button d-flex align-center justify-center square-40"
+                            onClick={() => {
+                              const campaign = campaigns.find((c) => c.id.toString() === selectedCampaign);
+                              if (campaign?.templateId) {
+                                if ((campaign as any).templateDefinitionId) {
+                                  sessionStorage.setItem(
+                                    "selectedTemplateDefinitionId",
+                                    (campaign as any).templateDefinitionId.toString(),
+                                  );
+                                }
+                                sessionStorage.setItem("editTemplateId", campaign.templateId.toString());
+                                sessionStorage.setItem("editTemplateMode", "true");
+                                sessionStorage.setItem("newCampaignId", campaign.templateId.toString());
+                                window.dispatchEvent(new CustomEvent("switchToBlueprint", { detail: { templateId: campaign.templateId } }));
+                              }
+                            }}
+                            title="Edit this campaign's blueprint"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="28px"
+                              height="28px"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                            >
+                              <path
+                                d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
+                                stroke="#2563eb"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          </button>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1832,29 +1886,7 @@ useEffect(() => {
                   {isResetEnabled ? (
                     <button
                       className="primary-button bg-[#3f9f42]"
-                      onClick={async () => {
-                        if (showCreditModal) {
-                          return;
-                        }
-
-                        if (
-                          sessionStorage.getItem("isDemoAccount") !== "true"
-                        ) {
-                          const effectiveUserId =
-                            selectedClient !== "" ? selectedClient : userId;
-                          const currentCredits =
-                            await checkUserCredits?.(effectiveUserId);
-                          if (
-                            currentCredits &&
-                            typeof currentCredits === "object" &&
-                            !currentCredits.canGenerate
-                          ) {
-                            return;
-                          }
-                        }
-
-                        handleStart?.(currentIndex);
-                      }}
+                      onClick={() => setKraftEmailControls(true)}
                       disabled={
                         (!selectedPrompt?.name || !selectedZohoviewId) &&
                         !selectedCampaign
@@ -1875,37 +1907,8 @@ useEffect(() => {
                       Stop
                     </button>
                   )}
-                  {!isDemoAccount && (
-                    <label className="checkbox-label !mb-[0px] flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={settingsForm?.overwriteDatabase}
-                        name="overwriteDatabase"
-                        id="overwriteDatabase"
-                        onChange={settingsFormHandler}
-                        className="!mr-0"
-                      />
-                      <span className="text-[14px]">Overwrite</span>
-                    </label>
-                  )}
                 </div>
-                {selectedCampaign && campaigns?.find((c) => c.id.toString() === selectedCampaign)?.templateId && (
-                  <button
-                    className="green rounded-md py-[5px] px-[15px] border border-[#3f9f42]"
-                    onClick={() => {
-                      const campaign = campaigns.find((c) => c.id.toString() === selectedCampaign);
-                      if (campaign?.templateId) {
-                        sessionStorage.setItem("editTemplateId", campaign.templateId.toString());
-                        sessionStorage.setItem("editTemplateMode", "true");
-                        sessionStorage.setItem("newCampaignId", campaign.templateId.toString());
-                        window.dispatchEvent(new CustomEvent("switchToBlueprint", { detail: { templateId: campaign.templateId } }));
-                      }
-                    }}
-                    title="Edit this campaign's blueprint"
-                  >
-                    Edit blueprint
-                  </button>
-                )}
+
                 <button
                   className="green rounded-md py-[5px] px-[15px] border border-[#3f9f42]"
                   onClick={() => setSendEmailControls(!sendEmailControls)}
@@ -3863,6 +3866,66 @@ useEffect(() => {
           </div>
         </div>
       )}
+
+      {/* Kraft Email Panel */}
+      <KraftEmailPanel
+        isOpen={kraftEmailControls}
+        onClose={() => setKraftEmailControls(false)}
+        isResetEnabled={isResetEnabled}
+        overwriteDatabase={settingsForm?.overwriteDatabase || false}
+        onOverwriteChange={(checked) => {
+          console.log('onOverwriteChange called with:', checked);
+          console.log('settingsFormHandler:', settingsFormHandler);
+          if (settingsFormHandler) {
+            const event = {
+              target: {
+                name: "overwriteDatabase",
+                checked,
+                type: "checkbox",
+              },
+            } as any;
+            console.log('Calling settingsFormHandler with event:', event);
+            settingsFormHandler(event);
+          }
+        }}
+        isDemoAccount={isDemoAccount}
+        startIndex={kraftStartIndex}
+        setStartIndex={setKraftStartIndex}
+        endIndex={kraftEndIndex}
+        setEndIndex={setKraftEndIndex}
+        enableIndexRange={kraftEnableIndexRange}
+        setEnableIndexRange={setKraftEnableIndexRange}
+        combinedResponses={combinedResponses}
+        usageData={usageData}
+        clearUsage={clearUsage}
+        userRole={userRole}
+        currentIndex={currentIndex}
+        onStart={async () => {
+          if (showCreditModal) {
+            return;
+          }
+
+          if (
+            sessionStorage.getItem("isDemoAccount") !== "true"
+          ) {
+            const effectiveUserId =
+              selectedClient !== "" ? selectedClient : userId;
+            const currentCredits =
+              await checkUserCredits?.(effectiveUserId);
+            if (
+              currentCredits &&
+              typeof currentCredits === "object" &&
+              !currentCredits.canGenerate
+            ) {
+              return;
+            }
+          }
+
+          const startIdx = kraftEnableIndexRange && kraftStartIndex ? parseInt(kraftStartIndex) - 1 : currentIndex;
+          handleStart?.(startIdx);
+        }}
+        onStop={handleStop}
+      />
 
       {/* Send Email Panel */}
       <SendEmailPanel
