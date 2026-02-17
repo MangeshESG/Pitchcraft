@@ -1895,6 +1895,12 @@ useEffect(() => {
                     onClick={() => {
                       const campaign = campaigns.find((c) => c.id.toString() === selectedCampaign);
                       if (campaign?.templateId) {
+                        if ((campaign as any).templateDefinitionId) {
+                          sessionStorage.setItem(
+                            "selectedTemplateDefinitionId",
+                            (campaign as any).templateDefinitionId.toString(),
+                          );
+                        }
                         sessionStorage.setItem("editTemplateId", campaign.templateId.toString());
                         sessionStorage.setItem("editTemplateMode", "true");
                         sessionStorage.setItem("newCampaignId", campaign.templateId.toString());
