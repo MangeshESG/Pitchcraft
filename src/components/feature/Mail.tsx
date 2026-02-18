@@ -362,6 +362,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
         });
         setEditingId(null);
         handleModalClose("modal-add-mailbox");
+        fetchSmtp(); // Refresh grid
       }
     } catch (err) {
       console.error(err);
@@ -416,12 +417,15 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
 
   // Edit Handler
   const handleEdit = (item: any) => {
-    setForm(item);
+    setForm({
+      ...item,
+      usessl: (item.SecurityType || item.securityType || "nossl").toLowerCase()
+    });
     setEditingId(item.id);
     handleModalOpen("modal-edit-link-mailbox");
   };
 
-  // Delete Handler (Assuming you create this API in backend)
+  // Handle Delete Handler (Assuming you create this API in backend)
   const handleDelete = async (id: any) => {
     if (window.confirm("Are you sure to delete this SMTP config?")) {
       try {
@@ -434,7 +438,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
             },
           }
         );
-        fetchSmtp();
+        fetchSmtp(); // Refresh grid
       } catch (err) {
         console.error(err);
         appModal.showError("Error deleting SMTP");

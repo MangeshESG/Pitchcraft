@@ -1270,6 +1270,40 @@ useEffect(() => {
   );
 }, [allprompt, currentIndex]);
 
+const fetchGenerationNotes = async (
+  clientId: string | number,
+  contactId: string | number,
+) => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/notes/Get-All-Note?clientId=${clientId}&contactId=${contactId}`,
+      { headers: { accept: "*/*" } },
+    );
+
+    if (!response.ok) return "";
+
+    const json = await response.json();
+
+    if (!json?.success || !Array.isArray(json.data)) return "";
+
+    const usableNotes = json.data
+      .filter((n: any) => n.isUseInGenration === true) // ✅ EXACT FIELD NAME
+      .map((n: any) =>
+        (n.note || "")
+          .replace(/&nbsp;/g, " ")   // ✅ Clean HTML artifacts
+          .replace(/<[^>]*>/g, "")   // ✅ Strip any tags if present
+          .trim(),
+      )
+      .filter(Boolean);
+
+    return usableNotes.join("\n"); // ✅ BEST for prompts
+  } catch (err) {
+    console.error("Notes fetch failed:", err);
+    return "";
+  }
+};
+
+
   const goToTab = async (
     tab: string,
     options?: {
@@ -1482,8 +1516,13 @@ useEffect(() => {
               day: "numeric",
             });
 
+            const generationNotes = await fetchGenerationNotes(
+              effectiveUserId,
+              entry.id,
+            );
+
             let replacements = buildReplacements(entry, currentDate, {});
-            replacements.notes = entry.notes || "";
+            replacements.notes = generationNotes;
 
             const scrappedData = "";
 
@@ -1994,10 +2033,19 @@ useEffect(() => {
           }
 
           // Step 1: Scrape Website with caching
+          // ✅ Resolve notes dynamically from backend
+          const generationNotes = await fetchGenerationNotes(
+            effectiveUserId,
+            entry.id,
+          );
+
           let replacements = buildReplacements(entry, currentDate, {
             urlParam,
           });
-          replacements.notes = entry.notes || "";
+
+          // ✅ Inject filtered notes into placeholder system
+          replacements.notes = generationNotes;
+
 
           const searchTermBody = replaceAllPlaceholders(
             searchterm,
