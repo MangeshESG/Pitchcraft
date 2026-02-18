@@ -22,6 +22,7 @@ import {
   faAngleDown,
 } from "@fortawesome/free-solid-svg-icons"
 import { useAppModal } from '../../hooks/useAppModal';
+import RichTextEditor from './../common/RTEEditor';
 
 interface Contact {
   id: number;
@@ -39,6 +40,8 @@ interface Contact {
   companyIndustry?: string;
   companyLinkedInURL?: string;
   notes?: string;
+  linkedIninformation?: string;
+
 }
 
 interface EditContactModalProps {
@@ -51,7 +54,7 @@ interface EditContactModalProps {
   asPage?: boolean;
   // pinnedNotes: Note[];
   // ✅ Note management callbacks - moved from contact-detail-view
-   notesHistory: any[];
+  notesHistory: any[];
   onEditNote?: (note: any) => void;
   onDeleteNote?: (noteId: number) => void;
   onTogglePin?: (noteId: number) => void;
@@ -63,7 +66,7 @@ interface Note {
   createdAt: string;
   createdByEmail?: string;
   isPin: boolean;
-  isUseInGenration:boolean;
+  isUseInGenration: boolean;
 }
 
 
@@ -77,7 +80,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   asPage = false,
   //pinnedNotes,
   // ✅ Line 66-71: Destructure note management callbacks
-  notesHistory, 
+  notesHistory,
   onEditNote,
   onDeleteNote,
   onTogglePin,
@@ -104,7 +107,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   const [showNotesPopup, setShowNotesPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [emailTimeline, setEmailTimeline] = useState<any[]>([]);
- // const [notesHistory, setNotesHistory] = useState<Note[]>([]);
+  // const [notesHistory, setNotesHistory] = useState<Note[]>([]);
   const reduxUserId = useSelector((state: RootState) => state.auth.userId);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
@@ -125,6 +128,8 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   const [expandedPersonalInfo, setExpandedPersonalInfo] = useState(true);
   const [expandedCompanyInfo, setExpandedCompanyInfo] = useState(true);
   const [expandedWebsiteSocial, setExpandedWebsiteSocial] = useState(true);
+  const [linkedInSummary, setLinkedInSummary] = useState("");
+  const editorRef = React.useRef<HTMLDivElement | null>(null);
   const menuBtnStyle: React.CSSProperties = {
     width: "100%",
     padding: "8px 12px",
@@ -157,14 +162,19 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
         {label}
       </div>
 
-      <div className="text-2xl leading-8 font-semibold text-center">
-        <span style={{ color: color ?? "#111827" }}>{value}</span>
-        {percentage && (
-          <span className="text-sm text-gray-500 ml-1">
-            ({percentage}%)
-          </span>
-        )}
+      <div
+        className="text-2xl leading-8 font-semibold text-center"
+        style={{ color: color ?? "#111827" }}
+      >
+        {value}
       </div>
+
+      {/* Percentage BELOW value */}
+      {percentage && (
+        <div className="text-sm text-gray-500 mt-1 text-center">
+          ({percentage}%)
+        </div>
+      )}
     </div>
   );
 
@@ -188,8 +198,9 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
         companyEmployeeCount: contact.companyEmployeeCount || '',
         companyIndustry: contact.companyIndustry || '',
         companyLinkedInURL: contact.companyLinkedInURL || '',
-        notes: contact.notes ?? prev.notes
+        notes: contact.notes ?? prev.notes,
       }));
+      setLinkedInSummary(contact.linkedIninformation || "");
     }
     console.log("Contact received:", contact);
   }, [contact]);
@@ -407,7 +418,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
     try {
       setIsEditMode(true);
       setEditingNoteId(note.id);
-       setNoteActionsAnchor(null);
+      setNoteActionsAnchor(null);
 
       const res = await axios.get(
         `${API_BASE_URL}/api/notes/Get-Note-By-Id`,
@@ -441,9 +452,9 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   // }, [contact?.id, reduxUserId]);
 
   const pinnedNotes = React.useMemo(
-  () => (notesHistory || []).filter(n => n.isPin),
-  [notesHistory]
-);
+    () => (notesHistory || []).filter(n => n.isPin),
+    [notesHistory]
+  );
 
   //IST Formatter
   const formatDateTimeIST = (dateString?: string) => {
@@ -497,7 +508,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   //     appModal.showError("Failed to update pin");
   //   }
   // };
-const handleTogglePin = async (noteId: number) => {
+  const handleTogglePin = async (noteId: number) => {
     if (!reduxUserId || !contact?.id) return;
 
     try {
@@ -529,7 +540,7 @@ const handleTogglePin = async (noteId: number) => {
       setTimeout(() => setShowSuccessToast(false), 2500);
 
       // Refresh notes history to trigger re-render
-     // await fetchNotesHistory();
+      // await fetchNotesHistory();
       onNotesHistoryUpdate?.();
 
     } catch (err) {
@@ -565,7 +576,7 @@ const handleTogglePin = async (noteId: number) => {
       setTimeout(() => setShowSuccessToast(false), 2500);
 
       // 🔥 refresh list
-    //  await fetchNotesHistory();
+      //  await fetchNotesHistory();
       onNotesHistoryUpdate?.()
 
     } catch (err) {
@@ -573,7 +584,36 @@ const handleTogglePin = async (noteId: number) => {
       appModal.showError("Failed to delete note");
     }
   };
+  const handleLinkedInSummarySave = async () => {
+    if (!contact?.id) return;
 
+    try {
+      await axios.post(
+        `${API_BASE_URL}/api/Crm/Update-linkedIninformation`,
+        null, // no body
+        {
+          params: {
+            contactid: contact.id,
+            linkedIninformation: linkedInSummary,
+          },
+        }
+      );
+
+      onContactUpdated({
+        ...contact,
+        linkedIninformation: linkedInSummary,
+      });
+
+      setToastMessage("LinkedIn summary updated successfully");
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 4000);
+
+      setShowLinkedInSummaryPopup(false);
+    } catch (error) {
+      console.error("Failed to update LinkedIn summary", error);
+      appModal.showError("Failed to update LinkedIn summary");
+    }
+  };
   if (!isOpen || !contact) return null;
 
   const content = (
@@ -582,7 +622,7 @@ const handleTogglePin = async (noteId: number) => {
       <div className="flex flex-row gap-8">
 
         {/* LEFT SIDE (Edit Contact) */}
-        <div className="w-1/2 bg-white rounded-lg p-6 shadow-sm" style={{marginTop: "-47px"}}>
+        <div className="w-1/2 bg-white rounded-lg p-6 shadow-sm" style={{ marginTop: "-47px" }}>
           {/* Header */}
           <div className="mb-6 border-b border-gray-200 pb-4">
             <h1 className="text-xl font-bold text-gray-900">Edit contact</h1>
@@ -747,28 +787,40 @@ const handleTogglePin = async (noteId: number) => {
               </div>
               {expandedWebsiteSocial && (
                 <>
-                  <div>
-                    <label className={underlineLabel}>Website</label>
-                    <input
-                      type="text"
-                      name="website"
-                      value={formData.website}
-                      onChange={handleInputChange}
-                      placeholder="Website"
-                      className={underlineInput}
-                    />
-                  </div>
-                  <div>
-                    <label className={underlineLabel}>LinkedIn URL</label>
-                    <input
-                      type="text"
-                      name="linkedInUrl"
-                      value={formData.linkedInUrl}
-                      onChange={handleInputChange}
-                      placeholder="LinkedIn URL"
-                      className={underlineInput}
-                    />
-                  </div>
+                  {formData.website && (
+      <div className="mb-3">
+        <div className="text-xs text-gray-500 mb-1">Website</div>
+        <a
+          href={
+            formData.website.startsWith("http")
+              ? formData.website
+              : `https://${formData.website}`
+          }
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline border-gray-300 hover:underline break-all cursor-pointer"
+        >
+          {formData.website}
+        </a>
+      </div>
+    )}
+                   {formData.linkedInUrl && (
+      <div className="mb-3">
+        <div className="text-xs text-gray-500 mb-1">LinkedIn URL</div>
+        <a
+          href={
+            formData.linkedInUrl.startsWith("http")
+              ? formData.linkedInUrl
+              : `https://${formData.linkedInUrl}`
+          }
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline border-gray-300 hover:underline break-all cursor-pointer"
+        >
+          {formData.linkedInUrl}
+        </a>
+      </div>
+    )}
                   <div>
                     <label className={underlineLabel}>Company linkedIn URL</label>
                     <input
@@ -809,7 +861,7 @@ const handleTogglePin = async (noteId: number) => {
           <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
             <h3 className="font-semibold mb-4">Email campaigns</h3>
             <div className="grid grid-cols-3 gap-4">
-              <Stat label="Sent" value={emailStats.sent} />
+              <Stat label="Sent" value={emailStats.sent} color="#333" />
 
               <Stat
                 label="Unique opens"
@@ -850,10 +902,10 @@ const handleTogglePin = async (noteId: number) => {
                           <div style={{ position: "absolute", right: 0, top: 48, background: "#fff", border: "1px solid #eee", borderRadius: 6, boxShadow: "0 2px 16px rgba(0,0,0,0.12)", zIndex: 101, minWidth: 160, }}
                             onClick={(e) => e.stopPropagation()} >
                             <button
-                              onClick={async() => {
+                              onClick={async () => {
                                 await onEditNote?.(note);
                                 setNoteActionsAnchor(null);
-                              //  await fetchNotesHistory();
+                                //  await fetchNotesHistory();
                               }}
                               style={menuBtnStyle}
                               className="flex gap-2 items-center"
@@ -880,10 +932,10 @@ const handleTogglePin = async (noteId: number) => {
 
                             {/* 📌 PIN / UNPIN */}
                             <button
-                               onClick={async () => {
+                              onClick={async () => {
                                 await onTogglePin?.(note.id);
                                 setNoteActionsAnchor(null);
-                               // await fetchNotesHistory();
+                                // await fetchNotesHistory();
                               }}
                               style={menuBtnStyle}
                               className="flex gap-2 items-center"
@@ -905,10 +957,10 @@ const handleTogglePin = async (noteId: number) => {
 
                             {/* 🗑️ DELETE */}
                             <button
-                              onClick={async() => {
+                              onClick={async () => {
                                 await onDeleteNote?.(note.id);
                                 setNoteActionsAnchor(null);
-                               // await fetchNotesHistory();
+                                // await fetchNotesHistory();
                               }}
                               style={menuBtnStyle}
                               className="flex gap-2 items-center "
@@ -1056,234 +1108,161 @@ const handleTogglePin = async (noteId: number) => {
           )
         }
         {/* LinkedIn Summary Popup with Toolbar */}
-{/* OVERLAY */}
-<div
-  style={{
-    position: "fixed",
-    inset: 0,
-    background: showLinkedInSummaryPopup
-      ? "rgba(0,0,0,0.6)"
-      : "transparent",
-    zIndex: 100000,
-    pointerEvents: showLinkedInSummaryPopup ? "auto" : "none",
-    transition: "background 0.3s ease",
-  }}
-  onClick={() => setShowLinkedInSummaryPopup(false)}
->
-  {/* RIGHT DRAWER */}
-  <div
-    style={{
-      position: "absolute",
-      top: 0,
-      right: 0,
-      height: "100vh",
-      width: 420,
-      background: "#fff",
-      boxShadow: "-4px 0 20px rgba(0,0,0,0.08)",
-      transform: showLinkedInSummaryPopup
-        ? "translateX(0)"
-        : "translateX(100%)",
-      transition: "transform 0.35s ease-in-out",
-      display: "flex",
-      flexDirection: "column",
-    }}
-    onClick={(e) => e.stopPropagation()}
-  >
-    {/* HEADER */}
-    <div
-      style={{
-        background: "#d9fdd3",
-        padding: "16px 20px",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-      }}
-    >
-      <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>
-        LinkedIn Summary
-      </h3>
-      <button
-        onClick={() => setShowLinkedInSummaryPopup(false)}
-        style={{
-          border: "none",
-          background: "transparent",
-          fontSize: 22,
-          cursor: "pointer",
-        }}
-      >
-        ✕
-      </button>
-    </div>
-
-    {/* BODY */}
-    <div style={{ padding: 20, flex: 1, overflow: "auto" }}>
-      {/* TOOLBAR */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          padding: 10,
-          border: "1px solid #d1d5db",
-          borderBottom: "none",
-          borderRadius: "6px 6px 0 0",
-          background: "#f5f5f5",
-          flexWrap: "wrap",
-        }}
-      >
-        {/* NORMAL DROPDOWN */}
-        <select
+        {/* OVERLAY */}
+        <div
           style={{
-            padding: "4px 4px",
-            border: "1px solid #d1d5db",
-            borderRadius: 4,
-            fontSize: 12,
-            cursor: "pointer",
-            background: "#fff",
+            position: "fixed",
+            inset: 0,
+            background: showLinkedInSummaryPopup
+              ? "rgba(0,0,0,0.6)"
+              : "transparent",
+            zIndex: 100000,
+            pointerEvents: showLinkedInSummaryPopup ? "auto" : "none",
+            transition: "background 0.3s ease",
           }}
-          onChange={(e) => {
-            if (e.target.value) {
-              document.execCommand(
-                "formatBlock",
-                false,
-                e.target.value
-              );
-            }
+          onClick={() => setShowLinkedInSummaryPopup(false)}
+        >
+          {/* RIGHT DRAWER */}
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              right: 0,
+              height: "100vh",
+              width: 454,
+              background: "#fff",
+              boxShadow: "-4px 0 20px rgba(0,0,0,0.08)",
+              transform: showLinkedInSummaryPopup
+                ? "translateX(0)"
+                : "translateX(100%)",
+              transition: "transform 0.35s ease-in-out",
+              display: "flex",
+              flexDirection: "column",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* HEADER */}
+            <div
+              style={{
+                background: "#d9fdd3",
+                padding: "16px 20px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>
+                LinkedIn Summary
+              </h3>
+              <button
+                onClick={() => setShowLinkedInSummaryPopup(false)}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  fontSize: 22,
+                  cursor: "pointer",
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* BODY */}
+            <div style={{ padding: 20, flex: 1, overflow: "auto" }}>
+              {/* TOOLBAR */}
+              {/* RICH TEXT EDITOR COMPONENT */}
+              <RichTextEditor
+                value={linkedInSummary}
+                height={280}
+                onChange={setLinkedInSummary}
+              />
+
+              {/* FOOTER */}
+              <div
+                style={{
+                  padding: 16,
+                  borderTop: "1px solid #e5e7eb",
+                  display: "flex",
+                  justifyContent: "flex-end",
+                }}
+              >
+                <button
+                  onClick={handleLinkedInSummarySave}
+                  style={{
+                    background: "#3f9f42",
+                    color: "#fff",
+                    border: "none",
+                    padding: "8px 18px",
+                    borderRadius: 18,
+                    fontSize: 14,
+                    cursor: "pointer",
+                    fontWeight: 500,
+                    position:"sticky"
+                  }}
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+ {/* SUCCESS TOAST */}
+      {showSuccessToast && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 24,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "#ecfdf5",
+            color: "#065f46",
+            padding: "12px 18px",
+            borderRadius: 8,
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            boxShadow: "0 6px 20px rgba(0,0,0,0.12)",
+            zIndex: 99999,
+            minWidth: 320,
           }}
         >
-          <option value="p">Normal</option>
-          <option value="h1">Heading 1</option>
-          <option value="h2">Heading 2</option>
-          <option value="h3">Heading 3</option>
-        </select>
+          {/* Green check */}
+          <div
+            style={{
+              width: 22,
+              height: 22,
+              borderRadius: "50%",
+              background: "#22c55e",
+              color: "#fff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontWeight: 700,
+              fontSize: 14,
+            }}
+          >
+            ✓
+          </div>
 
-        <button style={{
-    border: "1px solid rgb(209, 213, 219)",
-    borderRadius: 4,
-    background: "rgb(249, 250, 251)",
-    padding: "2px 6px",
-    cursor: "pointer",
-  }} onClick={() => document.execCommand("bold")}><b>B</b></button>
-        <button style={{
-    border: "1px solid rgb(209, 213, 219)",
-    borderRadius: 4,
-    background: "rgb(249, 250, 251)",
-    padding: "2px 6px",
-    cursor: "pointer",
-  }} onClick={() => document.execCommand("italic")}><i>I</i></button>
-        <button style={{
-    border: "1px solid rgb(209, 213, 219)",
-    borderRadius: 4,
-    background: "rgb(249, 250, 251)",
-    padding: "2px 6px",
-    cursor: "pointer",
-  }} onClick={() => document.execCommand("underline")}><u>U</u></button>
-        <button style={{
-    border: "1px solid rgb(209, 213, 219)",
-    borderRadius: 4,
-    background: "rgb(249, 250, 251)",
-    padding: "2px 6px",
-    cursor: "pointer",
-  }} onClick={() => document.execCommand("strikeThrough")}><s>S</s></button>
+          {/* Message */}
+          <div style={{ fontSize: 14, flex: 1 }}>
+            {toastMessage}
+          </div>
 
-        <button style={{
-    border: "1px solid rgb(209, 213, 219)",
-    borderRadius: 4,
-    background: "rgb(249, 250, 251)",
-    padding: "2px 6px",
-    cursor: "pointer",
-  }} onClick={() => document.execCommand("insertUnorderedList")}>•</button>
-        <button style={{
-    border: "1px solid rgb(209, 213, 219)",
-    borderRadius: 4,
-    background: "rgb(249, 250, 251)",
-    padding: "2px 6px",
-    cursor: "pointer",
-  }} onClick={() => document.execCommand("insertOrderedList")}>1.</button>
-
-        <button style={{
-    border: "1px solid rgb(209, 213, 219)",
-    borderRadius: 4,
-    background: "rgb(249, 250, 251)",
-    padding: "2px 6px",
-    cursor: "pointer",
-  }}
-          onClick={() => {
-            const url = prompt("Enter URL:");
-            if (url) document.execCommand("createLink", false, url);
-          }}
-        >
-          🔗
-        </button>
-
-        <button style={{
-    border: "1px solid rgb(209, 213, 219)",
-    borderRadius: 4,
-    background: "rgb(249, 250, 251)",
-    padding: "2px 6px",
-    cursor: "pointer",
-  }}
-          onClick={() => {
-            const url = prompt("Enter image URL:");
-            if (url) document.execCommand("insertImage", false, url);
-          }}
-        >
-          🖼️
-        </button>
-      </div>
-
-      {/* EDITOR */}
-      <div
-        contentEditable
-        suppressContentEditableWarning
-        style={{
-          minHeight: 280,
-          padding: 12,
-          border: "1px solid #d1d5db",
-          borderTop: "none",
-          borderRadius: "0 0 6px 6px",
-          outline: "none",
-          fontSize: 14,
-          lineHeight: 1.6,
-        }}
-        onBlur={(e) =>
-          setFormData((prev) => ({
-            ...prev,
-            linkedInUrl: e.currentTarget.innerHTML,
-          }))
-        }
-      />
-    </div>
-
-    {/* FOOTER */}
-    <div
-      style={{
-        padding: 16,
-        borderTop: "1px solid #e5e7eb",
-        display: "flex",
-        justifyContent: "flex-end",
-      }}
-    >
-      <button
-        onClick={() => setShowLinkedInSummaryPopup(false)}
-        style={{
-          background: "#3f9f42",
-          color: "#fff",
-          border: "none",
-          padding: "8px 18px",
-          borderRadius: 18,
-          fontSize: 14,
-          cursor: "pointer",
-          fontWeight: 500,
-        }}
-      >
-        Done
-      </button>
-    </div>
-  </div>
-</div>
-
-
+          {/* Close */}
+          <div
+            onClick={() => setShowSuccessToast(false)}
+            style={{
+              cursor: "pointer",
+              fontSize: 18,
+              lineHeight: 1,
+            }}
+          >
+            ×
+          </div>
+        </div>
+      )}
       </>
     );
   }
