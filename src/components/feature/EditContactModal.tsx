@@ -4,6 +4,8 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../../Redux/store';
 import axios from 'axios';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import DOMPurify from "dompurify";
+
 import {
   faAngleRight,
   faAngleUp,
@@ -979,8 +981,18 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                             </button>
                           </div>)}
                         {/* NOTE TEXT — ✅ NO <p> TAG */}
-                        <div style={{ fontSize: 14 }}> {stripHtml(note.note)}
-                        </div>
+                          <div
+                            className="rendered-note-content"
+                            style={{
+                              fontSize: 14,
+                              lineHeight: "1.5",
+                              whiteSpace: "normal",
+                            }}
+                            dangerouslySetInnerHTML={{
+                              __html: DOMPurify.sanitize(note.note || "<p>No note content</p>"),
+                            }}
+                          />
+
                       </div>
                     </div>
                   </div>
@@ -989,19 +1001,39 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
             )}
           </div>
 
-          {/* LinkedIn Summary */}
-          <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200" style={{ height: "20%" }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold">LinkedIn summary</h3>
-              <button
-                type="button"
-                onClick={() => setShowLinkedInSummaryPopup(true)}
-                className="flex items-center gap-2 px-3 py-1  text-[#3f9f42] rounded  transition-colors"
-              >
-                <FontAwesomeIcon icon={faEdit} width="16" height="16" />
-              </button>
-            </div>
-          </div>
+{/* LinkedIn Summary */}
+<div
+  className="bg-white rounded-lg p-6 shadow-sm border border-gray-200"
+  style={{ minHeight: 160 }}   // ✅ better than fixed height
+>
+  <div className="flex items-center justify-between mb-4">
+    <h3 className="font-semibold">LinkedIn summary</h3>
+
+    <button
+      type="button"
+      onClick={() => setShowLinkedInSummaryPopup(true)}
+      className="flex items-center gap-2 px-3 py-1 text-[#3f9f42] rounded transition-colors"
+    >
+      <FontAwesomeIcon icon={faEdit} width="16" height="16" />
+    </button>
+  </div>
+
+  {/* ✅ HTML RENDERER */}
+  <div
+    style={{
+      fontSize: 14,
+      color: "#374151",
+      lineHeight: "1.6",
+      whiteSpace: "normal",
+    }}
+    dangerouslySetInnerHTML={{
+      __html: DOMPurify.sanitize(
+        linkedInSummary || "<p>No LinkedIn summary available</p>"
+      ),
+    }}
+  />
+</div>
+
         </div>
       </div>
     </div >

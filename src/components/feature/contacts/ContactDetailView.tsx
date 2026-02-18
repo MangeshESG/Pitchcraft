@@ -1665,32 +1665,32 @@ useEffect(() => {
                               </span>
                             </div>
 
-{expandedEmailId === email.trackingId && (
-  <div
-    className="textarea-full-height preview-content-area"
-    style={{
-      minHeight: "500px",
-      padding: "10px",
-      border: "1px solid #ccc",
-      borderRadius: "4px",
-      fontFamily: "inherit",
-      fontSize: "inherit",
+                          {expandedEmailId === email.trackingId && (
+                            <div
+                              className="textarea-full-height preview-content-area"
+                              style={{
+                                minHeight: "500px",
+                                padding: "10px",
+                                border: "1px solid #ccc",
+                                borderRadius: "4px",
+                                fontFamily: "inherit",
+                                fontSize: "inherit",
 
-      whiteSpace: "normal",        // ✅ CRITICAL
-      overflowY: "auto",
-      overflowX: "auto",
-      boxSizing: "border-box",
-      wordWrap: "break-word",
+                                whiteSpace: "normal",        // ✅ CRITICAL
+                                overflowY: "auto",
+                                overflowX: "auto",
+                                boxSizing: "border-box",
+                                wordWrap: "break-word",
 
-      width: "100%",
-      maxWidth: "100%",            // or simulate device if needed
-      background: "white",
-    }}
-    dangerouslySetInnerHTML={{
-      __html: email.body || "<p>No email body available</p>",
-    }}
-  />
-)}
+                                width: "100%",
+                                maxWidth: "100%",            // or simulate device if needed
+                                background: "white",
+                              }}
+                              dangerouslySetInnerHTML={{
+                                __html: email.body || "<p>No email body available</p>",
+                              }}
+                            />
+                          )}
 
                           </div>
                         ))}
@@ -1880,9 +1880,18 @@ useEffect(() => {
                                       )}
 
                                       {/* NOTE CONTENT */}
-                                      <div style={{ fontSize: 14 }}>
-                                        {stripHtml(note.note)}
-                                      </div>
+                                      <div
+                                        className="rendered-note-content"
+                                        style={{
+                                          fontSize: 14,
+                                          whiteSpace: "normal",
+                                          lineHeight: "1.5",
+                                        }}
+                                        dangerouslySetInnerHTML={{
+                                          __html: note.note || "<p>No note content</p>",
+                                        }}
+                                      />
+
                                     </div>
                                     {/* Optional badges */}
                                     <div style={{
