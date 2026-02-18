@@ -149,6 +149,8 @@ const ContactDetailView: React.FC = () => {
   const [deletePopupOpen, setDeletePopupOpen] = useState(false);
   const [deletingNoteId, setDeletingNoteId] = useState<number | null>(null);
   const [deleteContactId, setDeleteContactId] = useState<number | null>(null);
+  const [contactDetails, setContactDetails] = useState<any>(null);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
 
 
@@ -317,6 +319,22 @@ const ContactDetailView: React.FC = () => {
   useEffect(() => {
     fetchContact();
   }, [contactId, reduxUserId, dataFileId]);
+
+  const fetchContactDetails = async () => {
+    if (!contactId) return;
+    setIsLoadingDetails(true);
+    try {
+      const res = await axios.get(
+        `${API_BASE_URL}/api/Crm/contact-details`,
+        { params: { contactId } }
+      );
+      setContactDetails(res.data);
+    } catch (err) {
+      console.error("Failed to fetch contact details:", err);
+    } finally {
+      setIsLoadingDetails(false);
+    }
+  };
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -1024,6 +1042,10 @@ const ContactDetailView: React.FC = () => {
                           if (notesHistory.length === 0) {
                             fetchNotesHistory();
                           }
+                        }
+
+                        if (tab === "lists" && contactId && !contactDetails) {
+                          fetchContactDetails();
                         }
                       }}
                       style={{
@@ -1906,20 +1928,228 @@ const ContactDetailView: React.FC = () => {
                     boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
                   }}
                 >
-                  <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>
-                    Lists
-                  </h3>
+                  {isLoadingDetails && <p>Loading...</p>}
 
-                  <p style={{ fontSize: 14, color: "#6b7280" }}>
-                    This contact belongs to the following lists.
-                  </p>
+                  {!isLoadingDetails && !contactDetails && (
+                    <p style={{ color: "#666" }}>No data found.</p>
+                  )}
 
-                  {/* Placeholder – replace with real list data */}
-                  {/* <ul style={{ marginTop: 12, fontSize: 14 }}>
-                    <li>• Startup Founders – India</li>
-                    <li>• SaaS Leads – Q1</li>
-                    <li>• Cold Outreach – LinkedIn</li>
-                  </ul> */}
+                  {!isLoadingDetails && contactDetails && (
+                    <>
+                      {/* DATA FILE */}
+                      <div style={{ display: "flex", gap: 16, paddingBottom: 24 }}>
+                        <div style={{ position: "relative" }}>
+                          <div
+                            style={{
+                              width: 10,
+                              height: 10,
+                              background: "#3f9f42",
+                              borderRadius: "50%",
+                              marginTop: 6,
+                            }}
+                          />
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: 16,
+                              left: 4,
+                              width: 2,
+                              height: "100%",
+                              background: "#e5e7eb",
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: 15 }}>List</div>
+                          <div 
+                            onClick={() => {
+                              navigate(`/main?tab=DataCampaigns&initialTab=List&dataFileId=${contactDetails.dataFileId}`);
+                            }}
+                            style={{ 
+                              fontSize: 14, 
+                              color: "#3f9f42", 
+                              marginTop: 4,
+                              cursor: "pointer",
+                              textDecoration: "underline"
+                            }}
+                          >
+                            {contactDetails.dataFile?.dataFileName || contactDetails.dataFileName}
+                          </div>
+                          {contactDetails.dataFile?.createdAt && (
+                            <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>
+                              Created: {formatDateTimeIST(contactDetails.dataFile.createdAt)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* SEGMENTS */}
+                      {contactDetails.segments?.map((segment: any, idx: number) => (
+                        <div key={segment.segmentId} style={{ display: "flex", gap: 16, paddingBottom: 24 }}>
+                          <div style={{ position: "relative" }}>
+                            <div
+                              style={{
+                                width: 10,
+                                height: 10,
+                                background: "#3f9f42",
+                                borderRadius: "50%",
+                                marginTop: 6,
+                              }}
+                            />
+                            {idx < contactDetails.segments.length - 1 || contactDetails.campaigns?.length > 0 ? (
+                              <div
+                                style={{
+                                  position: "absolute",
+                                  top: 16,
+                                  left: 4,
+                                  width: 2,
+                                  height: "100%",
+                                  background: "#e5e7eb",
+                                }}
+                              />
+                            ) : null}
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: 15 }}>Segment</div>
+                            <div 
+                              onClick={() => {
+                                window.location.href = `/main?tab=DataCampaigns&initialTab=Segment&segmentId=${segment.segmentId}`;
+                              }}
+                              style={{ 
+                                fontSize: 14, 
+                                color: "#3f9f42", 
+                                marginTop: 4,
+                                cursor: "pointer",
+                                textDecoration: "underline"
+                              }}
+                            >
+                              {segment.segmentName}
+                            </div>
+                            {segment.addedAt && (
+                              <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>
+                                Added: {formatDateTimeIST(segment.addedAt)}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* CAMPAIGNS */}
+                      {contactDetails.campaigns?.map((campaign: any, idx: number) => (
+                        <div key={campaign.campaignId} style={{ display: "flex", gap: 16, paddingBottom: 24 }}>
+                          <div style={{ position: "relative" }}>
+                            <div
+                              style={{
+                                width: 10,
+                                height: 10,
+                                background: "#3f9f42",
+                                borderRadius: "50%",
+                                marginTop: 6,
+                              }}
+                            />
+                            {idx < contactDetails.campaigns.length - 1 && (
+                              <div
+                                style={{
+                                  position: "absolute",
+                                  top: 16,
+                                  left: 4,
+                                  width: 2,
+                                  height: "100%",
+                                  background: "#e5e7eb",
+                                }}
+                              />
+                            )}
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: 15 }}>Campaign</div>
+                            <div 
+                              onClick={() => {
+                                navigate(`/main?tab=Campaigns`);
+                              }}
+                              style={{ 
+                                fontSize: 14, 
+                                color: "#3f9f42", 
+                                marginTop: 4,
+                                cursor: "pointer",
+                                textDecoration: "underline"
+                              }}
+                            >
+                              {campaign.campaignName}
+                            </div>
+                            {campaign.createdAt && (
+                              <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>
+                                Created: {formatDateTimeIST(campaign.createdAt)}
+                              </div>
+                            )}
+                            {campaign.template && (
+                              <>
+                                <div style={{ fontSize: 13, marginTop: 4 }}>
+                                  Blueprint: <span 
+                                    onClick={async () => {
+                                      const templateId = campaign.template.templateId.toString();
+                                      const templateName = campaign.template.templateName;
+                                      
+                                      // Clear old session data first
+                                      sessionStorage.removeItem("campaign_placeholder_values");
+                                      sessionStorage.removeItem("campaign_messages");
+                                      
+                                      sessionStorage.setItem("editTemplateId", templateId);
+                                      sessionStorage.setItem("editTemplateMode", "true");
+                                      sessionStorage.setItem("newCampaignId", templateId);
+                                      sessionStorage.setItem("newCampaignName", templateName);
+                                      
+                                      if (campaign.template.templateDefinitionId) {
+                                        sessionStorage.setItem(
+                                          "selectedTemplateDefinitionId",
+                                          campaign.template.templateDefinitionId.toString(),
+                                        );
+                                        console.log("✅ Set templateDefinitionId:", campaign.template.templateDefinitionId);
+                                      }
+                                      
+                                      try {
+                                        const res = await fetch(`${API_BASE_URL}/api/CampaignPrompt/campaign/${templateId}`);
+                                        const data = await res.json();
+                                        
+                                        // ✅ Store example email
+                                        const example = data?.placeholderValues?.example_output_email || "";
+                                        sessionStorage.setItem("initialExampleEmail", example);
+                                        
+                                        // ✅ Store ALL placeholder values
+                                        if (data?.placeholderValues) {
+                                          sessionStorage.setItem(
+                                            "campaign_placeholder_values",
+                                            JSON.stringify(data.placeholderValues)
+                                          );
+                                          console.log("✅ Stored placeholder values:", Object.keys(data.placeholderValues));
+                                        }
+                                      } catch (error) {
+                                        console.error("Error loading campaign data:", error);
+                                        sessionStorage.setItem("initialExampleEmail", "");
+                                      }
+                                      
+                                      navigate("/main?tab=TestTemplate");
+                                    }}
+                                    style={{ 
+                                      color: "#3f9f42", 
+                                      cursor: "pointer",
+                                      textDecoration: "underline"
+                                    }}
+                                  >
+                                    {campaign.template.templateName}
+                                  </span>
+                                </div>
+                                {campaign.template.createdAt && (
+                                  <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 2 }}>
+                                    Blueprint Created: {formatDateTimeIST(campaign.template.createdAt)}
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
                 </div>
               )}
 

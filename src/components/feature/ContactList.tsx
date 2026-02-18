@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import API_BASE_URL from "../../config";
 import "./ContactList.css";
 import DynamicContactsTable from "./DynamicContactsTable";
@@ -148,6 +149,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   onAddContactClick, // Add this
 }) => {
   const [activeSubTab, setActiveSubTab] = useState(initialTab);
+  const [searchParams] = useSearchParams();
 
   const reduxUserId = useSelector((state: RootState) => state.auth.userId);
   const effectiveUserId = selectedClient !== "" ? selectedClient : reduxUserId;
@@ -191,6 +193,22 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   const [showCreateListOptions, setShowCreateListOptions] = useState(false);
 
   const isDemoAccount = sessionStorage.getItem("isDemoAccount") === "true";
+
+  // Segment interface - moved before usage to fix TDZ error
+  interface Segment {
+    id: number;
+    name: string;
+    description?: string;
+    dataFileId: number;
+    clientId: number;
+    createdAt: string;
+    updatedAt?: string;
+    contactCount?: number;
+    contacts?: any[];
+  }
+
+  // Segments state - moved before usage to fix TDZ error
+  const [segments, setSegments] = useState<Segment[]>([]);
 
 
   // Persistent column selection state
@@ -579,6 +597,48 @@ const formatTimeIST = (dateString?: string) => {
     setActiveSubTab(initialTab);
   }, [initialTab]);
 
+  // Handle URL parameters for direct navigation from ContactDetailView
+  useEffect(() => {
+    const dataFileIdFromUrl = searchParams.get("dataFileId");
+    const segmentIdFromUrl = searchParams.get("segmentId");
+    
+    console.log("URL Params:", { dataFileIdFromUrl, segmentIdFromUrl, dataFilesLength: dataFiles.length, segmentsLength: segments.length });
+    
+    if (dataFileIdFromUrl && dataFiles.length > 0) {
+      const file = dataFiles.find(f => f.id.toString() === dataFileIdFromUrl);
+      if (file) {
+        setSelectedDataFileForView(file);
+        setViewMode("detail");
+        setDetailCurrentPage(1);
+        setDetailSearchQuery("");
+        setDetailSelectedContacts(new Set());
+      }
+    }
+    
+    if (segmentIdFromUrl) {
+      console.log("Segment ID from URL:", segmentIdFromUrl);
+      // First switch to Segment tab
+      if (activeSubTab !== "Segment") {
+        console.log("Switching to Segment tab");
+        setActiveSubTab("Segment");
+        if (onTabChange) onTabChange("Segment");
+      }
+      
+      // Then find and set the segment if segments are loaded
+      if (segments.length > 0) {
+        const segment = segments.find(s => s.id.toString() === segmentIdFromUrl);
+        console.log("Found segment:", segment);
+        if (segment) {
+          setSelectedSegmentForView(segment);
+          setSegmentViewMode("detail");
+          setDetailCurrentPage(1);
+          setDetailSearchQuery("");
+          setDetailSelectedContacts(new Set());
+        }
+      }
+    }
+  }, [searchParams, dataFiles, segments, activeSubTab]);
+
   // Reset page when search changes
   useEffect(() => {
     setCurrentPage(1);
@@ -897,20 +957,10 @@ const formatTimeIST = (dateString?: string) => {
   };
 
   // Segment interface
-  interface Segment {
-    id: number;
-    name: string;
-    description?: string;
-    dataFileId: number;
-    clientId: number;
-    createdAt: string;
-    updatedAt?: string;
-    contactCount?: number;
-    contacts?: any[];
-  }
+  // (Moved earlier in the file to fix TDZ error)
 
-  //segments
-  const [segments, setSegments] = useState<Segment[]>([]);
+  //segments - moved before usage to fix TDZ error
+  // (Moved earlier in the file to fix TDZ error)
   const [selectedSegment, setSelectedSegment] = useState<string>("");
   const [segmentSortKey, setSegmentSortKey] = useState("")
   const [segmentSortDirection, setSegmentSortDirection] = useState("asc")
