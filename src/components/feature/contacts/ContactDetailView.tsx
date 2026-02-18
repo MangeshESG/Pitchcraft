@@ -30,6 +30,8 @@ import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import emailPersonalizationIcon from "../../../assets/images/emailPersonal.png";
 import RichTextEditor from '../../common/RTEEditor';
+import DOMPurify from "dompurify";
+
 
 
 interface Contact {
@@ -1499,7 +1501,19 @@ useEffect(() => {
                                           </div>
                                         )}
 
-                                        <div style={{ fontSize: 14 }}>{stripHtml(note.note)}</div>
+<div
+  className="rendered-note-content"
+  style={{
+    fontSize: 14,
+    whiteSpace: "normal",
+    lineHeight: "1.5",
+  }}
+  dangerouslySetInnerHTML={{
+    __html: DOMPurify.sanitize(
+      note.note || "<p>No note content</p>"
+    ),
+  }}
+/>
                                       </div>
 
                                       <div style={{

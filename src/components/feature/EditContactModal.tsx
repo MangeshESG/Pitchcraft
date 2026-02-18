@@ -1019,20 +1019,20 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   </div>
 
   {/* ✅ HTML RENDERER */}
-  <div
-    style={{
-      fontSize: 14,
-      color: "#374151",
-      lineHeight: "1.6",
-      whiteSpace: "normal",
-    }}
-    dangerouslySetInnerHTML={{
-      __html: DOMPurify.sanitize(
-        linkedInSummary || "<p>No LinkedIn summary available</p>"
-      ),
-    }}
-  />
-</div>
+          <div
+            style={{
+              fontSize: 14,
+              color: "#374151",
+              lineHeight: "1.6",
+              whiteSpace: "normal",
+            }}
+            dangerouslySetInnerHTML={{
+              __html: DOMPurify.sanitize(
+                linkedInSummary || "<p>No LinkedIn summary available</p>"
+              ),
+            }}
+          />
+        </div>
 
         </div>
       </div>
