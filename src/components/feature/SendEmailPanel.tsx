@@ -6,6 +6,9 @@ import { toast } from "react-toastify";
 interface SendEmailPanelProps {
   isOpen: boolean;
   onClose: () => void;
+  onStart: () => void;
+  onStop?: () => void;
+  isResetEnabled: boolean;
   bccOptions: any[];
   emailFormData: { BccEmail: string };
   setEmailFormData: (data: any) => void;
@@ -36,11 +39,16 @@ interface SendEmailPanelProps {
   setEnableDelay?: (val: boolean) => void;
   enableIndexRange?: boolean;
   setEnableIndexRange?: (val: boolean) => void;
+   overwriteDatabase?: boolean;
+  setOverwriteDatabase?: (val: boolean) => void;
 }
 
 const SendEmailPanel: React.FC<SendEmailPanelProps> = ({
   isOpen,
   onClose,
+  onStart,
+  onStop,
+  isResetEnabled,
   bccOptions,
   emailFormData,
   setEmailFormData,
@@ -71,6 +79,8 @@ const SendEmailPanel: React.FC<SendEmailPanelProps> = ({
   setEnableDelay: externalSetEnableDelay,
   enableIndexRange: externalEnableIndexRange,
   setEnableIndexRange: externalSetEnableIndexRange,
+  overwriteDatabase,
+setOverwriteDatabase,
 }) => {
   const [internalEnableDelay, setInternalEnableDelay] = useState(false);
   const [internalEnableIndexRange, setInternalEnableIndexRange] = useState(false);
@@ -87,14 +97,27 @@ const SendEmailPanel: React.FC<SendEmailPanelProps> = ({
     { id: 'kraft', label: 'Kraft' },
     { id: 'send', label: 'Send' },
   ];
+const formatLocalDateTime = (dateString: string | undefined | null): string => {
+  if (!dateString) return "N/A";
+  const dateObj = new Date(dateString);
+  if (isNaN(dateObj.getTime())) return "N/A";
 
+  return dateObj.toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).replace(",", "");
+};
 
 
   return (
     <>
 
       <div
-        className={`${isOpen && "hidden"} min-w-[320px] flex flex-1 flex-col bg-[#fffff] rounded-[10px] border border-[#cccccc] overflow-hidden shadow-[rgba(50,50,93,0.25)_0px_13px_27px_-5px,rgba(0,0,0,0.3)_0px_8px_16px_-8px]`}
+        className={`${isOpen && "hidden"} min-w-[320px] flex flex-1 flex-col bg-[#ffffff] rounded-[10px] border border-[#cccccc] overflow-hidden shadow-[rgba(50,50,93,0.25)_0px_13px_27px_-5px,rgba(0,0,0,0.3)_0px_8px_16px_-8px]`}
       >
         {/* Tabs Header */}
         <div className="flex border-b border-[#cccccc] rounded-[10px 10px 0 0] panel-tab items-center">
@@ -134,17 +157,166 @@ const SendEmailPanel: React.FC<SendEmailPanelProps> = ({
 
         {/* CONTENT */}
         {panelTab === "kraft" && (
-          <div className="p-[20px] flex items-start flex-col w-[100%] h-[100%]">
+  <div className="p-[20px] flex flex-col w-[100%] h-[100%]">
 
-            <>
-              <h2 className="text-xl font-semibold text-slate-700 mb-2">First</h2>
-              <p className="text-slate-600">
-                Lorem ipsum dolor sit amet, consectetur adipisicing elit.
-              </p>
-            </>
+    {/* Overwrite */}
+    <div
+      style={{
+        padding: "12px",
+        border: "1px solid #cccccc",
+        borderRadius: "8px",
+        marginBottom: "12px",
+        backgroundColor: "#fff",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center" }}>
+        <input
+          type="checkbox"
+          checked={overwriteDatabase}
+          onChange={(e) =>
+            setOverwriteDatabase && setOverwriteDatabase(e.target.checked)
+          }
+          style={{ marginRight: 8, cursor: "pointer" }}
+        />
+        <label style={{ fontWeight: 600, cursor: "pointer" }}>
+          Overwrite
+        </label>
+      </div>
+    </div>
 
+    {/* Restrict Contacts */}
+    <div
+      style={{
+        padding: "12px",
+        border: "1px solid #cccccc",
+        borderRadius: "8px",
+        marginBottom: "12px",
+        backgroundColor: "#fff",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center" }}>
+        <input
+          type="checkbox"
+          checked={enableIndexRange}
+          onChange={(e) => setEnableIndexRange(e.target.checked)}
+          style={{ marginRight: 8, cursor: "pointer" }}
+        />
+        <label style={{ fontWeight: 600, cursor: "pointer" }}>
+          Restrict contacts
+        </label>
+      </div>
+
+      {enableIndexRange && (
+        <>
+          <div className="mt-[15px]" style={{ display: "flex", gap: 12 }}>
+            <div style={{ width: "80px" }}>
+              <label style={{ fontSize: 13 }}>From</label>
+              <input
+                type="number"
+                className="form-control"
+                value={startIndex}
+                onChange={(e) => {
+                  setStartIndex(e.target.value);
+                  setShowValidationError(false);
+                }}
+                min="1"
+                max={combinedResponses.length}
+              />
+            </div>
+
+            <div style={{ width: "80px" }}>
+              <label style={{ fontSize: 13 }}>To</label>
+              <input
+                type="number"
+                className="form-control"
+                value={endIndex}
+                onChange={(e) => {
+                  setEndIndex(e.target.value);
+                  setShowValidationError(false);
+                }}
+                min={startIndex || "1"}
+                max={combinedResponses.length}
+                disabled={!startIndex}
+              />
+            </div>
+          </div>
+
+          {showValidationError && indexRangeError && (
+            <div className="mt-[8px] text-red-600 text-[12px]">
+              {indexRangeError}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+
+    {/* Krafted & Emailed Dates */}
+    {combinedResponses[currentIndex] && (
+      <div className="mt-[10px] text-[13px] italic text-gray-600">
+        {combinedResponses[currentIndex]?.lastemailupdateddate && (
+          <div>
+            Krafted:{" "}
+            {formatLocalDateTime(
+              combinedResponses[currentIndex]?.lastemailupdateddate
+            )}
           </div>
         )}
+        {combinedResponses[currentIndex]?.emailsentdate && (
+          <div>
+            Emailed:{" "}
+            {formatLocalDateTime(
+              combinedResponses[currentIndex]?.emailsentdate
+            )}
+          </div>
+        )}
+      </div>
+    )}
+
+    {/* START BUTTON */}
+    <div className="mt-auto pt-[15px] border-t border-[#cccccc] sticky bottom-0 bg-white z-10">
+       {isResetEnabled ? (
+      <button
+        type="button"
+        className="button save-button w-[100%]"
+        onClick={() => {
+          if (enableIndexRange && startIndex && endIndex) {
+            const fromValue = parseInt(startIndex);
+            const toValue = parseInt(endIndex);
+
+            if (toValue > combinedResponses.length) {
+              setIndexRangeError(
+                `Maximum contact count is ${combinedResponses.length}`
+              );
+              setShowValidationError(true);
+              return;
+            } else if (toValue <= fromValue) {
+              setIndexRangeError("To must be greater than From");
+              setShowValidationError(true);
+              return;
+            }
+          }
+
+          setIndexRangeError("");
+          setShowValidationError(false);
+
+           onStart();
+        }}
+      >
+        Start
+      </button>
+       ) : (
+    <button
+      type="button"
+      className="button save-button w-[100%]"
+      onClick={onStop}   // or separate stop handler if you have one
+      style={{ flex: 1, padding: "10px 16px", fontSize: 14, fontWeight: 600 }}
+    >
+      Stop
+    </button>
+  )}
+    </div>
+  </div>
+)}
         {panelTab === "send" && (
           <div className="p-[20px] flex items-start flex-col w-[100%] h-[100%]">
 
@@ -494,7 +666,7 @@ const SendEmailPanel: React.FC<SendEmailPanelProps> = ({
               </div>
 
               {/* FOOTER - ROW 5: Buttons */}
-              <div className="mt-[auto] flex gap-[10px] border-t border-[#cccccc] pt-[15px] w-[100%]"
+              <div className="mt-[auto] flex gap-[10px] border-t border-[#cccccc] pt-[15px] w-[100%] sticky bottom-0 bg-white z-10"
               >
                 <button
                   type="button"
