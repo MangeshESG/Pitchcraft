@@ -2361,7 +2361,25 @@ useEffect(() => {
                   >
                     {/* <strong style={{ whiteSpace: "pre" }}>Contact: </strong> */}
                     {/* <span style={{ whiteSpace: "pre" }}> </span> */}
-                    {combinedResponses[currentIndex]?.name || "NA"}
+                    <span
+  style={{ cursor: "pointer",color: "#3f9f42", textDecoration: "underline", fontWeight: 600 }}onMouseEnter={(e) => {
+    e.currentTarget.style.opacity = "0.8";
+  }}
+  onMouseLeave={(e) => {
+    e.currentTarget.style.opacity = "1";
+  }}
+  onClick={() => {
+    const contact = combinedResponses[currentIndex];
+    if (!contact?.id) return;
+
+    const contactDetailsUrl =
+      `/#/contact-details/${contact.id}?dataFileId=${combinedResponses[currentIndex]?.dataFileId}`;
+
+    window.open(contactDetailsUrl, "_blank");
+  }}
+>
+  {combinedResponses[currentIndex]?.name || "NA"}
+</span>
                     <span className="text-[25px] inline-block relative top-[4px] px-[10px]">
                       &bull;
                     </span>

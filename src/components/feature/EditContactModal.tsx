@@ -172,11 +172,9 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
       </div>
 
       {/* Percentage BELOW value */}
-      {percentage && (
-        <div className="text-sm text-gray-500 mt-1 text-center">
-          ({percentage}%)
-        </div>
-      )}
+      <div className="text-sm text-gray-500 text-center h-5">
+      {percentage ? `(${percentage}%)` : ""}
+    </div>
     </div>
   );
 
@@ -789,40 +787,32 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
               </div>
               {expandedWebsiteSocial && (
                 <>
-                  {formData.website && (
-      <div className="mb-3">
-        <div className="text-xs text-gray-500 mb-1">Website</div>
-        <a
-          href={
-            formData.website.startsWith("http")
-              ? formData.website
-              : `https://${formData.website}`
-          }
-          target="_blank"
-          rel="noopener noreferrer"
-          className="underline border-gray-300 hover:underline break-all cursor-pointer"
-        >
-          {formData.website}
-        </a>
-      </div>
-    )}
-                   {formData.linkedInUrl && (
-      <div className="mb-3">
-        <div className="text-xs text-gray-500 mb-1">LinkedIn URL</div>
-        <a
-          href={
-            formData.linkedInUrl.startsWith("http")
-              ? formData.linkedInUrl
-              : `https://${formData.linkedInUrl}`
-          }
-          target="_blank"
-          rel="noopener noreferrer"
-          className="underline border-gray-300 hover:underline break-all cursor-pointer"
-        >
-          {formData.linkedInUrl}
-        </a>
-      </div>
-    )}
+                  <div>
+                    <label className={underlineLabel}>Website</label>
+                    <input type="text" name="website" value={formData.website} onChange={handleInputChange} placeholder="Enter website" className={`${underlineInput} text-[#3f9f42] underline cursor-pointer`}
+                      onDoubleClick={() => {
+                        if (formData.website) {
+                          const url = formData.website.startsWith("http")
+                            ? formData.website
+                            : `https://${formData.website}`;
+                          window.open(url, "_blank");
+                        }
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className={underlineLabel}>LinkedIn URL</label>
+                    <input type="text" name="linkedInUrl" value={formData.linkedInUrl} onChange={handleInputChange} placeholder="Enter LinkedIn URL" className={`${underlineInput} text-[#3f9f42] underline cursor-pointer`}
+                      onDoubleClick={() => {
+                        if (formData.linkedInUrl) {
+                          const url = formData.linkedInUrl.startsWith("http")
+                            ? formData.linkedInUrl
+                            : `https://${formData.linkedInUrl}`;
+                          window.open(url, "_blank");
+                        }
+                      }}
+                    />
+                  </div>
                   <div>
                     <label className={underlineLabel}>Company linkedIn URL</label>
                     <input
@@ -981,17 +971,17 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                             </button>
                           </div>)}
                         {/* NOTE TEXT — ✅ NO <p> TAG */}
-                          <div
-                            className="rendered-note-content"
-                            style={{
-                              fontSize: 14,
-                              lineHeight: "1.5",
-                              whiteSpace: "normal",
-                            }}
-                            dangerouslySetInnerHTML={{
-                              __html: DOMPurify.sanitize(note.note || "<p>No note content</p>"),
-                            }}
-                          />
+                        <div
+                          className="rendered-note-content"
+                          style={{
+                            fontSize: 14,
+                            lineHeight: "1.5",
+                            whiteSpace: "normal",
+                          }}
+                          dangerouslySetInnerHTML={{
+                            __html: DOMPurify.sanitize(note.note || "<p>No note content</p>"),
+                          }}
+                        />
 
                       </div>
                     </div>
@@ -1001,38 +991,38 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
             )}
           </div>
 
-{/* LinkedIn Summary */}
-<div
-  className="bg-white rounded-lg p-6 shadow-sm border border-gray-200"
-  style={{ minHeight: 160 }}   // ✅ better than fixed height
->
-  <div className="flex items-center justify-between mb-4">
-    <h3 className="font-semibold">LinkedIn summary</h3>
-
-    <button
-      type="button"
-      onClick={() => setShowLinkedInSummaryPopup(true)}
-      className="flex items-center gap-2 px-3 py-1 text-[#3f9f42] rounded transition-colors"
-    >
-      <FontAwesomeIcon icon={faEdit} width="16" height="16" />
-    </button>
-  </div>
-
-  {/* ✅ HTML RENDERER */}
+          {/* LinkedIn Summary */}
           <div
-            style={{
-              fontSize: 14,
-              color: "#374151",
-              lineHeight: "1.6",
-              whiteSpace: "normal",
-            }}
-            dangerouslySetInnerHTML={{
-              __html: DOMPurify.sanitize(
-                linkedInSummary || "<p>No LinkedIn summary available</p>"
-              ),
-            }}
-          />
-        </div>
+            className="bg-white rounded-lg p-6 shadow-sm border border-gray-200"
+            style={{ minHeight: 160 }}   // ✅ better than fixed height
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold">LinkedIn summary</h3>
+
+              <button
+                type="button"
+                onClick={() => setShowLinkedInSummaryPopup(true)}
+                className="flex items-center gap-2 px-3 py-1 text-[#3f9f42] rounded transition-colors"
+              >
+                <FontAwesomeIcon icon={faEdit} width="16" height="16" />
+              </button>
+            </div>
+
+            {/* ✅ HTML RENDERER */}
+            <div
+              style={{
+                fontSize: 14,
+                color: "#374151",
+                lineHeight: "1.6",
+                whiteSpace: "normal",
+              }}
+              dangerouslySetInnerHTML={{
+                __html: DOMPurify.sanitize(
+                  linkedInSummary || "<p>No LinkedIn summary available</p>"
+                ),
+              }}
+            />
+          </div>
 
         </div>
       </div>
@@ -1157,7 +1147,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
           {/* RIGHT DRAWER */}
           <div
             style={{
-              position: "absolute",
+              position: "fixed",
               top: 0,
               right: 0,
               height: "100vh",
@@ -1170,8 +1160,9 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
               transition: "transform 0.35s ease-in-out",
               display: "flex",
               flexDirection: "column",
+              zIndex: 1000,
             }}
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()} 
           >
             {/* HEADER */}
             <div
@@ -1198,103 +1189,124 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                 ✕
               </button>
             </div>
+            <style>
+              {`
+  .note-editor-wrapper .rich-text-editor > div {
+    height: auto !important;
+    min-height: 270px !important;
+    overflow: visible !important;
+  }
+`}
+            </style>
+            {/* BODY (Scrollable) */}
+            <div
+              className="note-editor-wrapper"
+              style={{ flex: 1, overflowY: "auto", padding: 20 }}
+            >
+              <div style={{ marginBottom: 10 }}>
+                <RichTextEditor
+                  value={linkedInSummary}
+                  onChange={setLinkedInSummary}
+                />
+              </div>
+            </div>
 
-            {/* BODY */}
-            <div style={{ padding: 20, flex: 1, overflow: "auto" }}>
-              {/* TOOLBAR */}
-              {/* RICH TEXT EDITOR COMPONENT */}
-              <RichTextEditor
-                value={linkedInSummary}
-                height={280}
-                onChange={setLinkedInSummary}
-              />
+            {/* FOOTER (Fixed Bottom) */}
+            <div
+              style={{
+                padding: 16,
+                display: "flex",
+                justifyContent: "space-between",
+                borderTop: "1px solid #e5e7eb",
+                marginBottom: 50,
+                background: "#fff",
+                position: "sticky",
+              }}
+            >
+              <button
+                onClick={() => setShowLinkedInSummaryPopup(false)}
+                type="button"
+                className="px-5 py-2 border border-gray-300 rounded-full text-sm"
+              >
+                Cancel
+              </button>
 
-              {/* FOOTER */}
-              <div
+              <button
+                onClick={handleLinkedInSummarySave}
                 style={{
-                  padding: 16,
-                  borderTop: "1px solid #e5e7eb",
-                  display: "flex",
-                  justifyContent: "flex-end",
+                  background: "#3f9f42",
+                  color: "#fff",
+                  border: "none",
+                  padding: "8px 18px",
+                  borderRadius: 18,
+                  fontSize: 14,
+                  cursor: "pointer",
+                  fontWeight: 500,
+                  borderTop: "2px solid transparent",
                 }}
               >
-                <button
-                  onClick={handleLinkedInSummarySave}
-                  style={{
-                    background: "#3f9f42",
-                    color: "#fff",
-                    border: "none",
-                    padding: "8px 18px",
-                    borderRadius: 18,
-                    fontSize: 14,
-                    cursor: "pointer",
-                    fontWeight: 500,
-                    position:"sticky"
-                  }}
-                >
-                  Save
-                </button>
-              </div>
+                Save
+              </button>
             </div>
           </div>
         </div>
 
- {/* SUCCESS TOAST */}
-      {showSuccessToast && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: 24,
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "#ecfdf5",
-            color: "#065f46",
-            padding: "12px 18px",
-            borderRadius: 8,
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            boxShadow: "0 6px 20px rgba(0,0,0,0.12)",
-            zIndex: 99999,
-            minWidth: 320,
-          }}
-        >
-          {/* Green check */}
+        {/* SUCCESS TOAST */}
+        {showSuccessToast && (
           <div
             style={{
-              width: 22,
-              height: 22,
-              borderRadius: "50%",
-              background: "#22c55e",
-              color: "#fff",
+              position: "fixed",
+              bottom: 24,
+              left: "50%",
+              transform: "translateX(-50%)",
+              background: "#ecfdf5",
+              color: "#065f46",
+              padding: "12px 18px",
+              borderRadius: 8,
               display: "flex",
               alignItems: "center",
-              justifyContent: "center",
-              fontWeight: 700,
-              fontSize: 14,
+              gap: 12,
+              boxShadow: "0 6px 20px rgba(0,0,0,0.12)",
+              zIndex: 99999,
+              minWidth: 320,
             }}
           >
-            ✓
-          </div>
+            {/* Green check */}
+            <div
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: "50%",
+                background: "#22c55e",
+                color: "#fff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: 700,
+                fontSize: 14,
+              }}
+            >
+              ✓
+            </div>
 
-          {/* Message */}
-          <div style={{ fontSize: 14, flex: 1 }}>
-            {toastMessage}
-          </div>
+            {/* Message */}
+            <div style={{ fontSize: 14, flex: 1 }}>
+              {toastMessage}
+            </div>
 
-          {/* Close */}
-          <div
-            onClick={() => setShowSuccessToast(false)}
-            style={{
-              cursor: "pointer",
-              fontSize: 18,
-              lineHeight: 1,
-            }}
-          >
-            ×
+            {/* Close */}
+            <div
+              onClick={() => setShowSuccessToast(false)}
+              style={{
+                cursor: "pointer",
+                fontSize: 18,
+                lineHeight: 1,
+              }}
+            >
+              ×
+            </div>
           </div>
-        </div>
-      )}
+        )}
       </>
     );
   }

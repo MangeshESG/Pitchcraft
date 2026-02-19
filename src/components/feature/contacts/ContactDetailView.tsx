@@ -2008,33 +2008,29 @@ useEffect(() => {
             ✕
           </button>
         </div>
-
+<style>
+{`
+  .note-editor-wrapper .rich-text-editor > div {
+    height: auto !important;
+    min-height: 270px !important;
+    overflow: visible !important;
+  }
+`}
+</style>
         {/* BODY */}
-        <div style={{ padding: 20, flex: 1 , overflowY: "auto",}}>
+        <div  className="note-editor-wrapper" style={{ padding: 20, flex: 1 , overflowY: "auto",}}>
           {/* NOTE EDITOR */}
-          <div
-            style={{
-              border: "1px solid #d1d5db",
-              borderRadius: 6,
-              marginBottom: 10,
-            }}
-          >
+          
             {/* TOOLBAR */}
             <div style={{ marginBottom: 10 }}>
               <RichTextEditor
                value={noteText}
-               height={220}
+              // height={220}
                onChange={setNoteText}
+               
               />
            </div>
-
             {/* EDITABLE AREA */}
-           
-          </div>
-
-
-
-
           <div style={{ marginTop: 8, fontSize: 12, color: "#6b7280" }}>
             {plainTextLength}/10000
           </div>
@@ -2091,17 +2087,12 @@ useEffect(() => {
             position: "sticky",
           }}
         >
-          <button
-            onClick={() => setIsNoteOpen(false)}
-            style={{
-              border: "none",
-              background: "transparent",
-              color: "#6366f1",
-              fontSize: 14,
-              cursor: "pointer",
-            }}
-          >
-            Cancel
+           <button
+                  onClick={() => setIsNoteOpen(false)}
+                  type="button"
+                  className="px-5 py-2 border border-gray-300 rounded-full text-sm"
+                >
+                  Cancel
           </button>
 
           <button
@@ -2133,7 +2124,7 @@ useEffect(() => {
               />
             )}
 
-            {isSavingNote ? "Saving..." : "Save note"}
+            {isSavingNote ? "Saving..." : "Save"}
           </button>
 
         </div>
