@@ -994,9 +994,34 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
               onChange={setEditableExampleOutput}
             />
           ) : (
-            <div className="example-placeholder">
-              <p>Example output will appear here</p>
-            </div>
+<div className="example-placeholder">
+  <div className="how-it-works-box">
+    <div className="how-it-works-title">
+      <span className="icon">💡</span>
+      <span>How this works</span>
+    </div>
+
+    <p>
+      Once enough questions have been answered on the left conversation area,
+      you can click <b>"Generate"</b> to preview what your personalized email
+      will look like with real contact details.
+      <br /><br />
+      First, select a <b>contact file</b> and then choose contacts from the
+      dropdown above. The preview will automatically update as your campaign
+      blueprint changes.
+    </p>
+    <br />
+
+    <div className="tip-text">
+      <span className="icon">⭐</span>
+      <span>
+        Tip: Adjust placeholders or content in your blueprint to see changes
+        reflected here.
+      </span>
+    </div>
+  </div>
+</div>
+
           )}
         </div>
       )}
@@ -2965,8 +2990,10 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
       const errorMessage: Message = {
         type: "bot",
         content:
-          "Sorry, I couldn't start the conversation. Please check the API connection and try again.",
-        timestamp: new Date(),
+              "Great. That's all done.\n\n" +
+              "The fundamental elements of your campaign blueprint have been saved. You can now change any of these elements in the 'Edit elements' pick list above using the same interactive chat or use the 'Elements' tab where you can directly change them and change any of the many additional elements that you can use in your campaign blueprint.\n\n" +
+              "You can also choose one of the contacts in the 'Preview email' area on the right and see how the actual emails will look as you continue to play with and change the elements of the blueprint. If you don't have any contacts saved then just hop over to the Contacts area and add some manually or import them from a spreadsheet.",
+            timestamp: new Date(),
       };
       setMessages([errorMessage]);
       playNotificationSound();

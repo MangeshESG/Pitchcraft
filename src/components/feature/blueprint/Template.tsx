@@ -1130,7 +1130,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                       type="text"
                       value={templateNameInput}
                       onChange={(e) => setTemplateNameInput(e.target.value)}
-                      placeholder="e.g., IBM Sales Outreach - Q1 2024"
+                      placeholder="e.g., IBM Sales Outreach "
                       autoFocus
                       onKeyPress={(e) => {
                         if (
