@@ -25,11 +25,13 @@ import {
 } from "@fortawesome/free-solid-svg-icons"
 import EditContactModal from "../EditContactModal";
 import { useAppModal } from "../../../hooks/useAppModal";
-import { Console } from "console";
 import pitchLogo from "../../../assets/images/pitch_logo.png";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import emailPersonalizationIcon from "../../../assets/images/emailPersonal.png";
+import RichTextEditor from '../../common/RTEEditor';
+import DOMPurify from "dompurify";
+
 
 
 interface Contact {
@@ -54,6 +56,7 @@ interface Contact {
   unsubscribe?: string;
   notes?: string;
   contactCreatedAt?: string;
+  linkedIninformation?: string;
 }
 
 const ContactDetailView: React.FC = () => {
@@ -63,7 +66,8 @@ const ContactDetailView: React.FC = () => {
 
   const [contact, setContact] = useState<any>(null);
   const [searchParams] = useSearchParams();
-  const dataFileId = searchParams.get("dataFileId");
+    const dataFileId =
+      searchParams.get("dataFileId") || searchParams.get("dataField");
 
   const [activeTab, setActiveTab] = useState<"profile" | "history" | "lists">("profile");
   const [loading, setLoading] = useState(true);
@@ -98,13 +102,6 @@ const ContactDetailView: React.FC = () => {
   const navigate = useNavigate();
   const [isNoteOpen, setIsNoteOpen] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
-  const noteToolbar = {
-    toolbar: [
-      ["bold", "italic", "underline"],
-      [{ align: [] }],
-      [{ list: "bullet" }],
-    ],
-  };
   const [noteText, setNoteText] = useState("");
   const noteEditorRef = useRef<HTMLDivElement | null>(null);
 
@@ -214,22 +211,6 @@ const ContactDetailView: React.FC = () => {
       prev === trackingId ? null : trackingId
     );
   };
-  const toolbarBtnStyle: React.CSSProperties = {
-    minWidth: 32,
-    height: 32,
-    padding: "0 10px",
-    border: "1px solid #e5e7eb",
-    borderRadius: 4,
-    background: "#ffffff",
-    cursor: "pointer",
-    fontSize: 14,
-    fontWeight: 500,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    lineHeight: 1,
-  };
-
   //IST Formatter
   const formatDateTimeIST = (dateString?: string) => {
     if (!dateString) return "-";
@@ -401,6 +382,12 @@ const ContactDetailView: React.FC = () => {
       setIsEditMode(false);
       setEditingNoteId(null);
 
+      // Set appropriate message based on action
+      if (isEditMode) {
+        setToastMessage("The note has been updated with success!");
+      } else {
+        setToastMessage("The note has been created with success!");
+      }
       setShowSuccessToast(true);
       setTimeout(() => setShowSuccessToast(false), 3000);
 
@@ -412,7 +399,11 @@ const ContactDetailView: React.FC = () => {
       setIsSavingNote(false);
     }
   };
-
+useEffect(() => {
+  if (contactId && reduxUserId) {
+    fetchNotesHistory();
+  }
+}, [contactId, reduxUserId]);
   const fetchNotesHistory = async () => {
     if (!reduxUserId || !contactId) return;
 
@@ -662,6 +653,8 @@ const ContactDetailView: React.FC = () => {
                     <li className={tab === "Dashboard" ? "active" : ""}>
                       <button
                         onClick={() => {
+                          setTab("Dashboard");
+                          navigate("/main");
                           setShowBlueprintSubmenu(false);
                           setShowContactsSubmenu(false);
                           setShowMailSubmenu(false);
@@ -813,6 +806,7 @@ const ContactDetailView: React.FC = () => {
                                 setContactsSubTab("List");
                                 setTab("DataCampaigns");
                                 setShowMailSubmenu(false);
+                                navigate("/main?tab=DataCampaigns&subtab=List");
                               }}
                               className="submenu-button"
                             >
@@ -829,6 +823,7 @@ const ContactDetailView: React.FC = () => {
                                 setContactsSubTab("Segment");
                                 setTab("DataCampaigns");
                                 setShowMailSubmenu(false);
+                                 navigate("/main?tab=DataCampaigns&subtab=Segment");
                               }}
                               className="submenu-button"
                             >
@@ -1039,9 +1034,9 @@ const ContactDetailView: React.FC = () => {
                             fetchEmailTimeline(Number(contactId));
                           }
 
-                          if (notesHistory.length === 0) {
-                            fetchNotesHistory();
-                          }
+                          // if (notesHistory.length === 0) {
+                          //   fetchNotesHistory();
+                          // }
                         }
 
                         if (tab === "lists" && contactId && !contactDetails) {
@@ -1082,7 +1077,7 @@ const ContactDetailView: React.FC = () => {
                     }}
                     style={{
                       display: "flex",
-                      flexDirection: "column",
+                      flexDirection: "row",
                       alignItems: "center",
                       gap: 6,
                       border: "none",
@@ -1175,6 +1170,7 @@ const ContactDetailView: React.FC = () => {
                           : appModal.showError(msg);
                       }}
                       // ✅ Line 1118-1134: Pass note management callbacks to modal
+                       notesHistory={notesHistory} 
                       onEditNote={handleEditNote}
                       onDeleteNote={handleDeleteNote}
                       onTogglePin={handleTogglePin}
@@ -1340,20 +1336,31 @@ const ContactDetailView: React.FC = () => {
                                   {/* Email body — OUTSIDE the flex row */}
                                   {expandedEmailId === email.trackingId && (
                                     <div
+                                      className="textarea-full-height preview-content-area"
                                       style={{
-                                        background: "#f3f4f6",
-                                        padding: 12,
-                                        borderRadius: 6,
-                                        marginTop: 4,
-                                        fontSize: 14,
-                                        whiteSpace: "pre-wrap",
+                                        minHeight: "500px",
+                                        padding: "10px",
+                                        border: "1px solid #ccc",
+                                        borderRadius: "4px",
+                                        fontFamily: "inherit",
+                                        fontSize: "inherit",
+
+                                        whiteSpace: "normal",        // ✅ CRITICAL
+                                        overflowY: "auto",
+                                        overflowX: "auto",
+                                        boxSizing: "border-box",
+                                        wordWrap: "break-word",
+
+                                        width: "100%",
+                                        maxWidth: "100%",            // or simulate device if needed
+                                        background: "white",
                                       }}
-                                    >
-                                      <div style={{ color: "#333" }}>
-                                        {stripHtml(email.body) || "No email body available"}
-                                      </div>
-                                    </div>
+                                      dangerouslySetInnerHTML={{
+                                        __html: email.body || "<p>No email body available</p>",
+                                      }}
+                                    />
                                   )}
+
                                 </div>
 
                               );
@@ -1516,7 +1523,19 @@ const ContactDetailView: React.FC = () => {
                                           </div>
                                         )}
 
-                                        <div style={{ fontSize: 14 }}>{stripHtml(note.note)}</div>
+<div
+  className="rendered-note-content"
+  style={{
+    fontSize: 14,
+    whiteSpace: "normal",
+    lineHeight: "1.5",
+  }}
+  dangerouslySetInnerHTML={{
+    __html: DOMPurify.sanitize(
+      note.note || "<p>No note content</p>"
+    ),
+  }}
+/>
                                       </div>
 
                                       <div style={{
@@ -1682,22 +1701,33 @@ const ContactDetailView: React.FC = () => {
                               </span>
                             </div>
 
-                            {expandedEmailId === email.trackingId && (
-                              <div
-                                style={{
-                                  background: "#f3f4f6",
-                                  padding: 12,
-                                  borderRadius: 6,
-                                  marginBottom: 8,
-                                  fontSize: 14,
-                                  whiteSpace: "pre-wrap",
-                                }}
-                              >
-                                <div style={{ color: "#333" }}>
-                                  {stripHtml(email.body) || "No email body available"}
-                                </div>
-                              </div>
-                            )}
+                          {expandedEmailId === email.trackingId && (
+                            <div
+                              className="textarea-full-height preview-content-area"
+                              style={{
+                                minHeight: "500px",
+                                padding: "10px",
+                                border: "1px solid #ccc",
+                                borderRadius: "4px",
+                                fontFamily: "inherit",
+                                fontSize: "inherit",
+
+                                whiteSpace: "normal",        // ✅ CRITICAL
+                                overflowY: "auto",
+                                overflowX: "auto",
+                                boxSizing: "border-box",
+                                wordWrap: "break-word",
+
+                                width: "100%",
+                                maxWidth: "100%",            // or simulate device if needed
+                                background: "white",
+                              }}
+                              dangerouslySetInnerHTML={{
+                                __html: email.body || "<p>No email body available</p>",
+                              }}
+                            />
+                          )}
+
                           </div>
                         ))}
                       {/* 🔹 NOTES HISTORY */}
@@ -1886,9 +1916,18 @@ const ContactDetailView: React.FC = () => {
                                       )}
 
                                       {/* NOTE CONTENT */}
-                                      <div style={{ fontSize: 14 }}>
-                                        {stripHtml(note.note)}
-                                      </div>
+                                      <div
+                                        className="rendered-note-content"
+                                        style={{
+                                          fontSize: 14,
+                                          whiteSpace: "normal",
+                                          lineHeight: "1.5",
+                                        }}
+                                        dangerouslySetInnerHTML={{
+                                          __html: note.note || "<p>No note content</p>",
+                                        }}
+                                      />
+
                                     </div>
                                     {/* Optional badges */}
                                     <div style={{
@@ -2190,7 +2229,7 @@ const ContactDetailView: React.FC = () => {
           top: 0,
           right: 0,
           height: "100vh",
-          width: 420,
+          width: 454,
           background: "#fff",
           boxShadow: "-4px 0 20px rgba(0,0,0,0.08)",
           transform: isNoteOpen ? "translateX(0)" : "translateX(100%)",
@@ -2227,19 +2266,7 @@ const ContactDetailView: React.FC = () => {
         </div>
 
         {/* BODY */}
-        <div style={{ padding: 20, flex: 1 }}>
-          {/* <ReactQuill
-            value={noteText}
-            onChange={setNoteText}
-            modules={noteToolbar}
-            placeholder="Take notes here..."
-            style={{
-              height: 220,
-              marginBottom: 50,
-              borderRadius: 8,
-            }}
-          /> */}
-          {/* NOTE EDITOR */}
+        <div style={{ padding: 20, flex: 1 , overflowY: "auto",}}>
           {/* NOTE EDITOR */}
           <div
             style={{
@@ -2249,69 +2276,16 @@ const ContactDetailView: React.FC = () => {
             }}
           >
             {/* TOOLBAR */}
-            <div
-              style={{
-                display: "flex",
-                gap: 4,
-                padding: 6,
-                borderBottom: "1px solid #d1d5db",
-                background: "#f9fafb",
-              }}
-            >
-              <button type="button" style={toolbarBtnStyle} onClick={() => document.execCommand("bold")}>
-                <b>B</b>
-              </button>
-
-              <button type="button" style={toolbarBtnStyle} onClick={() => document.execCommand("italic")}>
-                <i>I</i>
-              </button>
-
-              <button type="button" style={toolbarBtnStyle} onClick={() => document.execCommand("underline")}>
-                <u>U</u>
-              </button>
-
-              <button type="button" style={toolbarBtnStyle} onClick={() => document.execCommand("strikeThrough")}>
-                <s>S</s>
-              </button>
-
-              <button type="button" style={toolbarBtnStyle} onClick={() => document.execCommand("insertUnorderedList")}>
-                •
-              </button>
-
-              <button type="button" style={toolbarBtnStyle} onClick={() => document.execCommand("insertOrderedList")}>
-                1
-              </button>
-
-              <button
-                type="button"
-                style={toolbarBtnStyle}
-                onClick={() => {
-                  const url = prompt("Enter link URL");
-                  if (url) document.execCommand("createLink", false, url);
-                }}
-              >
-                🔗
-              </button>
-            </div>
+            <div style={{ marginBottom: 10 }}>
+              <RichTextEditor
+               value={noteText}
+               height={220}
+               onChange={setNoteText}
+              />
+           </div>
 
             {/* EDITABLE AREA */}
-            <div
-              ref={noteEditorRef}
-              contentEditable
-              suppressContentEditableWarning
-              onInput={(e) => setNoteText(e.currentTarget.innerHTML)}
-              // dangerouslySetInnerHTML={{ __html: noteText }}
-              dir="ltr"
-              style={{
-                minHeight: 220,
-                padding: 12,
-                outline: "none",
-                fontSize: 14,
-                whiteSpace: "normal",
-                direction: "ltr",        // ← NEW
-                textAlign: "left",
-              }}
-            />
+           
           </div>
 
 
@@ -2369,7 +2343,8 @@ const ContactDetailView: React.FC = () => {
             display: "flex",
             justifyContent: "space-between",
             borderTop: "1px solid #e5e7eb",
-            marginBottom: 50
+            marginBottom: 50,
+            position: "sticky",
           }}
         >
           <button
@@ -2459,7 +2434,7 @@ const ContactDetailView: React.FC = () => {
 
           {/* Message */}
           <div style={{ fontSize: 14, flex: 1 }}>
-            The note has been created with success!
+            {toastMessage}
           </div>
 
           {/* Close */}

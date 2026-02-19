@@ -1758,6 +1758,8 @@ const formatTimeIST = (dateString?: string) => {
 
     return { filtered, paginated, totalPages }
   }, [segmentContacts, segmentSearchQuery, segmentSortKey, segmentSortDirection, segmentCurrentPage, pageSize])
+
+
   return (
     <div className="data-campaigns-container">
       {/* Sub-tabs Navigation */}
@@ -2203,8 +2205,8 @@ const formatTimeIST = (dateString?: string) => {
     return;
   }
 
-  const contactDetailsUrl =
-    `/contact-details/${row.id}?dataFileId=${selectedDataFileForView.id}`;
+const contactDetailsUrl =
+  `/#/contact-details/${row.id}?dataFileId=${selectedDataFileForView.id}`;
 
   window.open(
     contactDetailsUrl,
@@ -3378,8 +3380,8 @@ const formatTimeIST = (dateString?: string) => {
     return;
   }
 
-  const contactDetailsUrl =
-    `/contact-details/${row.id}?segmentId=${selectedSegmentForView.id}&dataFileId=${selectedSegmentForView.dataFileId}`;
+const contactDetailsUrl =
+  `/#/contact-details/${row.id}?segmentId=${selectedSegmentForView.id}&dataFileId=${selectedSegmentForView.dataFileId}`;
 
   window.open(
     contactDetailsUrl,

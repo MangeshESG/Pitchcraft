@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import API_BASE_URL from '../../config';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../Redux/store';
 import axios from 'axios';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import DOMPurify from "dompurify";
+
 import {
   faAngleRight,
   faAngleUp,
@@ -22,6 +24,7 @@ import {
   faAngleDown,
 } from "@fortawesome/free-solid-svg-icons"
 import { useAppModal } from '../../hooks/useAppModal';
+import RichTextEditor from './../common/RTEEditor';
 
 interface Contact {
   id: number;
@@ -39,6 +42,8 @@ interface Contact {
   companyIndustry?: string;
   companyLinkedInURL?: string;
   notes?: string;
+  linkedIninformation?: string;
+
 }
 
 interface EditContactModalProps {
@@ -51,6 +56,7 @@ interface EditContactModalProps {
   asPage?: boolean;
   // pinnedNotes: Note[];
   // ✅ Note management callbacks - moved from contact-detail-view
+  notesHistory: any[];
   onEditNote?: (note: any) => void;
   onDeleteNote?: (noteId: number) => void;
   onTogglePin?: (noteId: number) => void;
@@ -62,6 +68,7 @@ interface Note {
   createdAt: string;
   createdByEmail?: string;
   isPin: boolean;
+  isUseInGenration: boolean;
 }
 
 
@@ -75,6 +82,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   asPage = false,
   //pinnedNotes,
   // ✅ Line 66-71: Destructure note management callbacks
+  notesHistory,
   onEditNote,
   onDeleteNote,
   onTogglePin,
@@ -101,7 +109,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   const [showNotesPopup, setShowNotesPopup] = useState(false);
   const [popupMessage, setPopupMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [emailTimeline, setEmailTimeline] = useState<any[]>([]);
-  const [notesHistory, setNotesHistory] = useState<Note[]>([]);
+  // const [notesHistory, setNotesHistory] = useState<Note[]>([]);
   const reduxUserId = useSelector((state: RootState) => state.auth.userId);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
@@ -122,6 +130,8 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   const [expandedPersonalInfo, setExpandedPersonalInfo] = useState(true);
   const [expandedCompanyInfo, setExpandedCompanyInfo] = useState(true);
   const [expandedWebsiteSocial, setExpandedWebsiteSocial] = useState(true);
+  const [linkedInSummary, setLinkedInSummary] = useState("");
+  const editorRef = React.useRef<HTMLDivElement | null>(null);
   const menuBtnStyle: React.CSSProperties = {
     width: "100%",
     padding: "8px 12px",
@@ -154,14 +164,19 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
         {label}
       </div>
 
-      <div className="text-2xl leading-8 font-semibold text-center">
-        <span style={{ color: color ?? "#111827" }}>{value}</span>
-        {percentage && (
-          <span className="text-sm text-gray-500 ml-1">
-            ({percentage}%)
-          </span>
-        )}
+      <div
+        className="text-2xl leading-8 font-semibold text-center"
+        style={{ color: color ?? "#111827" }}
+      >
+        {value}
       </div>
+
+      {/* Percentage BELOW value */}
+      {percentage && (
+        <div className="text-sm text-gray-500 mt-1 text-center">
+          ({percentage}%)
+        </div>
+      )}
     </div>
   );
 
@@ -185,8 +200,9 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
         companyEmployeeCount: contact.companyEmployeeCount || '',
         companyIndustry: contact.companyIndustry || '',
         companyLinkedInURL: contact.companyLinkedInURL || '',
-        notes: contact.notes ?? prev.notes
+        notes: contact.notes ?? prev.notes,
       }));
+      setLinkedInSummary(contact.linkedIninformation || "");
     }
     console.log("Contact received:", contact);
   }, [contact]);
@@ -374,37 +390,37 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
       fetchEmailTimeline(contact.id);
     }
   }, [contact?.id]);
-  const fetchNotesHistory = async () => {
-    if (!reduxUserId || !contact?.id) return;
+  // const fetchNotesHistory = useCallback(async () => {
+  //   if (!reduxUserId || !contact?.id) return;
 
-    try {
-      const res = await axios.get(
-        `${API_BASE_URL}/api/notes/Get-All-Note`,
-        {
-          params: {
-            clientId: reduxUserId,
-            contactId: contact.id,
-          },
-        }
-      );
+  //   try {
+  //     const res = await axios.get(
+  //       `${API_BASE_URL}/api/notes/Get-All-Note`,
+  //       {
+  //         params: {
+  //           clientId: reduxUserId,
+  //           contactId: contact.id,
+  //         },
+  //       }
+  //     );
 
-      if (res.data?.success) {
-        setNotesHistory(res.data.data || []);
-      } else {
-        setNotesHistory([]);
-      }
-    } catch (err) {
-      console.error("Failed to fetch notes history", err);
-      setNotesHistory([]);
-    }
-  };
+  //     if (res.data?.success) {
+  //       setNotesHistory(res.data.data || []);
+  //     } else {
+  //       setNotesHistory([]);
+  //     }
+  //   } catch (err) {
+  //     console.error("Failed to fetch notes history", err);
+  //     setNotesHistory([]);
+  //   }
+  // },[reduxUserId, contact?.id]);
   const handleEditNote = async (note: any) => {
     if (!reduxUserId || !contact?.id) return;
 
     try {
       setIsEditMode(true);
       setEditingNoteId(note.id);
-      //  setNoteActionsAnchor(null);
+      setNoteActionsAnchor(null);
 
       const res = await axios.get(
         `${API_BASE_URL}/api/notes/Get-Note-By-Id`,
@@ -433,12 +449,12 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
       appModal.showError("Failed to load note");
     }
   };
-  useEffect(() => {
-    fetchNotesHistory();
-  }, [contact?.id, reduxUserId]);
+  // useEffect(() => {
+  //   fetchNotesHistory();
+  // }, [contact?.id, reduxUserId]);
 
   const pinnedNotes = React.useMemo(
-    () => notesHistory.filter(n => n.isPin),
+    () => (notesHistory || []).filter(n => n.isPin),
     [notesHistory]
   );
 
@@ -467,34 +483,73 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
       hour12: true,
     }).format(new Date(dateString));
   };
+  // const handleTogglePin = async (noteId: number) => {
+  //   if (!reduxUserId || !contact?.id) return;
+
+  //   try {
+  //     await axios.post(`${API_BASE_URL}/api/notes/Toggle-Pin`, {
+  //       clientId: reduxUserId,
+  //       contactId: contact.id,
+  //       noteId,
+  //     });
+
+
+  //     setNoteActionsAnchor(null); // 🔥 REQUIRED
+  //     fetchNotesHistory();
+  //     setToastMessage("Note pin status updated");
+  //     setShowSuccessToast(true);
+  //     setTimeout(() => setShowSuccessToast(false), 2500);
+
+  //     setNoteActionsAnchor(null);
+  //     onNotesHistoryUpdate?.();
+  //     // 🔥 IMPORTANT
+  //     fetchNotesHistory();
+
+  //   } catch (err) {
+  //     console.error("Failed to toggle pin", err);
+  //     appModal.showError("Failed to update pin");
+  //   }
+  // };
   const handleTogglePin = async (noteId: number) => {
     if (!reduxUserId || !contact?.id) return;
 
     try {
-      await axios.post(`${API_BASE_URL}/api/notes/Toggle-Pin`, {
-        clientId: reduxUserId,
-        contactId: contact.id,
-        noteId,
-      });
+      // Get current note to find its current pin status
+      const noteToToggle = notesHistory.find(n => n.id === noteId);
+      if (!noteToToggle) return;
 
+      const newPinStatus = !noteToToggle.isPin;
 
-      setNoteActionsAnchor(null); // 🔥 REQUIRED
-      fetchNotesHistory();
-      setToastMessage("Note pin status updated");
+      // Make API call to update pin status on backend
+      await axios.post(
+        `${API_BASE_URL}/api/notes/Update-Note`,
+        null,
+        {
+          params: {
+            NoteId: noteId,
+            clientId: reduxUserId,
+            contactId: contact.id,
+            Note: noteToToggle.note,
+            IsPin: newPinStatus,
+            IsUseInGenration: noteToToggle.isUseInGenration,
+          },
+        }
+      );
+
+      setNoteActionsAnchor(null);
+      setToastMessage(newPinStatus ? "Note was pinned" : "Note was unpinned");
       setShowSuccessToast(true);
       setTimeout(() => setShowSuccessToast(false), 2500);
 
-      setNoteActionsAnchor(null);
+      // Refresh notes history to trigger re-render
+      // await fetchNotesHistory();
       onNotesHistoryUpdate?.();
-      // 🔥 IMPORTANT
-      fetchNotesHistory();
 
     } catch (err) {
       console.error("Failed to toggle pin", err);
       appModal.showError("Failed to update pin");
     }
   };
-
   const handleDeleteNote = (noteId: number) => {
     if (!contact?.id) return;
     setNoteToDelete(noteId);
@@ -523,7 +578,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
       setTimeout(() => setShowSuccessToast(false), 2500);
 
       // 🔥 refresh list
-      fetchNotesHistory();
+      //  await fetchNotesHistory();
       onNotesHistoryUpdate?.()
 
     } catch (err) {
@@ -531,7 +586,36 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
       appModal.showError("Failed to delete note");
     }
   };
+  const handleLinkedInSummarySave = async () => {
+    if (!contact?.id) return;
 
+    try {
+      await axios.post(
+        `${API_BASE_URL}/api/Crm/Update-linkedIninformation`,
+        null, // no body
+        {
+          params: {
+            contactid: contact.id,
+            linkedIninformation: linkedInSummary,
+          },
+        }
+      );
+
+      onContactUpdated({
+        ...contact,
+        linkedIninformation: linkedInSummary,
+      });
+
+      setToastMessage("LinkedIn summary updated successfully");
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 4000);
+
+      setShowLinkedInSummaryPopup(false);
+    } catch (error) {
+      console.error("Failed to update LinkedIn summary", error);
+      appModal.showError("Failed to update LinkedIn summary");
+    }
+  };
   if (!isOpen || !contact) return null;
 
   const content = (
@@ -540,7 +624,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
       <div className="flex flex-row gap-8">
 
         {/* LEFT SIDE (Edit Contact) */}
-        <div className="w-1/2 bg-white rounded-lg p-6 shadow-sm">
+        <div className="w-1/2 bg-white rounded-lg p-6 shadow-sm" style={{ marginTop: "-47px" }}>
           {/* Header */}
           <div className="mb-6 border-b border-gray-200 pb-4">
             <h1 className="text-xl font-bold text-gray-900">Edit contact</h1>
@@ -548,8 +632,8 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
           </div>
 
           {/* Personal Info Form */}
-          <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-            <div className="space-y-5 p-6 border border-gray-200 rounded-lg bg-white shadow-sm">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+            <div className="space-y- p-6 border border-gray-200 rounded-lg bg-white shadow-sm">
               {/* PERSONAL INFORMATION */}
               <div
                 onClick={() => setExpandedPersonalInfo(!expandedPersonalInfo)}
@@ -598,10 +682,10 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
               <div
                 onClick={() => setExpandedCompanyInfo(!expandedCompanyInfo)}
                 className="flex items-center justify-between cursor-pointer p-3 rounded hover:bg-gray-50 transition-colors"
-                style={{ marginTop: 12, marginLeft: -12, marginRight: -12, marginBottom: 8, paddingLeft: 16, paddingRight: 273 }}
+                style={{ marginTop: 6, marginLeft: -12, marginRight: -12, marginBottom: 8, paddingLeft: 16, paddingRight: 273 }}
               >
                 {/* COMPANY INFORMATION */}
-                <h3 className="text-sm font-semibold text-[#3f9f42] mt-4">Company information</h3>
+                <h3 className="text-sm font-semibold text-[#3f9f42]">Company information</h3>
                 <FontAwesomeIcon
                   icon={faAngleDown}
                   style={{
@@ -691,7 +775,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                 className="flex items-center justify-between cursor-pointer p-3 rounded hover:bg-gray-50 transition-colors"
                 style={{ marginTop: 12, marginLeft: -12, marginRight: -12, marginBottom: 8, paddingLeft: 16, paddingRight: 273 }}
               >
-                <h3 className="text-sm font-semibold text-[#3f9f42] mt-4">Website & social</h3>
+                <h3 className="text-sm font-semibold text-[#3f9f42]">Website & social</h3>
                 <FontAwesomeIcon
                   icon={faAngleDown}
                   style={{
@@ -705,28 +789,40 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
               </div>
               {expandedWebsiteSocial && (
                 <>
-                  <div>
-                    <label className={underlineLabel}>Website</label>
-                    <input
-                      type="text"
-                      name="website"
-                      value={formData.website}
-                      onChange={handleInputChange}
-                      placeholder="Website"
-                      className={underlineInput}
-                    />
-                  </div>
-                  <div>
-                    <label className={underlineLabel}>LinkedIn URL</label>
-                    <input
-                      type="text"
-                      name="linkedInUrl"
-                      value={formData.linkedInUrl}
-                      onChange={handleInputChange}
-                      placeholder="LinkedIn URL"
-                      className={underlineInput}
-                    />
-                  </div>
+                  {formData.website && (
+      <div className="mb-3">
+        <div className="text-xs text-gray-500 mb-1">Website</div>
+        <a
+          href={
+            formData.website.startsWith("http")
+              ? formData.website
+              : `https://${formData.website}`
+          }
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline border-gray-300 hover:underline break-all cursor-pointer"
+        >
+          {formData.website}
+        </a>
+      </div>
+    )}
+                   {formData.linkedInUrl && (
+      <div className="mb-3">
+        <div className="text-xs text-gray-500 mb-1">LinkedIn URL</div>
+        <a
+          href={
+            formData.linkedInUrl.startsWith("http")
+              ? formData.linkedInUrl
+              : `https://${formData.linkedInUrl}`
+          }
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline border-gray-300 hover:underline break-all cursor-pointer"
+        >
+          {formData.linkedInUrl}
+        </a>
+      </div>
+    )}
                   <div>
                     <label className={underlineLabel}>Company linkedIn URL</label>
                     <input
@@ -742,7 +838,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
               )}
 
               {/* SAVE / CANCEL BUTTONS */}
-              <div className="flex justify-start items-center gap-3 mt-6 pt-4 border-t border-gray-200 sticky bottom-0 bg-white z-10">
+              <div className="flex justify-start items-center gap-3 mt-6 pt-4 border-gray-200 sticky bottom-0 bg-white z-10">
                 <button
                   type="button"
                   className="px-5 py-2 border border-gray-300 rounded-full text-sm"
@@ -767,7 +863,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
           <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
             <h3 className="font-semibold mb-4">Email campaigns</h3>
             <div className="grid grid-cols-3 gap-4">
-              <Stat label="Sent" value={emailStats.sent} />
+              <Stat label="Sent" value={emailStats.sent} color="#333" />
 
               <Stat
                 label="Unique opens"
@@ -808,9 +904,10 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                           <div style={{ position: "absolute", right: 0, top: 48, background: "#fff", border: "1px solid #eee", borderRadius: 6, boxShadow: "0 2px 16px rgba(0,0,0,0.12)", zIndex: 101, minWidth: 160, }}
                             onClick={(e) => e.stopPropagation()} >
                             <button
-                              onClick={() => {
-                                onEditNote?.(note);
+                              onClick={async () => {
+                                await onEditNote?.(note);
                                 setNoteActionsAnchor(null);
+                                //  await fetchNotesHistory();
                               }}
                               style={menuBtnStyle}
                               className="flex gap-2 items-center"
@@ -837,7 +934,11 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
 
                             {/* 📌 PIN / UNPIN */}
                             <button
-                              onClick={() => onTogglePin?.(note.id)}
+                              onClick={async () => {
+                                await onTogglePin?.(note.id);
+                                setNoteActionsAnchor(null);
+                                // await fetchNotesHistory();
+                              }}
                               style={menuBtnStyle}
                               className="flex gap-2 items-center"
                             >
@@ -858,9 +959,10 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
 
                             {/* 🗑️ DELETE */}
                             <button
-                              onClick={() => {
-                                onDeleteNote?.(note.id);
+                              onClick={async () => {
+                                await onDeleteNote?.(note.id);
                                 setNoteActionsAnchor(null);
+                                // await fetchNotesHistory();
                               }}
                               style={menuBtnStyle}
                               className="flex gap-2 items-center "
@@ -879,8 +981,18 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                             </button>
                           </div>)}
                         {/* NOTE TEXT — ✅ NO <p> TAG */}
-                        <div style={{ fontSize: 14 }}> {stripHtml(note.note)}
-                        </div>
+                          <div
+                            className="rendered-note-content"
+                            style={{
+                              fontSize: 14,
+                              lineHeight: "1.5",
+                              whiteSpace: "normal",
+                            }}
+                            dangerouslySetInnerHTML={{
+                              __html: DOMPurify.sanitize(note.note || "<p>No note content</p>"),
+                            }}
+                          />
+
                       </div>
                     </div>
                   </div>
@@ -889,19 +1001,39 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
             )}
           </div>
 
-          {/* LinkedIn Summary */}
-          <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200" style={{ height: "20%" }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold">LinkedIn summary</h3>
-              <button
-                type="button"
-                onClick={() => setShowLinkedInSummaryPopup(true)}
-                className="flex items-center gap-2 px-3 py-1  text-black rounded  transition-colors"
-              >
-                <FontAwesomeIcon icon={faEdit} width="16" height="16" />
-              </button>
-            </div>
-          </div>
+{/* LinkedIn Summary */}
+<div
+  className="bg-white rounded-lg p-6 shadow-sm border border-gray-200"
+  style={{ minHeight: 160 }}   // ✅ better than fixed height
+>
+  <div className="flex items-center justify-between mb-4">
+    <h3 className="font-semibold">LinkedIn summary</h3>
+
+    <button
+      type="button"
+      onClick={() => setShowLinkedInSummaryPopup(true)}
+      className="flex items-center gap-2 px-3 py-1 text-[#3f9f42] rounded transition-colors"
+    >
+      <FontAwesomeIcon icon={faEdit} width="16" height="16" />
+    </button>
+  </div>
+
+  {/* ✅ HTML RENDERER */}
+          <div
+            style={{
+              fontSize: 14,
+              color: "#374151",
+              lineHeight: "1.6",
+              whiteSpace: "normal",
+            }}
+            dangerouslySetInnerHTML={{
+              __html: DOMPurify.sanitize(
+                linkedInSummary || "<p>No LinkedIn summary available</p>"
+              ),
+            }}
+          />
+        </div>
+
         </div>
       </div>
     </div >
@@ -1008,265 +1140,161 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
           )
         }
         {/* LinkedIn Summary Popup with Toolbar */}
-
+        {/* OVERLAY */}
         <div
           style={{
             position: "fixed",
             inset: 0,
-            background: showLinkedInSummaryPopup ? "rgba(0,0,0,0.6)" : "transparent",
+            background: showLinkedInSummaryPopup
+              ? "rgba(0,0,0,0.6)"
+              : "transparent",
             zIndex: 100000,
-            display: "flex",
-            justifyContent: "flex-end",
-            transition: "background 0.3s ease",
             pointerEvents: showLinkedInSummaryPopup ? "auto" : "none",
+            transition: "background 0.3s ease",
           }}
           onClick={() => setShowLinkedInSummaryPopup(false)}
         >
+          {/* RIGHT DRAWER */}
           <div
             style={{
+              position: "absolute",
+              top: 0,
+              right: 0,
+              height: "100vh",
+              width: 454,
               background: "#fff",
-              padding: 24,
-              width: "70%",
-              maxWidth: 900,
-              height: "90vh",
               boxShadow: "-4px 0 20px rgba(0,0,0,0.08)",
               transform: showLinkedInSummaryPopup
                 ? "translateX(0)"
-                : "translateX(110%)",
+                : "translateX(100%)",
               transition: "transform 0.35s ease-in-out",
-              overflow: "auto",
+              display: "flex",
+              flexDirection: "column",
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h3 style={{ margin: 0 }}>LinkedIn Summary</h3>
+            {/* HEADER */}
+            <div
+              style={{
+                background: "#d9fdd3",
+                padding: "16px 20px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}
+            >
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>
+                LinkedIn Summary
+              </h3>
               <button
                 onClick={() => setShowLinkedInSummaryPopup(false)}
                 style={{
-                  background: "none",
                   border: "none",
-                  fontSize: 24,
+                  background: "transparent",
+                  fontSize: 22,
                   cursor: "pointer",
-                  color: "#666",
                 }}
               >
                 ✕
               </button>
             </div>
 
-            {/* Formatting Toolbar */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "12px",
-                border: "1px solid #d1d5db",
-                borderBottom: "none",
-                // marginBottom: 12,
-                flexWrap: "wrap",
-                backgroundColor: "#f5f5f5",
-                borderRadius: "4px 4px 0 0",
-              }}
-            >
-              <select
+            {/* BODY */}
+            <div style={{ padding: 20, flex: 1, overflow: "auto" }}>
+              {/* TOOLBAR */}
+              {/* RICH TEXT EDITOR COMPONENT */}
+              <RichTextEditor
+                value={linkedInSummary}
+                height={280}
+                onChange={setLinkedInSummary}
+              />
+
+              {/* FOOTER */}
+              <div
                 style={{
-                  padding: "6px 10px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: 4,
-                  fontSize: 14,
-                  cursor: "pointer",
-                }}
-                onChange={(e) => {
-                  if (e.target.value) document.execCommand("formatBlock", false, `<${e.target.value}>`);
+                  padding: 16,
+                  borderTop: "1px solid #e5e7eb",
+                  display: "flex",
+                  justifyContent: "flex-end",
                 }}
               >
-                <option value="">Normal</option>
-                <option value="h1">Heading 1</option>
-                <option value="h2">Heading 2</option>
-                <option value="h3">Heading 3</option>
-                <option value="p">Paragraph</option>
-              </select>
-
-              <button
-                type="button"
-                onClick={() => document.execCommand("bold", false)}
-                style={{
-                  padding: "6px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: 4,
-                  background: "#f9fafb",
-                  cursor: "pointer",
-                  fontWeight: "bold",
-                }}
-                title="Bold"
-              >
-                B
-              </button>
-
-              <button
-                type="button"
-                onClick={() => document.execCommand("italic", false)}
-                style={{
-                  padding: "6px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: 4,
-                  background: "#f9fafb",
-                  cursor: "pointer",
-                  fontStyle: "italic",
-                }}
-                title="Italic"
-              >
-                I
-              </button>
-
-              <button
-                type="button"
-                onClick={() => document.execCommand("underline", false)}
-                style={{
-                  padding: "6px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: 4,
-                  background: "#f9fafb",
-                  cursor: "pointer",
-                  textDecoration: "underline",
-                }}
-                title="Underline"
-              >
-                U
-              </button>
-
-              <button
-                type="button"
-                onClick={() => document.execCommand("strikethrough", false)}
-                style={{
-                  padding: "6px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: 4,
-                  background: "#f9fafb",
-                  cursor: "pointer",
-                  textDecoration: "line-through",
-                }}
-                title="Strikethrough"
-              >
-                S
-              </button>
-
-              <div style={{ width: 1, height: 24, background: "#e5e7eb", margin: "0 4px" }}></div>
-
-              <button
-                type="button"
-                onClick={() => document.execCommand("insertUnorderedList", false)}
-                style={{
-                  padding: "6px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: 4,
-                  background: "#f9fafb",
-                  cursor: "pointer",
-                }}
-                title="Bullet list"
-              >
-                •
-              </button>
-
-              <button
-                type="button"
-                onClick={() => document.execCommand("insertOrderedList", false)}
-                style={{
-                  padding: "6px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: 4,
-                  background: "#f9fafb",
-                  cursor: "pointer",
-                }}
-                title="Numbered list"
-              >
-                1.
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  const url = prompt("Enter URL:");
-                  if (url) document.execCommand("createLink", false, url);
-                }}
-                style={{
-                  padding: "6px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: 4,
-                  background: "#f9fafb",
-                  cursor: "pointer",
-                }}
-                title="Insert link"
-              >
-                🔗
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  const url = prompt("Enter image URL:");
-                  if (url) document.execCommand("insertImage", false, url);
-                }}
-                style={{
-                  padding: "6px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: 4,
-                  background: "#f9fafb",
-                  cursor: "pointer",
-                }}
-                title="Insert image"
-              >
-                🖼️
-              </button>
-            </div>
-
-            {/* Editable Content Area */}
-            <div
-              contentEditable
-              style={{
-                width: "100%",
-                minHeight: "400px",
-                padding: "12px",
-                border: "1px solid #d1d5db",
-                borderTop: "none",
-                borderRadius: "0 0 4px 4px",
-                outline: "none",
-                fontSize: 14,
-                lineHeight: 1.6,
-              }}
-              onBlur={(e) => {
-                setFormData((prev) => ({
-                  ...prev,
-                  linkedInUrl: (e.currentTarget as HTMLDivElement).innerHTML,
-                }));
-              }}
-              suppressContentEditableWarning
-            >
-              {/* {formData.linkedInUrl || ""} */}
-            </div>
-
-            {/* Action Buttons */}
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 16 }}>
-              <button
-                type="button"
-                onClick={() => setShowLinkedInSummaryPopup(false)}
-                style={{
-                  padding: "8px 16px",
-                  background: "#3f9f42",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 4,
-                  cursor: "pointer",
-                  fontWeight: 500,
-                }}
-              >
-                Done
-              </button>
+                <button
+                  onClick={handleLinkedInSummarySave}
+                  style={{
+                    background: "#3f9f42",
+                    color: "#fff",
+                    border: "none",
+                    padding: "8px 18px",
+                    borderRadius: 18,
+                    fontSize: 14,
+                    cursor: "pointer",
+                    fontWeight: 500,
+                    position:"sticky"
+                  }}
+                >
+                  Save
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
+ {/* SUCCESS TOAST */}
+      {showSuccessToast && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 24,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "#ecfdf5",
+            color: "#065f46",
+            padding: "12px 18px",
+            borderRadius: 8,
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            boxShadow: "0 6px 20px rgba(0,0,0,0.12)",
+            zIndex: 99999,
+            minWidth: 320,
+          }}
+        >
+          {/* Green check */}
+          <div
+            style={{
+              width: 22,
+              height: 22,
+              borderRadius: "50%",
+              background: "#22c55e",
+              color: "#fff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontWeight: 700,
+              fontSize: 14,
+            }}
+          >
+            ✓
+          </div>
+
+          {/* Message */}
+          <div style={{ fontSize: 14, flex: 1 }}>
+            {toastMessage}
+          </div>
+
+          {/* Close */}
+          <div
+            onClick={() => setShowSuccessToast(false)}
+            style={{
+              cursor: "pointer",
+              fontSize: 18,
+              lineHeight: 1,
+            }}
+          >
+            ×
+          </div>
+        </div>
+      )}
       </>
     );
   }

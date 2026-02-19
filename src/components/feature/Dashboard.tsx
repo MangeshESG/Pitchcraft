@@ -14,8 +14,10 @@ export const Dashboard: React.FC = () => {
   const [showImportModal, setShowImportModal] = useState(false);
   const [showCampaignModal, setShowCampaignModal] = useState(false);
   const [showKraftEmailModal, setShowKraftEmailModal] = useState(false);
+  const [showBlueprintModal, setShowBlueprintModal] = useState(false);
 
   const handleClose = () => {
+    setShowBlueprintModal(false);
     setShowImportModal(false);
     setShowCampaignModal(false);
     setShowKraftEmailModal(false);
@@ -69,7 +71,52 @@ export const Dashboard: React.FC = () => {
                     </span>
                     Create a blueprint
                   </div>
-                  <span className=" text-gray-400">Video coming soon</span>
+                   <button onClick={() => setShowBlueprintModal(true)} className=" green flex gap-2 items-center">
+                    <FontAwesomeIcon
+                      icon={faPlayCircle}
+                      className=" text-[#3f9f42] text-[14px]"
+                    />
+                    <span>
+                      Watch quick intro
+                    </span>
+                  </button>
+                   {showBlueprintModal  && (
+                    <div
+                      style={{
+                        position: "fixed",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        height: "100%",
+                        backgroundColor: "rgba(0,0,0,0.5)",
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        //zIndex: 1000,
+                      }}
+                    >
+                      <div
+                        style={{
+                          backgroundColor: "#fff",
+                          padding: "20px",
+                          borderRadius: "10px",
+                          maxWidth: "800px",
+                          width: "90%",
+                          zIndex: 2000,
+                        }}
+                      >
+                        <button
+                          onClick={handleClose}
+                          style={{ float: "right", fontSize: "16px" }}
+                        >
+                          Close
+                        </button>
+                        <video width="100%" height="auto" controls autoPlay>
+                          <source src="/video/Blueprints  Guidde 1.mp4" type="video/mp4" />
+                        </video>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="flex justify-between h-[calc(100%-30px)]">
                   <div className="flex-1 flex flex-col">

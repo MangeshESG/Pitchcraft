@@ -2218,9 +2218,10 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
               console.log("[v0] Opening contact - id:", contactId, "dataFileId:", dataFileId, "item:", item);
               // 👇 OPEN IN NEW TAB
               window.open(
-              `/contact-details/${item.contactId}?dataFileId=${dataFileId}`,
-              "_blank"
+                `${window.location.origin}/#/contact-details/${item.contactId}?dataFileId=${dataFileId}`,
+                "_blank"
               )
+
               }}
               >
               {label}
@@ -2255,9 +2256,10 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
               const contactId = item.id || item.contactId;
               console.log("[v0] Opening contact from name - id:", contactId, "dataFileId:", dataFileId);
               window.open(
-              `/contact-details/${item.contactId}?dataFileId=${dataFileId}`,
-             "_blank"
+                `${window.location.origin}/#/contact-details/${item.contactId}?dataFileId=${dataFileId}`,
+                "_blank"
               )
+
               }}
               >
             {label}

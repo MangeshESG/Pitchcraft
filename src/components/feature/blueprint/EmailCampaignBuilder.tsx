@@ -341,7 +341,8 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
 
 const inputRef = useRef<HTMLTextAreaElement | null>(null);
  const hasExampleEmail = initialExampleEmail.trim().length > 0;
-
+ const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
  // ========================================
   // IMAGE ATTACHMENT STATE
 
@@ -485,7 +486,10 @@ const inputRef = useRef<HTMLTextAreaElement | null>(null);
         },
       );
 
-    showModal("Success","✅ Example email saved successfully");
+   // showModal("Success","✅ Example email saved successfully");
+    setToastMessage("Example email has been saved with success!");
+    setShowSuccessToast(true);
+    setTimeout(() => setShowSuccessToast(false), 5000);
   } catch (error) {
     console.error("❌ Save example output failed:", error);
     showModal("Error","Failed to save example email.");
@@ -1080,6 +1084,8 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   const [selectedPlaceholder, setSelectedPlaceholder] = useState<string>("");
   const [isLoadingTemplate, setIsLoadingTemplate] = useState(false);
 const [selectedElement, setSelectedElement] = useState<string | null>(null);
+const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
   const [selectedTemplateDefinitionId, setSelectedTemplateDefinitionId] =
     useState<number | null>(null);
 
@@ -1315,7 +1321,10 @@ const uploadImage = async (file: File) => {
         example_output_email: editableExampleOutput,
       }));
 
-      showModal("Success", "✅ Example email saved successfully!");
+     // showModal("Success", "✅ Example email saved successfully!");
+       setToastMessage("Example email has been saved with success!");
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 5000);
     } catch (error) {
       console.error("❌ Save example output failed:", error);
       showModal("Error", "Failed to save example email.");
@@ -1629,7 +1638,11 @@ const saveAllPlaceholders = async () => {
 
     await reloadCampaignBlueprint();
 
-    showModal("Success", "✅ Element values updated successfully!");
+ //   showModal("Success", "✅ Element values updated successfully!");
+
+     setToastMessage("The Element has been updated with success!");
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 3000);
   } catch (error) {
     console.error("❌ Failed to update elements:", error);
     showModal("Warning", "Failed to update element values.");
@@ -3362,7 +3375,10 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
         `${API_BASE_URL}/api/CampaignPrompt/template-definition/${selectedTemplateDefinitionId}/deactivate`,
       );
 
-      showModal("Success", "Template deleted successfully.");
+     // showModal("Success", "Template deleted successfully.");
+      setToastMessage("Template has been deleted with success!");
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 5000);
 
       // Reset UI state
       setSelectedTemplateDefinitionId(null);
@@ -4724,6 +4740,61 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
                 Done
               </button>
             </div>
+          </div>
+        </div>
+      )}
+       {showSuccessToast && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 24,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "#ecfdf5",
+            color: "#065f46",
+            padding: "12px 18px",
+            borderRadius: 8,
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            boxShadow: "0 6px 20px rgba(0,0,0,0.12)",
+            zIndex: 99999,
+            minWidth: 320,
+          }}
+        >
+          {/* Green check */}
+          <div
+            style={{
+              width: 22,
+              height: 22,
+              borderRadius: "50%",
+              background: "#22c55e",
+              color: "#fff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontWeight: 700,
+              fontSize: 14,
+            }}
+          >
+            ✓
+          </div>
+
+          {/* Message */}
+          <div style={{ fontSize: 14, flex: 1 }}>
+            {toastMessage}
+          </div>
+
+          {/* Close */}
+          <div
+            onClick={() => setShowSuccessToast(false)}
+            style={{
+              cursor: "pointer",
+              fontSize: 18,
+              lineHeight: 1,
+            }}
+          >
+            ×
           </div>
         </div>
       )}

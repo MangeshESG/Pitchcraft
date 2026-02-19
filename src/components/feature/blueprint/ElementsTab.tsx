@@ -28,6 +28,7 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
   setExpandedKey,
   saveAllPlaceholders,
   renderPlaceholderInput,
+  setFormValues,
 }) => {
   const UI_SIZE_TO_SPAN: Record<string, number> = {
     sm: 3,
@@ -243,35 +244,33 @@ const insertPlainText = (text: string) => {
                   </label>
 
                   <div
-                    onPaste={(e) => {
-                      e.preventDefault();
+                  onPaste={(e) => {
+                    e.preventDefault();
 
-                      const clipboard = e.clipboardData;
-                      const html = clipboard.getData("text/html");
-                      const text = clipboard.getData("text/plain");
+                    const pastedText = e.clipboardData.getData("text/plain");
 
-                      const target = e.target as HTMLElement;
+                    const target = e.target as HTMLInputElement | HTMLTextAreaElement;
+                    if (!target) return;
 
-                      const isContentEditable =
-                        target.isContentEditable ||
-                        target.closest('[contenteditable="true"]');
+                    const start = target.selectionStart ?? 0;
+                    const end = target.selectionEnd ?? 0;
 
-                      if (isContentEditable && html) {
-                        const cleanHTML = sanitizeRichText(html);
+                    const newValue =
+                      target.value.substring(0, start) +
+                      pastedText +
+                      target.value.substring(end);
 
-                        const selection = window.getSelection();
-                        if (!selection || !selection.rangeCount) return;
+                    setFormValues(prev => ({
+                      ...prev,
+                      [p.placeholderKey]: newValue,
+                    }));
 
-                        const range = selection.getRangeAt(0);
-                        range.deleteContents();
+                    requestAnimationFrame(() => {
+                      target.selectionStart = target.selectionEnd = start + pastedText.length;
+                    });
+                  }}
 
-                        const fragment = range.createContextualFragment(cleanHTML);
-                        range.insertNode(fragment);
-                        range.collapse(false);
-                      } else {
-                        insertPlainText(text);
-                      }
-                    }}
+
 
                   >
                     {renderPlaceholderInput({
