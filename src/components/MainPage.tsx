@@ -45,6 +45,7 @@ import { useCreditCheck } from "../hooks/useCreditCheck";
 import CreditCheckModal from "./common/CreditCheckModal";
 import Myplan from "./feature/Myplan";
 import { useSoundAlert } from "./common/useSoundAlert";
+import { link } from "node:fs";
 
 interface Prompt {
   id: number;
@@ -593,19 +594,11 @@ const MainPage: React.FC = () => {
     console.log(setSelectedPrompt, "selectedPitch");
   };
 
-  const [selectedLanguage, setSelectedLanguage] = useState<Languages>(
-    Object.values(Languages).includes("English" as Languages)
-      ? ("English" as Languages)
-      : Object.values(Languages)[0],
-  );
+
 
   const [zohoClient, setZohoClient] = useState<ZohoClient[]>([]);
 
-  const handleLanguageChange = (
-    event: React.ChangeEvent<HTMLSelectElement>,
-  ) => {
-    setSelectedLanguage(event.target.value as Languages);
-  };
+
 
   const [openModals, setOpenModals] = useState<{ [key: string]: boolean }>({});
 
@@ -722,6 +715,16 @@ const MainPage: React.FC = () => {
   }, []);
 
   const handleSubjectTextChange = (value: string) => {};
+  const cleanHtml = (value?: string) => {
+  if (!value) return "";
+
+  return value
+    .replace(/&nbsp;/gi, " ")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<[^>]*>/g, "")
+    .trim();
+};
 
   const buildReplacements = (
     entry: any,
@@ -739,7 +742,10 @@ const MainPage: React.FC = () => {
       website: entry.website || "",
       date: currentDate,
       notes: entry.notes || "",
-
+          // ✅ SANITIZED LINKEDIN
+      linkedin_info: cleanHtml(
+        entry.linkedIninformation || entry.linkedin_info
+      ),
       // ✅ Add here, with optional default
       search_output_summary: scrappedData || "",
 
@@ -857,6 +863,8 @@ const MainPage: React.FC = () => {
           lastemailupdateddate: entry.updated_at || "N/A",
           emailsentdate: entry.email_sent_at || "N/A",
           notes: entry.notes || "",
+          linkedin_info: entry.linkedIninformation || "",
+
         }));
 
         const newItemsCount = emailResponses.length;
@@ -1076,17 +1084,7 @@ const MainPage: React.FC = () => {
     return `${day}.${month}.${year} ${hours}:${minutes}:${seconds}`;
   }
 
-  const analyzeScrapedData = (
-    scrapedData: string,
-  ): { original: number; assisted: number } => {
-    if (!scrapedData) return { original: 0, assisted: 0 };
 
-    // Count occurrences of text1 (original) and text2 (assisted)
-    const originalCount = (scrapedData.match(/text1\s*=/g) || []).length;
-    const assistedCount = (scrapedData.match(/text2\s*=/g) || []).length;
-
-    return { original: originalCount, assisted: assistedCount };
-  };
 
   // Load Campaign Blueprint when a campaign is selected
   // 🧠 Define this function above goToTab (not inside useEffect)
@@ -3670,8 +3668,7 @@ const lastPitch =
                 handleZohoModelChange={handleZohoModelChange}
                 emailLoading={emailLoading}
                 languages={Object.values(Languages)}
-                selectedLanguage={selectedLanguage}
-                handleLanguageChange={handleLanguageChange}
+       
                 selectedPrompt={selectedPrompt} // Make sure this is passed
                 handleStop={handleStop}
                 isStopRequested={stopRef.current} // Add this line

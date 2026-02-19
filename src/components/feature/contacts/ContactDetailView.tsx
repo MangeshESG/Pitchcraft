@@ -29,6 +29,9 @@ import pitchLogo from "../../../assets/images/pitch_logo.png";
 import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import emailPersonalizationIcon from "../../../assets/images/emailPersonal.png";
+import RichTextEditor from '../../common/RTEEditor';
+import DOMPurify from "dompurify";
+
 
 
 interface Contact {
@@ -53,6 +56,7 @@ interface Contact {
   unsubscribe?: string;
   notes?: string;
   contactCreatedAt?: string;
+  linkedIninformation?: string;
 }
 
 const ContactDetailView: React.FC = () => {
@@ -98,13 +102,6 @@ const ContactDetailView: React.FC = () => {
   const navigate = useNavigate();
   const [isNoteOpen, setIsNoteOpen] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
-  const noteToolbar = {
-    toolbar: [
-      ["bold", "italic", "underline"],
-      [{ align: [] }],
-      [{ list: "bullet" }],
-    ],
-  };
   const [noteText, setNoteText] = useState("");
   const noteEditorRef = useRef<HTMLDivElement | null>(null);
 
@@ -212,22 +209,6 @@ const ContactDetailView: React.FC = () => {
       prev === trackingId ? null : trackingId
     );
   };
-  const toolbarBtnStyle: React.CSSProperties = {
-    minWidth: 32,
-    height: 32,
-    padding: "0 10px",
-    border: "1px solid #e5e7eb",
-    borderRadius: 4,
-    background: "#ffffff",
-    cursor: "pointer",
-    fontSize: 14,
-    fontWeight: 500,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    lineHeight: 1,
-  };
-
   //IST Formatter
   const formatDateTimeIST = (dateString?: string) => {
     if (!dateString) return "-";
@@ -1520,7 +1501,19 @@ useEffect(() => {
                                           </div>
                                         )}
 
-                                        <div style={{ fontSize: 14 }}>{stripHtml(note.note)}</div>
+<div
+  className="rendered-note-content"
+  style={{
+    fontSize: 14,
+    whiteSpace: "normal",
+    lineHeight: "1.5",
+  }}
+  dangerouslySetInnerHTML={{
+    __html: DOMPurify.sanitize(
+      note.note || "<p>No note content</p>"
+    ),
+  }}
+/>
                                       </div>
 
                                       <div style={{
@@ -1686,32 +1679,32 @@ useEffect(() => {
                               </span>
                             </div>
 
-{expandedEmailId === email.trackingId && (
-  <div
-    className="textarea-full-height preview-content-area"
-    style={{
-      minHeight: "500px",
-      padding: "10px",
-      border: "1px solid #ccc",
-      borderRadius: "4px",
-      fontFamily: "inherit",
-      fontSize: "inherit",
+                          {expandedEmailId === email.trackingId && (
+                            <div
+                              className="textarea-full-height preview-content-area"
+                              style={{
+                                minHeight: "500px",
+                                padding: "10px",
+                                border: "1px solid #ccc",
+                                borderRadius: "4px",
+                                fontFamily: "inherit",
+                                fontSize: "inherit",
 
-      whiteSpace: "normal",        // ✅ CRITICAL
-      overflowY: "auto",
-      overflowX: "auto",
-      boxSizing: "border-box",
-      wordWrap: "break-word",
+                                whiteSpace: "normal",        // ✅ CRITICAL
+                                overflowY: "auto",
+                                overflowX: "auto",
+                                boxSizing: "border-box",
+                                wordWrap: "break-word",
 
-      width: "100%",
-      maxWidth: "100%",            // or simulate device if needed
-      background: "white",
-    }}
-    dangerouslySetInnerHTML={{
-      __html: email.body || "<p>No email body available</p>",
-    }}
-  />
-)}
+                                width: "100%",
+                                maxWidth: "100%",            // or simulate device if needed
+                                background: "white",
+                              }}
+                              dangerouslySetInnerHTML={{
+                                __html: email.body || "<p>No email body available</p>",
+                              }}
+                            />
+                          )}
 
                           </div>
                         ))}
@@ -1901,9 +1894,18 @@ useEffect(() => {
                                       )}
 
                                       {/* NOTE CONTENT */}
-                                      <div style={{ fontSize: 14 }}>
-                                        {stripHtml(note.note)}
-                                      </div>
+                                      <div
+                                        className="rendered-note-content"
+                                        style={{
+                                          fontSize: 14,
+                                          whiteSpace: "normal",
+                                          lineHeight: "1.5",
+                                        }}
+                                        dangerouslySetInnerHTML={{
+                                          __html: note.note || "<p>No note content</p>",
+                                        }}
+                                      />
+
                                     </div>
                                     {/* Optional badges */}
                                     <div style={{
@@ -1971,7 +1973,7 @@ useEffect(() => {
           top: 0,
           right: 0,
           height: "100vh",
-          width: 420,
+          width: 454,
           background: "#fff",
           boxShadow: "-4px 0 20px rgba(0,0,0,0.08)",
           transform: isNoteOpen ? "translateX(0)" : "translateX(100%)",
@@ -2006,106 +2008,29 @@ useEffect(() => {
             ✕
           </button>
         </div>
-
+<style>
+{`
+  .note-editor-wrapper .rich-text-editor > div {
+    height: auto !important;
+    min-height: 270px !important;
+    overflow: visible !important;
+  }
+`}
+</style>
         {/* BODY */}
-        <div style={{ padding: 20, flex: 1 , overflowY: "auto",}}>
-          {/* <ReactQuill
-            value={noteText}
-            onChange={setNoteText}
-            modules={noteToolbar}
-            placeholder="Take notes here..."
-            style={{
-              height: 220,
-              marginBottom: 50,
-              borderRadius: 8,
-            }}
-          /> */}
+        <div  className="note-editor-wrapper" style={{ padding: 20, flex: 1 , overflowY: "auto",}}>
           {/* NOTE EDITOR */}
-          {/* NOTE EDITOR */}
-          <div
-            style={{
-              border: "1px solid #d1d5db",
-              borderRadius: 6,
-              marginBottom: 10,
-            }}
-          >
+          
             {/* TOOLBAR */}
-            <div
-              style={{
-                display: "flex",
-                gap: 4,
-                padding: 6,
-                borderBottom: "1px solid #d1d5db",
-                background: "#f9fafb",
-              }}
-            >
-              <button type="button" style={toolbarBtnStyle} onClick={() => document.execCommand("bold")}>
-                <b>B</b>
-              </button>
-
-              <button type="button" style={toolbarBtnStyle} onClick={() => document.execCommand("italic")}>
-                <i>I</i>
-              </button>
-
-              <button type="button" style={toolbarBtnStyle} onClick={() => document.execCommand("underline")}>
-                <u>U</u>
-              </button>
-
-              <button type="button" style={toolbarBtnStyle} onClick={() => document.execCommand("strikeThrough")}>
-                <s>S</s>
-              </button>
-
-              <button type="button" style={toolbarBtnStyle}  onMouseDown={(e) => {
-    e.preventDefault();
-    noteEditorRef.current?.focus();
-    document.execCommand("insertUnorderedList", false);}}>
-                •
-              </button>
-
-              <button type="button" style={toolbarBtnStyle}   onMouseDown={(e) => {
-    e.preventDefault();
-    noteEditorRef.current?.focus();
-    document.execCommand("insertOrderedList", false);
-  }}>
-                1
-              </button>
-
-              <button
-                type="button"
-                style={toolbarBtnStyle}
-                onClick={() => {
-                  const url = prompt("Enter link URL");
-                  if (url) document.execCommand("createLink", false, url);
-                }}
-              >
-                🔗
-              </button>
-            </div>
-
+            <div style={{ marginBottom: 10 }}>
+              <RichTextEditor
+               value={noteText}
+              // height={220}
+               onChange={setNoteText}
+               
+              />
+           </div>
             {/* EDITABLE AREA */}
-            <div
-              ref={noteEditorRef}
-              contentEditable
-              suppressContentEditableWarning
-              onInput={(e) => setNoteText(e.currentTarget.innerHTML)}
-              // dangerouslySetInnerHTML={{ __html: noteText }}
-              dir="ltr"
-              style={{
-                minHeight: 220,
-                padding: 12,
-                outline: "none",
-                fontSize: 14,
-                whiteSpace: "normal",
-                direction: "ltr",        // ← NEW
-                textAlign: "left",
-                overflowY: "auto", 
-              }}
-            />
-          </div>
-
-
-
-
           <div style={{ marginTop: 8, fontSize: 12, color: "#6b7280" }}>
             {plainTextLength}/10000
           </div>
@@ -2162,17 +2087,12 @@ useEffect(() => {
             position: "sticky",
           }}
         >
-          <button
-            onClick={() => setIsNoteOpen(false)}
-            style={{
-              border: "none",
-              background: "transparent",
-              color: "#6366f1",
-              fontSize: 14,
-              cursor: "pointer",
-            }}
-          >
-            Cancel
+           <button
+                  onClick={() => setIsNoteOpen(false)}
+                  type="button"
+                  className="px-5 py-2 border border-gray-300 rounded-full text-sm"
+                >
+                  Cancel
           </button>
 
           <button
@@ -2204,7 +2124,7 @@ useEffect(() => {
               />
             )}
 
-            {isSavingNote ? "Saving..." : "Save note"}
+            {isSavingNote ? "Saving..." : "Save"}
           </button>
 
         </div>
