@@ -2183,6 +2183,32 @@ useEffect(() => {
               sendEmailsInBulk(start, end);
             }
           }}
+           onStart={async () => {
+          if (showCreditModal) {
+            return;
+          }
+
+          if (
+            sessionStorage.getItem("isDemoAccount") !== "true"
+          ) {
+            const effectiveUserId =
+              selectedClient !== "" ? selectedClient : userId;
+            const currentCredits =
+              await checkUserCredits?.(effectiveUserId);
+            if (
+              currentCredits &&
+              typeof currentCredits === "object" &&
+              !currentCredits.canGenerate
+            ) {
+              return;
+            }
+          }
+
+          const startIdx = kraftEnableIndexRange && kraftStartIndex ? parseInt(kraftStartIndex) - 1 : currentIndex;
+          handleStart?.(startIdx);
+        }}
+        onStop={handleStop}
+        isResetEnabled={isResetEnabled}
         />
          {sendEmailControls === true && 
             <div className="flex" style={{height:tabPanelHeight}}>
@@ -2478,9 +2504,17 @@ useEffect(() => {
                         >
                           {/* <strong style={{ whiteSpace: "pre" }}>Contact: </strong> */}
                           {/* <span style={{ whiteSpace: "pre" }}> </span> */}
+                          <span
+                           onClick={() => {
+                           const contact = combinedResponses[currentIndex];
+                           if (!contact?.id) return;
+
+                           const contactDetailsUrl = `/#/contact-details/${contact.id}?dataFileId=${combinedResponses[currentIndex]?.dataFileId}`;
+                           window.open(contactDetailsUrl, "_blank");
+                           }}
+                           className="cursor-pointer text-[#3f9f42] hover:underline font-semibold px-[10px]"
+                          >
                           {combinedResponses[currentIndex]?.name || "NA"}
-                          <span className="text-[25px] inline-block relative top-[4px] px-[10px]">
-                            &bull;
                           </span>
                           {combinedResponses[currentIndex]?.title || "NA"}
                           <span className="text-[25px] inline-block relative top-[4px] px-[10px]">
@@ -4175,6 +4209,32 @@ useEffect(() => {
             sendEmailsInBulk(start, end);
           }
         }}
+         onStart={async () => {
+          if (showCreditModal) {
+            return;
+          }
+
+          if (
+            sessionStorage.getItem("isDemoAccount") !== "true"
+          ) {
+            const effectiveUserId =
+              selectedClient !== "" ? selectedClient : userId;
+            const currentCredits =
+              await checkUserCredits?.(effectiveUserId);
+            if (
+              currentCredits &&
+              typeof currentCredits === "object" &&
+              !currentCredits.canGenerate
+            ) {
+              return;
+            }
+          }
+
+          const startIdx = kraftEnableIndexRange && kraftStartIndex ? parseInt(kraftStartIndex) - 1 : currentIndex;
+          handleStart?.(startIdx);
+        }}
+        onStop={handleStop}
+        isResetEnabled={isResetEnabled}
       />
     </div>
   );
