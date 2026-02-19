@@ -1301,6 +1301,23 @@ const fetchGenerationNotes = async (
   }
 };
 
+const resolvePromptSafely = async () => {
+  if (selectedPrompt) return selectedPrompt;
+
+  const stored = sessionStorage.getItem("selectedPrompt");
+  if (stored) {
+    const parsed = JSON.parse(stored);
+    setSelectedPrompt(parsed);
+    return parsed;
+  }
+
+  if (selectedCampaign) {
+    const blueprint = await loadCampaignBlueprint(selectedCampaign);
+    return blueprint;
+  }
+
+  return null;
+};
 
   const goToTab = async (
     tab: string,
@@ -1453,7 +1470,16 @@ const fetchGenerationNotes = async (
 
     try {
       // ======= REGENERATION BLOCK START =======
-      if (!selectedPrompt) {
+      if (!selectedPrompt && !options?.regenerate) {
+        if (options?.regenerate) {
+          setOutputForm(prev => ({
+            ...prev,
+            generatedContent:
+              '<span style="color: blue">Regeneration started...</span><br/>' +
+              prev.generatedContent,
+          }));
+        }
+
         // Determine which variables are missing
         const missingVars = [];
         if (!selectedPrompt) missingVars.push("prompt template");
@@ -1478,278 +1504,241 @@ const fetchGenerationNotes = async (
         return;
       }
 
-          if (options?.regenerate) {
-            lastEmailTokens = 0;
-            lastEmailCost = 0;
-            lastEmailGenerations = 0;
+      if (options?.regenerate) {
+        lastEmailTokens = 0;
+        lastEmailCost = 0;
+        lastEmailGenerations = 0;
 
-            const index =
-              typeof options.regenerateIndex === "number"
-                ? options.regenerateIndex
-                : 0;
+        const index =
+          typeof options.regenerateIndex === "number"
+            ? options.regenerateIndex
+            : 0;
 
-            const entry = allResponses[index];
+        const entry = allResponses[index];
 
-            if (!entry) {
-              setIsProcessing(false);
-              setIsPitchUpdateCompleted(true);
-              setIsPaused(true);
-              return;
-            }
+        if (!entry) {
+          setIsProcessing(false);
+          setIsPitchUpdateCompleted(true);
+          setIsPaused(true);
+          return;
+        }
 
-            const company_name_friendly = entry.company_name || entry.company;
-            const full_name = entry.full_name || entry.name;
-            const job_title = entry.job_title || entry.title;
-            const location = entry.country_or_address || entry.location;
-            const linkedin_url = entry.linkedin_url || entry.linkedin;
-            const website = entry.website;
-            const company_name = entry.company_name || entry.company;
-            const id = entry.id;
-            const dataFileId = entry.dataFileId;
-            const segmentId = entry.segmentId;
+        // ✅ CRITICAL FIX — ALWAYS RESOLVE PROMPT
+        const safePrompt = await resolvePromptSafely();
 
-            const currentDate = new Date().toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            });
+        if (!safePrompt) {
+          setOutputForm(prev => ({
+            ...prev,
+            generatedContent:
+              `<span style="color:red">[${formatDateTime(new Date())}] Error: Prompt template not loaded</span><br/>`
+              + prev.generatedContent,
+          }));
 
-            const generationNotes = await fetchGenerationNotes(
-              effectiveUserId,
-              entry.id,
-            );
+          setIsProcessing(false);
+          setIsPitchUpdateCompleted(true);
+          setIsPaused(true);
+          return;
+        }
 
-            let replacements = buildReplacements(entry, currentDate, {});
-            replacements.notes = generationNotes;
+        const full_name = entry.full_name || entry.name;
+        const company_name = entry.company_name || entry.company;
 
-            const scrappedData = "";
+        const generationNotes = await fetchGenerationNotes(
+          effectiveUserId,
+          entry.id,
+        );
 
-            if (!scrappedData) {
-              setOutputForm(prev => ({
-                ...prev,
-                generatedContent:
-                  `<span style="color: orange">[${formatDateTime(new Date())}] No scraped data for ${full_name}. Generating pitch anyway.</span><br/>`
-                  + prev.generatedContent,
-              }));
-            }
+        let replacements = buildReplacements(entry, currentDate, {});
+        replacements.notes = generationNotes;
 
-            replacements = {
-              ...replacements,
-              search_output_summary: scrappedData || "",
-            };
+        const scrappedData = "";
 
-            const systemPrompt = replaceAllPlaceholders(
-              systemInstructionsA,
-              replacements,
-            );
+        replacements = {
+          ...replacements,
+          search_output_summary: scrappedData,
+        };
 
-            const replacedPromptText = replaceAllPlaceholders(
-              selectedPrompt?.text || "",
-              replacements,
-            );
+        const systemPrompt = replaceAllPlaceholders(
+          systemInstructionsA,
+          replacements,
+        );
 
-            const promptToSend = `\n${systemPrompt}\n${replacedPromptText}`;
+        const replacedPromptText = replaceAllPlaceholders(
+          safePrompt.text || "",
+          replacements,
+        );
 
-            setOutputForm(prev => ({
-              ...prev,
-              currentPrompt: promptToSend,
-              searchResults: [],
-              allScrapedData: "",
-            }));
+        const promptToSend = `\n${systemPrompt}\n${replacedPromptText}`;
 
-            setallprompt(prev => {
-              const updated = [...prev];
-              if (index < updated.length) updated[index] = promptToSend;
-              else updated.push(promptToSend);
-              return updated;
-            });
+        setOutputForm(prev => ({
+          ...prev,
+          currentPrompt: promptToSend,
+          searchResults: [],
+          allScrapedData: "",
+        }));
 
-            // ✅ SAME MESSAGE AS REGULAR FLOW
-            setOutputForm(prev => ({
-              ...prev,
-              generatedContent:
-                `<span style="color: blue">[${formatDateTime(new Date())}] Crafting phase #1 integritas , for contact ${full_name} with company name ${company_name} and domain ${entry.email}</span><br/>`
-                + prev.generatedContent,
-            }));
+        setallprompt(prev => {
+          const updated = [...prev];
+          updated[index] = promptToSend;
+          return updated;
+        });
 
-            const requestBody = {
+        setOutputForm(prev => ({
+          ...prev,
+          generatedContent:
+            `<span style="color: blue">[${formatDateTime(new Date())}] Crafting phase #1 integritas , for contact ${full_name} with company name ${company_name}</span><br/>`
+            + prev.generatedContent,
+        }));
+
+        const pitchResponse = await fetch(
+          `${API_BASE_URL}/api/auth/generatepitch`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
               scrappedData: systemPrompt,
               prompt: replacedPromptText,
               ModelName: selectedModelNameA,
-            };
+            }),
+          },
+        );
 
-            const pitchResponse = await fetch(
-              `${API_BASE_URL}/api/auth/generatepitch`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(requestBody),
-              },
-            );
+        const pitchData = await pitchResponse.json();
 
-            const pitchData = await pitchResponse.json();
+        if (!pitchResponse.ok || !pitchData?.response?.content) {
+          setOutputForm(prev => ({
+            ...prev,
+            generatedContent:
+              `<span style="color:red">[${formatDateTime(new Date())}] Phase #1 integritas incomplete for ${full_name}</span><br/>`
+              + prev.generatedContent,
+          }));
 
-            // ✅ DEFENSIVE FAILURE CHECK (CRITICAL)
-            if (!pitchResponse.ok || !pitchData?.response?.content) {
-              setOutputForm(prev => ({
-                ...prev,
-                generatedContent:
-                  `<span style="color: red">[${formatDateTime(new Date())}] Phase #1 integritas incomplete for contact ${full_name} with company name ${company_name} and domain ${entry.email}</span><br/>`
-                  + prev.generatedContent,
-              }));
+          setIsProcessing(false);
+          setIsPitchUpdateCompleted(true);
+          setIsPaused(true);
+          return;
+        }
 
-              setIsProcessing(false);
-              setIsPitchUpdateCompleted(true);
-              setIsPaused(true);
-              return;
-            }
+        const bodyTokens = Number(pitchData.response.totalTokens || 0);
+        const bodyCost = Number(pitchData.response.currentCost || 0);
 
-            // ✅ TOKEN & COST TRACKING (MATCHES REGULAR)
-            const bodyTokens = Number(pitchData.response.totalTokens || 0);
-            const bodyCost = Number(pitchData.response.currentCost || 0);
+        lastEmailTokens += bodyTokens;
+        lastEmailCost += bodyCost;
 
-            lastEmailTokens += bodyTokens;
-            lastEmailCost += bodyCost;
+        totalEmailTokensRef.current += bodyTokens;
+        totalEmailCostRef.current += bodyCost;
 
-            totalEmailTokensRef.current += bodyTokens;
-            totalEmailCostRef.current += bodyCost;
+        lastEmailGenerations = 1;
+        totalEmailCountRef.current += 1;
 
-            lastEmailGenerations = 1;
-            totalEmailCountRef.current += 1;
+        cost += bodyCost;
+        totaltokensused += bodyTokens;
 
-            cost += bodyCost;
-            totaltokensused += bodyTokens;
+        setOutputForm(prev => ({
+          ...prev,
+          generatedContent:
+            `<span style="color:green">[${formatDateTime(new Date())}] Pitch successfully crafted for ${full_name}</span><br/>`
+            + prev.generatedContent,
+          linkLabel: pitchData.response.content,
+        }));
 
-            // ✅ SUCCESS MESSAGE (IDENTICAL)
-            setOutputForm(prev => ({
-              ...prev,
-              generatedContent:
-                `<span style="color: green">[${formatDateTime(new Date())}] Pitch successfully crafted for contact ${full_name} with company name ${company_name} and domain ${entry.email}</span><br/>`
-                + prev.generatedContent,
-              linkLabel: pitchData.response.content,
-            }));
+        // ✅ SUBJECT LOGIC UNCHANGED
+        const { isAI, manualTemplate } = getSubjectMode();
+        let subjectLine = "";
 
-            // ---------------- SUBJECT GENERATION ----------------
-            const { isAI, manualTemplate } = getSubjectMode();
-            let subjectLine = "";
+        if (isAI) {
+          const filledSubjectInstruction = replaceAllPlaceholders(
+            subject_instruction,
+            {
+              ...replacements,
+              generated_pitch: pitchData.response.content,
+            },
+          );
 
-            if (isAI) {
-              const filledSubjectInstruction = replaceAllPlaceholders(
-                subject_instruction,
-                {
-                  ...replacements,
-                  generated_pitch: pitchData.response.content,
-                },
-              );
-
-              const subjectResponse = await fetch(
-                `${API_BASE_URL}/api/auth/generatepitch`,
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    scrappedData: filledSubjectInstruction,
-                    prompt: pitchData.response.content,
-                    ModelName: selectedModelNameA,
-                  }),
-                },
-              );
-
-              if (subjectResponse.ok) {
-                const subjectData = await subjectResponse.json();
-
-                subjectLine = subjectData.response?.content || "";
-
-                const subjectTokens = Number(subjectData?.response?.totalTokens || 0);
-                const subjectCost = Number(subjectData?.response?.currentCost || 0);
-
-                lastEmailTokens += subjectTokens;
-                lastEmailCost += subjectCost;
-
-                totalEmailTokensRef.current += subjectTokens;
-                totalEmailCostRef.current += subjectCost;
-
-                cost += subjectCost;
-                totaltokensused += subjectTokens;
-              } else {
-                setOutputForm(prev => ({
-                  ...prev,
-                  generatedContent:
-                    `<span style="color: orange">[${formatDateTime(new Date())}] Subject generation skipped for ${full_name}</span><br/>`
-                    + prev.generatedContent,
-                }));
-              }
-            } else if (manualTemplate.trim()) {
-              subjectLine = replaceAllPlaceholders(manualTemplate, {
-                company_name,
-                job_title,
-                location,
-                full_name,
-                linkedin_url,
-                website,
-                date: currentDate,
-                generated_pitch: pitchData.response.content,
-              });
-            }
-
-            // ✅ USAGE UPDATE (IDENTICAL)
-            setOutputForm(prev => ({
-              ...prev,
-              usage: JSON.stringify({
-                last: {
-                  tokens: lastEmailTokens,
-                  cost: Number(lastEmailCost.toFixed(6)),
-                  emails: lastEmailGenerations,
-                },
-                total: {
-                  tokens: totalEmailTokensRef.current,
-                  cost: Number(totalEmailCostRef.current.toFixed(6)),
-                  emails: totalEmailCountRef.current,
-                },
+          const subjectResponse = await fetch(
+            `${API_BASE_URL}/api/auth/generatepitch`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                scrappedData: filledSubjectInstruction,
+                prompt: pitchData.response.content,
+                ModelName: selectedModelNameA,
               }),
-            }));
+            },
+          );
 
-            // ---------------- DATABASE UPDATE (UNCHANGED) ----------------
-            try {
-              if (id) {
-                const requestBody: any = {
-                  clientId: effectiveUserId,
-                  contactId: id,
-                  GPTGenerate: true,
-                  emailSubject: subjectLine,
-                  emailBody: pitchData.response.content,
-                };
+          if (subjectResponse.ok) {
+            const subjectData = await subjectResponse.json();
 
-                if (segmentId) requestBody.segmentId = segmentId;
-                else if (parsedDataFileId) requestBody.dataFileId = parsedDataFileId;
+            subjectLine = subjectData.response?.content || "";
 
-                await fetch(`${API_BASE_URL}/api/crm/contacts/update-email`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(requestBody),
-                });
-              }
-            } catch (e) {
-              console.error("Database update error:", e);
-            }
+            const subjectTokens = Number(subjectData?.response?.totalTokens || 0);
+            const subjectCost = Number(subjectData?.response?.currentCost || 0);
 
-            const newResponse = {
-              ...entry,
-              pitch: pitchData.response.content,
-              subject: subjectLine,
-              generated: true,
-              lastemailupdateddate: new Date().toISOString(),
-            };
+            lastEmailTokens += subjectTokens;
+            lastEmailCost += subjectCost;
 
-            setAllResponses(prev =>
-              prev.map(r => (r.id === id ? newResponse : r)),
-            );
+            totalEmailTokensRef.current += subjectTokens;
+            totalEmailCostRef.current += subjectCost;
 
-            setIsProcessing(false);
-            setIsPitchUpdateCompleted(true);
-            setIsPaused(true);
-            return;
+            cost += subjectCost;
+            totaltokensused += subjectTokens;
           }
+        } else if (manualTemplate?.trim()) {
+          subjectLine = replaceAllPlaceholders(manualTemplate, {
+            ...replacements,
+            generated_pitch: pitchData.response.content,
+          });
+        }
+
+        setOutputForm(prev => ({
+          ...prev,
+          usage: JSON.stringify({
+            last: {
+              tokens: lastEmailTokens,
+              cost: Number(lastEmailCost.toFixed(6)),
+              emails: lastEmailGenerations,
+            },
+            total: {
+              tokens: totalEmailTokensRef.current,
+              cost: Number(totalEmailCostRef.current.toFixed(6)),
+              emails: totalEmailCountRef.current,
+            },
+          }),
+          emailSubject: subjectLine,
+        }));
+
+        try {
+          await fetch(`${API_BASE_URL}/api/crm/contacts/update-email`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              clientId: effectiveUserId,
+              contactId: entry.id,
+              GPTGenerate: true,
+              emailSubject: subjectLine,
+              emailBody: pitchData.response.content,
+            }),
+          });
+        } catch (e) {
+          console.error("Database update error:", e);
+        }
+
+        setAllResponses(prev =>
+          prev.map(r =>
+            r.id === entry.id
+              ? { ...r, pitch: pitchData.response.content, subject: subjectLine }
+              : r,
+          ),
+        );
+
+        setIsProcessing(false);
+        setIsPitchUpdateCompleted(true);
+        setIsPaused(true);
+        return;
+      }
+
 
       // ======= REGENERATION BLOCK END =======
 
@@ -1758,11 +1747,7 @@ const fetchGenerationNotes = async (
       let currentIndex = 0;
       let shouldReplaceFromIndex = false;
 
-      const currentDate = new Date().toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
+
 
       if (
         options?.startFromIndex !== undefined &&

@@ -1015,7 +1015,7 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
     <div className="tip-text">
       <span className="icon">⭐</span>
       <span>
-        Tip: Adjust placeholders or content in your blueprint to see changes
+        Tip: Adjust elements or content in your blueprint to see changes
         reflected here.
       </span>
     </div>
