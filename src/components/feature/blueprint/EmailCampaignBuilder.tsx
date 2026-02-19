@@ -534,7 +534,7 @@ return (
 
         {/* ===== PLACEHOLDER DROPDOWN (INSIDE CHAT) ===== */}
         {(
-          <div className="chat-placeholder-panel"style={{color:'#3f9f42'}}>
+          <div className="chat-placeholder-panel px-[20px] pt-[20px]"style={{color:'#3f9f42'}}>
             
 
             <select
@@ -696,7 +696,12 @@ return (
                   }}
                   disabled={isTyping}
                 />
-                <span style={{ fontSize: "18px" }}>📎</span>
+                <span style={{ fontSize: "18px" }}>
+                  <FontAwesomeIcon
+                        icon={faAngleRight}
+                        className="text-[#ffffff] text-md"
+                      />
+                </span>
               </label>
 
               {/* TEXT INPUT */}
@@ -3714,9 +3719,10 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
             </div>
           )}
           {/* RIGHT SIDE — Notifications */}
-          <li className="flex items-center gap-0 cursor-pointer">
+          <li className="flex items-center gap-0 cursor-pointer ml-[12px]">
             <span
               style={{ color: "#3f9f42", fontWeight: 500 }}
+              className="text-[20px]"
               title={soundEnabled ? "Notifications ON" : "Notifications OFF"}
               onClick={toggleNotifications}
             >
@@ -3726,9 +3732,9 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
             <img
               src={soundEnabled ? toggleOn : toggleOff}
               alt="Notifications Toggle"
+              className="ml-[5px] mt-[4px]"
               style={{
-                height: "24px",
-                width: "42px",
+                height: "30px",
                 objectFit: "contain",
               }}
               onClick={toggleNotifications}
