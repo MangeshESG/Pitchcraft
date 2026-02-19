@@ -23,6 +23,8 @@ import { useSoundAlert } from "../common/useSoundAlert";
 import toggleOn from "../../assets/images/on-button.png";
 import toggleOff from "../../assets/images/off-button.png";
 import DOMPurify from "dompurify";
+import { faAngleRight, faAngleLeft, faCircleRight } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 // In Output.tsx
 interface ZohoClient {
@@ -1733,6 +1735,27 @@ useEffect(() => {
 }, [isEditing]);
 
 
+  const editableArea = useRef<HTMLDivElement | null>(null);
+  const [tabPanelHeight, setTabPanelHeight] = useState(0); // div2 height
+
+    useEffect(() => {
+    const updateHeight = () => {
+      if (editableArea?.current) {
+        setTabPanelHeight(editableArea?.current && editableArea?.current.offsetHeight);
+      }
+    };
+    updateHeight();
+    window.addEventListener("resize", updateHeight);
+    return () => window.removeEventListener("resize", updateHeight);
+  }, []);
+
+  
+
+
+
+
+
+
   return (
     <div className="login-box gap-down">
       {/* Add the selection dropdowns and subject line section */}
@@ -2088,1426 +2111,120 @@ useEffect(() => {
         </div>
       )}
 
-      <span className="pos-relative">
-        <pre
-          style={{
-            overflow: "hidden", // hides scrollbars
-            whiteSpace: "pre-wrap", // wraps text nicely
-            wordBreak: "break-word", // prevents long words from overflowing
-            maxHeight: "70vh", // optional, keeps height reasonable
-          }}
-          className="w-full p-3 py-[5px] border border-gray-300 rounded-lg overflow-y-auto h-[30px] min-h-[30px] break-words whitespace-pre-wrap text-[13px]"
-          dangerouslySetInnerHTML={{
-            __html: formatOutput(outputForm.generatedContent),
-          }}
-        ></pre>
-
-        <Modal
-          show={openModals["modal-output-1"]}
-          closeModal={() => handleModalClose("modal-output-1")}
-          buttonLabel="Ok"
-          size="100%"
-        >
-          <div
-            style={{
-              backgroundColor: "white",
-              padding: "20px",
-              borderRadius: "10px",
-              boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
-            }}
-          >
-            <label>Output</label>
-            <pre
-              className="height-full--25 w-full p-3 border border-gray-300 rounded-lg overflow-y-auto textarea-height-600"
-              dangerouslySetInnerHTML={{
-                __html: formatOutput(outputForm.generatedContent),
-              }}
-            ></pre>
-          </div>
-        </Modal>
-
-        {/* Add the full-view-icon button here */}
-        <button
-          className="full-view-icon d-flex align-center justify-center !top-0 !right-0"
-          onClick={() => handleModalOpen("modal-output-1")}
-        >
-          <svg width="30px" height="30px" viewBox="0 0 512 512">
-            <polyline
-              points="304 96 416 96 416 208"
-              fill="none"
-              stroke="#000000"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="32"
-            />
-            <line
-              x1="405.77"
-              y1="106.2"
-              x2="111.98"
-              y2="400.02"
-              fill="none"
-              stroke="#000000"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="32"
-            />
-            <polyline
-              points="208 416 96 416 96 304"
-              fill="none"
-              stroke="#000000"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="32"
-            />
-          </svg>
-        </button>
-      </span>
-      {/* Wrapper for navigation + contact index */}
-      <div className="d-flex align-items-center gap mt-[26px] gap-3">
-        {/* Navigation buttons */}
-        <div className="d-flex align-items-center gap-1">
-          <button
-            onClick={handleFirstPage}
-            disabled={isProcessing}
-            title="Click to go to the first generated email"
-            className="secondary-button h-[35px] w-[38px] !px-[5px] !py-[10px] flex justify-center items-center"
-          >
-            <img
-              src={previousIcon}
-              alt="Previous"
-              style={{ width: "20px", height: "20px", objectFit: "contain" }}
-            />
-          </button>
-
-          <button
-            onClick={handlePrevPage}
-            disabled={isProcessing || currentIndex === 0}
-            className="secondary-button flex justify-center items-center !px-[10px] h-[35px]"
-            title="Click to go to the previous generated email"
-          >
-            <img
-              src={singleprvIcon}
-              alt="Previous"
-              style={{
-                width: "20px",
-                height: "20px",
-                objectFit: "contain",
-                marginRight: "2px",
-                marginLeft: "-7px",
-              }}
-            />
-            <span>Prev</span>
-          </button>
-
-          <button
-            onClick={handleNextPage}
-            disabled={
-              isProcessing || currentIndex === combinedResponses.length - 1
+      <div className="flex">
+        {/* Send Email Panel */}
+        <SendEmailPanel
+          isOpen={sendEmailControls}
+          onClose={() => setSendEmailControls(!sendEmailControls)}
+          bccOptions={bccOptions}
+          emailFormData={emailFormData}
+          setEmailFormData={setEmailFormData}
+          bccSelectMode={bccSelectMode}
+          setBccSelectMode={setBccSelectMode}
+          smtpUsers={smtpUsers}
+          selectedSmtpUser={selectedSmtpUser}
+          setSelectedSmtpUser={setSelectedSmtpUser}
+          minDelay={minDelay}
+          setMinDelay={setMinDelay}
+          maxDelay={maxDelay}
+          setMaxDelay={setMaxDelay}
+          DELAY_OPTIONS={DELAY_OPTIONS}
+          startIndex={startIndex}
+          setStartIndex={setStartIndex}
+          endIndex={endIndex}
+          setEndIndex={setEndIndex}
+          combinedResponses={combinedResponses}
+          isBulkSending={isBulkSending}
+          countdown={countdown}
+          sendingEmail={sendingEmail}
+          emailMessage={emailMessage}
+          currentIndex={currentIndex}
+          followupEnabled={followupEnabled}
+          enableDelay={enableDelay}
+          setEnableDelay={setEnableDelay}
+          enableIndexRange={enableIndexRange}
+          setEnableIndexRange={setEnableIndexRange}
+          onSendSingle={async () => {
+            if (!combinedResponses[currentIndex]) {
+              toast.error("No contact selected");
+              return;
             }
-            className="secondary-button !h-[35px] !py-[10px] !px-[10px] flex justify-center items-center"
-            title="Click to go to the next generated email"
-          >
-            <span>Next</span>
-            <img
-              src={singlenextIcon}
-              alt="Next"
-              style={{
-                width: "20px",
-                height: "20px",
-                objectFit: "contain",
-                marginLeft: "2px",
-                marginRight: "-7px",
-              }}
-            />
-          </button>
-
-          <button
-            onClick={handleLastPage}
-            disabled={
-              isProcessing || currentIndex === combinedResponses.length - 1
+            if (!selectedSmtpUser) {
+              toast.error("Please select From email");
+              return;
             }
-            className="secondary-button h-[35px] w-[38px] !px-[5px] !py-[10px] flex justify-center items-center !px-[10px]"
-            title="Click to go to the last generated email"
-          >
-            <img
-              src={nextIcon}
-              alt="Next"
-              style={{
-                width: "20px",
-                height: "20px",
-                objectFit: "contain",
-                marginLeft: "2px",
-              }}
-            />
-          </button>
-        </div>
-
-        {/* Contact index */}
-        <div className="d-flex align-items-center font-size-medium h-[35px]">
-          <span className="flex items-center">Contact:</span>
-          <input
-            type="number"
-            value={inputValue}
-            onChange={handleIndexChange}
-            onBlur={() => {
-              if (
-                inputValue.trim() === "" ||
-                isNaN(parseInt(inputValue, 10)) ||
-                parseInt(inputValue, 10) < 1
-              ) {
-                setInputValue((currentIndex + 1).toString());
+            const subject = combinedResponses[currentIndex]?.subject || "No subject";
+            await handleSendEmail(subject);
+          }}
+          onSendAll={() => {
+            if (isBulkSending) {
+              stopBulkSending();
+            } else {
+              if (!selectedSmtpUser) {
+                toast.error("Please select From email first");
+                return;
               }
-            }}
-            min="1"
-            max={combinedResponses.length}
-            className="form-control text-center !mx-2"
-            style={{
-              width: "70px",
-              padding: "8px",
-              border: "1px solid #ddd",
-              borderRadius: "4px",
-            }}
-          />
-          <span className="flex items-center">
-            of{" "}
-            {selectedZohoviewId
-              ? (() => {
-                  const selectedView = zohoClient.find(
-                    (client) => client.zohoviewId === selectedZohoviewId,
-                  );
-                  return selectedView
-                    ? selectedView.totalContact
-                    : combinedResponses.length;
-                })()
-              : zohoClient.reduce(
-                  (sum, client) => sum + client.totalContact,
-                  0,
-                )}
-          </span>
-        </div>
-        {/* Add this inside your green box area */}
-      </div>
-
-      {/* New Tab */}
-      {tab === "New" && (
-        <>
-          <div className="tabs secondary d-flex align-center flex-col-991 justify-between">
-            <ul className="d-flex">
-              <li>
-                <button
-                  onClick={tabHandler2}
-                  className={`button ${tab2 === "Output" ? "active" : ""}`}
-                >
-                  Output
-                </button>
-              </li>
-
-              {userRole === "ADMIN" && (
-                <li>
-                  <button
-                    onClick={tabHandler2}
-                    className={`button ${tab2 === "Stages" ? "active" : ""}`}
-                  >
-                    Stages
-                  </button>
-                </li>
-              )}
-              <li></li>
-            </ul>
-            {!isDemoAccount && (
-              <div
-                className="flex items-center"
-                style={{ marginRight: "890px" }}
+              if (enableDelay && minDelay > maxDelay) {
+                toast.error("Min delay cannot be greater than max delay");
+                return;
+              }
+              const start = enableIndexRange && startIndex ? parseInt(startIndex) - 1 : currentIndex;
+              const end = enableIndexRange && endIndex ? parseInt(endIndex) - 1 : undefined;
+              if (enableIndexRange) {
+                if (start < 0 || start >= combinedResponses.length) {
+                  toast.error("Invalid start index");
+                  return;
+                }
+                if (end !== undefined && (end < start || end >= combinedResponses.length)) {
+                  toast.error("Invalid end index");
+                  return;
+                }
+              }
+              sendEmailsInBulk(start, end);
+            }
+          }}
+        />
+         {sendEmailControls === true && 
+            <div className="flex" style={{height:tabPanelHeight}}>
+              <button
+                className="!rounded-[4px] bg-[#e4ffe5] text-[#3f9f42] font-[600] text-[20px] w-[50px] border-2 border-dashed border-[#b3c7b4] shadow-[rgba(50,50,93,0.25)_0px_13px_27px_-5px,rgba(0,0,0,0.3)_0px_8px_16px_-8px]"
+                onClick={() => setSendEmailControls(!sendEmailControls)}
               >
-                <label className="checkbox-label !mb-[0px] mr-[5px] flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={followupEnabled || false}
-                    onChange={(e) => {
-                      setFollowupEnabled?.(e.target.checked);
-                    }}
-                    className="!mr-0"
-                  />
-                  <span style={{ fontSize: "14px", whiteSpace: "nowrap" }}>
-                    Include email trail
+                <span className="flex items-center gap-[5px] rotate-90 pb-[3px] -mt-[46px]">
+                  
+                  <span className="nowrap">
+                    {sendEmailControls && "Show Tab"}
                   </span>
-                </label>
-              </div>
-            )}
-          </div>
-          {tab2 === "Output" && (
-            <>
-              <div className="form-group mb-0">
-                {/* <div className="d-flex mb-10 align-items-center">
-                  {userRole === "ADMIN" && (
-                    <button
-                      className="button clear-button small d-flex align-center"
-                      onClick={clearContent}
-                    >
-                      <span>Clear output</span>
-                    </button>
-                  )}
-                </div> */}
-                <p>
-                  The Output tab shows the contact details and dynamic fields
-                  for review before sending the email.
-                </p>
-              </div>
-              <div className="form-group mb-0 mt-2">
-                <div className="d-flex justify-between w-full">
-                  <div
-                    className="contact-info !text-[18px] self-start leading-[35px] inline-block break-words break-all text-[#111] px-[10px] py-[5px] bg-[#f5f6fa] rounded-[5px] mt-[10px] mb-[10px] mr-[5px] ml-0 border border-[#b3b3b3]"
-                    style={{ color: "#111111" }}
-                  >
-                    {/* <strong style={{ whiteSpace: "pre" }}>Contact: </strong> */}
-                    {/* <span style={{ whiteSpace: "pre" }}> </span> */}
-                    {combinedResponses[currentIndex]?.name || "NA"}
-                    <span className="text-[25px] inline-block relative top-[4px] px-[10px]">
-                      &bull;
-                    </span>
-                    {combinedResponses[currentIndex]?.title || "NA"}
-                    <span className="text-[25px] inline-block relative top-[4px] px-[10px]">
-                      &bull;
-                    </span>
-                    {combinedResponses[currentIndex]?.company || "NA"}
-                    <span className="text-[25px] inline-block relative top-[4px] px-[10px]">
-                      &bull;
-                    </span>
-                    {combinedResponses[currentIndex]?.location || "NA"}
-                    <span style={{ whiteSpace: "pre" }}> </span>
-                    {/* <span className="inline-block relative top-[6px] mr-[3px]">
-                      <svg width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M14 7H16C18.7614 7 21 9.23858 21 12C21 14.7614 18.7614 17 16 17H14M10 7H8C5.23858 7 3 9.23858 3 12C3 14.7614 5.23858 17 8 17H10M8 12H16" stroke="#3f9f42" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                      </svg>
-                    </span> */}
-                    <ReactTooltip
-                      anchorSelect="#website-icon-tooltip"
-                      place="top"
-                    >
-                      Open company website
-                    </ReactTooltip>
-                    <a
-                      href={
-                        combinedResponses[currentIndex]?.website &&
-                        !combinedResponses[currentIndex]?.website.startsWith(
-                          "http",
-                        )
-                          ? `https://${combinedResponses[currentIndex]?.website}`
-                          : combinedResponses[currentIndex]?.website
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      id="website-icon-tooltip"
-                    >
-                      <span className="inline-block relative top-[8px] mr-[3px]">
-                        <svg
-                          width="26px"
-                          height="26px"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            fill-rule="evenodd"
-                            clip-rule="evenodd"
-                            d="M9.83824 18.4467C10.0103 18.7692 10.1826 19.0598 10.3473 19.3173C8.59745 18.9238 7.07906 17.9187 6.02838 16.5383C6.72181 16.1478 7.60995 15.743 8.67766 15.4468C8.98112 16.637 9.40924 17.6423 9.83824 18.4467ZM11.1618 17.7408C10.7891 17.0421 10.4156 16.1695 10.1465 15.1356C10.7258 15.0496 11.3442 15 12.0001 15C12.6559 15 13.2743 15.0496 13.8535 15.1355C13.5844 16.1695 13.2109 17.0421 12.8382 17.7408C12.5394 18.3011 12.2417 18.7484 12 19.0757C11.7583 18.7484 11.4606 18.3011 11.1618 17.7408ZM9.75 12C9.75 12.5841 9.7893 13.1385 9.8586 13.6619C10.5269 13.5594 11.2414 13.5 12.0001 13.5C12.7587 13.5 13.4732 13.5593 14.1414 13.6619C14.2107 13.1384 14.25 12.5841 14.25 12C14.25 11.4159 14.2107 10.8616 14.1414 10.3381C13.4732 10.4406 12.7587 10.5 12.0001 10.5C11.2414 10.5 10.5269 10.4406 9.8586 10.3381C9.7893 10.8615 9.75 11.4159 9.75 12ZM8.38688 10.0288C8.29977 10.6478 8.25 11.3054 8.25 12C8.25 12.6946 8.29977 13.3522 8.38688 13.9712C7.11338 14.3131 6.05882 14.7952 5.24324 15.2591C4.76698 14.2736 4.5 13.168 4.5 12C4.5 10.832 4.76698 9.72644 5.24323 8.74088C6.05872 9.20472 7.1133 9.68686 8.38688 10.0288ZM10.1465 8.86445C10.7258 8.95042 11.3442 9 12.0001 9C12.6559 9 13.2743 8.95043 13.8535 8.86447C13.5844 7.83055 13.2109 6.95793 12.8382 6.2592C12.5394 5.69894 12.2417 5.25156 12 4.92432C11.7583 5.25156 11.4606 5.69894 11.1618 6.25918C10.7891 6.95791 10.4156 7.83053 10.1465 8.86445ZM15.6131 10.0289C15.7002 10.6479 15.75 11.3055 15.75 12C15.75 12.6946 15.7002 13.3521 15.6131 13.9711C16.8866 14.3131 17.9412 14.7952 18.7568 15.2591C19.233 14.2735 19.5 13.1679 19.5 12C19.5 10.8321 19.233 9.72647 18.7568 8.74093C17.9413 9.20477 16.8867 9.6869 15.6131 10.0289ZM17.9716 7.46178C17.2781 7.85231 16.39 8.25705 15.3224 8.55328C15.0189 7.36304 14.5908 6.35769 14.1618 5.55332C13.9897 5.23077 13.8174 4.94025 13.6527 4.6827C15.4026 5.07623 16.921 6.08136 17.9716 7.46178ZM8.67765 8.55325C7.61001 8.25701 6.7219 7.85227 6.02839 7.46173C7.07906 6.08134 8.59745 5.07623 10.3472 4.6827C10.1826 4.94025 10.0103 5.23076 9.83823 5.5533C9.40924 6.35767 8.98112 7.36301 8.67765 8.55325ZM15.3224 15.4467C15.0189 16.637 14.5908 17.6423 14.1618 18.4467C13.9897 18.7692 13.8174 19.0598 13.6527 19.3173C15.4026 18.9238 16.921 17.9186 17.9717 16.5382C17.2782 16.1477 16.3901 15.743 15.3224 15.4467ZM12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21Z"
-                            fill="#3f9f42"
-                          />
-                        </svg>
-                      </span>
-                      {/* {combinedResponses[currentIndex]?.website || "NA"} */}
-                    </a>
-                    {/* <span style={{ whiteSpace: "pre" }}> </span>| */}
-                    <ReactTooltip anchorSelect="#li-icon-tooltip" place="top">
-                      Open this contact in LinkedIn
-                    </ReactTooltip>
-                    <a
-                      href={combinedResponses[currentIndex]?.linkedin}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        verticalAlign: "middle",
-                        height: "23px",
-                        display: "inline-block",
-                      }}
-                      id="li-icon-tooltip"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="20px"
-                        height="22px"
-                        viewBox="0 0 24 24"
-                        fill="#333333"
-                      >
-                        <path
-                          d="M6.5 8C7.32843 8 8 7.32843 8 6.5C8 5.67157 7.32843 5 6.5 5C5.67157 5 5 5.67157 5 6.5C5 7.32843 5.67157 8 6.5 8Z"
-                          fill="#3f9f42"
-                        ></path>
-                        <path
-                          d="M5 10C5 9.44772 5.44772 9 6 9H7C7.55228 9 8 9.44771 8 10V18C8 18.5523 7.55228 19 7 19H6C5.44772 19 5 18.5523 5 18V10Z"
-                          fill="#3f9f42"
-                        ></path>
-                        <path
-                          d="M11 19H12C12.5523 19 13 18.5523 13 18V13.5C13 12 16 11 16 13V18.0004C16 18.5527 16.4477 19 17 19H18C18.5523 19 19 18.5523 19 18V12C19 10 17.5 9 15.5 9C13.5 9 13 10.5 13 10.5V10C13 9.44771 12.5523 9 12 9H11C10.4477 9 10 9.44772 10 10V18C10 18.5523 10.4477 19 11 19Z"
-                          fill="#3f9f42"
-                        ></path>
-                        <path
-                          fillRule="evenodd"
-                          clipRule="evenodd"
-                          d="M20 1C21.6569 1 23 2.34315 23 4V20C23 21.6569 21.6569 23 20 23H4C2.34315 23 1 21.6569 1 20V4C1 2.34315 2.34315 1 4 1H20ZM20 3C20.5523 3 21 3.44772 21 4V20C21 20.5523 20.5523 21 20 21H4C3.44772 21 3 20.5523 3 20V4C3 3.44772 3.44772 3 4 3H20Z"
-                          fill="#3f9f42"
-                        ></path>
-                      </svg>
-                    </a>
-                    <ReactTooltip
-                      anchorSelect="#email-icon-tooltip"
-                      place="top"
-                    >
-                      Open this email in your local email client
-                    </ReactTooltip>
-                    <a
-                      href={`mailto:${
-                        combinedResponses[currentIndex]?.email || ""
-                      }?subject=${encodeURIComponent(
-                        combinedResponses[currentIndex]?.subject || "",
-                      )}&body=${encodeURIComponent(
-                        combinedResponses[currentIndex]?.pitch || "",
-                      )}`}
-                      title="Open this email in your local email client"
-                      className="ml-[3px]"
-                      style={{
-                        verticalAlign: "middle",
-                        height: "34px",
-                        display: "inline-block",
-                      }}
-                      id="email-icon-tooltip"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="33px"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          clipRule="evenodd"
-                          d="M3.75 5.25L3 6V18L3.75 18.75H20.25L21 18V6L20.25 5.25H3.75ZM4.5 7.6955V17.25H19.5V7.69525L11.9999 14.5136L4.5 7.6955ZM18.3099 6.75H5.68986L11.9999 12.4864L18.3099 6.75Z"
-                          fill="#3f9f42"
-                        ></path>
-                      </svg>
-                    </a>
-                    <ReactTooltip
-                      anchorSelect="#notes-icon-tooltip"
-                      place="top"
-                    >
-                      View/Edit notes for this contact
-                    </ReactTooltip>
-                    <button
-                      id="notes-icon-tooltip"
-                      onClick={() => {
-                        const contact = combinedResponses[currentIndex];
-                        setCurrentNotes(contact?.notes || "");
-                        setIsEditingNotes(true);
-                        setShowNotesModal(true);
-                      }}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        verticalAlign: "middle",
-                        height: "34px",
-                        display: "inline-block",
-                        marginLeft: "3px",
-                      }}
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="24px"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                      >
-                        <path
-                          d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V8L14 2Z"
-                          fill="#3f9f42"
-                        />
-                        <path
-                          d="M14 2V8H20"
-                          fill="none"
-                          stroke="#fff"
-                          strokeWidth="2"
-                        />
-                        <path
-                          d="M16 13H8M16 17H8M10 9H8"
-                          stroke="#fff"
-                          strokeWidth="2"
-                        />
-                      </svg>
-                    </button>
-                  </div>
-
-                  {/* Email Sent Date - remaining width */}
-                  <div
-                    style={{
-                      flex: "1",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "end",
-                      justifyContent: "center",
-                      marginLeft: "0px", // keeps alignment similar to your existing pitch date
-                    }}
-                  >
-                    {/* Pitch Generated Date */}
-                    <span
-                      style={{
-                        fontSize: "13px",
-                        color: "#666",
-                        fontStyle: "italic",
-                      }}
-                    >
-                      {combinedResponses[currentIndex]?.lastemailupdateddate
-                        ? `Krafted: ${formatLocalDateTime(
-                            combinedResponses[currentIndex]
-                              ?.lastemailupdateddate,
-                          )}`
-                        : ""}
-                    </span>
-
-                    {/* Email Sent Date */}
-                    <span
-                      style={{
-                        fontSize: "13px",
-                        color: "#666",
-                        fontStyle: "italic",
-                        marginTop: "2px",
-                      }}
-                    >
-                      {combinedResponses[currentIndex]?.emailsentdate
-                        ? `Emailed: ${formatLocalDateTime(
-                            combinedResponses[currentIndex]?.emailsentdate,
-                          )}`
-                        : ""}
-                    </span>
-                  </div>
-                </div>
-                <div className="form-group" style={{ marginBottom: "20px" }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "start", // changed from flex-start to center
-                    }}
-                  >
-                    {/* Subject field - 48% width */}
-                    <div style={{ flex: "0 0 47%", paddingRight: "15px" }}>
-                      <label
-                        style={{
-                          display: "block",
-                          marginBottom: "8px",
-                          fontWeight: "600",
-                          fontSize: "14px",
-                        }}
-                      >
-                        Subject
-                      </label>
-                    <div style={{ width: "100%" }}>
-                      {!isEditingSubject ? (
-                        /* READ MODE */
-                        <div
-                          className="textarea-full-height"
-                          style={{
-                            minHeight: "30px",
-                            maxHeight: "120px",
-                            padding: "8px",
-                            border: "1px solid #ccc",
-                            borderRadius: "4px",
-                            fontFamily: "inherit",
-                            fontSize: "14px",
-                            backgroundColor: "#f9f9f9",
-                            overflowY: "auto",
-                            width: "100%",
-                            whiteSpace: "normal",
-                            wordWrap: "break-word",
-                            cursor: "pointer",
-                          }}
-                          onClick={() => {
-                            setEditableSubject(
-                              combinedResponses[currentIndex]?.subject || "",
-                            );
-                            setIsEditingSubject(true);
-                          }}
-                          title="Click to edit subject"
-                        >
-                          {combinedResponses[currentIndex]?.subject || "Click to add subject"}
-                        </div>
-                      ) : (
-                        /* EDIT MODE */
-                        <>
-                          <input
-                            type="text"
-                            value={editableSubject}
-                            onChange={(e) => setEditableSubject(e.target.value)}
-                            autoFocus
-                            className="form-control"
-                            style={{
-                              width: "100%",
-                              padding: "8px",
-                              fontSize: "14px",
-                            }}
-                          />
-
-                          <div className="flex gap-2 mt-2">
-                            <button
-                              className="button save-button small"
-                              onClick={saveEditedSubject}
-                              disabled={isSavingSubject}
-                            >
-                              {isSavingSubject ? "Saving..." : "Save"}
-                            </button>
-
-                            <button
-                              className="button secondary small"
-                              onClick={() => {
-                                setEditableSubject(
-                                  combinedResponses[currentIndex]?.subject || "",
-                                );
-                                setIsEditingSubject(false);
-                              }}
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </div>
-
-                    </div>
-
-                  </div>
-                </div>
-                <span className="pos-relative d-flex justify-center">
-                  {isEditing ? (
-                    <div
-                      className="editor-container"
-                      style={{
-                        width: "100%",
-                        maxWidth: `${
-                          outputEmailWidth === "Mobile"
-                            ? "480px"
-                            : outputEmailWidth === "Tab"
-                              ? "768px"
-                              : "100%"
-                        }`,
-                      }}
-                    >
-                      <div
-                        className="editor-toolbar"
-                        style={{
-                          padding: "5px",
-                          border: "1px solid #ccc",
-                          borderBottom: "none",
-                          borderRadius: "4px 4px 0 0",
-                          display: "flex",
-                          flexWrap: "wrap",
-                          gap: "5px",
-                          background: "#f9f9f9",
-                        }}
-                      >
-                        <select
-                          onChange={(e) => {
-                            document.execCommand(
-                              "formatBlock",
-                              false,
-                              e.target.value,
-                            );
-                          }}
-                          style={{
-                            padding: "5px",
-                            border: "1px solid #ddd",
-                            borderRadius: "3px",
-                            marginRight: "5px",
-                            width: "auto",
-                          }}
-                        >
-                          <option value="p">Normal</option>
-                          <option value="h1">Heading 1</option>
-                          <option value="h2">Heading 2</option>
-                          <option value="h3">Heading 3</option>
-                          <option value="pre">Preformatted</option>
-                        </select>
-
-                        <button
-                          type="button"
-                          onClick={() => document.execCommand("bold")}
-                          style={{
-                            padding: "5px 10px",
-                            border: "1px solid #ddd",
-                            borderRadius: "3px",
-                            background: "#fff",
-                            cursor: "pointer",
-                          }}
-                        >
-                          <strong>B</strong>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => document.execCommand("italic")}
-                          style={{
-                            padding: "5px 10px",
-                            border: "1px solid #ddd",
-                            borderRadius: "3px",
-                            background: "#fff",
-                            cursor: "pointer",
-                          }}
-                        >
-                          <em>I</em>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => document.execCommand("underline")}
-                          style={{
-                            padding: "5px 10px",
-                            border: "1px solid #ddd",
-                            borderRadius: "3px",
-                            background: "#fff",
-                            cursor: "pointer",
-                          }}
-                        >
-                          <u>U</u>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => document.execCommand("strikeThrough")}
-                          style={{
-                            padding: "5px 10px",
-                            border: "1px solid #ddd",
-                            borderRadius: "3px",
-                            background: "#fff",
-                            cursor: "pointer",
-                          }}
-                        >
-                          <s>S</s>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            document.execCommand("insertUnorderedList")
-                          }
-                          style={{
-                            padding: "5px 10px",
-                            border: "1px solid #ddd",
-                            borderRadius: "3px",
-                            background: "#fff",
-                            cursor: "pointer",
-                          }}
-                        >
-                          <span>•</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            document.execCommand("insertOrderedList")
-                          }
-                          style={{
-                            padding: "5px 10px",
-                            border: "1px solid #ddd",
-                            borderRadius: "3px",
-                            background: "#fff",
-                            cursor: "pointer",
-                          }}
-                        >
-                          <span>1.</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const url = prompt("Enter link URL:");
-                            if (url)
-                              document.execCommand("createLink", false, url);
-                          }}
-                          style={{
-                            padding: "5px 10px",
-                            border: "1px solid #ddd",
-                            borderRadius: "3px",
-                            background: "#fff",
-                            cursor: "pointer",
-                          }}
-                        >
-                          <span>🔗</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const url = prompt("Enter image URL:");
-                            if (url)
-                              document.execCommand("insertImage", false, url);
-                          }}
-                          style={{
-                            padding: "5px 10px",
-                            border: "1px solid #ddd",
-                            borderRadius: "3px",
-                            background: "#fff",
-                            cursor: "pointer",
-                          }}
-                        >
-                          <span>🖼️</span>
-                        </button>
-                      </div>
-
-                        <div
-                          ref={editorRef}
-                          contentEditable
-                          suppressContentEditableWarning
-                          className="textarea-full-height preview-content-area"
-                          onInput={(e) => {
-                            setEditableContent(e.currentTarget.innerHTML);
-                          }}
-                          style={{
-                            minHeight: "500px",
-                            padding: "10px",
-                            border: "1px solid #ccc",
-                            borderTop: "none",
-                            borderRadius: "0 0 4px 4px",
-                            whiteSpace: "normal",
-                            overflowY: "auto",
-                            overflowX: "auto",
-                            wordWrap: "break-word",
-                            width: "100%",
-                            outline: "none",
-                          }}
-                        />
-
-
-
-                      <div className="editor-actions mt-10 d-flex">
-                        <button
-                          className="action-button button mr-10"
-                          onClick={() => {
-                            if (editorRef.current) {
-                              setEditableContent(editorRef.current.innerHTML);
-                            }
-                            saveEditedContent();
-                          }}
-                          disabled={isSaving}
-                        >
-                          {isSaving ? "Saving..." : "Save changes"}
-                        </button>
-                        <button
-                          className="secondary button"
-                          onClick={() => {
-                            setIsEditing(false);
-                            setEditableContent(
-                              combinedResponses[currentIndex]?.pitch || "",
-                            );
-                          }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <div
-                        className="textarea-full-height preview-content-area"
-                        style={{
-                          minHeight: "500px",
-                          padding: "10px",
-                          border: "1px solid #ccc",
-                          borderRadius: "4px",
-                          fontFamily: "inherit",
-                          fontSize: "inherit",
-                          whiteSpace: "normal",
-                          overflowY: "auto",
-                          overflowX: "auto",
-                          boxSizing: "border-box",
-                          wordWrap: "break-word",
-                          width: "100%",
-                          maxWidth: `${
-                            outputEmailWidth === "Mobile"
-                              ? "480px"
-                              : outputEmailWidth === "Tab"
-                                ? "768px"
-                                : "100%"
-                          }`,
-                        }}
-                        dangerouslySetInnerHTML={{
-                          __html: combinedResponses[currentIndex]?.pitch || "",
-                        }}
-
-                      ></div>
-                      <div className="output-email-floated-icons d-flex bg-[#ffffff] rounded-md">
-                        <div className="d-flex align-items-center justify-between flex-col-991">
-                          <div className="d-flex relative">
-                            <button
-                              onClick={() =>
-                                setOpenDeviceDropdown(!openDeviceDropdown)
-                              }
-                              className="w-[55px] justify-center px-3 py-2 bg-gray-200 rounded-md flex items-center device-icon"
-                              style={{ appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none' }}
-                            >
-                              {outputEmailWidth === "Mobile" && (
-                                <>
-                                  <ReactTooltip
-                                    anchorSelect="#mobile-device-view"
-                                    place="left"
-                                  >
-                                    Mobile view
-                                  </ReactTooltip>
-                                  <span id="mobile-device-view">
-                                    {/* Mobile icon */}
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      width="25px"
-                                      height=""
-                                      viewBox="0 0 24 24"
-                                      fill="none"
-                                    >
-                                      <path
-                                        d="M11 18H13M9.2 21H14.8C15.9201 21 16.4802 21 16.908 20.782C17.2843 20.5903 17.5903 20.2843 17.782 19.908C18 19.4802 18 18.9201 18 17.8V6.2C18 5.0799 18 4.51984 17.782 4.09202C17.5903 3.71569 17.2843 3.40973 16.908 3.21799C16.4802 3 15.9201 3 14.8 3H9.2C8.0799 3 7.51984 3 7.09202 3.21799C6.71569 3.40973 6.40973 3.71569 6.21799 4.09202C6 4.51984 6 5.07989 6 6.2V17.8C6 18.9201 6 19.4802 6.21799 19.908C6.40973 20.2843 6.71569 20.5903 7.09202 20.782C7.51984 21 8.07989 21 9.2 21Z"
-                                        stroke="#000000"
-                                        stroke-width="2"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                      ></path>
-                                    </svg>
-                                  </span>
-                                </>
-                              )}
-                              {outputEmailWidth === "Tab" && (
-                                <>
-                                  <ReactTooltip
-                                    anchorSelect="#tab-device-view"
-                                    place="left"
-                                  >
-                                    Tab view
-                                  </ReactTooltip>
-                                  <span id="tab-device-view">
-                                    {/* Tab icon */}
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      width="25px"
-                                      viewBox="0 0 24 24"
-                                      fill="none"
-                                    >
-                                      <rect
-                                        x="4"
-                                        y="3"
-                                        width="16"
-                                        height="18"
-                                        rx="1"
-                                        stroke="#200E32"
-                                        strokeWidth="2"
-                                        strokeLinecap="round"
-                                      />
-                                      <circle
-                                        cx="12"
-                                        cy="18"
-                                        r="1"
-                                        fill="#200E32"
-                                      />
-                                    </svg>
-                                  </span>
-                                </>
-                              )}
-                              {outputEmailWidth === "" && (
-                                <>
-                                  <ReactTooltip
-                                    anchorSelect="#desktop-device-view"
-                                    place="left"
-                                  >
-                                    Desktop view
-                                  </ReactTooltip>
-                                  <span id="desktop-device-view">
-                                    {/* Desktop icon */}
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      xmlnsXlink="http://www.w3.org/1999/xlink"
-                                      width="25px"
-                                      viewBox="0 0 24 24"
-                                      version="1.1"
-                                    >
-                                      <title>Desktop</title>
-                                      <g
-                                        stroke="none"
-                                        strokeWidth="1"
-                                        fill="none"
-                                        fillRule="evenodd"
-                                      >
-                                        <g>
-                                          <rect
-                                            x="0"
-                                            y="0"
-                                            width="24"
-                                            height="24"
-                                            fillRule="nonzero"
-                                          />
-                                          <rect
-                                            x="3"
-                                            y="4"
-                                            width="18"
-                                            height="13"
-                                            rx="2"
-                                            stroke="#0C0310"
-                                            strokeWidth="2"
-                                            strokeLinecap="round"
-                                          />
-                                          <line
-                                            x1="7.5"
-                                            y1="21"
-                                            x2="16.5"
-                                            y2="21"
-                                            stroke="#0C0310"
-                                            strokeWidth="2"
-                                            strokeLinecap="round"
-                                          />
-                                          <line
-                                            x1="12"
-                                            y1="17"
-                                            x2="12"
-                                            y2="21"
-                                            stroke="#0C0310"
-                                            strokeWidth="2"
-                                            strokeLinecap="round"
-                                          />
-                                        </g>
-                                      </g>
-                                    </svg>
-                                  </span>
-                                </>
-                              )}
-                            </button>
-                            {openDeviceDropdown && (
-                              <div className="w-[55px] absolute right-0 mt-[35px] bg-[#eeeeee] pt-[5px] rounded-b-md rounded-t-none d-flex flex-col output-responsive-button-group justify-center-991 col-12-991">
-                                {outputEmailWidth !== "Mobile" && (
-                                  <>
-                                    <ReactTooltip
-                                      anchorSelect="#mobile-device-view"
-                                      place="left"
-                                    >
-                                      Mobile view
-                                    </ReactTooltip>
-                                    <button
-                                      id="mobile-device-view"
-                                      className={`w-[55px] button pad-10 d-flex align-center align-self-center output-email-width-button-mobile justify-center
-                                    ${
-                                      outputEmailWidth === "Mobile" &&
-                                      "bg-active"
-                                    }
-                                    `}
-                                      onClick={() =>
-                                        toggleOutputEmailWidth("Mobile")
-                                      }
-                                    >
-                                      <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        width="25px"
-                                        height=""
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                      >
-                                        <path
-                                          d="M11 18H13M9.2 21H14.8C15.9201 21 16.4802 21 16.908 20.782C17.2843 20.5903 17.5903 20.2843 17.782 19.908C18 19.4802 18 18.9201 18 17.8V6.2C18 5.0799 18 4.51984 17.782 4.09202C17.5903 3.71569 17.2843 3.40973 16.908 3.21799C16.4802 3 15.9201 3 14.8 3H9.2C8.0799 3 7.51984 3 7.09202 3.21799C6.71569 3.40973 6.40973 3.71569 6.21799 4.09202C6 4.51984 6 5.07989 6 6.2V17.8C6 18.9201 6 19.4802 6.21799 19.908C6.40973 20.2843 6.71569 20.5903 7.09202 20.782C7.51984 21 8.07989 21 9.2 21Z"
-                                          stroke="#000000"
-                                          stroke-width="2"
-                                          stroke-linecap="round"
-                                          stroke-linejoin="round"
-                                        ></path>
-                                      </svg>
-                                      {/* <span className="ml-3 font-size-medium">Mobile View</span> */}
-                                    </button>
-                                  </>
-                                )}
-
-                                {outputEmailWidth !== "Tab" && (
-                                  <>
-                                    <ReactTooltip
-                                      anchorSelect="#tab-device-view"
-                                      place="left"
-                                    >
-                                      Tab view
-                                    </ReactTooltip>
-                                    <button
-                                      id="tab-device-view"
-                                      className={`w-[55px] button pad-10 d-flex align-center align-self-center output-email-width-button-tab justify-center
-                                  ${outputEmailWidth === "Tab" && "bg-active"}
-                                  `}
-                                      onClick={() =>
-                                        toggleOutputEmailWidth("Tab")
-                                      }
-                                    >
-                                      <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        width="25px"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                      >
-                                        <rect
-                                          x="4"
-                                          y="3"
-                                          width="16"
-                                          height="18"
-                                          rx="1"
-                                          stroke="#200E32"
-                                          strokeWidth="2"
-                                          strokeLinecap="round"
-                                        />
-                                        <circle
-                                          cx="12"
-                                          cy="18"
-                                          r="1"
-                                          fill="#200E32"
-                                        />
-                                      </svg>
-                                      {/* <span className="ml-3 font-size-medium">Tab View</span> */}
-                                    </button>
-                                  </>
-                                )}
-
-                                {outputEmailWidth !== "" && (
-                                  <>
-                                    <ReactTooltip
-                                      anchorSelect="#desktop-device-view"
-                                      place="left"
-                                    >
-                                      Desktop view
-                                    </ReactTooltip>
-                                    <button
-                                      id="desktop-device-view"
-                                      className={`w-[55px] button pad-10 d-flex align-center align-self-center output-email-width-button-desktop justify-center
-                                    ${outputEmailWidth === "" && "bg-active"}
-                                    `}
-                                      onClick={() => toggleOutputEmailWidth("")}
-                                    >
-                                      <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        xmlnsXlink="http://www.w3.org/1999/xlink"
-                                        width="25px"
-                                        viewBox="0 0 24 24"
-                                        version="1.1"
-                                      >
-                                        <title>Desktop</title>
-                                        <g
-                                          stroke="none"
-                                          strokeWidth="1"
-                                          fill="none"
-                                          fillRule="evenodd"
-                                        >
-                                          <g>
-                                            <rect
-                                              x="0"
-                                              y="0"
-                                              width="24"
-                                              height="24"
-                                              fillRule="nonzero"
-                                            />
-                                            <rect
-                                              x="3"
-                                              y="4"
-                                              width="18"
-                                              height="13"
-                                              rx="2"
-                                              stroke="#0C0310"
-                                              strokeWidth="2"
-                                              strokeLinecap="round"
-                                            />
-                                            <line
-                                              x1="7.5"
-                                              y1="21"
-                                              x2="16.5"
-                                              y2="21"
-                                              stroke="#0C0310"
-                                              strokeWidth="2"
-                                              strokeLinecap="round"
-                                            />
-                                            <line
-                                              x1="12"
-                                              y1="17"
-                                              x2="12"
-                                              y2="21"
-                                              stroke="#0C0310"
-                                              strokeWidth="2"
-                                              strokeLinecap="round"
-                                            />
-                                          </g>
-                                        </g>
-                                      </svg>
-                                      {/* <span className="ml-5 font-size-medium">Desktop</span> */}
-                                    </button>
-                                  </>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Your existing Generated/Existing indicator */}
-                            {/* {combinedResponses[currentIndex]?.generated ? (
-                            <span
-                              className="generated-indicator d-flex align-center"
-                              title="Generated Content"
-                            >
-                              Generated
-                            </span>
-                          ) : (
-                            combinedResponses[currentIndex] && (
-                              <span
-                                className="existing-indicator d-flex align-center ml-10"
-                                title="Existing Content"
-                              >
-                                Existing
-                              </span>
-                            )
-                          )} */}
-                          </div>
-                        </div>
-                        <>
-                          <ReactTooltip
-                            anchorSelect="#edit-email-body-tooltip"
-                            place="top"
-                          >
-                            Edit this email body
-                          </ReactTooltip>
-                          <button
-                            id="edit-email-body-tooltip"
-                            className="edit-button button d-flex align-center justify-center square-40"
-                              onClick={() => {
-                                const pitch = combinedResponses[currentIndex]?.pitch || "";
-                                setEditableContent(pitch);
-                                  setEditableContent(pitch);       // store content
-
-                                setEditingIndex(currentIndex); // 🔒 lock index
-
-                                setIsEditing(true);
-                              }}                         
-                            >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="28px"
-                              height="28px"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                            >
-                              <path
-                                d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
-                                stroke="#000000"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                            {/* <span className="ml-3">Edit</span> */}
-                          </button>
-                        </>
-
-                        <>
-                          <ReactTooltip
-                            anchorSelect="#regenerate-email-body-tooltip"
-                            place="top"
-                          >
-                            Regenerate this email body
-                          </ReactTooltip>
-                          <button
-                            id="regenerate-email-body-tooltip"
-                            onClick={async () => {
-                              if (showCreditModal) return;
-
-                              if (!combinedResponses[currentIndex]) {
-                                alert("No contact selected to regenerate pitch for.");
-                                return;
-                              }
-                              if (!onRegenerateContact) {
-                                alert("Regenerate logic not wired up! Consult admin.");
-                                return;
-                              }
-
-                              if (sessionStorage.getItem("isDemoAccount") !== "true") {
-                                const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
-                                const currentCredits = await checkUserCredits?.(effectiveUserId);
-                                if (currentCredits && typeof currentCredits === "object" && !currentCredits.canGenerate) {
-                                  return;
-                                }
-                              }
-
-                              setIsRegenerating(true);
-                              setRegenerationTargetId(combinedResponses[currentIndex].id);
-
-                              onRegenerateContact("Output", {
-                                regenerate: true,
-                                regenerateIndex: currentIndex,
-                              });
-
-                              setTimeout(() => setIsRegenerating(false), 2500);
-                            }}
-                            disabled={
-                              !combinedResponses[currentIndex] ||
-                              !isResetEnabled ||
-                              isRegenerating
-                            }
-                            className="button square-40  !bg-transparent justify-center !disabled:bg-transparent"
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              borderRadius: "4px",
-                              background: "none !important",
-                              cursor:
-                                combinedResponses[currentIndex] &&
-                                !isRegenerating
-                                  ? "pointer"
-                                  : "not-allowed",
-                              opacity:
-                                combinedResponses[currentIndex] &&
-                                !isRegenerating
-                                  ? 1
-                                  : 0.6,
-                            }}
-                          >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="20px"
-                              height="20px"
-                              viewBox="0 0 16 16"
-                              fill="none"
-                            >
-                              <g fill="#000000">
-                                <path d="M8 1.5A6.5 6.5 0 001.5 8 .75.75 0 010 8a8 8 0 0113.5-5.81v-.94a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zM15.25 7.25A.75.75 0 0116 8a8 8 0 01-13.5 5.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z" />
-                              </g>
-                            </svg>
-                          </button>
-                        </>
-                        <>
-                          {/* Your existing Copy to clipboard button */}
-                          <ReactTooltip
-                            anchorSelect="#copy-to-clipboard-tooltip"
-                            place="top"
-                          >
-                            Copy the email body to clipboard
-                          </ReactTooltip>
-                          <button
-                            id="copy-to-clipboard-tooltip"
-                            className={`button d-flex align-center square-40 justify-center ${
-                              isCopyText && "save-button auto-width"
-                            }`}
-                            onClick={copyToClipboardHandler}
-                          >
-                            {isCopyText ? (
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="24px"
-                                height="24px"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                              >
-                                <path
-                                  d="M7.29417 12.9577L10.5048 16.1681L17.6729 9"
-                                  stroke="#ffffff"
-                                  strokeWidth="2.5"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                />
-                                <circle
-                                  cx="12"
-                                  cy="12"
-                                  r="10"
-                                  stroke="#ffffff"
-                                  strokeWidth="2"
-                                />
-                              </svg>
-                            ) : (
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="#000000"
-                                width="24px"
-                                height="24px"
-                                viewBox="0 0 32 32"
-                                version="1.1"
-                              >
-                                <title>clipboard-check</title>
-                                <path d="M26 4.75h-2c-0.69 0-1.25 0.56-1.25 1.25s0.56 1.25 1.25 1.25v0h0.75v21.5h-17.5v-21.5h0.75c0.69 0 1.25-0.56 1.25-1.25s-0.56-1.25-1.25-1.25v0h-2c-0.69 0-1.25 0.56-1.25 1.25v0 24c0 0.69 0.56 1.25 1.25 1.25h20c0.69-0.001 1.249-0.56 1.25-1.25v-24c-0-0.69-0.56-1.25-1.25-1.25h-0zM11 9.249h10c0.69 0 1.25-0.56 1.25-1.25s-0.56-1.25-1.25-1.25v0h-1.137c0.242-0.513 0.385-1.114 0.387-1.748v-0.001c0-2.347-1.903-4.25-4.25-4.25s-4.25 1.903-4.25 4.25v0c0.002 0.635 0.145 1.236 0.398 1.775l-0.011-0.026h-1.137c-0.69 0-1.25 0.56-1.25 1.25s0.56 1.25 1.25 1.25v0zM14.25 5c0-0 0-0.001 0-0.001 0-0.966 0.784-1.75 1.75-1.75s1.75 0.784 1.75 1.75c0 0.966-0.784 1.75-1.75 1.75v0c-0.966-0.001-1.748-0.783-1.75-1.749v-0zM19.957 13.156l-6.44 7.039-1.516-1.506c-0.226-0.223-0.536-0.361-0.878-0.361-0.69 0-1.25 0.56-1.25 1.25 0 0.345 0.14 0.658 0.366 0.884v0l2.44 2.424 0.022 0.015 0.015 0.021c0.074 0.061 0.159 0.114 0.25 0.156l0.007 0.003c0.037 0.026 0.079 0.053 0.123 0.077l0.007 0.003c0.135 0.056 0.292 0.089 0.457 0.089 0.175 0 0.341-0.037 0.491-0.103l-0.008 0.003c0.053-0.031 0.098-0.061 0.14-0.094l-0.003 0.002c0.102-0.050 0.189-0.11 0.268-0.179l-0.001 0.001 0.015-0.023 0.020-0.014 7.318-8c0.203-0.222 0.328-0.518 0.328-0.844 0-0.69-0.559-1.25-1.25-1.25-0.365 0-0.693 0.156-0.921 0.405l-0.001 0.001z" />
-                              </svg>
-                            )}
-                            {/* <span className={`ml-5 ${isCopyText && "white"}`}>
-                              {isCopyText ? "Copied!" : "Copy to clipboard"}
-                            </span> */}
-                          </button>
-                        </>
-                      </div>
-
-                      <button
-                        className="full-view-icon d-flex align-center justify-center"
-                        onClick={() => handleModalOpen("modal-output-2")}
-                      >
-                        <svg width="30px" height="30px" viewBox="0 0 512 512">
-                          <polyline
-                            points="304 96 416 96 416 208"
-                            fill="none"
-                            stroke="#000000"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="32"
-                          />
-                          <line
-                            x1="405.77"
-                            y1="106.2"
-                            x2="111.98"
-                            y2="400.02"
-                            fill="none"
-                            stroke="#000000"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="32"
-                          />
-                          <polyline
-                            points="208 416 96 416 96 304"
-                            fill="none"
-                            stroke="#000000"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="32"
-                          />
-                        </svg>
-                      </button>
-                    </>
-                  )}
-                </span>{" "}
-                <div className="d-flex justify-center mt-4"></div>{" "}
-                {/* Add this div for navigation buttons */}
-              </div>
-              {showEmailModal && (
-                <div
-                  className="modal-backdrop"
-                  onClick={() => {
-                    setShowEmailModal(false);
-                    setEmailFormData({ Subject: "", BccEmail: "" });
-                    setSelectedSmtpUser("");
-                    setEmailMessage("");
-                    setEmailError("");
-                  }}
-                  style={{
-                    position: "fixed",
-                    top: 0,
-                    left: 0,
-                    width: "100%",
-                    height: "100%",
-                    backgroundColor: "rgba(0, 0, 0, 0.5)",
-                    backdropFilter: "blur(5px)",
-                    zIndex: 9,
-                  }}
-                />
-              )}
+                  <FontAwesomeIcon
+                    icon={sendEmailControls ? faCircleRight : faAngleLeft}
+                    className="text-[#3f9f42] text-md -rotate-90 pr-[2px]"
+                  />
+                </span>
+              </button>
+            </div>
+            }
+        <div ref={editableArea} className={`${sendEmailControls ? "flex-1" : "flex-4"} ml-[20px] w-[calc(100%-340px)] flex-4 bg-[#ffffff] rounded-[10px] shadow border border-[#cccccc]  shadow-[rgba(50,50,93,0.25)_0px_13px_27px_-5px,rgba(0,0,0,0.3)_0px_8px_16px_-8px]`}>
+          <div className="p-[20px]">
+            <span className="pos-relative">
+              <pre
+                style={{
+                  overflow: "hidden", // hides scrollbars
+                  whiteSpace: "pre-wrap", // wraps text nicely
+                  wordBreak: "break-word", // prevents long words from overflowing
+                  maxHeight: "70vh", // optional, keeps height reasonable
+                }}
+                className="w-full p-3 py-[5px] border border-gray-300 rounded-lg overflow-y-auto h-[30px] min-h-[30px] break-words whitespace-pre-wrap text-[13px]"
+                dangerouslySetInnerHTML={{
+                  __html: formatOutput(outputForm.generatedContent),
+                }}
+              ></pre>
 
               <Modal
-                show={openModals["modal-output-2"]}
-                closeModal={() => {
-                  handleModalClose("modal-output-2");
-                  setIsEditing(false);
-                }}
-                buttonLabel=""
+                show={openModals["modal-output-1"]}
+                closeModal={() => handleModalClose("modal-output-1")}
+                buttonLabel="Ok"
                 size="100%"
               >
-                {" "}
                 <div
                   style={{
                     backgroundColor: "white",
@@ -3516,209 +2233,1609 @@ useEffect(() => {
                     boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
                   }}
                 >
-                  <form
-                    className="full-height"
-                    style={{
-                      margin: 0,
-                      padding: 0,
-                      maxHeight: "85vh",
-                      overflow: "auto",
-                      minWidth: 0,
+                  <label>Output</label>
+                  <pre
+                    className="height-full--25 w-full p-3 border border-gray-300 rounded-lg overflow-y-auto textarea-height-600"
+                    dangerouslySetInnerHTML={{
+                      __html: formatOutput(outputForm.generatedContent),
                     }}
-                  >
-                    <div
-                      style={{ display: "flex", justifyContent: "flex-end" }}
-                    >
-                      <button
-                        type="button"
-                        className="button save-button"
-                        style={{
-                          padding: "8px 16px",
-                          cursor: "pointer",
-                        }}
-                        onClick={() => {
-                          handleModalClose("modal-output-2");
-                          setIsEditing(false);
-                        }}
-                        aria-label="Close"
-                        title="Close"
-                      >
-                        OK
-                      </button>
-                    </div>
-                    <div>
-                      <label>Email body</label>
-                      <div>
-                        <div
-                          ref={editorRef}
-                          contentEditable={true}
-                          suppressContentEditableWarning={true}
-                          className="textarea-full-height preview-content-area"
-                          dangerouslySetInnerHTML={{
-                            __html: editableContent,
-                          }}
-                          onInput={(e) =>
-                            setEditableContent(e.currentTarget.innerHTML)
-                          }
-                          onBlur={(e) =>
-                            setEditableContent(e.currentTarget.innerHTML)
-                          }
-                          style={{
-                            minHeight: "340px",
-                            height: "auto",
-                            maxHeight: "none",
-                            overflow: "visible",
-                            background: "#fff",
-                            width: "100%",
-                            padding: "10px",
-                            border: "1px solid #ccc",
-                            borderRadius: "4px",
-                            fontFamily: "inherit",
-                            fontSize: "inherit",
-                            whiteSpace: "normal",
-                            boxSizing: "border-box",
-                            wordWrap: "break-word",
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </form>
+                  ></pre>
                 </div>
               </Modal>
-            </>
-          
-          )}
-          {tab2 === "Stages" && userRole === "ADMIN" && (
-            <>
-              <div className="tabs secondary d-flex align-center ">
-                <ul className="d-flex full-width flex-wrap-991">
-                  <li className="flex-50percent-991 flex-full-640">
-                    <button
-                      onClick={tabHandler3}
-                      className={`button full-width ${
-                        tab3 === "Stages" ? "active" : ""
-                      }`}
-                    >
-                      Stages
-                    </button>
-                  </li>
-                  <li className="flex-50percent-991 flex-full-640">
 
-                  </li>
-                </ul>
+              {/* Add the full-view-icon button here */}
+              <button
+                className="full-view-icon d-flex align-center justify-center !top-0 !right-0"
+                onClick={() => handleModalOpen("modal-output-1")}
+              >
+                <svg width="30px" height="30px" viewBox="0 0 512 512">
+                  <polyline
+                    points="304 96 416 96 416 208"
+                    fill="none"
+                    stroke="#000000"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="32"
+                  />
+                  <line
+                    x1="405.77"
+                    y1="106.2"
+                    x2="111.98"
+                    y2="400.02"
+                    fill="none"
+                    stroke="#000000"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="32"
+                  />
+                  <polyline
+                    points="208 416 96 416 96 304"
+                    fill="none"
+                    stroke="#000000"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="32"
+                  />
+                </svg>
+              </button>
+            </span>
+            {/* Wrapper for navigation + contact index */}
+            <div className="d-flex align-items-center gap mt-[26px] gap-3">
+              {/* Navigation buttons */}
+              <div className="d-flex align-items-center gap-1">
+                <button
+                  onClick={handleFirstPage}
+                  disabled={isProcessing}
+                  title="Click to go to the first generated email"
+                  className="secondary-button h-[35px] w-[38px] !px-[5px] !py-[10px] flex justify-center items-center"
+                >
+                  <img
+                    src={previousIcon}
+                    alt="Previous"
+                    style={{ width: "20px", height: "20px", objectFit: "contain" }}
+                  />
+                </button>
+
+                <button
+                  onClick={handlePrevPage}
+                  disabled={isProcessing || currentIndex === 0}
+                  className="secondary-button flex justify-center items-center !px-[10px] h-[35px]"
+                  title="Click to go to the previous generated email"
+                >
+                  <img
+                    src={singleprvIcon}
+                    alt="Previous"
+                    style={{
+                      width: "20px",
+                      height: "20px",
+                      objectFit: "contain",
+                      marginRight: "2px",
+                      marginLeft: "-7px",
+                    }}
+                  />
+                  <span>Prev</span>
+                </button>
+
+                <button
+                  onClick={handleNextPage}
+                  disabled={
+                    isProcessing || currentIndex === combinedResponses.length - 1
+                  }
+                  className="secondary-button !h-[35px] !py-[10px] !px-[10px] flex justify-center items-center"
+                  title="Click to go to the next generated email"
+                >
+                  <span>Next</span>
+                  <img
+                    src={singlenextIcon}
+                    alt="Next"
+                    style={{
+                      width: "20px",
+                      height: "20px",
+                      objectFit: "contain",
+                      marginLeft: "2px",
+                      marginRight: "-7px",
+                    }}
+                  />
+                </button>
+
+                <button
+                  onClick={handleLastPage}
+                  disabled={
+                    isProcessing || currentIndex === combinedResponses.length - 1
+                  }
+                  className="secondary-button h-[35px] w-[38px] !px-[5px] !py-[10px] flex justify-center items-center !px-[10px]"
+                  title="Click to go to the last generated email"
+                >
+                  <img
+                    src={nextIcon}
+                    alt="Next"
+                    style={{
+                      width: "20px",
+                      height: "20px",
+                      objectFit: "contain",
+                      marginLeft: "2px",
+                    }}
+                  />
+                </button>
               </div>
-              {tab3 === "Stages" && (
-                <div className="form-group">
-                  <div className="d-flex mb-10"></div>
-                  <span className="pos-relative d-flex justify-center">
-<pre
-  style={{
-    width: "100%",
-    padding: "10px",
-    border: "1px solid #ccc",
-    borderRadius: "4px",
-    fontFamily: "inherit",
-    fontSize: "inherit",
-    whiteSpace: "pre-wrap",
-    /* ✅ IMPORTANT PART */
-    height: "auto",        // let content decide height
-    overflow: "visible",   // no inner scroll    boxSizing: "border-box",
-  }}
->
-  {typeof allprompt[currentIndex] === "string"
-    ? allprompt[currentIndex]
-    : "No prompt available."}
-</pre>
 
+              {/* Contact index */}
+              <div className="d-flex align-items-center font-size-medium h-[35px]">
+                <span className="flex items-center">Contact:</span>
+                <input
+                  type="number"
+                  value={inputValue}
+                  onChange={handleIndexChange}
+                  onBlur={() => {
+                    if (
+                      inputValue.trim() === "" ||
+                      isNaN(parseInt(inputValue, 10)) ||
+                      parseInt(inputValue, 10) < 1
+                    ) {
+                      setInputValue((currentIndex + 1).toString());
+                    }
+                  }}
+                  min="1"
+                  max={combinedResponses.length}
+                  className="form-control text-center !mx-2"
+                  style={{
+                    width: "70px",
+                    padding: "8px",
+                    border: "1px solid #ddd",
+                    borderRadius: "4px",
+                  }}
+                />
+                <span className="flex items-center">
+                  of{" "}
+                  {selectedZohoviewId
+                    ? (() => {
+                      const selectedView = zohoClient.find(
+                        (client) => client.zohoviewId === selectedZohoviewId,
+                      );
+                      return selectedView
+                        ? selectedView.totalContact
+                        : combinedResponses.length;
+                    })()
+                    : zohoClient.reduce(
+                      (sum, client) => sum + client.totalContact,
+                      0,
+                    )}
+                </span>
+              </div>
+              {/* Add this inside your green box area */}
+            </div>
+
+            {/* New Tab */}
+            {tab === "New" && (
+              <>
+                <div className="tabs secondary d-flex align-center flex-col-991 justify-between">
+                  <ul className="d-flex">
+                    <li>
+                      <button
+                        onClick={tabHandler2}
+                        className={`button ${tab2 === "Output" ? "active" : ""}`}
+                      >
+                        Output
+                      </button>
+                    </li>
+
+                    {userRole === "ADMIN" && (
+                      <li>
+                        <button
+                          onClick={tabHandler2}
+                          className={`button ${tab2 === "Stages" ? "active" : ""}`}
+                        >
+                          Stages
+                        </button>
+                      </li>
+                    )}
+                    <li></li>
+                  </ul>
+                  {!isDemoAccount && (
+                    <div
+                      className="flex items-center"
+                      style={{ marginRight: "890px" }}
+                    >
+                      <label className="checkbox-label !mb-[0px] mr-[5px] flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={followupEnabled || false}
+                          onChange={(e) => {
+                            setFollowupEnabled?.(e.target.checked);
+                          }}
+                          className="!mr-0"
+                        />
+                        <span style={{ fontSize: "14px", whiteSpace: "nowrap" }}>
+                          Include email trail
+                        </span>
+                      </label>
+                    </div>
+                  )}
+                </div>
+                {tab2 === "Output" && (
+                  <>
+                    <div className="form-group mb-0">
+                      {/* <div className="d-flex mb-10 align-items-center">
+            {userRole === "ADMIN" && (
+              <button
+                className="button clear-button small d-flex align-center"
+                onClick={clearContent}
+              >
+                <span>Clear output</span>
+              </button>
+            )}
+          </div> */}
+                      <p>
+                        The Output tab shows the contact details and dynamic fields
+                        for review before sending the email.
+                      </p>
+                    </div>
+                    <div className="form-group mb-0 mt-2">
+                      <div className="d-flex justify-between w-full">
+                        <div
+                          className="contact-info !text-[18px] self-start leading-[35px] inline-block break-words break-all text-[#111] px-[10px] py-[5px] bg-[#f5f6fa] rounded-[5px] mt-[10px] mb-[10px] mr-[5px] ml-0 border border-[#b3b3b3]"
+                          style={{ color: "#111111" }}
+                        >
+                          {/* <strong style={{ whiteSpace: "pre" }}>Contact: </strong> */}
+                          {/* <span style={{ whiteSpace: "pre" }}> </span> */}
+                          {combinedResponses[currentIndex]?.name || "NA"}
+                          <span className="text-[25px] inline-block relative top-[4px] px-[10px]">
+                            &bull;
+                          </span>
+                          {combinedResponses[currentIndex]?.title || "NA"}
+                          <span className="text-[25px] inline-block relative top-[4px] px-[10px]">
+                            &bull;
+                          </span>
+                          {combinedResponses[currentIndex]?.company || "NA"}
+                          <span className="text-[25px] inline-block relative top-[4px] px-[10px]">
+                            &bull;
+                          </span>
+                          {combinedResponses[currentIndex]?.location || "NA"}
+                          <span style={{ whiteSpace: "pre" }}> </span>
+                          {/* <span className="inline-block relative top-[6px] mr-[3px]">
+                <svg width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M14 7H16C18.7614 7 21 9.23858 21 12C21 14.7614 18.7614 17 16 17H14M10 7H8C5.23858 7 3 9.23858 3 12C3 14.7614 5.23858 17 8 17H10M8 12H16" stroke="#3f9f42" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span> */}
+                          <ReactTooltip
+                            anchorSelect="#website-icon-tooltip"
+                            place="top"
+                          >
+                            Open company website
+                          </ReactTooltip>
+                          <a
+                            href={
+                              combinedResponses[currentIndex]?.website &&
+                                !combinedResponses[currentIndex]?.website.startsWith(
+                                  "http",
+                                )
+                                ? `https://${combinedResponses[currentIndex]?.website}`
+                                : combinedResponses[currentIndex]?.website
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            id="website-icon-tooltip"
+                          >
+                            <span className="inline-block relative top-[8px] mr-[3px]">
+                              <svg
+                                width="26px"
+                                height="26px"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  fill-rule="evenodd"
+                                  clip-rule="evenodd"
+                                  d="M9.83824 18.4467C10.0103 18.7692 10.1826 19.0598 10.3473 19.3173C8.59745 18.9238 7.07906 17.9187 6.02838 16.5383C6.72181 16.1478 7.60995 15.743 8.67766 15.4468C8.98112 16.637 9.40924 17.6423 9.83824 18.4467ZM11.1618 17.7408C10.7891 17.0421 10.4156 16.1695 10.1465 15.1356C10.7258 15.0496 11.3442 15 12.0001 15C12.6559 15 13.2743 15.0496 13.8535 15.1355C13.5844 16.1695 13.2109 17.0421 12.8382 17.7408C12.5394 18.3011 12.2417 18.7484 12 19.0757C11.7583 18.7484 11.4606 18.3011 11.1618 17.7408ZM9.75 12C9.75 12.5841 9.7893 13.1385 9.8586 13.6619C10.5269 13.5594 11.2414 13.5 12.0001 13.5C12.7587 13.5 13.4732 13.5593 14.1414 13.6619C14.2107 13.1384 14.25 12.5841 14.25 12C14.25 11.4159 14.2107 10.8616 14.1414 10.3381C13.4732 10.4406 12.7587 10.5 12.0001 10.5C11.2414 10.5 10.5269 10.4406 9.8586 10.3381C9.7893 10.8615 9.75 11.4159 9.75 12ZM8.38688 10.0288C8.29977 10.6478 8.25 11.3054 8.25 12C8.25 12.6946 8.29977 13.3522 8.38688 13.9712C7.11338 14.3131 6.05882 14.7952 5.24324 15.2591C4.76698 14.2736 4.5 13.168 4.5 12C4.5 10.832 4.76698 9.72644 5.24323 8.74088C6.05872 9.20472 7.1133 9.68686 8.38688 10.0288ZM10.1465 8.86445C10.7258 8.95042 11.3442 9 12.0001 9C12.6559 9 13.2743 8.95043 13.8535 8.86447C13.5844 7.83055 13.2109 6.95793 12.8382 6.2592C12.5394 5.69894 12.2417 5.25156 12 4.92432C11.7583 5.25156 11.4606 5.69894 11.1618 6.25918C10.7891 6.95791 10.4156 7.83053 10.1465 8.86445ZM15.6131 10.0289C15.7002 10.6479 15.75 11.3055 15.75 12C15.75 12.6946 15.7002 13.3521 15.6131 13.9711C16.8866 14.3131 17.9412 14.7952 18.7568 15.2591C19.233 14.2735 19.5 13.1679 19.5 12C19.5 10.8321 19.233 9.72647 18.7568 8.74093C17.9413 9.20477 16.8867 9.6869 15.6131 10.0289ZM17.9716 7.46178C17.2781 7.85231 16.39 8.25705 15.3224 8.55328C15.0189 7.36304 14.5908 6.35769 14.1618 5.55332C13.9897 5.23077 13.8174 4.94025 13.6527 4.6827C15.4026 5.07623 16.921 6.08136 17.9716 7.46178ZM8.67765 8.55325C7.61001 8.25701 6.7219 7.85227 6.02839 7.46173C7.07906 6.08134 8.59745 5.07623 10.3472 4.6827C10.1826 4.94025 10.0103 5.23076 9.83823 5.5533C9.40924 6.35767 8.98112 7.36301 8.67765 8.55325ZM15.3224 15.4467C15.0189 16.637 14.5908 17.6423 14.1618 18.4467C13.9897 18.7692 13.8174 19.0598 13.6527 19.3173C15.4026 18.9238 16.921 17.9186 17.9717 16.5382C17.2782 16.1477 16.3901 15.743 15.3224 15.4467ZM12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21Z"
+                                  fill="#3f9f42"
+                                />
+                              </svg>
+                            </span>
+                            {/* {combinedResponses[currentIndex]?.website || "NA"} */}
+                          </a>
+                          {/* <span style={{ whiteSpace: "pre" }}> </span>| */}
+                          <ReactTooltip anchorSelect="#li-icon-tooltip" place="top">
+                            Open this contact in LinkedIn
+                          </ReactTooltip>
+                          <a
+                            href={combinedResponses[currentIndex]?.linkedin}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              verticalAlign: "middle",
+                              height: "23px",
+                              display: "inline-block",
+                            }}
+                            id="li-icon-tooltip"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="20px"
+                              height="22px"
+                              viewBox="0 0 24 24"
+                              fill="#333333"
+                            >
+                              <path
+                                d="M6.5 8C7.32843 8 8 7.32843 8 6.5C8 5.67157 7.32843 5 6.5 5C5.67157 5 5 5.67157 5 6.5C5 7.32843 5.67157 8 6.5 8Z"
+                                fill="#3f9f42"
+                              ></path>
+                              <path
+                                d="M5 10C5 9.44772 5.44772 9 6 9H7C7.55228 9 8 9.44771 8 10V18C8 18.5523 7.55228 19 7 19H6C5.44772 19 5 18.5523 5 18V10Z"
+                                fill="#3f9f42"
+                              ></path>
+                              <path
+                                d="M11 19H12C12.5523 19 13 18.5523 13 18V13.5C13 12 16 11 16 13V18.0004C16 18.5527 16.4477 19 17 19H18C18.5523 19 19 18.5523 19 18V12C19 10 17.5 9 15.5 9C13.5 9 13 10.5 13 10.5V10C13 9.44771 12.5523 9 12 9H11C10.4477 9 10 9.44772 10 10V18C10 18.5523 10.4477 19 11 19Z"
+                                fill="#3f9f42"
+                              ></path>
+                              <path
+                                fillRule="evenodd"
+                                clipRule="evenodd"
+                                d="M20 1C21.6569 1 23 2.34315 23 4V20C23 21.6569 21.6569 23 20 23H4C2.34315 23 1 21.6569 1 20V4C1 2.34315 2.34315 1 4 1H20ZM20 3C20.5523 3 21 3.44772 21 4V20C21 20.5523 20.5523 21 20 21H4C3.44772 21 3 20.5523 3 20V4C3 3.44772 3.44772 3 4 3H20Z"
+                                fill="#3f9f42"
+                              ></path>
+                            </svg>
+                          </a>
+                          <ReactTooltip
+                            anchorSelect="#email-icon-tooltip"
+                            place="top"
+                          >
+                            Open this email in your local email client
+                          </ReactTooltip>
+                          <a
+                            href={`mailto:${combinedResponses[currentIndex]?.email || ""
+                              }?subject=${encodeURIComponent(
+                                combinedResponses[currentIndex]?.subject || "",
+                              )}&body=${encodeURIComponent(
+                                combinedResponses[currentIndex]?.pitch || "",
+                              )}`}
+                            title="Open this email in your local email client"
+                            className="ml-[3px]"
+                            style={{
+                              verticalAlign: "middle",
+                              height: "34px",
+                              display: "inline-block",
+                            }}
+                            id="email-icon-tooltip"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="33px"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                clipRule="evenodd"
+                                d="M3.75 5.25L3 6V18L3.75 18.75H20.25L21 18V6L20.25 5.25H3.75ZM4.5 7.6955V17.25H19.5V7.69525L11.9999 14.5136L4.5 7.6955ZM18.3099 6.75H5.68986L11.9999 12.4864L18.3099 6.75Z"
+                                fill="#3f9f42"
+                              ></path>
+                            </svg>
+                          </a>
+                          <ReactTooltip
+                            anchorSelect="#notes-icon-tooltip"
+                            place="top"
+                          >
+                            View/Edit notes for this contact
+                          </ReactTooltip>
+                          <button
+                            id="notes-icon-tooltip"
+                            onClick={() => {
+                              const contact = combinedResponses[currentIndex];
+                              setCurrentNotes(contact?.notes || "");
+                              setIsEditingNotes(true);
+                              setShowNotesModal(true);
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              verticalAlign: "middle",
+                              height: "34px",
+                              display: "inline-block",
+                              marginLeft: "3px",
+                            }}
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="24px"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                            >
+                              <path
+                                d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V8L14 2Z"
+                                fill="#3f9f42"
+                              />
+                              <path
+                                d="M14 2V8H20"
+                                fill="none"
+                                stroke="#fff"
+                                strokeWidth="2"
+                              />
+                              <path
+                                d="M16 13H8M16 17H8M10 9H8"
+                                stroke="#fff"
+                                strokeWidth="2"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+
+                        {/* Email Sent Date - remaining width */}
+                        <div
+                          style={{
+                            flex: "1",
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "end",
+                            justifyContent: "center",
+                            marginLeft: "0px", // keeps alignment similar to your existing pitch date
+                          }}
+                        >
+                          {/* Pitch Generated Date */}
+                          <span
+                            style={{
+                              fontSize: "13px",
+                              color: "#666",
+                              fontStyle: "italic",
+                            }}
+                          >
+                            {combinedResponses[currentIndex]?.lastemailupdateddate
+                              ? `Krafted: ${formatLocalDateTime(
+                                combinedResponses[currentIndex]
+                                  ?.lastemailupdateddate,
+                              )}`
+                              : ""}
+                          </span>
+
+                          {/* Email Sent Date */}
+                          <span
+                            style={{
+                              fontSize: "13px",
+                              color: "#666",
+                              fontStyle: "italic",
+                              marginTop: "2px",
+                            }}
+                          >
+                            {combinedResponses[currentIndex]?.emailsentdate
+                              ? `Emailed: ${formatLocalDateTime(
+                                combinedResponses[currentIndex]?.emailsentdate,
+                              )}`
+                              : ""}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="form-group" style={{ marginBottom: "20px" }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "start", // changed from flex-start to center
+                          }}
+                        >
+                          {/* Subject field - 48% width */}
+                          <div style={{ flex: "0 0 100%"}}>
+                            <label
+                              style={{
+                                display: "block",
+                                marginBottom: "8px",
+                                fontWeight: "600",
+                                fontSize: "14px",
+                              }}
+                            >
+                              Subject
+                            </label>
+                            <div style={{ width: "100%" }}>
+                              {!isEditingSubject ? (
+                                /* READ MODE */
+                                <div
+                                  className="textarea-full-height"
+                                  style={{
+                                    minHeight: "30px",
+                                    maxHeight: "120px",
+                                    padding: "8px",
+                                    border: "1px solid #ccc",
+                                    borderRadius: "4px",
+                                    fontFamily: "inherit",
+                                    fontSize: "14px",
+                                    backgroundColor: "#f9f9f9",
+                                    overflowY: "auto",
+                                    width: "100%",
+                                    whiteSpace: "normal",
+                                    wordWrap: "break-word",
+                                    cursor: "pointer",
+                                  }}
+                                  onClick={() => {
+                                    setEditableSubject(
+                                      combinedResponses[currentIndex]?.subject || "",
+                                    );
+                                    setIsEditingSubject(true);
+                                  }}
+                                  title="Click to edit subject"
+                                >
+                                  {combinedResponses[currentIndex]?.subject || "Click to add subject"}
+                                </div>
+                              ) : (
+                                /* EDIT MODE */
+                                <>
+                                  <input
+                                    type="text"
+                                    value={editableSubject}
+                                    onChange={(e) => setEditableSubject(e.target.value)}
+                                    autoFocus
+                                    className="form-control"
+                                    style={{
+                                      width: "100%",
+                                      padding: "8px",
+                                      fontSize: "14px",
+                                    }}
+                                  />
+
+                                  <div className="flex gap-2 mt-2">
+                                    <button
+                                      className="button save-button small"
+                                      onClick={saveEditedSubject}
+                                      disabled={isSavingSubject}
+                                    >
+                                      {isSavingSubject ? "Saving..." : "Save"}
+                                    </button>
+
+                                    <button
+                                      className="button secondary small"
+                                      onClick={() => {
+                                        setEditableSubject(
+                                          combinedResponses[currentIndex]?.subject || "",
+                                        );
+                                        setIsEditingSubject(false);
+                                      }}
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+
+                          </div>
+
+                        </div>
+                      </div>
+                      <span className="pos-relative d-flex justify-start">
+                        {isEditing ? (
+                          <div
+                            className="editor-container"
+                            style={{
+                              width: "100%",
+                              maxWidth: `${outputEmailWidth === "Mobile"
+                                  ? "480px"
+                                  : outputEmailWidth === "Tab"
+                                    ? "768px"
+                                    : "100%"
+                                }`,
+                            }}
+                          >
+                            <div
+                              className="editor-toolbar"
+                              style={{
+                                padding: "5px",
+                                border: "1px solid #ccc",
+                                borderBottom: "none",
+                                borderRadius: "4px 4px 0 0",
+                                display: "flex",
+                                flexWrap: "wrap",
+                                gap: "5px",
+                                background: "#f9f9f9",
+                              }}
+                            >
+                              <select
+                                onChange={(e) => {
+                                  document.execCommand(
+                                    "formatBlock",
+                                    false,
+                                    e.target.value,
+                                  );
+                                }}
+                                style={{
+                                  padding: "5px",
+                                  border: "1px solid #ddd",
+                                  borderRadius: "3px",
+                                  marginRight: "5px",
+                                  width: "auto",
+                                }}
+                              >
+                                <option value="p">Normal</option>
+                                <option value="h1">Heading 1</option>
+                                <option value="h2">Heading 2</option>
+                                <option value="h3">Heading 3</option>
+                                <option value="pre">Preformatted</option>
+                              </select>
+
+                              <button
+                                type="button"
+                                onClick={() => document.execCommand("bold")}
+                                style={{
+                                  padding: "5px 10px",
+                                  border: "1px solid #ddd",
+                                  borderRadius: "3px",
+                                  background: "#fff",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                <strong>B</strong>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => document.execCommand("italic")}
+                                style={{
+                                  padding: "5px 10px",
+                                  border: "1px solid #ddd",
+                                  borderRadius: "3px",
+                                  background: "#fff",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                <em>I</em>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => document.execCommand("underline")}
+                                style={{
+                                  padding: "5px 10px",
+                                  border: "1px solid #ddd",
+                                  borderRadius: "3px",
+                                  background: "#fff",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                <u>U</u>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => document.execCommand("strikeThrough")}
+                                style={{
+                                  padding: "5px 10px",
+                                  border: "1px solid #ddd",
+                                  borderRadius: "3px",
+                                  background: "#fff",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                <s>S</s>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  document.execCommand("insertUnorderedList")
+                                }
+                                style={{
+                                  padding: "5px 10px",
+                                  border: "1px solid #ddd",
+                                  borderRadius: "3px",
+                                  background: "#fff",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                <span>•</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  document.execCommand("insertOrderedList")
+                                }
+                                style={{
+                                  padding: "5px 10px",
+                                  border: "1px solid #ddd",
+                                  borderRadius: "3px",
+                                  background: "#fff",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                <span>1.</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const url = prompt("Enter link URL:");
+                                  if (url)
+                                    document.execCommand("createLink", false, url);
+                                }}
+                                style={{
+                                  padding: "5px 10px",
+                                  border: "1px solid #ddd",
+                                  borderRadius: "3px",
+                                  background: "#fff",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                <span>🔗</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const url = prompt("Enter image URL:");
+                                  if (url)
+                                    document.execCommand("insertImage", false, url);
+                                }}
+                                style={{
+                                  padding: "5px 10px",
+                                  border: "1px solid #ddd",
+                                  borderRadius: "3px",
+                                  background: "#fff",
+                                  cursor: "pointer",
+                                }}
+                              >
+                                <span>🖼️</span>
+                              </button>
+                            </div>
+
+                            <div
+                              ref={editorRef}
+                              contentEditable
+                              suppressContentEditableWarning
+                              className="textarea-full-height preview-content-area"
+                              onInput={(e) => {
+                                setEditableContent(e.currentTarget.innerHTML);
+                              }}
+                              style={{
+                                minHeight: "500px",
+                                padding: "10px",
+                                border: "1px solid #ccc",
+                                borderTop: "none",
+                                borderRadius: "0 0 4px 4px",
+                                whiteSpace: "normal",
+                                overflowY: "auto",
+                                overflowX: "auto",
+                                wordWrap: "break-word",
+                                width: "100%",
+                                outline: "none",
+                              }}
+                            />
+
+
+
+                            <div className="editor-actions mt-10 d-flex">
+                              <button
+                                className="action-button button mr-10"
+                                onClick={() => {
+                                  if (editorRef.current) {
+                                    setEditableContent(editorRef.current.innerHTML);
+                                  }
+                                  saveEditedContent();
+                                }}
+                                disabled={isSaving}
+                              >
+                                {isSaving ? "Saving..." : "Save changes"}
+                              </button>
+                              <button
+                                className="secondary button"
+                                onClick={() => {
+                                  setIsEditing(false);
+                                  setEditableContent(
+                                    combinedResponses[currentIndex]?.pitch || "",
+                                  );
+                                }}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div
+                              className="textarea-full-height preview-content-area"
+                              style={{
+                                minHeight: "500px",
+                                padding: "10px",
+                                border: "1px solid #ccc",
+                                borderRadius: "4px",
+                                fontFamily: "inherit",
+                                fontSize: "inherit",
+                                whiteSpace: "normal",
+                                overflowY: "auto",
+                                overflowX: "auto",
+                                boxSizing: "border-box",
+                                wordWrap: "break-word",
+                                width: "100%",
+                                maxWidth: `${outputEmailWidth === "Mobile"
+                                    ? "480px"
+                                    : outputEmailWidth === "Tab"
+                                      ? "768px"
+                                      : "100%"
+                                  }`,
+                              }}
+                              dangerouslySetInnerHTML={{
+                                __html: combinedResponses[currentIndex]?.pitch || "",
+                              }}
+
+                            ></div>
+                            <div className="output-email-floated-icons d-flex bg-[#ffffff] rounded-md">
+                              <div className="d-flex align-items-center justify-between flex-col-991">
+                                <div className="d-flex relative">
+                                  <button
+                                    onClick={() =>
+                                      setOpenDeviceDropdown(!openDeviceDropdown)
+                                    }
+                                    className="w-[55px] justify-center px-3 py-2 bg-gray-200 rounded-md flex items-center device-icon"
+                                    style={{ appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none' }}
+                                  >
+                                    {outputEmailWidth === "Mobile" && (
+                                      <>
+                                        <ReactTooltip
+                                          anchorSelect="#mobile-device-view"
+                                          place="left"
+                                        >
+                                          Mobile view
+                                        </ReactTooltip>
+                                        <span id="mobile-device-view">
+                                          {/* Mobile icon */}
+                                          <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            width="25px"
+                                            height=""
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                          >
+                                            <path
+                                              d="M11 18H13M9.2 21H14.8C15.9201 21 16.4802 21 16.908 20.782C17.2843 20.5903 17.5903 20.2843 17.782 19.908C18 19.4802 18 18.9201 18 17.8V6.2C18 5.0799 18 4.51984 17.782 4.09202C17.5903 3.71569 17.2843 3.40973 16.908 3.21799C16.4802 3 15.9201 3 14.8 3H9.2C8.0799 3 7.51984 3 7.09202 3.21799C6.71569 3.40973 6.40973 3.71569 6.21799 4.09202C6 4.51984 6 5.07989 6 6.2V17.8C6 18.9201 6 19.4802 6.21799 19.908C6.40973 20.2843 6.71569 20.5903 7.09202 20.782C7.51984 21 8.07989 21 9.2 21Z"
+                                              stroke="#000000"
+                                              stroke-width="2"
+                                              stroke-linecap="round"
+                                              stroke-linejoin="round"
+                                            ></path>
+                                          </svg>
+                                        </span>
+                                      </>
+                                    )}
+                                    {outputEmailWidth === "Tab" && (
+                                      <>
+                                        <ReactTooltip
+                                          anchorSelect="#tab-device-view"
+                                          place="left"
+                                        >
+                                          Tab view
+                                        </ReactTooltip>
+                                        <span id="tab-device-view">
+                                          {/* Tab icon */}
+                                          <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            width="25px"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                          >
+                                            <rect
+                                              x="4"
+                                              y="3"
+                                              width="16"
+                                              height="18"
+                                              rx="1"
+                                              stroke="#200E32"
+                                              strokeWidth="2"
+                                              strokeLinecap="round"
+                                            />
+                                            <circle
+                                              cx="12"
+                                              cy="18"
+                                              r="1"
+                                              fill="#200E32"
+                                            />
+                                          </svg>
+                                        </span>
+                                      </>
+                                    )}
+                                    {outputEmailWidth === "" && (
+                                      <>
+                                        <ReactTooltip
+                                          anchorSelect="#desktop-device-view"
+                                          place="left"
+                                        >
+                                          Desktop view
+                                        </ReactTooltip>
+                                        <span id="desktop-device-view">
+                                          {/* Desktop icon */}
+                                          <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            xmlnsXlink="http://www.w3.org/1999/xlink"
+                                            width="25px"
+                                            viewBox="0 0 24 24"
+                                            version="1.1"
+                                          >
+                                            <title>Desktop</title>
+                                            <g
+                                              stroke="none"
+                                              strokeWidth="1"
+                                              fill="none"
+                                              fillRule="evenodd"
+                                            >
+                                              <g>
+                                                <rect
+                                                  x="0"
+                                                  y="0"
+                                                  width="24"
+                                                  height="24"
+                                                  fillRule="nonzero"
+                                                />
+                                                <rect
+                                                  x="3"
+                                                  y="4"
+                                                  width="18"
+                                                  height="13"
+                                                  rx="2"
+                                                  stroke="#0C0310"
+                                                  strokeWidth="2"
+                                                  strokeLinecap="round"
+                                                />
+                                                <line
+                                                  x1="7.5"
+                                                  y1="21"
+                                                  x2="16.5"
+                                                  y2="21"
+                                                  stroke="#0C0310"
+                                                  strokeWidth="2"
+                                                  strokeLinecap="round"
+                                                />
+                                                <line
+                                                  x1="12"
+                                                  y1="17"
+                                                  x2="12"
+                                                  y2="21"
+                                                  stroke="#0C0310"
+                                                  strokeWidth="2"
+                                                  strokeLinecap="round"
+                                                />
+                                              </g>
+                                            </g>
+                                          </svg>
+                                        </span>
+                                      </>
+                                    )}
+                                  </button>
+                                  {openDeviceDropdown && (
+                                    <div className="w-[55px] absolute right-0 mt-[35px] bg-[#eeeeee] pt-[5px] rounded-b-md rounded-t-none d-flex flex-col output-responsive-button-group justify-center-991 col-12-991">
+                                      {outputEmailWidth !== "Mobile" && (
+                                        <>
+                                          <ReactTooltip
+                                            anchorSelect="#mobile-device-view"
+                                            place="left"
+                                          >
+                                            Mobile view
+                                          </ReactTooltip>
+                                          <button
+                                            id="mobile-device-view"
+                                            className={`w-[55px] button pad-10 d-flex align-center align-self-center output-email-width-button-mobile justify-center
+                              ${outputEmailWidth === "Mobile" &&
+                                              "bg-active"
+                                              }
+                              `}
+                                            onClick={() =>
+                                              toggleOutputEmailWidth("Mobile")
+                                            }
+                                          >
+                                            <svg
+                                              xmlns="http://www.w3.org/2000/svg"
+                                              width="25px"
+                                              height=""
+                                              viewBox="0 0 24 24"
+                                              fill="none"
+                                            >
+                                              <path
+                                                d="M11 18H13M9.2 21H14.8C15.9201 21 16.4802 21 16.908 20.782C17.2843 20.5903 17.5903 20.2843 17.782 19.908C18 19.4802 18 18.9201 18 17.8V6.2C18 5.0799 18 4.51984 17.782 4.09202C17.5903 3.71569 17.2843 3.40973 16.908 3.21799C16.4802 3 15.9201 3 14.8 3H9.2C8.0799 3 7.51984 3 7.09202 3.21799C6.71569 3.40973 6.40973 3.71569 6.21799 4.09202C6 4.51984 6 5.07989 6 6.2V17.8C6 18.9201 6 19.4802 6.21799 19.908C6.40973 20.2843 6.71569 20.5903 7.09202 20.782C7.51984 21 8.07989 21 9.2 21Z"
+                                                stroke="#000000"
+                                                stroke-width="2"
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                              ></path>
+                                            </svg>
+                                            {/* <span className="ml-3 font-size-medium">Mobile View</span> */}
+                                          </button>
+                                        </>
+                                      )}
+
+                                      {outputEmailWidth !== "Tab" && (
+                                        <>
+                                          <ReactTooltip
+                                            anchorSelect="#tab-device-view"
+                                            place="left"
+                                          >
+                                            Tab view
+                                          </ReactTooltip>
+                                          <button
+                                            id="tab-device-view"
+                                            className={`w-[55px] button pad-10 d-flex align-center align-self-center output-email-width-button-tab justify-center
+                            ${outputEmailWidth === "Tab" && "bg-active"}
+                            `}
+                                            onClick={() =>
+                                              toggleOutputEmailWidth("Tab")
+                                            }
+                                          >
+                                            <svg
+                                              xmlns="http://www.w3.org/2000/svg"
+                                              width="25px"
+                                              viewBox="0 0 24 24"
+                                              fill="none"
+                                            >
+                                              <rect
+                                                x="4"
+                                                y="3"
+                                                width="16"
+                                                height="18"
+                                                rx="1"
+                                                stroke="#200E32"
+                                                strokeWidth="2"
+                                                strokeLinecap="round"
+                                              />
+                                              <circle
+                                                cx="12"
+                                                cy="18"
+                                                r="1"
+                                                fill="#200E32"
+                                              />
+                                            </svg>
+                                            {/* <span className="ml-3 font-size-medium">Tab View</span> */}
+                                          </button>
+                                        </>
+                                      )}
+
+                                      {outputEmailWidth !== "" && (
+                                        <>
+                                          <ReactTooltip
+                                            anchorSelect="#desktop-device-view"
+                                            place="left"
+                                          >
+                                            Desktop view
+                                          </ReactTooltip>
+                                          <button
+                                            id="desktop-device-view"
+                                            className={`w-[55px] button pad-10 d-flex align-center align-self-center output-email-width-button-desktop justify-center
+                              ${outputEmailWidth === "" && "bg-active"}
+                              `}
+                                            onClick={() => toggleOutputEmailWidth("")}
+                                          >
+                                            <svg
+                                              xmlns="http://www.w3.org/2000/svg"
+                                              xmlnsXlink="http://www.w3.org/1999/xlink"
+                                              width="25px"
+                                              viewBox="0 0 24 24"
+                                              version="1.1"
+                                            >
+                                              <title>Desktop</title>
+                                              <g
+                                                stroke="none"
+                                                strokeWidth="1"
+                                                fill="none"
+                                                fillRule="evenodd"
+                                              >
+                                                <g>
+                                                  <rect
+                                                    x="0"
+                                                    y="0"
+                                                    width="24"
+                                                    height="24"
+                                                    fillRule="nonzero"
+                                                  />
+                                                  <rect
+                                                    x="3"
+                                                    y="4"
+                                                    width="18"
+                                                    height="13"
+                                                    rx="2"
+                                                    stroke="#0C0310"
+                                                    strokeWidth="2"
+                                                    strokeLinecap="round"
+                                                  />
+                                                  <line
+                                                    x1="7.5"
+                                                    y1="21"
+                                                    x2="16.5"
+                                                    y2="21"
+                                                    stroke="#0C0310"
+                                                    strokeWidth="2"
+                                                    strokeLinecap="round"
+                                                  />
+                                                  <line
+                                                    x1="12"
+                                                    y1="17"
+                                                    x2="12"
+                                                    y2="21"
+                                                    stroke="#0C0310"
+                                                    strokeWidth="2"
+                                                    strokeLinecap="round"
+                                                  />
+                                                </g>
+                                              </g>
+                                            </svg>
+                                            {/* <span className="ml-5 font-size-medium">Desktop</span> */}
+                                          </button>
+                                        </>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Your existing Generated/Existing indicator */}
+                                  {/* {combinedResponses[currentIndex]?.generated ? (
+                      <span
+                        className="generated-indicator d-flex align-center"
+                        title="Generated Content"
+                      >
+                        Generated
+                      </span>
+                    ) : (
+                      combinedResponses[currentIndex] && (
+                        <span
+                          className="existing-indicator d-flex align-center ml-10"
+                          title="Existing Content"
+                        >
+                          Existing
+                        </span>
+                      )
+                    )} */}
+                                </div>
+                              </div>
+                              <>
+                                <ReactTooltip
+                                  anchorSelect="#edit-email-body-tooltip"
+                                  place="top"
+                                >
+                                  Edit this email body
+                                </ReactTooltip>
+                                <button
+                                  id="edit-email-body-tooltip"
+                                  className="edit-button button d-flex align-center justify-center square-40"
+                                  onClick={() => {
+                                    const pitch = combinedResponses[currentIndex]?.pitch || "";
+                                    setEditableContent(pitch);
+                                    setEditableContent(pitch);       // store content
+
+                                    setEditingIndex(currentIndex); // 🔒 lock index
+
+                                    setIsEditing(true);
+                                  }}
+                                >
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="28px"
+                                    height="28px"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                  >
+                                    <path
+                                      d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
+                                      stroke="#000000"
+                                      strokeWidth="2"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                    />
+                                  </svg>
+                                  {/* <span className="ml-3">Edit</span> */}
+                                </button>
+                              </>
+
+                              <>
+                                <ReactTooltip
+                                  anchorSelect="#regenerate-email-body-tooltip"
+                                  place="top"
+                                >
+                                  Regenerate this email body
+                                </ReactTooltip>
+                                <button
+                                  id="regenerate-email-body-tooltip"
+                                  onClick={async () => {
+                                    if (showCreditModal) return;
+
+                                    if (!combinedResponses[currentIndex]) {
+                                      alert("No contact selected to regenerate pitch for.");
+                                      return;
+                                    }
+                                    if (!onRegenerateContact) {
+                                      alert("Regenerate logic not wired up! Consult admin.");
+                                      return;
+                                    }
+
+                                    if (sessionStorage.getItem("isDemoAccount") !== "true") {
+                                      const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
+                                      const currentCredits = await checkUserCredits?.(effectiveUserId);
+                                      if (currentCredits && typeof currentCredits === "object" && !currentCredits.canGenerate) {
+                                        return;
+                                      }
+                                    }
+
+                                    setIsRegenerating(true);
+                                    setRegenerationTargetId(combinedResponses[currentIndex].id);
+
+                                    onRegenerateContact("Output", {
+                                      regenerate: true,
+                                      regenerateIndex: currentIndex,
+                                    });
+
+                                    setTimeout(() => setIsRegenerating(false), 2500);
+                                  }}
+                                  disabled={
+                                    !combinedResponses[currentIndex] ||
+                                    !isResetEnabled ||
+                                    isRegenerating
+                                  }
+                                  className="button square-40  !bg-transparent justify-center !disabled:bg-transparent"
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    borderRadius: "4px",
+                                    background: "none !important",
+                                    cursor:
+                                      combinedResponses[currentIndex] &&
+                                        !isRegenerating
+                                        ? "pointer"
+                                        : "not-allowed",
+                                    opacity:
+                                      combinedResponses[currentIndex] &&
+                                        !isRegenerating
+                                        ? 1
+                                        : 0.6,
+                                  }}
+                                >
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="20px"
+                                    height="20px"
+                                    viewBox="0 0 16 16"
+                                    fill="none"
+                                  >
+                                    <g fill="#000000">
+                                      <path d="M8 1.5A6.5 6.5 0 001.5 8 .75.75 0 010 8a8 8 0 0113.5-5.81v-.94a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zM15.25 7.25A.75.75 0 0116 8a8 8 0 01-13.5 5.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z" />
+                                    </g>
+                                  </svg>
+                                </button>
+                              </>
+                              <>
+                                {/* Your existing Copy to clipboard button */}
+                                <ReactTooltip
+                                  anchorSelect="#copy-to-clipboard-tooltip"
+                                  place="top"
+                                >
+                                  Copy the email body to clipboard
+                                </ReactTooltip>
+                                <button
+                                  id="copy-to-clipboard-tooltip"
+                                  className={`button d-flex align-center square-40 justify-center ${isCopyText && "save-button auto-width"
+                                    }`}
+                                  onClick={copyToClipboardHandler}
+                                >
+                                  {isCopyText ? (
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      width="24px"
+                                      height="24px"
+                                      viewBox="0 0 24 24"
+                                      fill="none"
+                                    >
+                                      <path
+                                        d="M7.29417 12.9577L10.5048 16.1681L17.6729 9"
+                                        stroke="#ffffff"
+                                        strokeWidth="2.5"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                      />
+                                      <circle
+                                        cx="12"
+                                        cy="12"
+                                        r="10"
+                                        stroke="#ffffff"
+                                        strokeWidth="2"
+                                      />
+                                    </svg>
+                                  ) : (
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      fill="#000000"
+                                      width="24px"
+                                      height="24px"
+                                      viewBox="0 0 32 32"
+                                      version="1.1"
+                                    >
+                                      <title>clipboard-check</title>
+                                      <path d="M26 4.75h-2c-0.69 0-1.25 0.56-1.25 1.25s0.56 1.25 1.25 1.25v0h0.75v21.5h-17.5v-21.5h0.75c0.69 0 1.25-0.56 1.25-1.25s-0.56-1.25-1.25-1.25v0h-2c-0.69 0-1.25 0.56-1.25 1.25v0 24c0 0.69 0.56 1.25 1.25 1.25h20c0.69-0.001 1.249-0.56 1.25-1.25v-24c-0-0.69-0.56-1.25-1.25-1.25h-0zM11 9.249h10c0.69 0 1.25-0.56 1.25-1.25s-0.56-1.25-1.25-1.25v0h-1.137c0.242-0.513 0.385-1.114 0.387-1.748v-0.001c0-2.347-1.903-4.25-4.25-4.25s-4.25 1.903-4.25 4.25v0c0.002 0.635 0.145 1.236 0.398 1.775l-0.011-0.026h-1.137c-0.69 0-1.25 0.56-1.25 1.25s0.56 1.25 1.25 1.25v0zM14.25 5c0-0 0-0.001 0-0.001 0-0.966 0.784-1.75 1.75-1.75s1.75 0.784 1.75 1.75c0 0.966-0.784 1.75-1.75 1.75v0c-0.966-0.001-1.748-0.783-1.75-1.749v-0zM19.957 13.156l-6.44 7.039-1.516-1.506c-0.226-0.223-0.536-0.361-0.878-0.361-0.69 0-1.25 0.56-1.25 1.25 0 0.345 0.14 0.658 0.366 0.884v0l2.44 2.424 0.022 0.015 0.015 0.021c0.074 0.061 0.159 0.114 0.25 0.156l0.007 0.003c0.037 0.026 0.079 0.053 0.123 0.077l0.007 0.003c0.135 0.056 0.292 0.089 0.457 0.089 0.175 0 0.341-0.037 0.491-0.103l-0.008 0.003c0.053-0.031 0.098-0.061 0.14-0.094l-0.003 0.002c0.102-0.050 0.189-0.11 0.268-0.179l-0.001 0.001 0.015-0.023 0.020-0.014 7.318-8c0.203-0.222 0.328-0.518 0.328-0.844 0-0.69-0.559-1.25-1.25-1.25-0.365 0-0.693 0.156-0.921 0.405l-0.001 0.001z" />
+                                    </svg>
+                                  )}
+                                  {/* <span className={`ml-5 ${isCopyText && "white"}`}>
+                        {isCopyText ? "Copied!" : "Copy to clipboard"}
+                      </span> */}
+                                </button>
+                              </>
+                            </div>
+
+                            <button
+                              className="full-view-icon d-flex align-center justify-center"
+                              onClick={() => handleModalOpen("modal-output-2")}
+                            >
+                              <svg width="30px" height="30px" viewBox="0 0 512 512">
+                                <polyline
+                                  points="304 96 416 96 416 208"
+                                  fill="none"
+                                  stroke="#000000"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="32"
+                                />
+                                <line
+                                  x1="405.77"
+                                  y1="106.2"
+                                  x2="111.98"
+                                  y2="400.02"
+                                  fill="none"
+                                  stroke="#000000"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="32"
+                                />
+                                <polyline
+                                  points="208 416 96 416 96 304"
+                                  fill="none"
+                                  stroke="#000000"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="32"
+                                />
+                              </svg>
+                            </button>
+                          </>
+                        )}
+                      </span>{" "}
+                      <div className="d-flex justify-center mt-4"></div>{" "}
+                      {/* Add this div for navigation buttons */}
+                    </div>
+                    {showEmailModal && (
+                      <div
+                        className="modal-backdrop"
+                        onClick={() => {
+                          setShowEmailModal(false);
+                          setEmailFormData({ Subject: "", BccEmail: "" });
+                          setSelectedSmtpUser("");
+                          setEmailMessage("");
+                          setEmailError("");
+                        }}
+                        style={{
+                          position: "fixed",
+                          top: 0,
+                          left: 0,
+                          width: "100%",
+                          height: "100%",
+                          backgroundColor: "rgba(0, 0, 0, 0.5)",
+                          backdropFilter: "blur(5px)",
+                          zIndex: 9,
+                        }}
+                      />
+                    )}
 
                     <Modal
-                      show={openModals["modal-output-3"]}
-                      closeModal={() => handleModalClose("modal-output-3")}
-                      buttonLabel="Ok"
-                        size="90%" 
+                      show={openModals["modal-output-2"]}
+                      closeModal={() => {
+                        handleModalClose("modal-output-2");
+                        setIsEditing(false);
+                      }}
+                      buttonLabel=""
+                      size="100%"
                     >
-                      <label>Stages</label>
-
-                      {/* <pre
-                        className="textarea-full-height preview-content-area"
-                        dangerouslySetInnerHTML={{
-                          __html:
-                            typeof allprompt[currentIndex] === "string"
-                              ? allprompt[currentIndex]
-                              : "No prompt available.",
-                        }}
-                      ></pre> */}
-                      <pre
+                      {" "}
+                      <div
                         style={{
-                          height: "800px",
-                          width: "100%",
-                          padding: "10px",
-                          border: "1px solid #ccc",
-                          borderRadius: "4px",
-                          fontFamily: "inherit",
-                          fontSize: "inherit",
-
-                          /* ✅ KEY FIXES */
-                          whiteSpace: "pre-wrap",     // keep line breaks
-                          wordBreak: "break-word",    // break long words
-                          overflowWrap: "anywhere",   // modern browsers
-                          overflowX: "hidden",        // ❌ no horizontal scroll
-                          overflowY: "auto",          // ✅ vertical scroll only
-
-                          boxSizing: "border-box",
+                          backgroundColor: "white",
+                          padding: "20px",
+                          borderRadius: "10px",
+                          boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
                         }}
                       >
-                        {typeof allprompt[currentIndex] === "string"
-                          ? allprompt[currentIndex]
-                          : "No prompt available."}
-                      </pre>
-
-
+                        <form
+                          className="full-height"
+                          style={{
+                            margin: 0,
+                            padding: 0,
+                            maxHeight: "85vh",
+                            overflow: "auto",
+                            minWidth: 0,
+                          }}
+                        >
+                          <div
+                            style={{ display: "flex", justifyContent: "flex-end" }}
+                          >
+                            <button
+                              type="button"
+                              className="button save-button"
+                              style={{
+                                padding: "8px 16px",
+                                cursor: "pointer",
+                              }}
+                              onClick={() => {
+                                handleModalClose("modal-output-2");
+                                setIsEditing(false);
+                              }}
+                              aria-label="Close"
+                              title="Close"
+                            >
+                              OK
+                            </button>
+                          </div>
+                          <div>
+                            <label>Email body</label>
+                            <div>
+                              <div
+                                ref={editorRef}
+                                contentEditable={true}
+                                suppressContentEditableWarning={true}
+                                className="textarea-full-height preview-content-area"
+                                dangerouslySetInnerHTML={{
+                                  __html: editableContent,
+                                }}
+                                onInput={(e) =>
+                                  setEditableContent(e.currentTarget.innerHTML)
+                                }
+                                onBlur={(e) =>
+                                  setEditableContent(e.currentTarget.innerHTML)
+                                }
+                                style={{
+                                  minHeight: "340px",
+                                  height: "auto",
+                                  maxHeight: "none",
+                                  overflow: "visible",
+                                  background: "#fff",
+                                  width: "100%",
+                                  padding: "10px",
+                                  border: "1px solid #ccc",
+                                  borderRadius: "4px",
+                                  fontFamily: "inherit",
+                                  fontSize: "inherit",
+                                  whiteSpace: "normal",
+                                  boxSizing: "border-box",
+                                  wordWrap: "break-word",
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </form>
+                      </div>
                     </Modal>
-                    <button
-                      className="full-view-icon d-flex align-center justify-center"
-                      onClick={() => handleModalOpen("modal-output-3")}
-                    >
-                      <svg width="40px" height="40px" viewBox="0 0 512 512">
-                        <polyline
-                          points="304 96 416 96 416 208"
-                          fill="none"
-                          stroke="#000000"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="32"
-                        />
-                        <line
-                          x1="405.77"
-                          y1="106.2"
-                          x2="111.98"
-                          y2="400.02"
-                          fill="none"
-                          stroke="#000000"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="32"
-                        />
-                        <polyline
-                          points="208 416 96 416 96 304"
-                          fill="none"
-                          stroke="#000000"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="32"
-                        />
-                      </svg>
-                    </button>
-                  </span>
-                </div>
-              )}
+                  </>
+
+                )}
+                {tab2 === "Stages" && userRole === "ADMIN" && (
+                  <>
+                    <div className="tabs secondary d-flex align-center ">
+                      <ul className="d-flex full-width flex-wrap-991">
+                        <li className="flex-50percent-991 flex-full-640">
+                          <button
+                            onClick={tabHandler3}
+                            className={`button full-width ${tab3 === "Stages" ? "active" : ""
+                              }`}
+                          >
+                            Stages
+                          </button>
+                        </li>
+                        <li className="flex-50percent-991 flex-full-640">
+
+                        </li>
+                      </ul>
+                    </div>
+                    {tab3 === "Stages" && (
+                      <div className="form-group">
+                        <div className="d-flex mb-10"></div>
+                        <span className="pos-relative d-flex justify-start">
+                          <pre
+                            style={{
+                              width: "100%",
+                              padding: "10px",
+                              border: "1px solid #ccc",
+                              borderRadius: "4px",
+                              fontFamily: "inherit",
+                              fontSize: "inherit",
+                              whiteSpace: "pre-wrap",
+                              /* ✅ IMPORTANT PART */
+                              height: "auto",        // let content decide height
+                              overflow: "visible",   // no inner scroll    boxSizing: "border-box",
+                            }}
+                          >
+                            {typeof allprompt[currentIndex] === "string"
+                              ? allprompt[currentIndex]
+                              : "No prompt available."}
+                          </pre>
 
 
-            </>
-          )}
-          {/* Add this after the Output tab and before the Stages tab */}
-        </>
-      )}
+                          <Modal
+                            show={openModals["modal-output-3"]}
+                            closeModal={() => handleModalClose("modal-output-3")}
+                            buttonLabel="Ok"
+                            size="90%"
+                          >
+                            <label>Stages</label>
+
+                            {/* <pre
+                  className="textarea-full-height preview-content-area"
+                  dangerouslySetInnerHTML={{
+                    __html:
+                      typeof allprompt[currentIndex] === "string"
+                        ? allprompt[currentIndex]
+                        : "No prompt available.",
+                  }}
+                ></pre> */}
+                            <pre
+                              style={{
+                                height: "800px",
+                                width: "100%",
+                                padding: "10px",
+                                border: "1px solid #ccc",
+                                borderRadius: "4px",
+                                fontFamily: "inherit",
+                                fontSize: "inherit",
+
+                                /* ✅ KEY FIXES */
+                                whiteSpace: "pre-wrap",     // keep line breaks
+                                wordBreak: "break-word",    // break long words
+                                overflowWrap: "anywhere",   // modern browsers
+                                overflowX: "hidden",        // ❌ no horizontal scroll
+                                overflowY: "auto",          // ✅ vertical scroll only
+
+                                boxSizing: "border-box",
+                              }}
+                            >
+                              {typeof allprompt[currentIndex] === "string"
+                                ? allprompt[currentIndex]
+                                : "No prompt available."}
+                            </pre>
+
+
+                          </Modal>
+                          <button
+                            className="full-view-icon d-flex align-center justify-center"
+                            onClick={() => handleModalOpen("modal-output-3")}
+                          >
+                            <svg width="40px" height="40px" viewBox="0 0 512 512">
+                              <polyline
+                                points="304 96 416 96 416 208"
+                                fill="none"
+                                stroke="#000000"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="32"
+                              />
+                              <line
+                                x1="405.77"
+                                y1="106.2"
+                                x2="111.98"
+                                y2="400.02"
+                                fill="none"
+                                stroke="#000000"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="32"
+                              />
+                              <polyline
+                                points="208 416 96 416 96 304"
+                                fill="none"
+                                stroke="#000000"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="32"
+                              />
+                            </svg>
+                          </button>
+                        </span>
+                      </div>
+                    )}
+
+
+                  </>
+                )}
+                {/* Add this after the Output tab and before the Stages tab */}
+
+
+              </>
+            )}
+          </div>
+        </div>
+
+      </div>
       <AppModal
         isOpen={appModal.isOpen}
         onClose={appModal.hideModal}
@@ -3927,7 +4044,67 @@ useEffect(() => {
         onStop={handleStop}
       />
 
-      {/* Send Email Panel */}
+      {/* Kraft Email Panel */}
+      <KraftEmailPanel
+        isOpen={kraftEmailControls}
+        onClose={() => setKraftEmailControls(false)}
+        isResetEnabled={isResetEnabled}
+        overwriteDatabase={settingsForm?.overwriteDatabase || false}
+        onOverwriteChange={(checked) => {
+          console.log('onOverwriteChange called with:', checked);
+          console.log('settingsFormHandler:', settingsFormHandler);
+          if (settingsFormHandler) {
+            const event = {
+              target: {
+                name: "overwriteDatabase",
+                checked,
+                type: "checkbox",
+              },
+            } as any;
+            console.log('Calling settingsFormHandler with event:', event);
+            settingsFormHandler(event);
+          }
+        }}
+        isDemoAccount={isDemoAccount}
+        startIndex={kraftStartIndex}
+        setStartIndex={setKraftStartIndex}
+        endIndex={kraftEndIndex}
+        setEndIndex={setKraftEndIndex}
+        enableIndexRange={kraftEnableIndexRange}
+        setEnableIndexRange={setKraftEnableIndexRange}
+        combinedResponses={combinedResponses}
+        usageData={usageData}
+        clearUsage={clearUsage}
+        userRole={userRole}
+        currentIndex={currentIndex}
+        onStart={async () => {
+          if (showCreditModal) {
+            return;
+          }
+
+          if (
+            sessionStorage.getItem("isDemoAccount") !== "true"
+          ) {
+            const effectiveUserId =
+              selectedClient !== "" ? selectedClient : userId;
+            const currentCredits =
+              await checkUserCredits?.(effectiveUserId);
+            if (
+              currentCredits &&
+              typeof currentCredits === "object" &&
+              !currentCredits.canGenerate
+            ) {
+              return;
+            }
+          }
+
+          const startIdx = kraftEnableIndexRange && kraftStartIndex ? parseInt(kraftStartIndex) - 1 : currentIndex;
+          handleStart?.(startIdx);
+        }}
+        onStop={handleStop}
+      />
+
+       {/* Send Email Panel */}
       <SendEmailPanel
         isOpen={sendEmailControls}
         onClose={() => setSendEmailControls(false)}

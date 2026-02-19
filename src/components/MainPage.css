@@ -2351,6 +2351,9 @@ textarea {
 }
 
 
+.panel-tab button.active:before{
+  position: absolute; bottom: -1px; left: 0; height: 1px; width: 100%; content: ""; background: #ffffff; z-index: 9999;
+}
 
 
 .output-email-floated-icons .device-icon:before {
