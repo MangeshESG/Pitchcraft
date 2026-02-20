@@ -1821,13 +1821,17 @@ useEffect(() => {
                       <button
                         id="refresh-campaign-tooltip"
                         className="secondary-button flex items-center gap-2 h-[40px] px-3"
-                        onClick={() => {
-                          const contactId = combinedResponses[currentIndex]?.id;
+                        onClick={async () => {
+                          // Save current index
                           sessionStorage.setItem('preserveContactIndex', currentIndex.toString());
-                          if (contactId) {
-                            sessionStorage.setItem('preserveContactId', contactId.toString());
+                          
+                          // Clear existing data
+                          clearContent();
+                          
+                          // Reload campaign - this will trigger the useEffect that loads campaign data
+                          if (handleCampaignChange) {
+                            handleCampaignChange({ target: { value: selectedCampaign } });
                           }
-                          handleCampaignChange?.({ target: { value: selectedCampaign } });
                         }}
                         title="Refresh campaign"
                       >
@@ -1855,15 +1859,31 @@ useEffect(() => {
                           <button
                             id="edit-blueprint-tooltip"
                             className="button d-flex align-center justify-center square-40"
-                            onClick={() => {
+                            onClick={async () => {
                               const campaign = campaigns.find((c) => c.id.toString() === selectedCampaign);
                               if (campaign?.templateId) {
-                                if ((campaign as any).templateDefinitionId) {
-                                  sessionStorage.setItem(
-                                    "selectedTemplateDefinitionId",
-                                    (campaign as any).templateDefinitionId.toString(),
+                                try {
+                                  // ✅ Fetch campaign data to get templateDefinitionId
+                                  const response = await fetch(
+                                    `${API_BASE_URL}/api/CampaignPrompt/campaign/${campaign.templateId}`,
                                   );
+                                  
+                                  if (response.ok) {
+                                    const data = await response.json();
+                                    
+                                    // ✅ Set templateDefinitionId from API response
+                                    if (data.templateDefinitionId) {
+                                      sessionStorage.setItem(
+                                        "selectedTemplateDefinitionId",
+                                        data.templateDefinitionId.toString(),
+                                      );
+                                      console.log("✅ Set templateDefinitionId:", data.templateDefinitionId);
+                                    }
+                                  }
+                                } catch (error) {
+                                  console.error("Error fetching campaign data:", error);
                                 }
+                                
                                 sessionStorage.setItem("editTemplateId", campaign.templateId.toString());
                                 sessionStorage.setItem("editTemplateMode", "true");
                                 sessionStorage.setItem("newCampaignId", campaign.templateId.toString());

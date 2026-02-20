@@ -1442,8 +1442,15 @@ const uploadImage = async (file: File) => {
     setEditableExampleOutput(exampleOutput || "");
   }, [exampleOutput]);
 
+  // ✅ CRITICAL: Sync formValues whenever placeholderValues changes
   useEffect(() => {
-    setFormValues(placeholderValues);
+    if (Object.keys(placeholderValues).length > 0) {
+      setFormValues(prev => {
+        const merged = { ...prev, ...placeholderValues };
+        console.log("✅ formValues synced:", Object.keys(merged));
+        return merged;
+      });
+    }
   }, [placeholderValues]);
 
   // 1️⃣ Reset page ONLY when contacts list changes
@@ -2294,9 +2301,14 @@ const saveAllPlaceholders = async () => {
         const conversationOnly = getConversationPlaceholders(
           template.placeholderValues,
         );
+        console.log("📦 Loading placeholder values:", conversationOnly);
+        console.log("📦 Values:", JSON.stringify(conversationOnly, null, 2));
+        
+        // ✅ Set placeholderValues (formValues will sync via useEffect)
         setPlaceholderValues(conversationOnly);
       } else {
         setPlaceholderValues({});
+        setFormValues({});
       }
 
       if (template.exampleOutput) {
@@ -2756,7 +2768,8 @@ const saveAllPlaceholders = async () => {
     })
     .filter(
       (p) =>
-        !p.isRuntimeOnly && essentialPlaceholderKeys.includes(p.placeholderKey),
+        !p.isRuntimeOnly && 
+        (essentialPlaceholderKeys.length === 0 || essentialPlaceholderKeys.includes(p.placeholderKey))
     )
     .reduce<Record<string, PlaceholderDefinitionUI[]>>((acc, p) => {
       if (!acc[p.category]) {
