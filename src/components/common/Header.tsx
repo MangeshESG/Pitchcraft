@@ -38,16 +38,42 @@ const Header: React.FC<HeaderProps> = React.memo(
     const navigate = useNavigate();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-    const logoutHandler = () => {
-      dispatch(clearToken());
-      localStorage.removeItem("selectedModel");
-      navigate("/");
-    };
+const logoutHandler = () => {
+  dispatch(clearToken());
+
+  localStorage.removeItem("selectedModel");
+
+  // ✅ CRITICAL FIX — prevents stale clientId bugs
+  localStorage.removeItem("selectedClientId");
+  sessionStorage.removeItem("selectedClientId");
+
+  navigate("/");
+};
 
     const toggleMenu = () => setIsMenuOpen((prev) => !prev);
 
-    const effectiveUserId = selectedClient !== "" ? selectedClient : reduxUserId;
+    const effectiveUserId = React.useMemo(() => {
+      const storedClientId =
+        localStorage.getItem("selectedClientId") ||
+        sessionStorage.getItem("selectedClientId");
 
+      if (storedClientId && storedClientId !== "" && storedClientId !== "null") {
+        return storedClientId;
+      }
+
+      if (selectedClient && selectedClient !== "") {
+        return selectedClient;
+      }
+
+      return reduxUserId?.toString();
+    }, [selectedClient, reduxUserId]);
+
+    useEffect(() => {
+  if (selectedClient && selectedClient !== "") {
+    localStorage.setItem("selectedClientId", selectedClient);
+    sessionStorage.setItem("selectedClientId", selectedClient); // optional but nice
+  }
+}, [selectedClient]);
     // Refresh credits when effectiveUserId changes
     useEffect(() => {
       if (effectiveUserId) {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import API_BASE_URL from "../../../config";
@@ -62,7 +62,6 @@ interface Contact {
 const ContactDetailView: React.FC = () => {
   const params = useParams<{ contactId: string }>();
   const contactId = params.contactId;
-  const reduxUserId = useSelector((state: RootState) => state.auth.userId);
 
   const [contact, setContact] = useState<any>(null);
   const [searchParams] = useSearchParams();
@@ -149,10 +148,22 @@ const ContactDetailView: React.FC = () => {
   const [contactDetails, setContactDetails] = useState<any>(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
+const reduxUserId = useSelector((state: RootState) => state.auth.userId);
 
+const effectiveUserId = useMemo(() => {
+  const storedClientId = sessionStorage.getItem("selectedClientId");
 
+  if (storedClientId && storedClientId !== "" && storedClientId !== "null") {
+    return Number(storedClientId);
+  }
 
-
+  return Number(reduxUserId);
+}, [reduxUserId]);
+useEffect(() => {
+  console.log("Redux User:", reduxUserId);
+  console.log("Stored Client:", sessionStorage.getItem("selectedClientId"));
+  console.log("Effective Client:", effectiveUserId);
+}, [reduxUserId, effectiveUserId]);
 
   const inputStyle: React.CSSProperties = {
     width: "100%",
@@ -237,7 +248,7 @@ const ContactDetailView: React.FC = () => {
     }).format(new Date(dateString));
   };
   const fetchContact = async () => {
-    if (!contactId || !reduxUserId) return;
+    if (!contactId || !effectiveUserId) return;
 
     setLoading(true);
     try {
@@ -245,7 +256,7 @@ const ContactDetailView: React.FC = () => {
         `${API_BASE_URL}/api/Crm/contacts/List-by-CleinteId`,
         {
           params: {
-            clientId: reduxUserId,
+            clientId: effectiveUserId,
             dataFileId: dataFileId,
           },
         }
@@ -299,7 +310,7 @@ const ContactDetailView: React.FC = () => {
   };
   useEffect(() => {
     fetchContact();
-  }, [contactId, reduxUserId, dataFileId]);
+  }, [contactId, effectiveUserId, dataFileId]);
 
   const fetchContactDetails = async () => {
     if (!contactId) return;
@@ -334,7 +345,7 @@ const ContactDetailView: React.FC = () => {
     };
   }, []);
   const saveNote = async () => {
-    if (!reduxUserId || !contactId) {
+    if (!effectiveUserId || !contactId) {
       appModal.showError("Client or Contact not found");
       return;
     }
@@ -355,7 +366,7 @@ const ContactDetailView: React.FC = () => {
           {
             params: {
               NoteId: editingNoteId,
-              clientId: reduxUserId,
+              clientId: effectiveUserId,
               contactId: contactId,
               Note: noteText,
               IsPin: isPinned,
@@ -366,7 +377,7 @@ const ContactDetailView: React.FC = () => {
       } else {
         // ✅ ADD NOTE
         await axios.post(`${API_BASE_URL}/api/notes/Add-Note`, {
-          clientId: reduxUserId,
+          clientId: effectiveUserId,
           contactId: contactId,
           note: noteText,
           isPin: isPinned,
@@ -400,12 +411,12 @@ const ContactDetailView: React.FC = () => {
     }
   };
 useEffect(() => {
-  if (contactId && reduxUserId) {
+  if (contactId && effectiveUserId) {
     fetchNotesHistory();
   }
-}, [contactId, reduxUserId]);
+}, [contactId, effectiveUserId]);
   const fetchNotesHistory = async () => {
-    if (!reduxUserId || !contactId) return;
+    if (!effectiveUserId || !contactId) return;
 
     setIsLoadingNotes(true);
     try {
@@ -413,7 +424,7 @@ useEffect(() => {
         `${API_BASE_URL}/api/notes/Get-All-Note`,
         {
           params: {
-            clientId: reduxUserId,
+            clientId: effectiveUserId,
             contactId: contactId,
           },
         }
@@ -432,7 +443,7 @@ useEffect(() => {
     }
   };
   const handleEditNote = async (note: any) => {
-    if (!reduxUserId || !contactId) return;
+    if (!effectiveUserId || !contactId) return;
 
     try {
       setIsEditMode(true);
@@ -443,7 +454,7 @@ useEffect(() => {
         `${API_BASE_URL}/api/notes/Get-Note-By-Id`,
         {
           params: {
-            clientId: reduxUserId,
+            clientId: effectiveUserId,
             contactId: contactId,
             noteId: note.id,
           },
@@ -480,7 +491,7 @@ useEffect(() => {
     setDeletePopupOpen(true);
   };
   const confirmDeleteNote = async () => {
-    if (!reduxUserId || !deleteContactId || !deletingNoteId) return;
+    if (!effectiveUserId || !deleteContactId || !deletingNoteId) return;
 
     try {
       await axios.post(
@@ -488,7 +499,7 @@ useEffect(() => {
         null,
         {
           params: {
-            clientId: reduxUserId,
+            clientId: effectiveUserId,
             contactId: deleteContactId,
             noteId: deletingNoteId,
           },
@@ -510,7 +521,7 @@ useEffect(() => {
   };
 
   const handleTogglePin = async (noteId: number) => {
-    if (!reduxUserId || !contactId) return;
+    if (!effectiveUserId || !contactId) return;
 
     try {
       // Get current note to find its current pin status
@@ -526,7 +537,7 @@ useEffect(() => {
         {
           params: {
             NoteId: noteId,
-            clientId: reduxUserId,
+            clientId: effectiveUserId,
             contactId: contactId,
             Note: noteToToggle.note,
             IsPin: newPinStatus,
@@ -550,14 +561,14 @@ useEffect(() => {
     }
   };
   const handleDeleteNoteClick = async (note: any) => {
-    if (!reduxUserId || !contactId) return;
+    if (!effectiveUserId || !contactId) return;
 
     try {
       const res = await axios.get(
         `${API_BASE_URL}/api/notes/Get-Note-By-Id`,
         {
           params: {
-            clientId: reduxUserId,
+            clientId: effectiveUserId,
             contactId: contactId,
             noteId: note.id,
           },

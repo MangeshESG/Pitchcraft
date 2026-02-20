@@ -610,40 +610,47 @@ const MainPage: React.FC = () => {
     setOpenModals((prev) => ({ ...prev, [id]: false }));
   };
 
-  const handleClientChange = async (
-    event: React.ChangeEvent<HTMLSelectElement>,
-  ) => {
-    const newClientId = event.target.value;
-    setSelectedClient(newClientId);
+const handleClientChange = async (
+  event: React.ChangeEvent<HTMLSelectElement>,
+) => {
+  const newClientId = event.target.value;
 
-    // Reset everything when switching clients
-    setSelectedPrompt(null);
-    setSelectedZohoviewId("");
-    setSelectedCampaign("");
-    setSelectionMode("manual");
-    setPromptList([]);
-    setClientSettings(null);
+  setSelectedClient(newClientId);
 
-    // Clear all local form states (they will later be overwritten
-    // automatically by loadCampaignBlueprint() when user selects a campaign)
-    setSearchTermForm({
-      searchCount: "",
-      searchTerm: "",
-      instructions: "",
-      output: "",
-    });
+  // ✅ CRITICAL FIX — persist client across tabs & refresh
+  if (newClientId) {
+    localStorage.setItem("selectedClientId", newClientId);
+    sessionStorage.setItem("selectedClientId", newClientId);
+  } else {
+    localStorage.removeItem("selectedClientId");
+    sessionStorage.removeItem("selectedClientId");
+  }
 
-    setSettingsForm({
-      systemInstructions: "",
-      subjectInstructions: "",
-      emailTemplate: "",
-    });
+  // Reset everything when switching clients
+  setSelectedPrompt(null);
+  setSelectedZohoviewId("");
+  setSelectedCampaign("");
+  setSelectionMode("manual");
+  setPromptList([]);
+  setClientSettings(null);
 
-    setSelectedModelName("gpt-5"); // default model, will be overwritten by campaign
+  setSearchTermForm({
+    searchCount: "",
+    searchTerm: "",
+    instructions: "",
+    output: "",
+  });
 
-    // Trigger refresh for dependent UI
-    triggerRefresh();
-  };
+  setSettingsForm({
+    systemInstructions: "",
+    subjectInstructions: "",
+    emailTemplate: "",
+  });
+
+  setSelectedModelName("gpt-5");
+
+  triggerRefresh();
+};
 
   useEffect(() => {
     const isAdminString = sessionStorage.getItem("isAdmin");

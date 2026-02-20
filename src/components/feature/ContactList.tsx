@@ -191,7 +191,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   const [activeContactTab, setActiveContactTab] = useState<"profile" | "history">("profile");
   const [showCreateListModal, setShowCreateListModal] = useState(false);
   const [showCreateListOptions, setShowCreateListOptions] = useState(false);
-
+  const [notesHistory, setNotesHistory] = useState<any[]>([]);
   const isDemoAccount = sessionStorage.getItem("isDemoAccount") === "true";
 
   // Segment interface - moved before usage to fix TDZ error
@@ -2630,6 +2630,10 @@ const contactDetailsUrl =
                 <EditContactModal
                   isOpen={true}
                   contact={editingContact}
+                  
+                  
+                  notesHistory={notesHistory}     // ✅ FIXED
+
                   asPage={true}           // ✅ INLINE MODE
                   hideOverlay={true}
                   onClose={() => setEditingContact(null)}
@@ -2718,6 +2722,9 @@ const contactDetailsUrl =
                     isOpen={true}
                     asPage={true}
                     hideOverlay={true}
+                    notesHistory={notesHistory}     // ✅ FIXED
+
+                    
                     contact={editingContact}
                     onClose={() => {
                       setShowContactPage(false);
@@ -3653,6 +3660,9 @@ const contactDetailsUrl =
                     isOpen={true}
                     asPage={true}
                     hideOverlay={true}
+                    
+                    notesHistory={notesHistory}     // ✅ FIXED
+
                     contact={editingContact}
                     onClose={() => {
                       setShowContactPage(false);
@@ -4311,6 +4321,8 @@ const contactDetailsUrl =
           setShowEditContactModal(false);
           setEditingContact(null);
         }}
+          notesHistory={notesHistory}     // ✅ FIXED
+
         contact={editingContact}
         onContactUpdated={() => {
           if (viewMode === "detail" && selectedDataFileForView) {
