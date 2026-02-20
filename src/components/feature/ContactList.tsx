@@ -240,6 +240,9 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingContacts, setIsLoadingContacts] = useState(false);
+  const [isDeletingContact, setIsDeletingContact] = useState(false);
+  const [isCloningContact, setIsCloningContact] = useState(false);
+  const [isUnsubscribing, setIsUnsubscribing] = useState(false);
 
   const handleTabChange = (tab: string) => {
     setActiveSubTab(tab);
@@ -263,7 +266,34 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
       }
 
       const data: DataFileItem[] = await response.json();
-      setDataFiles(data);
+      
+      // Fetch Super List contact count
+      let superListCount = 0;
+      try {
+        const countResponse = await fetch(
+          `${API_BASE_URL}/api/Crm/allcontacts/count-by-clientId?clientId=${effectiveUserId}`
+        );
+        if (countResponse.ok) {
+          const countData = await countResponse.json();
+          superListCount = countData.contactCount || 0;
+        }
+      } catch (err) {
+        console.error("Error fetching super list count:", err);
+      }
+      
+      // Add Super List as default list
+      const superList: DataFileItem = {
+        id: -1,
+        client_id: Number(effectiveUserId),
+        name: "All Contact",
+        data_file_name: "super_list",
+        description: "All contacts from all lists",
+        created_at: new Date().toISOString(),
+        contacts: [],
+        contactCount: superListCount
+      };
+      
+      setDataFiles([superList, ...data]);
        
       console.log("datafiles",data);
     } catch (error) {
@@ -279,9 +309,18 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
 
     setIsLoadingContacts(true);
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/Crm/contacts/List-by-CleinteId?clientId=${effectiveUserId}&dataFileId=${selectedDataFile}`
-      );
+      let response;
+      
+      // Check if Super List is selected
+      if (selectedDataFile === "-1") {
+        response = await fetch(
+          `${API_BASE_URL}/api/Crm/allcontacts/list-by-clientId?clientId=${effectiveUserId}`
+        );
+      } else {
+        response = await fetch(
+          `${API_BASE_URL}/api/Crm/contacts/List-by-CleinteId?clientId=${effectiveUserId}&dataFileId=${selectedDataFile}`
+        );
+      }
 
       if (!response.ok) {
         throw new Error("Failed to fetch contacts");
@@ -662,7 +701,7 @@ const formatTimeIST = (dateString?: string) => {
     if (contactsToDelete.length === 0) return;
 
     try {
-      setIsLoading(true);
+      setIsDeletingContact(true);
 
       for (const contactId of contactsToDelete) {
         const response = await fetch(
@@ -698,7 +737,7 @@ const formatTimeIST = (dateString?: string) => {
       console.error("Error deleting contacts:", error);
       appModal.showError("Failed to delete contacts");
     } finally {
-      setIsLoading(false);
+      setIsDeletingContact(false);
     }
   };
 
@@ -711,7 +750,7 @@ const formatTimeIST = (dateString?: string) => {
     if (contactsToDelete.length === 0) return;
 
     try {
-      setIsLoading(true);
+      setIsDeletingContact(true);
 
       for (const contactId of contactsToDelete) {
         const response = await fetch(
@@ -745,7 +784,7 @@ const formatTimeIST = (dateString?: string) => {
       console.error("Error deleting contacts:", error);
       appModal.showError("Failed to delete contacts");
     } finally {
-      setIsLoading(false);
+      setIsDeletingContact(false);
     }
   };
 
@@ -758,7 +797,7 @@ const formatTimeIST = (dateString?: string) => {
     if (contactsToUnsubscribe.length === 0) return;
 
     try {
-      setIsLoading(true);
+      setIsUnsubscribing(true);
       let successCount = 0;
       let errorCount = 0;
 
@@ -823,7 +862,7 @@ const formatTimeIST = (dateString?: string) => {
       console.error("Error unsubscribing contacts:", error);
       appModal.showError("Failed to unsubscribe contacts");
     } finally {
-      setIsLoading(false);
+      setIsUnsubscribing(false);
     }
   };
 
@@ -1156,7 +1195,12 @@ const formatTimeIST = (dateString?: string) => {
     try {
       let url = "";
       if (type === "list") {
-        url = `${API_BASE_URL}/api/Crm/contacts/List-by-CleinteId?clientId=${effectiveUserId}&dataFileId=${item.id}`;
+        // Check if Super List is selected
+        if (item.id === -1) {
+          url = `${API_BASE_URL}/api/Crm/allcontacts/list-by-clientId?clientId=${effectiveUserId}`;
+        } else {
+          url = `${API_BASE_URL}/api/Crm/contacts/List-by-CleinteId?clientId=${effectiveUserId}&dataFileId=${item.id}`;
+        }
       } else {
         // Use the new segment-contacts endpoint
         url = `${API_BASE_URL}/api/Crm/segment-contacts?clientId=${effectiveUserId}&segmentId=${item.id}`;
@@ -1935,7 +1979,7 @@ const formatTimeIST = (dateString?: string) => {
                               {file.name}
                             </span>
                           </td>
-                          <td>#{file.id}</td>
+                          <td>#{file.id === -1 ? "ALL" : file.id}</td>
                           <td>Your First Folder</td>
                           <td>{file.contactCount || file.contacts?.length || 0}</td>
                           <td>
@@ -1945,6 +1989,7 @@ const formatTimeIST = (dateString?: string) => {
                           </td>
                           <td>{file.description || "-"}</td>
                           <td style={{ position: "relative" }}>
+                            {file.id !== -1 && (
                             <button
                               className="segment-actions-btn  font-[600]"
                               style={{
@@ -1964,6 +2009,7 @@ const formatTimeIST = (dateString?: string) => {
                             >
                               ⋮
                             </button>
+                            )}
                             {listActionsAnchor === file.id.toString() && (
                               <div
                                 className="segment-actions-menu  py-[10px]"
@@ -2349,50 +2395,63 @@ const contactDetailsUrl =
                           {detailSelectedContacts.size > 1 ? "s" : ""} selected
                         </span>
                         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+                          {detailSelectedContacts.size === 1 && (
+                            <button
+                              className="button secondary"
+                              onClick={async () => {
+                                const contactId = Array.from(detailSelectedContacts)[0];
+                                try {
+                                  setIsCloningContact(true);
+                                  const response = await fetch(
+                                    `${API_BASE_URL}/api/Crm/clone-contact?contactId=${contactId}`,
+                                    { method: "POST", headers: { "accept": "*/*" } }
+                                  );
+                                  if (!response.ok) throw new Error("Failed to clone contact");
+                                  appModal.showSuccess("Contact cloned successfully!");
+                                  if (selectedDataFileForView) {
+                                    fetchDetailContacts("list", selectedDataFileForView);
+                                  }
+                                  setDetailSelectedContacts(new Set());
+                                } catch (error) {
+                                  appModal.showError("Failed to clone contact");
+                                } finally {
+                                  setIsCloningContact(false);
+                                }
+                              }}
+                              disabled={isCloningContact}
+                              style={{
+                                background: "#17a2b8",
+                                color: "#fff",
+                                border: "none",
+                              }}
+                            >
+                              {isCloningContact ? "Cloning..." : "Clone contact"}
+                            </button>
+                          )}
                           <button
                             className="button secondary"
                             onClick={handleDeleteListContacts}
-                            disabled={isLoading}
+                            disabled={isDeletingContact}
                             style={{
                               background: "#dc3545",
                               color: "#fff",
                               border: "none",
                             }}
                           >
-                            {isLoading ? "Deleting..." : "Delete contacts"}
+                            {isDeletingContact ? "Deleting..." : "Delete contacts"}
                           </button>
                           <button
                             className="button secondary"
                             onClick={handleUnsubscribeContacts}
-                            disabled={isLoading}
+                            disabled={isUnsubscribing}
                             style={{
                               background: "#ff9800",
                               color: "#fff",
                               border: "none",
                             }}
                           >
-                            {isLoading ? "Processing..." : "Unsubscribe"}
+                            {isUnsubscribing ? "Processing..." : "Unsubscribe"}
                           </button>
-                          {/* {detailSelectedContacts.size === 1 && (
-                          <button
-                            className="button secondary"
-                            onClick={() => {
-                              const contactId = Array.from(detailSelectedContacts)[0];
-                              const contact = detailContacts.find(c => c.id.toString() === contactId);
-                              if (contact) {
-                                setEditingContact(contact);
-                                setShowEditContactModal(true);
-                              }
-                            }}
-                            style={{
-                              background: "#17a2b8",
-                              color: "#fff",
-                              border: "none",
-                            }}
-                          >
-                            Edit contact
-                          </button>
-                        )} */}
                           <button
                             className="button primary"
                             onClick={() => {
@@ -3525,50 +3584,63 @@ const contactDetailsUrl =
                           {detailSelectedContacts.size > 1 ? "s" : ""} selected
                         </span>
                         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+                          {detailSelectedContacts.size === 1 && (
+                            <button
+                              className="button secondary"
+                              onClick={async () => {
+                                const contactId = Array.from(detailSelectedContacts)[0];
+                                try {
+                                  setIsCloningContact(true);
+                                  const response = await fetch(
+                                    `${API_BASE_URL}/api/Crm/clone-contact?contactId=${contactId}`,
+                                    { method: "POST", headers: { "accept": "*/*" } }
+                                  );
+                                  if (!response.ok) throw new Error("Failed to clone contact");
+                                  appModal.showSuccess("Contact cloned successfully!");
+                                  if (selectedSegmentForView) {
+                                    fetchDetailContacts("segment", selectedSegmentForView);
+                                  }
+                                  setDetailSelectedContacts(new Set());
+                                } catch (error) {
+                                  appModal.showError("Failed to clone contact");
+                                } finally {
+                                  setIsCloningContact(false);
+                                }
+                              }}
+                              disabled={isCloningContact}
+                              style={{
+                                background: "#17a2b8",
+                                color: "#fff",
+                                border: "none",
+                              }}
+                            >
+                              {isCloningContact ? "Cloning..." : "Clone contact"}
+                            </button>
+                          )}
                           <button
                             className="button secondary"
                             onClick={handleDeleteSegmentContacts}
-                            disabled={isLoading}
+                            disabled={isDeletingContact}
                             style={{
                               background: "#dc3545",
                               color: "#fff",
                               border: "none",
                             }}
                           >
-                            {isLoading ? "Deleting..." : "Remove"}
+                            {isDeletingContact ? "Deleting..." : "Remove"}
                           </button>
                           <button
                             className="button secondary"
                             onClick={handleUnsubscribeContacts}
-                            disabled={isLoading}
+                            disabled={isUnsubscribing}
                             style={{
                               background: "#ff9800",
                               color: "#fff",
                               border: "none",
                             }}
                           >
-                            {isLoading ? "Processing..." : "Unsubscribe"}
+                            {isUnsubscribing ? "Processing..." : "Unsubscribe"}
                           </button>
-                          {/* {detailSelectedContacts.size === 1 && (
-                          <button
-                            className="button secondary"
-                            onClick={() => {
-                              const contactId = Array.from(detailSelectedContacts)[0];
-                              const contact = detailContacts.find(c => c.id.toString() === contactId);
-                              if (contact) {
-                                setEditingContact(contact);
-                                setShowEditContactModal(true);
-                              }
-                            }}
-                            style={{
-                              background: "#17a2b8",
-                              color: "#fff",
-                              border: "none",
-                            }}
-                          >
-                            Edit contact
-                          </button>
-                        )} */}
                           <button
                             className="button primary"
                             onClick={() => setShowSaveSegmentModal(true)}
