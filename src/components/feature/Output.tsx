@@ -1917,7 +1917,7 @@ useEffect(() => {
 
               {/* Middle section - Buttons and checkbox */}
               <div className="flex items-center gap-4 mt-[26px]">
-                <div 
+                {/* <div 
                   className="flex items-center gap-3 px-4 py-2" 
                   style={{
                     border: "1px solid #ddd",
@@ -1950,14 +1950,14 @@ useEffect(() => {
                       Stop
                     </button>
                   )}
-                </div>
+                </div> */}
 
-                <button
+                {/* <button
                   className="green rounded-md py-[5px] px-[15px] border border-[#3f9f42]"
                   onClick={() => setSendEmailControls(!sendEmailControls)}
                 >
                   Send emails
-                </button>
+                </button> */}
 
                 {/* !isDemoAccount && (
                   <div className="flex items-center gap-2">

@@ -1002,21 +1002,20 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
     </div>
 
     <p>
-      Once enough questions have been answered on the left conversation area,
-      you can click <b>"Generate"</b> to preview what your personalized email
-      will look like with real contact details.
+      Once enough questions have been answered in the left conversation area, you can preview how your personalized email will look with real contact details. 
       <br /><br />
-      First, select a <b>contact file</b> and then choose contacts from the
-      dropdown above. The preview will automatically update as your campaign
-      blueprint changes.
+      First, select from the <b>'Contact list'</b> above and then choose a contact. If you haven't added any contacts yet, then go over to the Contacts section and import or quickly add one or two.
+    <br /><br />
+    Now click the <b>'Preview email'</b> button, above right, to see how your email will look. 
     </p>
+
+
     <br />
 
     <div className="tip-text">
       <span className="icon">⭐</span>
       <span>
-        Tip: Adjust elements or content in your blueprint to see changes
-        reflected here.
+        Tip: You can change the blueprint elements and click <b>'Preview email'</b> again, and the email will update.
       </span>
     </div>
   </div>
