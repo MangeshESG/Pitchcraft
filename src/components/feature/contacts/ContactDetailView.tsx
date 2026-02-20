@@ -104,7 +104,29 @@ const ContactDetailView: React.FC = () => {
   const [noteText, setNoteText] = useState("");
   const noteEditorRef = useRef<HTMLDivElement | null>(null);
 
-  const plainTextLength = noteText.replace(/<[^>]+>/g, "").length;
+  const NOTE_MAX_LENGTH = 10000;
+  const getPlainTextLength = (html: string) => {
+  if (!html) return 0;
+  const temp = document.createElement("div");
+  temp.innerHTML = html;
+  return (temp.textContent || temp.innerText || "").trim().length;
+};
+const plainTextLength = getPlainTextLength(noteText);
+const isSaveDisabled =
+  plainTextLength === 0 || plainTextLength > NOTE_MAX_LENGTH;
+useEffect(() => {
+  if (plainTextLength > NOTE_MAX_LENGTH) {
+    setToastMessage("You have exceeded the 10,000 character limit.");
+    setShowSuccessToast(true);
+
+    const timer = setTimeout(() => {
+      setShowSuccessToast(false);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }
+}, [plainTextLength]);
+ // const plainTextLength = noteText.replace(/<[^>]+>/g, "").length;
   useEffect(() => {
     const tooltips: Record<string, string> = {
       "ql-bold": "Bold",
@@ -145,6 +167,42 @@ const ContactDetailView: React.FC = () => {
   const [deletePopupOpen, setDeletePopupOpen] = useState(false);
   const [deletingNoteId, setDeletingNoteId] = useState<number | null>(null);
   const [deleteContactId, setDeleteContactId] = useState<number | null>(null);
+   const [expandedNoteIds, setExpandedNoteIds] = useState<Set<number>>(new Set());
+
+
+
+
+ // Helper function to get plain text from HTML
+  const getPlainText = (html: string): string => {
+    if (!html) return "";
+    const temp = document.createElement("div");
+    temp.innerHTML = html;
+    return temp.textContent || temp.innerText || "";
+  };
+
+  // Toggle expand/collapse for a note
+  const toggleNoteExpand = (noteId: number) => {
+    setExpandedNoteIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(noteId)) {
+        newSet.delete(noteId);
+      } else {
+        newSet.add(noteId);
+      }
+      return newSet;
+    });
+  };
+
+  // Truncate note text to 300 characters
+  const TRUNCATE_LENGTH = 300;
+  const getTruncatedNote = (html: string): string => {
+    const plainText = getPlainText(html);
+    if (plainText.length > TRUNCATE_LENGTH) {
+      return plainText.substring(0, TRUNCATE_LENGTH) + "...";
+    }
+    return plainText;
+  };
+  
   const [contactDetails, setContactDetails] = useState<any>(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
@@ -354,7 +412,11 @@ useEffect(() => {
       appModal.showError("Note cannot be empty");
       return;
     }
-
+    if (plainTextLength > NOTE_MAX_LENGTH) {
+  setToastMessage("You have exceeded the 10,000 character limit.");
+  setShowSuccessToast(true);
+  return;
+}
     try {
       setIsSavingNote(true);
 
@@ -372,6 +434,7 @@ useEffect(() => {
               IsPin: isPinned,
               IsUseInGenration: isEmailPersonalization,
             },
+            timeout: 45000,
           }
         );
       } else {
@@ -382,7 +445,11 @@ useEffect(() => {
           note: noteText,
           isPin: isPinned,
           isUseInGenration: isEmailPersonalization,
-        });
+        },{
+    timeout: 60000,  // Increased to 60 seconds
+    headers: {
+      'Content-Type': 'application/json',
+    },});
       }
 
       // reset UI
@@ -1541,12 +1608,31 @@ useEffect(() => {
     whiteSpace: "normal",
     lineHeight: "1.5",
   }}
-  dangerouslySetInnerHTML={{
-    __html: DOMPurify.sanitize(
-      note.note || "<p>No note content</p>"
-    ),
+ dangerouslySetInnerHTML={{
+    __html: expandedNoteIds.has(note.id) 
+      ? (note.note || "<p>No note content</p>")
+      : `<p>${getTruncatedNote(note.note || "")}</p>`,
   }}
 />
+ {/* EXPAND BUTTON */}
+{getPlainText(note.note || "").length > TRUNCATE_LENGTH && (
+  <button
+    onClick={() => toggleNoteExpand(note.id)}
+    style={{
+      marginTop: 12,
+      background: "none",
+      border: "none",
+      color: "#3f9f42",
+      cursor: "pointer",
+      fontSize: 13,
+      fontWeight: 600,
+      padding: 0,
+    }}
+  >
+    {expandedNoteIds.has(note.id) ? "Show less" : "Expand"}
+  </button>
+)}
+
                                       </div>
 
                                       <div style={{
@@ -1934,10 +2020,33 @@ useEffect(() => {
                                           whiteSpace: "normal",
                                           lineHeight: "1.5",
                                         }}
+                                        // dangerouslySetInnerHTML={{
+                                        //   __html: note.note || "<p>No note content</p>",
+                                        // }}
                                         dangerouslySetInnerHTML={{
-                                          __html: note.note || "<p>No note content</p>",
+                                        __html: expandedNoteIds.has(note.id) 
+                                        ? (note.note || "<p>No note content</p>")
+                                        : `<p>${getTruncatedNote(note.note || "")}</p>`,
                                         }}
                                       />
+                                      {/* EXPAND BUTTON */}
+{getPlainText(note.note || "").length > TRUNCATE_LENGTH && (
+  <button
+    onClick={() => toggleNoteExpand(note.id)}
+    style={{
+      marginTop: 12,
+      background: "none",
+      border: "none",
+      color: "#3f9f42",
+      cursor: "pointer",
+      fontSize: 13,
+      fontWeight: 600,
+      padding: 0,
+    }}
+  >
+    {expandedNoteIds.has(note.id) ? "Show less" : "Expand"}
+  </button>
+)}
 
                                     </div>
                                     {/* Optional badges */}
@@ -2354,6 +2463,8 @@ useEffect(() => {
             position: "sticky",
           }}
         >
+           {/* LEFT SIDE BUTTONS */}
+           <div style={{ display: "flex", gap: 12 }}>
            <button
                   onClick={() => setIsNoteOpen(false)}
                   type="button"
@@ -2361,18 +2472,25 @@ useEffect(() => {
                 >
                   Cancel
           </button>
-
+           <button
+                  onClick={() => setNoteText("")}
+                  type="button"
+                  className="px-5 py-2 border border-red-300 text-red-600 rounded-full text-sm"
+                >
+                Clear
+            </button>
+            </div>
           <button
             onClick={saveNote}
-            disabled={isSavingNote}
+            disabled={isSaveDisabled || isSavingNote}
             style={{
-              background: isSavingNote ? "#9ca3af" : "#3f9f42",
-              color: "#fff",
+              background: isSaveDisabled ? "#d1d5db" : "#3f9f42", // only invalid makes grey
+              color: isSaveDisabled ? "#6b7280" : "#ffffff",
               border: "none",
               padding: "8px 18px",
               borderRadius: 18,
               fontSize: 14,
-              cursor: isSavingNote ? "not-allowed" : "pointer",
+               cursor: isSaveDisabled ? "not-allowed" : "pointer",
               display: "flex",
               alignItems: "center",
               gap: 8,

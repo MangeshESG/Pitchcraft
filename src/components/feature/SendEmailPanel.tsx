@@ -135,7 +135,7 @@ const formatLocalDateTime = (dateString: string | undefined | null): string => {
             </button>
           ))}
           <button
-            className="bg-[#e7f5e8] text-[#3f9f42] font-[600] text-[14px] border border-dashed border-[#9b9b9b] !rounded-[4px] h-[30px] ml-[15px] py-[4px] px-[10px]"
+            className="bg-[#e7f5e8] text-[#3f9f42] font-[600] text-[14px] border border-dashed border-[#9b9b9b] !rounded-[4px] h-[30px] ml-[5px] py-[2px] px-[5px]"
             onClick={() => onClose()}
           >
             <span className="flex items-center gap-[5px]">
@@ -148,7 +148,7 @@ const formatLocalDateTime = (dateString: string | undefined | null): string => {
                 className="text-[#3f9f42] text-md pr-[2px]"
               />
               <span>
-                {!isOpen ? "Hide Tab" : "Show"}
+                {!isOpen ? "Hide actions" : "Show"}
               </span>
             </span>
           </button>
@@ -273,7 +273,7 @@ const formatLocalDateTime = (dateString: string | undefined | null): string => {
     )}
 
     {/* START BUTTON */}
-    <div className="mt-auto pt-[15px] border-t border-[#cccccc] sticky bottom-0 bg-white z-10">
+    <div className="mt-[100px] pt-[15px] border-t border-[#cccccc] sticky bottom-0 bg-white z-10">
        {isResetEnabled ? (
       <button
         type="button"
@@ -666,7 +666,7 @@ const formatLocalDateTime = (dateString: string | undefined | null): string => {
               </div>
 
               {/* FOOTER - ROW 5: Buttons */}
-              <div className="mt-[auto] flex gap-[10px] border-t border-[#cccccc] pt-[15px] w-[100%] sticky bottom-0 bg-white z-10"
+              <div className="mt-[30px] flex gap-[10px] border-t border-[#cccccc] pt-[15px] w-[100%] sticky bottom-0 bg-white z-10"
               >
                 <button
                   type="button"

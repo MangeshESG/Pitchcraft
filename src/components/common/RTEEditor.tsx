@@ -156,7 +156,8 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             style={{
             height,
             overflowY: "auto",
-            }}            
+            }}  
+            onInput={(e) => onChange(e.currentTarget.innerHTML)}          
             onBlur={(e) => onChange(e.currentTarget.innerHTML)}
             onKeyUp={saveSelection}
             onMouseUp={saveSelection}

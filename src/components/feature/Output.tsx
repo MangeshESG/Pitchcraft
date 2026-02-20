@@ -2239,7 +2239,7 @@ useEffect(() => {
                 <span className="flex items-center gap-[5px] rotate-90 pb-[3px] -mt-[46px]">
                   
                   <span className="nowrap">
-                    {sendEmailControls && "Show Tab"}
+                    {sendEmailControls && "Show actions"}
                   </span>
                   <FontAwesomeIcon
                     icon={sendEmailControls ? faCircleRight : faAngleLeft}
