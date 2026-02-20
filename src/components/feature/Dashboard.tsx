@@ -8,6 +8,8 @@ import CreateACampaign from '../../assets/images/icons/create-a-campaign.png';
 import GenerateEmail from '../../assets/images/icons/generate-email.png';
 import ScheduleCampaign from '../../assets/images/icons/schedule-campaign.png';
 import { useNavigate } from "react-router-dom";
+import API_BASE_URL from "../../config";
+
 export const Dashboard: React.FC = () => {
   const [mode, setMode] = useState<"new" | "existing">("new");
   const navigate = useNavigate();
@@ -22,7 +24,7 @@ export const Dashboard: React.FC = () => {
     setShowCampaignModal(false);
     setShowKraftEmailModal(false);
   };
-
+const VIDEO_BASE = "https://app.pitchkraft.ai";
   return (
     <div className="mx-auto" style={{marginLeft:"-30px",marginTop:"-30px"}}>
       {/* Toggle */}
@@ -112,7 +114,7 @@ export const Dashboard: React.FC = () => {
                           Close
                         </button>
                         <video width="100%" height="auto" controls autoPlay>
-                          <source src="/video/Blueprints  Guidde 1.mp4" type="video/mp4" />
+                        <source src={`${VIDEO_BASE}/video/BlueprintsGuide1.mp4`} />
                         </video>
                       </div>
                     </div>
@@ -187,7 +189,7 @@ export const Dashboard: React.FC = () => {
                           Close
                         </button>
                         <video width="100%" height="auto" controls autoPlay>
-                          <source src="/video/Import Contacts.mp4" type="video/mp4" />
+                        <source src={`${VIDEO_BASE}/video/ImportContacts.mp4`} />
                         </video>
                       </div>
                     </div>
@@ -268,7 +270,7 @@ export const Dashboard: React.FC = () => {
                           height="auto"
                           controls
                           autoPlay
-                          src="/video/Campaigns.mp4"
+                          src={`${VIDEO_BASE}/video/Campaigns.mp4`}
                         />
                       </div>
                     </div>
@@ -346,10 +348,9 @@ export const Dashboard: React.FC = () => {
 
                         <video
                           width="100%"
-                          height="auto"
                           controls
                           autoPlay
-                          src="/video/Kraft Emails.mp4"
+                          src={`${VIDEO_BASE}/video/KraftEmails.mp4`}
                         />
                       </div>
                     </div>
