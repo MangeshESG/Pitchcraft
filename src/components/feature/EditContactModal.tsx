@@ -132,6 +132,35 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   const [expandedWebsiteSocial, setExpandedWebsiteSocial] = useState(true);
   const [linkedInSummary, setLinkedInSummary] = useState("");
   const editorRef = React.useRef<HTMLDivElement | null>(null);
+  const [expandedNoteIds, setExpandedNoteIds] = useState<Set<number>>(new Set());
+  const [isLinkedInExpanded, setIsLinkedInExpanded] = useState(false);
+   // 🔥 LinkedIn Summary Character Limit
+  const LINKEDIN_SUMMARY_MAX_LENGTH = 10000;
+  const LINKEDIN_TRUNCATE_LENGTH = 300;
+  
+  const getLinkedInPlainTextLength = (html: string) => {
+    if (!html) return 0;
+    const temp = document.createElement("div");
+    temp.innerHTML = html;
+    return (temp.textContent || temp.innerText || "").trim().length;
+  };
+  
+  const linkedInPlainTextLength = getLinkedInPlainTextLength(linkedInSummary);
+  const isLinkedInSaveDisabled = linkedInPlainTextLength > LINKEDIN_SUMMARY_MAX_LENGTH;
+  
+  // Show toast message when LinkedIn summary exceeds limit
+  useEffect(() => {
+    if (linkedInPlainTextLength > LINKEDIN_SUMMARY_MAX_LENGTH) {
+      setToastMessage("You have exceeded the 10,000 character limit.");
+      setShowSuccessToast(true);
+
+      const timer = setTimeout(() => {
+        setShowSuccessToast(false);
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [linkedInPlainTextLength]);
   const menuBtnStyle: React.CSSProperties = {
     width: "100%",
     padding: "8px 12px",
@@ -177,8 +206,44 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
     </div>
     </div>
   );
+// Helper function to get plain text from HTML
+  const getPlainText = (html: string): string => {
+    if (!html) return "";
+    const temp = document.createElement("div");
+    temp.innerHTML = html;
+    return temp.textContent || temp.innerText || "";
+  };
 
+  // Toggle expand/collapse for a note
+  const toggleNoteExpand = (noteId: number) => {
+    setExpandedNoteIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(noteId)) {
+        newSet.delete(noteId);
+      } else {
+        newSet.add(noteId);
+      }
+      return newSet;
+    });
+  };
 
+  // Truncate note text to 300 characters
+  const TRUNCATE_LENGTH = 300;
+  const getTruncatedNote = (html: string): string => {
+    const plainText = getPlainText(html);
+    if (plainText.length > TRUNCATE_LENGTH) {
+      return plainText.substring(0, TRUNCATE_LENGTH) + "...";
+    }
+    return plainText;
+  };
+// 🔥 Truncate LinkedIn summary to 300 characters (similar to Note)
+  const getTruncatedLinkedIn = (html: string): string => {
+    const plainText = getPlainText(html);
+    if (plainText.length > LINKEDIN_TRUNCATE_LENGTH) {
+      return plainText.substring(0, LINKEDIN_TRUNCATE_LENGTH) + "...";
+    }
+    return plainText;
+  };
 
   useEffect(() => {
     if (contact) {
@@ -586,7 +651,13 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   };
   const handleLinkedInSummarySave = async () => {
     if (!contact?.id) return;
-
+ // 🔥 Check character limit before saving
+    if (linkedInPlainTextLength > LINKEDIN_SUMMARY_MAX_LENGTH) {
+      setToastMessage("You have exceeded the 10,000 character limit.");
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 3000);
+      return;
+    }
     try {
       await axios.post(
         `${API_BASE_URL}/api/Crm/Update-linkedIninformation`,
@@ -979,9 +1050,29 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                             whiteSpace: "normal",
                           }}
                           dangerouslySetInnerHTML={{
-                            __html: DOMPurify.sanitize(note.note || "<p>No note content</p>"),
-                          }}
+    __html: expandedNoteIds.has(note.id) 
+      ? (note.note || "<p>No note content</p>")
+      : `<p>${getTruncatedNote(note.note || "")}</p>`,
+  }}
                         />
+                         {/* EXPAND BUTTON */}
+{getPlainText(note.note || "").length > TRUNCATE_LENGTH && (
+  <button
+    onClick={() => toggleNoteExpand(note.id)}
+    style={{
+      marginTop: 12,
+      background: "none",
+      border: "none",
+      color: "#3f9f42",
+      cursor: "pointer",
+      fontSize: 13,
+      fontWeight: 600,
+      padding: 0,
+    }}
+  >
+    {expandedNoteIds.has(note.id) ? "Show less" : "Expand"}
+  </button>
+)}
 
                       </div>
                     </div>
@@ -1015,13 +1106,40 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                 color: "#374151",
                 lineHeight: "1.6",
                 whiteSpace: "normal",
+                overflow: "hidden",
+                wordWrap: "break-word",
+                wordBreak: "break-word",
+                overflowWrap: "break-word",
+                maxWidth: "100%",
               }}
-              dangerouslySetInnerHTML={{
+               dangerouslySetInnerHTML={{
                 __html: DOMPurify.sanitize(
-                  linkedInSummary || "<p>No LinkedIn summary available</p>"
+                  !linkedInSummary 
+                    ? "<p>No LinkedIn summary available</p>"
+                    : isLinkedInExpanded 
+                      ? linkedInSummary
+                      : `<p>${getTruncatedLinkedIn(linkedInSummary)}</p>`
                 ),
               }}
             />
+             {/* 🔥 EXPAND/COLLAPSE BUTTON */}
+            {linkedInSummary && getPlainText(linkedInSummary).length > LINKEDIN_TRUNCATE_LENGTH && (
+              <button
+                onClick={() => setIsLinkedInExpanded(!isLinkedInExpanded)}
+                style={{
+                  marginTop: 12,
+                  background: "transparent",
+                  border: "none",
+                  color: "#3f9f42",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  padding: 0,
+                }}
+              >
+                {isLinkedInExpanded ? "Show less" : "Expand"}
+              </button>
+            )}
           </div>
 
         </div>
@@ -1209,6 +1327,9 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                   onChange={setLinkedInSummary}
                 />
               </div>
+                <div style={{ marginTop: 8, fontSize: 12, color:"#6b7280" }}>
+            {linkedInPlainTextLength}/10000
+          </div>
             </div>
 
             {/* FOOTER (Fixed Bottom) */}
@@ -1223,6 +1344,8 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                 position: "sticky",
               }}
             >
+                {/* LEFT SIDE BUTTONS */}
+           <div style={{ display: "flex", gap: 12 }}>
               <button
                 onClick={() => setShowLinkedInSummaryPopup(false)}
                 type="button"
@@ -1230,19 +1353,28 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
               >
                 Cancel
               </button>
-
+               <button
+                  onClick={() => setLinkedInSummary("")}
+                  type="button"
+                  className="px-5 py-2 border border-red-300 text-red-600 rounded-full text-sm"
+                >
+                Clear
+             </button>
+            </div>
               <button
                 onClick={handleLinkedInSummarySave}
+                disabled={isLinkedInSaveDisabled}
                 style={{
-                  background: "#3f9f42",
+                  background: isLinkedInSaveDisabled ? "#d1d5db" : "#3f9f42",
                   color: "#fff",
                   border: "none",
                   padding: "8px 18px",
                   borderRadius: 18,
                   fontSize: 14,
-                  cursor: "pointer",
+                  cursor: isLinkedInSaveDisabled ? "not-allowed" : "pointer",
                   fontWeight: 500,
                   borderTop: "2px solid transparent",
+                  opacity: isLinkedInSaveDisabled ? 0.6 : 1,
                 }}
               >
                 Save
