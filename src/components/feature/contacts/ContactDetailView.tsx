@@ -31,6 +31,7 @@ import "react-quill/dist/quill.snow.css";
 import emailPersonalizationIcon from "../../../assets/images/emailPersonal.png";
 import RichTextEditor from '../../common/RTEEditor';
 import DOMPurify from "dompurify";
+import Detail from './Detail'
 
 
 
@@ -700,6 +701,8 @@ useEffect(() => {
   }, [editingContact, emailTimeline, notesHistory]);
 
   return (
+    <>
+    
     <div className="flex h-screen overflow-hidden">
       {/* SIDE MENU */}
       {isSidebarOpen && (
@@ -1096,7 +1099,6 @@ useEffect(() => {
                   alignItems: "center",
                   borderBottom: "1px solid #e5e7eb",
                   marginBottom: 32,
-                  paddingRight: 180,
                 }}
               >
                 {/* LEFT: PROFILE / HISTORY */}
@@ -1161,13 +1163,13 @@ useEffect(() => {
                       border: "none",
                       background: "transparent",
                       cursor: "pointer",
-                      fontSize: 14,
+                      fontSize: 15,
                       fontWeight: 500,
 
                       //color: "#3f9f42",
                     }}
                   >
-                    <FontAwesomeIcon icon={faEdit} style={{ color: "#3f9f42", cursor: "pointer", }} />
+                    <FontAwesomeIcon icon={faEdit} style={{ color: "#3f9f42", cursor: "pointer", }} className="text-[20px]" />
                     Add note
                   </button>
                 </div>
@@ -2351,7 +2353,7 @@ useEffect(() => {
           height: "100vh",
           width: 454,
           background: "#fff",
-          boxShadow: "-4px 0 20px rgba(0,0,0,0.08)",
+          boxShadow: "rgba(0, 0, 0, 0.30) -4px 0px 10px",
           transform: isNoteOpen ? "translateX(0)" : "translateX(100%)",
           transition: "transform 0.35s ease-in-out",
           zIndex: 1000,
@@ -2362,12 +2364,13 @@ useEffect(() => {
         {/* HEADER */}
         <div
           style={{
-            background: "#d9fdd3",
+            background: "#ffffff",
             padding: "16px 20px",
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
           }}
+          className='border-[#cccccc] border-b'
         >
           <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>
             {isEditMode ? "Edit note" : "Add a note"}
@@ -2412,7 +2415,7 @@ useEffect(() => {
           </div>
 
           {/* PIN */}
-          <div className="flex items-start  gap-3 mt-4">
+          <div className="flex items-start gap-2 mt-4">
             <input
               type="checkbox"
               checked={isPinned}
@@ -2431,7 +2434,7 @@ useEffect(() => {
           </div>
 
           {/* EMAIL PERSONALIZATION */}
-          <div className="flex items-start gap-3 mt-6">
+          <div className="flex items-start gap-2 mt-6">
             <input
               type="checkbox"
               checked={isEmailPersonalization}
@@ -2615,6 +2618,7 @@ useEffect(() => {
       )}
 
     </div>
+    </>
   );
 };
 

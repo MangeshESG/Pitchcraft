@@ -25,6 +25,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons"
 import { useAppModal } from '../../hooks/useAppModal';
 import RichTextEditor from './../common/RTEEditor';
+import AccordionSection from '../common/accordion/Accordion';
 
 interface Contact {
   id: number;
@@ -176,32 +177,34 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
     value,
     color,
     percentage,
+    bgClass
   }: {
     label: string;
     value: number;
     color?: string;
     percentage?: string;
+    bgClass?:string;
   }) => (
     <div
-      className="bg-white border border-gray-200 rounded-xl p-6 flex flex-col items-center justify-center"
+      className={`rounded-lg ${bgClass} border border-blue-100 p-3 text-center shadow-[0_4px_12px_rgba(0,0,0,0.1)]`}
       style={{ minHeight: 110 }}
     >
       <div
-        className="text-sm mb-2 text-center"
-        style={{ color: color ?? "#6b7280", fontWeight: "500" }}
+        className="text-md text-blue-600 font-medium"
+        style={{ color: color ?? "#6b7280"}}
       >
         {label}
       </div>
 
       <div
-        className="text-2xl leading-8 font-semibold text-center"
+        className="text-5xl font-bold text-blue-700"
         style={{ color: color ?? "#111827" }}
       >
         {value}
       </div>
 
       {/* Percentage BELOW value */}
-      <div className="text-sm text-gray-500 text-center h-5">
+      <div className="text-sm text-gray-500 text-center h-5 mt-[10px]">
       {percentage ? `(${percentage}%)` : ""}
     </div>
     </div>
@@ -298,10 +301,10 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
 
   // 🔥 NEW styles for image-like UI
   const underlineInput =
-    "w-full border-0 border-b border-gray-300 px-0 py-1 text-sm focus:outline-none focus:border-black bg-transparent";
+    "w-full rounded-lg border border-border bg-card px-4 py-3 text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary form-control";
 
   const underlineLabel =
-    "block text-xs  tracking-wide text-gray-500 mb-1";
+    "mb-1.5 block text-xs font-semibold text-muted-foreground";
 
   const infoCard =
     "w-full max-w-sm bg-white rounded-xl border border-gray-200 p-5";
@@ -688,23 +691,203 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   if (!isOpen || !contact) return null;
 
   const content = (
-    <div className={`${asPage ? "w-full" : "w-[90%] max-w-6xl"} ${!asPage && "shadow-xl rounded-lg"} p-8`}>
+    <div className={`${asPage ? "w-full" : "w-[90%] max-w-6xl"} ${!asPage && "shadow-xl rounded-lg"}`}>
       {/* Flex container for left & right */}
       <div className="flex flex-row gap-8">
 
         {/* LEFT SIDE (Edit Contact) */}
-        <div className="w-1/2 bg-white rounded-lg p-6 shadow-sm" style={{ marginTop: "-47px" }}>
+        <div className="w-1/2 bg-white rounded-lg p-6  shadow-[5px_5px_12px_rgba(0,0,0,0.15)] border border border-[#cccccc]">
           {/* Header */}
-          <div className="mb-6 border-b border-gray-200 pb-4">
-            <h1 className="text-xl font-bold text-gray-900">Edit contact</h1>
-            <p className="text-sm text-gray-500 mt-1">Update contact information and details</p>
+          <div className="mb-3 flex justify-between">
+            <div className='flex flex-col'>
+              <h1 className="text-xl font-[600] text-gray-900">Edit contact</h1>
+              <p className="text-sm text-gray-500 mt-1">Update contact information and details</p>
+            </div>
+             {/* Buttons */}
+              <div className="flex items-center justify-end gap-3">
+                <button type='button' className="rounded-lg border border-border bg-white px-5 py-2.5 text-sm font-medium text-foreground hover:bg-muted">Cancel</button>
+                <button
+                  type='submit'
+                  className="rounded-lg bg-[#3f9f42] px-5 py-2.5 text-sm font-medium text-white hover:bg-green-700 disabled:bg-gray-300"
+                  disabled={isSubmitting || !formData.fullName?.trim() || !formData.email?.trim()}
+                  onClick={handleSubmit}
+                >
+                  {isSubmitting ? "Saving..." : "Save"}
+                </button>
+                
+              </div>
           </div>
 
           {/* Personal Info Form */}
           <form onSubmit={handleSubmit} className="flex flex-col gap-2">
-            <div className="space-y- p-6 border border-gray-200 rounded-lg bg-white shadow-sm">
+            <div className="space-y- border border-[#cccccc] rounded-lg bg-white shadow-sm border-b-0">
               {/* PERSONAL INFORMATION */}
-              <div
+              <AccordionSection
+                defaultOpen
+                icon={
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                }
+                title="Personal information"
+              >
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                    <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
+                      <label className={underlineLabel}>Full name</label>
+                      <input
+                        type="text"
+                        name="fullName"
+                        value={formData.fullName}
+                        onChange={handleInputChange}
+                        className={underlineInput}
+                        placeholder="Full name"
+                      />
+                    </div>
+                    <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
+                      <label className={underlineLabel}>Email</label>
+                      <input
+                        type="email"
+                        name="email"
+                        value={formData.email}
+                        onChange={handleInputChange}
+                        className={underlineInput}
+                        placeholder="Email"
+                      />
+                    </div>
+                </div>
+              </AccordionSection>
+
+              {/* COMPANY INFORMATION */}
+              <AccordionSection
+                icon={
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                }
+                title="Company information"
+              >
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                  <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
+                    <label className={underlineLabel}>Job title</label>
+                    <input
+                      type="text"
+                      name="jobTitle"
+                      value={formData.jobTitle}
+                      onChange={handleInputChange}
+                      placeholder="Job title"
+                      className={underlineInput}
+                    />
+                  </div>
+                  <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
+                    <label className={underlineLabel}>Company name</label>
+                    <input
+                      type="text"
+                      name="companyName"
+                      value={formData.companyName}
+                      onChange={handleInputChange}
+                      placeholder="Company name"
+                      className={underlineInput}
+                    />
+                  </div>
+                  <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
+                    <label className={underlineLabel}>Company industry</label>
+                    <input
+                      type="text"
+                      name="companyIndustry"
+                      value={formData.companyIndustry}
+                      onChange={handleInputChange}
+                      placeholder="Company industry"
+                      className={underlineInput}
+                    />
+                  </div>
+                  <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
+                    <label className={underlineLabel}>Company employee count</label>
+                    <input
+                      type="text"
+                      name="companyEmployeeCount"
+                      value={formData.companyEmployeeCount}
+                      onChange={handleInputChange}
+                      placeholder="Company employee count"
+                      className={underlineInput}
+                    />
+                  </div>
+                  <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
+                    <label className={underlineLabel}>Company telephone</label>
+                    <input
+                      type="text"
+                      name="companyTelephone"
+                      value={formData.companyTelephone}
+                      onChange={handleInputChange}
+                      placeholder="Company telephone"
+                      className={underlineInput}
+                    />
+                  </div>
+                  <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
+                    <label className={underlineLabel}>Country/address</label>
+                    <input
+                      type="text"
+                      name="countryOrAddress"
+                      value={formData.countryOrAddress}
+                      onChange={handleInputChange}
+                      placeholder="Country/address"
+                      className={underlineInput}
+                    />
+                  </div>
+                </div>
+              </AccordionSection>
+
+              {/* WEBSITE & SOCIAL */}
+              <AccordionSection
+                icon={
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
+                }
+                title="Website & social"
+              >
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+
+                  <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
+                    <label className={underlineLabel}>Website</label>
+                    <input type="text" name="website" value={formData.website} onChange={handleInputChange} placeholder="Enter website" className={`${underlineInput} text-[#3f9f42] underline cursor-pointer`}
+                      onDoubleClick={() => {
+                        if (formData.website) {
+                          const url = formData.website.startsWith("http")
+                            ? formData.website
+                            : `https://${formData.website}`;
+                          window.open(url, "_blank");
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
+                    <label className={underlineLabel}>LinkedIn URL</label>
+                    <input type="text" name="linkedInUrl" value={formData.linkedInUrl} onChange={handleInputChange} placeholder="Enter LinkedIn URL" className={`${underlineInput} text-[#3f9f42] underline cursor-pointer`}
+                      onDoubleClick={() => {
+                        if (formData.linkedInUrl) {
+                          const url = formData.linkedInUrl.startsWith("http")
+                            ? formData.linkedInUrl
+                            : `https://${formData.linkedInUrl}`;
+                          window.open(url, "_blank");
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
+                    <label className={underlineLabel}>Company linkedIn URL</label>
+                    <input
+                      type="text"
+                      name="companyLinkedInURL"
+                      value={formData.companyLinkedInURL}
+                      onChange={handleInputChange}
+                      placeholder="Company LinkedIn URL"
+                      className={underlineInput}
+                    />
+                  </div>
+
+                </div>
+              </AccordionSection>
+
+              
+
+
+
+              {/* PERSONAL INFORMATION */}
+              {/* <div
                 onClick={() => setExpandedPersonalInfo(!expandedPersonalInfo)}
                 className="flex items-center justify-between cursor-pointer p-3 rounded hover:bg-gray-50 transition-colors"
                 style={{ marginTop: -12, marginLeft: -12, marginRight: -12, marginBottom: 8, paddingLeft: 16, paddingRight: 273 }}
@@ -721,9 +904,10 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                   className="text-[#3f9f42]"
                 />
               </div>
+              
               {expandedPersonalInfo && (
                 <>
-                  <div>
+                  <div className='flex flex-col gap-[5px]'>
                     <label className={underlineLabel}>Full name</label>
                     <input
                       type="text"
@@ -735,7 +919,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                     />
                   </div>
 
-                  <div>
+                  <div className='flex flex-col gap-[5px]'>
                     <label className={underlineLabel}>Email</label>
                     <input
                       type="email"
@@ -747,13 +931,14 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                     />
                   </div>
                 </>
-              )}
-              <div
+              )} */}
+
+              {/* COMPANY INFORMATION */}
+              {/* <div
                 onClick={() => setExpandedCompanyInfo(!expandedCompanyInfo)}
                 className="flex items-center justify-between cursor-pointer p-3 rounded hover:bg-gray-50 transition-colors"
                 style={{ marginTop: 6, marginLeft: -12, marginRight: -12, marginBottom: 8, paddingLeft: 16, paddingRight: 273 }}
               >
-                {/* COMPANY INFORMATION */}
                 <h3 className="text-sm font-semibold text-[#3f9f42]">Company information</h3>
                 <FontAwesomeIcon
                   icon={faAngleDown}
@@ -766,10 +951,9 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                   className="text-[#3f9f42]"
                 />
               </div>
-
               {expandedCompanyInfo && (
                 <>
-                  <div>
+                  <div className='flex flex-col gap-[5px]'>
                     <label className={underlineLabel}>Job title</label>
                     <input
                       type="text"
@@ -780,7 +964,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                       className={underlineInput}
                     />
                   </div>
-                  <div>
+                  <div className='flex flex-col gap-[5px]'>
                     <label className={underlineLabel}>Company name</label>
                     <input
                       type="text"
@@ -791,7 +975,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                       className={underlineInput}
                     />
                   </div>
-                  <div>
+                  <div className='flex flex-col gap-[5px]'>
                     <label className={underlineLabel}>Company industry</label>
                     <input
                       type="text"
@@ -802,7 +986,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                       className={underlineInput}
                     />
                   </div>
-                  <div>
+                  <div className='flex flex-col gap-[5px]'>
                     <label className={underlineLabel}>Company employee count</label>
                     <input
                       type="text"
@@ -813,7 +997,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                       className={underlineInput}
                     />
                   </div>
-                  <div>
+                  <div className='flex flex-col gap-[5px]'>
                     <label className={underlineLabel}>Company telephone</label>
                     <input
                       type="text"
@@ -824,7 +1008,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                       className={underlineInput}
                     />
                   </div>
-                  <div>
+                  <div className='flex flex-col gap-[5px]'>
                     <label className={underlineLabel}>Country/address</label>
                     <input
                       type="text"
@@ -836,10 +1020,10 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                     />
                   </div>
                 </>
-              )}
+              )} */}
 
               {/* WEBSITE & SOCIAL */}
-              <div
+              {/* <div
                 onClick={() => setExpandedWebsiteSocial(!expandedWebsiteSocial)}
                 className="flex items-center justify-between cursor-pointer p-3 rounded hover:bg-gray-50 transition-colors"
                 style={{ marginTop: 12, marginLeft: -12, marginRight: -12, marginBottom: 8, paddingLeft: 16, paddingRight: 273 }}
@@ -858,7 +1042,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
               </div>
               {expandedWebsiteSocial && (
                 <>
-                  <div>
+                  <div className='flex flex-col gap-[5px]'>
                     <label className={underlineLabel}>Website</label>
                     <input type="text" name="website" value={formData.website} onChange={handleInputChange} placeholder="Enter website" className={`${underlineInput} text-[#3f9f42] underline cursor-pointer`}
                       onDoubleClick={() => {
@@ -871,7 +1055,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                       }}
                     />
                   </div>
-                  <div>
+                  <div className='flex flex-col gap-[5px]'>
                     <label className={underlineLabel}>LinkedIn URL</label>
                     <input type="text" name="linkedInUrl" value={formData.linkedInUrl} onChange={handleInputChange} placeholder="Enter LinkedIn URL" className={`${underlineInput} text-[#3f9f42] underline cursor-pointer`}
                       onDoubleClick={() => {
@@ -884,7 +1068,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                       }}
                     />
                   </div>
-                  <div>
+                  <div className='flex flex-col gap-[5px]'>
                     <label className={underlineLabel}>Company linkedIn URL</label>
                     <input
                       type="text"
@@ -896,10 +1080,10 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                     />
                   </div>
                 </>
-              )}
+              )} */}
 
               {/* SAVE / CANCEL BUTTONS */}
-              <div className="flex justify-start items-center gap-3 mt-6 pt-4 border-gray-200 sticky bottom-0 bg-white z-10">
+              {/* <div className="flex justify-start items-center gap-3 mt-6 pt-4 border-gray-200 sticky bottom-0 bg-white z-10">
                 <button
                   type="button"
                   className="px-5 py-2 border border-gray-300 rounded-full text-sm"
@@ -913,7 +1097,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                 >
                   {isSubmitting ? "Saving..." : "Save"}
                 </button>
-              </div>
+              </div> */}
             </div>
           </form>
         </div>
@@ -921,16 +1105,22 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
         {/* RIGHT SIDE (Email Campaigns, Pinned Notes, LinkedIn Summary) */}
         <div className="w-1/2 flex flex-col gap-6">
           {/* Email Campaigns */}
-          <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
-            <h3 className="font-semibold mb-4">Email campaigns</h3>
+          <div className="bg-white rounded-lg p-6 shadow-[5px_5px_12px_rgba(0,0,0,0.15)] border border border-[#cccccc]">
+            <div className="mb-4 flex items-center gap-2">
+              <span className='text-[#3f9f42]'>
+                <svg className="h-5 w-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+              </span>
+              <h3 className="text-lg font-semibold text-foreground">Email campaign</h3>
+            </div>
             <div className="grid grid-cols-3 gap-4">
-              <Stat label="Sent" value={emailStats.sent} color="#333" />
+              <Stat label="Sent" value={emailStats.sent} color="#333" bgClass='bg-gray-80' />
 
               <Stat
                 label="Unique opens"
                 value={emailStats.uniqueOpens}
                 percentage={emailStats.uniqueOpensPct}
                 color="#ff9800"
+                bgClass='bg-orange-50'
               />
 
               <Stat
@@ -938,26 +1128,38 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                 value={emailStats.uniqueClicks}
                 percentage={emailStats.uniqueClicksPct}
                 color="#3f9f42"
+                bgClass='bg-green-50'
               />
             </div>
 
 
 
-            {/* Pinned Notes */}
-            {/* PINNED NOTES – FIRST */}
+
+          </div>
+
+          {/* Pinned Notes */}
+          <div className="bg-white rounded-lg p-6 shadow-[5px_5px_12px_rgba(0,0,0,0.15)] border border border-[#cccccc]">
             {pinnedNotes.length > 0 && (
-              <div style={{ marginTop: 24 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, }} > Pinned notes ({pinnedNotes.length}) </div>
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <span className='text-[#3f9f42]'>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="25px" height="25px" viewBox="0 -0.5 25 25" fill="none">
+                      <path fill-rule="evenodd" clip-rule="evenodd" d="M9.808 4.00001H15.329C15.3863 4.00001 15.4433 4.00367 15.5 4.01101C17.7473 4.16817 19.4924 6.0332 19.5 8.28601V14.715C19.4917 17.0871 17.5641 19.0044 15.192 19H9.808C7.43551 19.0044 5.50772 17.0865 5.5 14.714V8.28601C5.50772 5.91353 7.43551 3.99558 9.808 4.00001Z" stroke="#3f9f42" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                      <path d="M19.5 9.03599C19.9142 9.03599 20.25 8.7002 20.25 8.28599C20.25 7.87177 19.9142 7.53599 19.5 7.53599V9.03599ZM15.5 8.28599H14.75C14.75 8.7002 15.0858 9.03599 15.5 9.03599V8.28599ZM16.25 4.01099C16.25 3.59677 15.9142 3.26099 15.5 3.26099C15.0858 3.26099 14.75 3.59677 14.75 4.01099H16.25ZM14.5 12.75C14.9142 12.75 15.25 12.4142 15.25 12C15.25 11.5858 14.9142 11.25 14.5 11.25V12.75ZM8.5 11.25C8.08579 11.25 7.75 11.5858 7.75 12C7.75 12.4142 8.08579 12.75 8.5 12.75V11.25ZM11.5 9.74999C11.9142 9.74999 12.25 9.4142 12.25 8.99999C12.25 8.58577 11.9142 8.24999 11.5 8.24999V9.74999ZM8.5 8.24999C8.08579 8.24999 7.75 8.58577 7.75 8.99999C7.75 9.4142 8.08579 9.74999 8.5 9.74999V8.24999ZM15.5 15.75C15.9142 15.75 16.25 15.4142 16.25 15C16.25 14.5858 15.9142 14.25 15.5 14.25V15.75ZM8.5 14.25C8.08579 14.25 7.75 14.5858 7.75 15C7.75 15.4142 8.08579 15.75 8.5 15.75V14.25ZM19.5 7.53599H15.5V9.03599H19.5V7.53599ZM16.25 8.28599V4.01099H14.75V8.28599H16.25ZM14.5 11.25H8.5V12.75H14.5V11.25ZM11.5 8.24999H8.5V9.74999H11.5V8.24999ZM15.5 14.25H8.5V15.75H15.5V14.25Z" fill="#3f9f42"></path>
+                    </svg>
+                  </span>
+                  <h3 className="text-lg font-semibold text-foreground">Pinned notes ({pinnedNotes.length})</h3>
+                </div>
                 {pinnedNotes.map((note: any, index: number) => (
                   <div key={note.id} style={{ display: "flex", gap: 16, paddingBottom: index !== pinnedNotes.length - 1 ? 24 : 0, }} >
                     {/* Note content */}
                     <div style={{ flex: 1 }}>
-                      <div style={{ background: "#fefcf9", border: "1px solid #e5e7eb", borderRadius: 12, padding: 16, position: "relative", }} >
+                      <div className='relative rounded-[5px] border border-solid border-[#e5e7eb] border-l-[3px] border-l-[#cccccc] bg-[#fefcf9] p-4' >
                         <div style={{ fontSize: 13, color: "#666", marginBottom: 8 }}> {formatDateTimeIST(note.createdAt)} </div>
                         {/* 3-dot menu */}
                         <button onClick={(e) => {
                           e.stopPropagation(); setNoteActionsAnchor(noteActionsAnchor === note.id ? null : note.id);
-                        }} style={{ position: "absolute", top: 12, right: 12, border: "none", background: "#ede9fe", borderRadius: "50%", width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", }} >
+                        }} style={{ position: "absolute", top: 12, right: 12, border: "none", background: "#ebebeb", borderRadius: "50%", width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", }} >
                           <FontAwesomeIcon icon={faEllipsisV} />
                         </button>
                         {/* Action menu */}
@@ -1050,29 +1252,29 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                             whiteSpace: "normal",
                           }}
                           dangerouslySetInnerHTML={{
-    __html: expandedNoteIds.has(note.id) 
-      ? (note.note || "<p>No note content</p>")
-      : `<p>${getTruncatedNote(note.note || "")}</p>`,
-  }}
+                            __html: expandedNoteIds.has(note.id) 
+                              ? (note.note || "<p>No note content</p>")
+                              : `<p>${getTruncatedNote(note.note || "")}</p>`,
+                          }}
                         />
-                         {/* EXPAND BUTTON */}
-{getPlainText(note.note || "").length > TRUNCATE_LENGTH && (
-  <button
-    onClick={() => toggleNoteExpand(note.id)}
-    style={{
-      marginTop: 12,
-      background: "none",
-      border: "none",
-      color: "#3f9f42",
-      cursor: "pointer",
-      fontSize: 13,
-      fontWeight: 600,
-      padding: 0,
-    }}
-  >
-    {expandedNoteIds.has(note.id) ? "Show less" : "Expand"}
-  </button>
-)}
+                        {/* EXPAND BUTTON */}
+                        {getPlainText(note.note || "").length > TRUNCATE_LENGTH && (
+                          <button
+                            onClick={() => toggleNoteExpand(note.id)}
+                            style={{
+                              marginTop: 12,
+                              background: "none",
+                              border: "none",
+                              color: "#3f9f42",
+                              cursor: "pointer",
+                              fontSize: 13,
+                              fontWeight: 600,
+                              padding: 0,
+                            }}
+                          >
+                            {expandedNoteIds.has(note.id) ? "Show less" : "Expand"}
+                          </button>
+                        )}
 
                       </div>
                     </div>
@@ -1084,19 +1286,25 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
 
           {/* LinkedIn Summary */}
           <div
-            className="bg-white rounded-lg p-6 shadow-sm border border-gray-200"
+            className="bg-white rounded-lg p-6 shadow-[5px_5px_12px_rgba(0,0,0,0.15)] border border border-[#cccccc]"
             style={{ minHeight: 160 }}   // ✅ better than fixed height
           >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold">LinkedIn summary</h3>
-
-              <button
-                type="button"
-                onClick={() => setShowLinkedInSummaryPopup(true)}
-                className="flex items-center gap-2 px-3 py-1 text-[#3f9f42] rounded transition-colors"
-              >
-                <FontAwesomeIcon icon={faEdit} width="16" height="16" />
-              </button>
+           
+            <div className="flex items-center  justify-between">
+                <div className='flex  gap-[10px] items-center'>
+                  <span className=''>
+                    <svg className="h-5 w-5 text-[#3f9f42]" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" /></svg>
+                  </span>
+                  <h3 className="text-lg font-semibold text-foreground">LinkedIn summary</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowLinkedInSummaryPopup(true)}
+                  className="flex items-center gap-2 text-[#333333] rounded transition-colors"
+                >
+                  <FontAwesomeIcon icon={faEdit} className='20px' />
+                </button>
+                
             </div>
 
             {/* ✅ HTML RENDERER */}
@@ -1112,6 +1320,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                 overflowWrap: "break-word",
                 maxWidth: "100%",
               }}
+              className='py-[16px]'
                dangerouslySetInnerHTML={{
                 __html: DOMPurify.sanitize(
                   !linkedInSummary 
@@ -1285,12 +1494,13 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
             {/* HEADER */}
             <div
               style={{
-                background: "#d9fdd3",
+                background: "#ffffff",
                 padding: "16px 20px",
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
               }}
+              className='border-[#cccccc] border-b'
             >
               <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>
                 LinkedIn Summary
@@ -1770,3 +1980,5 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
 };
 
 export default EditContactModal;
+
+
