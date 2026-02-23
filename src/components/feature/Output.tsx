@@ -4043,7 +4043,7 @@ useEffect(() => {
         isOpen={kraftEmailControls}
         onClose={() => setKraftEmailControls(false)}
         isResetEnabled={isResetEnabled}
-        overwriteDatabase={settingsForm?.overwriteDatabase || false}
+        overwriteDatabase={settingsForm?.overwriteDatabase ?? false}
         onOverwriteChange={(checked) => {
           console.log('onOverwriteChange called with:', checked);
           console.log('settingsFormHandler:', settingsFormHandler);
@@ -4098,7 +4098,7 @@ useEffect(() => {
         onStop={handleStop}
       />
 
-      {/* Kraft Email Panel */}
+      {/* Kraft Email Panel
       <KraftEmailPanel
         isOpen={kraftEmailControls}
         onClose={() => setKraftEmailControls(false)}
@@ -4156,7 +4156,7 @@ useEffect(() => {
           handleStart?.(startIdx);
         }}
         onStop={handleStop}
-      />
+      /> */}
     </div>
   );
 };
