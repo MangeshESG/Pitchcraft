@@ -4,6 +4,7 @@ import type { EventItem, EmailLog } from "../../contexts/AppDataContext";
 import DynamicContactsTable from "./DynamicContactsTable";
 import AppModal from "../common/AppModal";
 import { useAppModal } from "../../hooks/useAppModal";
+import SegmentModal from "../common/SegmentModal";
 
 import {
   LineChart,
@@ -148,9 +149,6 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   const [missingLogsCurrentPage, setMissingLogsCurrentPage] = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
   const [showSaveSegmentModal, setShowSaveSegmentModal] = useState(false);
-  const [segmentName, setSegmentName] = useState("");
-  const [segmentDescription, setSegmentDescription] = useState("");
-  const [savingSegment, setSavingSegment] = useState(false);
   const [dataFetchedForCampaign, setDataFetchedForCampaign] =
     useState<string>("");
   const [deletingContacts, setDeletingContacts] = useState(false);
@@ -518,6 +516,8 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
       setDataFetchedForCampaign("");
     }
   }, [effectiveUserId]);
+
+
 
   // Auto-save state when selectedCampaign changes
   useEffect(() => {
@@ -1343,136 +1343,59 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     });
   };
 
-  // Segment Creation - Updated for campaigns
-  const handleSaveEmailSegment = async () => {
-    if (!segmentName.trim()) {
-      appModal.showWarning("Please select a campaign first");
-      return;
+  // Helper function to get contact IDs based on filter type
+  const getSegmentContactIds = (): number[] => {
+    let contactIds: number[] = [];
+
+    if (emailFilterType === "email-logs") {
+      const selectedLogs = getFilteredEmailLogs().filter((log) =>
+        selectedEmailLogs.has(log.id.toString())
+      );
+      contactIds = selectedLogs
+        .map((log) => log.contactId)
+        .filter((id): id is number => id !== null && id !== undefined);
+    } else if (emailFilterType === "missing-logs") {
+      const selectedLogs = getFilteredMissingLogs().filter((log) =>
+        selectedMissingLogs.has(log.id.toString())
+      );
+      contactIds = selectedLogs
+        .map((log) => log.contactId)
+        .filter((id): id is number => id !== null && id !== undefined && id > 0);
+    } else {
+      const selectedContacts = getFilteredEmailContacts().filter((contact) =>
+        detailSelectedContacts.has(contact.id.toString())
+      );
+      contactIds = selectedContacts
+        .map((contact) => contact.contactId)
+        .filter(
+          (id): id is number => id !== null && id !== undefined && id > 0
+        );
     }
 
-    if (!selectedCampaign) {
-      appModal.showWarning("Please select a campaign first");
-      return;
+    return Array.from(new Set(contactIds));
+  };
+
+  // Clear selections after segment operation
+  const clearSegmentSelections = () => {
+    if (emailFilterType === "email-logs") {
+      setSelectedEmailLogs(new Set());
+    } else if (emailFilterType === "missing-logs") {
+      setSelectedMissingLogs(new Set());
+    } else {
+      setDetailSelectedContacts(new Set());
     }
+  };
 
-    await withLoader("Creating segment...", async () => {
-      setSavingSegment(true);
+  // Get dataFileId for segment creation
+  const getDataFileId = (): number | null => {
+    const campaign = availableCampaigns.find(
+      (c) => c.id.toString() === selectedCampaign
+    );
 
-      try {
-        let contactIds: number[] = [];
-
-        if (emailFilterType === "email-logs") {
-          const selectedLogs = getFilteredEmailLogs().filter((log) =>
-            selectedEmailLogs.has(log.id.toString())
-          );
-
-          contactIds = selectedLogs
-            .map((log) => log.contactId)
-            .filter((id): id is number => id !== null && id !== undefined);
-
-          if (contactIds.length === 0) {
-            appModal.showWarning(
-              "No valid contacts selected. Please select contacts with valid contact IDs."
-            );
-            setSavingSegment(false);
-            return;
-          }
-        } else if (emailFilterType === "missing-logs") {
-          const selectedLogs = getFilteredMissingLogs().filter((log) =>
-            selectedMissingLogs.has(log.id.toString())
-          );
-
-          // For missing logs, use the contactId field from the API response
-          contactIds = selectedLogs
-            .map((log) => log.contactId)
-            .filter((id): id is number => id !== null && id !== undefined && id > 0);
-
-          if (contactIds.length === 0) {
-            appModal.showWarning(
-              "No valid contacts selected. Please select contacts to create a segment."
-            );
-            setSavingSegment(false);
-            return;
-          }
-        } else {
-          const selectedContacts = getFilteredEmailContacts().filter((contact) =>
-            detailSelectedContacts.has(contact.id.toString())
-          );
-
-          contactIds = selectedContacts
-            .map((contact) => contact.contactId)
-            .filter(
-              (id): id is number => id !== null && id !== undefined && id > 0
-            );
-
-          if (contactIds.length === 0) {
-            appModal.showError(
-              "No valid contacts selected. Please select contacts with valid contact IDs."
-            );
-            setSavingSegment(false);
-            return;
-          }
-        }
-
-        const uniqueContactIds = Array.from(new Set(contactIds));
-
-        const campaign = availableCampaigns.find(
-          (c) => c.id.toString() === selectedCampaign
-        );
-
-        let dataFileId: number | null = null;
-
-        if (campaign?.dataSource === "DataFile" && campaign.zohoViewId) {
-          dataFileId = parseInt(campaign.zohoViewId);
-        }
-
-        const segmentData = {
-          name: segmentName,
-          description: segmentDescription || "",
-          dataFileId: dataFileId,
-          contactIds: uniqueContactIds,
-        };
-
-        const response = await fetch(
-          `${API_BASE_URL}/api/Crm/Creat-Segments?ClientId=${effectiveUserId}`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...(token && { Authorization: `Bearer ${token}` }),
-            },
-            body: JSON.stringify(segmentData),
-          }
-        );
-
-        if (response.ok) {
-          appModal.showSuccess(
-            `Segment "${segmentName}" created successfully with ${uniqueContactIds.length} contacts!`,
-            "Segment Created"
-          );
-
-          setShowSaveSegmentModal(false);
-          setSegmentName("");
-          setSegmentDescription("");
-
-          if (emailFilterType === "email-logs") {
-            setSelectedEmailLogs(new Set());
-          } else if (emailFilterType === "missing-logs") {
-            setSelectedMissingLogs(new Set());
-          } else {
-            setDetailSelectedContacts(new Set());
-          }
-        } else {
-          const errorData = await response.text();
-          appModal.showError(`Failed to create segment: ${errorData}`);
-        }
-      } catch (error) {
-        console.error("Error creating segment:", error);
-        appModal.showError("Error creating segment. Please try again.");
-      } finally {
-        setSavingSegment(false);
-      }
-    });
+    if (campaign?.dataSource === "DataFile" && campaign.zohoViewId) {
+      return parseInt(campaign.zohoViewId);
+    }
+    return null;
   };
 
   // Helper function for invalid contacts count
@@ -2446,160 +2369,24 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
           )}
 
           {/* Segment Save Modal */}
-          {showSaveSegmentModal && (
-            <div className="modal-overlay">
-              <div className="modal-content popup-modal">
-                <div className="headerr">
-                  <h2 style={{color:"#000",fontWeight:"600"}}>Create segment</h2>
-                  <span
-                    onClick={() => {
-                      setShowSaveSegmentModal(false);
-                      setSegmentName("");
-                      setSegmentDescription("");
-                    }}
-                    style={{
-                      marginLeft: "auto",
-                      fontSize: "25px",
-                      fontWeight: 600,
-                      color: "#9e9e9e",
-                      cursor: "pointer",
-                      lineHeight: 1
-                    }}
-                  >
-                    ×
-                  </span>
-                </div>
-                <p style={{marginRight:"auto", marginBottom: "16px"}}>
-                  Creating segment with{" "}
-                  {emailFilterType === "email-logs"
-                    ? selectedEmailLogs.size
-                    : emailFilterType === "missing-logs"
-                    ? selectedMissingLogs.size
-                    : detailSelectedContacts.size}{" "}
-                  selected contact
-                  {(emailFilterType === "email-logs"
-                    ? selectedEmailLogs.size
-                    : emailFilterType === "missing-logs"
-                    ? selectedMissingLogs.size
-                    : detailSelectedContacts.size) > 1
-                    ? "s"
-                    : ""}
-                </p>
-                <div style={{ marginBottom: "16px", width: "100%", textAlign: "left" }}>
-                  <label style={{
-                    display: "block",
-                    marginBottom: "4px",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                    color: "#333"
-                  }}>Segment name <span style={{color: "red"}}>*</span></label>
-                  <input
-                    type="text"
-                    placeholder="Enter segment name"
-                    value={segmentName}
-                    onChange={(e) => setSegmentName(e.target.value)}
-                    autoFocus
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      border: "1px solid #ddd",
-                      borderRadius: "4px",
-                      fontSize: "14px"
-                    }}
-                  />
-                </div>
-                <div style={{ marginBottom: "20px", width: "100%", textAlign: "left" }}>
-                  <label style={{
-                    display: "block",
-                    marginBottom: "4px",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                    color: "#333"
-                  }}>Description</label>
-                  <textarea
-                    placeholder="Enter description (optional)"
-                    value={segmentDescription}
-                    onChange={(e) => setSegmentDescription(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      border: "1px solid #ddd",
-                      borderRadius: "4px",
-                      fontSize: "14px",
-                      minHeight: "80px",
-                      resize: "vertical"
-                    }}
-                    rows={3}
-                  />
-                </div>
-                <div style={{ display: "flex", gap: "12px", marginLeft: "auto" }}>
-                  <button
-                    onClick={() => {
-                      setShowSaveSegmentModal(false);
-                      setSegmentName("");
-                      setSegmentDescription("");
-                    }}
-                    style={{
-                      background: "#fff",
-                      padding: "8px 16px",
-                      color: "#666",
-                      borderRadius: "4px",
-                      border: "2px solid #ddd",
-                      cursor: "pointer",
-                      fontSize: "14px"
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSaveEmailSegment}
-                    disabled={
-                      !segmentName.trim() ||
-                      savingSegment ||
-                      !selectedCampaign ||
-                      (emailFilterType === "email-logs"
-                        ? selectedEmailLogs.size === 0
-                        : emailFilterType === "missing-logs"
-                        ? selectedMissingLogs.size === 0
-                        : detailSelectedContacts.size === 0)
-                    }
-                    style={{
-                      background: !segmentName.trim() ||
-                        savingSegment ||
-                        !selectedCampaign ||
-                        (emailFilterType === "email-logs"
-                          ? selectedEmailLogs.size === 0
-                          : emailFilterType === "missing-logs"
-                          ? selectedMissingLogs.size === 0
-                          : detailSelectedContacts.size === 0) ? "#ccc" : "#218838",
-                      padding: "8px 16px",
-                      color: "#fff",
-                      borderRadius: "4px",
-                      border: `2px solid ${!segmentName.trim() ||
-                        savingSegment ||
-                        !selectedCampaign ||
-                        (emailFilterType === "email-logs"
-                          ? selectedEmailLogs.size === 0
-                          : emailFilterType === "missing-logs"
-                          ? selectedMissingLogs.size === 0
-                          : detailSelectedContacts.size === 0) ? "#ccc" : "#218838"}`,
-                      cursor: !segmentName.trim() ||
-                        savingSegment ||
-                        !selectedCampaign ||
-                        (emailFilterType === "email-logs"
-                          ? selectedEmailLogs.size === 0
-                          : emailFilterType === "missing-logs"
-                          ? selectedMissingLogs.size === 0
-                          : detailSelectedContacts.size === 0) ? "not-allowed" : "pointer",
-                      fontSize: "14px"
-                    }}
-                  >
-                    {savingSegment ? "Creating..." : "Create"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          <SegmentModal
+            isOpen={showSaveSegmentModal}
+            onClose={() => setShowSaveSegmentModal(false)}
+            selectedContactsCount={
+              emailFilterType === "email-logs"
+                ? selectedEmailLogs.size
+                : emailFilterType === "missing-logs"
+                ? selectedMissingLogs.size
+                : detailSelectedContacts.size
+            }
+            effectiveUserId={effectiveUserId!}
+            token={token}
+            dataFileId={getDataFileId()}
+            onSuccess={(message) => appModal.showSuccess(message)}
+            onError={(message) => appModal.showError(message)}
+            onContactsCleared={clearSegmentSelections}
+            getContactIds={getSegmentContactIds}
+          />
 
           {/* Delete Confirmation Modal */}
           {showDeleteConfirmModal && (
@@ -2673,7 +2460,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
         {...appModal.config}
       />
       <AppModal
-        isOpen={isLoading || loading || isRefreshing || savingSegment || deletingContacts}
+        isOpen={isLoading || loading || isRefreshing}
         onClose={() => { }}
         type="loader"
         loaderMessage={loadingMessage}
