@@ -3849,7 +3849,7 @@ case "richtext":
               {/* ================= SPLIT LAYOUT ================= */}
               <div className="flex gap-4 h-[calc(100vh-200px)] mt-[10px]">
                 {/* RIGHT: Show Preview Button (only when closed) */}
-                <div className="absolute right-[0] top-[8] z-[100]">
+                {/* <div className="absolute right-[0] top-[8] z-[100]">
                   <button
                     className="show-preview-btn !rounded-[4px]"
                     onClick={() => setIsSectionOpen(!isSectionOpen)}
@@ -3864,7 +3864,25 @@ case "richtext":
                       </span>
                     </span>
                   </button>
-                </div>
+                </div> */}
+                 {isSectionOpen === false && 
+                  <div className="flex">
+                    <button
+                      className="!rounded-[4px] bg-[#e4ffe5] text-[#3f9f42] font-[600] text-[20px] w-[50px] border-2 border-dashed border-[#b3c7b4] shadow-[rgba(50,50,93,0.25)_0px_13px_27px_-5px,rgba(0,0,0,0.3)_0px_8px_16px_-8px]"
+                      onClick={() => setIsSectionOpen(!isSectionOpen)}
+                    >
+                      <span className="flex items-center gap-[5px] rotate-90 pb-[3px] -mt-[46px]">
+                        <span className="nowrap">
+                          {isSectionOpen === false && "Show email preview"}
+                        </span>
+                        <FontAwesomeIcon
+                          icon={isSectionOpen ? faAngleLeft : faAngleRight}
+                          className="text-[#3f9f42] text-md -rotate-90 pr-[2px]"
+                        />
+                      </span>
+                    </button>
+                  </div>
+                }
                 {/* ================= LEFT PANEL ================= */}
                 <div
                   style={{
@@ -3957,10 +3975,23 @@ case "richtext":
                       position: "relative",
                     }}
                   >
-                    <div className="flex justify-between min-h-[44px]">
+                    <div className="flex justify-between min-h-[44px] items-center">
                       <h3 className="font-[600] flex items-center">
                         Email preview
                       </h3>
+                      <button
+  className="!rounded-[4px] bg-[#e4ffe5] text-[#3f9f42] font-[600] text-[14px] px-[12px] py-[6px] border-2 border-dashed border-[#b3c7b4] shadow-[rgba(50,50,93,0.25)_0px_13px_27px_-5px,rgba(0,0,0,0.3)_0px_8px_16px_-8px]"
+  onClick={() => setIsSectionOpen(false)}
+  title="Hide preview"
+>
+  <span className="flex items-center gap-[5px]">
+    <FontAwesomeIcon
+      icon={faAngleRight}
+      className="text-[#3f9f42] text-md"
+    />
+    <span>Hide email preview</span>
+  </span>
+</button>
                     </div>
 
                     {/* Collapse Button */}

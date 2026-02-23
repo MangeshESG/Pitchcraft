@@ -187,6 +187,7 @@ const formatLocalDateTime = (dateString: string | undefined | null): string => {
 
     {/* Restrict Contacts */}
     <div
+      className="form-group"
       style={{
         padding: "12px",
         border: "1px solid #cccccc",
@@ -198,20 +199,24 @@ const formatLocalDateTime = (dateString: string | undefined | null): string => {
       <div style={{ display: "flex", alignItems: "center" }}>
         <input
           type="checkbox"
+          id="enableIndexRangeKraft"
           checked={enableIndexRange}
           onChange={(e) => setEnableIndexRange(e.target.checked)}
           style={{ marginRight: 8, cursor: "pointer" }}
+          className="!w-[auto]"
         />
-        <label style={{ fontWeight: 600, cursor: "pointer" }}>
+        <label htmlFor="enableIndexRangeKraft" style={{ fontSize: "inherit", marginBottom: 0, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
           Restrict contacts
         </label>
       </div>
 
       {enableIndexRange && (
         <>
-          <div className="mt-[15px]" style={{ display: "flex", gap: 12 }}>
+          <div style={{ display: "flex", gap: 12, alignItems: "flex-end" }} className="mt-[15px]">
             <div style={{ width: "80px" }}>
-              <label style={{ fontSize: 13 }}>From</label>
+              <label style={{ display: "block", marginBottom: 4, fontSize: "14px", color: "#333", fontFamily: "inherit" }}>
+                From
+              </label>
               <input
                 type="number"
                 className="form-control"
@@ -220,13 +225,17 @@ const formatLocalDateTime = (dateString: string | undefined | null): string => {
                   setStartIndex(e.target.value);
                   setShowValidationError(false);
                 }}
+                placeholder="From"
                 min="1"
                 max={combinedResponses.length}
+                style={{ width: "100%", padding: "6px 8px", fontSize: 13 }}
               />
             </div>
 
             <div style={{ width: "80px" }}>
-              <label style={{ fontSize: 13 }}>To</label>
+              <label style={{ display: "block", marginBottom: 4, fontSize: "14px", color: "#333", fontFamily: "inherit" }}>
+                To
+              </label>
               <input
                 type="number"
                 className="form-control"
@@ -235,9 +244,11 @@ const formatLocalDateTime = (dateString: string | undefined | null): string => {
                   setEndIndex(e.target.value);
                   setShowValidationError(false);
                 }}
+                placeholder="To"
                 min={startIndex || "1"}
                 max={combinedResponses.length}
                 disabled={!startIndex}
+                style={{ width: "100%", padding: "6px 8px", fontSize: 13 }}
               />
             </div>
           </div>
