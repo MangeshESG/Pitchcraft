@@ -7,6 +7,7 @@ import AppModal from "../common/AppModal";
 import AddContactModal from "./AddContactModal";
 import EditContactModal from "./EditContactModal";
 import CreateListModal from "./CreateListModal";
+import SegmentModal from "../common/SegmentModal";
 
 import { useAppModal } from "../../hooks/useAppModal";
 import { useSelector } from "react-redux";
@@ -685,12 +686,6 @@ const formatTimeIST = (dateString?: string) => {
 
   //Segment Modal States
   const [showSaveSegmentModal, setShowSaveSegmentModal] = useState(false);
-  const [segmentName, setSegmentName] = useState("");
-  const [segmentDescription, setSegmentDescription] = useState("");
-  const [savingSegment, setSavingSegment] = useState(false);
-  const [segmentModalTab, setSegmentModalTab] = useState<"create" | "move">("create");
-  const [selectedExistingSegment, setSelectedExistingSegment] = useState<string>("");
-  const [movingToSegment, setMovingToSegment] = useState(false);
 
   // Delete contacts from Lists
   const handleDeleteListContacts = async () => {
@@ -866,132 +861,41 @@ const formatTimeIST = (dateString?: string) => {
     }
   };
 
-  // Find this function in your DataCampaigns.tsx and replace it
-  const handleSaveSegment = async () => {
-    if (!segmentName) return;
-    setSavingSegment(true);
-
-    // Determine which contacts to use based on view mode
+  // Helper function to get contact IDs for segment creation
+  const getContactListSegmentIds = (): number[] => {
     const contactsToUse =
       viewMode === "detail"
         ? Array.from(detailSelectedContacts).map(Number)
         : segmentViewMode === "detail"
           ? Array.from(detailSelectedContacts).map(Number)
           : Array.from(selectedContacts).map(Number);
+    
+    return contactsToUse.filter((id): id is number => !isNaN(id) && id > 0);
+  };
 
+  // Get dataFileId for segment creation
+  const getContactListDataFileId = (): number | null => {
     const dataFileToUse =
       viewMode === "detail"
         ? selectedDataFileForView?.id
         : segmentViewMode === "detail"
           ? selectedSegmentForView?.dataFileId
           : selectedDataFile;
-
-    const segmentData = {
-      name: segmentName,
-      description: segmentDescription,
-      dataFileId: Number(dataFileToUse),
-      contactIds: contactsToUse,
-    };
-
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/Crm/Creat-Segments?ClientId=${effectiveUserId}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(segmentData),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to save segment");
-      }
-
-      appModal.showSuccess("Segment saved successfully!");
-      setShowSaveSegmentModal(false);
-      setSegmentName("");
-      setSegmentDescription("");
-
-      // Clear selections after saving
-      if (viewMode === "detail" || segmentViewMode === "detail") {
-        setDetailSelectedContacts(new Set());
-      } else {
-        setSelectedContacts(new Set());
-      }
-
-      // Refresh segments if on segment tab
-      if (activeSubTab === "Segment") {
-        fetchSegments();
-      }
-    } catch (error) {
-      appModal.showError("Failed to save segment");
-    } finally {
-      setSavingSegment(false);
-    }
+    
+    return dataFileToUse ? Number(dataFileToUse) : null;
   };
 
-  const handleMoveToExistingSegment = async () => {
-    if (!selectedExistingSegment) return;
-    setMovingToSegment(true);
-
-    // Determine which contacts to use based on view mode
-    const contactsToUse =
-      viewMode === "detail"
-        ? Array.from(detailSelectedContacts).map(Number)
-        : segmentViewMode === "detail"
-          ? Array.from(detailSelectedContacts).map(Number)
-          : Array.from(selectedContacts).map(Number);
-
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/Crm/add-contacts-to-existing-segment?ClientId=${effectiveUserId}&SegmentId=${selectedExistingSegment}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(contactsToUse),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to move contacts to segment");
-      }
-
-      const result = await response.json();
-      
-      if (result.alreadyPresentCount > 0 && result.contactsAdded === 0) {
-        appModal.showInfo(result.message);
-      } else if (result.contactsAdded > 0) {
-        let message = result.message;
-        if (result.alreadyPresentCount > 0) {
-          message += ` (${result.contactsAdded} added, ${result.alreadyPresentCount} already present)`;
-        }
-        appModal.showSuccess(message);
-      } else {
-        appModal.showSuccess(result.message || "Contacts moved to segment successfully!");
-      }
-      setShowSaveSegmentModal(false);
-      setSelectedExistingSegment("");
-      setSegmentModalTab("create");
-
-      // Clear selections after moving
-      if (viewMode === "detail" || segmentViewMode === "detail") {
-        setDetailSelectedContacts(new Set());
-      } else {
-        setSelectedContacts(new Set());
-      }
-
-      // Refresh segments if on segment tab
-      if (activeSubTab === "Segment") {
-        fetchSegments();
-      }
-    } catch (error) {
-      appModal.showError("Failed to move contacts to segment");
-    } finally {
-      setMovingToSegment(false);
+  // Clear selections after segment operation
+  const clearContactListSelections = () => {
+    if (viewMode === "detail" || segmentViewMode === "detail") {
+      setDetailSelectedContacts(new Set());
+    } else {
+      setSelectedContacts(new Set());
+    }
+    
+    // Refresh segments if on segment tab
+    if (activeSubTab === "Segment") {
+      fetchSegments();
     }
   };
 
@@ -2236,28 +2140,19 @@ const formatTimeIST = (dateString?: string) => {
                             cursor: "pointer",
                             fontWeight: 500,
                           }}
-                          // onClick={(e) => {
-                          //   e.stopPropagation(); // important
-                          //   setEditingContact(row);
-                          //   setShowContactPage(true);
-                          //   setActiveContactTab("profile");
-                          //   fetchEmailTimeline(row.id);
-                          //   // setShowEditContactModal(true);
-                          // }}
                           onClick={(e) => {
                            e.stopPropagation();
-                           if (!selectedDataFileForView?.id) {
-    console.error("No dataFileId for current list");
-    return;
-  }
+                           // Use row.dataFileId if available (from All Contacts), otherwise use selectedDataFileForView.id
+                           const dataFileId = row.dataFileId || selectedDataFileForView?.id;
+                           
+                           if (!dataFileId) {
+                             console.error("No dataFileId available for contact");
+                             return;
+                           }
 
-const contactDetailsUrl =
-  `/#/contact-details/${row.id}?dataFileId=${selectedDataFileForView.id}`;
-
-  window.open(
-    contactDetailsUrl,
-    "_blank"
-  );}}
+                           const contactDetailsUrl = `/#/contact-details/${row.id}?dataFileId=${dataFileId}`;
+                           window.open(contactDetailsUrl, "_blank");
+                          }}
                         >
                           {value}
                         </span>
@@ -3430,30 +3325,20 @@ const contactDetailsUrl =
                             cursor: "pointer",
                             fontWeight: 500,
                           }}
-                          // onClick={(e) => {
-                          //   e.stopPropagation(); // important
-                          //   setEditingContact(row);
-                          //   setShowContactPage(true);
-                          //   //setShowEditContactModal(true);
-                          //   setActiveContactTab("profile");
-                          //   fetchEmailTimeline(row.id);
-                          // }}
                           onClick={(e) => {
-  e.stopPropagation();
+                            e.stopPropagation();
 
-  if (!selectedSegmentForView) {
-    console.error("No segment selected");
-    return;
-  }
+                            if (!selectedSegmentForView) {
+                              console.error("No segment selected");
+                              return;
+                            }
 
-const contactDetailsUrl =
-  `/#/contact-details/${row.id}?segmentId=${selectedSegmentForView.id}&dataFileId=${selectedSegmentForView.dataFileId}`;
-
-  window.open(
-    contactDetailsUrl,
-    "_blank"
-  );
-}}
+                            // Use row.dataFileId if available, otherwise use segment's dataFileId
+                            const dataFileId = row.dataFileId || selectedSegmentForView.dataFileId;
+                            
+                            const contactDetailsUrl = `/#/contact-details/${row.id}?segmentId=${selectedSegmentForView.id}&dataFileId=${dataFileId}`;
+                            window.open(contactDetailsUrl, "_blank");
+                          }}
                         >
                           {value}
                         </span>
@@ -4157,199 +4042,22 @@ const contactDetailsUrl =
         </div>
       )}
 
-      {showSaveSegmentModal && (
-        <div className="modal-overlay">
-          <div className="modal-content popup-modal">
-            {/* Tabs at the very top */}
-            <div style={{ 
-              display: "flex", 
-              borderBottom: "1px solid #e5e7eb", 
-              marginBottom: "16px" 
-            }}>
-              <button
-                onClick={() => setSegmentModalTab("create")}
-                style={{
-                  padding: "12px 16px",
-                  background: "none",
-                  border: "none",
-                  borderBottom: segmentModalTab === "create" ? "2px solid #3f9f42" : "2px solid transparent",
-                  color: segmentModalTab === "create" ? "#3f9f42" : "#666",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  fontSize: "16px"
-                }}
-              >
-                Create new segment
-              </button>
-              <button
-                onClick={() => setSegmentModalTab("move")}
-                style={{
-                  padding: "12px 16px",
-                  background: "none",
-                  border: "none",
-                  borderBottom: segmentModalTab === "move" ? "2px solid #3f9f42" : "2px solid transparent",
-                  color: segmentModalTab === "move" ? "#3f9f42" : "#666",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  fontSize: "16px"
-                }}
-              >
-                Copy to existing segment
-              </button>
-            </div>
-
-            <p style={{ marginRight: "auto", marginBottom: "16px" }}>
-              {segmentModalTab === "create" ? "Creating segment" : "Copying"} with{" "}
-              {viewMode === "detail" || segmentViewMode === "detail"
-                ? detailSelectedContacts.size
-                : selectedContacts.size}{" "}
-              selected contact
-              {(viewMode === "detail" || segmentViewMode === "detail"
-                ? detailSelectedContacts.size
-                : selectedContacts.size) > 1
-                ? "s"
-                : ""}
-            </p>
-
-            {/* Create new segment tab content */}
-            {segmentModalTab === "create" && (
-              <>
-                <div style={{ marginBottom: "16px", width: "100%", textAlign: "left" }}>
-                  <label style={{
-                    display: "block",
-                    marginBottom: "4px",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                    color: "#333"
-                  }}>Segment name <span style={{ color: "red" }}>*</span></label>
-                  <input
-                    type="text"
-                    placeholder="Enter segment name"
-                    value={segmentName}
-                    onChange={(e) => setSegmentName(e.target.value)}
-                    autoFocus
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      border: "1px solid #ddd",
-                      borderRadius: "4px",
-                      fontSize: "14px"
-                    }}
-                  />
-                </div>
-                <div style={{ marginBottom: "20px", width: "100%", textAlign: "left" }}>
-                  <label style={{
-                    display: "block",
-                    marginBottom: "4px",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                    color: "#333"
-                  }}>Description</label>
-                  <textarea
-                    placeholder="Enter description (optional)"
-                    value={segmentDescription}
-                    onChange={(e) => setSegmentDescription(e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      border: "1px solid #ddd",
-                      borderRadius: "4px",
-                      fontSize: "14px",
-                      minHeight: "80px",
-                      resize: "vertical"
-                    }}
-                    rows={3}
-                  />
-                </div>
-              </>
-            )}
-
-            {/* Move to existing segment tab content */}
-            {segmentModalTab === "move" && (
-              <div style={{ marginBottom: "20px", width: "100%", textAlign: "left" }}>
-                <label style={{
-                  display: "block",
-                  marginBottom: "4px",
-                  fontSize: "14px",
-                  fontWeight: "500",
-                  color: "#333"
-                }}>Select segment <span style={{ color: "red" }}>*</span></label>
-                <select
-                  value={selectedExistingSegment}
-                  onChange={(e) => setSelectedExistingSegment(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "8px 12px",
-                    border: "1px solid #ddd",
-                    borderRadius: "4px",
-                    fontSize: "14px"
-                  }}
-                >
-                  <option value="">Choose a segment</option>
-                  {segments.map((segment) => (
-                    <option key={segment.id} value={segment.id}>
-                      {segment.name} ({segment.contactCount || 0} contacts)
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div style={{ display: "flex", gap: "12px", marginLeft: "auto" }}>
-              <button
-                onClick={() => {
-                  setShowSaveSegmentModal(false);
-                  setSegmentModalTab("create");
-                  setSelectedExistingSegment("");
-                }}
-                style={{
-                  background: "#fff",
-                  padding: "8px 16px",
-                  color: "#666",
-                  borderRadius: "4px",
-                  border: "2px solid #ddd",
-                  cursor: "pointer",
-                  fontSize: "14px"
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={segmentModalTab === "create" ? handleSaveSegment : handleMoveToExistingSegment}
-                disabled={
-                  segmentModalTab === "create" 
-                    ? (!segmentName || savingSegment)
-                    : (!selectedExistingSegment || movingToSegment)
-                }
-                style={{
-                  background: 
-                    (segmentModalTab === "create" ? (!segmentName || savingSegment) : (!selectedExistingSegment || movingToSegment))
-                      ? "#ccc" 
-                      : "#218838",
-                  padding: "8px 16px",
-                  color: "#fff",
-                  borderRadius: "4px",
-                  border: `2px solid ${
-                    (segmentModalTab === "create" ? (!segmentName || savingSegment) : (!selectedExistingSegment || movingToSegment))
-                      ? "#ccc" 
-                      : "#218838"
-                  }`,
-                  cursor: 
-                    (segmentModalTab === "create" ? (!segmentName || savingSegment) : (!selectedExistingSegment || movingToSegment))
-                      ? "not-allowed" 
-                      : "pointer",
-                  fontSize: "14px"
-                }}
-              >
-                {segmentModalTab === "create" 
-                  ? (savingSegment ? "Creating..." : "Create")
-                  : (movingToSegment ? "Copying..." : "Copy")
-                }
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <SegmentModal
+        isOpen={showSaveSegmentModal}
+        onClose={() => setShowSaveSegmentModal(false)}
+        selectedContactsCount={
+          viewMode === "detail" || segmentViewMode === "detail"
+            ? detailSelectedContacts.size
+            : selectedContacts.size
+        }
+        effectiveUserId={effectiveUserId}
+        token={sessionStorage.getItem("token")}
+        dataFileId={getContactListDataFileId()}
+        onSuccess={(message) => appModal.showSuccess(message)}
+        onError={(message) => appModal.showError(message)}
+        onContactsCleared={clearContactListSelections}
+        getContactIds={getContactListSegmentIds}
+      />
 
       <CreateListModal
         isOpen={showCreateListModal}
