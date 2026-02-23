@@ -1090,6 +1090,35 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
   );
 };
 
+const RichTextInput: React.FC<{
+  value: string;
+  onChange: (val: string) => void;
+}> = ({ value, onChange }) => {
+  const editorRef = React.useRef<HTMLDivElement | null>(null);
+
+  React.useEffect(() => {
+    if (!editorRef.current) return;
+
+    if (editorRef.current.innerHTML !== value) {
+      editorRef.current.innerHTML = value || "";
+    }
+  }, [value]);
+
+  return (
+    <div
+      ref={editorRef}
+      contentEditable
+      suppressContentEditableWarning
+      className="border border-gray-300 p-3 rounded w-full bg-gray-50"
+      style={{ minHeight: "90px" }}
+      onInput={(e) =>
+        onChange((e.target as HTMLDivElement).innerHTML)
+      }
+    />
+  );
+};
+
+
 // ====================================================================
 // MAIN COMPONENT
 // ====================================================================
@@ -2825,17 +2854,20 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
     };
 
     switch (p.inputType) {
-      case "richtext":
-        return (
-          <div className="flex w-full rich-text-editor">
-            <div
-              className="border border-gray-300 p-3 rounded w-full bg-gray-50"
-              style={{ minHeight: "90px" }}
-              dangerouslySetInnerHTML={{ __html: value }}
-            />
-          </div>
-        );
-
+case "richtext":
+  return (
+    <div className="flex w-full rich-text-editor">
+      <RichTextInput
+        value={value}
+        onChange={(val) =>
+          setFormValues(prev => ({
+            ...prev,
+            [key]: val,
+          }))
+        }
+      />
+    </div>
+  );
       case "textarea":
         return (
           <div className="flex">
