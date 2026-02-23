@@ -278,50 +278,60 @@ const RegisterForm: React.FC<ViewProps> = ({ setView }) => {
   const [passwordValid, setPasswordValid] = useState(false);
   const [passwordTouched, setPasswordTouched] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [marketingConsent, setMarketingConsent] = useState(false);
 
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setMessage("");
-    setError("");
-    if (!passwordValid) {
-      alert("Password must be at least 8 characters long.");
-      return;
-    }
+  e.preventDefault();
+  setMessage("");
+  setError("");
 
-    setIsLoading(true);
+  if (!passwordValid) {
+    alert("Password must be at least 8 characters long.");
+    return;
+  }
+
+  if (!marketingConsent) {
+    alert("You must agree before registering.");
+    return;
+  }
+
+  setIsLoading(true);
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/login/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...form,
+        marketingConsent, // optional but recommended to send
+      }),
+    });
+
+    let data;
     try {
-      const response = await fetch(`${API_BASE_URL}/api/login/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-
-      let data;
-      try {
-        const text = await response.text();
-        data = text ? { message: text } : { message: "Success" };
-      } catch {
-        data = { message: "Registration successful" };
-      }
-
-      if (response.ok) {
-        localStorage.setItem("registerEmail", form.email);
-        localStorage.setItem("registerUsername", form.username);
-        localStorage.setItem("registerPassword", form.password);
-        dispatch(saveEmail(form.email));
-
-        setMessage("OTP sent to your email!");
-        setTimeout(() => setView("otp"), 2000);
-      } else {
-        setError(data?.message || "Registration failed.");
-      }
-    } catch (err) {
-      console.error("Registration error:", err);
-      setError("Server error: " + (err as Error).message);
-    } finally {
-      setIsLoading(false);
+      const text = await response.text();
+      data = text ? { message: text } : { message: "Success" };
+    } catch {
+      data = { message: "Registration successful" };
     }
-  };
+
+    if (response.ok) {
+      localStorage.setItem("registerEmail", form.email);
+      localStorage.setItem("registerUsername", form.username);
+      localStorage.setItem("registerPassword", form.password);
+      dispatch(saveEmail(form.email));
+
+      setMessage("OTP sent to your email!");
+      setTimeout(() => setView("otp"), 2000);
+    } else {
+      setError(data?.message || "Registration failed.");
+    }
+  } catch (err) {
+    console.error("Registration error:", err);
+    setError("Server error: " + (err as Error).message);
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <div>
@@ -427,6 +437,29 @@ const RegisterForm: React.FC<ViewProps> = ({ setView }) => {
             value={form.jobTitle}
             onChange={(e) => setForm({ ...form, jobTitle: e.target.value })}
           />
+        </div>
+        <div className="consent-field">
+          <label className="consent-label">
+            <input
+              type="checkbox"
+              checked={marketingConsent}
+              onChange={(e) => setMarketingConsent(e.target.checked)}
+              required
+            />
+            <span>
+              By completing and submitting this form, I agree to receive marketing emails
+              from PitchKraft.ai and its affiliates. I understand I can unsubscribe or
+              update my preferences at any time. My personal data will be processed in
+              accordance with the{" "}
+              <a
+                href="https://www.pitchkraft.ai/privacy-policy/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                PitchKraft.ai Privacy Policy
+              </a>.
+            </span>
+          </label>
         </div>
         <button type="submit" className="register-button" disabled={isLoading}>
           {isLoading ? (

@@ -238,3 +238,33 @@
 }
 
 
+.consent-field {
+  margin-top: 10px;
+  font-size: 7px;     /* smaller text */
+  line-height: 1.4;
+  color: #333;
+}
+
+.consent-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+.consent-label span {
+  font-size: 12px;      /* choose size you like */
+  font-weight: 400;     /* optional – makes it lighter */
+  line-height: 1.4;
+}
+
+.consent-label input {
+  margin-top: 2px;
+}
+.consent-field a {
+  color: #1a9c46;      /* PitchKraft-style green */
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.consent-field a:hover {
+  text-decoration: underline;
+}
