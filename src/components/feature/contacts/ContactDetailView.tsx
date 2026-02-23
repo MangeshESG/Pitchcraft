@@ -424,20 +424,22 @@ useEffect(() => {
       if (isEditMode && editingNoteId) {
         // ✅ UPDATE NOTE
         await axios.post(
-          `${API_BASE_URL}/api/notes/Update-Note`,
-          null,
-          {
-            params: {
-              NoteId: editingNoteId,
-              clientId: effectiveUserId,
-              contactId: contactId,
-              Note: noteText,
-              IsPin: isPinned,
-              IsUseInGenration: isEmailPersonalization,
-            },
-            timeout: 45000,
-          }
-        );
+  `${API_BASE_URL}/api/notes/Update-Note`,
+  {
+    noteId: editingNoteId,
+    clientId: effectiveUserId,
+    contactId: contactId,
+    note: noteText,
+    isPin: isPinned,
+    isUseInGenration: isEmailPersonalization,
+  },
+  {
+    timeout: 45000,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  }
+);
       } else {
         // ✅ ADD NOTE
         await axios.post(`${API_BASE_URL}/api/notes/Add-Note`, {
@@ -599,20 +601,22 @@ useEffect(() => {
       const newPinStatus = !noteToToggle.isPin;
 
       // ✅ Make API call to update pin status on backend
-      await axios.post(
-        `${API_BASE_URL}/api/notes/Update-Note`,
-        null,
-        {
-          params: {
-            NoteId: noteId,
-            clientId: effectiveUserId,
-            contactId: contactId,
-            Note: noteToToggle.note,
-            IsPin: newPinStatus,
-            IsUseInGenration: noteToToggle.isUseInGenration,
-          },
-        }
-      );
+     await axios.post(
+  `${API_BASE_URL}/api/notes/Update-Note`,
+  {
+    noteId: noteId,
+    clientId: effectiveUserId,
+    contactId: contactId,
+    note: noteToToggle.note,
+    isPin: newPinStatus,
+    isUseInGenration: noteToToggle.isUseInGenration,
+  },
+  {
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  }
+);
 
       // ✅ Show toast message
       setToastMessage(newPinStatus ? "Note was pinned" : "Note was unpinned");
