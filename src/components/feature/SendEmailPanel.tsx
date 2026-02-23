@@ -169,14 +169,15 @@ const formatLocalDateTime = (dateString: string | undefined | null): string => {
         backgroundColor: "#fff",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center" }}>
+      <div style={{ display: "flex", alignItems: "center" ,  gap: "8px"}}>
         <input
           type="checkbox"
-          checked={overwriteDatabase}
-          onChange={(e) =>
-            setOverwriteDatabase && setOverwriteDatabase(e.target.checked)
-          }
-          style={{ marginRight: 8, cursor: "pointer" }}
+          checked={overwriteDatabase ?? false}
+          onChange={(e) => {
+            const checked = e.target.checked;
+
+            setOverwriteDatabase?.(checked);
+          }}
         />
         <label style={{ fontWeight: 600, cursor: "pointer" }}>
           Overwrite

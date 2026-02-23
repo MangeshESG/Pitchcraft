@@ -2164,6 +2164,20 @@ useEffect(() => {
           setEnableDelay={setEnableDelay}
           enableIndexRange={enableIndexRange}
           setEnableIndexRange={setEnableIndexRange}
+          overwriteDatabase={settingsForm?.overwriteDatabase ?? false}
+
+          setOverwriteDatabase={(val: boolean) =>
+            settingsFormHandler?.({
+              target: {
+                name: "overwriteDatabase",
+                type: "checkbox",
+                checked: val,
+                value: val,
+              },
+            } as any)
+          }
+
+
           onSendSingle={async () => {
             if (!combinedResponses[currentIndex]) {
               toast.error("No contact selected");
@@ -4098,65 +4112,7 @@ useEffect(() => {
         onStop={handleStop}
       />
 
-      {/* Kraft Email Panel
-      <KraftEmailPanel
-        isOpen={kraftEmailControls}
-        onClose={() => setKraftEmailControls(false)}
-        isResetEnabled={isResetEnabled}
-        overwriteDatabase={settingsForm?.overwriteDatabase || false}
-        onOverwriteChange={(checked) => {
-          console.log('onOverwriteChange called with:', checked);
-          console.log('settingsFormHandler:', settingsFormHandler);
-          if (settingsFormHandler) {
-            const event = {
-              target: {
-                name: "overwriteDatabase",
-                checked,
-                type: "checkbox",
-              },
-            } as any;
-            console.log('Calling settingsFormHandler with event:', event);
-            settingsFormHandler(event);
-          }
-        }}
-        isDemoAccount={isDemoAccount}
-        startIndex={kraftStartIndex}
-        setStartIndex={setKraftStartIndex}
-        endIndex={kraftEndIndex}
-        setEndIndex={setKraftEndIndex}
-        enableIndexRange={kraftEnableIndexRange}
-        setEnableIndexRange={setKraftEnableIndexRange}
-        combinedResponses={combinedResponses}
-        usageData={usageData}
-        clearUsage={clearUsage}
-        userRole={userRole}
-        currentIndex={currentIndex}
-        onStart={async () => {
-          if (showCreditModal) {
-            return;
-          }
 
-          if (
-            sessionStorage.getItem("isDemoAccount") !== "true"
-          ) {
-            const effectiveUserId =
-              selectedClient !== "" ? selectedClient : userId;
-            const currentCredits =
-              await checkUserCredits?.(effectiveUserId);
-            if (
-              currentCredits &&
-              typeof currentCredits === "object" &&
-              !currentCredits.canGenerate
-            ) {
-              return;
-            }
-          }
-
-          const startIdx = kraftEnableIndexRange && kraftStartIndex ? parseInt(kraftStartIndex) - 1 : currentIndex;
-          handleStart?.(startIdx);
-        }}
-        onStop={handleStop}
-      /> */}
     </div>
   );
 };
