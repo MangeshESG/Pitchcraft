@@ -153,7 +153,9 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   const [searchParams] = useSearchParams();
 
   const reduxUserId = useSelector((state: RootState) => state.auth.userId);
-  const effectiveUserId = selectedClient !== "" ? selectedClient : reduxUserId;
+
+  const effectiveUserId =
+    selectedClient?.trim() || reduxUserId || "";
   console.log("API Payload Client ID:", effectiveUserId);
 
   useEffect(() => {
@@ -286,7 +288,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
       const superList: DataFileItem = {
         id: -1,
         client_id: Number(effectiveUserId),
-        name: "All Contact",
+        name: "All Contacts",
         data_file_name: "super_list",
         description: "All contacts from all lists",
         created_at: new Date().toISOString(),
