@@ -62,6 +62,7 @@ interface EditContactModalProps {
   onDeleteNote?: (noteId: number) => void;
   onTogglePin?: (noteId: number) => void;
   onNotesHistoryUpdate?: () => void;
+  onSavingLinkedInChange?: (isSaving: boolean) => void;
 }
 interface Note {
   id: number;
@@ -88,6 +89,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   onDeleteNote,
   onTogglePin,
   onNotesHistoryUpdate,
+  onSavingLinkedInChange,
 }) => {
   const [formData, setFormData] = useState({
     fullName: '',
@@ -136,6 +138,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   const editorRef = React.useRef<HTMLDivElement | null>(null);
   const [expandedNoteIds, setExpandedNoteIds] = useState<Set<number>>(new Set());
   const [isLinkedInExpanded, setIsLinkedInExpanded] = useState(false);
+  const [isSavingLinkedIn, setIsSavingLinkedIn] = useState(false);
    // 🔥 LinkedIn Summary Character Limit
   const LINKEDIN_SUMMARY_MAX_LENGTH = 10000;
   const LINKEDIN_TRUNCATE_LENGTH = 300;
@@ -664,6 +667,8 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
       return;
     }
     try {
+      setIsSavingLinkedIn(true);
+      onSavingLinkedInChange?.(true);
       await axios.post(
        `${API_BASE_URL}/api/Crm/Update-linkedIninformation?contactid=${contact.id}`,
         linkedInSummary,
@@ -687,6 +692,9 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
     } catch (error) {
       console.error("Failed to update LinkedIn summary", error);
       appModal.showError("Failed to update LinkedIn summary");
+    } finally {
+      setIsSavingLinkedIn(false);
+      onSavingLinkedInChange?.(false);
     }
   };
   if (!isOpen || !contact) return null;
@@ -1611,10 +1619,10 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
             </div>
               <button
                 onClick={handleLinkedInSummarySave}
-                disabled={isLinkedInSaveDisabled}
+                disabled={isLinkedInSaveDisabled || isSavingLinkedIn}
                 style={{
                   background: isLinkedInSaveDisabled ? "#d1d5db" : "#3f9f42",
-                  color: "#fff",
+                  color: isLinkedInSaveDisabled ? "#6b7280" : "#ffffff",
                   border: "none",
                   padding: "8px 18px",
                   borderRadius: 18,

@@ -12,6 +12,7 @@ import { useAppData } from "../../contexts/AppDataContext";
 import MailDashboard from "./MailDashboard";
 import type { EventItem, EmailLog } from "../../contexts/AppDataContext";
 import AppModal from "../common/AppModal";
+import LoadingSpinner from "../common/LoadingSpinner";
 import { useAppModal } from "../../hooks/useAppModal";
 import { useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
@@ -2883,6 +2884,15 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
         onClose={appModal.hideModal}
         {...appModal.config}
       />
+
+      {/* Loading Spinners */}
+      {smtpLoading && <LoadingSpinner message="Processing..." />}
+      {bccLoading && <LoadingSpinner message="Loading..." />}
+      {emailLoading && <LoadingSpinner message="Loading emails..." />}
+      {fetchingDomain && <LoadingSpinner message="Loading domain data..." />}
+      {deletingDomain && <LoadingSpinner message="Deleting domain..." />}
+      {smtpOtpVerifying && <LoadingSpinner message="Verifying OTP..." />}
+      {scheduleDataLoading && <LoadingSpinner message="Loading schedules..." />}
 
       {/* Domain Validation Modals */}
       <DomainAuthModal

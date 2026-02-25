@@ -5,6 +5,7 @@ import DynamicContactsTable from "./DynamicContactsTable";
 import AppModal from "../common/AppModal";
 import { useAppModal } from "../../hooks/useAppModal";
 import SegmentModal from "../common/SegmentModal";
+import LoadingSpinner from "../common/LoadingSpinner";
 
 import {
   LineChart,
@@ -203,7 +204,6 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
 
   const appModal = useAppModal();
 
-  // Add these states near your other useState declarations
   const [isLoading, setIsLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("Loading...");
   const withLoader = async (message: string, operation: () => Promise<void>) => {
@@ -2459,13 +2459,9 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
         onClose={appModal.hideModal}
         {...appModal.config}
       />
-      <AppModal
-        isOpen={isLoading || loading || isRefreshing}
-        onClose={() => { }}
-        type="loader"
-        loaderMessage={loadingMessage}
-        closeOnOverlayClick={false}
-      />
+      {(isLoading || loading || isRefreshing) && (
+        <LoadingSpinner message={loadingMessage} />
+      )}
     </div>
   );
 };

@@ -32,6 +32,7 @@ import emailPersonalizationIcon from "../../../assets/images/emailPersonal.png";
 import RichTextEditor from '../../common/RTEEditor';
 import DOMPurify from "dompurify";
 import Detail from './Detail'
+import LoadingSpinner from '../../common/LoadingSpinner';
 
 
 
@@ -169,6 +170,7 @@ useEffect(() => {
   const [deletingNoteId, setDeletingNoteId] = useState<number | null>(null);
   const [deleteContactId, setDeleteContactId] = useState<number | null>(null);
    const [expandedNoteIds, setExpandedNoteIds] = useState<Set<number>>(new Set());
+  const [isSavingLinkedIn, setIsSavingLinkedIn] = useState(false);
 
 
 
@@ -206,6 +208,7 @@ useEffect(() => {
   
   const [contactDetails, setContactDetails] = useState<any>(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
+  const [isBlueprintLoading, setIsBlueprintLoading] = useState(false);
 
 const reduxUserId = useSelector((state: RootState) => state.auth.userId);
 
@@ -1231,8 +1234,6 @@ useEffect(() => {
               {/* PROFILE TAB */}
               {activeTab === "profile" && (
                 <>
-                  {loading && <p>Loading profile...</p>}
-
                   {!loading && !editingContact && (
                     <p style={{ color: "#666" }}>Contact not found.</p>
                   )}
@@ -1253,12 +1254,12 @@ useEffect(() => {
                           ? appModal.showSuccess(msg)
                           : appModal.showError(msg);
                       }}
-                      // ✅ Line 1118-1134: Pass note management callbacks to modal
-                       notesHistory={notesHistory} 
+                      notesHistory={notesHistory} 
                       onEditNote={handleEditNote}
                       onDeleteNote={handleDeleteNote}
                       onTogglePin={handleTogglePin}
                       onNotesHistoryUpdate={fetchNotesHistory}
+                      onSavingLinkedInChange={setIsSavingLinkedIn}
                     />
                   )}
                 </>
@@ -1275,8 +1276,6 @@ useEffect(() => {
                     boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
                   }}
                 >
-
-                  {isLoadingHistory && <p>Loading history...</p>}
 
                   {!isLoadingHistory && !editingContact?.contactCreatedAt && emailTimeline.length === 0 && (
                     <p style={{ color: "#666" }}>No history found.</p>
@@ -1836,8 +1835,6 @@ useEffect(() => {
                       {/* 🔹 NOTES HISTORY */}
                       {(historyFilter === "notes") && (
                         <>
-                          {isLoadingNotes && <p>Loading notes...</p>}
-
                           {!isLoadingNotes && notesHistory.length === 0 && (
                             <p style={{ color: "#666" }}>No notes found.</p>
                           )}
@@ -2093,8 +2090,6 @@ useEffect(() => {
                     boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
                   }}
                 >
-                  {isLoadingDetails && <p>Loading...</p>}
-
                   {!isLoadingDetails && !contactDetails && (
                     <p style={{ color: "#666" }}>No data found.</p>
                   )}
@@ -2175,6 +2170,7 @@ useEffect(() => {
                                     <div style={{ fontSize: 13, marginTop: 4 }}>
                                       Blueprint: <span 
                                         onClick={async () => {
+                                          setIsBlueprintLoading(true);
                                           const templateId = campaign.template.templateId.toString();
                                           const templateName = campaign.template.templateName;
                                           
@@ -2622,6 +2618,19 @@ useEffect(() => {
       )}
 
     </div>
+    {(loading || isLoadingHistory || isLoadingNotes || isLoadingDetails || isBlueprintLoading || isSavingNote || isSavingLinkedIn) && (
+      <LoadingSpinner 
+        message={
+          isSavingLinkedIn ? "Saving LinkedIn summary..." :
+          isSavingNote ? "Saving note..." :
+          isBlueprintLoading ? "Loading blueprint..." :
+          isLoadingDetails ? "Loading details..." :
+          isLoadingNotes ? "Loading Profile..." :
+          isLoadingHistory ? "Loading history..." :
+          "Loading..."
+        } 
+      />
+    )}
     </>
   );
 };

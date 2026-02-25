@@ -29,6 +29,7 @@ import toggleOn from "../../../assets/images/on-button.png";
 import toggleOff from "../../../assets/images/off-button.png";
 import RichTextEditor from "../../common/RTEEditor";
 import DOMPurify from "dompurify";
+import LoadingSpinner from "../../common/LoadingSpinner";
 
 // --- Type Definitions ---
 interface Message {
@@ -141,6 +142,7 @@ interface ConversationTabProps {
   placeholderValues?: Record<string, string>;
   onPlaceholderSelect?: (placeholder: string) => void;
   selectedPlaceholder?: string;
+  setIsTyping?: (value: boolean) => void;
 
   // --- Preview & output ---
   previewText?: string;
@@ -307,6 +309,7 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   placeholderValues = {},
   onPlaceholderSelect,
   selectedPlaceholder,
+  setIsTyping,
   previewText,
   exampleOutput,
   regenerateExampleOutput,
@@ -540,7 +543,13 @@ return (
             <select
               className="placeholder-dropdown"
               value={selectedPlaceholder || ""}
-              onChange={(e) => onPlaceholderSelect?.(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value) {
+                  setIsTyping(true);
+                }
+                onPlaceholderSelect?.(value);
+              }}
               disabled={isTyping }
             >
               <option value="">Edit elements</option>
@@ -1310,6 +1319,7 @@ const uploadImage = async (file: File) => {
   );
   const [editableExampleOutput, setEditableExampleOutput] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSavingElements, setIsSavingElements] = useState(false);
   const [activeMainTab, setActiveMainTab] = useState<MainTab>("build");
 
   const [activeSubStageTab, setActiveSubStageTab] = useState<
@@ -1664,6 +1674,7 @@ const sanitizePlaceholders = (
 
 const saveAllPlaceholders = async () => {
   try {
+    setIsSavingElements(true);
     const storedId = sessionStorage.getItem("newCampaignId");
     const activeTemplateId =
       editTemplateId ?? (storedId ? Number(storedId) : null);
@@ -1704,6 +1715,8 @@ const saveAllPlaceholders = async () => {
   } catch (error) {
     console.error("❌ Failed to update elements:", error);
     showModal("Warning", "Failed to update element values.");
+  } finally {
+    setIsSavingElements(false);
   }
 };
 
@@ -2407,6 +2420,7 @@ const saveAllPlaceholders = async () => {
     setConversationStarted(true);
     setIsComplete(false);
     setIsTyping(true);
+    setIsLoadingTemplate(true);
 
     const currentValue = placeholderValues[placeholder] || "not set";
 
@@ -2497,6 +2511,7 @@ const saveAllPlaceholders = async () => {
       ]);
     } finally {
       setIsTyping(false);
+      setIsLoadingTemplate(false);
     }
   };
 
@@ -3815,23 +3830,10 @@ case "richtext":
       </div>
 
       {/* ================= LOADING OVERLAYS ================= */}
-      {isLoadingTemplate && (
-        <div className="loading-overlay">
-          <div className="loading-content">
-            <Loader2 size={48} className="spinning" />
-            <p>Loading template for editing...</p>
-          </div>
-        </div>
-      )}
-
-      {isLoadingDefinitions && (
-        <div className="loading-overlay">
-          <div className="loading-content flex flex-col items-center gap-[5px]">
-            <Loader2 size={48} className="spinning" />
-            <p>Loading template definitions...</p>
-          </div>
-        </div>
-      )}
+      {isLoadingTemplate && <LoadingSpinner message="Loading template for editing..." />}
+      {isLoadingDefinitions && <LoadingSpinner message="Loading blueprint definitions..." />}
+      {isPreviewLoading && <LoadingSpinner message="Generating email preview..." />}
+      {isSavingElements && <LoadingSpinner message="Saving elements..." />}
 
       {/* ================= MAIN CONTAINER ================= */}
       <div className="campaign-builder-container !p-[0]">
@@ -3922,6 +3924,7 @@ case "richtext":
                       placeholderValues={placeholderValues}
                       onPlaceholderSelect={startEditConversation}
                       selectedPlaceholder={selectedPlaceholder}
+                      setIsTyping={setIsTyping}
                       exampleOutput={exampleOutput}
                       regenerateExampleOutput={regenerateExampleOutput}
                       dataFiles={dataFiles}

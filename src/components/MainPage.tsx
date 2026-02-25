@@ -46,6 +46,7 @@ import CreditCheckModal from "./common/CreditCheckModal";
 import Myplan from "./feature/Myplan";
 import { useSoundAlert } from "./common/useSoundAlert";
 import { link } from "node:fs";
+import LoadingSpinner from "./common/LoadingSpinner";
 
 interface Prompt {
   id: number;
@@ -660,10 +661,13 @@ const handleClientChange = async (
 
   // Listen for blueprint edit event from Output
   useEffect(() => {
+    const handleShowLoader = () => {
+      setIsLoadingClientSettings(true);
+    };
+    
     const handleSwitchToBlueprint = async (event: any) => {
       const templateId = event.detail?.templateId;
       if (templateId) {
-        setIsLoadingClientSettings(true);
         // Load the template details first
         try {
           const response = await fetch(
@@ -689,8 +693,12 @@ const handleClientChange = async (
       }
     };
 
+    window.addEventListener("showBlueprintLoader", handleShowLoader);
     window.addEventListener("switchToBlueprint", handleSwitchToBlueprint);
-    return () => window.removeEventListener("switchToBlueprint", handleSwitchToBlueprint);
+    return () => {
+      window.removeEventListener("showBlueprintLoader", handleShowLoader);
+      window.removeEventListener("switchToBlueprint", handleSwitchToBlueprint);
+    };
   }, [navigate]);
 
   const [delayTime, setDelay] = useState<number>(0);
@@ -3749,19 +3757,17 @@ const lastPitch =
         onClose={appModal.hideModal}
         {...appModal.config}
       />
-      <AppModal
-        isOpen={isFetchingContacts || isLoadingClientSettings}
-        onClose={() => {}}
-        type="loader"
-        loaderMessage={
-          isFetchingContacts
-            ? "Loading contacts..."
-            : isLoadingClientSettings
-            ? "Loading blueprint..."
-            : "Loading client settings..."
-        }
-        closeOnOverlayClick={false}
-      />
+      {(isFetchingContacts || isLoadingClientSettings) && (
+        <LoadingSpinner
+          message={
+            isFetchingContacts
+              ? "Loading contacts..."
+              : isLoadingClientSettings
+              ? "Loading blueprint..."
+              : "Loading client settings..."
+          }
+        />
+      )}
       <CreditCheckModal
         isOpen={showCreditModal}
         onClose={closeCreditModal}

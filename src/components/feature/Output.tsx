@@ -25,6 +25,7 @@ import toggleOff from "../../assets/images/off-button.png";
 import DOMPurify from "dompurify";
 import { faAngleRight, faAngleLeft, faCircleRight } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import LoadingSpinner from "../common/LoadingSpinner";
 
 // In Output.tsx
 interface ZohoClient {
@@ -1862,6 +1863,9 @@ useEffect(() => {
                             onClick={async () => {
                               const campaign = campaigns.find((c) => c.id.toString() === selectedCampaign);
                               if (campaign?.templateId) {
+                                // Show loader immediately
+                                window.dispatchEvent(new CustomEvent("showBlueprintLoader"));
+                                
                                 try {
                                   // ✅ Fetch campaign data to get templateDefinitionId
                                   const response = await fetch(
@@ -3911,13 +3915,7 @@ useEffect(() => {
       />
 
       {/* Email Sending Loader Modal */}
-      <AppModal
-        isOpen={sendingEmail}
-        onClose={() => {}}
-        type="loader"
-        loaderMessage="Sending email..."
-        closeOnOverlayClick={false}
-      />
+      {sendingEmail && <LoadingSpinner message="Sending email..." />}
 
       {/* Notes Modal */}
       {showNotesModal && (

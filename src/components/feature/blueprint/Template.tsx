@@ -10,6 +10,7 @@ import EmailCampaignBuilder from "./EmailCampaignBuilder";
 import PaginationControls from "../PaginationControls";
 import duplicateIcon from "../../../assets/images/icons/duplicate.png";
 import CreditCheckModal from "../../common/CreditCheckModal";
+import LoadingSpinner from "../../common/LoadingSpinner";
 
 const menuBtnStyle = {
   width: "100%",
@@ -154,6 +155,7 @@ const Template: React.FC<TemplateProps> = ({
   const [exampleCache, setExampleCache] = useState<
     Record<number, string | undefined>
   >({});
+  const [isLoadingBlueprint, setIsLoadingBlueprint] = useState(false);
 
   const DEFAULT_USER_TEMPLATE_ID = 65;
   const DEFAULT_USER_TEMPLATE_NAME = "PKB- FINAL 2.0";
@@ -798,6 +800,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                             preloadExampleEmail(template);
                           }}
                           onClick={async () => {
+                            setIsLoadingBlueprint(true);
                             sessionStorage.setItem(
                               "editTemplateId",
                               template.id.toString(),
@@ -812,11 +815,6 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                               template.templateName,
                             );
 
-                            // const example =
-                            //   getTooltipText(exampleCache[template.id] || generateExampleEmail(template));
-
-                            // sessionStorage.setItem("initialExampleEmail", example);
-                            // ✅ FIXED: Load example email immediately, not from tooltip cache
                             try {
                               const fullTemplate = await fetchCampaignTemplateDetails(template.id);
                               const example = fullTemplate?.placeholderValues?.example_output_email || "";
@@ -827,6 +825,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                             }
 
                             setShowCampaignBuilder(true);
+                            setIsLoadingBlueprint(false);
                           }}
                         >
                           {template.templateName}
@@ -910,13 +909,12 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                             <>
                               <button
                                 onClick={async () => {
+                                  setIsLoadingBlueprint(true);
                                   sessionStorage.setItem("editTemplateId", template.id.toString());
                                   sessionStorage.setItem("editTemplateMode", "true");
 
-                                  // REQUIRED FIX 🔥 (builder reads this!)
                                   sessionStorage.setItem("newCampaignId", template.id.toString());
                                   sessionStorage.setItem("newCampaignName", template.templateName);
-                                 // ✅ FIXED: Load example email immediately
                                   try {
                                     const fullTemplate = await fetchCampaignTemplateDetails(template.id);
                                     const example =  fullTemplate?.placeholderValues?.example_output_email || "";
@@ -925,12 +923,8 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                                     console.error("Error loading example email:", error);
                                     sessionStorage.setItem("initialExampleEmail", "");
                                   }
-                                   setShowCampaignBuilder(true);
-                                  // Safe delay
-                                  // setTimeout(() => {
-                                  //   setShowCampaignBuilder(true);
-                                  // }, 0);
-
+                                  setShowCampaignBuilder(true);
+                                  setIsLoadingBlueprint(false);
                                   setTemplateActionsAnchor(null);
                                 }}
                                 style={menuBtnStyle}
@@ -1766,6 +1760,9 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
         credits={credits || 0}
         setTab={() => {}} // Not needed in this context
       />
+
+      {/* Loading Blueprint Spinner */}
+      {isLoadingBlueprint && <LoadingSpinner message="Loading blueprint..." />}
     </div>
   );
 };
