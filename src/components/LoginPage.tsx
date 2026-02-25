@@ -619,7 +619,11 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
         const response = await fetch(`${API_BASE_URL}/api/login/registration-verify-otp`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: registerEmail, otp }),
+          body: JSON.stringify({ 
+            email: registerEmail, 
+            otp,
+            trustthisdivice: trustThisDevice 
+          }),
         });
 
         const contentType = response.headers.get("content-type");
@@ -631,12 +635,64 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
           data = { message: await response.text() || "Success" };
         }
 
-        if (response.ok) {
+        if (response.ok && data.token) {
+          localStorage.setItem("token", data.token);
+          dispatch(setToken(data.token));
+
+          const userId = getUserIdFromToken(data.token);
+          const userRole = getUserRoleFromToken(data.token);
+          const firstName = getFirstNameFromToken(data.token);
+
+          if (registerUsername) dispatch(saveUserName(registerUsername));
+          if (userId) dispatch(saveUserId(userId));
+          if (userRole) dispatch(saveUserRole(userRole));
+          if (registerEmail) dispatch(saveEmail(registerEmail));
+
+          sessionStorage.setItem("clientId", userId?.toString() || "");
+          sessionStorage.setItem("isAdmin", data.isAdmin?.toString() || "false");
+          sessionStorage.setItem("isDemoAccount", "false");
+
+          if (firstName) dispatch(saveFirstName(firstName));
+          if (data.lastName) dispatch(saveLastName(data.lastName));
+
+          if (trustThisDevice && data.trustenumber) {
+            setCookie("trustedDeviceNumber", data.trustenumber.toString(), 30);
+          }
+
+          try {
+            const creditRes = await fetch(
+              `${API_BASE_URL}/api/Crm/user_credit?clientId=${userId}`,
+              {
+                method: "GET",
+                headers: {
+                  Authorization: `Bearer ${data.token}`,
+                  "Content-Type": "application/json",
+                },
+              }
+            );
+
+            if (creditRes.ok) {
+              const creditData = await creditRes.json();
+              dispatch(saveUserCredit(creditData));
+              console.log("User Credit after registration:", creditData);
+
+              if (creditData === 0 && !localStorage.getItem('creditModalSkipped')) {
+                setTimeout(() => {
+                  window.dispatchEvent(new CustomEvent('showCreditModal'));
+                }, 1000);
+              }
+            }
+          } catch (err) {
+            console.error("Credit API error after registration:", err);
+          }
+
           localStorage.removeItem("registerEmail");
           localStorage.removeItem("registerUsername");
           localStorage.removeItem("registerPassword");
+          localStorage.removeItem('creditModalSkipped');
+
           setMsg("Registration successful! Logging you in...");
-          setTimeout(() => setView("login"), 2000);
+          setTimeout(() => navigate("/main"), 1500);
         } else {
           setError(data.message || "Invalid or expired OTP.");
         }
@@ -818,19 +874,7 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
           disabled={isExpired}
         />
 
-        {/* {loginUser && (
-          <div style={{ margin: "10px 0" }}>
-            <label>
-              <input
-                type="checkbox"
-                checked={trustThisDevice}
-                onChange={(e) => setTrustThisDevice(e.target.checked)}
-              />{" "}
-              Trust this device (Don't ask for OTP for 30 days)
-            </label>
-          </div>
-        )} */}
-        {loginUser && (
+        {(loginUser || registerEmail) && (
           <div
             style={{
               display: "flex",
