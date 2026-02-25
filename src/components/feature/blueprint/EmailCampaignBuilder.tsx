@@ -3510,6 +3510,8 @@ case "richtext":
     friendlyName: string;
   } | null>(null);
 
+  const [expandedDraft, setExpandedDraft] = useState("");
+
   const editorRef = useRef<HTMLDivElement | null>(null);
 
   const saveExpandedContent = () => {
@@ -3954,9 +3956,12 @@ case "richtext":
                       groupedPlaceholders={groupedPlaceholders}
                       formValues={formValues}
                       setFormValues={setFormValues}
-                      setExpandedKey={(key, friendlyName) =>
-                        setExpandedPlaceholder({ key, friendlyName })
-                      }
+                      setExpandedKey={(key, friendlyName) => {
+                        setExpandedPlaceholder({ key, friendlyName });
+
+                        // ⭐ CRITICAL FIX
+                        setExpandedDraft(formValues[key] || "");
+                      }}
                       saveAllPlaceholders={saveAllPlaceholders}
                       dataFiles={dataFiles}
                       contacts={contacts}
@@ -4814,31 +4819,26 @@ case "richtext":
             </div>
 
             {/* RICH TEXT EDITOR */}
-            <ExampleEmailEditor
-              value={formValues[expandedPlaceholder.key] || ""}
-              onChange={(val) =>
-                setFormValues((prev) => ({
-                  ...prev,
-                  [expandedPlaceholder.key]: val,
-                }))
-              }
-            />
+<RichTextEditor
+  value={expandedDraft}
+  height={320}
+  onChange={setExpandedDraft}
+/>
 
             {/* FOOTER */}
             <div style={{ textAlign: "right", marginTop: "12px" }}>
-              <button
-                onClick={() => setExpandedPlaceholder(null)}
-                style={{
-                  padding: "6px 14px",
-                  borderRadius: "6px",
-                  background: "#2563eb",
-                  color: "#fff",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                Done
-              </button>
+            <button
+              onClick={() => {
+                setFormValues(prev => ({
+                  ...prev,
+                  [expandedPlaceholder.key]: expandedDraft,
+                }));
+
+                setExpandedPlaceholder(null);
+              }}
+            >
+              Done
+            </button>
             </div>
           </div>
         </div>

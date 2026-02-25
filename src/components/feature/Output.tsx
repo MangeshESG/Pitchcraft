@@ -231,6 +231,7 @@ const Output: React.FC<OutputInterface> = ({
   isSoundEnabled,
   setIsSoundEnabled,
   clearUsage, 
+  handleReset,
 
 }) => {
   const appModal = useAppModal();
@@ -321,6 +322,7 @@ const Output: React.FC<OutputInterface> = ({
     setExistingDataIndex(0);
     setCurrentIndex(0); // Use the prop to reset currentIndex
     setCurrentPage(0); // Resetting the
+    handleReset?.();
   };
   //----------------------------------------------------------------------
   useEffect(() => {
