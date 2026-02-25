@@ -3015,7 +3015,10 @@ case "richtext":
           const completionMessage: Message = {
             type: "bot",
             content:
-              "🎉 Great! I've filled in all elements. Select a contact and click 'Regenerate' to see the personalized email.",
+             "Great. That's all done.\n\n" +
+              "The fundamental elements of your campaign blueprint have been saved. You can now change any of these elements in the 'Edit elements' pick list above using the same interactive chat or use the 'Elements' tab where you can directly change them and change any of the many additional elements that you can use in your campaign blueprint.\n\n" +
+              "You can also choose one of the contacts in the 'Preview email' area on the right and see how the actual emails will look as you continue to play with and change the elements of the blueprint. If you don't have any contacts saved then just hop over to the Contacts area and add some manually or import them from a spreadsheet.",
+            
             timestamp: new Date(),
           };
           setMessages([completionMessage]);
@@ -3244,8 +3247,10 @@ case "richtext":
         const completionMessage: Message = {
           type: "bot",
           content:
-            "🎉 Great! I've filled in all elements. Select a contact and click 'Regenerate' to see the personalized email.",
-          timestamp: new Date(),
+ "Great. That's all done.\n\n" +
+              "The fundamental elements of your campaign blueprint have been saved. You can now change any of these elements in the 'Edit elements' pick list above using the same interactive chat or use the 'Elements' tab where you can directly change them and change any of the many additional elements that you can use in your campaign blueprint.\n\n" +
+              "You can also choose one of the contacts in the 'Preview email' area on the right and see how the actual emails will look as you continue to play with and change the elements of the blueprint. If you don't have any contacts saved then just hop over to the Contacts area and add some manually or import them from a spreadsheet.",
+                      timestamp: new Date(),
         };
         setMessages((prev) => [...prev, completionMessage]);
         setIsComplete(true);
