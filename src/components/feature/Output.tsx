@@ -2165,6 +2165,7 @@ useEffect(() => {
           enableIndexRange={enableIndexRange}
           setEnableIndexRange={setEnableIndexRange}
           overwriteDatabase={settingsForm?.overwriteDatabase ?? false}
+          setFollowupEnabled={setFollowupEnabled}
 
           setOverwriteDatabase={(val: boolean) =>
             settingsFormHandler?.({
@@ -2491,7 +2492,7 @@ useEffect(() => {
                     )}
                     <li></li>
                   </ul>
-                  {!isDemoAccount && (
+                  {/* {!isDemoAccount && (
                     <div
                       className="flex items-center"
                       style={{ marginRight: "890px" }}
@@ -2510,7 +2511,7 @@ useEffect(() => {
                         </span>
                       </label>
                     </div>
-                  )}
+                  )} */}
                 </div>
                 {tab2 === "Output" && (
                   <>
@@ -2680,7 +2681,7 @@ useEffect(() => {
                               ></path>
                             </svg>
                           </a>
-                          <ReactTooltip
+                          {/* <ReactTooltip
                             anchorSelect="#notes-icon-tooltip"
                             place="top"
                           >
@@ -2726,7 +2727,7 @@ useEffect(() => {
                                 strokeWidth="2"
                               />
                             </svg>
-                          </button>
+                          </button> */}
                         </div>
 
                         {/* Email Sent Date - remaining width */}
