@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
-import { faAngleRight, faAngleLeft } from "@fortawesome/free-solid-svg-icons";
+import { faAngleRight, faAngleLeft,faCircleRight } from "@fortawesome/free-solid-svg-icons";
 import {
   Send,
   Loader2,
@@ -29,6 +29,7 @@ import toggleOn from "../../../assets/images/on-button.png";
 import toggleOff from "../../../assets/images/off-button.png";
 import RichTextEditor from "../../common/RTEEditor";
 import DOMPurify from "dompurify";
+
 
 // --- Type Definitions ---
 interface Message {
@@ -3872,24 +3873,6 @@ case "richtext":
                     </span>
                   </button>
                 </div> */}
-                 {isSectionOpen === false && 
-                  <div className="flex">
-                    <button
-                      className="!rounded-[4px] bg-[#e4ffe5] text-[#3f9f42] font-[600] text-[20px] w-[50px] border-2 border-dashed border-[#b3c7b4] shadow-[rgba(50,50,93,0.25)_0px_13px_27px_-5px,rgba(0,0,0,0.3)_0px_8px_16px_-8px]"
-                      onClick={() => setIsSectionOpen(!isSectionOpen)}
-                    >
-                      <span className="flex items-center gap-[5px] rotate-90 pb-[3px] -mt-[46px]">
-                        <span className="nowrap">
-                          {isSectionOpen === false && "Show email preview"}
-                        </span>
-                        <FontAwesomeIcon
-                          icon={isSectionOpen ? faAngleLeft : faAngleRight}
-                          className="text-[#3f9f42] text-md -rotate-90 pr-[2px]"
-                        />
-                      </span>
-                    </button>
-                  </div>
-                }
                 {/* ================= LEFT PANEL ================= */}
                 <div
                   style={{
@@ -4059,6 +4042,24 @@ case "richtext":
                     />
                   </div>
                 )}
+                  {isSectionOpen === false && 
+                  <div className="flex">
+                    <button
+                      className="!rounded-[4px] bg-[#e4ffe5] text-[#3f9f42] font-[600] text-[20px] w-[50px] border-2 border-dashed border-[#b3c7b4] shadow-[rgba(50,50,93,0.25)_0px_13px_27px_-5px,rgba(0,0,0,0.3)_0px_8px_16px_-8px]"
+                      onClick={() => setIsSectionOpen(!isSectionOpen)}
+                    >
+                      <span className="flex items-center gap-[5px] rotate-90 pb-[3px] -mt-[46px]">
+                        <span className="nowrap">
+                          {isSectionOpen === false && "Show email preview"}
+                        </span>
+                        <FontAwesomeIcon
+                          icon={isSectionOpen ? faAngleLeft : faCircleRight}
+                          className="text-[#3f9f42] text-md -rotate-90 pr-[2px]"
+                        />
+                      </span>
+                    </button>
+                  </div>
+                }
               </div>
             </>
           )}

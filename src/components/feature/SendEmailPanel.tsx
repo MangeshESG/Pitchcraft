@@ -41,6 +41,8 @@ interface SendEmailPanelProps {
   setEnableIndexRange?: (val: boolean) => void;
    overwriteDatabase?: boolean;
   setOverwriteDatabase?: (val: boolean) => void;
+  setFollowupEnabled?: (value: boolean) => void;
+  isDemoAccount?: boolean;
 }
 
 const SendEmailPanel: React.FC<SendEmailPanelProps> = ({
@@ -81,6 +83,8 @@ const SendEmailPanel: React.FC<SendEmailPanelProps> = ({
   setEnableIndexRange: externalSetEnableIndexRange,
   overwriteDatabase,
 setOverwriteDatabase,
+ setFollowupEnabled,
+  isDemoAccount,
 }) => {
   const [internalEnableDelay, setInternalEnableDelay] = useState(false);
   const [internalEnableIndexRange, setInternalEnableIndexRange] = useState(false);
@@ -185,8 +189,7 @@ const formatLocalDateTime = (dateString: string | undefined | null): string => {
       </div>
     </div>
 
-    {/* Restrict Contacts */}
-    <div
+    {/* Restrict Contacts */} <div
       className="form-group"
       style={{
         padding: "12px",
@@ -574,7 +577,36 @@ const formatLocalDateTime = (dateString: string | undefined | null): string => {
                     </>
                   )}
                 </div>
-
+                {!isDemoAccount && (
+                  <div
+                      className="form-group"
+                      style={{
+                        padding: "12px",
+                        border: "1px solid #cccccc",
+                        borderRadius: "8px",
+                        backgroundColor: "#fff",
+                        flex: 1,
+                      }}
+                    >
+                    <div
+                      className="flex items-center gap-[8px]"
+                    >
+                      <label className="checkbox-label !mb-[0px] mr-[5px] flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={followupEnabled || false}
+                          onChange={(e) => {
+                            setFollowupEnabled?.(e.target.checked);
+                          }}
+                          className="!mr-0"
+                        />
+                        <span style={{ fontSize: "14px", whiteSpace: "nowrap",marginLeft: "10px" }}>
+                          Include email trail
+                        </span>
+                      </label>
+                    </div>
+                    </div>
+                  )}
                 {/* Countdown */}
                 {isBulkSending && countdown !== null && (
                   <div
