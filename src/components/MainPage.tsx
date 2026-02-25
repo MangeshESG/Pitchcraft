@@ -647,7 +647,7 @@ const handleClientChange = async (
     emailTemplate: "",
   });
 
-  setSelectedModelName("gpt-5");
+  setSelectedModelName("gpt-5.1");
 
   triggerRefresh();
 };
@@ -1309,17 +1309,38 @@ const fetchGenerationNotes = async (
 };
 
 const resolvePromptSafely = async () => {
+
+  // ✅ 1. Always prefer live React state
   if (selectedPrompt) return selectedPrompt;
 
-  const stored = sessionStorage.getItem("selectedPrompt");
-  if (stored) {
-    const parsed = JSON.parse(stored);
-    setSelectedPrompt(parsed);
-    return parsed;
+  // ✅ 2. Detect hard refresh → SKIP CACHE
+  const isHardRefresh = sessionStorage.getItem("refreshTargetIndex");
+
+  if (!isHardRefresh) {
+    const stored = sessionStorage.getItem("selectedPrompt");
+
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        setSelectedPrompt?.(parsed);
+        return parsed;
+      } catch (err) {
+        console.warn("Invalid cached blueprint, ignoring");
+        sessionStorage.removeItem("selectedPrompt");
+      }
+    }
   }
 
+  // ✅ 3. Always fetch blueprint during refresh
   if (selectedCampaign) {
     const blueprint = await loadCampaignBlueprint(selectedCampaign);
+
+    // ✅ Store only fresh blueprint
+    sessionStorage.setItem(
+      "selectedPrompt",
+      JSON.stringify(blueprint),
+    );
+
     return blueprint;
   }
 
@@ -2963,76 +2984,61 @@ const lastPitch =
     };
     fetchCampaigns();
   }, []);
-  const handleCampaignChange = async (
-    event: React.ChangeEvent<HTMLSelectElement>,
-  ) => {
-    const campaignId = event.target.value;
-    setSelectedCampaign(campaignId);
+const handleCampaignChange = async (
+  event: React.ChangeEvent<HTMLSelectElement>,
+) => {
+  const campaignId = event.target.value;
 
-    if (campaignId) {
-      setSelectionMode("campaign");
+  setSelectedCampaign(campaignId);
 
-      // Clear existing data
-      setAllResponses([]);
-      setexistingResponse([]);
-      setCurrentIndex(0);
+  if (!campaignId) {
+    setSelectionMode("manual");
+    setSelectedPrompt?.(null);
+    setSelectedSegmentId(null);
+    setSelectedZohoviewId("");
+    setAllResponses([]);
+    setexistingResponse([]);
+    setCurrentIndex(0);
+    return;
+  }
 
-      // Find the selected campaign
-      const campaign = campaigns.find((c) => c.id.toString() === campaignId);
-      console.log("Selected campaign:", campaign);
+  setSelectionMode("campaign");
 
-      if (campaign) {
-        // Set the corresponding prompt
-        const promptMatch = promptList.find(
-          (p: Prompt) => p.id === campaign.promptId,
-        );
-        if (promptMatch) {
-          setSelectedPrompt(promptMatch);
-        }
+  // ✅ HARD RESET FIRST
+  setAllResponses([]);
+  setexistingResponse([]);
+  setSelectedPrompt(null);
+  setCurrentIndex(0);
 
-        // ✅ Check if campaign is segment-based or datafile-based
-        const segmentId = (campaign as any).segmentId;
-        const dataFileId = campaign.zohoViewId;
-        setSelectedSegmentId(segmentId || null); // <-- Add this
+  const campaign = campaigns.find(c => c.id.toString() === campaignId);
+  if (!campaign) return;
 
-        console.log("Campaign segmentId:", segmentId);
-        console.log("Campaign dataFileId:", dataFileId);
+  try {
+    // ✅ 1. ALWAYS LOAD BLUEPRINT FROM DB
+    await loadCampaignBlueprint(campaignId);
 
-        // Get the client ID
-        const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
+    // ✅ 2. DETERMINE DATA SOURCE
+    const segmentId = (campaign as any).segmentId;
+    const dataFileId = campaign.zohoViewId;
 
-        // Fetch data based on campaign type
-        try {
-          if (segmentId) {
-            // ✅ Campaign uses segment
-            console.log("Using segment-based campaign");
-            const segmentZohoviewId = `segment_${segmentId}`;
-            setSelectedZohoviewId(segmentZohoviewId);
-            await fetchAndDisplayEmailBodies(segmentZohoviewId);
-          } else if (dataFileId) {
-            // ✅ Campaign uses datafile - Fix: set in correct format
-            console.log("Using datafile-based campaign");
-            const datafileZohoviewId = `${effectiveUserId},${dataFileId}`;
-            setSelectedZohoviewId(datafileZohoviewId);
-            await fetchAndDisplayEmailBodies(datafileZohoviewId);
-          } else {
-            console.error("Campaign has neither segmentId nor dataFileId");
-            return;
-          }
-        } catch (error) {
-          console.error("Error fetching contacts:", error);
-        }
-      }
+    const effectiveUserId =
+      selectedClient !== "" ? selectedClient : userId;
+
+    if (segmentId) {
+      const segmentZohoviewId = `segment_${segmentId}`;
+      setSelectedZohoviewId(segmentZohoviewId);
+      await fetchAndDisplayEmailBodies(segmentZohoviewId);
+    } else if (dataFileId) {
+      const datafileZohoviewId = `${effectiveUserId},${dataFileId}`;
+      setSelectedZohoviewId(datafileZohoviewId);
+      await fetchAndDisplayEmailBodies(datafileZohoviewId);
     } else {
-      // If no campaign is selected, switch back to manual mode
-      setSelectionMode("manual");
-      setSelectedPrompt(null);
-      setSelectedSegmentId(null); // <-- Clear on deselection
-      setSelectedZohoviewId("");
-      setAllResponses([]);
-      setexistingResponse([]);
+      console.error("Campaign missing segmentId/dataFileId");
     }
-  };
+  } catch (err) {
+    console.error("Campaign reload failed:", err);
+  }
+};
 
   const handleClearAll = () => {
     stopRef.current = true;
