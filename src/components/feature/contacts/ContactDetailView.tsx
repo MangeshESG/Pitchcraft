@@ -2150,7 +2150,7 @@ useEffect(() => {
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         if (campaign.sourceType === "Segment") {
-                                          window.location.href = `/main?tab=DataCampaigns&initialTab=Segment&segmentId=${campaign.sourceId}`;
+                                          navigate(`/main?tab=DataCampaigns&initialTab=Segment&segmentId=${campaign.sourceId}`);
                                         } else if (campaign.sourceType === "DataFile") {
                                           navigate(`/main?tab=DataCampaigns&initialTab=List&dataFileId=${campaign.sourceId}`);
                                         }
@@ -2314,7 +2314,7 @@ useEffect(() => {
                               <div style={{ fontWeight: 600, fontSize: 15 }}>Segment</div>
                               <div 
                                 onClick={() => {
-                                  window.location.href = `/main?tab=DataCampaigns&initialTab=Segment&segmentId=${segment.segmentId}`;
+                                  navigate(`/main?tab=DataCampaigns&initialTab=Segment&segmentId=${segment.segmentId}`);
                                 }}
                                 style={{ 
                                   fontSize: 14, 
