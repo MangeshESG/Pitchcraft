@@ -232,6 +232,7 @@ const Output: React.FC<OutputInterface> = ({
   isSoundEnabled,
   setIsSoundEnabled,
   clearUsage, 
+  handleReset,
 
 }) => {
   const appModal = useAppModal();
@@ -322,121 +323,18 @@ const Output: React.FC<OutputInterface> = ({
     setExistingDataIndex(0);
     setCurrentIndex(0); // Use the prop to reset currentIndex
     setCurrentPage(0); // Resetting the
+    handleReset?.();
   };
   //----------------------------------------------------------------------
-  useEffect(() => {
-    const stored = sessionStorage.getItem("selectedPrompt");
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        console.log("Restored Campaign Blueprint:", parsed);
-        setSelectedPrompt?.(parsed);
-      } catch (err) {
-        console.error("Error parsing stored blueprint:", err);
-      }
-    }
-  }, [setSelectedPrompt]);
+
 
   // ✅ Load blueprint when campaign changes
-  useEffect(() => {
-    const loadCampaignBlueprint = async () => {
-      if (!selectedCampaign || !campaigns?.length) return; // ✅ safely check campaigns
 
-      const campaign = campaigns.find(
-        (c) => c.id.toString() === selectedCampaign,
-      );
-
-      if (campaign?.templateId) {
-        try {
-          console.log("Fetching campaign blueprint for:", campaign.templateId);
-          const response = await fetch(
-            `${API_BASE_URL}/api/CampaignPrompt/campaign/${campaign.templateId}`,
-          );
-
-          if (!response.ok)
-            throw new Error("Failed to fetch campaign blueprint");
-
-          const data = await response.json();
-
-          const blueprintPrompt = {
-            id: data.id,
-            name: data.templateName,
-            text: data.campaignBlueprint,
-            model: data.selectedModel || "gpt-5",
-          };
-
-          // ✅ Safely call if function exists
-          setSelectedPrompt && setSelectedPrompt(blueprintPrompt);
-
-          // ✅ Save to sessionStorage
-          sessionStorage.setItem(
-            "selectedPrompt",
-            JSON.stringify(blueprintPrompt),
-          );
-
-          console.log("✅ Loaded Campaign Blueprint:", blueprintPrompt);
-        } catch (error) {
-          console.error("Error loading campaign blueprint:", error);
-        }
-      } else {
-        console.log("No Campaign Blueprint found for this campaign");
-      }
-    };
-
-    loadCampaignBlueprint();
-  }, [selectedCampaign, campaigns, setSelectedPrompt]);
 
   //----------------------------------------------------------------------
   const [userRole, setUserRole] = useState<string>(""); // Store user role
   // === Load Campaign Blueprint when campaign is selected ===
-  useEffect(() => {
-    const loadCampaignBlueprint = async () => {
-      if (!selectedCampaign || !campaigns || campaigns.length === 0) return;
 
-      const campaign = campaigns.find(
-        (c) => c.id.toString() === selectedCampaign,
-      );
-
-      // If campaign exists and has a blueprint ID (templateId)
-      if (campaign && campaign.templateId) {
-        try {
-          console.log("Fetching campaign blueprint for:", campaign.templateId);
-          const response = await fetch(
-            `${API_BASE_URL}/api/CampaignPrompt/campaign/${campaign.templateId}`,
-          );
-
-          if (!response.ok)
-            throw new Error("Failed to fetch campaign blueprint");
-
-          const data = await response.json();
-
-          const blueprintPrompt = {
-            id: data.id,
-            name: data.templateName,
-            text: data.campaignBlueprint,
-            model: data.selectedModel || "gpt-5",
-          };
-
-          // ✅ Update selectedPrompt state
-          setSelectedPrompt?.(blueprintPrompt);
-
-          // ✅ Save it in sessionStorage so Output persists across tabs
-          sessionStorage.setItem(
-            "selectedPrompt",
-            JSON.stringify(blueprintPrompt),
-          );
-
-          console.log("✅ Loaded Campaign Blueprint:", blueprintPrompt);
-        } catch (error) {
-          console.error("Error loading campaign blueprint:", error);
-        }
-      } else {
-        console.log("No Campaign Blueprint found for selected campaign");
-      }
-    };
-
-    loadCampaignBlueprint();
-  }, [selectedCampaign, campaigns]);
 
   useEffect(() => {
     const isAdminString = sessionStorage.getItem("isAdmin");
@@ -673,29 +571,21 @@ const Output: React.FC<OutputInterface> = ({
   }, [currentIndex]);
 
   // Restore contact index after campaign refresh
-  useEffect(() => {
-    const preservedIndex = sessionStorage.getItem('preserveContactIndex');
-    if (preservedIndex !== null && combinedResponses.length > 0) {
-      const index = parseInt(preservedIndex, 10);
-      if (index < combinedResponses.length) {
-        setTimeout(() => {
-          setCurrentIndex(index);
-          sessionStorage.removeItem('preserveContactIndex');
-        }, 100);
-      } else {
-        sessionStorage.removeItem('preserveContactIndex');
-      }
-    }
-  }, [combinedResponses]);
+useEffect(() => {
+  const storedIndex = sessionStorage.getItem("refreshTargetIndex");
 
-  useEffect(() => {
-    const storedCurrentIndex = sessionStorage.getItem("currentIndex");
-    const preservedIndex = sessionStorage.getItem('preserveContactIndex');
-    // Only restore from currentIndex if there's no preserved index
-    if (storedCurrentIndex !== null && !preservedIndex) {
-      setCurrentIndex(parseInt(storedCurrentIndex, 10));
-    }
-  }, [setCurrentIndex]);
+  if (!storedIndex) return;
+  if (combinedResponses.length === 0) return;
+
+  const index = parseInt(storedIndex, 10);
+
+  // ✅ Clamp safely to NEW dataset
+  const safeIndex = Math.min(index, combinedResponses.length - 1);
+
+  setCurrentIndex(safeIndex);
+
+  sessionStorage.removeItem("refreshTargetIndex");
+}, [combinedResponses.length]);
 
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [regenerationTargetId, setRegenerationTargetId] = useState<
@@ -1823,16 +1713,26 @@ useEffect(() => {
                         id="refresh-campaign-tooltip"
                         className="secondary-button flex items-center gap-2 h-[40px] px-3"
                         onClick={async () => {
-                          // Save current index
-                          sessionStorage.setItem('preserveContactIndex', currentIndex.toString());
-                          
-                          // Clear existing data
-                          clearContent();
-                          
-                          // Reload campaign - this will trigger the useEffect that loads campaign data
-                          if (handleCampaignChange) {
-                            handleCampaignChange({ target: { value: selectedCampaign } });
-                          }
+                          const indexToPreserve = currentIndex;
+
+                          sessionStorage.setItem("refreshTargetIndex", indexToPreserve.toString());
+
+                          // ✅ FULL HARD RESET (important)
+                          sessionStorage.removeItem("selectedPrompt");
+                          sessionStorage.removeItem("campaignSubjectConfig");
+
+                          setJumpToNewLast(false);
+
+                          setCombinedResponses([]);
+                          setAllResponses([]);
+                          setexistingResponse([]);
+                          setSelectedPrompt?.(null);
+                          setCurrentIndex(0);
+
+                          // ✅ Re-trigger campaign change (fresh reload)
+                          handleCampaignChange?.({
+                            target: { value: selectedCampaign },
+                          } as React.ChangeEvent<HTMLSelectElement>);
                         }}
                         title="Refresh campaign"
                       >
@@ -2169,6 +2069,7 @@ useEffect(() => {
           enableIndexRange={enableIndexRange}
           setEnableIndexRange={setEnableIndexRange}
           overwriteDatabase={settingsForm?.overwriteDatabase ?? false}
+          setFollowupEnabled={setFollowupEnabled}
 
           setOverwriteDatabase={(val: boolean) =>
             settingsFormHandler?.({
@@ -2495,7 +2396,7 @@ useEffect(() => {
                     )}
                     <li></li>
                   </ul>
-                  {!isDemoAccount && (
+                  {/* {!isDemoAccount && (
                     <div
                       className="flex items-center"
                       style={{ marginRight: "890px" }}
@@ -2514,7 +2415,7 @@ useEffect(() => {
                         </span>
                       </label>
                     </div>
-                  )}
+                  )} */}
                 </div>
                 {tab2 === "Output" && (
                   <>
@@ -2684,7 +2585,7 @@ useEffect(() => {
                               ></path>
                             </svg>
                           </a>
-                          <ReactTooltip
+                          {/* <ReactTooltip
                             anchorSelect="#notes-icon-tooltip"
                             place="top"
                           >
@@ -2730,7 +2631,7 @@ useEffect(() => {
                                 strokeWidth="2"
                               />
                             </svg>
-                          </button>
+                          </button> */}
                         </div>
 
                         {/* Email Sent Date - remaining width */}

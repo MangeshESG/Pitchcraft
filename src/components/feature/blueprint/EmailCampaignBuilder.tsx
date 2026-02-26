@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
-import { faAngleRight, faAngleLeft } from "@fortawesome/free-solid-svg-icons";
+import { faAngleRight, faAngleLeft,faCircleRight } from "@fortawesome/free-solid-svg-icons";
 import {
   Send,
   Loader2,
@@ -30,6 +30,7 @@ import toggleOff from "../../../assets/images/off-button.png";
 import RichTextEditor from "../../common/RTEEditor";
 import DOMPurify from "dompurify";
 import LoadingSpinner from "../../common/LoadingSpinner";
+
 
 // --- Type Definitions ---
 interface Message {
@@ -3030,7 +3031,10 @@ case "richtext":
           const completionMessage: Message = {
             type: "bot",
             content:
-              "🎉 Great! I've filled in all elements. Select a contact and click 'Regenerate' to see the personalized email.",
+             "Great. That's all done.\n\n" +
+              "The fundamental elements of your campaign blueprint have been saved. You can now change any of these elements in the 'Edit elements' pick list above using the same interactive chat or use the 'Elements' tab where you can directly change them and change any of the many additional elements that you can use in your campaign blueprint.\n\n" +
+              "You can also choose one of the contacts in the 'Preview email' area on the right and see how the actual emails will look as you continue to play with and change the elements of the blueprint. If you don't have any contacts saved then just hop over to the Contacts area and add some manually or import them from a spreadsheet.",
+            
             timestamp: new Date(),
           };
           setMessages([completionMessage]);
@@ -3259,8 +3263,10 @@ case "richtext":
         const completionMessage: Message = {
           type: "bot",
           content:
-            "🎉 Great! I've filled in all elements. Select a contact and click 'Regenerate' to see the personalized email.",
-          timestamp: new Date(),
+ "Great. That's all done.\n\n" +
+              "The fundamental elements of your campaign blueprint have been saved. You can now change any of these elements in the 'Edit elements' pick list above using the same interactive chat or use the 'Elements' tab where you can directly change them and change any of the many additional elements that you can use in your campaign blueprint.\n\n" +
+              "You can also choose one of the contacts in the 'Preview email' area on the right and see how the actual emails will look as you continue to play with and change the elements of the blueprint. If you don't have any contacts saved then just hop over to the Contacts area and add some manually or import them from a spreadsheet.",
+                      timestamp: new Date(),
         };
         setMessages((prev) => [...prev, completionMessage]);
         setIsComplete(true);
@@ -3519,6 +3525,8 @@ case "richtext":
     key: string;
     friendlyName: string;
   } | null>(null);
+
+  const [expandedDraft, setExpandedDraft] = useState("");
 
   const editorRef = useRef<HTMLDivElement | null>(null);
 
@@ -3867,24 +3875,6 @@ case "richtext":
                     </span>
                   </button>
                 </div> */}
-                 {isSectionOpen === false && 
-                  <div className="flex">
-                    <button
-                      className="!rounded-[4px] bg-[#e4ffe5] text-[#3f9f42] font-[600] text-[20px] w-[50px] border-2 border-dashed border-[#b3c7b4] shadow-[rgba(50,50,93,0.25)_0px_13px_27px_-5px,rgba(0,0,0,0.3)_0px_8px_16px_-8px]"
-                      onClick={() => setIsSectionOpen(!isSectionOpen)}
-                    >
-                      <span className="flex items-center gap-[5px] rotate-90 pb-[3px] -mt-[46px]">
-                        <span className="nowrap">
-                          {isSectionOpen === false && "Show email preview"}
-                        </span>
-                        <FontAwesomeIcon
-                          icon={isSectionOpen ? faAngleLeft : faAngleRight}
-                          className="text-[#3f9f42] text-md -rotate-90 pr-[2px]"
-                        />
-                      </span>
-                    </button>
-                  </div>
-                }
                 {/* ================= LEFT PANEL ================= */}
                 <div
                   style={{
@@ -3952,9 +3942,12 @@ case "richtext":
                       groupedPlaceholders={groupedPlaceholders}
                       formValues={formValues}
                       setFormValues={setFormValues}
-                      setExpandedKey={(key, friendlyName) =>
-                        setExpandedPlaceholder({ key, friendlyName })
-                      }
+                      setExpandedKey={(key, friendlyName) => {
+                        setExpandedPlaceholder({ key, friendlyName });
+
+                        // ⭐ CRITICAL FIX
+                        setExpandedDraft(formValues[key] || "");
+                      }}
                       saveAllPlaceholders={saveAllPlaceholders}
                       dataFiles={dataFiles}
                       contacts={contacts}
@@ -4052,6 +4045,24 @@ case "richtext":
                     />
                   </div>
                 )}
+                  {isSectionOpen === false && 
+                  <div className="flex">
+                    <button
+                      className="!rounded-[4px] bg-[#e4ffe5] text-[#3f9f42] font-[600] text-[20px] w-[50px] border-2 border-dashed border-[#b3c7b4] shadow-[rgba(50,50,93,0.25)_0px_13px_27px_-5px,rgba(0,0,0,0.3)_0px_8px_16px_-8px]"
+                      onClick={() => setIsSectionOpen(!isSectionOpen)}
+                    >
+                      <span className="flex items-center gap-[5px] rotate-90 pb-[3px] -mt-[46px]">
+                        <span className="nowrap">
+                          {isSectionOpen === false && "Show email preview"}
+                        </span>
+                        <FontAwesomeIcon
+                          icon={isSectionOpen ? faAngleLeft : faCircleRight}
+                          className="text-[#3f9f42] text-md -rotate-90 pr-[2px]"
+                        />
+                      </span>
+                    </button>
+                  </div>
+                }
               </div>
             </>
           )}
@@ -4812,31 +4823,26 @@ case "richtext":
             </div>
 
             {/* RICH TEXT EDITOR */}
-            <ExampleEmailEditor
-              value={formValues[expandedPlaceholder.key] || ""}
-              onChange={(val) =>
-                setFormValues((prev) => ({
-                  ...prev,
-                  [expandedPlaceholder.key]: val,
-                }))
-              }
-            />
+<RichTextEditor
+  value={expandedDraft}
+  height={320}
+  onChange={setExpandedDraft}
+/>
 
             {/* FOOTER */}
             <div style={{ textAlign: "right", marginTop: "12px" }}>
-              <button
-                onClick={() => setExpandedPlaceholder(null)}
-                style={{
-                  padding: "6px 14px",
-                  borderRadius: "6px",
-                  background: "#2563eb",
-                  color: "#fff",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                Done
-              </button>
+            <button
+              onClick={() => {
+                setFormValues(prev => ({
+                  ...prev,
+                  [expandedPlaceholder.key]: expandedDraft,
+                }));
+
+                setExpandedPlaceholder(null);
+              }}
+            >
+              Done
+            </button>
             </div>
           </div>
         </div>
