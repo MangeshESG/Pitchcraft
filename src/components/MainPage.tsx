@@ -1506,34 +1506,21 @@ const resolvePromptSafely = async () => {
 
     try {
       // ======= REGENERATION BLOCK START =======
-      if (!selectedPrompt && !options?.regenerate) {
-        if (options?.regenerate) {
-          setOutputForm(prev => ({
-            ...prev,
-            generatedContent:
-              '<span style="color: blue">Regeneration started...</span><br/>' +
-              prev.generatedContent,
-          }));
-        }
-
-        // Determine which variables are missing
+        if (!selectedPrompt && !options?.regenerate) {
         const missingVars = [];
         if (!selectedPrompt) missingVars.push("prompt template");
 
-        // Create error message
         const errorMessage = `<span style="color: red">[${formatDateTime(
           new Date(),
-        )}] Error: Cannot generate pitch  Missing required parameters: ${missingVars.join(
+        )}] Error: Cannot generate pitch. Missing required parameters: ${missingVars.join(
           ", ",
         )}</span>`;
 
-        // Update the form with error message
-        setOutputForm((prev) => ({
+        setOutputForm(prev => ({
           ...prev,
           generatedContent: errorMessage + "<br/>" + prev.generatedContent,
         }));
 
-        // Set states to stop processing
         setIsProcessing(false);
         setIsPitchUpdateCompleted(true);
         setIsPaused(true);
@@ -1622,7 +1609,8 @@ const resolvePromptSafely = async () => {
         setOutputForm(prev => ({
           ...prev,
           generatedContent:
-            `<span style="color: blue">[${formatDateTime(new Date())}] Crafting phase #1 integritas , for contact ${full_name} with company name ${company_name}</span><br/>`
+            `<span style="color: blue">[${formatDateTime(new Date())}] Crafting phase #1 integritas , for contact ${full_name} with company name ${company_name} and domain ${
+            entry.email}</span><br/>`
             + prev.generatedContent,
         }));
 
@@ -1645,7 +1633,7 @@ const resolvePromptSafely = async () => {
           setOutputForm(prev => ({
             ...prev,
             generatedContent:
-              `<span style="color:red">[${formatDateTime(new Date())}] Phase #1 integritas incomplete for ${full_name}</span><br/>`
+              `<span style="color:red">[${formatDateTime(new Date())}] Phase #1 integritas incomplete for contact ${full_name} with company name ${company_name} and domain ${entry.email}</span><br/>`
               + prev.generatedContent,
           }));
 
@@ -1673,62 +1661,68 @@ const resolvePromptSafely = async () => {
         setOutputForm(prev => ({
           ...prev,
           generatedContent:
-            `<span style="color:green">[${formatDateTime(new Date())}] Pitch successfully crafted for ${full_name}</span><br/>`
+            `<span style="color:green">[${formatDateTime(new Date())}] Pitch successfully crafted for contact ${full_name} with company name ${company_name} and domain ${entry.email}</span><br/>`
             + prev.generatedContent,
           linkLabel: pitchData.response.content,
         }));
 
         // ✅ SUBJECT LOGIC UNCHANGED
-        const { isAI, manualTemplate } = getSubjectMode();
-        let subjectLine = "";
+            const { isAI, manualTemplate } = getSubjectMode();
+            let subjectLine = "";
 
-        if (isAI) {
-          const filledSubjectInstruction = replaceAllPlaceholders(
-            subject_instruction,
-            {
-              ...replacements,
-              generated_pitch: pitchData.response.content,
-            },
-          );
+            // --- CASE 1: AI SUBJECT ---
+            if (isAI) {
+              const filledSubjectInstruction = replaceAllPlaceholders(
+                subject_instruction,
+                {
+                  ...replacements,
+                  generated_pitch: pitchData.response?.content || "",
+                },
+              );
 
-          const subjectResponse = await fetch(
-            `${API_BASE_URL}/api/auth/generatepitch`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
+              const subjectRequestBody = {
                 scrappedData: filledSubjectInstruction,
-                prompt: pitchData.response.content,
+                prompt: pitchData.response?.content,
                 ModelName: selectedModelNameA,
-              }),
-            },
-          );
+              };
 
-          if (subjectResponse.ok) {
-            const subjectData = await subjectResponse.json();
+              const subjectResponse = await fetch(
+                `${API_BASE_URL}/api/auth/generatepitch`,
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(subjectRequestBody),
+                },
+              );
 
-            subjectLine = subjectData.response?.content || "";
+              if (subjectResponse.ok) {
+                const subjectData = await subjectResponse.json();
 
-            const subjectTokens = Number(subjectData?.response?.totalTokens || 0);
-            const subjectCost = Number(subjectData?.response?.currentCost || 0);
+                subjectLine = subjectData.response?.content || "";
 
-            lastEmailTokens += subjectTokens;
-            lastEmailCost += subjectCost;
+                const subjectTokens = Number(subjectData?.response?.totalTokens || 0);
+                const subjectCost = Number(subjectData?.response?.currentCost || 0);
 
-            totalEmailTokensRef.current += subjectTokens;
-            totalEmailCostRef.current += subjectCost;
+                lastEmailTokens += subjectTokens;
+                lastEmailCost += subjectCost;
 
-            cost += subjectCost;
-            totaltokensused += subjectTokens;
-          }
-        } else if (manualTemplate?.trim()) {
-          subjectLine = replaceAllPlaceholders(manualTemplate, {
-            ...replacements,
-            generated_pitch: pitchData.response.content,
-          });
-        }
+                totalEmailTokensRef.current += subjectTokens;
+                totalEmailCostRef.current += subjectCost;
 
-        setOutputForm(prev => ({
+                cost += subjectCost;
+                totaltokensused += subjectTokens;
+              }
+            }
+
+            // --- CASE 2: MANUAL SUBJECT ---
+            else if (manualTemplate.trim()) {
+              subjectLine = replaceAllPlaceholders(manualTemplate, {
+                ...replacements,
+                generated_pitch: pitchData.response?.content || "",
+              });
+            }
+
+            setOutputForm(prev => ({
           ...prev,
           usage: JSON.stringify({
             last: {
@@ -1745,21 +1739,48 @@ const resolvePromptSafely = async () => {
           emailSubject: subjectLine,
         }));
 
-        try {
-          await fetch(`${API_BASE_URL}/api/crm/contacts/update-email`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              clientId: effectiveUserId,
-              contactId: entry.id,
-              GPTGenerate: true,
-              emailSubject: subjectLine,
-              emailBody: pitchData.response.content,
-            }),
-          });
-        } catch (e) {
-          console.error("Database update error:", e);
-        }
+
+
+
+      let updateSucceeded = false;
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/crm/contacts/update-email`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientId: effectiveUserId,
+            contactId: entry.id,
+            GPTGenerate: true,
+            emailSubject: subjectLine,
+            emailBody: pitchData.response.content,
+          }),
+        });
+
+        updateSucceeded = response.ok;   // ✅ VALID (same scope)
+      } catch (e) {
+        console.error("Database update error:", e);
+      }
+        if (!updateSucceeded) {
+        setOutputForm(prev => ({
+          ...prev,
+          generatedContent:
+            `<span style="color: orange">[${formatDateTime(
+              new Date(),
+            )}] Updating contact in database incomplete for ${full_name}.</span><br/>`
+            + prev.generatedContent,
+        }));
+      } else {
+        setOutputForm(prev => ({
+          ...prev,
+          generatedContent:
+            `<span style="color: green">[${formatDateTime(
+              new Date(),
+            )}] Updated pitch in database for ${full_name}.</span><br/>`
+            + prev.generatedContent,
+        }));
+      }
+
 
         setAllResponses(prev =>
           prev.map(r =>
