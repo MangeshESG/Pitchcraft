@@ -365,11 +365,26 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
         handleModalClose("modal-add-mailbox");
         fetchSmtp(); // Refresh grid
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      appModal.showError(
-        "Failed to send test email. Please check the settings."
-      );
+      let errorMessage = "Failed to send test email. Please check the settings.";
+      
+      if (err.response?.data) {
+        const errorData = err.response.data;
+        if (typeof errorData === 'string') {
+          if (errorData.includes('SMTP configuration invalid')) {
+            errorMessage = errorData;
+          } else if (errorData.toLowerCase().includes('email already exists')) {
+            errorMessage = "Email already exists";
+          } else {
+            errorMessage = errorData;
+          }
+        } else if (errorData.message) {
+          errorMessage = "Somthing went wrong";
+        }
+      }
+      
+      appModal.showError(errorMessage);
     } finally {
       setSmtpLoading(false);
     }
