@@ -547,7 +547,7 @@ return (
               onChange={(e) => {
                 const value = e.target.value;
                 if (value) {
-                  setIsTyping(true);
+                setIsTyping?.(true); 
                 }
                 onPlaceholderSelect?.(value);
               }}
