@@ -1325,13 +1325,23 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
 };
 
 const sleepWithCountdown = async (ms: number) => {
-  let remaining = Math.ceil(ms / 1000);
-  setCountdown(remaining);
+  const endTime = Date.now() + ms;
 
-  while (remaining > 0 && !stopBulkRef.current) {
-    await new Promise((res) => setTimeout(res, 1000));
-    remaining -= 1;
-    setCountdown(remaining);
+  const updateCountdown = () => {
+    const remainingMs = endTime - Date.now();
+    const remainingSec = Math.max(0, Math.ceil(remainingMs / 1000));
+    setCountdown(remainingSec);
+    return remainingMs;
+  };
+
+  updateCountdown();
+
+  while (!stopBulkRef.current) {
+    const remaining = updateCountdown();
+    if (remaining <= 0) break;
+
+    // Short polling interval (not 1 sec fixed)
+    await new Promise((res) => setTimeout(res, 500));
   }
 
   setCountdown(null);
