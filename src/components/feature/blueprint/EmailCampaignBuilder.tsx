@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
-import { faAngleRight, faAngleLeft,faCircleRight } from "@fortawesome/free-solid-svg-icons";
+import { faAngleRight, faAngleLeft,faCircleRight,faCircleLeft } from "@fortawesome/free-solid-svg-icons";
 import {
   Send,
   Loader2,
@@ -3959,9 +3959,11 @@ case "richtext":
                     }}
                   >
                     <div className="flex justify-between min-h-[44px] items-center">
+                      <div className="build-subtabs !gap-[0]">
                       <h3 className="font-[600] flex items-center">
                         Email preview
                       </h3>
+                      </div>
                       <button
   className="!rounded-[4px] bg-[#e4ffe5] text-[#3f9f42] font-[600] text-[14px] px-[12px] py-[6px] border-2 border-dashed border-[#b3c7b4] shadow-[rgba(50,50,93,0.25)_0px_13px_27px_-5px,rgba(0,0,0,0.3)_0px_8px_16px_-8px]"
   onClick={() => setIsSectionOpen(false)}
@@ -4043,7 +4045,7 @@ case "richtext":
                           {isSectionOpen === false && "Show email preview"}
                         </span>
                         <FontAwesomeIcon
-                          icon={isSectionOpen ? faAngleLeft : faCircleRight}
+                          icon={isSectionOpen ? faAngleLeft : faCircleLeft}
                           className="text-[#3f9f42] text-md -rotate-90 pr-[2px]"
                         />
                       </span>
