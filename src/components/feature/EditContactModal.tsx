@@ -26,6 +26,7 @@ import {
 import { useAppModal } from '../../hooks/useAppModal';
 import RichTextEditor from './../common/RTEEditor';
 import AccordionSection from '../common/accordion/Accordion';
+import deleteIcon from "../../assets/images/deleteiconn.png";
 
 interface Contact {
   id: number;
@@ -139,6 +140,10 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   const [expandedNoteIds, setExpandedNoteIds] = useState<Set<number>>(new Set());
   const [isLinkedInExpanded, setIsLinkedInExpanded] = useState(false);
   const [isSavingLinkedIn, setIsSavingLinkedIn] = useState(false);
+   const [showErrorToast, setShowErrorToast] = useState(false);
+   const [linkedInActionsAnchor, setLinkedInActionsAnchor] = useState<boolean>(false);
+   const [showLinkedInDeleteModal, setShowLinkedInDeleteModal] = useState(false);
+   const [isDeleteLinkedInLoading, setIsDeleteLinkedInLoading] = useState(false);
    // 🔥 LinkedIn Summary Character Limit
   const LINKEDIN_SUMMARY_MAX_LENGTH = 10000;
   const LINKEDIN_TRUNCATE_LENGTH = 300;
@@ -152,15 +157,20 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   
   const linkedInPlainTextLength = getLinkedInPlainTextLength(linkedInSummary);
   const isLinkedInSaveDisabled = linkedInPlainTextLength === 0 || linkedInPlainTextLength > LINKEDIN_SUMMARY_MAX_LENGTH;
-  
+   const toastAnimation = `
+@keyframes toastProgress {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+`;
   // Show toast message when LinkedIn summary exceeds limit
   useEffect(() => {
     if (linkedInPlainTextLength > LINKEDIN_SUMMARY_MAX_LENGTH) {
       setToastMessage("You have exceeded the 10,000 character limit.");
-      setShowSuccessToast(true);
+       setShowErrorToast(true);
 
       const timer = setTimeout(() => {
-        setShowSuccessToast(false);
+         setShowErrorToast(false);
       }, 3000);
 
       return () => clearTimeout(timer);
@@ -662,8 +672,8 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
  // 🔥 Check character limit before saving
     if (linkedInPlainTextLength > LINKEDIN_SUMMARY_MAX_LENGTH) {
       setToastMessage("You have exceeded the 10,000 character limit.");
-      setShowSuccessToast(true);
-      setTimeout(() => setShowSuccessToast(false), 3000);
+       setShowErrorToast(true);
+      setTimeout(() =>  setShowErrorToast(false), 3000);
       return;
     }
     try {
@@ -901,8 +911,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
       value={formData.website}
       onChange={handleInputChange}
       placeholder="Enter website"
-      className={`${underlineInput} text-[#3f9f42] underline flex-1`}
-      onDoubleClick={(e) => e.preventDefault()}
+      className={underlineInput}
     />
   </div>
 </div>
@@ -948,8 +957,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                           </svg>
                         </span>
                       )}
-                    <input type="text" name="linkedInUrl" value={formData.linkedInUrl} onChange={handleInputChange} placeholder="Enter LinkedIn URL" className={`${underlineInput} text-[#3f9f42] underline cursor-pointer`}
-                      onDoubleClick={(e) => e.preventDefault()}
+                    <input type="text" name="linkedInUrl" value={formData.linkedInUrl} onChange={handleInputChange} placeholder="Enter LinkedIn URL" className={underlineInput}
                     />
                      </div>
                   </div>
@@ -1259,24 +1267,12 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                                 //  await fetchNotesHistory();
                               }}
                               style={menuBtnStyle}
-                              className="flex gap-2 items-center"
+                              className="flex gap-2 items-center ml-[4px]"
                             >
                               <span>
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  width="28px"
-                                  height="28px"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                >
-                                  <path
-                                    d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
-                                    stroke="#000000"
-                                    stroke-width="2"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                  ></path>
-                                </svg>
+                              
+                               <FontAwesomeIcon icon={faEdit} style={{ color: "#3f9f42", cursor: "pointer", }} className="text-[20px]" />
+                              
                               </span>
                               <span className="font-[600]">Edit</span>
                             </button>
@@ -1293,12 +1289,13 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                             >
                               <span>
                                 <FontAwesomeIcon
-                                  icon={faThumbtack}
-                                  style={{
-                                    transform: note.isPin ? "rotate(45deg)" : "none",
-                                    width: "25px",
-                                    height: "25px"
-                                  }}
+                                 icon={faThumbtack}
+                                 style={{
+                                transform: note.isPin ? "rotate(45deg)" : "none",
+                                 width: "25px",
+                                height: "25px",
+                                color: "#3f9f42"
+                                 }}
                                 />
                               </span>
                               <span className="font-[600]">
@@ -1317,14 +1314,11 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                               className="flex gap-2 items-center "
                             >
                               <span className="ml-[3px]">
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  viewBox="0 0 50 50"
-                                  width="22px"
-                                  height="22px"
-                                >
-                                  <path d="M 21 2 C 19.354545 2 18 3.3545455 18 5 L 18 7 L 8 7 A 1.0001 1.0001 0 1 0 8 9 L 9 9 L 9 45 C 9 46.654 10.346 48 12 48 L 38 48 C 39.654 48 41 46.654 41 45 L 41 9 L 42 9 A 1.0001 1.0001 0 1 0 42 7 L 32 7 L 32 5 C 32 3.3545455 30.645455 2 29 2 L 21 2 z M 21 4 L 29 4 C 29.554545 4 30 4.4454545 30 5 L 30 7 L 20 7 L 20 5 C 20 4.4454545 20.445455 4 21 4 z M 19 14 C 19.552 14 20 14.448 20 15 L 20 40 C 20 40.553 19.552 41 19 41 C 18.448 41 18 40.553 18 40 L 18 15 C 18 14.448 18.448 14 19 14 z M 25 14 C 25.552 14 26 14.448 26 15 L 26 40 C 26 40.553 25.552 41 25 41 C 24.448 41 24 40.553 24 40 L 24 15 C 24 14.448 24.448 14 25 14 z M 31 14 C 31.553 14 32 14.448 32 15 L 32 40 C 32 40.553 31.553 41 31 41 C 30.447 41 30 40.553 30 40 L 30 15 C 30 14.448 30.447 14 31 14 z"></path>
-                                </svg>
+                               <img
+                                                  src={deleteIcon}
+                                                  alt="Delete"
+                                                  className="w-[24px] h-[24px] font-normal"
+                                              />
                               </span>
                               <span className="font-[600]">Delete</span>
                             </button>
@@ -1376,20 +1370,91 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
             style={{ minHeight: 160 }}   // ✅ better than fixed height
           >
            
-            <div className="flex items-center  justify-between">
+            <div className="flex items-center  justify-between" style={{ position: "relative" }}>
                 <div className='flex  gap-[10px] items-center'>
                   <span className=''>
                     <svg className="h-5 w-5 text-[#3f9f42]" fill="currentColor" viewBox="0 0 24 24"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" /></svg>
                   </span>
                   <h3 className="text-lg font-semibold text-foreground">LinkedIn summary</h3>
                 </div>
-                <button
+                {/* <button
                   type="button"
                   onClick={() => setShowLinkedInSummaryPopup(true)}
                   className="flex items-center gap-2 text-[#333333] rounded transition-colors"
                 >
                   <FontAwesomeIcon icon={faEdit} className='20px' />
+                </button> */}
+                  {/* 3-dot menu button for LinkedIn Summary */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLinkedInActionsAnchor(!linkedInActionsAnchor);
+                  }}
+                  style={{
+                    position: "relative",
+                    border: "none",
+                    background: "#ebebeb",
+                    borderRadius: "50%",
+                    width: 32,
+                    height: 32,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <FontAwesomeIcon icon={faEllipsisV} />
                 </button>
+                {/* Action menu for LinkedIn Summary */}
+                {linkedInActionsAnchor && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      right: 24,
+                      top: 48,
+                      background: "#fff",
+                      border: "1px solid #eee",
+                      borderRadius: 6,
+                      boxShadow: "0 2px 16px rgba(0,0,0,0.12)",
+                      zIndex: 101,
+                      minWidth: 160,
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Edit Button */}
+                    <button
+                      onClick={() => {
+                        setShowLinkedInSummaryPopup(true);
+                        setLinkedInActionsAnchor(false);
+                      }}
+                      style={menuBtnStyle}
+                      className="flex gap-2 items-center ml-[4px]"
+                    >
+                      <span>
+                        <FontAwesomeIcon icon={faEdit} style={{ color: "#3f9f42", cursor: "pointer" }} className="text-[20px]" />
+                      </span>
+                      <span className="font-[600]">Edit</span>
+                    </button>
+                    {/* Delete Button */}
+                    <button
+                      onClick={() => {
+                       setShowLinkedInDeleteModal(true);
+                        setLinkedInActionsAnchor(false);
+                      }}
+                      style={menuBtnStyle}
+                      className="flex gap-2 items-center"
+                    >
+                      <span className="ml-[3px]">
+                        <img
+                          src={deleteIcon}
+                          alt="Delete"
+                          className="w-[24px] h-[24px] font-normal"
+                        />
+                      </span>
+                      <span className="font-[600]">Delete</span>
+                    </button>
+                  </div>
+                )}
                 
             </div>
 
@@ -1678,63 +1743,298 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
             </div>
           </div>
         </div>
-
+ <style>{toastAnimation}</style>
         {/* SUCCESS TOAST */}
-        {showSuccessToast && (
-          <div
-            style={{
-              position: "fixed",
-              bottom: 24,
-              left: "50%",
-              transform: "translateX(-50%)",
-              background: "#ecfdf5",
-              color: "#065f46",
-              padding: "12px 18px",
-              borderRadius: 8,
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              boxShadow: "0 6px 20px rgba(0,0,0,0.12)",
-              zIndex: 99999,
-              minWidth: 320,
-            }}
-          >
-            {/* Green check */}
-            <div
-              style={{
-                width: 22,
-                height: 22,
-                borderRadius: "50%",
-                background: "#22c55e",
-                color: "#fff",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontWeight: 700,
-                fontSize: 14,
-              }}
-            >
-              ✓
-            </div>
+       {showSuccessToast && (
+  <div
+    style={{
+      position: "fixed",
+      bottom: 24,
+      left: "50%",
+      transform: "translateX(-50%)",
+      background: "#E6F4EF",        // soft pastel green
+      color: "#2F3A34",              // dark grey text (not black)
+      padding: "14px 22px",
+      borderRadius: 12,
+      display: "flex",
+      alignItems: "center",
+      gap: 16,
+      boxShadow: "0 6px 18px rgba(0,0,0,0.06)",
+      zIndex: 99999,
+      minWidth: 420,
+      fontSize: 16,
+      fontWeight: 500,
+      overflow: "hidden",
+    }}
+  >
+    {/* Timer Bar */}
+    <div
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        height: 4,
+        width: "100%",
+        background: "#1F9D74",  // darker green line like image
+        animation: "toastProgress 3s linear forwards",
+      }}
+    />
 
-            {/* Message */}
-            <div style={{ fontSize: 14, flex: 1 }}>
-              {toastMessage}
-            </div>
+    {/* Check Circle */}
+    <div
+      style={{
+        width: 28,
+        height: 28,
+        borderRadius: "50%",
+        background: "#1F9D74",   // same green as timer
+        color: "#ffffff",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 16,
+        fontWeight: 700,
+        flexShrink: 0,
+      }}
+    >
+      ✓
+    </div>
 
-            {/* Close */}
-            <div
-              onClick={() => setShowSuccessToast(false)}
-              style={{
-                cursor: "pointer",
-                fontSize: 18,
-                lineHeight: 1,
-              }}
-            >
-              ×
-            </div>
-          </div>
-        )}
+    {/* Message */}
+    <div style={{ flex: 1 }}>
+      {toastMessage}
+    </div>
+
+    {/* Close Button */}
+    <div
+      onClick={() => setShowSuccessToast(false)}
+      style={{
+        cursor: "pointer",
+        fontSize: 30,
+        fontWeight:500,
+        color: "#6B7280",   // soft gray like screenshot
+        lineHeight: 1,
+      }}
+    >
+      ×
+    </div>
+  </div>
+)}
+{/* DELETE LINKEDIN SUMMARY CONFIRMATION MODAL */}
+{showLinkedInDeleteModal && (
+  <div style={{
+    position: 'fixed',
+    zIndex: 99999,
+    inset: 0,
+    background: 'rgba(0,0,0,0.4)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
+  }}>
+    <div style={{
+      background: '#fff',
+      padding: '32px',
+      borderRadius: '12px',
+      minWidth: '400px',
+      boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+      textAlign: 'center'
+    }}>
+      {/* Close Button */}
+      <button
+        onClick={() => setShowLinkedInDeleteModal(false)}
+        style={{
+          position: 'absolute',
+          top: '16px',
+          right: '16px',
+          background: 'none',
+          border: 'none',
+          fontSize: '24px',
+          cursor: 'pointer',
+          color: '#6b7280'
+        }}
+      >
+        ✕
+      </button>
+
+      {/* Modal Title */}
+      <h2 style={{
+        fontSize: '20px',
+        fontWeight: '600',
+        marginBottom: '12px',
+        color: '#1f2937',
+        textAlign: 'justify'
+
+      }}>
+        Delete LinkedIn summary
+      </h2>
+
+      {/* Modal Message */}
+      <p style={{
+        fontSize: '16px',
+        color: '#6b7280',
+        marginBottom: '28px',
+        lineHeight: '1.5'
+      }}>
+        Are you sure you want to delete this LinkedIn summary?
+      </p>
+
+      {/* Buttons */}
+      <div style={{
+        display: 'flex',
+        gap: '12px',
+        justifyContent: 'end'
+      }}>
+        {/* Cancel Button */}
+        <button
+          onClick={() => setShowLinkedInDeleteModal(false)}
+          disabled={isDeleteLinkedInLoading}
+          style={{
+            padding: '10px 24px',
+            background: '#1f2937',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '20px',
+            fontSize: '16px',
+            fontWeight: '600',
+            cursor: isDeleteLinkedInLoading ? 'not-allowed' : 'pointer',
+            opacity: isDeleteLinkedInLoading ? 0.6 : 1,
+            transition: 'background 0.2s'
+          }}
+        >
+          Cancel
+        </button>
+
+        {/* Delete Button */}
+        <button
+          onClick={async () => {
+            setIsDeleteLinkedInLoading(true);
+            try {
+              const response = await fetch(
+                `${API_BASE_URL}/api/Crm/contacts/delete-linkedin-info?contactId=${contact?.id}`,
+                {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                }
+              );
+
+              if (!response.ok) {
+                throw new Error('Failed to delete LinkedIn summary');
+              }
+
+              // Clear the LinkedIn summary from state
+              setLinkedInSummary("");
+              setSavedLinkedInSummary("");
+              setShowLinkedInDeleteModal(false);
+              
+              // Show success message
+              setToastMessage('LinkedIn summary deleted successfully');
+              setShowSuccessToast(true);
+              setTimeout(() => setShowSuccessToast(false), 3000);
+            } catch (error) {
+              console.error('Error deleting LinkedIn summary:', error);
+              setToastMessage('Failed to delete LinkedIn summary');
+              setShowErrorToast(true);
+              setTimeout(() => setShowErrorToast(false), 3000);
+            } finally {
+              setIsDeleteLinkedInLoading(false);
+            }
+          }}
+          disabled={isDeleteLinkedInLoading}
+          style={{
+            padding: '10px 24px',
+            background: '#DC2626',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '20px',
+            fontSize: '16px',
+            fontWeight: '600',
+            cursor: isDeleteLinkedInLoading ? 'not-allowed' : 'pointer',
+            opacity: isDeleteLinkedInLoading ? 0.6 : 1,
+            transition: 'background 0.2s'
+          }}
+        >
+          {isDeleteLinkedInLoading ? 'Deleting...' : 'Delete'}
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+ {/* ERROR TOAST */}
+{showErrorToast && (
+  <div
+    style={{
+      position: "fixed",
+      bottom: 24,
+      left: "50%",
+      transform: "translateX(-50%)",
+      background: "#FDECEC",        // pastel red background
+      color: "#2F3A34",              // dark soft red text
+      padding: "14px 22px",
+      borderRadius: 12,
+      display: "flex",
+      alignItems: "center",
+      gap: 16,
+      boxShadow: "0 6px 18px rgba(0,0,0,0.06)",
+      zIndex: 99999,
+      minWidth: 420,
+      fontSize: 16,
+      fontWeight: 500,
+      overflow: "hidden",
+    }}
+  >
+    {/* Timer Bar */}
+    <div
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        height: 4,
+        width: "100%",
+        background: "#DC2626",   // strong red timer
+        animation: "toastProgress 3s linear forwards",
+      }}
+    />
+
+    {/* Error Circle */}
+    <div
+      style={{
+        width: 28,
+        height: 28,
+        borderRadius: "50%",
+        background: "#DC2626",   // same red as timer
+        color: "#ffffff",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 16,
+        fontWeight: 700,
+        flexShrink: 0,
+      }}
+    >
+      !
+    </div>
+
+    {/* Message */}
+    <div style={{ flex: 1 }}>
+      {toastMessage}
+    </div>
+
+    {/* Close Button */}
+    <div
+      onClick={() => setShowErrorToast(false)}
+      style={{
+        cursor: "pointer",
+        fontSize: 30,
+        fontWeight: 500,
+        color: "#9CA3AF",  // same gray as success close
+        lineHeight: 1,
+      }}
+    >
+      ×
+    </div>
+  </div>
+)}
       </>
     );
   }

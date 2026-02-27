@@ -33,7 +33,12 @@ import RichTextEditor from '../../common/RTEEditor';
 import DOMPurify from "dompurify";
 import Detail from './Detail'
 import LoadingSpinner from '../../common/LoadingSpinner';
-
+import deleteIcon from "../../../assets/images/deleteiconn.png";
+import PushPinIcon from "@mui/icons-material/PushPin";
+import PushPinOutlinedIcon from "@mui/icons-material/PushPinOutlined";
+import pin from "../../../assets/images/point.png";
+import unpin from "../../../assets/images/pinicon.png";
+  
 
 
 interface Contact {
@@ -107,29 +112,35 @@ const ContactDetailView: React.FC = () => {
   const [noteText, setNoteText] = useState("");
   const noteEditorRef = useRef<HTMLDivElement | null>(null);
 
-  const NOTE_MAX_LENGTH = 10000;
-  const getPlainTextLength = (html: string) => {
-  if (!html) return 0;
-  const temp = document.createElement("div");
-  temp.innerHTML = html;
-  return (temp.textContent || temp.innerText || "").trim().length;
-};
-const plainTextLength = getPlainTextLength(noteText);
-const isSaveDisabled =
-  plainTextLength === 0 || plainTextLength > NOTE_MAX_LENGTH;
-useEffect(() => {
-  if (plainTextLength > NOTE_MAX_LENGTH) {
-    setToastMessage("You have exceeded the 10,000 character limit.");
-    setShowSuccessToast(true);
+//   const NOTE_MAX_LENGTH = 10000;
+//   const getPlainTextLength = (html: string) => {
+//   if (!html) return 0;
+//   const temp = document.createElement("div");
+//   temp.innerHTML = html;
+//   return (temp.textContent || temp.innerText || "").trim().length;
+// };
+// const plainTextLength = getPlainTextLength(noteText);
+// const isSaveDisabled =
+//   plainTextLength === 0 || plainTextLength > NOTE_MAX_LENGTH;
+// useEffect(() => {
+//   if (plainTextLength > NOTE_MAX_LENGTH) {
+//     setToastMessage("You have exceeded the 10,000 character limit.");
+//     setShowSuccessToast(true);
 
-    const timer = setTimeout(() => {
-      setShowSuccessToast(false);
-    }, 3000);
+//     const timer = setTimeout(() => {
+//       setShowSuccessToast(false);
+//     }, 3000);
 
-    return () => clearTimeout(timer);
-  }
-}, [plainTextLength]);
+//     return () => clearTimeout(timer);
+//   }
+// }, [plainTextLength]);
  // const plainTextLength = noteText.replace(/<[^>]+>/g, "").length;
+ const toastAnimation = `
+@keyframes toastProgress {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+`;
   useEffect(() => {
     const tooltips: Record<string, string> = {
       "ql-bold": "Bold",
@@ -172,17 +183,85 @@ useEffect(() => {
   const [deleteContactId, setDeleteContactId] = useState<number | null>(null);
    const [expandedNoteIds, setExpandedNoteIds] = useState<Set<number>>(new Set());
   const [isSavingLinkedIn, setIsSavingLinkedIn] = useState(false);
+ const [showErrorToast, setShowErrorToast] = useState(false);
 
 
-
-
- // Helper function to get plain text from HTML
-  const getPlainText = (html: string): string => {
+const NOTE_MAX_LENGTH = 10000;
+const MAX_TOTAL_NOTES = 40000;
+ const getPlainText = (html: string): string => {
     if (!html) return "";
     const temp = document.createElement("div");
     temp.innerHTML = html;
     return temp.textContent || temp.innerText || "";
   };
+  const getPlainTextLength = (html: string) => {
+  if (!html) return 0;
+  const temp = document.createElement("div");
+  temp.innerHTML = html;
+  return (temp.textContent || temp.innerText || "").trim().length;
+};
+ const getTotalNotesLength = () => {
+    if (!notesHistory || notesHistory.length === 0) return 0;
+    return notesHistory.reduce((total: number, note: any) => {
+      const plainText = getPlainText(note.note || "");
+      return total + plainText.length;
+    }, 0);
+  };
+const plainTextLength = getPlainTextLength(noteText);
+const totalNotesLength = getTotalNotesLength();
+const newNotePlainText = getPlainText(noteText || "");
+  // 🔹 When editing: subtract old note length from total
+let projectedTotalLength = totalNotesLength + newNotePlainText.length;
+if (isEditMode && editingNoteId) {
+  const oldNote = notesHistory.find((n: any) => n.id === editingNoteId);
+  if (oldNote) {
+    const oldLength = getPlainText(oldNote.note || "").length;
+    projectedTotalLength = totalNotesLength - oldLength + newNotePlainText.length;
+  }
+}
+const isSaveDisabled =
+  plainTextLength === 0 || plainTextLength > NOTE_MAX_LENGTH  || projectedTotalLength > MAX_TOTAL_NOTES;
+ useEffect(() => {
+    if (!isNoteOpen) return;
+    if (plainTextLength > NOTE_MAX_LENGTH) {
+      setToastMessage("Single note cannot exceed 10,000 characters.");
+      setShowErrorToast(true);
+
+      const timer = setTimeout(() => {
+        setShowErrorToast(false);
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    } else if (projectedTotalLength > MAX_TOTAL_NOTES) {
+      setToastMessage("Total notes limit exceeded (Maximum 40,000 characters allowed per contact).");
+      setShowErrorToast(true);
+
+      const timer = setTimeout(() => {
+        setShowErrorToast(false);
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [plainTextLength, projectedTotalLength, isEditMode, editingNoteId, notesHistory,isNoteOpen]);
+// useEffect(() => {
+//   if (plainTextLength > NOTE_MAX_LENGTH) {
+//     setToastMessage("You have exceeded the 10,000 character limit.");
+//     setShowErrorToast(true);
+
+//     const timer = setTimeout(() => {
+//       setShowErrorToast(false);
+//     }, 3000);
+
+//     return () => clearTimeout(timer);
+//   }
+// }, [plainTextLength]);
+ // Helper function to get plain text from HTML
+    // const getPlainText = (html: string): string => {
+    //   if (!html) return "";
+    //   const temp = document.createElement("div");
+    //   temp.innerHTML = html;
+    //   return temp.textContent || temp.innerText || "";
+    // };
 
   // Toggle expand/collapse for a note
   const toggleNoteExpand = (noteId: number) => {
@@ -424,82 +503,205 @@ useEffect(() => {
     };
   }, []);
   const saveNote = async () => {
-    if (!effectiveUserId || !contactId) {
-      appModal.showError("Client or Contact not found");
-      return;
-    }
+  if (!noteText) return;
 
-    if (!noteText || plainTextLength === 0) {
-      appModal.showError("Note cannot be empty");
-      return;
-    }
-    if (plainTextLength > NOTE_MAX_LENGTH) {
-  setToastMessage("You have exceeded the 10,000 character limit.");
-  setShowSuccessToast(true);
-  return;
-}
-    try {
-      setIsSavingNote(true);
+  const newNotePlainText = getPlainText(noteText || "");
+  const newNoteLength = newNotePlainText.length;
 
-      if (isEditMode && editingNoteId) {
-        // ✅ UPDATE NOTE
-        await axios.post(
-  `${API_BASE_URL}/api/notes/Update-Note`,
-  {
-    noteId: editingNoteId,
-    clientId: effectiveUserId,
-    contactId: contactId,
-    note: noteText,
-    isPin: isPinned,
-    isUseInGenration: isEmailPersonalization,
-  },
-  {
-    timeout: 45000,
-    headers: {
-      'Content-Type': 'application/json',
-    },
+  // 🔹 1. Single note validation (10000)
+  if (newNoteLength > NOTE_MAX_LENGTH) {
+    setToastMessage("Single note cannot exceed 10,000 characters.");
+    setShowErrorToast(true);
+    const timer = setTimeout(() => {
+        setShowErrorToast(false);
+      }, 3000);
+    return () => clearTimeout(timer);
   }
-);
-      } else {
-        // ✅ ADD NOTE
-        await axios.post(`${API_BASE_URL}/api/notes/Add-Note`, {
-          clientId: effectiveUserId,
-          contactId: contactId,
-          note: noteText,
-          isPin: isPinned,
-          isUseInGenration: isEmailPersonalization,
-        },{
-    timeout: 60000,  // Increased to 60 seconds
-    headers: {
-      'Content-Type': 'application/json',
-    },});
-      }
 
-      // reset UI
-      setIsNoteOpen(false);
-      setNoteText("");
-      setIsPinned(false);
-      setIsEmailPersonalization(false);
-      setIsEditMode(false);
-      setEditingNoteId(null);
+  // 🔹 2. Calculate existing total length
+  const existingTotalLength = getTotalNotesLength();
 
-      // Set appropriate message based on action
-      if (isEditMode) {
-        setToastMessage("The note has been updated with success!");
-      } else {
-        setToastMessage("The note has been created with success!");
-      }
-      setShowSuccessToast(true);
-      setTimeout(() => setShowSuccessToast(false), 3000);
+  let adjustedTotalLength = existingTotalLength;
 
-      fetchNotesHistory();
-    } catch (error) {
-      console.error("Save/Update note failed", error);
-      appModal.showError("Failed to save note");
-    } finally {
-      setIsSavingNote(false);
+  // 🔹 3. If editing → subtract old note length
+  if (isEditMode && editingNoteId) {
+    const oldNote = notesHistory.find(
+      (n: any) => n.id === editingNoteId
+    );
+
+    if (oldNote) {
+      const oldLength = getPlainText(oldNote.note || "").length;
+      adjustedTotalLength -= oldLength;
     }
-  };
+  }
+
+  const finalTotalLength = adjustedTotalLength + newNoteLength;
+
+  // 🔹 4. Total limit validation (40000)
+  if (finalTotalLength > MAX_TOTAL_NOTES) {
+    setToastMessage(
+      "Total notes limit exceeded (Maximum 40,000 characters allowed per contact)."
+    );
+    setShowErrorToast(true);
+    const timer = setTimeout(() => {
+        setShowErrorToast(false);
+      }, 3000);
+    return () => clearTimeout(timer);
+  }
+
+  try {
+    setIsSavingNote(true);
+
+    const payload = {
+      clientId: effectiveUserId,
+      contactId: contactId,
+      note: noteText,
+      isPin: isPinned,
+      isUseInGenration: isEmailPersonalization,
+    };
+
+    if (isEditMode) {
+  // ✅ UPDATE NOTE - Use POST not PUT
+  await axios.post(
+    `${API_BASE_URL}/api/notes/Update-Note`,
+    {
+      noteId: editingNoteId,  // Add this missing field
+      clientId: effectiveUserId,
+      contactId: contactId,
+      note: noteText,
+      isPin: isPinned,
+      isUseInGenration: isEmailPersonalization,
+    },
+    {
+      timeout: 45000,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    }
+  );
+} else {
+  // ✅ ADD NOTE - Change endpoint from create-note to Add-Note
+  await axios.post(
+    `${API_BASE_URL}/api/notes/Add-Note`,
+    {
+      clientId: effectiveUserId,
+      contactId: contactId,
+      note: noteText,
+      isPin: isPinned,
+      isUseInGenration: isEmailPersonalization,
+    },
+    {
+      timeout: 60000,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    }
+  );
+}
+
+    setToastMessage(
+      isEditMode ? "Note updated successfully." : "Note created successfully."
+    );
+    setShowSuccessToast(true);
+
+    setIsNoteOpen(false);
+    setNoteText("");
+    setIsPinned(false);
+    setIsEmailPersonalization(false);
+     setIsEditMode(false);
+    setEditingNoteId(null);
+
+    fetchNotesHistory(); // reload notes
+  } catch (error) {
+    console.error("Save note failed", error);
+    setToastMessage("Failed to save note.");
+     setShowErrorToast(true);
+  } finally {
+    setIsSavingNote(false);
+    setTimeout(() => {
+      setShowErrorToast(false);
+      setShowSuccessToast(false);
+    }, 3000);
+  }
+  
+};
+//   const saveNote = async () => {
+//     if (!effectiveUserId || !contactId) {
+//       appModal.showError("Client or Contact not found");
+//       return;
+//     }
+
+//     if (!noteText || plainTextLength === 0) {
+//       appModal.showError("Note cannot be empty");
+//       return;
+//     }
+//     if (plainTextLength > NOTE_MAX_LENGTH) {
+//   setToastMessage("You have exceeded the 10,000 character limit.");
+//   setShowSuccessToast(true);
+//   return;
+// }
+//     try {
+//       setIsSavingNote(true);
+
+//       if (isEditMode && editingNoteId) {
+//         // ✅ UPDATE NOTE
+//         await axios.post(
+//   `${API_BASE_URL}/api/notes/Update-Note`,
+//   {
+//     noteId: editingNoteId,
+//     clientId: effectiveUserId,
+//     contactId: contactId,
+//     note: noteText,
+//     isPin: isPinned,
+//     isUseInGenration: isEmailPersonalization,
+//   },
+//   {
+//     timeout: 45000,
+//     headers: {
+//       'Content-Type': 'application/json',
+//     },
+//   }
+// );
+//       } else {
+//         // ✅ ADD NOTE
+//         await axios.post(`${API_BASE_URL}/api/notes/Add-Note`, {
+//           clientId: effectiveUserId,
+//           contactId: contactId,
+//           note: noteText,
+//           isPin: isPinned,
+//           isUseInGenration: isEmailPersonalization,
+//         },{
+//     timeout: 60000,  // Increased to 60 seconds
+//     headers: {
+//       'Content-Type': 'application/json',
+//     },});
+//       }
+
+//       // reset UI
+//       setIsNoteOpen(false);
+//       setNoteText("");
+//       setIsPinned(false);
+//       setIsEmailPersonalization(false);
+//       setIsEditMode(false);
+//       setEditingNoteId(null);
+
+//       // Set appropriate message based on action
+//       if (isEditMode) {
+//         setToastMessage("The note has been updated with success!");
+//       } else {
+//         setToastMessage("The note has been created with success!");
+//       }
+//       setShowSuccessToast(true);
+//       setTimeout(() => setShowSuccessToast(false), 3000);
+
+//       fetchNotesHistory();
+//     } catch (error) {
+//       console.error("Save/Update note failed", error);
+//       appModal.showError("Failed to save note");
+//     } finally {
+//       setIsSavingNote(false);
+//     }
+//   };
 useEffect(() => {
   if (contactId && effectiveUserId) {
     fetchNotesHistory();
@@ -608,6 +810,10 @@ useEffect(() => {
       console.error("Delete note failed", error);
       appModal.showError("Failed to delete note");
     }
+    const timer = setTimeout(() => {
+        setShowErrorToast(false);
+      }, 3000);
+    return () => clearTimeout(timer);
   };
 
   const handleTogglePin = async (noteId: number) => {
@@ -651,6 +857,10 @@ useEffect(() => {
       console.error("Failed to toggle pin status", error);
       appModal.showError("Failed to toggle pin status");
     }
+    const timer = setTimeout(() => {
+        setShowErrorToast(false);
+      }, 3000);
+    return () => clearTimeout(timer);
   };
   const handleDeleteNoteClick = async (note: any) => {
     if (!effectiveUserId || !contactId) return;
@@ -1556,24 +1766,10 @@ useEffect(() => {
                                                 setNoteActionsAnchor(null);
                                               }}
                                               style={menuBtnStyle}
-                                              className="flex gap-2 items-center"
+                                              className="flex gap-2 items-center ml-[0px]"
                                             >
                                               <span>
-                                                <svg
-                                                  xmlns="http://www.w3.org/2000/svg"
-                                                  width="28px"
-                                                  height="28px"
-                                                  viewBox="0 0 24 24"
-                                                  fill="none"
-                                                >
-                                                  <path
-                                                    d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
-                                                    stroke="#000000"
-                                                    stroke-width="2"
-                                                    stroke-linecap="round"
-                                                    stroke-linejoin="round"
-                                                  ></path>
-                                                </svg>
+                                                <FontAwesomeIcon icon={faEdit} style={{ color: "#3f9f42", cursor: "pointer", }} className="text-[20px]" />
                                               </span>
                                               <span className="font-[600]">Edit</span>
                                             </button>
@@ -1582,7 +1778,7 @@ useEffect(() => {
                                             <button
                                               onClick={() => handleTogglePin(note.id)}
                                               style={menuBtnStyle}
-                                              className="flex gap-2 items-center"
+                                              className="flex gap-2 items-center ml-[-4px]"
                                             >
                                               <span>
                                                 <FontAwesomeIcon
@@ -1590,7 +1786,8 @@ useEffect(() => {
                                                   style={{
                                                     transform: note.isPin ? "rotate(45deg)" : "none",
                                                     width: "25px",
-                                                    height: "25px"
+                                                    height: "25px",
+                                                    color: "#3f9f42"
                                                   }}
                                                 />
                                               </span>
@@ -1606,17 +1803,14 @@ useEffect(() => {
                                                 setNoteActionsAnchor(null);
                                               }}
                                               style={menuBtnStyle}
-                                              className="flex gap-2 items-center "
+                                              className="flex gap-2 items-center ml-[-4px] "
                                             >
-                                              <span className="ml-[3px]">
-                                                <svg
-                                                  xmlns="http://www.w3.org/2000/svg"
-                                                  viewBox="0 0 50 50"
-                                                  width="22px"
-                                                  height="22px"
-                                                >
-                                                  <path d="M 21 2 C 19.354545 2 18 3.3545455 18 5 L 18 7 L 8 7 A 1.0001 1.0001 0 1 0 8 9 L 9 9 L 9 45 C 9 46.654 10.346 48 12 48 L 38 48 C 39.654 48 41 46.654 41 45 L 41 9 L 42 9 A 1.0001 1.0001 0 1 0 42 7 L 32 7 L 32 5 C 32 3.3545455 30.645455 2 29 2 L 21 2 z M 21 4 L 29 4 C 29.554545 4 30 4.4454545 30 5 L 30 7 L 20 7 L 20 5 C 20 4.4454545 20.445455 4 21 4 z M 19 14 C 19.552 14 20 14.448 20 15 L 20 40 C 20 40.553 19.552 41 19 41 C 18.448 41 18 40.553 18 40 L 18 15 C 18 14.448 18.448 14 19 14 z M 25 14 C 25.552 14 26 14.448 26 15 L 26 40 C 26 40.553 25.552 41 25 41 C 24.448 41 24 40.553 24 40 L 24 15 C 24 14.448 24.448 14 25 14 z M 31 14 C 31.553 14 32 14.448 32 15 L 32 40 C 32 40.553 31.553 41 31 41 C 30.447 41 30 40.553 30 40 L 30 15 C 30 14.448 30.447 14 31 14 z"></path>
-                                                </svg>
+                                              <span className="ml-[3px] font-normal">
+                                                <img
+                                                  src={deleteIcon}
+                                                  alt="Delete"
+                                                  className="w-[24px] h-[24px] font-normal"
+                                              />
                                               </span>
                                               <span className="font-[600]">Delete</span>
                                             </button>
@@ -1965,24 +2159,10 @@ useEffect(() => {
                                               setNoteActionsAnchor(null);
                                             }}
                                             style={menuBtnStyle}
-                                            className="flex gap-2 items-center"
+                                            className="flex gap-2 items-center ml-[0px]"
                                           >
                                             <span>
-                                              <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                width="28px"
-                                                height="28px"
-                                                viewBox="0 0 24 24"
-                                                fill="none"
-                                              >
-                                                <path
-                                                  d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
-                                                  stroke="#000000"
-                                                  stroke-width="2"
-                                                  stroke-linecap="round"
-                                                  stroke-linejoin="round"
-                                                ></path>
-                                              </svg>
+                                              <FontAwesomeIcon icon={faEdit} style={{ color: "#3f9f42", cursor: "pointer", }} className="text-[20px]" />
                                             </span>
                                             <span className="font-[600]">Edit</span>
                                           </button>
@@ -1991,7 +2171,7 @@ useEffect(() => {
                                           <button
                                             onClick={() => handleTogglePin(note.id)}
                                             style={menuBtnStyle}
-                                            className="flex gap-2 items-center"
+                                            className="flex gap-2 items-center ml-[-4px]"
                                           >
                                             <span>
                                               <FontAwesomeIcon
@@ -1999,7 +2179,8 @@ useEffect(() => {
                                                 style={{
                                                   transform: note.isPin ? "rotate(45deg)" : "none",
                                                   width: "25px",
-                                                  height: "25px"
+                                                  height: "25px",
+                                                  color: "#3f9f42"
                                                 }}
                                               />
                                             </span>
@@ -2015,17 +2196,14 @@ useEffect(() => {
                                               setNoteActionsAnchor(null);
                                             }}
                                             style={menuBtnStyle}
-                                            className="flex gap-2 items-center "
+                                            className="flex gap-2 items-center ml-[-4px]"
                                           >
-                                            <span className="ml-[3px]">
-                                              <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                viewBox="0 0 50 50"
-                                                width="22px"
-                                                height="22px"
-                                              >
-                                                <path d="M 21 2 C 19.354545 2 18 3.3545455 18 5 L 18 7 L 8 7 A 1.0001 1.0001 0 1 0 8 9 L 9 9 L 9 45 C 9 46.654 10.346 48 12 48 L 38 48 C 39.654 48 41 46.654 41 45 L 41 9 L 42 9 A 1.0001 1.0001 0 1 0 42 7 L 32 7 L 32 5 C 32 3.3545455 30.645455 2 29 2 L 21 2 z M 21 4 L 29 4 C 29.554545 4 30 4.4454545 30 5 L 30 7 L 20 7 L 20 5 C 20 4.4454545 20.445455 4 21 4 z M 19 14 C 19.552 14 20 14.448 20 15 L 20 40 C 20 40.553 19.552 41 19 41 C 18.448 41 18 40.553 18 40 L 18 15 C 18 14.448 18.448 14 19 14 z M 25 14 C 25.552 14 26 14.448 26 15 L 26 40 C 26 40.553 25.552 41 25 41 C 24.448 41 24 40.553 24 40 L 24 15 C 24 14.448 24.448 14 25 14 z M 31 14 C 31.553 14 32 14.448 32 15 L 32 40 C 32 40.553 31.553 41 31 41 C 30.447 41 30 40.553 30 40 L 30 15 C 30 14.448 30.447 14 31 14 z"></path>
-                                              </svg>
+                                            <span className="ml-[3px] font-normal">
+                                              <img
+                                                  src={deleteIcon}
+                                                  alt="Delete"
+                                                  className="w-[24px] h-[24px] font-normal"
+                                              />
                                             </span>
                                             <span className="font-[600]">Delete</span>
                                           </button>
@@ -2427,10 +2605,44 @@ useEffect(() => {
               />
            </div>
             {/* EDITABLE AREA */}
-          <div style={{ marginTop: 8, fontSize: 12, color: "#6b7280" }}>
-            {plainTextLength}/10000
-          </div>
+          {/* Character Counters */}
+<div
+  style={{
+    marginTop: 8,
+    fontSize: 12,
+    color: "#6b7280",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  }}
+>
+  {/* Left Column */}
+  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+    <h3 style={{ margin: 0, fontSize: 12, fontWeight: 500,color: "#111827",}}>
+      For this note
+    </h3>
+    <div>
+      {plainTextLength} / 10,000
+    </div>
+  </div>
 
+  {/* Right Column */}
+  <div
+    style={{
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "flex-end",
+      gap: 4,
+    }}
+  >
+    <h3 style={{ margin: 0, fontSize: 12, fontWeight: 500,color: "#111827" }}>
+      For all notes
+    </h3>
+    <div>
+      {totalNotesLength} / {MAX_TOTAL_NOTES}
+    </div>
+  </div>
+</div>
           {/* PIN */}
           <div className="flex items-start gap-2 mt-4">
             <input
@@ -2534,62 +2746,157 @@ useEffect(() => {
 
         </div>
       </div>
+      <style>{toastAnimation}</style>
       {/* SUCCESS TOAST */}
-      {showSuccessToast && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: 24,
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "#ecfdf5",
-            color: "#065f46",
-            padding: "12px 18px",
-            borderRadius: 8,
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            boxShadow: "0 6px 20px rgba(0,0,0,0.12)",
-            zIndex: 99999,
-            minWidth: 320,
-          }}
-        >
-          {/* Green check */}
-          <div
-            style={{
-              width: 22,
-              height: 22,
-              borderRadius: "50%",
-              background: "#22c55e",
-              color: "#fff",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontWeight: 700,
-              fontSize: 14,
-            }}
-          >
-            ✓
-          </div>
+{showSuccessToast && (
+  <div
+    style={{
+      position: "fixed",
+      bottom: 24,
+      left: "50%",
+      transform: "translateX(-50%)",
+      background: "#E6F4EF",        // soft pastel green
+      color: "#2F3A34",              // dark grey text (not black)
+      padding: "14px 22px",
+      borderRadius: 12,
+      display: "flex",
+      alignItems: "center",
+      gap: 16,
+      boxShadow: "0 6px 18px rgba(0,0,0,0.06)",
+      zIndex: 99999,
+      minWidth: 420,
+      fontSize: 16,
+      fontWeight: 500,
+      overflow: "hidden",
+    }}
+  >
+    {/* Timer Bar */}
+    <div
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        height: 4,
+        width: "100%",
+        background: "#1F9D74",  // darker green line like image
+        animation: "toastProgress 3s linear forwards",
+      }}
+    />
 
-          {/* Message */}
-          <div style={{ fontSize: 14, flex: 1 }}>
-            {toastMessage}
-          </div>
+    {/* Check Circle */}
+    <div
+      style={{
+        width: 28,
+        height: 28,
+        borderRadius: "50%",
+        background: "#1F9D74",   // same green as timer
+        color: "#ffffff",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 16,
+        fontWeight: 700,
+        flexShrink: 0,
+      }}
+    >
+      ✓
+    </div>
 
-          {/* Close */}
-          <div
-            onClick={() => setShowSuccessToast(false)}
-            style={{
-              cursor: "pointer",
-              fontSize: 18,
-              lineHeight: 1,
-            }}
-          >
-            ×
-          </div>
-        </div>
-      )}
+    {/* Message */}
+    <div style={{ flex: 1 }}>
+      {toastMessage}
+    </div>
+
+    {/* Close Button */}
+    <div
+      onClick={() => setShowSuccessToast(false)}
+      style={{
+        cursor: "pointer",
+        fontSize: 30,
+        fontWeight:500,
+        color: "#6B7280",   // soft gray like screenshot
+        lineHeight: 1,
+      }}
+    >
+      ×
+    </div>
+  </div>
+)}
+      {/* ERROR TOAST */}
+{showErrorToast && (
+  <div
+    style={{
+      position: "fixed",
+      bottom: 24,
+      left: "50%",
+      transform: "translateX(-50%)",
+      background: "#FDECEC",        // pastel red background
+      color: "#2F3A34",              // dark soft red text
+      padding: "14px 22px",
+      borderRadius: 12,
+      display: "flex",
+      alignItems: "center",
+      gap: 16,
+      boxShadow: "0 6px 18px rgba(0,0,0,0.06)",
+      zIndex: 99999,
+      minWidth: 420,
+      fontSize: 16,
+      fontWeight: 500,
+      overflow: "hidden",
+    }}
+  >
+    {/* Timer Bar */}
+    <div
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        height: 4,
+        width: "100%",
+        background: "#DC2626",   // strong red timer
+        animation: "toastProgress 3s linear forwards",
+      }}
+    />
+
+    {/* Error Circle */}
+    <div
+      style={{
+        width: 28,
+        height: 28,
+        borderRadius: "50%",
+        background: "#DC2626",   // same red as timer
+        color: "#ffffff",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 16,
+        fontWeight: 700,
+        flexShrink: 0,
+      }}
+    >
+      !
+    </div>
+
+    {/* Message */}
+    <div style={{ flex: 1 }}>
+      {toastMessage}
+    </div>
+
+    {/* Close Button */}
+    <div
+      onClick={() => setShowErrorToast(false)}
+      style={{
+        cursor: "pointer",
+        fontSize: 30,
+        fontWeight: 500,
+        color: "#9CA3AF",  // same gray as success close
+        lineHeight: 1,
+      }}
+    >
+      ×
+    </div>
+  </div>
+)}
       {deletePopupOpen && (
         <div
           className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999]"
