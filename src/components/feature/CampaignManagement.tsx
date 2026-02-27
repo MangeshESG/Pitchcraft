@@ -76,6 +76,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
   const [listSortDirection, setListSortDirection] = useState<"asc" | "desc">("asc");
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  const [showErrorToast, setShowErrorToast] = useState(false);
 
 
   const appModal = useAppModal();
@@ -92,7 +93,12 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
     description: "",
     templateId: "", // campaign blueprint id
   });
-
+ const toastAnimation = `
+@keyframes toastProgress {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+`;
   // ================== FETCH FUNCTIONS ==================
   const compareStrings = (a?: string, b?: string, direction: "asc" | "desc" = "asc") => {
     const valueA = (a || "").toLowerCase();
@@ -304,11 +310,11 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
         });
       }
 
-     // appModal.showSuccess("Campaign created successfully");
+      // appModal.showSuccess("Campaign created successfully");
 
-       setToastMessage("The Campaign has been created with success!");
+      setToastMessage("The Campaign has been created with success!");
       setShowSuccessToast(true);
-      setTimeout(() => setShowSuccessToast(false), 3000);
+      setTimeout(() => setShowSuccessToast(false), 6000);
 
       setShowCreateCampaignModal(false);
       fetchCampaigns();
@@ -342,7 +348,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
       // appModal.showSuccess("Campaign updated successfully");
       setToastMessage("The Campaign has been updated with success!");
       setShowSuccessToast(true);
-      setTimeout(() => setShowSuccessToast(false), 3000);
+      setTimeout(() => setShowSuccessToast(false), 6000);
       setShowCreateCampaignModal(false);
       fetchCampaigns();
       triggerRefresh(); // Notify other components to refresh their campaign data
@@ -358,7 +364,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
       // appModal.showSuccess("Campaign deleted successfully");
       setToastMessage("The Campaign has been deleted with success!");
       setShowSuccessToast(true);
-      setTimeout(() => setShowSuccessToast(false), 3000);
+      setTimeout(() => setShowSuccessToast(false), 6000);
       fetchCampaigns();
       triggerRefresh(); // Notify other components to refresh their campaign data
     } catch (err) {
@@ -877,6 +883,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
           </div>
         </div>
       )}
+      <style>{toastAnimation}</style>
       {showSuccessToast && (
         <div
           style={{
@@ -884,47 +891,140 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
             bottom: 24,
             left: "50%",
             transform: "translateX(-50%)",
-            background: "#ecfdf5",
-            color: "#065f46",
-            padding: "12px 18px",
-            borderRadius: 8,
+            background: "#E6F4EF",        // soft pastel green
+            color: "#2F3A34",              // dark grey text (not black)
+            padding: "14px 22px",
+            borderRadius: 12,
             display: "flex",
             alignItems: "center",
-            gap: 12,
-            boxShadow: "0 6px 20px rgba(0,0,0,0.12)",
+            gap: 16,
+            boxShadow: "0 6px 18px rgba(0,0,0,0.06)",
             zIndex: 99999,
-            minWidth: 320,
+            minWidth: 420,
+            fontSize: 16,
+            fontWeight: 500,
+            overflow: "hidden",
           }}
         >
-          {/* Green check */}
+          {/* Timer Bar */}
           <div
             style={{
-              width: 22,
-              height: 22,
+              position: "absolute",
+              top: 0,
+              left: 0,
+              height: 4,
+              width: "100%",
+              background: "#1F9D74",  // darker green line like image
+              animation: "toastProgress 3s linear forwards",
+            }}
+          />
+
+          {/* Check Circle */}
+          <div
+            style={{
+              width: 28,
+              height: 28,
               borderRadius: "50%",
-              background: "#22c55e",
-              color: "#fff",
+              background: "#1F9D74",   // same green as timer
+              color: "#ffffff",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              fontSize: 16,
               fontWeight: 700,
-              fontSize: 14,
+              flexShrink: 0,
             }}
           >
             ✓
           </div>
 
           {/* Message */}
-          <div style={{ fontSize: 14, flex: 1 }}>
+          <div style={{ flex: 1 }}>
             {toastMessage}
           </div>
 
-          {/* Close */}
+          {/* Close Button */}
           <div
             onClick={() => setShowSuccessToast(false)}
             style={{
               cursor: "pointer",
-              fontSize: 18,
+              fontSize: 30,
+              fontWeight: 500,
+              color: "#6B7280",   // soft gray like screenshot
+              lineHeight: 1,
+            }}
+          >
+            ×
+          </div>
+        </div>
+      )}
+      {showErrorToast && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 24,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "#FDECEC",        // pastel red background
+            color: "#2F3A34",              // dark soft red text
+            padding: "14px 22px",
+            borderRadius: 12,
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            boxShadow: "0 6px 18px rgba(0,0,0,0.06)",
+            zIndex: 99999,
+            minWidth: 420,
+            fontSize: 16,
+            fontWeight: 500,
+            overflow: "hidden",
+          }}
+        >
+          {/* Timer Bar */}
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              height: 4,
+              width: "100%",
+              background: "#DC2626",   // strong red timer
+              animation: "toastProgress 3s linear forwards",
+            }}
+          />
+
+          {/* Error Circle */}
+          <div
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: "50%",
+              background: "#DC2626",   // same red as timer
+              color: "#ffffff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 16,
+              fontWeight: 700,
+              flexShrink: 0,
+            }}
+          >
+            !
+          </div>
+
+          {/* Message */}
+          <div style={{ flex: 1 }}>
+            {toastMessage}
+          </div>
+
+          {/* Close Button */}
+          <div
+            onClick={() => setShowErrorToast(false)}
+            style={{
+              cursor: "pointer",
+              fontSize: 30,
+              fontWeight: 500,
+              color: "#9CA3AF",  // same gray as success close
               lineHeight: 1,
             }}
           >

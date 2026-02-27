@@ -382,10 +382,12 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
         companyLinkedInURL: formData.companyLinkedInURL,
         notes: formData.notes, // 🔥 THIS WAS MISSING
       };
-
-      onShowMessage('Contact updated successfully!', 'success');
-      setPopupMessage({ text: 'Contact updated successfully!', type: 'success' });
-      setTimeout(() => setPopupMessage(null), 2000);
+     
+      setToastMessage('Contact updated successfully!');
+       setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 6000);
+     // setPopupMessage({ text: 'Contact updated successfully!', type: 'success' });
+      //setTimeout(() => setPopupMessage(null), 2000);
       onContactUpdated(updatedContact);
       // handleClose();
     } catch (error) {
