@@ -1763,35 +1763,48 @@ useEffect(() => {
                             onClick={async () => {
                               const campaign = campaigns.find((c) => c.id.toString() === selectedCampaign);
                               if (campaign?.templateId) {
-                                // Show loader immediately
-                                window.dispatchEvent(new CustomEvent("showBlueprintLoader"));
-                                
                                 try {
-                                  // ✅ Fetch campaign data to get templateDefinitionId
+                                  // ✅ Fetch full template details (same as Template.tsx line 665)
                                   const response = await fetch(
                                     `${API_BASE_URL}/api/CampaignPrompt/campaign/${campaign.templateId}`,
                                   );
                                   
                                   if (response.ok) {
-                                    const data = await response.json();
+                                    const fullTemplate = await response.json();
                                     
-                                    // ✅ Set templateDefinitionId from API response
-                                    if (data.templateDefinitionId) {
+                                    // ✅ Extract example email
+                                    const example = fullTemplate?.placeholderValues?.example_output_email || "";
+                                    
+                                    // ✅ Store placeholderValues in session (CRITICAL - this was missing!)
+                                    if (fullTemplate.placeholderValues) {
+                                      sessionStorage.setItem(
+                                        "campaign_placeholder_values",
+                                        JSON.stringify(fullTemplate.placeholderValues)
+                                      );
+                                    }
+                                    
+                                    // ✅ Set all required session storage items (exactly like Template.tsx line 730-745)
+                                    sessionStorage.setItem("editTemplateId", campaign.templateId.toString());
+                                    sessionStorage.setItem("editTemplateMode", "true");
+                                    sessionStorage.setItem("newCampaignId", campaign.templateId.toString());
+                                    sessionStorage.setItem("newCampaignName", fullTemplate.templateName || campaign.campaignName);
+                                    sessionStorage.setItem("initialExampleEmail", example);
+                                    
+                                    if (fullTemplate.templateDefinitionId) {
                                       sessionStorage.setItem(
                                         "selectedTemplateDefinitionId",
-                                        data.templateDefinitionId.toString(),
+                                        fullTemplate.templateDefinitionId.toString(),
                                       );
-                                      console.log("✅ Set templateDefinitionId:", data.templateDefinitionId);
                                     }
+                                    
+                                    // ✅ Dispatch event to switch to blueprint tab
+                                    window.dispatchEvent(new CustomEvent("switchToBlueprint", { 
+                                      detail: { templateId: campaign.templateId } 
+                                    }));
                                   }
                                 } catch (error) {
-                                  console.error("Error fetching campaign data:", error);
+                                  console.error("Error loading blueprint:", error);
                                 }
-                                
-                                sessionStorage.setItem("editTemplateId", campaign.templateId.toString());
-                                sessionStorage.setItem("editTemplateMode", "true");
-                                sessionStorage.setItem("newCampaignId", campaign.templateId.toString());
-                                window.dispatchEvent(new CustomEvent("switchToBlueprint", { detail: { templateId: campaign.templateId } }));
                               }
                             }}
                             title="Edit this campaign's blueprint"
