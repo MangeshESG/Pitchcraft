@@ -69,6 +69,7 @@ const ContactDetailView: React.FC = () => {
   const [searchParams] = useSearchParams();
     const dataFileId =
       searchParams.get("dataFileId") || searchParams.get("dataField");
+    const segmentId = searchParams.get("segmentId");
 
   const [activeTab, setActiveTab] = useState<"profile" | "history" | "lists">("profile");
   const [loading, setLoading] = useState(true);
@@ -314,34 +315,50 @@ useEffect(() => {
 
     setLoading(true);
     try {
-      const res = await axios.get(
-        `${API_BASE_URL}/api/Crm/contacts/List-by-CleinteId`,
-        {
-          params: {
-            clientId: effectiveUserId,
-            dataFileId: dataFileId,
-          },
-        }
-      );
+      let res;
+      
+      // If coming from segment, use segment-contacts endpoint
+      if (segmentId) {
+        res = await axios.get(
+          `${API_BASE_URL}/api/Crm/segment-contacts`,
+          {
+            params: {
+              clientId: effectiveUserId,
+              segmentId: segmentId,
+            },
+          }
+        );
+      } else if (dataFileId) {
+        // If coming from list, use list endpoint
+        res = await axios.get(
+          `${API_BASE_URL}/api/Crm/contacts/List-by-CleinteId`,
+          {
+            params: {
+              clientId: effectiveUserId,
+              dataFileId: dataFileId,
+            },
+          }
+        );
+      } else {
+        // Fallback: fetch all contacts
+        res = await axios.get(
+          `${API_BASE_URL}/api/Crm/allcontacts/list-by-clientId`,
+          {
+            params: {
+              clientId: effectiveUserId,
+            },
+          }
+        );
+      }
 
       const contacts = res.data?.contacts || [];
-      //     console.log("[v0] API Response - Contacts:", contacts);
-      // console.log("[v0] Looking for contactId:", contactId, "Type:", typeof contactId);
-      // console.log("Contacts", contacts);
+      console.log("[v0] API Response - Contacts:", contacts.length);
+      console.log("[v0] Looking for contactId:", contactId);
       setDetailContacts(contacts);
-      // Debug: Log all contact IDs to see what we're comparing against
-      // contacts.forEach((c: any, index: number) => {
-      //   console.log(`[v0] Contact ${index}: id=${c.id} (type: ${typeof c.id}), full_name=${c.full_name}`);
-      // });
-
-      // const found = contacts.find(
-      //   (c: any) => Number(c.id) === Number(contactId)
-      // );
 
       // Try to find contact by exact ID match
       const found = contacts.find((c: any) => {
         const match = String(c.id) === String(contactId);
-        console.log(`[v0] Comparing: c.id=${c.id} (${c.full_name}) === contactId=${contactId} => ${match}`);
         return match;
       });
 
@@ -372,7 +389,7 @@ useEffect(() => {
   };
   useEffect(() => {
     fetchContact();
-  }, [contactId, effectiveUserId, dataFileId]);
+  }, [contactId, effectiveUserId, dataFileId, segmentId]);
 
   const fetchContactDetails = async () => {
     if (!contactId) return;
