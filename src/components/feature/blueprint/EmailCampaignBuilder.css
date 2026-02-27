@@ -2634,28 +2634,28 @@
 /* ===============================
    BUILD SUB-TABS (Chat / Elements)
    =============================== */
-.build-subtabs {
+/* .build-subtabs {
   display: inline-flex;
   gap: 6px;
   padding: 0;
   background: #f3f4f6;
-}
+} */
 
-.build-subtabs button {
+/* .build-subtabs button {
   padding:10px 30px;
   border: none;
-  background: transparent;
+  background: #E5E7EB;
   font-size: 15px;
   font-weight: 500;
   color: #111111;
   cursor: pointer;
   transition: all 0.2s ease;
-  border: 1px solid transparent;
+  border: 1px solid #E5E7EB;
   border-bottom: 0;
   border-radius: 5px 5px 0 0;
-}
+} */
 
-.build-subtabs button:hover {
+/* .build-subtabs button:hover {
   color: #111111;
 }
 
@@ -2665,8 +2665,8 @@
   background: #ffffff;
   border-color: #dddddd;
  
-}
-.build-subtabs button.active:after{
+} */
+/* .build-subtabs button.active:after{
   content: "";
     position:absolute;
     bottom: -1px;
@@ -2674,6 +2674,69 @@
     width:100%;
     height:1px;
     background:#ffffff;
+} */
+ .build-subtabs {
+  display: flex;
+  border-right:1px solid #cccccc ;
+  /* border-bottom: 1px solid #cccccc; */
+}
+
+.build-subtabs button {
+  padding: 10px 30px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  /* Inactive background (like Kraft tab) */
+  background: #E5E7EB;
+
+  /* Inactive text */
+  color: #6B7280;
+
+  border: 1px solid #cccccc;
+  border-bottom: none;
+  border-right: 1px solid #cccccc;
+
+  border-radius: 0;
+
+  /* Subtle inset bottom shadow (like Tailwind version) */
+  box-shadow: inset 0 -2px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* Remove right border from last tab */
+.build-subtabs button:last-child {
+  border-right: none;
+}
+
+/* Hover like Kraft */
+.build-subtabs button:hover {
+  background: #DCDCDC;
+  color: #111111;
+}
+
+/* Active tab (white like Kraft) */
+.build-subtabs button.active {
+  background: #ffffff;
+  color: #3f9f42;
+  font-weight: 600;
+
+  border-color: #dddddd;
+  border-bottom: 0;
+
+  box-shadow: none; /* Remove inset */
+  position: relative;
+}
+
+/* Hide bottom border line */
+.build-subtabs button.active::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: #ffffff;
 }
 /* ================= BUILD SUBTAB HEADER ================= */
 .build-subtabs-row {
