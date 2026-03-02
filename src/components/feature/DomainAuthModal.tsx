@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-
 import API_BASE_URL from "../../config";
+import CommonSidePanel from '../common/CommonSidePanel';
 
 
 interface DomainAuthModalProps {
@@ -40,187 +40,23 @@ const DomainAuthModal: React.FC<DomainAuthModalProps> = ({
   const domainName = selectedDomain.domain || email.split('@')[1] || '';
 
   return (
-    <>
-      <style>
-        {`
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-        `}
-      </style>
-    <div
-      onClick={onClose}
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100%",
-        height: "100%",
-        background: "rgba(0,0,0,0.5)",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        zIndex: 1000,
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: "#fff",
-          padding: 24,
-          borderRadius: 8,
-          width: "60%",
-          maxWidth: 800,
-          maxHeight: "70vh",
-          overflow: "auto",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-        }}
-      >
-        <h2 style={{ marginTop: 0, marginBottom: 16, fontSize: "20px", fontWeight: "600" }}>
-          Domain Authentication Required
-        </h2>
-        
-        <div style={{ marginBottom: 16 }}>
-          <p style={{ marginBottom: 12, color: "#666", fontSize: "16px" }}>
-            <strong>Domain:</strong> {domainName}
-          </p>
-          
-          <div style={{ 
-            background: "#fff3cd", 
-            border: "1px solid #ffeaa7", 
-            borderRadius: 4, 
-            padding: 16, 
-            marginBottom: 16 
-          }}>
-            <p style={{ margin: 0, color: "#856404", fontWeight: "500", marginBottom: 12 }}>
-              DNS Records Status:
-            </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ color: isSpfVerified ? "#28a745" : "#dc3545", fontSize: "16px" }}>
-                  {isSpfVerified ? "✓" : "✗"}
-                </span>
-                <span style={{ color: isSpfVerified ? "#28a745" : "#dc3545", fontWeight: "500" }}>
-                  SPF {isSpfVerified ? "Verified" : "Missing"}
-                </span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ color: isDkimVerified ? "#28a745" : "#dc3545", fontSize: "16px" }}>
-                  {isDkimVerified ? "✓" : "✗"}
-                </span>
-                <span style={{ color: isDkimVerified ? "#28a745" : "#dc3545", fontWeight: "500" }}>
-                  DKIM {isDkimVerified ? "Verified" : "Missing"}
-                </span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ color: isDmarcVerified ? "#28a745" : "#dc3545", fontSize: "16px" }}>
-                  {isDmarcVerified ? "✓" : "✗"}
-                </span>
-                <span style={{ color: isDmarcVerified ? "#28a745" : "#dc3545", fontWeight: "500" }}>
-                  DMARC {isDmarcVerified ? "Verified" : "Missing"}
-                </span>
-              </div>
-            </div>
-          </div>
-          
-          {!isDkimVerified && (
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ display: "block", marginBottom: 8, fontWeight: "600", fontSize: "16px" }}>
-                DKIM Value
-              </label>
-              <div style={{ marginBottom: 8 }}>
-                <label style={{ display: "inline-block", marginRight: 8, fontWeight: "500" }}>Domain name:</label>
-                <input
-                  type="text"
-                  value={dkimValue}
-                  onChange={(e) => setDkimValue(e.target.value)}
-                  placeholder=""
-                  style={{
-                    padding: "6px 10px",
-                    border: "1px solid #ccc",
-                    borderRadius: 4,
-                    fontSize: "14px",
-                    marginRight: 4
-                  }}
-                />
-                <span>.{domainName}</span>
-              </div>
-              <div>
-                <label style={{ display: "inline-block", marginRight: 8, fontWeight: "500" }}>TXT record:</label>
-                <input
-                  type="text"
-                  value={expectedDkimValue}
-                  onChange={(e) => setExpectedDkimValue(e.target.value)}
-                  placeholder=""
-                  style={{
-                    width: "calc(100% - 100px)",
-                    padding: "6px 10px",
-                    border: "1px solid #ccc",
-                    borderRadius: 4,
-                    fontSize: "14px"
-                  }}
-                />
-              </div>
-            </div>
-          )}
-          
-          {!isDmarcVerified && (
-            <div style={{ marginBottom: 16 }}>
-              <label style={{ display: "block", marginBottom: 8, fontWeight: "600", fontSize: "16px" }}>
-                DMARC Value
-              </label>
-              <div style={{ marginBottom: 8 }}>
-                <label style={{ display: "inline-block", marginRight: 8, fontWeight: "500" }}>Domain name:</label>
-                <input
-                  type="text"
-                  value={dmarcValue}
-                  onChange={(e) => setDmarcValue(e.target.value)}
-                  placeholder=""
-                  style={{
-                    padding: "6px 10px",
-                    border: "1px solid #ccc",
-                    borderRadius: 4,
-                    fontSize: "14px",
-                    marginRight: 4
-                  }}
-                />
-                <span>.{domainName}</span>
-              </div>
-              <div>
-                <label style={{ display: "inline-block", marginRight: 8, fontWeight: "500" }}>TXT record:</label>
-                <input
-                  type="text"
-                  value={expectedDmarcValue}
-                  onChange={(e) => setExpectedDmarcValue(e.target.value)}
-                  placeholder=""
-                  style={{
-                    width: "calc(100% - 100px)",
-                    padding: "6px 10px",
-                    border: "1px solid #ccc",
-                    borderRadius: 4,
-                    fontSize: "14px"
-                  }}
-                />
-              </div>
-            </div>
-          )}
-          
-          <p style={{ color: "#666", fontSize: "14px", lineHeight: "1.5" }}>
-            Enter the values for missing DNS records to verify domain authentication.
-          </p>
-        </div>
-
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
+    <CommonSidePanel
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Domain Authentication Required"
+      footerContent={
+        <>
           <button
             onClick={onClose}
             style={{
-              padding: "10px 20px",
-              border: "1px solid #ccc",
+              padding: "10px 32px",
+              border: "1px solid #ddd",
               background: "#fff",
-              borderRadius: 4,
+              borderRadius: "24px",
               cursor: "pointer",
-              fontSize: "14px"
+              fontSize: "14px",
+              fontWeight: "500",
+              color: "#333",
             }}
           >
             Close
@@ -272,35 +108,151 @@ const DomainAuthModal: React.FC<DomainAuthModalProps> = ({
             }}
             disabled={isLoading}
             style={{
-              padding: "10px 20px",
-              background: isLoading ? "#6c757d" : "#007bff",
-              color: "white",
-              border: "none",
-              borderRadius: 4,
+              padding: "10px 32px",
+              background: "#fff",
+              color: isLoading ? "#ccc" : "#ef4444",
+              border: `1px solid ${isLoading ? "#ccc" : "#ef4444"}`,
+              borderRadius: "24px",
               cursor: isLoading ? "not-allowed" : "pointer",
               fontSize: "14px",
-              display: "flex",
-              alignItems: "center",
-              gap: "8px"
+              fontWeight: "500",
             }}
           >
-            {isLoading && (
-              <span style={{ 
-                border: "2px solid #fff", 
-                borderTop: "2px solid transparent", 
-                borderRadius: "50%", 
-                width: "14px", 
-                height: "14px", 
-                animation: "spin 0.6s linear infinite",
-                display: "inline-block"
-              }} />
-            )}
             {isLoading ? "Verifying..." : "Verify"}
           </button>
+        </>
+      }
+    >
+      <div style={{ marginBottom: 16 }}>
+        <p style={{ marginBottom: 12, color: "#666", fontSize: "16px" }}>
+          <strong>Domain:</strong> {domainName}
+        </p>
+        
+        <div style={{ 
+          background: "#fff3cd", 
+          border: "1px solid #ffeaa7", 
+          borderRadius: 4, 
+          padding: 16, 
+          marginBottom: 16 
+        }}>
+          <p style={{ margin: 0, color: "#856404", fontWeight: "500", marginBottom: 12 }}>
+            DNS Records Status:
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ color: isSpfVerified ? "#28a745" : "#dc3545", fontSize: "16px" }}>
+                {isSpfVerified ? "✓" : "✗"}
+              </span>
+              <span style={{ color: isSpfVerified ? "#28a745" : "#dc3545", fontWeight: "500" }}>
+                SPF {isSpfVerified ? "Verified" : "Missing"}
+              </span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ color: isDkimVerified ? "#28a745" : "#dc3545", fontSize: "16px" }}>
+                {isDkimVerified ? "✓" : "✗"}
+              </span>
+              <span style={{ color: isDkimVerified ? "#28a745" : "#dc3545", fontWeight: "500" }}>
+                DKIM {isDkimVerified ? "Verified" : "Missing"}
+              </span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ color: isDmarcVerified ? "#28a745" : "#dc3545", fontSize: "16px" }}>
+                {isDmarcVerified ? "✓" : "✗"}
+              </span>
+              <span style={{ color: isDmarcVerified ? "#28a745" : "#dc3545", fontWeight: "500" }}>
+                DMARC {isDmarcVerified ? "Verified" : "Missing"}
+              </span>
+            </div>
+          </div>
         </div>
+        
+        {!isDkimVerified && (
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: "block", marginBottom: 8, fontWeight: "600", fontSize: "16px" }}>
+              DKIM Value
+            </label>
+            <div style={{ marginBottom: 8 }}>
+              <label style={{ display: "inline-block", marginRight: 8, fontWeight: "500" }}>Domain name:</label>
+              <input
+                type="text"
+                value={dkimValue}
+                onChange={(e) => setDkimValue(e.target.value)}
+                placeholder=""
+                style={{
+                  padding: "6px 10px",
+                  border: "1px solid #ccc",
+                  borderRadius: 4,
+                  fontSize: "14px",
+                  marginRight: 4
+                }}
+              />
+              <span>.{domainName}</span>
+            </div>
+            <div>
+              <label style={{ display: "inline-block", marginRight: 8, fontWeight: "500" }}>TXT record:</label>
+              <input
+                type="text"
+                value={expectedDkimValue}
+                onChange={(e) => setExpectedDkimValue(e.target.value)}
+                placeholder=""
+                style={{
+                  width: "calc(100% - 100px)",
+                  padding: "6px 10px",
+                  border: "1px solid #ccc",
+                  borderRadius: 4,
+                  fontSize: "14px"
+                }}
+              />
+            </div>
+          </div>
+        )}
+        
+        {!isDmarcVerified && (
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: "block", marginBottom: 8, fontWeight: "600", fontSize: "16px" }}>
+              DMARC Value
+            </label>
+            <div style={{ marginBottom: 8 }}>
+              <label style={{ display: "inline-block", marginRight: 8, fontWeight: "500" }}>Domain name:</label>
+              <input
+                type="text"
+                value={dmarcValue}
+                onChange={(e) => setDmarcValue(e.target.value)}
+                placeholder=""
+                style={{
+                  padding: "6px 10px",
+                  border: "1px solid #ccc",
+                  borderRadius: 4,
+                  fontSize: "14px",
+                  marginRight: 4
+                }}
+              />
+              <span>.{domainName}</span>
+            </div>
+            <div>
+              <label style={{ display: "inline-block", marginRight: 8, fontWeight: "500" }}>TXT record:</label>
+              <input
+                type="text"
+                value={expectedDmarcValue}
+                onChange={(e) => setExpectedDmarcValue(e.target.value)}
+                placeholder=""
+                style={{
+                  width: "calc(100% - 100px)",
+                  padding: "6px 10px",
+                  border: "1px solid #ccc",
+                  borderRadius: 4,
+                  fontSize: "14px"
+                }}
+              />
+            </div>
+          </div>
+        )}
+        
+        <p style={{ color: "#666", fontSize: "14px", lineHeight: "1.5" }}>
+          Enter the values for missing DNS records to verify domain authentication.
+        </p>
       </div>
-    </div>
-    </>
+    </CommonSidePanel>
   );
 };
 

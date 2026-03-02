@@ -390,14 +390,45 @@ useEffect(() => {
     }).format(new Date(dateString));
   };
   const fetchContact = async () => {
-    if (!contactId || !effectiveUserId) return;
+    if (!contactId || !effectiveUserId) {
+      console.error("[ContactDetail] Missing contactId or effectiveUserId", { contactId, effectiveUserId });
+      return;
+    }
 
     setLoading(true);
     try {
       let res;
       
+      console.log("[ContactDetail] Fetching contact with:", { contactId, effectiveUserId, dataFileId, segmentId });
+      
+      // Try direct contact fetch first (for mail dashboard)
+      try {
+        console.log("[ContactDetail] Trying direct contact fetch");
+        const directRes = await axios.get(
+          `${API_BASE_URL}/api/Crm/contact-by-id`,
+          {
+            params: {
+              contactId: contactId,
+              clientId: effectiveUserId,
+            },
+          }
+        );
+        
+        if (directRes.data) {
+          console.log("[ContactDetail] Found contact via direct fetch");
+          setContact(directRes.data);
+          setEditingContact(directRes.data);
+          setError(null);
+          setLoading(false);
+          return;
+        }
+      } catch (directError) {
+        console.log("[ContactDetail] Direct fetch failed, trying list/segment endpoints");
+      }
+      
       // If coming from segment, use segment-contacts endpoint
       if (segmentId) {
+        console.log("[ContactDetail] Using segment endpoint");
         res = await axios.get(
           `${API_BASE_URL}/api/Crm/segment-contacts`,
           {
@@ -407,10 +438,11 @@ useEffect(() => {
             },
           }
         );
-      } else if (dataFileId) {
+      } else if (dataFileId && dataFileId !== "-1") {
         // If coming from list, use list endpoint
+        console.log("[ContactDetail] Using list endpoint with dataFileId:", dataFileId);
         res = await axios.get(
-          `${API_BASE_URL}/api/Crm/contacts/List-by-CleinteId`,
+          `${API_BASE_URL}/api/Crm/contacts/List-by-ClientId`,
           {
             params: {
               clientId: effectiveUserId,
@@ -420,6 +452,7 @@ useEffect(() => {
         );
       } else {
         // Fallback: fetch all contacts
+        console.log("[ContactDetail] Using all contacts endpoint");
         res = await axios.get(
           `${API_BASE_URL}/api/Crm/allcontacts/list-by-clientId`,
           {
@@ -433,11 +466,15 @@ useEffect(() => {
       const contacts = res.data?.contacts || [];
       console.log("[v0] API Response - Contacts:", contacts.length);
       console.log("[v0] Looking for contactId:", contactId);
+      console.log("[v0] dataFileId:", dataFileId, "segmentId:", segmentId);
       setDetailContacts(contacts);
 
       // Try to find contact by exact ID match
       const found = contacts.find((c: any) => {
         const match = String(c.id) === String(contactId);
+        if (match) {
+          console.log("[v0] Found matching contact:", c.full_name, "ID:", c.id);
+        }
         return match;
       });
 
@@ -446,17 +483,15 @@ useEffect(() => {
         setContact(found);
         setEditingContact(found);
         setError(null);
-      } else if (contacts.length > 0) {
-        // Contact not found, show error with available contacts
-        console.log(`[v0] Contact ID ${contactId} not found. Available IDs: ${contacts.map((c: any) => c.id).join(", ")}`);
-        setContact(null);
-        setEditingContact(null);
-        setError(`Contact ID ${contactId} not found in available contacts.`);
       } else {
-        // No contacts at all
+        // Contact not found - log detailed info
+        console.error(`[v0] Contact ID ${contactId} not found.`);
+        console.error(`[v0] Available contact IDs:`, contacts.slice(0, 5).map((c: any) => ({ id: c.id, name: c.full_name })));
+        console.error(`[v0] Search params - dataFileId: ${dataFileId}, segmentId: ${segmentId}`);
+        
         setContact(null);
         setEditingContact(null);
-        setError("No contacts found.");
+        setError(`Contact not found. Please ensure you're accessing the contact from the correct list or segment.`);
       }
     } catch (err) {
       console.error("[v0] Error fetching contact:", err);

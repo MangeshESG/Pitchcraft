@@ -11,6 +11,7 @@ import PaginationControls from "../PaginationControls";
 import duplicateIcon from "../../../assets/images/icons/duplicate.png";
 import CreditCheckModal from "../../common/CreditCheckModal";
 import LoadingSpinner from "../../common/LoadingSpinner";
+import CommonSidePanel from "../../common/CommonSidePanel";
 
 const menuBtnStyle = {
   width: "100%",
@@ -1049,387 +1050,288 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
             />
           </div>
 
-          {/* ✅ NEW: Template Name Modal */}
-          {/* ✅ UPDATED: Template Name Modal */}
-          {showTemplateNameModal && (
-            <div className="modal-backdrop">
-              <div
-                className="modal-content"
-                onClick={(e) => e.stopPropagation()}
-                style={{ maxWidth: "600px" }}
-              >
-                <div className="modal-header">
-                  <h2>📝 Create new campaign blueprint</h2>
-                  <button
-                    className="modal-close-btn"
-                    onClick={() => setShowTemplateNameModal(false)}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      fontSize: "24px",
-                      cursor: "pointer",
-                      color: "#6b7280",
-                    }}
-                  >
-                    ✕
-                  </button>
-                </div>
-
-                <div className="modal-body" style={{ padding: "24px" }}>
-                  {/* ✅ Template Definition Selector */}
-                  {isAdmin && (
-                    <div
-                      className="form-group"
-                      style={{ marginBottom: "20px" }}
-                    >
-                      <label>
-                        Select base template{" "}
-                        <span style={{ color: "red" }}>*</span>
-                      </label>
-
-                      <select
-                        value={selectedTemplateDefinitionId || ""}
-                        onChange={(e) =>
-                          setSelectedTemplateDefinitionId(
-                            parseInt(e.target.value),
-                          )
-                        }
-                      >
-                        <option value="">
-                          -- Select a template definition --
-                        </option>
-                        {templateDefinitions.map((def) => (
-                          <option key={def.id} value={def.id}>
-                            {def.templateName}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+          <CommonSidePanel
+            isOpen={showTemplateNameModal}
+            onClose={() => setShowTemplateNameModal(false)}
+            title="📝 Create new campaign blueprint"
+            width={440}
+            footerContent={
+              <>
+                <button
+                  className="button secondary"
+                  onClick={() => setShowTemplateNameModal(false)}
+                  disabled={isCreatingCampaign}
+                  style={{ 
+                    padding: "10px 24px", 
+                    borderRadius: "24px",
+                    border: "2px solid #ddd",
+                    background: "#fff",
+                    color: "#666",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    cursor: "pointer"
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="button save-button"
+                  onClick={handleTemplateNameSubmit}
+                  disabled={
+                    !templateNameInput.trim() ||
+                    !selectedTemplateDefinitionId ||
+                    isCreatingCampaign
+                  }
+                  style={{
+                    padding: "10px 24px",
+                    borderRadius: "24px",
+                    border: "2px solid #dc3545",
+                    background: "#fff",
+                    color: "#dc3545",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    cursor: (!templateNameInput.trim() || !selectedTemplateDefinitionId || isCreatingCampaign) ? "not-allowed" : "pointer",
+                    opacity: (!templateNameInput.trim() || !selectedTemplateDefinitionId || isCreatingCampaign) ? 0.5 : 1
+                  }}
+                >
+                  {isCreatingCampaign ? (
+                    <>
+                      <span className="spinner" style={{ marginRight: "8px" }}>⏳</span>
+                      Creating campaign...
+                    </>
+                  ) : (
+                    "Create blueprint"
                   )}
-
-                  {/* Template Name Input */}
-                  <div className="form-group" style={{ marginBottom: "20px" }}>
-                    <label
-                      htmlFor="templateName"
-                      style={{
-                        display: "block",
-                        marginBottom: "8px",
-                        fontWeight: "500",
-                      }}
-                    >
-                      Campaign name <span style={{ color: "red" }}>*</span>
-                    </label>
-                    <input
-                      id="templateName"
-                      type="text"
-                      value={templateNameInput}
-                      onChange={(e) => setTemplateNameInput(e.target.value)}
-                      placeholder="e.g., IBM Sales Outreach "
-                      autoFocus
-                      onKeyPress={(e) => {
-                        if (
-                          e.key === "Enter" &&
-                          templateNameInput.trim() &&
-                          selectedTemplateDefinitionId
-                        ) {
-                          handleTemplateNameSubmit();
-                        }
-                      }}
-                      style={{
-                        width: "100%",
-                        padding: "12px 16px",
-                        border: "2px solid #e5e7eb",
-                        borderRadius: "8px",
-                        fontSize: "15px",
-                      }}
-                    />
-                    <p
-                      style={{
-                        marginTop: "8px",
-                        fontSize: "13px",
-                        color: "#6b7280",
-                      }}
-                    >
-                      💡 Give this specific campaign instance a unique name
-                    </p>
-                  </div>
-
-                  {/* Template Definition Preview */}
-                </div>
-
-                <div
-                  className="modal-footer"
-                  style={{
-                    display: "flex",
-                    gap: "12px",
-                    padding: "16px 24px",
-                    borderTop: "1px solid #e5e7eb",
-                    justifyContent: "flex-end",
-                  }}
+                </button>
+              </>
+            }
+          >
+            {isAdmin && (
+              <div className="form-group" style={{ marginBottom: "20px" }}>
+                <label>
+                  Select base template <span style={{ color: "red" }}>*</span>
+                </label>
+                <select
+                  value={selectedTemplateDefinitionId || ""}
+                  onChange={(e) => setSelectedTemplateDefinitionId(parseInt(e.target.value))}
                 >
-                  <button
-                    className="button secondary"
-                    onClick={() => setShowTemplateNameModal(false)}
-                    disabled={isCreatingCampaign}
-                    style={{
-                      padding: "10px 20px",
-                      borderRadius: "8px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    className="button save-button"
-                    onClick={handleTemplateNameSubmit}
-                    disabled={
-                      !templateNameInput.trim() ||
-                      !selectedTemplateDefinitionId ||
-                      isCreatingCampaign
-                    }
-                  >
-                    {isCreatingCampaign ? (
-                      <>
-                        <span
-                          className="spinner"
-                          style={{ marginRight: "8px" }}
-                        >
-                          ⏳
-                        </span>
-                        Creating campaign...
-                      </>
-                    ) : (
-                      <>Create blueprint</>
-                    )}
-                  </button>
-                </div>
+                  <option value="">-- Select a template definition --</option>
+                  {templateDefinitions.map((def) => (
+                    <option key={def.id} value={def.id}>
+                      {def.templateName}
+                    </option>
+                  ))}
+                </select>
               </div>
+            )}
+
+            <div className="form-group" style={{ marginBottom: "20px" }}>
+              <label htmlFor="templateName" style={{ display: "block", marginBottom: "8px", fontWeight: "500" }}>
+                Campaign name <span style={{ color: "red" }}>*</span>
+              </label>
+              <input
+                id="templateName"
+                type="text"
+                value={templateNameInput}
+                onChange={(e) => setTemplateNameInput(e.target.value)}
+                placeholder="e.g., IBM Sales Outreach"
+                autoFocus
+                onKeyPress={(e) => {
+                  if (e.key === "Enter" && templateNameInput.trim() && selectedTemplateDefinitionId) {
+                    handleTemplateNameSubmit();
+                  }
+                }}
+                style={{
+                  width: "100%",
+                  padding: "12px 16px",
+                  border: "2px solid #e5e7eb",
+                  borderRadius: "8px",
+                  fontSize: "15px",
+                }}
+              />
+              <p style={{ marginTop: "8px", fontSize: "13px", color: "#6b7280" }}>
+                💡 Give this specific campaign instance a unique name
+              </p>
             </div>
-          )}
+          </CommonSidePanel>
           {/* Clone Name Input Modal */}
-          {showCloneNameModal && selectedCampaignTemplate && (
-            <div className="modal-backdrop">
-              <div
-                className="modal-content"
-                style={{ maxWidth: "500px", padding: "24px" }}
+          <CommonSidePanel
+            isOpen={showCloneNameModal && selectedCampaignTemplate !== null}
+            onClose={() => {
+              setShowCloneNameModal(false);
+              setSelectedCampaignTemplate(null);
+              setCloneNameInput("");
+            }}
+            title="Clone blueprint"
+            width={440}
+            footerContent={
+              <>
+                <button
+                  onClick={() => {
+                    setShowCloneNameModal(false);
+                    setSelectedCampaignTemplate(null);
+                    setCloneNameInput("");
+                  }}
+                  disabled={isLoading}
+                  style={{
+                    padding: "10px 24px",
+                    borderRadius: "24px",
+                    border: "2px solid #ddd",
+                    background: "#fff",
+                    color: "#666",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    cursor: "pointer"
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCloneCampaignTemplate}
+                  disabled={isLoading || !cloneNameInput.trim()}
+                  style={{
+                    padding: "10px 24px",
+                    borderRadius: "24px",
+                    border: "2px solid #dc3545",
+                    background: "#fff",
+                    color: "#dc3545",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    cursor: cloneNameInput.trim() ? "pointer" : "not-allowed",
+                    opacity: cloneNameInput.trim() ? 1 : 0.5
+                  }}
+                >
+                  {isLoading ? "Cloning..." : "Clone Blueprint"}
+                </button>
+              </>
+            }
+          >
+            <div className="form-group" style={{ marginBottom: "16px" }}>
+              <label
+                htmlFor="cloneNameInput"
+                style={{
+                  display: "block",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  marginBottom: "8px",
+                  color: "#374151",
+                }}
               >
-                <h2
-                  style={{
-                    fontSize: "18px",
-                    fontWeight: "600",
-                    marginBottom: "24px",
-                    color: "#1f2937",
-                  }}
-                >
-                  Clone blueprint
-                </h2>
-
-                <div className="form-group" style={{ marginBottom: "16px" }}>
-                  <label
-                    htmlFor="cloneNameInput"
-                    style={{
-                      display: "block",
-                      fontSize: "14px",
-                      fontWeight: "500",
-                      marginBottom: "8px",
-                      color: "#374151",
-                    }}
-                  >
-                    New blueprint name{" "}
-                    <span style={{ color: "#ef4444" }}>*</span>
-                  </label>
-                  <input
-                    id="cloneNameInput"
-                    type="text"
-                    value={cloneNameInput}
-                    onChange={(e) => setCloneNameInput(e.target.value)}
-                    placeholder="Enter name for cloned blueprint"
-                    autoFocus
-                    onKeyPress={(e) => {
-                      if (e.key === "Enter" && cloneNameInput.trim()) {
-                        handleCloneCampaignTemplate();
-                      }
-                    }}
-                    style={{
-                      width: "100%",
-                      padding: "12px 16px",
-                      border: "1px solid #d1d5db",
-                      borderRadius: "8px",
-                      fontSize: "14px",
-                      outline: "none",
-                      transition: "border-color 0.2s",
-                    }}
-                    onFocus={(e) => (e.target.style.borderColor = "#3b82f6")}
-                    onBlur={(e) => (e.target.style.borderColor = "#d1d5db")}
-                  />
-                  <p
-                    style={{
-                      marginTop: "8px",
-                      fontSize: "13px",
-                      color: "#6b7280",
-                    }}
-                  >
-                    💡 Cloning from:{" "}
-                    <strong>{selectedCampaignTemplate.templateName}</strong>
-                  </p>
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "12px",
-                    justifyContent: "flex-end",
-                    marginTop: "24px",
-                  }}
-                >
-                  <button
-                    onClick={() => {
-                      setShowCloneNameModal(false);
-                      setSelectedCampaignTemplate(null);
-                      setCloneNameInput("");
-                    }}
-                    disabled={isLoading}
-                    style={{
-                      padding: "10px 20px",
-                      border: "1px solid #d1d5db",
-                      borderRadius: "8px",
-                      backgroundColor: "white",
-                      color: "#374151",
-                      fontSize: "14px",
-                      fontWeight: "500",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleCloneCampaignTemplate}
-                    disabled={isLoading || !cloneNameInput.trim()}
-                    style={{
-                      padding: "10px 20px",
-                      border: "none",
-                      borderRadius: "8px",
-                      backgroundColor: "#22c55e",
-                      color: "white",
-                      fontSize: "14px",
-                      fontWeight: "500",
-                      cursor: cloneNameInput.trim() ? "pointer" : "not-allowed",
-                      opacity: cloneNameInput.trim() ? 1 : 0.6,
-                    }}
-                  >
-                    {isLoading ? "Cloning..." : "Clone Blueprint"}
-                  </button>
-                </div>
-              </div>
+                New blueprint name <span style={{ color: "#ef4444" }}>*</span>
+              </label>
+              <input
+                id="cloneNameInput"
+                type="text"
+                value={cloneNameInput}
+                onChange={(e) => setCloneNameInput(e.target.value)}
+                placeholder="Enter name for cloned blueprint"
+                autoFocus
+                onKeyPress={(e) => {
+                  if (e.key === "Enter" && cloneNameInput.trim()) {
+                    handleCloneCampaignTemplate();
+                  }
+                }}
+                style={{
+                  width: "100%",
+                  padding: "12px 16px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                }}
+              />
+              <p style={{ marginTop: "8px", fontSize: "13px", color: "#6b7280" }}>
+                💡 Cloning from: <strong>{selectedCampaignTemplate?.templateName}</strong>
+              </p>
             </div>
-          )}
+          </CommonSidePanel>
 
           {/* Rename Modal */}
-          {showRenameModal && selectedCampaignTemplate && (
-            <div className="modal-backdrop">
-              <div
-                className="modal-content"
-                style={{ maxWidth: "500px", padding: "24px" }}
+          <CommonSidePanel
+            isOpen={showRenameModal && selectedCampaignTemplate !== null}
+            onClose={() => {
+              setShowRenameModal(false);
+              setSelectedCampaignTemplate(null);
+              setRenameInput("");
+            }}
+            title="Rename blueprint"
+            width={440}
+            footerContent={
+              <>
+                <button
+                  onClick={() => {
+                    setShowRenameModal(false);
+                    setSelectedCampaignTemplate(null);
+                    setRenameInput("");
+                  }}
+                  disabled={isLoading}
+                  style={{
+                    padding: "10px 24px",
+                    borderRadius: "24px",
+                    border: "2px solid #ddd",
+                    background: "#fff",
+                    color: "#666",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    cursor: "pointer"
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRenameCampaignTemplate}
+                  disabled={isLoading || !renameInput.trim()}
+                  style={{
+                    padding: "10px 24px",
+                    borderRadius: "24px",
+                    border: "2px solid #dc3545",
+                    background: "#fff",
+                    color: "#dc3545",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    cursor: renameInput.trim() ? "pointer" : "not-allowed",
+                    opacity: renameInput.trim() ? 1 : 0.5
+                  }}
+                >
+                  {isLoading ? "Saving..." : "Save"}
+                </button>
+              </>
+            }
+          >
+            <div className="form-group" style={{ marginBottom: "16px" }}>
+              <label
+                htmlFor="renameInput"
+                style={{
+                  display: "block",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  marginBottom: "8px",
+                  color: "#374151",
+                }}
               >
-                <h2
-                  style={{
-                    fontSize: "18px",
-                    fontWeight: "600",
-                    marginBottom: "24px",
-                    color: "#1f2937",
-                  }}
-                >
-                  Rename blueprint
-                </h2>
-
-                <div className="form-group" style={{ marginBottom: "16px" }}>
-                  <label
-                    htmlFor="renameInput"
-                    style={{
-                      display: "block",
-                      fontSize: "14px",
-                      fontWeight: "500",
-                      marginBottom: "8px",
-                      color: "#374151",
-                    }}
-                  >
-                    Blueprint name <span style={{ color: "#ef4444" }}>*</span>
-                  </label>
-                  <input
-                    id="renameInput"
-                    type="text"
-                    value={renameInput}
-                    onChange={(e) => setRenameInput(e.target.value)}
-                    placeholder="Enter blueprint name"
-                    autoFocus
-                    onKeyPress={(e) => {
-                      if (e.key === "Enter" && renameInput.trim()) {
-                        handleRenameCampaignTemplate();
-                      }
-                    }}
-                    style={{
-                      width: "100%",
-                      padding: "12px 16px",
-                      border: "1px solid #d1d5db",
-                      borderRadius: "8px",
-                      fontSize: "14px",
-                      outline: "none",
-                      transition: "border-color 0.2s",
-                    }}
-                    onFocus={(e) => (e.target.style.borderColor = "#3b82f6")}
-                    onBlur={(e) => (e.target.style.borderColor = "#d1d5db")}
-                  />
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    gap: "12px",
-                    justifyContent: "flex-end",
-                    marginTop: "24px",
-                  }}
-                >
-                  <button
-                    onClick={() => {
-                      setShowRenameModal(false);
-                      setSelectedCampaignTemplate(null);
-                      setRenameInput("");
-                    }}
-                    disabled={isLoading}
-                    style={{
-                      padding: "10px 20px",
-                      border: "1px solid #d1d5db",
-                      borderRadius: "8px",
-                      backgroundColor: "white",
-                      color: "#374151",
-                      fontSize: "14px",
-                      fontWeight: "500",
-                      cursor: "pointer",
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleRenameCampaignTemplate}
-                    disabled={isLoading || !renameInput.trim()}
-                    style={{
-                      padding: "10px 20px",
-                      border: "none",
-                      borderRadius: "8px",
-                      backgroundColor: "#22c55e",
-                      color: "white",
-                      fontSize: "14px",
-                      fontWeight: "500",
-                      cursor: renameInput.trim() ? "pointer" : "not-allowed",
-                      opacity: renameInput.trim() ? 1 : 0.6,
-                    }}
-                  >
-                    {isLoading ? "Saving..." : "Save"}
-                  </button>
-                </div>
-              </div>
+                Blueprint name <span style={{ color: "#ef4444" }}>*</span>
+              </label>
+              <input
+                id="renameInput"
+                type="text"
+                value={renameInput}
+                onChange={(e) => setRenameInput(e.target.value)}
+                placeholder="Enter blueprint name"
+                autoFocus
+                onKeyPress={(e) => {
+                  if (e.key === "Enter" && renameInput.trim()) {
+                    handleRenameCampaignTemplate();
+                  }
+                }}
+                style={{
+                  width: "100%",
+                  padding: "12px 16px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                }}
+              />
             </div>
-          )}
+          </CommonSidePanel>
 
           {/* Delete Confirmation Modal */}
           {showDeleteConfirmModal && selectedCampaignTemplate && (
