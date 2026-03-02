@@ -3042,31 +3042,34 @@ const handleCampaignChange = async (
   const campaign = campaigns.find(c => c.id.toString() === campaignId);
   if (!campaign) return;
 
+try {
+  // Try loading blueprint but don't block
   try {
-    // ✅ 1. ALWAYS LOAD BLUEPRINT FROM DB
     await loadCampaignBlueprint(campaignId);
-
-    // ✅ 2. DETERMINE DATA SOURCE
-    const segmentId = (campaign as any).segmentId;
-    const dataFileId = campaign.zohoViewId;
-
-    const effectiveUserId =
-      selectedClient !== "" ? selectedClient : userId;
-
-    if (segmentId) {
-      const segmentZohoviewId = `segment_${segmentId}`;
-      setSelectedZohoviewId(segmentZohoviewId);
-      await fetchAndDisplayEmailBodies(segmentZohoviewId);
-    } else if (dataFileId) {
-      const datafileZohoviewId = `${effectiveUserId},${dataFileId}`;
-      setSelectedZohoviewId(datafileZohoviewId);
-      await fetchAndDisplayEmailBodies(datafileZohoviewId);
-    } else {
-      console.error("Campaign missing segmentId/dataFileId");
-    }
-  } catch (err) {
-    console.error("Campaign reload failed:", err);
+  } catch (e) {
+    console.error("Blueprint load failed, continuing...", e);
   }
+
+  const segmentId = (campaign as any).segmentId;
+  const dataFileId = campaign.zohoViewId;
+
+  const effectiveUserId =
+    selectedClient !== "" ? selectedClient : userId;
+
+  if (segmentId) {
+    const segmentZohoviewId = `segment_${segmentId}`;
+    setSelectedZohoviewId(segmentZohoviewId);
+    await fetchAndDisplayEmailBodies(segmentZohoviewId);
+  } else if (dataFileId) {
+    const datafileZohoviewId = `${effectiveUserId},${dataFileId}`;
+    setSelectedZohoviewId(datafileZohoviewId);
+    await fetchAndDisplayEmailBodies(datafileZohoviewId);
+  } else {
+    console.error("Campaign missing segmentId/dataFileId");
+  }
+} catch (err) {
+  console.error("Campaign reload failed:", err);
+}
 };
 
   const handleClearAll = () => {
