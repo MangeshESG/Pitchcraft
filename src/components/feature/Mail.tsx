@@ -21,6 +21,7 @@ import ValidateRecordsModal from "./ValidateRecordsModal";
 import OtpModal from "./OtpModal";
 import DomainAuthColumn from "./DomainAuthColumn";
 import DomainAuthModal from "./DomainAuthModal";
+import CommonSidePanel from "../common/CommonSidePanel";
 
 type MailTabType = "Dashboard" | "Configuration" | "Schedule";
 
@@ -1803,177 +1804,176 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                    pageLabel="Page:"
                 />
                 {/* Add/Edit Mailbox Modal */}
-                {/* Replace your Modal component with this custom modal */}
-                {(openModals["modal-add-mailbox"] || editingId !== null) && (
-                  <div
-                    style={{
-                      position: "fixed",
-                      zIndex: 99999,
-                      inset: 0,
-                      background: "rgba(0,0,0,0.6)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                    // onClick={() => {
-                    //   // Close modal when clicking backdrop
-                    //   handleModalClose("modal-add-mailbox")
-                    //   setEditingId(null)
-                    //   setForm({
-                    //     server: "",
-                    //     port: "",
-                    //     username: "",
-                    //     password: "",
-                    //     fromEmail: "",
-                    //     usessl: false,
-                    //   })
-                    // }}
-                  >
-                    <div
-                      style={{
-                        background: "#fff",
-                        padding: "24px",
-                        borderRadius: "8px",
-                        width: "45%",
-                        maxWidth:800,
-                        maxHeight: "90vh",
-                        overflow: "auto",
-                        boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
-                      }}
-                      onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
-                    >
-                      <form onSubmit={handleSubmitSMTP}>
-                        <h2 className="!text-left" style={{color:"#333",fontSize:"400"}}>{editingId ? "Edit mailbox" : "Add mailbox"}</h2>
-                        <div className="flex gap-4">
-                          <div className="form-group flex-1">
-                            <label>
-                              Host <span style={{ color: "red" }}>*</span>
-                            </label>
-                            <input
-                              name="server"
-                              placeholder="smtp.example.com"
-                              value={form.server}
-                              onChange={handleChangeSMTP}
-                              required
-                            />
-                          </div>
-                          <div className="form-group flex-1">
-                            <label>
-                              Port <span style={{ color: "red" }}>*</span>
-                            </label>
-                            <input
-                              name="port"
-                              type="number"
-                              placeholder="587"
-                              value={form.port}
-                              onChange={handleChangeSMTP}
-                              required
-                            />
-                          </div>
-                        </div>
-                        <div className="flex gap-4">
-                          <div className="form-group flex-1">
-                            <label>
-                              Username <span style={{ color: "red" }}>*</span>
-                            </label>
-                            <input
-                              name="username"
-                              placeholder="user@example.com"
-                              value={form.username}
-                              onChange={handleChangeSMTP}
-                              required
-                            />
-                          </div>
-                          <div className="form-group flex-1">
-                            <label>
-                              Password <span style={{ color: "red" }}>*</span>
-                            </label>
-                            <input
-                              name="password"
-                              type="password"
-                              placeholder="••••••••"
-                              value={form.password}
-                              onChange={handleChangeSMTP}
-                              required
-                            />
-                          </div>
-                        </div>
-                        <div className="flex gap-4">
-                          <div className="form-group flex-1">
-                            <label>
-                              From email <span style={{ color: "red" }}>*</span>
-                            </label>
-                            <input
-                              name="fromEmail"
-                              type="email"
-                              placeholder="sender@example.com"
-                              value={form.fromEmail}
-                              onChange={handleChangeSMTP}
-                              required
-                            />
-                          </div>
-                          <div className="form-group flex-1">
-                            <label>
-                              Sender name <span style={{ color: "red" }}>*</span>
-                            </label>
-                            <input
-                              name="senderName"
-                              type="text"
-                              placeholder="John Doe"
-                              value={form.senderName}
-                              onChange={handleChangeSMTP}
-                              required
-                            />
-                          </div>
-                        </div>
-                        <div className="form-group">
-                          <label>SSL Configuration</label>
-                          <select
-                            name="usessl"
-                            value={form.usessl}
-                            onChange={handleChangeSMTP}
-                            style={{
-                              width: "100%",
-                              padding: "8px 12px",
-                              border: "1px solid #ccc",
-                              borderRadius: "4px",
-                              fontSize: "14px",
-                              backgroundColor: "white"
-                            }}
-                          >
-                            <option value="nossl">No SSL</option>
-                            <option value="ssl">SSL</option>
-                            <option value="ssl/tls">SSL/TLS</option>
-                          </select>
-                        </div>
-                        <div className="d-flex justify-end" style={{ marginTop: 16 }}>
-                          <button
-                            type="button"
-                            className="button secondary min-w-[120px] mr-10"
-                            onClick={() => {
-                              handleModalClose("modal-add-mailbox")
-                              setEditingId(null)
-                              setForm({
-                                server: "",
-                                port: "",
-                                username: "",
-                                password: "",
-                                fromEmail: "",
-                                senderName: "",
-                                usessl: "nossl",
-                              })
-                            }}
-                          >
-                            Cancel
-                          </button>
-                          <button className="save-button button min-w-[120px]" type="submit" disabled={smtpLoading}>
-                            {smtpLoading ? "Testing..." : (editingId ? "Update" : "Add")}
-                          </button>
-                        </div>
-                      </form>
+                <CommonSidePanel
+                  isOpen={openModals["modal-add-mailbox"] || editingId !== null}
+                  onClose={() => {
+                    handleModalClose("modal-add-mailbox");
+                    setEditingId(null);
+                    setForm({
+                      server: "",
+                      port: "",
+                      username: "",
+                      password: "",
+                      fromEmail: "",
+                      senderName: "",
+                      usessl: "nossl",
+                    });
+                  }}
+                  title={editingId ? "Edit mailbox" : "Add mailbox"}
+                  footerContent={
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleModalClose("modal-add-mailbox");
+                          setEditingId(null);
+                          setForm({
+                            server: "",
+                            port: "",
+                            username: "",
+                            password: "",
+                            fromEmail: "",
+                            senderName: "",
+                            usessl: "nossl",
+                          });
+                        }}
+                        style={{
+                          padding: "10px 32px",
+                          border: "1px solid #ddd",
+                          background: "#fff",
+                          borderRadius: "24px",
+                          cursor: "pointer",
+                          fontSize: "14px",
+                          fontWeight: "500",
+                          color: "#333",
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSubmitSMTP}
+                        disabled={smtpLoading}
+                        style={{
+                          padding: "10px 32px",
+                          background: "#fff",
+                          color: smtpLoading ? "#ccc" : "#ef4444",
+                          border: `1px solid ${smtpLoading ? "#ccc" : "#ef4444"}`,
+                          borderRadius: "24px",
+                          cursor: smtpLoading ? "not-allowed" : "pointer",
+                          fontSize: "14px",
+                          fontWeight: "500",
+                        }}
+                      >
+                        {smtpLoading ? "Testing..." : editingId ? "Update" : "Add"}
+                      </button>
+                    </>
+                  }
+                >
+                  <form onSubmit={(e) => e.preventDefault()}>
+                    <div className="flex gap-4">
+                      <div className="form-group flex-1">
+                        <label>
+                          Host <span style={{ color: "red" }}>*</span>
+                        </label>
+                        <input
+                          name="server"
+                          placeholder="smtp.example.com"
+                          value={form.server}
+                          onChange={handleChangeSMTP}
+                          required
+                        />
+                      </div>
+                      <div className="form-group flex-1">
+                        <label>
+                          Port <span style={{ color: "red" }}>*</span>
+                        </label>
+                        <input
+                          name="port"
+                          type="number"
+                          placeholder="587"
+                          value={form.port}
+                          onChange={handleChangeSMTP}
+                          required
+                        />
+                      </div>
                     </div>
-                  </div>
-                )}
+                    <div className="flex gap-4">
+                      <div className="form-group flex-1">
+                        <label>
+                          Username <span style={{ color: "red" }}>*</span>
+                        </label>
+                        <input
+                          name="username"
+                          placeholder="user@example.com"
+                          value={form.username}
+                          onChange={handleChangeSMTP}
+                          required
+                        />
+                      </div>
+                      <div className="form-group flex-1">
+                        <label>
+                          Password <span style={{ color: "red" }}>*</span>
+                        </label>
+                        <input
+                          name="password"
+                          type="password"
+                          placeholder="••••••••"
+                          value={form.password}
+                          onChange={handleChangeSMTP}
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-4">
+                      <div className="form-group flex-1">
+                        <label>
+                          From email <span style={{ color: "red" }}>*</span>
+                        </label>
+                        <input
+                          name="fromEmail"
+                          type="email"
+                          placeholder="sender@example.com"
+                          value={form.fromEmail}
+                          onChange={handleChangeSMTP}
+                          required
+                        />
+                      </div>
+                      <div className="form-group flex-1">
+                        <label>
+                          Sender name <span style={{ color: "red" }}>*</span>
+                        </label>
+                        <input
+                          name="senderName"
+                          type="text"
+                          placeholder="John Doe"
+                          value={form.senderName}
+                          onChange={handleChangeSMTP}
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div className="form-group">
+                      <label>SSL Configuration</label>
+                      <select
+                        name="usessl"
+                        value={form.usessl}
+                        onChange={handleChangeSMTP}
+                        style={{
+                          width: "100%",
+                          padding: "8px 12px",
+                          border: "1px solid #ccc",
+                          borderRadius: "4px",
+                          fontSize: "14px",
+                          backgroundColor: "white",
+                        }}
+                      >
+                        <option value="nossl">No SSL</option>
+                        <option value="ssl">SSL</option>
+                        <option value="ssl/tls">SSL/TLS</option>
+                      </select>
+                    </div>
+                  </form>
+                </CommonSidePanel>
 
                 {/* SMTP OTP Modal */}
                 {showSmtpOtpModal && (
@@ -2159,65 +2159,65 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                    pageLabel="Page:"
                 />
                 {/* Popup Modal */}
-                {showPopup && (
-                  <div
-                    // onClick={() => setShowPopup(false)}
-                    style={{
-                      position: "fixed",
-                      top: 0,
-                      left: 0,
-                      width: "100%",
-                      height: "100%",
-                      background: "rgba(0,0,0,0.5)",
-                      display: "flex",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      zIndex: 1000,
-                    }}
-                  >
-                    <div
-                      onClick={(e) => e.stopPropagation()}
-                      style={{
-                        background: "#fff",
-                        padding: 24,
-                        borderRadius: 8,
-                        width: "45%",
-                        maxWidth:800,
-                        boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-                      }}
-                    >
-                      <h3 style={{ marginBottom: 16 }}>Add BCC email</h3>
-
-                      <input
-                        type="email"
-                        className="search-input"
+                <CommonSidePanel
+                  isOpen={showPopup}
+                  onClose={() => setShowPopup(false)}
+                  title="Add BCC email"
+                  footerContent={
+                    <>
+                      <button
+                        onClick={() => setShowPopup(false)}
                         style={{
-                          width: "100%",
-                          padding: "8px",
-                          marginBottom: "16px",
-                          border: "1px solid #ccc",
-                          borderRadius: "4px",
+                          padding: "10px 32px",
+                          border: "1px solid #ddd",
+                          background: "#fff",
+                          borderRadius: "24px",
+                          cursor: "pointer",
+                          fontSize: "14px",
+                          fontWeight: "500",
+                          color: "#333",
                         }}
-                        placeholder="Enter BCC email address"
-                        value={newBccEmail}
-                        onChange={(e) => setNewBccEmail(e.target.value)}
-                      />
-
-                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-                        <button className="button secondary small" onClick={() => setShowPopup(false)}>
-                          Cancel
-                        </button>
-                        <button
-                          className="save-button button small"
-                          onClick={handleSave}
-                          disabled={bccLoading || !newBccEmail}
-                        >
-                          {bccLoading ? "Adding..." : "ADD"}
-                        </button>
-                      </div>
-                    </div>
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSave}
+                        disabled={bccLoading || !newBccEmail}
+                        style={{
+                          padding: "10px 32px",
+                          background: "#fff",
+                          color: bccLoading || !newBccEmail ? "#ccc" : "#ef4444",
+                          border: `1px solid ${bccLoading || !newBccEmail ? "#ccc" : "#ef4444"}`,
+                          borderRadius: "24px",
+                          cursor: bccLoading || !newBccEmail ? "not-allowed" : "pointer",
+                          fontSize: "14px",
+                          fontWeight: "500",
+                        }}
+                      >
+                        {bccLoading ? "Adding..." : "Add"}
+                      </button>
+                    </>
+                  }
+                >
+                  <div className="form-group">
+                    <label>
+                      BCC email address <span style={{ color: "red" }}>*</span>
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="Enter BCC email address"
+                      value={newBccEmail}
+                      onChange={(e) => setNewBccEmail(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "8px 12px",
+                        border: "1px solid #ddd",
+                        borderRadius: "4px",
+                        fontSize: "14px",
+                      }}
+                    />
                   </div>
-                )}
+                </CommonSidePanel>
               </div>
             )}
 
@@ -2641,51 +2641,79 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
           </div>
 
           {/* Schedule Modal */}
-          {showScheduleModal && (
-            <div
-              style={{
-                position: "fixed",
-                zIndex: 99999,
-                inset: 0,
-                background: "rgba(0,0,0,0.6)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-              onClick={() => {
-                // Close modal when clicking backdrop
-                setShowScheduleModal(false);
-                setEditingId(null);
-                setFormData({
-                  title: "",
-                  timeZone: "",
-                  scheduledDate: "",
-                  scheduledTime: "",
-                  EmailDeliver: "",
-                  bccEmail: "",
-                  smtpID: "",
-                });
-                setIsFollowUp(false);
-                setSelectedZohoviewId1("");
-                setSelectedUser("");
-              }}
-            >
-              <div
-                style={{
-                  background: "#fff",
-                  padding: "32px",
-                  borderRadius: "8px",
-                  width: "45%",
-                  maxWidth: "800px",
-                  boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
-                }}
-                onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
-              >
-                <h2 style={{ marginTop: 0, marginBottom: 24 ,color:"#333",textAlign:"left"}}>
-                  {editingId ? "Edit schedule" : "Create schedule"}
-                </h2>
-
-                <form onSubmit={handleSubmitSchedule}>
+          <CommonSidePanel
+            isOpen={showScheduleModal}
+            onClose={() => {
+              setShowScheduleModal(false);
+              setEditingId(null);
+              setFormData({
+                title: "",
+                timeZone: "",
+                scheduledDate: "",
+                scheduledTime: "",
+                EmailDeliver: "",
+                bccEmail: "",
+                smtpID: "",
+              });
+              setIsFollowUp(false);
+              setSelectedZohoviewId1("");
+              setSelectedUser("");
+            }}
+            title={editingId ? "Edit schedule" : "Create schedule"}
+            width={600}
+            footerContent={
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowScheduleModal(false);
+                    setEditingId(null);
+                    setFormData({
+                      title: "",
+                      timeZone: "",
+                      scheduledDate: "",
+                      scheduledTime: "",
+                      EmailDeliver: "",
+                      bccEmail: "",
+                      smtpID: "",
+                    });
+                    setIsFollowUp(false);
+                    setSelectedZohoviewId1("");
+                    setSelectedUser("");
+                  }}
+                  style={{
+                    padding: "10px 32px",
+                    border: "1px solid #ddd",
+                    background: "#fff",
+                    borderRadius: "24px",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    color: "#333",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmitSchedule}
+                  disabled={!isFormValid}
+                  style={{
+                    padding: "10px 32px",
+                    background: "#fff",
+                    color: isFormValid ? "#ef4444" : "#ccc",
+                    border: `1px solid ${isFormValid ? "#ef4444" : "#ccc"}`,
+                    borderRadius: "24px",
+                    cursor: isFormValid ? "pointer" : "not-allowed",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                  }}
+                >
+                  {editingId ? "Update" : "Create"}
+                </button>
+              </>
+            }
+          >
+            <form onSubmit={(e) => e.preventDefault()}>
                   <div
                     style={{
                       display: "grid",
@@ -2820,77 +2848,20 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
                     </div>
                   </div>
 
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 12,
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center" }}>
-                      <input
-                        type="checkbox"
-                        id="isFollowUp"
-                        checked={isFollowUp}
-                        onChange={(e) => setIsFollowUp(e.target.checked)}
-                        style={{ marginRight: "8px" }}
-                      />
-                      <label htmlFor="isFollowUp" style={{ marginBottom: 0, cursor: "pointer" }}>
-                        Is follow up
-                      </label>
-                    </div>
-                    <div style={{ display: "flex", gap: 12 }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowScheduleModal(false);
-                        setEditingId(null);
-                        setFormData({
-                          title: "",
-                          timeZone: "",
-                          scheduledDate: "",
-                          scheduledTime: "",
-                          EmailDeliver: "",
-                          bccEmail: "",
-                          smtpID: "",
-                        });
-                        setIsFollowUp(false);
-                        setSelectedZohoviewId1("");
-                        setSelectedUser("");
-                      }}
-                      className="button secondary"
-                      style={{
-                        padding: "8px 16px",
-                        border: "1px solid #ddd",
-                        background: "#fff",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                      }}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="button primary"
-                      disabled={!isFormValid}
-                      style={{
-                        padding: "8px 16px",
-                        background: isFormValid ? "#3f9f42" : "#ccc",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: isFormValid ? "pointer" : "not-allowed",
-                      }}
-                    >
-                      {editingId ? "Update schedule" : "Create schedule"}
-                    </button>
-                    </div>
-                  </div>
-                </form>
+              <div style={{ display: "flex", alignItems: "center", marginTop: "16px" }}>
+                <input
+                  type="checkbox"
+                  id="isFollowUp"
+                  checked={isFollowUp}
+                  onChange={(e) => setIsFollowUp(e.target.checked)}
+                  style={{ marginRight: "8px" }}
+                />
+                <label htmlFor="isFollowUp" style={{ marginBottom: 0, cursor: "pointer" }}>
+                  Is follow up
+                </label>
               </div>
-            </div>
-          )}
+            </form>
+          </CommonSidePanel>
         </>
       )}
 
