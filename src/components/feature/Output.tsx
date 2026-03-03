@@ -3975,7 +3975,7 @@ useEffect(() => {
       )}
 
       {/* Kraft Email Panel */}
-      <KraftEmailPanel
+      {/* <KraftEmailPanel
         isOpen={kraftEmailControls}
         onClose={() => setKraftEmailControls(false)}
         isResetEnabled={isResetEnabled}
@@ -4032,7 +4032,7 @@ useEffect(() => {
           handleStart?.(startIdx);
         }}
         onStop={handleStop}
-      />
+      /> */}
 
 
     </div>
