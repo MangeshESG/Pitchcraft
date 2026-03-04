@@ -10,7 +10,7 @@ import EmailCampaignBuilder from "./EmailCampaignBuilder";
 import PaginationControls from "../PaginationControls";
 import duplicateIcon from "../../../assets/images/icons/duplicate.png";
 import CreditCheckModal from "../../common/CreditCheckModal";
-import LoadingSpinner from "../../common/LoadingSpinner";
+import deleteIcon from "../../../assets/images/deleteiconn.png";
 import CommonSidePanel from "../../common/CommonSidePanel";
 
 const menuBtnStyle = {
@@ -156,11 +156,32 @@ const Template: React.FC<TemplateProps> = ({
   const [exampleCache, setExampleCache] = useState<
     Record<number, string | undefined>
   >({});
-  const [isLoadingBlueprint, setIsLoadingBlueprint] = useState(false);
+   // ✅ NEW: Sorting state for templates table
+  const [listSortKey, setListSortKey] = useState<string>("templateName");
+  const [listSortDirection, setListSortDirection] = useState<"asc" | "desc">("asc");
 
   const DEFAULT_USER_TEMPLATE_ID = 65;
   const DEFAULT_USER_TEMPLATE_NAME = "PKB- FINAL 2.0";
   const isAdmin = userRole?.toUpperCase() === "ADMIN";
+   // Utility functions
+  // ✅ NEW: String comparison helper for sorting
+  const compareStrings = (a?: string, b?: string, direction: "asc" | "desc" = "asc") => {
+    const valueA = (a || "").toLowerCase();
+    const valueB = (b || "").toLowerCase();
+
+    if (valueA < valueB) return direction === "asc" ? -1 : 1;
+    if (valueA > valueB) return direction === "asc" ? 1 : -1;
+    return 0;
+  };
+  // ✅ NEW: Handle column sort
+  const handleListSort = (key: string) => {
+  if (listSortKey === key) {
+    setListSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+  } else {
+    setListSortKey(key);
+    setListSortDirection("asc");
+  }
+};
 
   // Utility functions
   const formatDate = (dateString?: string | null) => {
@@ -479,7 +500,26 @@ const Template: React.FC<TemplateProps> = ({
       template.templateName.toLowerCase().includes(searchLower) ||
       template.id.toString().includes(searchLower)
     );
-  });
+  })// ✅ NEW: Sort filtered templates
+    .sort((a, b) => {
+      switch (listSortKey) {
+        case "templateName":
+          return compareStrings(a.templateName, b.templateName, listSortDirection);
+
+        case "id":
+          const idCompare = a.id - b.id;
+          return listSortDirection === "asc" ? idCompare : -idCompare;
+
+        case "createdAt":
+          const dateA = new Date(a.createdAt || "").getTime();
+          const dateB = new Date(b.createdAt || "").getTime();
+          const dateCompare = dateA - dateB;
+          return listSortDirection === "asc" ? dateCompare : -dateCompare;
+
+        default:
+          return 0;
+      }
+    });
   //pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState<number | "All">(10);
@@ -720,6 +760,13 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
       sessionStorage.removeItem("editTemplateMode");
     }
   }, []);
+  // ✅ NEW: Render sort arrow indicator
+  const renderSortArrow = (columnKey: string, currentSortKey: string, sortDirection: string) => {
+    if (columnKey === currentSortKey) {
+      return sortDirection === "asc" ? " ▲" : " ▼";
+    }
+    return "";
+  };
 
   return (
     <div className="template-container">
@@ -762,9 +809,9 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
             <table className="contacts-table">
               <thead>
                 <tr>
-                  <th>Blueprints</th>
-                  <th>ID</th>
-                  <th>Creation date</th>
+                  <th onClick={() => handleListSort("templateName")} style={{ cursor: "pointer" }}>Blueprints{renderSortArrow("templateName", listSortKey, listSortDirection)}</th>
+                  <th onClick={() => handleListSort("id")} style={{ cursor: "pointer" }}>ID {renderSortArrow("id", listSortKey, listSortDirection)}</th>
+                  <th onClick={() => handleListSort("createdAt")} style={{ cursor: "pointer" }}>Creation date {renderSortArrow("createdAt", listSortKey, listSortDirection)}</th>
                   <th style={{ minWidth: 48 }}>Actions</th>
                 </tr>
               </thead>
@@ -801,7 +848,6 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                             preloadExampleEmail(template);
                           }}
                           onClick={async () => {
-                            setIsLoadingBlueprint(true);
                             sessionStorage.setItem(
                               "editTemplateId",
                               template.id.toString(),
@@ -816,6 +862,11 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                               template.templateName,
                             );
 
+                            // const example =
+                            //   getTooltipText(exampleCache[template.id] || generateExampleEmail(template));
+
+                            // sessionStorage.setItem("initialExampleEmail", example);
+                            // ✅ FIXED: Load example email immediately, not from tooltip cache
                             try {
                               const fullTemplate = await fetchCampaignTemplateDetails(template.id);
                               const example = fullTemplate?.placeholderValues?.example_output_email || "";
@@ -826,7 +877,6 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                             }
 
                             setShowCampaignBuilder(true);
-                            setIsLoadingBlueprint(false);
                           }}
                         >
                           {template.templateName}
@@ -895,11 +945,11 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                                     cx="12"
                                     cy="12"
                                     r="4"
-                                    fill="#33363F"
+                                    fill="#3f9f42"
                                   />
                                   <path
                                     d="M21 12C21 12 20 4 12 4C4 4 3 12 3 12"
-                                    stroke="#33363F"
+                                    stroke="#3f9f42"
                                     stroke-width="2"
                                   />
                                 </svg>
@@ -910,12 +960,13 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                             <>
                               <button
                                 onClick={async () => {
-                                  setIsLoadingBlueprint(true);
                                   sessionStorage.setItem("editTemplateId", template.id.toString());
                                   sessionStorage.setItem("editTemplateMode", "true");
 
+                                  // REQUIRED FIX 🔥 (builder reads this!)
                                   sessionStorage.setItem("newCampaignId", template.id.toString());
                                   sessionStorage.setItem("newCampaignName", template.templateName);
+                                 // ✅ FIXED: Load example email immediately
                                   try {
                                     const fullTemplate = await fetchCampaignTemplateDetails(template.id);
                                     const example =  fullTemplate?.placeholderValues?.example_output_email || "";
@@ -924,8 +975,12 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                                     console.error("Error loading example email:", error);
                                     sessionStorage.setItem("initialExampleEmail", "");
                                   }
-                                  setShowCampaignBuilder(true);
-                                  setIsLoadingBlueprint(false);
+                                   setShowCampaignBuilder(true);
+                                  // Safe delay
+                                  // setTimeout(() => {
+                                  //   setShowCampaignBuilder(true);
+                                  // }, 0);
+
                                   setTemplateActionsAnchor(null);
                                 }}
                                 style={menuBtnStyle}
@@ -941,7 +996,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                                   >
                                     <path
                                       d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
-                                      stroke="#000000"
+                                      stroke="#3f9f42"
                                       stroke-width="2"
                                       stroke-linecap="round"
                                       stroke-linejoin="round"
@@ -971,7 +1026,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                                   >
                                     <path
                                       d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
-                                      stroke="#000000"
+                                      stroke="#3f9f42"
                                       stroke-width="2"
                                       stroke-linecap="round"
                                       stroke-linejoin="round"
@@ -1002,6 +1057,8 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                                       width: "23px",
                                       height: "23px",
                                       objectFit: "contain",
+                                      filter:
+                                     "invert(47%) sepia(82%) saturate(397%) hue-rotate(84deg) brightness(95%) contrast(90%)",
                                     }}
                                   />
                                 </span>
@@ -1018,14 +1075,11 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                                 className="flex gap-2 items-center"
                               >
                                 <span className="ml-[3px]">
-                                  <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    viewBox="0 0 50 50"
-                                    width="22px"
-                                    height="22px"
-                                  >
-                                    <path d="M 21 2 C 19.354545 2 18 3.3545455 18 5 L 18 7 L 8 7 A 1.0001 1.0001 0 1 0 8 9 L 9 9 L 9 45 C 9 46.654 10.346 48 12 48 L 38 48 C 39.654 48 41 46.654 41 45 L 41 9 L 42 9 A 1.0001 1.0001 0 1 0 42 7 L 32 7 L 32 5 C 32 3.3545455 30.645455 2 29 2 L 21 2 z M 21 4 L 29 4 C 29.554545 4 30 4.4454545 30 5 L 30 7 L 20 7 L 20 5 C 20 4.4454545 20.445455 4 21 4 z M 19 14 C 19.552 14 20 14.448 20 15 L 20 40 C 20 40.553 19.552 41 19 41 C 18.448 41 18 40.553 18 40 L 18 15 C 18 14.448 18.448 14 19 14 z M 25 14 C 25.552 14 26 14.448 26 15 L 26 40 C 26 40.553 25.552 41 25 41 C 24.448 41 24 40.553 24 40 L 24 15 C 24 14.448 24.448 14 25 14 z M 31 14 C 31.553 14 32 14.448 32 15 L 32 40 C 32 40.553 31.553 41 31 41 C 30.447 41 30 40.553 30 40 L 30 15 C 30 14.448 30.447 14 31 14 z"></path>
-                                  </svg>
+                                  <img
+                                    src={deleteIcon}
+                                    alt="Delete"
+                                    className="w-[24px] h-[24px] font-normal"
+                                  />
                                 </span>
                                 <span>Delete</span>
                               </button>
@@ -1662,9 +1716,6 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
         credits={credits || 0}
         setTab={() => {}} // Not needed in this context
       />
-
-      {/* Loading Blueprint Spinner */}
-      {isLoadingBlueprint && <LoadingSpinner message="Loading blueprint..." />}
     </div>
   );
 };

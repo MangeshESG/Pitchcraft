@@ -12,7 +12,7 @@
 /* Container and Layout */
 .email-campaign-builder .campaign-builder-container {
   height: auto;
-  background-color: #f9fafb;
+  /* background-color: #f9fafb; */
   padding: 0.5rem;
   display: flex;
   flex-direction: column;
@@ -2743,7 +2743,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #f9fafb;
+  /* background: #f9fafb; */
   border-radius: 999px;
 }
 
