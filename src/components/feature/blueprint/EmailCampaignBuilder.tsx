@@ -3870,7 +3870,6 @@ case "richtext":
       {/* ================= LOADING OVERLAYS ================= */}
       {isLoadingTemplate && <LoadingSpinner message="Loading template for editing..." />}
       {isLoadingDefinitions && <LoadingSpinner message="Loading blueprint definitions..." />}
-      {isPreviewLoading && <LoadingSpinner message="Generating email preview..." />}
       {isSavingElements && <LoadingSpinner message="Saving elements..." />}
 
       {/* ================= MAIN CONTAINER ================= */}
