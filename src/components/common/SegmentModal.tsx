@@ -54,7 +54,9 @@ const SegmentModal: React.FC<SegmentModalProps> = ({
       );
       if (response.ok) {
         const data = await response.json();
-        setSegments(data);
+        setSegments(data.sort((a: Segment, b: Segment) => 
+          a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+        ));
       }
     } catch (err) {
       console.error("Error fetching segments:", err);

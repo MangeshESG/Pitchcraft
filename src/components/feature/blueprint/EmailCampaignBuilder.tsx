@@ -2086,7 +2086,10 @@ const saveAllPlaceholders = async () => {
       const response = await axios.get(
         `${API_BASE_URL}/api/CampaignPrompt/template-definitions?activeOnly=true`,
       );
-      setTemplateDefinitions(response.data.templateDefinitions || []);
+      const definitions = response.data.templateDefinitions || [];
+      setTemplateDefinitions(definitions.sort((a: TemplateDefinition, b: TemplateDefinition) => 
+        a.templateName.localeCompare(b.templateName)
+      ));
     } catch (error) {
       console.error("Error loading template definitions:", error);
     } finally {
@@ -2640,11 +2643,6 @@ const saveAllPlaceholders = async () => {
   // ====================================================================
   const availableModels: GPTModel[] = [
     {
-      id: "gpt-5.1",
-      name: "GPT-5.1",
-      description: "Adaptive-reasoning flagship update to the GPT-5 series",
-    },
-    {
       id: "gpt-4.1",
       name: "GPT-4.1",
       description: "Flagship model in the 4.1 family",
@@ -2666,6 +2664,11 @@ const saveAllPlaceholders = async () => {
       description: "Efficient GPT-4o model",
     },
     { id: "gpt-5", name: "GPT-5", description: "Standard flagship model" },
+    {
+      id: "gpt-5.1",
+      name: "GPT-5.1",
+      description: "Adaptive-reasoning flagship update to the GPT-5 series",
+    },
     {
       id: "gpt-5-mini",
       name: "GPT-5 Mini",
@@ -4394,15 +4397,15 @@ case "richtext":
 
                                 className="definition-select"
                               >
-                                <option value="your company">YOUR COMPANY</option>
+                                <option value="call-to-action">CALL-TO-ACTION</option>
                                 <option value="core message focus">CORE MESSAGE FOCUS</option>
                                 <option value="dos and don'ts">DOS AND DON'TS</option>
-                                <option value="message writing style">MESSAGE WRITING STYLE</option>
-                                <option value="call-to-action">CALL-TO-ACTION</option>
-                                <option value="greetings & farewells">GREETINGS & FAREWELLS</option>
-                                <option value="subject line">SUBJECT LINE</option>
-                                <option value="extra visuals">EXTRA VISUALS</option>
                                 <option value="extra assets">EXTRA ASSETS</option>
+                                <option value="extra visuals">EXTRA VISUALS</option>
+                                <option value="greetings & farewells">GREETINGS & FAREWELLS</option>
+                                <option value="message writing style">MESSAGE WRITING STYLE</option>
+                                <option value="subject line">SUBJECT LINE</option>
+                                <option value="your company">YOUR COMPANY</option>
 
                               </select>
 
