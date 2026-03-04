@@ -1481,6 +1481,33 @@ const uploadImage = async (file: File) => {
     setEditableExampleOutput(exampleOutput || "");
   }, [exampleOutput]);
 
+  useEffect(() => {
+    if (!uiPlaceholders.length) return;
+
+    const withMissingDefaults = (values: Record<string, string>) => {
+      let changed = false;
+      const next = { ...values };
+
+      uiPlaceholders.forEach((p) => {
+        const hasValue = Object.prototype.hasOwnProperty.call(
+          next,
+          p.placeholderKey,
+        );
+        const defaultValue = p.defaultValue;
+
+        if (!hasValue && defaultValue != null && defaultValue !== "") {
+          next[p.placeholderKey] = defaultValue;
+          changed = true;
+        }
+      });
+
+      return changed ? next : values;
+    };
+
+    setFormValues((prev) => withMissingDefaults(prev));
+    setPlaceholderValues((prev) => withMissingDefaults(prev));
+  }, [uiPlaceholders, setPlaceholderValues]);
+
   // ✅ CRITICAL: Sync formValues whenever placeholderValues changes
   useEffect(() => {
     if (Object.keys(placeholderValues).length > 0) {
@@ -2858,7 +2885,10 @@ const hasExampleEmail = initialExampleEmail.trim().length > 0;
   }, [currentCampaignId]);
 const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
   const key = p.placeholderKey;
-  const value = formValues[key] ?? "";
+  const hasExplicitValue = Object.prototype.hasOwnProperty.call(formValues, key);
+  const value = hasExplicitValue
+    ? formValues[key] ?? ""
+    : p.defaultValue ?? "";
 
     const baseStyle: React.CSSProperties = {
       width: "100%",
