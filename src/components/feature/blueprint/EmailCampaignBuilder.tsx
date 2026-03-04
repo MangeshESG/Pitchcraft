@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useLayoutEffect } from "react";
-import { faAngleRight, faAngleLeft,faCircleRight,faCircleLeft } from "@fortawesome/free-solid-svg-icons";
+import { faAngleRight, faAngleLeft, faCircleRight, faCircleLeft } from "@fortawesome/free-solid-svg-icons";
 import {
   Send,
   Loader2,
@@ -87,7 +87,7 @@ export interface PlaceholderDefinitionUI {
 
   // ✅ TEMP UI-only raw editor value (NOT saved to backend)
   _rawOptions?: string;
-    helpLink?: string;
+  helpLink?: string;
   defaultValue?: string;
 
 }
@@ -343,11 +343,12 @@ const ConversationTab: React.FC<ConversationTabProps> = ({
   const [placeholderConfirmed, setPlaceholderConfirmed] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
-const inputRef = useRef<HTMLTextAreaElement | null>(null);
- const hasExampleEmail = initialExampleEmail.trim().length > 0;
- const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const hasExampleEmail = initialExampleEmail.trim().length > 0;
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
- // ========================================
+   const [showErrorToast, setShowErrorToast] = useState(false);
+  // ========================================
   // IMAGE ATTACHMENT STATE
 
 
@@ -466,16 +467,25 @@ const inputRef = useRef<HTMLTextAreaElement | null>(null);
         editTemplateId ?? (storedId ? Number(storedId) : null);
 
       if (!activeCampaignId) {
-        showModal("Error", "No campaign instance found.");
+       // showModal("Error", "No campaign instance found.");
+       setToastMessage("No campaign instance found.");
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 5000);
         return;
       }
 
       if (!exampleOutput) {
-        showModal("Warning", "No generated email to save.");
+        //showModal("Warning", "No generated email to save.");
+        setToastMessage("No generated email to save.");
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 5000);
         return;
       }
       if (!editableExampleOutput.trim()) {
-        showModal("Warning", "Example email is empty.");
+       // showModal("Warning", "Example email is empty.");
+       setToastMessage("Example email is empty.");
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 5000);
         return;
       }
 
@@ -490,24 +500,27 @@ const inputRef = useRef<HTMLTextAreaElement | null>(null);
         },
       );
 
-   // showModal("Success","✅ Example email saved successfully");
-    setToastMessage("Example email has been saved with success!");
-    setShowSuccessToast(true);
-    setTimeout(() => setShowSuccessToast(false), 5000);
-  } catch (error) {
-    console.error("❌ Save example output failed:", error);
-    showModal("Error","Failed to save example email.");
-  }
-};
-const showInitialEmail =
-  isEditMode &&
-  hasExampleEmail &&
-  !selectedPlaceholder &&
-  !conversationStarted;
+      // showModal("Success","✅ Example email saved successfully");
+      setToastMessage("Example email has been saved");
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 5000);
+    } catch (error) {
+      console.error("❌ Save example output failed:", error);
+     // showModal("Error", "Failed to save example email.");
+      setToastMessage("Failed to save example email.");
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 5000);
+    }
+  };
+  const showInitialEmail =
+    isEditMode &&
+    hasExampleEmail &&
+    !selectedPlaceholder &&
+    !conversationStarted;
 
- 
-const showChat =
-  !isEditMode || selectedPlaceholder || conversationStarted;
+
+  const showChat =
+    !isEditMode || selectedPlaceholder || conversationStarted;
 
 
 
@@ -526,34 +539,34 @@ const showChat =
   // GROUP PLACEHOLDERS (CATEGORY WISE)
   // ===============================
 
-return (
-  <div className="conversation-container shadow-[3px_3px_10px_rgba(0,0,0,0.2)]">
-    <div className="chat-layout">
+  return (
+    <div className="conversation-container shadow-[3px_3px_10px_rgba(0,0,0,0.2)]">
+      <div className="chat-layout">
 
-      {/* ===================== LEFT : CHAT ===================== */}
-      <div className="chat-section">
+        {/* ===================== LEFT : CHAT ===================== */}
+        <div className="chat-section">
 
-        {/* ===== CHAT HEADING ===== */}
+          {/* ===== CHAT HEADING ===== */}
 
 
-        {/* ===== PLACEHOLDER DROPDOWN (INSIDE CHAT) ===== */}
-        {(
-          <div className="chat-placeholder-panel px-[20px] pt-[20px]"style={{color:'#3f9f42'}}>
-            
+          {/* ===== PLACEHOLDER DROPDOWN (INSIDE CHAT) ===== */}
+          {(
+            <div className="chat-placeholder-panel px-[20px] pt-[20px]" style={{ color: '#3f9f42' }}>
 
-            <select
-              className="placeholder-dropdown"
-              value={selectedPlaceholder || ""}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (value) {
-                setIsTyping?.(true); 
-                }
-                onPlaceholderSelect?.(value);
-              }}
-              disabled={isTyping }
-            >
-              <option value="">Edit elements</option>
+
+              <select
+                className="placeholder-dropdown"
+                value={selectedPlaceholder || ""}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value) {
+                    setIsTyping?.(true);
+                  }
+                  onPlaceholderSelect?.(value);
+                }}
+                disabled={isTyping}
+              >
+                <option value="">Edit elements</option>
 
                 {Object.entries(groupedPlaceholders).map(
                   ([category, placeholders]) => (
@@ -577,170 +590,170 @@ return (
                 )}
               </select>
               {!(
-  conversationStarted ||
-  (isEditMode && selectedElement)
-) && (
-              <div
-                style={{
-                  //marginBottom: "15px",
-                  padding: "10px",
-                  background: "#f3f4f6",
-                  //borderRadius: "6px",
-                  //fontSize: "14px",
-                  color: "#111827",
-                 // whiteSpace: "pre-wrap",
-                 // maxHeight: "370px",   // ✅ limit height
-                  //overflowY: "visible",    // ✅ enable vertical scroll
-                }}
-              >
-                <div
-  className="email-preview-content"
- dangerouslySetInnerHTML={{
-    __html: hasExampleEmail
-      ? initialExampleEmail
-      : "<p style='color:#6b7280'>No example email loaded.</p>",
-  }}
+                conversationStarted ||
+                (isEditMode && selectedElement)
+              ) && (
+                  <div
+                    style={{
+                      //marginBottom: "15px",
+                      padding: "10px",
+                      background: "#f3f4f6",
+                      //borderRadius: "6px",
+                      //fontSize: "14px",
+                      color: "#111827",
+                      // whiteSpace: "pre-wrap",
+                      // maxHeight: "370px",   // ✅ limit height
+                      //overflowY: "visible",    // ✅ enable vertical scroll
+                    }}
+                  >
+                    <div
+                      className="email-preview-content"
+                      dangerouslySetInnerHTML={{
+                        __html: hasExampleEmail
+                          ? initialExampleEmail
+                          : "<p style='color:#6b7280'>No example email loaded.</p>",
+                      }}
 
-/>
-              </div>
-              )}
+                    />
+                  </div>
+                )}
             </div>
           )}
 
-        {/* ===== CHAT BODY ===== */}
-        <div className="messages-area" ref={messagesContainerRef} style={{
-    flex: showInitialEmail ? "0 0 auto" : "1 1 auto",
-     display: showInitialEmail || showChat ? "flex" : "none",
-  }}>
-    
+          {/* ===== CHAT BODY ===== */}
+          <div className="messages-area" ref={messagesContainerRef} style={{
+            flex: showInitialEmail ? "0 0 auto" : "1 1 auto",
+            display: showInitialEmail || showChat ? "flex" : "none",
+          }}>
 
-          {/* EDIT MODE – no placeholder yet */}
-          {/* {isEditMode && !conversationStarted && !selectedPlaceholder && (
+
+            {/* EDIT MODE – no placeholder yet */}
+            {/* {isEditMode && !conversationStarted && !selectedPlaceholder && (
             <div className="empty-conversation">
               <p>Please select element to edit.</p>
             </div>
           )} */}
 
-              {/* EDIT MODE – preparing */}
-              {isEditMode && !conversationStarted && selectedPlaceholder && (
-                <div className="empty-conversation">
-                  <p>Preparing conversation…</p>
-                </div>
-              )}
+            {/* EDIT MODE – preparing */}
+            {isEditMode && !conversationStarted && selectedPlaceholder && (
+              <div className="empty-conversation">
+                <p>Preparing conversation…</p>
+              </div>
+            )}
 
-              {/* NORMAL MODE – idle */}
-              {!conversationStarted && !isEditMode && (
-                <div className="empty-conversation" />
-              )}
+            {/* NORMAL MODE – idle */}
+            {!conversationStarted && !isEditMode && (
+              <div className="empty-conversation" />
+            )}
 
-              {/* ACTIVE CHAT */}
-              {conversationStarted && (
-                <div className="messages-list">
-                  {messages.map((msg, idx) => (
-                    <div key={idx} className={`message-wrapper ${msg.type}`}>
-                      <div className={`message-bubble ${msg.type}`}>
-                        {renderMessageContent(msg.content)}
-                        <div className={`message-time ${msg.type}`}>
-                          {new Date(msg.timestamp).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </div>
+            {/* ACTIVE CHAT */}
+            {conversationStarted && (
+              <div className="messages-list">
+                {messages.map((msg, idx) => (
+                  <div key={idx} className={`message-wrapper ${msg.type}`}>
+                    <div className={`message-bubble ${msg.type}`}>
+                      {renderMessageContent(msg.content)}
+                      <div className={`message-time ${msg.type}`}>
+                        {new Date(msg.timestamp).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </div>
                     </div>
-                  ))}
+                  </div>
+                ))}
 
-              {isTyping && (
-                <div className="typing-indicator flex items-center gap-[5px]">
-                  <Loader2 className="typing-spinner" />
-                  <span>Blueprint builder is thinking…</span>
-                </div>
-              )}
+                {isTyping && (
+                  <div className="typing-indicator flex items-center gap-[5px]">
+                    <Loader2 className="typing-spinner" />
+                    <span>Blueprint builder is thinking…</span>
+                  </div>
+                )}
 
-              
-            </div>
-          )}
-        </div>
+
+              </div>
+            )}
+          </div>
 
           {attachedImages.length > 0 && (
-          <div className="flex gap-2 px-3 pb-2 flex-wrap">
-            {attachedImages.map((url, idx) => (
-              <div key={idx} className="relative">
-                <img
-                  src={url}
-                  className="w-16 h-16 object-cover rounded border"
-                />
-                <button
-                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full text-xs px-1"
-                  onClick={() =>
-                    setAttachedImages((prev) =>
-                      prev.filter((_, i) => i !== idx)
-                    )
-                  }
+            <div className="flex gap-2 px-3 pb-2 flex-wrap">
+              {attachedImages.map((url, idx) => (
+                <div key={idx} className="relative">
+                  <img
+                    src={url}
+                    className="w-16 h-16 object-cover rounded border"
+                  />
+                  <button
+                    className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full text-xs px-1"
+                    onClick={() =>
+                      setAttachedImages((prev) =>
+                        prev.filter((_, i) => i !== idx)
+                      )
+                    }
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ===== INPUT BAR ===== */}
+          {conversationStarted && (
+            <div className="input-area">
+              <div className="input-container flex items-end gap-2">
+
+                {/* 📎 ATTACH IMAGE */}
+                <label
+                  className="cursor-pointer p-2 rounded hover:bg-gray-100"
+                  title="Attach image"
                 >
-                  ✕
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImageUpload(file);
+                      e.currentTarget.value = ""; // allow re-upload same file
+                    }}
+                    disabled={isTyping}
+                  />
+                  <span style={{ fontSize: "18px" }}>
+                    <FontAwesomeIcon
+                      icon={faAngleRight}
+                      className="text-[#ffffff] text-md"
+                    />
+                  </span>
+                </label>
 
-        {/* ===== INPUT BAR ===== */}
-        {conversationStarted && (
-          <div className="input-area">
-            <div className="input-container flex items-end gap-2">
-
-              {/* 📎 ATTACH IMAGE */}
-              <label
-                className="cursor-pointer p-2 rounded hover:bg-gray-100"
-                title="Attach image"
-              >
-                <input
-                  type="file"
-                  accept="image/*"
-                  hidden
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleImageUpload(file);
-                    e.currentTarget.value = ""; // allow re-upload same file
-                  }}
+                {/* TEXT INPUT */}
+                <textarea
+                  ref={inputRef}
+                  value={currentAnswer}
+                  onChange={(e) => setCurrentAnswer(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Type your answer…"
+                  className="message-input"
+                  rows={2}
                   disabled={isTyping}
                 />
-                <span style={{ fontSize: "18px" }}>
-                  <FontAwesomeIcon
-                        icon={faAngleRight}
-                        className="text-[#ffffff] text-md"
-                      />
-                </span>
-              </label>
 
-              {/* TEXT INPUT */}
-              <textarea
-                ref={inputRef}
-                value={currentAnswer}
-                onChange={(e) => setCurrentAnswer(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Type your answer…"
-                className="message-input"
-                rows={2}
-                disabled={isTyping}
-              />
-
-              {/* SEND BUTTON */}
-              <button
-                onClick={handleSendMessage}
-                disabled={
-                  isTyping ||
-                  (!currentAnswer.trim() && attachedImages.length === 0)
-                }
-                className="send-button"
-                title="Send message"
-              >
-                <Send size={18} />
-              </button>
+                {/* SEND BUTTON */}
+                <button
+                  onClick={handleSendMessage}
+                  disabled={
+                    isTyping ||
+                    (!currentAnswer.trim() && attachedImages.length === 0)
+                  }
+                  className="send-button"
+                  title="Send message"
+                >
+                  <Send size={18} />
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
         </div>
 
@@ -844,7 +857,7 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
   }, []);
 
   return (
-    <div className="example-section !h-[calc(100%-60px)] shadow-[3px_3px_10px_rgba(0,0,0,0.2)]">
+    <div className="example-section !h-[calc(100%-60px)] shadow-[3px_3px_10px_rgba(0,0,0,0.2)] border-t-0">
       {/* ===================== HEADER ===================== */}
       <div className="example-header mb-[0]">
         <div className="example-datafile-section">
@@ -1004,32 +1017,32 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
               onChange={setEditableExampleOutput}
             />
           ) : (
-<div className="example-placeholder">
-  <div className="how-it-works-box">
-    <div className="how-it-works-title">
-      <span className="icon">💡</span>
-      <span>How this works</span>
-    </div>
+            <div className="example-placeholder">
+              <div className="how-it-works-box">
+                <div className="how-it-works-title">
+                  <span className="icon">💡</span>
+                  <span>How this works</span>
+                </div>
 
-    <p>
-      Once enough questions have been answered in the left conversation area, you can preview how your personalized email will look with real contact details. 
-      <br /><br />
-      First, select from the <b>'Contact list'</b> above and then choose a contact. If you haven't added any contacts yet, then go over to the Contacts section and import or quickly add one or two.
-    <br /><br />
-    Now click the <b>'Preview email'</b> button, above right, to see how your email will look. 
-    </p>
+                <p>
+                  Once enough questions have been answered in the left conversation area, you can preview how your personalized email will look with real contact details.
+                  <br /><br />
+                  First, select from the <b>'Contact list'</b> above and then choose a contact. If you haven't added any contacts yet, then go over to the Contacts section and import or quickly add one or two.
+                  <br /><br />
+                  Now click the <b>'Preview email'</b> button, above right, to see how your email will look.
+                </p>
 
 
-    <br />
+                <br />
 
-    <div className="tip-text">
-      <span className="icon">⭐</span>
-      <span>
-        Tip: You can change the blueprint elements and click <b>'Preview email'</b> again, and the email will update.
-      </span>
-    </div>
-  </div>
-</div>
+                <div className="tip-text">
+                  <span className="icon">⭐</span>
+                  <span>
+                    Tip: You can change the blueprint elements and click <b>'Preview email'</b> again, and the email will update.
+                  </span>
+                </div>
+              </div>
+            </div>
 
           )}
         </div>
@@ -1151,9 +1164,10 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   const [originalTemplateData, setOriginalTemplateData] = useState<any>(null);
   const [selectedPlaceholder, setSelectedPlaceholder] = useState<string>("");
   const [isLoadingTemplate, setIsLoadingTemplate] = useState(false);
-const [selectedElement, setSelectedElement] = useState<string | null>(null);
-const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [selectedElement, setSelectedElement] = useState<string | null>(null);
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  const [showErrorToast, setShowErrorToast] = useState(false);
   const [selectedTemplateDefinitionId, setSelectedTemplateDefinitionId] =
     useState<number | null>(null);
 
@@ -1241,7 +1255,7 @@ const [showSuccessToast, setShowSuccessToast] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 1;
-  const setPageSize = () => {};
+  const setPageSize = () => { };
   const [openedFromTemplateEdit, setOpenedFromTemplateEdit] = useState(false);
 
   const isPreviewAllowed = React.useMemo(() => {
@@ -1254,48 +1268,60 @@ const [showSuccessToast, setShowSuccessToast] = useState(false);
     return typeof html === "string" && getPlainTextLength(html) >= 20;
   }, [placeholderValues?.example_output_email]);
 
-// ========================================
+  // ========================================
   // IMAGE UPLOAD STATE
   // ========================================
 
-   const showModal = (title: string, message: string) => {
+  const showModal = (title: string, message: string) => {
     setPopupModalInfo({ open: true, title, message });
   };
+  const toastAnimation = `
+@keyframes toastProgress {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+`;
   const [isUploadingImage, setIsUploadingImage] = useState(false);
-    const [attachedImages, setAttachedImages] = useState<string[]>([]);
+  const [attachedImages, setAttachedImages] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
-const uploadImage = async (file: File) => {
-  if (!effectiveUserId) return;
+  const uploadImage = async (file: File) => {
+    if (!effectiveUserId) return;
 
-  if (!file.type.startsWith("image/")) {
-    showModal("Invalid file", "Only image files are allowed.");
-    return;
-  }
-
-  const formData = new FormData();
-  formData.append("image", file);     // ✅ FIXED
-  formData.append("userId", effectiveUserId);
-
-  try {
-    setIsUploadingImage(true);
-
-    const res = await axios.post(
-      `${API_BASE_URL}/api/CampaignPrompt/images/upload-image`,
-      formData
-    );
-
-    if (res.data?.imageUrl) {         // ✅ FIXED
-      setAttachedImages(prev => [...prev, res.data.imageUrl]);
+    if (!file.type.startsWith("image/")) {
+       setToastMessage("Only image files are allowed.");
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 5000);
+     // showModal("Invalid file", "Only image files are allowed.");
+      return;
     }
 
-  } catch (err) {
-    console.error("Image upload failed:", err);
-    showModal("Error", "Image upload failed.");
-  } finally {
-    setIsUploadingImage(false);
-  }
-};
+    const formData = new FormData();
+    formData.append("image", file);     // ✅ FIXED
+    formData.append("userId", effectiveUserId);
+
+    try {
+      setIsUploadingImage(true);
+
+      const res = await axios.post(
+        `${API_BASE_URL}/api/CampaignPrompt/images/upload-image`,
+        formData
+      );
+
+      if (res.data?.imageUrl) {         // ✅ FIXED
+        setAttachedImages(prev => [...prev, res.data.imageUrl]);
+      }
+
+    } catch (err) {
+      console.error("Image upload failed:", err);
+     // showModal("Error", "Image upload failed.");
+      setToastMessage("Image upload failed.");
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 5000);
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
 
 
 
@@ -1340,11 +1366,11 @@ const uploadImage = async (file: File) => {
   });
 
   const normalizePlaceholderKey = (key: string) => {
-  return key.trim().toLowerCase();
+    return key.trim().toLowerCase();
   };
 
   const normalizeCategory = (category: string) =>
-  category.trim().toLowerCase();
+    category.trim().toLowerCase();
 
   const formatCategoryLabel = (category: string) =>
     category
@@ -1352,7 +1378,7 @@ const uploadImage = async (file: File) => {
       .replace(/\b\w/g, (c) => c.toUpperCase());
 
 
- 
+
 
   const closeModal = () => {
     setPopupModalInfo((prev) => ({ ...prev, open: false }));
@@ -1365,12 +1391,18 @@ const uploadImage = async (file: File) => {
         editTemplateId ?? (storedId ? Number(storedId) : null);
 
       if (!activeCampaignId) {
-        showModal("Error", "No campaign instance found.");
+       // showModal("Error", "No campaign instance found.");
+        setToastMessage("No campaign instance found.");
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 5000);
         return;
       }
 
       if (!editableExampleOutput.trim()) {
-        showModal("Warning", "Example email is empty.");
+       // showModal("Warning", "Example email is empty.");
+        setToastMessage("Example email is empty.");
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 5000);
         return;
       }
 
@@ -1390,13 +1422,16 @@ const uploadImage = async (file: File) => {
         example_output_email: editableExampleOutput,
       }));
 
-     // showModal("Success", "✅ Example email saved successfully!");
-       setToastMessage("Example email has been saved with success!");
+      // showModal("Success", "✅ Example email saved successfully!");
+      setToastMessage("Example email has been saved");
       setShowSuccessToast(true);
       setTimeout(() => setShowSuccessToast(false), 5000);
     } catch (error) {
       console.error("❌ Save example output failed:", error);
-      showModal("Error", "Failed to save example email.");
+      //showModal("Error", "Failed to save example email.");
+      setToastMessage("Failed to save example email.");
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 5000);
     }
   };
 
@@ -1454,14 +1489,14 @@ const uploadImage = async (file: File) => {
       .then((res) => {
         if (Array.isArray(res.data) && res.data.length > 0) {
 
-            setUiPlaceholders(
-              res.data.map((p: any, index: number) => ({
-                ...p,
-                category: normalizeCategory(p.category),
-                categorySequence: p.categorySequence ?? 999,
-                placeholderSequence: p.placeholderSequence ?? index + 1,
-              }))
-            );
+          setUiPlaceholders(
+            res.data.map((p: any, index: number) => ({
+              ...p,
+              category: normalizeCategory(p.category),
+              categorySequence: p.categorySequence ?? 999,
+              placeholderSequence: p.placeholderSequence ?? index + 1,
+            }))
+          );
 
           console.log("✅ Loaded element definitions from backend");
         }
@@ -1606,120 +1641,126 @@ const uploadImage = async (file: File) => {
 
 
 
-const stripToText = (html: string) => {
-  const div = document.createElement("div");
-  div.innerHTML = html;
-  return (div.textContent || "").replace(/\s+/g, " ").trim();
-};
+  const stripToText = (html: string) => {
+    const div = document.createElement("div");
+    div.innerHTML = html;
+    return (div.textContent || "").replace(/\s+/g, " ").trim();
+  };
 
-const cleanRichHtml = (html: string) => {
-  return DOMPurify.sanitize(html, {
-    // 🚫 DO NOT use USE_PROFILES here
+  const cleanRichHtml = (html: string) => {
+    return DOMPurify.sanitize(html, {
+      // 🚫 DO NOT use USE_PROFILES here
 
-    ALLOWED_TAGS: [
-      "b",
-      "strong",
-      "i",
-      "em",
-      "u",
-      "br",
-      "p",
-      "ul",
-      "ol",
-      "li",
-      "a",
-    ],
+      ALLOWED_TAGS: [
+        "b",
+        "strong",
+        "i",
+        "em",
+        "u",
+        "br",
+        "p",
+        "ul",
+        "ol",
+        "li",
+        "a",
+      ],
 
-    ALLOWED_ATTR: ["href"],
+      ALLOWED_ATTR: ["href"],
 
-    FORBID_TAGS: ["span", "div"],
+      FORBID_TAGS: ["span", "div"],
 
-    FORBID_ATTR: ["style", "class"],
+      FORBID_ATTR: ["style", "class"],
 
-    KEEP_CONTENT: true,
-  });
-};
-
-
-
-const sanitizePlaceholders = (
-  values: Record<string, string>,
-  uiPlaceholders: PlaceholderDefinitionUI[],
-) => {
-  const cleaned: Record<string, string> = {};
-
-  Object.entries(values).forEach(([key, raw]) => {
-    // 🚫 keep example output untouched
-    if (key === "example_output_email") {
-      cleaned[key] = raw;
-      return;
-    }
-
-    const meta = uiPlaceholders.find(p => p.placeholderKey === key);
-
-    const isRich =
-      meta?.isRichText === true ||
-      meta?.inputType === "richtext" ||
-      /signature|body|testimony|html/i.test(key);
-
-    cleaned[key] = isRich
-      ? cleanRichHtml(raw)
-      : stripToText(raw);
-  });
-
-  return cleaned;
-};
+      KEEP_CONTENT: true,
+    });
+  };
 
 
 
+  const sanitizePlaceholders = (
+    values: Record<string, string>,
+    uiPlaceholders: PlaceholderDefinitionUI[],
+  ) => {
+    const cleaned: Record<string, string> = {};
 
-const saveAllPlaceholders = async () => {
-  try {
-    setIsSavingElements(true);
-    const storedId = sessionStorage.getItem("newCampaignId");
-    const activeTemplateId =
-      editTemplateId ?? (storedId ? Number(storedId) : null);
+    Object.entries(values).forEach(([key, raw]) => {
+      // 🚫 keep example output untouched
+      if (key === "example_output_email") {
+        cleaned[key] = raw;
+        return;
+      }
 
-    if (!activeTemplateId) {
-      showModal("Error", "No campaign template found.");
-      return;
-    }
+      const meta = uiPlaceholders.find(p => p.placeholderKey === key);
 
-    // ✅ ONE source of truth
-    const cleanedValues = sanitizePlaceholders(
-      formValues,
-      uiPlaceholders
-    );
+      const isRich =
+        meta?.isRichText === true ||
+        meta?.inputType === "richtext" ||
+        /signature|body|testimony|html/i.test(key);
 
-    console.log("FINAL PAYLOAD", cleanedValues);
+      cleaned[key] = isRich
+        ? cleanRichHtml(raw)
+        : stripToText(raw);
+    });
 
-    await axios.post(
-      `${API_BASE_URL}/api/CampaignPrompt/template/update-placeholders`,
-      {
-        templateId: activeTemplateId,
-        placeholderValues: cleanedValues,
-      },
-    );
+    return cleaned;
+  };
 
-    setPlaceholderValues((prev) => ({
-      ...prev,
-      ...cleanedValues,
-    }));
 
-    await reloadCampaignBlueprint();
 
- //   showModal("Success", "✅ Element values updated successfully!");
 
-     setToastMessage("The Element has been updated with success!");
+  const saveAllPlaceholders = async () => {
+    try {
+      setIsSavingElements(true);
+      const storedId = sessionStorage.getItem("newCampaignId");
+      const activeTemplateId =
+        editTemplateId ?? (storedId ? Number(storedId) : null);
+
+      if (!activeTemplateId) {
+       // showModal("Error", "No campaign template found.");
+       setToastMessage("No campaign template found.");
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 5000);
+        return;
+      }
+
+      // ✅ ONE source of truth
+      const cleanedValues = sanitizePlaceholders(
+        formValues,
+        uiPlaceholders
+      );
+
+      console.log("FINAL PAYLOAD", cleanedValues);
+
+      await axios.post(
+        `${API_BASE_URL}/api/CampaignPrompt/template/update-placeholders`,
+        {
+          templateId: activeTemplateId,
+          placeholderValues: cleanedValues,
+        },
+      );
+
+      setPlaceholderValues((prev) => ({
+        ...prev,
+        ...cleanedValues,
+      }));
+
+      await reloadCampaignBlueprint();
+
+      //   showModal("Success", "✅ Element values updated successfully!");
+
+      setToastMessage("Element values updated successfully!");
       setShowSuccessToast(true);
-      setTimeout(() => setShowSuccessToast(false), 3000);
-  } catch (error) {
-    console.error("❌ Failed to update elements:", error);
-    showModal("Warning", "Failed to update element values.");
-  } finally {
-    setIsSavingElements(false);
-  }
-};
+      setTimeout(() => setShowSuccessToast(false), 5000);
+    } catch (error) {
+      console.error("❌ Failed to update elements:", error);
+     // showModal("Warning", "Failed to update element values.");
+     setToastMessage("Failed to update element values.");
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 5000);
+    } finally {
+      setIsSavingElements(false);
+    }
+  };
 
 
 
@@ -1867,10 +1908,13 @@ const saveAllPlaceholders = async () => {
       console.log("🚀 Manual regenerate button clicked");
 
       if (!editTemplateId && !selectedTemplateDefinitionId) {
-        showModal(
-          "Warning",
-          "Please save the template first before regenerating example output.",
-        );
+        // showModal(
+        //   "Warning",
+        //   "Please save the template first before regenerating example output.",
+        // );
+         setToastMessage("Please save the template first before regenerating example output.");
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 5000);
         return;
       }
 
@@ -1979,7 +2023,10 @@ const saveAllPlaceholders = async () => {
           }
         } catch (err: any) {
           console.error("❌ Search API failed:", err);
-          showModal("Error", "Search failed. Continuing without search data.");
+         // showModal("Error", "Search failed. Continuing without search data.");
+         setToastMessage("Search failed. Continuing without search data.");
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 5000);
         }
       }
 
@@ -1991,7 +2038,10 @@ const saveAllPlaceholders = async () => {
         editTemplateId ?? (storedId ? Number(storedId) : null);
 
       if (!activeCampaignId) {
-        showModal("Error", "❌ No campaign instance found.");
+       // showModal("Error", "❌ No campaign instance found.");
+       setToastMessage("No campaign instance found.");
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 5000);
         return;
       }
 
@@ -2060,11 +2110,17 @@ const saveAllPlaceholders = async () => {
         console.log("✅ Example output generated");
         playNotificationSound();
       } else {
-        showModal("Warning", "⚠️ Example generation returned no output.");
+       // showModal("Warning", "⚠️ Example generation returned no output.");
+        setToastMessage("Example generation returned no output.");
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 5000);
       }
     } catch (error: any) {
       console.error("❌ regenerateExampleOutput failed:", error);
-      showModal("Error", `Failed to regenerate: ${error.message}`);
+     //showModal("Error", `Failed to regenerate: ${error.message}`);
+     setToastMessage(`Failed to regenerate: ${error.message}`);
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 5000);
     } finally {
       // 🔥 THIS IS THE IMPORTANT PART
       setIsPreviewLoading(false);
@@ -2099,15 +2155,21 @@ const saveAllPlaceholders = async () => {
   // ====================================================================
   const saveTemplateDefinition = async () => {
     if (!templateName.trim()) {
-      showModal("reason", "Please enter a template name");
+     // showModal("reason", "Please enter a template name");
+      setToastMessage("Please enter a template name");
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 5000);
       return;
     }
 
     if (!systemPrompt.trim() || !masterPrompt.trim()) {
-      showModal(
-        "missing parameters",
-        "Please fill in AI Instructions and elements List",
-      );
+      // showModal(
+      //   "missing parameters",
+      //   "Please fill in AI Instructions and elements List",
+      // );
+      setToastMessage("Please fill in AI Instructions and elements List");
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 5000);
       return;
     }
 
@@ -2147,10 +2209,13 @@ const saveAllPlaceholders = async () => {
     } catch (error: any) {
       console.error("Error saving template definition:", error);
       if (error.response?.data?.message?.includes("already exists")) {
-        showModal(
-          "Instruction",
-          "A template with this name already exists. Please use a different name.",
-        );
+        // showModal(
+        //   "Instruction",
+        //   "A template with this name already exists. Please use a different name.",
+        // );
+         setToastMessage("A template with this name already exists. Please use a different name.");
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 5000);
       } else {
         setSaveDefinitionStatus("error");
         setTimeout(() => setSaveDefinitionStatus("idle"), 3000);
@@ -2189,7 +2254,10 @@ const saveAllPlaceholders = async () => {
       placeholders: sortedPlaceholders,
     });
 
-    alert("✅ element definitions saved");
+   // alert("✅ element definitions saved");
+    setToastMessage("element definitions saved");
+    setShowSuccessToast(true);
+    setTimeout(() => setShowSuccessToast(false), 5000);
   };
   // ====================================================================
   // UPDATE TEMPLATE DEFINITION
@@ -2197,7 +2265,10 @@ const saveAllPlaceholders = async () => {
 
   const updateTemplateDefinition = async () => {
     if (!selectedTemplateDefinitionId) {
-      showModal("Instruction", "No template selected to update.");
+    //  showModal("Instruction", "No template selected to update.");
+      setToastMessage("No template selected to update.");
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 5000);
       return;
     }
 
@@ -2220,11 +2291,17 @@ const saveAllPlaceholders = async () => {
         },
       );
 
-      alert("Template updated successfully.");
+      //alert("Template updated successfully.");
+      setToastMessage("Template updated successfully.");
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 5000);
       await loadTemplateDefinitions();
     } catch (err) {
       console.error("Update failed:", err);
-      showModal("error", "Failed to update template definition.");
+     // showModal("error", "Failed to update template definition.");
+      setToastMessage("Failed to update template definition.");
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 5000);
     } finally {
       setIsSavingDefinition(false);
     }
@@ -2345,7 +2422,7 @@ const saveAllPlaceholders = async () => {
         );
         console.log("📦 Loading placeholder values:", conversationOnly);
         console.log("📦 Values:", JSON.stringify(conversationOnly, null, 2));
-        
+
         // ✅ Set placeholderValues (formValues will sync via useEffect)
         setPlaceholderValues(conversationOnly);
       } else {
@@ -2364,7 +2441,10 @@ const saveAllPlaceholders = async () => {
       // setIsEditMode(true);
     } catch (error) {
       console.error("Error loading template:", error);
-      alert("Failed to load template for editing");
+      //alert("Failed to load template for editing");
+      setToastMessage("Failed to load template for editing");
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 5000);
       //setIsEditMode(false);
     } finally {
       setIsLoadingTemplate(false);
@@ -2399,10 +2479,13 @@ const saveAllPlaceholders = async () => {
       Number.isNaN(campaignTemplateId) ||
       campaignTemplateId <= 0
     ) {
-      showModal(
-        "Invalid",
-        "No campaign ID found. Please open the campaign in edit mode first (wait until it finishes loading).",
-      );
+      // showModal(
+      //   "Invalid",
+      //   "No campaign ID found. Please open the campaign in edit mode first (wait until it finishes loading).",
+      // );
+      setToastMessage("No campaign ID found. Please open the campaign in edit mode first (wait until it finishes loading");
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 5000);
       console.error(
         "startEditConversation: campaignTemplateId is missing/invalid:",
         {
@@ -2763,23 +2846,23 @@ const saveAllPlaceholders = async () => {
 
     const keys = extractPlaceholders(masterPrompt).map(normalizePlaceholderKey);
 
-      const uniqueKeys = Array.from(new Set(keys));
+    const uniqueKeys = Array.from(new Set(keys));
 
-      setUiPlaceholders(
-        uniqueKeys.map((key, index) => ({
-          placeholderKey: key,
-          friendlyName: key.replace(/_/g, " "),
-          category: "general",
-          categorySequence: 99,
-          placeholderSequence: index + 1,
-          inputType: "text",
-          options: [],
-          uiSize: "md",
-          isRichText: false,
-          isExpandable: false,
-          isRuntimeOnly: RUNTIME_ONLY_PLACEHOLDERS.includes(key),
-        }))
-      );
+    setUiPlaceholders(
+      uniqueKeys.map((key, index) => ({
+        placeholderKey: key,
+        friendlyName: key.replace(/_/g, " "),
+        category: "general",
+        categorySequence: 99,
+        placeholderSequence: index + 1,
+        inputType: "text",
+        options: [],
+        uiSize: "md",
+        isRichText: false,
+        isExpandable: false,
+        isRuntimeOnly: RUNTIME_ONLY_PLACEHOLDERS.includes(key),
+      }))
+    );
 
   }, [masterPrompt]);
 
@@ -2812,7 +2895,7 @@ const saveAllPlaceholders = async () => {
     })
     .filter(
       (p) =>
-        !p.isRuntimeOnly && 
+        !p.isRuntimeOnly &&
         (essentialPlaceholderKeys.length === 0 || essentialPlaceholderKeys.includes(p.placeholderKey))
     )
     .reduce<Record<string, PlaceholderDefinitionUI[]>>((acc, p) => {
@@ -2823,42 +2906,42 @@ const saveAllPlaceholders = async () => {
       return acc;
     }, {});
 
-const [initialExampleEmail, setInitialExampleEmail] = useState<string>("");
-const [currentCampaignId, setCurrentCampaignId] = useState<string | null>(null);
-const hasExampleEmail = initialExampleEmail.trim().length > 0;
- useEffect(() => {
+  const [initialExampleEmail, setInitialExampleEmail] = useState<string>("");
+  const [currentCampaignId, setCurrentCampaignId] = useState<string | null>(null);
+  const hasExampleEmail = initialExampleEmail.trim().length > 0;
+  useEffect(() => {
     const storedExample = sessionStorage.getItem("initialExampleEmail");
     const campaignId = sessionStorage.getItem("newCampaignId") || sessionStorage.getItem("editTemplateId");
     setCurrentCampaignId(campaignId);
-    if (storedExample&& storedExample.trim().length > 0) {
+    if (storedExample && storedExample.trim().length > 0) {
       setInitialExampleEmail(storedExample);
-    }else {
+    } else {
       setInitialExampleEmail("");
     }
   }, []);
-   // ✅ NEW: Watch for blueprint changes and update example email every 500ms
+  // ✅ NEW: Watch for blueprint changes and update example email every 500ms
   useEffect(() => {
     const checkInterval = setInterval(() => {
       const newCampaignId = sessionStorage.getItem("newCampaignId") || sessionStorage.getItem("editTemplateId");
-      
+
       // If campaign ID changed, update the example email
       if (newCampaignId && newCampaignId !== currentCampaignId) {
         setCurrentCampaignId(newCampaignId);
-        
+
         const storedExample = sessionStorage.getItem("initialExampleEmail");
         if (storedExample && storedExample.trim().length > 0) {
-  setInitialExampleEmail(storedExample);
-} else {
-  setInitialExampleEmail("null");
-}
+          setInitialExampleEmail(storedExample);
+        } else {
+          setInitialExampleEmail("null");
+        }
       }
     }, 500);
-    
+
     return () => clearInterval(checkInterval);
   }, [currentCampaignId]);
-const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
-  const key = p.placeholderKey;
-  const value = formValues[key] ?? "";
+  const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
+    const key = p.placeholderKey;
+    const value = formValues[key] ?? "";
 
     const baseStyle: React.CSSProperties = {
       width: "100%",
@@ -2870,20 +2953,20 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
     };
 
     switch (p.inputType) {
-case "richtext":
-  return (
-    <div className="flex w-full rich-text-editor">
-      <RichTextInput
-        value={value}
-        onChange={(val) =>
-          setFormValues(prev => ({
-            ...prev,
-            [key]: val,
-          }))
-        }
-      />
-    </div>
-  );
+      case "richtext":
+        return (
+          <div className="flex w-full rich-text-editor">
+            <RichTextInput
+              value={value}
+              onChange={(val) =>
+                setFormValues(prev => ({
+                  ...prev,
+                  [key]: val,
+                }))
+              }
+            />
+          </div>
+        );
       case "textarea":
         return (
           <div className="flex">
@@ -3031,10 +3114,10 @@ case "richtext":
           const completionMessage: Message = {
             type: "bot",
             content:
-             "Great. That's all done.\n\n" +
+              "Great. That's all done.\n\n" +
               "The fundamental elements of your campaign blueprint have been saved. You can now change any of these elements in the 'Edit elements' pick list above using the same interactive chat or use the 'Elements' tab where you can directly change them and change any of the many additional elements that you can use in your campaign blueprint.\n\n" +
               "You can also choose one of the contacts in the 'Preview email' area on the right and see how the actual emails will look as you continue to play with and change the elements of the blueprint. If you don't have any contacts saved then just hop over to the Contacts area and add some manually or import them from a spreadsheet.",
-            
+
             timestamp: new Date(),
           };
           setMessages([completionMessage]);
@@ -3053,10 +3136,10 @@ case "richtext":
       const errorMessage: Message = {
         type: "bot",
         content:
-              "Great. That's all done.\n\n" +
-              "The fundamental elements of your campaign blueprint have been saved. You can now change any of these elements in the 'Edit elements' pick list above using the same interactive chat or use the 'Elements' tab where you can directly change them and change any of the many additional elements that you can use in your campaign blueprint.\n\n" +
-              "You can also choose one of the contacts in the 'Preview email' area on the right and see how the actual emails will look as you continue to play with and change the elements of the blueprint. If you don't have any contacts saved then just hop over to the Contacts area and add some manually or import them from a spreadsheet.",
-            timestamp: new Date(),
+          "Great. That's all done.\n\n" +
+          "The fundamental elements of your campaign blueprint have been saved. You can now change any of these elements in the 'Edit elements' pick list above using the same interactive chat or use the 'Elements' tab where you can directly change them and change any of the many additional elements that you can use in your campaign blueprint.\n\n" +
+          "You can also choose one of the contacts in the 'Preview email' area on the right and see how the actual emails will look as you continue to play with and change the elements of the blueprint. If you don't have any contacts saved then just hop over to the Contacts area and add some manually or import them from a spreadsheet.",
+        timestamp: new Date(),
       };
       setMessages([errorMessage]);
       playNotificationSound();
@@ -3067,12 +3150,12 @@ case "richtext":
 
   const handleSendMessage = async () => {
     if (
-        isTyping ||
-        !effectiveUserId ||
-        (currentAnswer.trim() === "" && attachedImages.length === 0)
-      ) {
-        return;
-      }
+      isTyping ||
+      !effectiveUserId ||
+      (currentAnswer.trim() === "" && attachedImages.length === 0)
+    ) {
+      return;
+    }
 
 
     // capture the user's text before we clear it
@@ -3114,19 +3197,19 @@ case "richtext":
 
       const requestBody = isEditMode
         ? {
-            userId: effectiveUserId,
-            campaignTemplateId,
-            message: answerText,
-            model: selectedModel,
-            images: imagesToSend,
-          }
+          userId: effectiveUserId,
+          campaignTemplateId,
+          message: answerText,
+          model: selectedModel,
+          images: imagesToSend,
+        }
         : {
-            userId: effectiveUserId,
-            message: answerText,
-            systemPrompt: "",
-            model: selectedModel,
-            images: imagesToSend,
-          };
+          userId: effectiveUserId,
+          message: answerText,
+          systemPrompt: "",
+          model: selectedModel,
+          images: imagesToSend,
+        };
 
       const response = await axios.post(endpoint, requestBody);
 
@@ -3263,10 +3346,10 @@ case "richtext":
         const completionMessage: Message = {
           type: "bot",
           content:
- "Great. That's all done.\n\n" +
-              "The fundamental elements of your campaign blueprint have been saved. You can now change any of these elements in the 'Edit elements' pick list above using the same interactive chat or use the 'Elements' tab where you can directly change them and change any of the many additional elements that you can use in your campaign blueprint.\n\n" +
-              "You can also choose one of the contacts in the 'Preview email' area on the right and see how the actual emails will look as you continue to play with and change the elements of the blueprint. If you don't have any contacts saved then just hop over to the Contacts area and add some manually or import them from a spreadsheet.",
-                      timestamp: new Date(),
+            "Great. That's all done.\n\n" +
+            "The fundamental elements of your campaign blueprint have been saved. You can now change any of these elements in the 'Edit elements' pick list above using the same interactive chat or use the 'Elements' tab where you can directly change them and change any of the many additional elements that you can use in your campaign blueprint.\n\n" +
+            "You can also choose one of the contacts in the 'Preview email' area on the right and see how the actual emails will look as you continue to play with and change the elements of the blueprint. If you don't have any contacts saved then just hop over to the Contacts area and add some manually or import them from a spreadsheet.",
+          timestamp: new Date(),
         };
         setMessages((prev) => [...prev, completionMessage]);
         setIsComplete(true);
@@ -3459,8 +3542,8 @@ case "richtext":
         `${API_BASE_URL}/api/CampaignPrompt/template-definition/${selectedTemplateDefinitionId}/deactivate`,
       );
 
-     // showModal("Success", "Template deleted successfully.");
-      setToastMessage("Template has been deleted with success!");
+      // showModal("Success", "Template deleted successfully.");
+      setToastMessage("Template deleted successfully.");
       setShowSuccessToast(true);
       setTimeout(() => setShowSuccessToast(false), 5000);
 
@@ -3477,7 +3560,10 @@ case "richtext":
       loadTemplateDefinitions();
     } catch (error) {
       console.error("Delete failed:", error);
-      showModal("error", "Failed to delete template definition.");
+      //showModal("error", "Failed to delete template definition.");
+       setToastMessage("Failed to delete template definition.");
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 5000);
     }
   };
   // ensure you import useEffect at top
@@ -3692,27 +3778,27 @@ case "richtext":
       );
 
       // 🔥 REMOVE + RE-NORMALIZE ORDER
-        setUiPlaceholders((prev) => {
-          const filtered = prev.filter(
-            (p) => p.placeholderKey !== placeholderKey
-          );
+      setUiPlaceholders((prev) => {
+        const filtered = prev.filter(
+          (p) => p.placeholderKey !== placeholderKey
+        );
 
-          const grouped: Record<string, PlaceholderDefinitionUI[]> = {};
+        const grouped: Record<string, PlaceholderDefinitionUI[]> = {};
 
-          filtered.forEach((p) => {
-            if (!grouped[p.category]) grouped[p.category] = [];
-            grouped[p.category].push(p);
-          });
-
-          return Object.values(grouped).flatMap((list) =>
-            list
-              .sort((a, b) => a.placeholderSequence - b.placeholderSequence)
-              .map((p, idx) => ({
-                ...p,
-                placeholderSequence: idx + 1,
-              }))
-          );
+        filtered.forEach((p) => {
+          if (!grouped[p.category]) grouped[p.category] = [];
+          grouped[p.category].push(p);
         });
+
+        return Object.values(grouped).flatMap((list) =>
+          list
+            .sort((a, b) => a.placeholderSequence - b.placeholderSequence)
+            .map((p, idx) => ({
+              ...p,
+              placeholderSequence: idx + 1,
+            }))
+        );
+      });
 
 
       // Clean values
@@ -3731,7 +3817,10 @@ case "richtext":
       console.log(`🗑️ Placeholder deleted: ${placeholderKey}`);
     } catch (err) {
       console.error("❌ Failed to delete placeholder", err);
-      showModal("Error", "Failed to delete placeholder definition.");
+     // showModal("Error", "Failed to delete placeholder definition.");
+     setToastMessage("Failed to delete placeholder definition.");
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 5000);
     }
   };
 
@@ -3972,24 +4061,24 @@ case "richtext":
                     }}
                   >
                     <div className="flex justify-between min-h-[44px] items-center">
-                      <div className="build-subtabs !gap-[0]">
-                      <h3 className="font-[600] flex items-center">
-                        Email preview
-                      </h3>
+                      <div className="bg-white px-5 py-2 border border-gray-300 border-b-0 rounded-t-md">
+                        <h3 className="font-[600] flex items-center" style={{ color: '#3f9f42' }}>
+                          Email preview
+                        </h3>
                       </div>
                       <button
-  className="!rounded-[4px] bg-[#e4ffe5] text-[#3f9f42] font-[600] text-[14px] px-[12px] py-[6px] border-2 border-dashed border-[#b3c7b4] shadow-[rgba(50,50,93,0.25)_0px_13px_27px_-5px,rgba(0,0,0,0.3)_0px_8px_16px_-8px]"
-  onClick={() => setIsSectionOpen(false)}
-  title="Hide preview"
->
-  <span className="flex items-center gap-[5px]">
-    <FontAwesomeIcon
-      icon={faAngleRight}
-      className="text-[#3f9f42] text-md"
-    />
-    <span>Hide email preview</span>
-  </span>
-</button>
+                        className="!rounded-[4px] bg-[#e4ffe5] text-[#3f9f42] font-[600] text-[14px] px-[12px] py-[6px] border-2 border-dashed border-[#b3c7b4] shadow-[rgba(50,50,93,0.25)_0px_13px_27px_-5px,rgba(0,0,0,0.3)_0px_8px_16px_-8px]"
+                        onClick={() => setIsSectionOpen(false)}
+                        title="Hide preview"
+                      >
+                        <span className="flex items-center gap-[5px]">
+                          <FontAwesomeIcon
+                            icon={faAngleRight}
+                            className="text-[#3f9f42] text-md"
+                          />
+                          <span>Hide email preview</span>
+                        </span>
+                      </button>
                     </div>
 
                     {/* Collapse Button */}
@@ -4047,7 +4136,7 @@ case "richtext":
                     />
                   </div>
                 )}
-                  {isSectionOpen === false && 
+                {isSectionOpen === false &&
                   <div className="flex">
                     <button
                       className="!rounded-[4px] bg-[#e4ffe5] text-[#3f9f42] font-[600] text-[20px] w-[50px] border-2 border-dashed border-[#b3c7b4] shadow-[rgba(50,50,93,0.25)_0px_13px_27px_-5px,rgba(0,0,0,0.3)_0px_8px_16px_-8px]"
@@ -4381,16 +4470,16 @@ case "richtext":
                               {/* Category */}
                               <select
                                 value={p.category}
-                                  onChange={(e) => {
-                                    const v = e.target.value.toLowerCase().trim();
-                                    setUiPlaceholders((prev) =>
-                                      prev.map((x) =>
-                                        x.placeholderKey === p.placeholderKey
-                                          ? { ...x, category: v }
-                                          : x,
-                                      ),
-                                    );
-                                  }}
+                                onChange={(e) => {
+                                  const v = e.target.value.toLowerCase().trim();
+                                  setUiPlaceholders((prev) =>
+                                    prev.map((x) =>
+                                      x.placeholderKey === p.placeholderKey
+                                        ? { ...x, category: v }
+                                        : x,
+                                    ),
+                                  );
+                                }}
 
                                 className="definition-select"
                               >
@@ -4422,18 +4511,18 @@ case "richtext":
                                       prev.map((x) =>
                                         x.placeholderKey === p.placeholderKey
                                           ? {
-                                              ...x,
-                                              inputType: v,
-                                              isRichText: v === "richtext",
-                                              isExpandable:
-                                                v === "richtext"
-                                                  ? x.isExpandable
-                                                  : false,
-                                              options:
-                                                v === "select"
-                                                  ? x.options || []
-                                                  : [],
-                                            }
+                                            ...x,
+                                            inputType: v,
+                                            isRichText: v === "richtext",
+                                            isExpandable:
+                                              v === "richtext"
+                                                ? x.isExpandable
+                                                : false,
+                                            options:
+                                              v === "select"
+                                                ? x.options || []
+                                                : [],
+                                          }
                                           : x,
                                       ),
                                     );
@@ -4472,16 +4561,16 @@ case "richtext":
                                             setUiPlaceholders((prev) =>
                                               prev.map((x) =>
                                                 x.placeholderKey ===
-                                                p.placeholderKey
+                                                  p.placeholderKey
                                                   ? {
-                                                      ...x,
-                                                      options: x.options?.map(
-                                                        (o, i) =>
-                                                          i === idx
-                                                            ? newVal
-                                                            : o,
-                                                      ),
-                                                    }
+                                                    ...x,
+                                                    options: x.options?.map(
+                                                      (o, i) =>
+                                                        i === idx
+                                                          ? newVal
+                                                          : o,
+                                                    ),
+                                                  }
                                                   : x,
                                               ),
                                             );
@@ -4495,14 +4584,14 @@ case "richtext":
                                             setUiPlaceholders((prev) =>
                                               prev.map((x) =>
                                                 x.placeholderKey ===
-                                                p.placeholderKey
+                                                  p.placeholderKey
                                                   ? {
-                                                      ...x,
-                                                      options:
-                                                        x.options?.filter(
-                                                          (_, i) => i !== idx,
-                                                        ),
-                                                    }
+                                                    ...x,
+                                                    options:
+                                                      x.options?.filter(
+                                                        (_, i) => i !== idx,
+                                                      ),
+                                                  }
                                                   : x,
                                               ),
                                             );
@@ -4527,14 +4616,14 @@ case "richtext":
                                         setUiPlaceholders((prev) =>
                                           prev.map((x) =>
                                             x.placeholderKey ===
-                                            p.placeholderKey
+                                              p.placeholderKey
                                               ? {
-                                                  ...x,
-                                                  options: [
-                                                    ...(x.options || []),
-                                                    "",
-                                                  ],
-                                                }
+                                                ...x,
+                                                options: [
+                                                  ...(x.options || []),
+                                                  "",
+                                                ],
+                                              }
                                               : x,
                                           ),
                                         );
@@ -4659,11 +4748,11 @@ case "richtext":
                                       prev.map((x) =>
                                         x.placeholderKey === p.placeholderKey
                                           ? {
-                                              ...x,
-                                              isExpandable: checked,
-                                              isRichText:
-                                                checked || x.isRichText,
-                                            }
+                                            ...x,
+                                            isExpandable: checked,
+                                            isRichText:
+                                              checked || x.isRichText,
+                                          }
                                           : x,
                                       ),
                                     );
@@ -4672,52 +4761,52 @@ case "richtext":
                               </label>
 
                               {/* Placeholder move buttons */}
-                                {/* Move buttons */}
-                                <div style={{ display: "flex", gap: "6px" }}>
-                                  <button
-                                    style={{
-                                      padding: "4px 8px",
-                                      borderRadius: "6px",
-                                      background: "#e5e7eb",
-                                      cursor: "pointer",
-                                    }}
-                                    onClick={() => movePlaceholder(p.placeholderKey, "up")}
-                                  >
-                                    ↑
-                                  </button>
-
-                                  <button
-                                    style={{
-                                      padding: "4px 8px",
-                                      borderRadius: "6px",
-                                      background: "#e5e7eb",
-                                      cursor: "pointer",
-                                    }}
-                                    onClick={() => movePlaceholder(p.placeholderKey, "down")}
-                                  >
-                                    ↓
-                                  </button>
-                                </div>
-
-                                {/* DELETE BUTTON */}
+                              {/* Move buttons */}
+                              <div style={{ display: "flex", gap: "6px" }}>
                                 <button
-                                  disabled={p.isRuntimeOnly}
-                                  onClick={() => deletePlaceholderDefinition(p.placeholderKey)}
-                                  title={
-                                    p.isRuntimeOnly
-                                      ? "Runtime placeholders cannot be deleted"
-                                      : "Delete placeholder"
-                                  }
                                   style={{
-                                    background: p.isRuntimeOnly ? "#9ca3af" : "#dc2626",
-                                    cursor: p.isRuntimeOnly ? "not-allowed" : "pointer",
-                                    color: "#fff",
+                                    padding: "4px 8px",
                                     borderRadius: "6px",
-                                    padding: "6px 10px",
+                                    background: "#e5e7eb",
+                                    cursor: "pointer",
                                   }}
+                                  onClick={() => movePlaceholder(p.placeholderKey, "up")}
                                 >
-                                  🗑️
+                                  ↑
                                 </button>
+
+                                <button
+                                  style={{
+                                    padding: "4px 8px",
+                                    borderRadius: "6px",
+                                    background: "#e5e7eb",
+                                    cursor: "pointer",
+                                  }}
+                                  onClick={() => movePlaceholder(p.placeholderKey, "down")}
+                                >
+                                  ↓
+                                </button>
+                              </div>
+
+                              {/* DELETE BUTTON */}
+                              <button
+                                disabled={p.isRuntimeOnly}
+                                onClick={() => deletePlaceholderDefinition(p.placeholderKey)}
+                                title={
+                                  p.isRuntimeOnly
+                                    ? "Runtime placeholders cannot be deleted"
+                                    : "Delete placeholder"
+                                }
+                                style={{
+                                  background: p.isRuntimeOnly ? "#9ca3af" : "#dc2626",
+                                  cursor: p.isRuntimeOnly ? "not-allowed" : "pointer",
+                                  color: "#fff",
+                                  borderRadius: "6px",
+                                  padding: "6px 10px",
+                                }}
+                              >
+                                🗑️
+                              </button>
 
                             </div>
                           ))}
@@ -4825,78 +4914,98 @@ case "richtext":
             </div>
 
             {/* RICH TEXT EDITOR */}
-<RichTextEditor
-  value={expandedDraft}
-  height={320}
-  onChange={setExpandedDraft}
-/>
+            <RichTextEditor
+              value={expandedDraft}
+              height={320}
+              onChange={setExpandedDraft}
+            />
 
             {/* FOOTER */}
             <div style={{ textAlign: "right", marginTop: "12px" }}>
-            <button
-              onClick={() => {
-                setFormValues(prev => ({
-                  ...prev,
-                  [expandedPlaceholder.key]: expandedDraft,
-                }));
+              <button
+                onClick={() => {
+                  setFormValues(prev => ({
+                    ...prev,
+                    [expandedPlaceholder.key]: expandedDraft,
+                  }));
 
-                setExpandedPlaceholder(null);
-              }}
-            >
-              Done
-            </button>
+                  setExpandedPlaceholder(null);
+                }}
+              >
+                Done
+              </button>
             </div>
           </div>
         </div>
       )}
-       {showSuccessToast && (
+      <style>{toastAnimation}</style>
+      {showSuccessToast && (
         <div
           style={{
             position: "fixed",
             bottom: 24,
             left: "50%",
             transform: "translateX(-50%)",
-            background: "#ecfdf5",
-            color: "#065f46",
-            padding: "12px 18px",
-            borderRadius: 8,
+            background: "#E6F4EF",        // soft pastel green
+            color: "#2F3A34",              // dark grey text (not black)
+            padding: "14px 22px",
+            borderRadius: 12,
             display: "flex",
             alignItems: "center",
-            gap: 12,
-            boxShadow: "0 6px 20px rgba(0,0,0,0.12)",
+            gap: 16,
+            boxShadow: "0 6px 18px rgba(0,0,0,0.06)",
             zIndex: 99999,
-            minWidth: 320,
+            minWidth: 420,
+            fontSize: 16,
+            fontWeight: 500,
+            overflow: "hidden",
           }}
         >
-          {/* Green check */}
+          {/* Timer Bar */}
           <div
             style={{
-              width: 22,
-              height: 22,
+              position: "absolute",
+              top: 0,
+              left: 0,
+              height: 4,
+              width: "100%",
+              background: "#1F9D74",  // darker green line like image
+              animation: "toastProgress 3s linear forwards",
+            }}
+          />
+
+          {/* Check Circle */}
+          <div
+            style={{
+              width: 28,
+              height: 28,
               borderRadius: "50%",
-              background: "#22c55e",
-              color: "#fff",
+              background: "#1F9D74",   // same green as timer
+              color: "#ffffff",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
+              fontSize: 16,
               fontWeight: 700,
-              fontSize: 14,
+              flexShrink: 0,
             }}
           >
             ✓
           </div>
 
           {/* Message */}
-          <div style={{ fontSize: 14, flex: 1 }}>
+          <div style={{ flex: 1 }}>
             {toastMessage}
           </div>
 
-          {/* Close */}
+          {/* Close Button */}
           <div
             onClick={() => setShowSuccessToast(false)}
             style={{
               cursor: "pointer",
-              fontSize: 18,
+              fontSize: 30,
+              fontWeight: 500,
+              color: "#6B7280",   // soft gray like screenshot
               lineHeight: 1,
             }}
           >
@@ -4904,6 +5013,81 @@ case "richtext":
           </div>
         </div>
       )}
+      {/* ERROR TOAST */}
+{showErrorToast && (
+  <div
+    style={{
+      position: "fixed",
+      bottom: 24,
+      left: "50%",
+      transform: "translateX(-50%)",
+      background: "#FDECEC",        // pastel red background
+      color: "#2F3A34",              // dark soft red text
+      padding: "14px 22px",
+      borderRadius: 12,
+      display: "flex",
+      alignItems: "center",
+      gap: 16,
+      boxShadow: "0 6px 18px rgba(0,0,0,0.06)",
+      zIndex: 99999,
+      minWidth: 420,
+      fontSize: 16,
+      fontWeight: 500,
+      overflow: "hidden",
+    }}
+  >
+    {/* Timer Bar */}
+    <div
+      style={{
+        position: "absolute",
+        top: 0,
+        left: 0,
+        height: 4,
+        width: "100%",
+        background: "#DC2626",   // strong red timer
+        animation: "toastProgress 3s linear forwards",
+      }}
+    />
+
+    {/* Error Circle */}
+    <div
+      style={{
+        width: 28,
+        height: 28,
+        borderRadius: "50%",
+        background: "#DC2626",   // same red as timer
+        color: "#ffffff",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 16,
+        fontWeight: 700,
+        flexShrink: 0,
+      }}
+    >
+      !
+    </div>
+
+    {/* Message */}
+    <div style={{ flex: 1 }}>
+      {toastMessage}
+    </div>
+
+    {/* Close Button */}
+    <div
+      onClick={() => setShowErrorToast(false)}
+      style={{
+        cursor: "pointer",
+        fontSize: 30,
+        fontWeight: 500,
+        color: "#9CA3AF",  // same gray as success close
+        lineHeight: 1,
+      }}
+    >
+      ×
+    </div>
+  </div>
+)}
     </div>
   );
 };

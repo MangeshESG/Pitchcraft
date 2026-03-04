@@ -27,6 +27,8 @@ import { useAppModal } from '../../hooks/useAppModal';
 import RichTextEditor from './../common/RTEEditor';
 import AccordionSection from '../common/accordion/Accordion';
 import deleteIcon from "../../assets/images/deleteiconn.png";
+import gpsPin from "../../assets/images/Unpin.png";
+import pinimage from "../../assets/images/pin.png";
 
 interface Contact {
   id: number;
@@ -1289,17 +1291,19 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                               style={menuBtnStyle}
                               className="flex gap-2 items-center"
                             >
-                              <span>
-                                <FontAwesomeIcon
-                                 icon={faThumbtack}
-                                 style={{
-                                transform: note.isPin ? "rotate(45deg)" : "none",
-                                 width: "25px",
+                               <span>
+                                <img
+                                src={note.isPin ? gpsPin : pinimage}
+                                alt={note.isPin ? "Unpin" : "Pin"}
+                                style={{
+                                width: "25px",
                                 height: "25px",
-                                color: "#3f9f42"
-                                 }}
+                                cursor: "pointer",
+                                transform: "rotate(314deg)", // ✅ 360° rotation
+                                transition: "transform 0.3s ease",
+                                }}
                                 />
-                              </span>
+                                </span>
                               <span className="font-[600]">
                                 {note.isPin ? "Unpin" : "Pin"}
                               </span>

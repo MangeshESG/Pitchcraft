@@ -12,7 +12,7 @@ import {
   faBars,
   faBullhorn,
   faDashboard,
-  faEdit,
+ // faEdit,
   faEllipsisV,
   faEnvelope,
   faEnvelopeOpen,
@@ -20,9 +20,11 @@ import {
   faGear,
   faList,
   faRobot,
+  //faTrash ,
   faThumbtack, // Add this for Campaign Builder
 
 } from "@fortawesome/free-solid-svg-icons"
+import { faEdit, faTrashCan,faCircleXmark   } from "@fortawesome/free-regular-svg-icons";
 import EditContactModal from "../EditContactModal";
 import { useAppModal } from "../../../hooks/useAppModal";
 import pitchLogo from "../../../assets/images/pitch_logo.png";
@@ -36,9 +38,10 @@ import LoadingSpinner from '../../common/LoadingSpinner';
 import deleteIcon from "../../../assets/images/deleteiconn.png";
 import PushPinIcon from "@mui/icons-material/PushPin";
 import PushPinOutlinedIcon from "@mui/icons-material/PushPinOutlined";
-import pin from "../../../assets/images/point.png";
 import unpin from "../../../assets/images/pinicon.png";
-  
+import gpsPin from "../../../assets/images/Unpin.png";
+import pinimage from "../../../assets/images/pin.png";
+import{formatDateTimeLocal, formatTimeLocal}from "../../common/dateFormatters";
 
 
 interface Contact {
@@ -141,6 +144,27 @@ const ContactDetailView: React.FC = () => {
   to { width: 0%; }
 }
 `;
+const menuIconStyle = {
+  width: 20,
+  height: 20,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flexShrink: 0,
+};
+
+const menuItemStyle = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  width: "100%",
+  padding: "10px 16px",
+  background: "transparent",
+  border: "none",
+  cursor: "pointer",
+  fontSize: 15,
+  fontWeight: 600,
+};
   useEffect(() => {
     const tooltips: Record<string, string> = {
       "ql-bold": "Bold",
@@ -365,30 +389,34 @@ useEffect(() => {
     );
   };
   //IST Formatter
-  const formatDateTimeIST = (dateString?: string) => {
-    if (!dateString) return "-";
+  // const formatDateTimeIST = (dateString?: string) => {
+  //   if (!dateString) return "-";
 
-    return new Intl.DateTimeFormat("en-IN", {
-      timeZone: "Asia/Kolkata",
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    }).format(new Date(dateString));
-  };
+  //   return new Intl.DateTimeFormat("en-IN", {
+  //     timeZone: "Asia/Kolkata",
+  //     day: "2-digit",
+  //     month: "short",
+  //     year: "numeric",
+  //     hour: "2-digit",
+  //     minute: "2-digit",
+  //     hour12: true,
+  //   }).format(new Date(dateString));
+  // };
 
-  const formatTimeIST = (dateString?: string) => {
-    if (!dateString) return "-";
+  // const formatTimeIST = (dateString?: string) => {
+  //   if (!dateString) return "-";
 
-    return new Intl.DateTimeFormat("en-IN", {
-      timeZone: "Asia/Kolkata",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    }).format(new Date(dateString));
-  };
+  //   return new Intl.DateTimeFormat("en-IN", {
+  //     timeZone: "Asia/Kolkata",
+  //     hour: "2-digit",
+  //     minute: "2-digit",
+  //     hour12: true,
+  //   }).format(new Date(dateString));
+  // };
+  // ✅ Using imported formatters from dateFormatters common
+  // For backwards compatibility, create aliases to the imported functions
+  const formatDateTimeIST = formatDateTimeLocal;
+  const formatTimeIST = formatTimeLocal;
   const fetchContact = async () => {
     if (!contactId || !effectiveUserId) return;
 
@@ -1746,76 +1774,82 @@ useEffect(() => {
                                         </button>
 
                                         {noteActionsAnchor === note.id && (
-                                          <div
-                                            className="segment-actions-menu py-[10px]"
-                                            style={{
-                                              position: "absolute",
-                                              right: 0,
-                                              top: 32,
-                                              background: "#fff",
-                                              border: "1px solid #eee",
-                                              borderRadius: 6,
-                                              boxShadow: "0 2px 16px rgba(0,0,0,0.12)",
-                                              zIndex: 101,
-                                              minWidth: 160,
+  <div
+    style={{
+      position: "absolute",
+      right: 0,
+      top: 36,
+      background: "#fff",
+      border: "1px solid #e5e7eb",
+      borderRadius: 8,
+      boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+      zIndex: 101,
+      minWidth: 170,
+      padding: "6px 0",
+    }}
+  >
+    {/* EDIT */}
+     <button
+                                            onClick={() => {
+                                              handleEditNote(note);
+                                              setNoteActionsAnchor(null);
                                             }}
+                                            style={menuItemStyle}
+                                            //className="flex gap-2 items-center ml-[0px]"
                                           >
-                                            <button
-                                              onClick={() => {
-                                                handleEditNote(note);
-                                                setNoteActionsAnchor(null);
-                                              }}
-                                              style={menuBtnStyle}
-                                              className="flex gap-2 items-center ml-[0px]"
-                                            >
-                                              <span>
-                                                <FontAwesomeIcon icon={faEdit} style={{ color: "#3f9f42", cursor: "pointer", }} className="text-[20px]" />
-                                              </span>
-                                              <span className="font-[600]">Edit</span>
-                                            </button>
+                                            <div style={menuIconStyle}>
+        <FontAwesomeIcon
+          icon={faEdit}
+          style={{ color: "#3f9f42", width: "100%", height: "100%" }}
+        />
+      </div>
+                                            <span className="font-[600]">Edit</span>
+                                          </button>
 
-                                            {/* 📌 PIN / UNPIN */}
-                                            <button
-                                              onClick={() => handleTogglePin(note.id)}
-                                              style={menuBtnStyle}
-                                              className="flex gap-2 items-center ml-[-4px]"
-                                            >
-                                              <span>
-                                                <FontAwesomeIcon
-                                                  icon={faThumbtack}
-                                                  style={{
-                                                    transform: note.isPin ? "rotate(45deg)" : "none",
-                                                    width: "25px",
-                                                    height: "25px",
-                                                    color: "#3f9f42"
-                                                  }}
-                                                />
-                                              </span>
-                                              <span className="font-[600]">
-                                                {note.isPin ? "Unpin" : "Pin"}
-                                              </span>
-                                            </button>
+    {/* PIN / UNPIN */}
+    <button
+  onClick={() => handleTogglePin(note.id)}
+  style={menuItemStyle}
+>
+   <div style={menuIconStyle}>
+        <img
+          src={note.isPin ? gpsPin : pinimage}
+          alt={note.isPin ? "Unpin" : "Pin"}
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            display: "block",
+          }}
+        />
+      </div>
+  <span>{note.isPin ? "Unpin" : "Pin"}</span>
+</button>
 
-                                            {/* 🗑️ DELETE */}
-                                            <button
-                                              onClick={() => {
-                                                handleDeleteNote(note.id);
-                                                setNoteActionsAnchor(null);
-                                              }}
-                                              style={menuBtnStyle}
-                                              className="flex gap-2 items-center ml-[-4px] "
-                                            >
-                                              <span className="ml-[3px] font-normal">
-                                                <img
-                                                  src={deleteIcon}
-                                                  alt="Delete"
-                                                  className="w-[24px] h-[24px] font-normal"
-                                              />
-                                              </span>
-                                              <span className="font-[600]">Delete</span>
-                                            </button>
-                                          </div>
-                                        )}
+    {/* DELETE */}
+    <button
+  onClick={() => {
+    handleDeleteNote(note.id);
+    setNoteActionsAnchor(null);
+  }}
+  style={{ ...menuItemStyle, color: "#dc2626" }}
+>
+  <div style={menuIconStyle}>
+        <img
+          src={deleteIcon}
+          alt="Delete"
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            display: "block",
+          }}
+        />
+      </div>
+  <span>Delete</span>
+</button>
+  </div>
+)}
 
 <div
   className="rendered-note-content"
@@ -2173,17 +2207,20 @@ useEffect(() => {
                                             style={menuBtnStyle}
                                             className="flex gap-2 items-center ml-[-4px]"
                                           >
-                                            <span>
-                                              <FontAwesomeIcon
-                                                icon={faThumbtack}
-                                                style={{
-                                                  transform: note.isPin ? "rotate(45deg)" : "none",
-                                                  width: "25px",
-                                                  height: "25px",
-                                                  color: "#3f9f42"
-                                                }}
+                                             <span>
+                                              <img
+                                               src={note.isPin ? gpsPin : pinimage}
+                                               alt={note.isPin ? "Unpin" : "Pin"}
+                                               style={{
+                                                width: "25px",
+                                                height: "25px",
+                                                cursor: "pointer",
+                                                transform: "rotate(314deg)", // ✅ 360° rotation
+                                                transition: "transform 0.3s ease",
+                                              //  filter: "invert(43%) sepia(68%) saturate(383%) hue-rotate(73deg) brightness(92%) contrast(89%)",
+                                               }}
                                               />
-                                            </span>
+                                              </span>
                                             <span className="font-[600]">
                                               {note.isPin ? "Unpin" : "Pin"}
                                             </span>
