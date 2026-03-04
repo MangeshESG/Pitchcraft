@@ -2385,8 +2385,8 @@ totalEmailCostRef.current += subjectCost;
             generated: true,
             lastemailupdateddate: new Date().toISOString(),
             emailsentdate: entry.email_sent_at || "N/A",
-            dataFileId: entry.dataFileId || entry.data_file_id || null,
-            segmentId: entry.segmentId || null,
+            dataFileId: entry.dataFileId || entry.data_file_id || parsedDataFileId || null, // ✅ Use parsedDataFileId if entry doesn't have it
+            segmentId: entry.segmentId || (segmentId ? parseInt(segmentId) : null), // ✅ Use segmentId from scope if entry doesn't have it
           };
           const responseIndex = shouldReplaceFromIndex
             ? currentIndex + (i - currentIndex)

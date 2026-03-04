@@ -376,7 +376,9 @@ const formatLocalDateTime = (dateString: string | undefined | null): string => {
                       style={{ width: "100%", padding: "8px", fontSize: 14 }}
                     >
                       <option value="">Sender</option>
-                      {smtpUsers.map((user) => (
+                      {smtpUsers
+                        .sort((a, b) => a.username.localeCompare(b.username, undefined, { sensitivity: 'base' }))
+                        .map((user) => (
                         <option key={user.id} value={user.id}>
                           {user.username}
                         </option>
@@ -408,7 +410,9 @@ const formatLocalDateTime = (dateString: string | undefined | null): string => {
                       style={{ width: "100%", padding: "8px", fontSize: 14 }}
                     >
                       <option value="">BCC email</option>
-                      {bccOptions.map((option) => (
+                      {bccOptions
+                        .sort((a, b) => a.bccEmailAddress.localeCompare(b.bccEmailAddress, undefined, { sensitivity: 'base' }))
+                        .map((option) => (
                         <option key={option.id} value={option.bccEmailAddress}>
                           {option.bccEmailAddress}
                         </option>
@@ -768,10 +772,11 @@ const formatLocalDateTime = (dateString: string | undefined | null): string => {
                       const canSendAny = combinedResponses.some((contact) => {
                         const emailedDate = contact.emailsentdate;
                         const kraftedDate = contact.lastemailupdateddate;
-                        if (!emailedDate || !kraftedDate) return true;
+                        if (!kraftedDate) return false;
+                        if (!emailedDate) return true;
                         const emailedTime = new Date(emailedDate).getTime();
                         const kraftedTime = new Date(kraftedDate).getTime();
-                        return kraftedTime >= emailedTime;
+                        return kraftedTime > emailedTime;
                       });
                       return !canSendAny;
                     }

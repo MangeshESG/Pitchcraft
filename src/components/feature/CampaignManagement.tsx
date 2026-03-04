@@ -154,7 +154,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
     try {
       const res = await fetch(`${API_BASE_URL}/api/crm/datafile-byclientid?clientId=${effectiveUserId}`);
       const data: DataFile[] = await res.json();
-      setDataFiles(data);
+      setDataFiles(data.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase())));
     } catch (err) {
       console.error("Error fetching data files:", err);
     }
@@ -165,7 +165,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
     try {
       const res = await fetch(`${API_BASE_URL}/api/Crm/get-segments-by-client?clientId=${effectiveUserId}`);
       const data: Segment[] = await res.json();
-      setSegments(data);
+      setSegments(data.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase())));
     } catch (err) {
       console.error("Error fetching segments:", err);
     }
@@ -187,7 +187,10 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
     try {
       const res = await fetch(`${API_BASE_URL}/api/CampaignPrompt/templates/${effectiveUserId}`);
       const data = await res.json();
-      setCampaignBlueprints(data.templates || []);
+      const templates = data.templates || [];
+      setCampaignBlueprints(templates.sort((a: CampaignBlueprint, b: CampaignBlueprint) => 
+        a.templateName.toLowerCase().localeCompare(b.templateName.toLowerCase())
+      ));
     } catch (err) {
       console.error("Error fetching campaign blueprints:", err);
     }

@@ -2821,7 +2821,9 @@ const confirmDeleteSmtp = async () => {
                       >
                         <option value="">Select campaign</option>
                         {scheduleCampaigns.length > 0 ? (
-                          scheduleCampaigns.map((campaign) => (
+                          scheduleCampaigns
+                            .sort((a, b) => a.campaignName.localeCompare(b.campaignName, undefined, { sensitivity: 'base' }))
+                            .map((campaign) => (
                             <option
                               key={`campaign-${campaign.id}`}
                               value={`campaign-${campaign.id}`}
@@ -2847,7 +2849,9 @@ const confirmDeleteSmtp = async () => {
                         style={{ width: "100%" }}
                       >
                         <option value="">Email</option>
-                        {smtpUsers.map((user) => (
+                        {smtpUsers
+                          .sort((a, b) => a.username.localeCompare(b.username, undefined, { sensitivity: 'base' }))
+                          .map((user) => (
                           <option key={user.id} value={user.id}>
                             {user.username}
                           </option>
