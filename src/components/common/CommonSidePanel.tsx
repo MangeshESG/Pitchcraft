@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 interface CommonSidePanelProps {
   isOpen: boolean;
@@ -17,6 +17,22 @@ const CommonSidePanel: React.FC<CommonSidePanelProps> = ({
   width = 454,
   footerContent,
 }) => {
+  const [shouldRender, setShouldRender] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setShouldRender(true);
+      setTimeout(() => setIsAnimating(true), 10);
+    } else {
+      setIsAnimating(false);
+      const timer = setTimeout(() => setShouldRender(false), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
+  if (!shouldRender) return null;
+
   return (
     <div
       style={{
@@ -27,21 +43,23 @@ const CommonSidePanel: React.FC<CommonSidePanelProps> = ({
         width,
         background: "#fff",
         boxShadow: "rgba(0, 0, 0, 0.30) -4px 0px 10px",
-        transform: isOpen ? "translateX(0)" : "translateX(100%)",
-        transition: "transform 0.35s ease-in-out",
+        transform: isAnimating ? "translateX(0)" : "translateX(100%)",
+        transition: "transform 1s ease-in-out",
         zIndex: 1000,
         display: "flex",
         flexDirection: "column",
+        borderTopLeftRadius: "30px",
       }}
     >
       {/* HEADER */}
       <div
         style={{
-          background: "#ffffff",
+          background: "#E4F5E5",
           padding: "16px 20px",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
+          borderTopLeftRadius: "30px",
         }}
         className='border-[#cccccc] border-b'
       >

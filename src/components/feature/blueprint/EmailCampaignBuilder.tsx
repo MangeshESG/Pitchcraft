@@ -1516,6 +1516,33 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
     setEditableExampleOutput(exampleOutput || "");
   }, [exampleOutput]);
 
+  useEffect(() => {
+    if (!uiPlaceholders.length) return;
+
+    const withMissingDefaults = (values: Record<string, string>) => {
+      let changed = false;
+      const next = { ...values };
+
+      uiPlaceholders.forEach((p) => {
+        const hasValue = Object.prototype.hasOwnProperty.call(
+          next,
+          p.placeholderKey,
+        );
+        const defaultValue = p.defaultValue;
+
+        if (!hasValue && defaultValue != null && defaultValue !== "") {
+          next[p.placeholderKey] = defaultValue;
+          changed = true;
+        }
+      });
+
+      return changed ? next : values;
+    };
+
+    setFormValues((prev) => withMissingDefaults(prev));
+    setPlaceholderValues((prev) => withMissingDefaults(prev));
+  }, [uiPlaceholders, setPlaceholderValues]);
+
   // ✅ CRITICAL: Sync formValues whenever placeholderValues changes
   useEffect(() => {
     if (Object.keys(placeholderValues).length > 0) {
@@ -2142,7 +2169,10 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       const response = await axios.get(
         `${API_BASE_URL}/api/CampaignPrompt/template-definitions?activeOnly=true`,
       );
-      setTemplateDefinitions(response.data.templateDefinitions || []);
+      const definitions = response.data.templateDefinitions || [];
+      setTemplateDefinitions(definitions.sort((a: TemplateDefinition, b: TemplateDefinition) => 
+        a.templateName.localeCompare(b.templateName)
+      ));
     } catch (error) {
       console.error("Error loading template definitions:", error);
     } finally {
@@ -2723,11 +2753,6 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   // ====================================================================
   const availableModels: GPTModel[] = [
     {
-      id: "gpt-5.1",
-      name: "GPT-5.1",
-      description: "Adaptive-reasoning flagship update to the GPT-5 series",
-    },
-    {
       id: "gpt-4.1",
       name: "GPT-4.1",
       description: "Flagship model in the 4.1 family",
@@ -2749,6 +2774,11 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       description: "Efficient GPT-4o model",
     },
     { id: "gpt-5", name: "GPT-5", description: "Standard flagship model" },
+    {
+      id: "gpt-5.1",
+      name: "GPT-5.1",
+      description: "Adaptive-reasoning flagship update to the GPT-5 series",
+    },
     {
       id: "gpt-5-mini",
       name: "GPT-5 Mini",
@@ -2939,9 +2969,12 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
 
     return () => clearInterval(checkInterval);
   }, [currentCampaignId]);
-  const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
-    const key = p.placeholderKey;
-    const value = formValues[key] ?? "";
+const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
+  const key = p.placeholderKey;
+  const hasExplicitValue = Object.prototype.hasOwnProperty.call(formValues, key);
+  const value = hasExplicitValue
+    ? formValues[key] ?? ""
+    : p.defaultValue ?? "";
 
     const baseStyle: React.CSSProperties = {
       width: "100%",
@@ -3929,7 +3962,6 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       {/* ================= LOADING OVERLAYS ================= */}
       {isLoadingTemplate && <LoadingSpinner message="Loading template for editing..." />}
       {isLoadingDefinitions && <LoadingSpinner message="Loading blueprint definitions..." />}
-      {isPreviewLoading && <LoadingSpinner message="Generating email preview..." />}
       {isSavingElements && <LoadingSpinner message="Saving elements..." />}
 
       {/* ================= MAIN CONTAINER ================= */}
@@ -4483,15 +4515,15 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
 
                                 className="definition-select"
                               >
-                                <option value="your company">YOUR COMPANY</option>
+                                <option value="call-to-action">CALL-TO-ACTION</option>
                                 <option value="core message focus">CORE MESSAGE FOCUS</option>
                                 <option value="dos and don'ts">DOS AND DON'TS</option>
-                                <option value="message writing style">MESSAGE WRITING STYLE</option>
-                                <option value="call-to-action">CALL-TO-ACTION</option>
-                                <option value="greetings & farewells">GREETINGS & FAREWELLS</option>
-                                <option value="subject line">SUBJECT LINE</option>
-                                <option value="extra visuals">EXTRA VISUALS</option>
                                 <option value="extra assets">EXTRA ASSETS</option>
+                                <option value="extra visuals">EXTRA VISUALS</option>
+                                <option value="greetings & farewells">GREETINGS & FAREWELLS</option>
+                                <option value="message writing style">MESSAGE WRITING STYLE</option>
+                                <option value="subject line">SUBJECT LINE</option>
+                                <option value="your company">YOUR COMPANY</option>
 
                               </select>
 

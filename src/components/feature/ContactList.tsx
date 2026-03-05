@@ -8,6 +8,7 @@ import AddContactModal from "./AddContactModal";
 import EditContactModal from "./EditContactModal";
 import CreateListModal from "./CreateListModal";
 import SegmentModal from "../common/SegmentModal";
+import CommonSidePanel from "../common/CommonSidePanel";
 
 import { useAppModal } from "../../hooks/useAppModal";
 import { useSelector } from "react-redux";
@@ -2141,10 +2142,11 @@ const formatTimeIST = (dateString?: string) => {
                            // Use row.dataFileId if available (from All Contacts), otherwise use selectedDataFileForView.id
                            const dataFileId = row.dataFileId || selectedDataFileForView?.id;
                            
-                           if (!dataFileId) {
-                             console.error("No dataFileId available for contact");
-                             return;
-                           }
+                           console.log("[ContactList] Opening contact:", {
+                             contactId: row.id,
+                             dataFileId: dataFileId,
+                             rowData: row
+                           });
 
                            const contactDetailsUrl = `/#/contact-details/${row.id}?dataFileId=${dataFileId}`;
                            window.open(contactDetailsUrl, "_blank");
@@ -2367,143 +2369,117 @@ const formatTimeIST = (dateString?: string) => {
                 />
               )}
 
-              {editingList && !showConfirmListDelete && (
-                <div
-                  style={{
-                    position: "fixed",
-                    zIndex: 99999,
-                    inset: 0,
-                    background: "rgba(0,0,0,0.6)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <div
-                    style={{
-                      background: "#fff",
-                      padding: 24,
-                      borderRadius: 8,
-                      minWidth: 400,
-                      boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
-                    }}
-                  >
-                    <h3
-                      className="sub-title"
-                      style={{ marginTop: 0, marginBottom: 16 }}
-                    >
-                      Rename list
-                    </h3>
-
-                    {/* Name field */}
-                    <div style={{ marginBottom: 16 }} className="form-group">
-                      <label
-                        style={{
-                          display: "block",
-                          marginBottom: 4,
-                        }}
-                      >
-                        List name <span style={{ color: "red" }}>*</span>
-                      </label>
-                      <input
-                        value={renamingListName}
-                        onChange={(e) => setRenamingListName(e.target.value)}
-                        style={{
-                          width: "100%",
-                          padding: "8px 12px",
-                          border: "1px solid #ddd",
-                          borderRadius: "4px",
-                        }}
-                        placeholder="Enter list name"
-                        autoFocus
-                      />
-                    </div>
-
-                    {/* Description field */}
-                    <div style={{ marginBottom: 16 }} className="form-group">
-                      <label
-                        style={{
-                          display: "block",
-                          marginBottom: 4,
-                        }}
-                      >
-                        Description <span style={{ color: "red" }}></span>
-                      </label>
-                      <textarea
-                        value={renamingListDescription}
-                        onChange={(e) =>
-                          setRenamingListDescription(e.target.value)
-                        }
-                        style={{
-                          width: "100%",
-                          padding: "8px 12px",
-                          border: "1px solid #ddd",
-                          borderRadius: "4px",
-                          minHeight: "80px",
-                          resize: "vertical",
-                        }}
-                        placeholder="Enter description for this list"
-                        rows={3}
-                      />
-                    </div>
-
-                    <div
+              <CommonSidePanel
+                isOpen={editingList !== null && !showConfirmListDelete}
+                onClose={() => {
+                  setEditingList(null);
+                  setRenamingListName("");
+                  setRenamingListDescription("");
+                }}
+                title="Rename list"
+                footerContent={
+                  <>
+                    <button
+                      onClick={() => {
+                        setEditingList(null);
+                        setRenamingListName("");
+                        setRenamingListDescription("");
+                      }}
+                      className="button secondary"
                       style={{
-                        display: "flex",
-                        gap: 12,
-                        justifyContent: "flex-end",
+                        padding: "8px 16px",
+                        border: "1px solid #ddd",
+                        background: "#fff",
+                        borderRadius: "4px",
+                        cursor: "pointer",
                       }}
                     >
-                      <button
-                        onClick={() => {
-                          setEditingList(null);
-                          setRenamingListName("");
-                          setRenamingListDescription("");
-                        }}
-                        className="button secondary"
-                        style={{
-                          padding: "8px 16px",
-                          border: "1px solid #ddd",
-                          background: "#fff",
-                          borderRadius: "4px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        className="button primary"
-                        onClick={handleRenameList}
-                        disabled={
-                          !renamingListName.trim() ||
-                          !renamingListDescription.trim() ||
-                          isRenamingList
-                        }
-                        style={{
-                          padding: "8px 16px",
-                          background:
-                            renamingListName.trim() &&
-                              renamingListDescription.trim() &&
-                              !isRenamingList
-                              ? "#3f9f42"
-                              : "#ccc",
-                          color: "#fff",
-                          border: "none",
-                          borderRadius: "4px",
-                          cursor:
-                            renamingListName.trim() &&
-                              renamingListDescription.trim() &&
-                              !isRenamingList
-                              ? "pointer"
-                              : "not-allowed",
-                        }}
-                      >
-                        {isRenamingList ? "Saving..." : "Save"}
-                      </button>
-                    </div>
-                  </div>
+                      Cancel
+                    </button>
+                    <button
+                      className="button primary"
+                      onClick={handleRenameList}
+                      disabled={
+                        !renamingListName.trim() ||
+                        !renamingListDescription.trim() ||
+                        isRenamingList
+                      }
+                      style={{
+                        padding: "8px 16px",
+                        background:
+                          renamingListName.trim() &&
+                            renamingListDescription.trim() &&
+                            !isRenamingList
+                            ? "#3f9f42"
+                            : "#ccc",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor:
+                          renamingListName.trim() &&
+                            renamingListDescription.trim() &&
+                            !isRenamingList
+                            ? "pointer"
+                            : "not-allowed",
+                      }}
+                    >
+                      {isRenamingList ? "Saving..." : "Save"}
+                    </button>
+                  </>
+                }
+              >
+                {/* Name field */}
+                <div style={{ marginBottom: 16 }} className="form-group">
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: 4,
+                    }}
+                  >
+                    List name <span style={{ color: "red" }}>*</span>
+                  </label>
+                  <input
+                    value={renamingListName}
+                    onChange={(e) => setRenamingListName(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: "1px solid #ddd",
+                      borderRadius: "4px",
+                    }}
+                    placeholder="Enter list name"
+                    autoFocus
+                  />
                 </div>
-              )}
+
+                {/* Description field */}
+                <div style={{ marginBottom: 16 }} className="form-group">
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: 4,
+                    }}
+                  >
+                    Description <span style={{ color: "red" }}></span>
+                  </label>
+                  <textarea
+                    value={renamingListDescription}
+                    onChange={(e) =>
+                      setRenamingListDescription(e.target.value)
+                    }
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: "1px solid #ddd",
+                      borderRadius: "4px",
+                      minHeight: "80px",
+                      resize: "vertical",
+                    }}
+                    placeholder="Enter description for this list"
+                    rows={3}
+                  />
+                </div>
+              </CommonSidePanel>
 
               {/* Delete confirmation modal - FIXED VERSION */}
               {editingList && showConfirmListDelete && (
@@ -3850,123 +3826,116 @@ const formatTimeIST = (dateString?: string) => {
       )}
 
       {/* Rename Segment Modal */}
-      {editingSegment && !showConfirmSegmentDelete && (
-        <div
-          style={{
-            position: "fixed",
-            zIndex: 99999,
-            inset: 0,
-            background: "rgba(0,0,0,0.6)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <div
-            style={{
-              background: "#fff",
-              padding: 24,
-              borderRadius: 8,
-              minWidth: 400,
-              boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
-            }}
-          >
-            <h3 style={{ marginTop: 0, marginBottom: 16 }}>Rename segment</h3>
-
-            {/* Name field */}
-            <div style={{ marginBottom: 16 }}>
-              <label
-                style={{ display: "block", marginBottom: 4, fontWeight: 500 }}
-              >
-                Segment name <span style={{ color: "red" }}>*</span>
-              </label>
-              <input
-                value={renamingSegmentName}
-                onChange={(e) => setRenamingSegmentName(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "1px solid #ddd",
-                  borderRadius: "4px",
-                }}
-                placeholder="Enter segment name"
-                autoFocus
-              />
-            </div>
-
-            {/* Description field */}
-            <div style={{ marginBottom: 16 }}>
-              <label
-                style={{ display: "block", marginBottom: 4, fontWeight: 500 }}
-              >
-                Description <span style={{ color: "red" }}></span>
-              </label>
-              <textarea
-                value={renamingSegmentDescription}
-                onChange={(e) => setRenamingSegmentDescription(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "1px solid #ddd",
-                  borderRadius: "4px",
-                  minHeight: "80px",
-                  resize: "vertical",
-                }}
-                placeholder="Enter description for this segment"
-                rows={3}
-              />
-            </div>
-
-            <div
-              style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}
+      <CommonSidePanel
+        isOpen={editingSegment !== null && !showConfirmSegmentDelete}
+        onClose={() => {
+          setEditingSegment(null);
+          setRenamingSegmentName("");
+          setRenamingSegmentDescription("");
+        }}
+        title="Rename segment"
+        footerContent={
+          <>
+            <button
+              onClick={() => {
+                setEditingSegment(null);
+                setRenamingSegmentName("");
+                setRenamingSegmentDescription("");
+              }}
+              className="button secondary"
+              style={{
+                padding: "10px 32px",
+                border: "1px solid #ddd",
+                background: "#fff",
+                borderRadius: "24px",
+                cursor: "pointer",
+                fontSize: "14px",
+                fontWeight: "500",
+                color: "#333",
+              }}
             >
-              <button
-                onClick={() => {
-                  setEditingSegment(null);
-                  setRenamingSegmentName("");
-                  setRenamingSegmentDescription("");
-                }}
-                className="button secondary"
-                style={{
-                  padding: "8px 16px",
-                  border: "1px solid #ddd",
-                  background: "#fff",
-                  borderRadius: "4px",
-                  cursor: "pointer",
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                className="button primary"
-                onClick={handleRenameSegment}
-                disabled={
-                  !renamingSegmentName.trim() ||
-                  isRenamingSegment
-                }
-                style={{
-                  padding: "8px 16px",
-                  background:
-                    renamingSegmentName.trim() &&
-                      !isRenamingSegment
-                      ? "#007bff"
-                      : "#ccc",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "4px",
-                  cursor:
-                    renamingSegmentName.trim() &&
-                      !isRenamingSegment
-                      ? "pointer"
-                      : "not-allowed",
-                }}
-              >
-                {isRenamingSegment ? "Saving..." : "Save"}
-              </button>
-            </div>
-          </div>
+              Cancel
+            </button>
+            <button
+              className="button primary"
+              onClick={handleRenameSegment}
+              disabled={
+                !renamingSegmentName.trim() ||
+                isRenamingSegment
+              }
+              style={{
+                padding: "10px 32px",
+                background: "#fff",
+                color:
+                  renamingSegmentName.trim() &&
+                    !isRenamingSegment
+                    ? "#ef4444"
+                    : "#ccc",
+                border: `1px solid ${
+                  renamingSegmentName.trim() &&
+                    !isRenamingSegment
+                    ? "#ef4444"
+                    : "#ccc"
+                }`,
+                borderRadius: "24px",
+                cursor:
+                  renamingSegmentName.trim() &&
+                    !isRenamingSegment
+                    ? "pointer"
+                    : "not-allowed",
+                fontSize: "14px",
+                fontWeight: "500",
+              }}
+            >
+              {isRenamingSegment ? "Saving..." : "Save"}
+            </button>
+          </>
+        }
+      >
+        {/* Name field */}
+        <div style={{ marginBottom: 16 }}>
+          <label
+            style={{ display: "block", marginBottom: 4, fontWeight: 500 }}
+          >
+            Segment name <span style={{ color: "red" }}>*</span>
+          </label>
+          <input
+            value={renamingSegmentName}
+            onChange={(e) => setRenamingSegmentName(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "8px 12px",
+              border: "1px solid #ddd",
+              borderRadius: "4px",
+            }}
+            placeholder="Enter segment name"
+            autoFocus
+          />
         </div>
-      )}
+
+        {/* Description field */}
+        <div style={{ marginBottom: 16 }}>
+          <label
+            style={{ display: "block", marginBottom: 4, fontWeight: 500 }}
+          >
+            Description <span style={{ color: "red" }}></span>
+          </label>
+          <textarea
+            value={renamingSegmentDescription}
+            onChange={(e) => setRenamingSegmentDescription(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "8px 12px",
+              border: "1px solid #ddd",
+              borderRadius: "4px",
+              minHeight: "80px",
+              resize: "vertical",
+            }}
+            placeholder="Enter description for this segment"
+            rows={3}
+          />
+        </div>
+      </CommonSidePanel>
 
       {/* Delete Segment Confirmation Modal */}
       {editingSegment && showConfirmSegmentDelete && (

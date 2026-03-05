@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import API_BASE_URL from '../../config';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../Redux/store';
+import CommonSidePanel from '../common/CommonSidePanel';
 
 interface CreateListModalProps {
   isOpen: boolean;
@@ -173,28 +174,50 @@ const CreateListModal: React.FC<CreateListModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div style={{
-      position: 'fixed',
-      zIndex: 99999,
-      inset: 0,
-      background: 'rgba(0,0,0,0.6)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center'
-    }}>
-      <div style={{
-        background: '#fff',
-        padding: 24,
-        borderRadius: 8,
-        width: '45%',
-        maxWidth: 800,
-        maxHeight: '90vh',
-        overflow: 'auto',
-        boxShadow: '0 20px 60px rgba(0,0,0,0.5)'
-      }}>
-        <h3 style={{ marginTop: 0, marginBottom: 20 }}>Create new list</h3>
-        
-        <form onSubmit={handleSubmit}>
+    <CommonSidePanel
+      isOpen={isOpen}
+      onClose={handleClose}
+      title="Create new list"
+      width={550}
+      footerContent={
+        <>
+          <button
+            type="button"
+            onClick={handleClose}
+            style={{
+              padding: '10px 24px',
+              borderRadius: '24px',
+              border: '2px solid #ddd',
+              background: '#fff',
+              color: '#666',
+              fontSize: '14px',
+              fontWeight: '500',
+              cursor: 'pointer'
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={isSubmitting || !listName.trim()}
+            style={{
+              padding: '10px 24px',
+              borderRadius: '24px',
+              border: '2px solid #dc3545',
+              background: '#fff',
+              color: '#dc3545',
+              fontSize: '14px',
+              fontWeight: '500',
+              cursor: (isSubmitting || !listName.trim()) ? 'not-allowed' : 'pointer',
+              opacity: (isSubmitting || !listName.trim()) ? 0.5 : 1
+            }}
+          >
+            {isSubmitting ? 'Creating...' : 'Create list'}
+          </button>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit}>
           {/* List Details */}
           <div style={{ marginBottom: 24, padding: 16, background: '#f8f9fa', borderRadius: 6 }}>
             <h4 style={{ marginTop: 0, marginBottom: 16 }}>List details</h4>
@@ -243,11 +266,11 @@ const CreateListModal: React.FC<CreateListModalProps> = ({
                 type="button"
                 onClick={addContact}
                 style={{
-                  padding: '6px 12px',
+                  padding: '10px 24px',
                   background: '#3f9f42',
                   color: '#fff',
                   border: 'none',
-                  borderRadius: '4px',
+                  borderRadius: '24px',
                   cursor: 'pointer',
                   fontSize: '14px'
                 }}
@@ -377,38 +400,8 @@ const CreateListModal: React.FC<CreateListModalProps> = ({
             ))}
           </div>
 
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
-            <button
-              type="button"
-              onClick={handleClose}
-              style={{
-                padding: '8px 16px',
-                border: '1px solid #ddd',
-                background: '#fff',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting || !listName.trim()}
-              style={{
-                padding: '8px 16px',
-                background: isSubmitting || !listName.trim() ? '#ccc' : '#3f9f42',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: isSubmitting || !listName.trim() ? 'not-allowed' : 'pointer'
-              }}
-            >
-              {isSubmitting ? 'Creating...' : 'Create list'}
-            </button>
-          </div>
         </form>
-      </div>
-    </div>
+    </CommonSidePanel>
   );
 };
 

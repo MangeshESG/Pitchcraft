@@ -635,10 +635,12 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
         emailBody: currentItem.pitch || "",
       });
 
-      // Update combinedResponses
+      // Update combinedResponses - PRESERVE segmentId and dataFileId
       const updatedItem = {
         ...currentItem,
         subject: editableSubject,
+        segmentId: currentItem.segmentId || currentItem.SegmentId, // ✅ Preserve (check both cases)
+        dataFileId: currentItem.dataFileId || currentItem.DataFileId, // ✅ Preserve (check both cases)
       };
 
       setCombinedResponses((prev) =>
@@ -761,11 +763,14 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
     try {
       // Get the subject from the current item
       const currentSubject = combinedResponses[currentIndex]?.subject;
+      const currentContact = combinedResponses[currentIndex];
 
-      // Create the updated item with new pitch
+      // Create the updated item with new pitch - PRESERVE segmentId and dataFileId
       const updatedItem = {
-        ...combinedResponses[currentIndex],
+        ...currentContact,
         pitch: editableContent,
+        segmentId: currentContact.segmentId || currentContact.SegmentId, // ✅ Preserve (check both cases)
+        dataFileId: currentContact.dataFileId || currentContact.DataFileId, // ✅ Preserve (check both cases)
       };
 
       // First save to Zoho before updating UI - now passing the subject
@@ -1034,6 +1039,9 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
           emailsentdate: new Date().toISOString(),
 
           PG_Added_Correctly: true,
+          
+          segmentId: combinedResponses[currentIndex].segmentId || combinedResponses[currentIndex].SegmentId, // ✅ Preserve (check both cases)
+          dataFileId: combinedResponses[currentIndex].dataFileId || combinedResponses[currentIndex].DataFileId, // ✅ Preserve (check both cases)
         };
 
         setCombinedResponses((prev) =>
@@ -1353,12 +1361,20 @@ const sleepWithCountdown = async (ms: number) => {
 
 
   const sendEmailsInBulk = async (startIdx = 0, endIdx?: number) => {
-    if (isBulkSending) return;
-
-    if (!selectedSmtpUser) {
+    console.log('🚀 sendEmailsInBulk STARTED', { startIdx, endIdx, isBulkSending, selectedSmtpUser });
+    
+    if (isBulkSending) {
+      console.log('⚠️ Already sending, returning');
       return;
     }
 
+    if (!selectedSmtpUser) {
+      console.log('❌ No SMTP user selected');
+      toast.error('Please select From email first');
+      return;
+    }
+
+    console.log('✅ Starting bulk send...');
     setIsBulkSending(true);
     stopBulkRef.current = false;
 
@@ -1421,7 +1437,7 @@ const sleepWithCountdown = async (ms: number) => {
           contactid: contact.id,
           campaignId: selectedCampaign ? parseInt(selectedCampaign) : null,
 
-          // Priority: segmentId first, then dataFileId
+          // Priority: segmentId first, then dataFileId, then null (backend will handle)
           segmentId:
             contact.segmentId &&
             contact.segmentId !== "null" &&
@@ -1455,17 +1471,19 @@ const sleepWithCountdown = async (ms: number) => {
           jobTitle: contact.title || "",
         };
 
-        // Add validation before sending
-        if (!requestBody.segmentId && !requestBody.dataFileId) {
-          console.error(
-            `Skipping contact ${contact.id}: Missing both segmentId and dataFileId`,
-          );
-          skippedCount++;
-          index++;
-          setBulkSendIndex(index);
-          await new Promise((res) => setTimeout(res, 500));
-          continue;
-        }
+        console.log('📧 Sending email for contact:', contact.id, 'segmentId:', requestBody.segmentId, 'dataFileId:', requestBody.dataFileId);
+
+        // Remove validation - let backend handle it
+        // if (!requestBody.segmentId && !requestBody.dataFileId) {
+        //   console.error(
+        //     `Skipping contact ${contact.id}: Missing both segmentId and dataFileId`,
+        //   );
+        //   skippedCount++;
+        //   index++;
+        //   setBulkSendIndex(index);
+        //   await new Promise((res) => setTimeout(res, 500));
+        //   continue;
+        // }
 
         const response = await axios.post(
           `${API_BASE_URL}/api/email/send-singleEmail`,
@@ -1491,6 +1509,9 @@ const sleepWithCountdown = async (ms: number) => {
           emailsentdate: new Date().toISOString(),
 
           PG_Added_Correctly: true,
+          
+          segmentId: contact.segmentId || contact.SegmentId, // ✅ Preserve (check both cases)
+          dataFileId: contact.dataFileId || contact.DataFileId, // ✅ Preserve (check both cases)
         };
 
         // Update combinedResponses
@@ -1575,11 +1596,16 @@ const sleepWithCountdown = async (ms: number) => {
 
       // Wait before processing next email
 
-        // Wait ONLY if next email exists AND delay is enabled
-        if (index < combinedResponses.length - 1 && !stopBulkRef.current && enableDelay) {
-          const delayMs = getRandomDelayMs(minDelay, maxDelay);
-          console.log(`⏳ Waiting ${delayMs / 1000}s before next email`);
-          await sleepWithCountdown(delayMs);
+        // Wait ONLY if next email exists
+        if (index < combinedResponses.length - 1 && !stopBulkRef.current) {
+          if (enableDelay) {
+            const delayMs = getRandomDelayMs(minDelay, maxDelay);
+            console.log(`⏳ Waiting ${delayMs / 1000}s before next email`);
+            await sleepWithCountdown(delayMs);
+          } else {
+            // Small delay to prevent overwhelming the server
+            await new Promise((res) => setTimeout(res, 500));
+          }
         }
 
     // Throttle emails
@@ -1611,7 +1637,7 @@ const sleepWithCountdown = async (ms: number) => {
   // Index range states for bulk email sending
   const [startIndex, setStartIndex] = useState("");
   const [endIndex, setEndIndex] = useState("");
-  const [enableDelay, setEnableDelay] = useState(false);
+  const [enableDelay, setEnableDelay] = useState(true);
   const [enableIndexRange, setEnableIndexRange] = useState(false);
 
   // Kraft email index range states
@@ -1693,7 +1719,9 @@ useEffect(() => {
                       value={selectedCampaign}
                     >
                       <option value="">Campaign</option>
-                      {(campaigns || []).map((campaign) => (
+                      {(campaigns || [])
+                        .sort((a, b) => a.campaignName.localeCompare(b.campaignName, undefined, { sensitivity: 'base' }))
+                        .map((campaign) => (
                         <option key={campaign.id} value={campaign.id.toString()}>
                           {campaign.campaignName}
                         </option>
@@ -1837,7 +1865,7 @@ useEffect(() => {
 
               {/* Middle section - Buttons and checkbox */}
               <div className="flex items-center gap-4 mt-[26px]">
-                {/* <div 
+                <div 
                   className="flex items-center gap-3 px-4 py-2" 
                   style={{
                     border: "1px solid #ddd",
@@ -1870,32 +1898,14 @@ useEffect(() => {
                       Stop
                     </button>
                   )}
-                </div> */}
+                </div>
 
-                {/* <button
+                <button
                   className="green rounded-md py-[5px] px-[15px] border border-[#3f9f42]"
                   onClick={() => setSendEmailControls(!sendEmailControls)}
                 >
                   Send emails
-                </button> */}
-
-                {/* !isDemoAccount && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      className="secondary-button nowrap"
-                      onClick={handleClearAll}
-                      disabled={!isResetEnabled}
-                      title="Reset all company level intel"
-                    >
-                      Reset
-                    </button>
-                    <span>
-                      <ReactTooltip anchorSelect="#overwrite-info" place="top">
-                        Reset all company level intel
-                      </ReactTooltip>
-                    </span>
-                  </div>
-                ) */}
+                </button>
               </div>
             </div>
 
@@ -2054,6 +2064,7 @@ useEffect(() => {
       <div className="flex">
         {/* Send Email Panel */}
         <SendEmailPanel
+          key={`send-panel-${combinedResponses.length}-${currentIndex}`}
           isOpen={sendEmailControls}
           onClose={() => setSendEmailControls(!sendEmailControls)}
           bccOptions={bccOptions}
@@ -2831,10 +2842,10 @@ useEffect(() => {
                                   width: "auto",
                                 }}
                               >
-                                <option value="p">Normal</option>
                                 <option value="h1">Heading 1</option>
                                 <option value="h2">Heading 2</option>
                                 <option value="h3">Heading 3</option>
+                                <option value="p">Normal</option>
                                 <option value="pre">Preformatted</option>
                               </select>
 
@@ -3968,7 +3979,7 @@ useEffect(() => {
       )}
 
       {/* Kraft Email Panel */}
-      <KraftEmailPanel
+      {/* <KraftEmailPanel
         isOpen={kraftEmailControls}
         onClose={() => setKraftEmailControls(false)}
         isResetEnabled={isResetEnabled}
@@ -4025,7 +4036,7 @@ useEffect(() => {
           handleStart?.(startIdx);
         }}
         onStop={handleStop}
-      />
+      /> */}
 
 
     </div>

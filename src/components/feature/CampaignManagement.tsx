@@ -8,6 +8,7 @@ import { useAppModal } from "../../hooks/useAppModal";
 import PaginationControls from "./PaginationControls";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import CommonSidePanel from "../common/CommonSidePanel";
 import deleteIcon from "../../assets/images/deleteiconn.png";
 import { faEdit,faTrashAlt,faCircleXmark ,faFileLines   } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -155,7 +156,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
     try {
       const res = await fetch(`${API_BASE_URL}/api/crm/datafile-byclientid?clientId=${effectiveUserId}`);
       const data: DataFile[] = await res.json();
-      setDataFiles(data);
+      setDataFiles(data.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase())));
     } catch (err) {
       console.error("Error fetching data files:", err);
     }
@@ -166,7 +167,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
     try {
       const res = await fetch(`${API_BASE_URL}/api/Crm/get-segments-by-client?clientId=${effectiveUserId}`);
       const data: Segment[] = await res.json();
-      setSegments(data);
+      setSegments(data.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase())));
     } catch (err) {
       console.error("Error fetching segments:", err);
     }
@@ -188,7 +189,10 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
     try {
       const res = await fetch(`${API_BASE_URL}/api/CampaignPrompt/templates/${effectiveUserId}`);
       const data = await res.json();
-      setCampaignBlueprints(data.templates || []);
+      const templates = data.templates || [];
+      setCampaignBlueprints(templates.sort((a: CampaignBlueprint, b: CampaignBlueprint) => 
+        a.templateName.toLowerCase().localeCompare(b.templateName.toLowerCase())
+      ));
     } catch (err) {
       console.error("Error fetching campaign blueprints:", err);
     }
@@ -665,253 +669,218 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
         />
       </div>
       <ToastContainer />
-      {showCreateCampaignModal && (
-        <div
-          // onClick={() => {
-          //   setShowCreateCampaignModal(false);
-          //   setSelectedCampaign(null);
-          //   setCampaignForm({
-          //     campaignName: "",
-          //     promptId: "",
-          //     zohoViewId: "",
-          //     segmentId: "",
-          //     description: "",
-          //     templateId: "",
-          //   });
-          //   setSelectedPrompt(null);
-          // }}
-          style={{
-            position: "fixed",
-            inset: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.5)",
-            zIndex: 9999,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              background: "#fff",
-              borderRadius: "8px",
-              padding: "32px 40px",
-              width: "45%",
-              maxWidth: "800px",
-              boxShadow: "0px 8px 40px rgba(0,0,0,0.2)",
-              position: "relative",
-              animation: "fadeIn 0.2s ease-in-out",
-            }}
-          >
-            <h2
+      <CommonSidePanel
+        isOpen={showCreateCampaignModal}
+        onClose={() => {
+          setShowCreateCampaignModal(false);
+          setSelectedCampaign(null);
+          setCampaignForm({
+            campaignName: "",
+            promptId: "",
+            zohoViewId: "",
+            segmentId: "",
+            description: "",
+            templateId: "",
+          });
+          setSelectedPrompt(null);
+        }}
+        title={selectedCampaign ? "Edit campaign" : "Create campaign"}
+        footerContent={
+          <>
+            <button
+              onClick={() => setShowCreateCampaignModal(false)}
               style={{
-                fontSize: "20px",
-                fontWeight: "600",
-                marginBottom: "24px",
-                color: "#222",
+                padding: "10px 32px",
+                border: "1px solid #ddd",
+                background: "#fff",
+                borderRadius: "24px",
+                cursor: "pointer",
+                fontSize: "14px",
+                fontWeight: "500",
+                color: "#333",
               }}
             >
-              {selectedCampaign ? "Edit campaign" : "Create campaign"}
-            </h2>
+              Cancel
+            </button>
+            <button
+              onClick={selectedCampaign ? updateCampaign : createCampaign}
+              disabled={
+                isLoading ||
+                !campaignForm.campaignName ||
+                !campaignForm.templateId ||
+                (!campaignForm.zohoViewId && !campaignForm.segmentId)
+              }
+              style={{
+                padding: "10px 32px",
+                background: "#fff",
+                color:
+                  !isLoading &&
+                  campaignForm.campaignName &&
+                  campaignForm.templateId &&
+                  (campaignForm.zohoViewId || campaignForm.segmentId)
+                    ? "#ef4444"
+                    : "#ccc",
+                border: `1px solid ${
+                  !isLoading &&
+                  campaignForm.campaignName &&
+                  campaignForm.templateId &&
+                  (campaignForm.zohoViewId || campaignForm.segmentId)
+                    ? "#ef4444"
+                    : "#ccc"
+                }`,
+                borderRadius: "24px",
+                cursor:
+                  !isLoading &&
+                  campaignForm.campaignName &&
+                  campaignForm.templateId &&
+                  (campaignForm.zohoViewId || campaignForm.segmentId)
+                    ? "pointer"
+                    : "not-allowed",
+                fontSize: "14px",
+                fontWeight: "500",
+              }}
+            >
+              {isLoading
+                ? selectedCampaign
+                  ? "Updating..."
+                  : "Creating..."
+                : selectedCampaign
+                  ? "Update"
+                  : "Create"}
+            </button>
+          </>
+        }
+      >
+        {/* Campaign Name */}
+        <div style={{ marginBottom: "16px" }}>
+          <label style={{ fontWeight: 500, display: "block", marginBottom: "4px" }}>
+            Campaign name <span style={{ color: "red" }}>*</span>
+          </label>
+          <input
+            type="text"
+            name="campaignName"
+            value={campaignForm.campaignName}
+            onChange={handleCampaignFormChange}
+            placeholder="Enter campaign name"
+            style={{
+              width: "100%",
+              padding: "8px 12px",
+              borderRadius: "4px",
+              border: "1px solid #ddd",
+              fontSize: "14px",
+            }}
+          />
+        </div>
 
-            {/* Campaign Name */}
-            <div style={{ marginBottom: "16px" }}>
-              <label style={{ fontWeight: 500 }}>
-                Campaign name <span style={{ color: "red" }}>*</span>
-              </label>
-              <input
-                type="text"
-                name="campaignName"
-                value={campaignForm.campaignName}
-                onChange={handleCampaignFormChange}
-                placeholder="Enter campaign name"
-                style={{
-                  width: "100%",
-                  marginTop: "6px",
-                  padding: "8px 10px",
-                  borderRadius: "6px",
-                  border: "1px solid #ccc",
-                  outline: "none",
-                  fontSize: "14px",
-                }}
-              />
-            </div>
+        {/* Blueprint Dropdown */}
+        <div style={{ marginBottom: "16px" }}>
+          <label style={{ fontWeight: 500, display: "block", marginBottom: "4px" }}>
+            Blueprint <span style={{ color: "red" }}>*</span>
+          </label>
+          <select
+            value={campaignForm.templateId}
+            onChange={(e) =>
+              setCampaignForm((prev) => ({
+                ...prev,
+                templateId: e.target.value,
+              }))
+            }
+            style={{
+              width: "100%",
+              padding: "8px 12px",
+              borderRadius: "4px",
+              border: "1px solid #ddd",
+              fontSize: "14px",
+            }}
+          >
+            <option value="">Select Blueprint</option>
+            {campaignBlueprints.map((bp) => (
+              <option key={bp.id} value={bp.id}>
+                {bp.templateName}
+              </option>
+            ))}
+          </select>
+        </div>
 
-            {/* Blueprint Dropdown */}
-            <div style={{ marginBottom: "16px" }}>
-              <label style={{ fontWeight: 500 }}>
-                Blueprint <span style={{ color: "red" }}>*</span>
-              </label>
-              <select
-                value={campaignForm.templateId}
-                onChange={(e) =>
-                  setCampaignForm((prev) => ({
-                    ...prev,
-                    templateId: e.target.value,
-                  }))
-                }
-                style={{
-                  width: "100%",
-                  marginTop: "6px",
-                  padding: "8px 10px",
-                  borderRadius: "6px",
-                  border: "1px solid #ccc",
-                  outline: "none",
-                  fontSize: "14px",
-                  backgroundColor: "#fff",
-                }}
-              >
-                <option value="">Select Blueprint</option>
-                {campaignBlueprints.map((bp) => (
-                  <option key={bp.id} value={bp.id}>
-                    {bp.templateName}
+        {/* List/Segment */}
+        <div style={{ marginBottom: "16px" }}>
+          <label style={{ fontWeight: 500, display: "block", marginBottom: "4px" }}>
+            List/segment <span style={{ color: "red" }}>*</span>
+          </label>
+          <select
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value.startsWith("list-")) {
+                handleDataSourceChange("datafile", value.replace("list-", ""));
+              } else if (value.startsWith("segment-")) {
+                handleDataSourceChange("segment", value.replace("segment-", ""));
+              } else {
+                setCampaignForm((prev) => ({
+                  ...prev,
+                  zohoViewId: "",
+                  segmentId: "",
+                }));
+              }
+            }}
+            value={
+              campaignForm.zohoViewId
+                ? `list-${campaignForm.zohoViewId}`
+                : campaignForm.segmentId
+                  ? `segment-${campaignForm.segmentId}`
+                  : ""
+            }
+            disabled={isLoading || (dataFiles.length === 0 && segments.length === 0)}
+            style={{
+              width: "100%",
+              padding: "8px 12px",
+              borderRadius: "4px",
+              border: "1px solid #ddd",
+              fontSize: "14px",
+            }}
+          >
+            <option value="">Select list or segment</option>
+            {dataFiles.length > 0 && (
+              <optgroup label="Lists">
+                {dataFiles.map((file) => (
+                  <option key={`list-${file.id}`} value={`list-${file.id}`}>
+                    {file.name}
                   </option>
                 ))}
-              </select>
-            </div>
-
-            {/* List/Segment */}
-            <div style={{ marginBottom: "16px" }}>
-              <label style={{ fontWeight: 500 }}>
-                List/segment <span style={{ color: "red" }}>*</span>
-              </label>
-              <select
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (value.startsWith("list-")) {
-                    handleDataSourceChange("datafile", value.replace("list-", ""));
-                  } else if (value.startsWith("segment-")) {
-                    handleDataSourceChange("segment", value.replace("segment-", ""));
-                  } else {
-                    setCampaignForm((prev) => ({
-                      ...prev,
-                      zohoViewId: "",
-                      segmentId: "",
-                    }));
-                  }
-                }}
-                value={
-                  campaignForm.zohoViewId
-                    ? `list-${campaignForm.zohoViewId}`
-                    : campaignForm.segmentId
-                      ? `segment-${campaignForm.segmentId}`
-                      : ""
-                }
-                disabled={isLoading || (dataFiles.length === 0 && segments.length === 0)}
-                style={{
-                  width: "100%",
-                  marginTop: "6px",
-                  padding: "8px 10px",
-                  borderRadius: "6px",
-                  border: "1px solid #ccc",
-                  outline: "none",
-                  fontSize: "14px",
-                  backgroundColor: "#fff",
-                }}
-              >
-                <option value="">Select list or segment</option>
-                {dataFiles.length > 0 && (
-                  <optgroup label="Lists">
-                    {dataFiles.map((file) => (
-                      <option key={`list-${file.id}`} value={`list-${file.id}`}>
-                        {file.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-                {segments.length > 0 && (
-                  <optgroup label="Segments">
-                    {segments.map((segment) => (
-                      <option key={`segment-${segment.id}`} value={`segment-${segment.id}`}>
-                        {segment.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
-              </select>
-            </div>
-
-            {/* Description */}
-            <div style={{ marginBottom: "20px" }}>
-              <label style={{ fontWeight: 500 }}>Description</label>
-              <textarea
-                name="description"
-                value={campaignForm.description}
-                onChange={handleCampaignFormChange}
-                placeholder="Enter campaign description"
-                style={{
-                  width: "100%",
-                  marginTop: "6px",
-                  padding: "8px 10px",
-                  borderRadius: "6px",
-                  border: "1px solid #ccc",
-                  outline: "none",
-                  fontSize: "14px",
-                  resize: "none",
-                }}
-                rows={3}
-              />
-            </div>
-
-            {/* Buttons */}
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px" }}>
-              <button
-                onClick={() => setShowCreateCampaignModal(false)}
-                style={{
-                  padding: "8px 18px",
-                  border: "1px solid #ccc",
-                  borderRadius: "6px",
-                  background: "#fff",
-                  cursor: "pointer",
-                  fontWeight: 500,
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={selectedCampaign ? updateCampaign : createCampaign}
-                disabled={
-                  isLoading ||
-                  !campaignForm.campaignName ||
-                  !campaignForm.templateId ||
-                  (!campaignForm.zohoViewId && !campaignForm.segmentId)
-                }
-                style={{
-                  padding: "8px 18px",
-                  borderRadius: "6px",
-                  border: "none",
-                  backgroundColor:
-                    !isLoading &&
-                      campaignForm.campaignName &&
-                      campaignForm.templateId &&
-                      (campaignForm.zohoViewId || campaignForm.segmentId)
-                      ? "#3f9f42"
-                      : "#ccc",
-                  color: "#fff",
-                  fontWeight: 500,
-                  cursor:
-                    !isLoading &&
-                      campaignForm.campaignName &&
-                      campaignForm.templateId &&
-                      (campaignForm.zohoViewId || campaignForm.segmentId)
-                      ? "pointer"
-                      : "not-allowed",
-                  transition: "0.2s ease",
-                }}
-              >
-                {isLoading
-                  ? selectedCampaign
-                    ? "Updating..."
-                    : "Creating..."
-                  : selectedCampaign
-                    ? "Update campaign"
-                    : "Create campaign"}
-              </button>
-            </div>
-          </div>
+              </optgroup>
+            )}
+            {segments.length > 0 && (
+              <optgroup label="Segments">
+                {segments.map((segment) => (
+                  <option key={`segment-${segment.id}`} value={`segment-${segment.id}`}>
+                    {segment.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+          </select>
         </div>
-      )}
-      <style>{toastAnimation}</style>
+
+        {/* Description */}
+        <div style={{ marginBottom: "20px" }}>
+          <label style={{ fontWeight: 500, display: "block", marginBottom: "4px" }}>Description</label>
+          <textarea
+            name="description"
+            value={campaignForm.description}
+            onChange={handleCampaignFormChange}
+            placeholder="Enter campaign description"
+            style={{
+              width: "100%",
+              padding: "8px 12px",
+              borderRadius: "4px",
+              border: "1px solid #ddd",
+              fontSize: "14px",
+              minHeight: "80px",
+              resize: "vertical",
+            }}
+            rows={3}
+          />
+        </div>
+      </CommonSidePanel>
       {showSuccessToast && (
         <div
           style={{
