@@ -109,10 +109,10 @@ setOverwriteDatabase,
     setPanelTab(tabId);
     localStorage.setItem('sendEmailPanelTab', tabId);
   };
-const formatLocalDateTime = (dateString: string | undefined | null): string => {
-  if (!dateString) return "N/A";
-  const dateObj = new Date(dateString);
-  if (isNaN(dateObj.getTime())) return "N/A";
+// const formatLocalDateTime = (dateString: string | undefined | null): string => {
+//   if (!dateString) return "N/A";
+//   const dateObj = new Date(dateString);
+//   if (isNaN(dateObj.getTime())) return "N/A";}
 
 //   return dateObj.toLocaleString("en-GB", {
 //     day: "2-digit",
