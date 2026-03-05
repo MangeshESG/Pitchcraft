@@ -25,14 +25,11 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
     jobTitle: '',
     linkedInUrl: '',
     countryOrAddress: '',
-    emailSubject: '',
-    emailBody: '',
     companyTelephone: '',
     companyEmployeeCount: '',
     companyIndustry: '',
     companyLinkedInURL: '',
-    companyEventLink: '',
-    notes: ''
+    companyEventLink: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -91,14 +88,11 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
       jobTitle: '',
       linkedInUrl: '',
       countryOrAddress: '',
-      emailSubject: '',
-      emailBody: '',
       companyTelephone: '',
       companyEmployeeCount: '',
       companyIndustry: '',
       companyLinkedInURL: '',
-      companyEventLink: '',
-      notes: ''
+      companyEventLink: ''
     });
     onClose();
   };
@@ -380,61 +374,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
             </div> */}
           </div>
 
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
-              Email subject
-            </label>
-            <input
-              type="text"
-              name="emailSubject"
-              value={formData.emailSubject}
-              onChange={handleInputChange}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid #ddd',
-                borderRadius: '4px'
-              }}
-            />
-          </div>
 
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
-              Email body
-            </label>
-            <textarea
-              name="emailBody"
-              value={formData.emailBody}
-              onChange={handleInputChange}
-              rows={4}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                resize: 'vertical'
-              }}
-            />
-          </div>
-
-          <div style={{ marginBottom: 20 }}>
-            <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
-              Notes
-            </label>
-            <textarea
-              name="notes"
-              value={formData.notes}
-              onChange={handleInputChange}
-              rows={3}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                resize: 'vertical'
-              }}
-            />
-          </div>
 
         </form>
     </CommonSidePanel>

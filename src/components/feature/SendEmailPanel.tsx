@@ -96,11 +96,18 @@ setOverwriteDatabase,
   const enableIndexRange = externalEnableIndexRange ?? internalEnableIndexRange;
   const setEnableIndexRange = externalSetEnableIndexRange ?? setInternalEnableIndexRange;
 
-  const [panelTab, setPanelTab] = useState('kraft');
+  const [panelTab, setPanelTab] = useState(() => {
+    return localStorage.getItem('sendEmailPanelTab') || 'kraft';
+  });
   const panelTabs = [
     { id: 'kraft', label: 'Kraft' },
     { id: 'send', label: 'Send' },
   ];
+
+  const handleTabChange = (tabId: string) => {
+    setPanelTab(tabId);
+    localStorage.setItem('sendEmailPanelTab', tabId);
+  };
 const formatLocalDateTime = (dateString: string | undefined | null): string => {
   if (!dateString) return "N/A";
   const dateObj = new Date(dateString);
@@ -128,7 +135,7 @@ const formatLocalDateTime = (dateString: string | undefined | null): string => {
           {panelTabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setPanelTab(tab.id)}
+              onClick={() => handleTabChange(tab.id)}
               className={`px-[30px] py-[10px] font-medium text-[16px] border-r border-[#cccccc] bg-gray-200
               ${panelTab === tab.id
                   ? `bg-white  text-[#3f9f42] border-b-[#ffffff] relative active`
