@@ -33,8 +33,7 @@ interface ProcessedContact {
   company_employee_count?: string;
   company_industry?: string;
   company_linkedin_url?: string;
-  // company_event_link?: string;
-    notes?: string;
+  linkedIninformation?: string;
 }
 
 const REQUIRED_FIELDS = [
@@ -46,8 +45,6 @@ const REQUIRED_FIELDS = [
   { key: "location", label: <>Location <span style={{ color: "blue" }}>*</span></>, required: false },
   { key: "linkedin", label: "LinkedIn URL", required: false },
   { key: "company_website", label: <>Company website <span style={{ color: "blue" }}>*</span></>, required: false },
-  { key: "email_body", label: "Email body", required: false },
-  { key: "email_subject", label: "Email subject", required: false },
   { key: "company_telephone", label: "Company telephone", required: false },
   {
     key: "company_employee_count",
@@ -60,8 +57,7 @@ const REQUIRED_FIELDS = [
     label: "Company LinkedIn URL",
     required: false,
   },
-  // { key: "company_event_link", label: "Company event link", required: false },
-    { key: "notes", label: "Notes", required: false },
+  { key: "linkedIninformation", label: "LinkedIn summary", required: false },
 ];
 
 const DataFile: React.FC<DataFileProps> = ({
@@ -402,8 +398,7 @@ const effectiveUserId = selectedClient !== "" ? selectedClient : reduxUserId;
           companyEmployeeCount: contact.company_employee_count || "",
           companyIndustry: contact.company_industry || "",
           companyLinkedInURL: contact.company_linkedin_url || "",
-          // companyEventLink: contact.company_event_link || "",
-                    notes: contact.notes || "",
+          linkedIninformation: contact.linkedIninformation || "",
         })),
       };
 
@@ -476,14 +471,11 @@ const effectiveUserId = selectedClient !== "" ? selectedClient : reduxUserId;
         "Location",
         "LinkedIn URL",
         "Company Website",
-        "Email Body",
-        "Email Subject",
         "Company Telephone",
         "Company Employee Count",
         "Company Industry",
         "Company LinkedIn URL",
-        // "Company Event Link",
-        "Notes",
+        "LinkedIn Summary",
       ],
       [
         "John Doe",
@@ -493,14 +485,11 @@ const effectiveUserId = selectedClient !== "" ? selectedClient : reduxUserId;
         "San Francisco, CA",
         "https://linkedin.com/in/johndoe",
         "https://techcorp.com",
-        "Hello, this is a sample email body.",
-        "Sample Email Subject",
         "+1-555-123-4567",
         "100-500",
         "Technology",
         "https://linkedin.com/company/techcorp",
-        // "https://techcorp.com/events/annual-conference",
-        "Prospect is actively researching solutions and open to further discussion.",
+        "Experienced software engineer with 10+ years in full-stack development.",
       ],
     ];
 
@@ -714,12 +703,8 @@ const effectiveUserId = selectedClient !== "" ? selectedClient : reduxUserId;
                         return 'Optional but very useful – mapping the company website lets PitchKraft personalize the emails based on your prospect\'s company.';
                       case 'location':
                         return 'Optional – mapping the location lets you tailor messages according to the prospect\'s region.';
-                      case 'email_body':
-                        return 'Optional – map if you want existing email body to be imported.';
                       case 'linkedin':
                         return 'Optional – mapping the contact\'s personal LinkedIn profile lets you add personal touches or include a direct profile link in your message.';
-                      case 'email_subject':
-                        return 'Optional – map if you want existing email subject to be imported.';
                       case 'job_title':
                         return 'Optional – mapping the job title lets you personalise your message by referencing the recipient\'s role and responsibilities.';
                       case 'company_industry':
@@ -732,8 +717,8 @@ const effectiveUserId = selectedClient !== "" ? selectedClient : reduxUserId;
                         return 'Optional – mapping the employee count helps you tailor messaging based on the organisation\'s size and structure.';
                       case 'company_telephone':
                         return 'Optional – mapping the company telephone number lets you include direct contact details when needed in personalised outreach.';
-                        case 'notes':
-                        return 'Optional - mapping notes is a useful way of including any communications, emails, notes etc related to the contact and company.';
+                      case 'linkedIninformation':
+                        return 'Optional – mapping LinkedIn summary helps you understand the contact\'s professional background and personalize your outreach.';
                       default:
                         return null;
                     }

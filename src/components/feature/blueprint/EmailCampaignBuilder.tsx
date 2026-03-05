@@ -886,7 +886,7 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
               }}
             >
               <option value="">-- Select contact file --</option>
-              {dataFiles.map((df) => (
+              {[...dataFiles].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase())).map((df) => (
                 <option key={df.id} value={df.id}>
                   {df.name}
                 </option>

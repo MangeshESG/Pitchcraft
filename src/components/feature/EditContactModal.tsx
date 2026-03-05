@@ -29,6 +29,7 @@ import AccordionSection from '../common/accordion/Accordion';
 import deleteIcon from "../../assets/images/deleteiconn.png";
 import gpsPin from "../../assets/images/Unpin.png";
 import pinimage from "../../assets/images/pin.png";
+import CommonSidePanel from '../common/CommonSidePanel';
 
 interface Contact {
   id: number;
@@ -1613,121 +1614,28 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
             </div>
           )
         }
-        {/* LinkedIn Summary Popup with Toolbar */}
-        {/* OVERLAY */}
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: showLinkedInSummaryPopup
-              ? "rgba(0,0,0,0.6)"
-              : "transparent",
-            zIndex: 100000,
-            pointerEvents: showLinkedInSummaryPopup ? "auto" : "none",
-            transition: "background 0.3s ease",
-          }}
-          onClick={() => setShowLinkedInSummaryPopup(false)}
-        >
-          {/* RIGHT DRAWER */}
-          <div
-            style={{
-              position: "fixed",
-              top: 0,
-              right: 0,
-              height: "100vh",
-              width: 454,
-              background: "#fff",
-              boxShadow: "-4px 0 20px rgba(0,0,0,0.08)",
-              transform: showLinkedInSummaryPopup
-                ? "translateX(0)"
-                : "translateX(100%)",
-              transition: "transform 0.35s ease-in-out",
-              display: "flex",
-              flexDirection: "column",
-              zIndex: 1000,
-            }}
-            onClick={(e) => e.stopPropagation()} 
-          >
-            {/* HEADER */}
-            <div
-              style={{
-                background: "#ffffff",
-                padding: "16px 20px",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-              className='border-[#cccccc] border-b'
-            >
-              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>
-                LinkedIn Summary
-              </h3>
-              <button
-                onClick={() => setShowLinkedInSummaryPopup(false)}
-                style={{
-                  border: "none",
-                  background: "transparent",
-                  fontSize: 22,
-                  cursor: "pointer",
-                }}
-              >
-                ✕
-              </button>
-            </div>
-            <style>
-              {`
-  .note-editor-wrapper .rich-text-editor > div {
-    height: auto !important;
-    min-height: 270px !important;
-    overflow: visible !important;
-  }
-`}
-            </style>
-            {/* BODY (Scrollable) */}
-            <div
-              className="note-editor-wrapper"
-              style={{ flex: 1, overflowY: "auto", padding: 20 }}
-            >
-              <div style={{ marginBottom: 10 }}>
-                <RichTextEditor
-                  value={linkedInSummary}
-                  onChange={setLinkedInSummary}
-                />
-              </div>
-                <div style={{ marginTop: 8, fontSize: 12, color:"#6b7280" }}>
-            {linkedInPlainTextLength}/10000
-          </div>
-            </div>
-
-            {/* FOOTER (Fixed Bottom) */}
-            <div
-              style={{
-                padding: 16,
-                display: "flex",
-                justifyContent: "space-between",
-                borderTop: "1px solid #e5e7eb",
-                marginBottom: 50,
-                background: "#fff",
-                position: "sticky",
-              }}
-            >
-                {/* LEFT SIDE BUTTONS */}
-           <div style={{ display: "flex", gap: 12 }}>
-              <button
-                onClick={() => setShowLinkedInSummaryPopup(false)}
-                type="button"
-                className="px-5 py-2 border border-gray-300 rounded-full text-sm"
-              >
-                Cancel
-              </button>
-               <button
+        <CommonSidePanel
+          isOpen={showLinkedInSummaryPopup}
+          onClose={() => setShowLinkedInSummaryPopup(false)}
+          title="LinkedIn Summary"
+          footerContent={
+            <>
+              <div style={{ display: "flex", gap: 12 }}>
+                <button
+                  onClick={() => setShowLinkedInSummaryPopup(false)}
+                  type="button"
+                  className="px-5 py-2 border border-gray-300 rounded-full text-sm"
+                >
+                  Cancel
+                </button>
+                <button
                   onClick={() => setLinkedInSummary("")}
                   type="button"
                   className="px-5 py-2 border border-red-300 text-red-600 rounded-full text-sm"
                 >
-                Clear
-             </button>
-            </div>
+                  Clear
+                </button>
+              </div>
               <button
                 onClick={handleLinkedInSummarySave}
                 disabled={isLinkedInSaveDisabled || isSavingLinkedIn}
@@ -1739,16 +1647,34 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                   borderRadius: 18,
                   fontSize: 14,
                   cursor: isLinkedInSaveDisabled ? "not-allowed" : "pointer",
-                  fontWeight: 500,
-                  borderTop: "2px solid transparent",
-                  opacity: isLinkedInSaveDisabled ? 0.6 : 1,
                 }}
               >
                 Save
               </button>
+            </>
+          }
+        >
+          <style>
+            {`
+              .note-editor-wrapper .rich-text-editor > div {
+                height: auto !important;
+                min-height: 270px !important;
+                overflow: visible !important;
+              }
+            `}
+          </style>
+          <div className="note-editor-wrapper">
+            <div style={{ marginBottom: 10 }}>
+              <RichTextEditor
+                value={linkedInSummary}
+                onChange={setLinkedInSummary}
+              />
+            </div>
+            <div style={{ marginTop: 8, fontSize: 12, color: "#6b7280" }}>
+              {linkedInPlainTextLength}/10000
             </div>
           </div>
-        </div>
+        </CommonSidePanel>
  <style>{toastAnimation}</style>
         {/* SUCCESS TOAST */}
        {showSuccessToast && (

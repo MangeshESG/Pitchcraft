@@ -1633,7 +1633,7 @@ const sleepWithCountdown = async (ms: number) => {
   // Index range states for bulk email sending
   const [startIndex, setStartIndex] = useState("");
   const [endIndex, setEndIndex] = useState("");
-  const [enableDelay, setEnableDelay] = useState(true);
+  const [enableDelay, setEnableDelay] = useState(false);
   const [enableIndexRange, setEnableIndexRange] = useState(false);
 
   // Kraft email index range states
@@ -1715,8 +1715,9 @@ useEffect(() => {
                       value={selectedCampaign}
                     >
                       <option value="">Campaign</option>
-                      {(campaigns || [])
-                        .sort((a, b) => a.campaignName.localeCompare(b.campaignName, undefined, { sensitivity: 'base' }))
+                      {Array.isArray(campaigns) && campaigns
+                        .slice()
+                        .sort((a, b) => a.campaignName.toLowerCase().localeCompare(b.campaignName.toLowerCase()))
                         .map((campaign) => (
                         <option key={campaign.id} value={campaign.id.toString()}>
                           {campaign.campaignName}

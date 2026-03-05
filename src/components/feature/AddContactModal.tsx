@@ -25,14 +25,12 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
     jobTitle: '',
     linkedInUrl: '',
     countryOrAddress: '',
-    emailSubject: '',
-    emailBody: '',
     companyTelephone: '',
     companyEmployeeCount: '',
     companyIndustry: '',
     companyLinkedInURL: '',
     companyEventLink: '',
-    notes: ''
+    linkedIninformation: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -91,14 +89,12 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
       jobTitle: '',
       linkedInUrl: '',
       countryOrAddress: '',
-      emailSubject: '',
-      emailBody: '',
       companyTelephone: '',
       companyEmployeeCount: '',
       companyIndustry: '',
       companyLinkedInURL: '',
       companyEventLink: '',
-      notes: ''
+      linkedIninformation: ''
     });
     onClose();
   };
@@ -361,81 +357,28 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
               />
             </div>
             
-            {/* <div>
-              <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
-                Company event link
-              </label>
-              <input
-                type="text"
-                name="companyEventLink"
-                value={formData.companyEventLink}
-                onChange={handleInputChange}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px'
-                }}
-              />
-            </div> */}
           </div>
 
           <div style={{ marginBottom: 16 }}>
             <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
-              Email subject
-            </label>
-            <input
-              type="text"
-              name="emailSubject"
-              value={formData.emailSubject}
-              onChange={handleInputChange}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid #ddd',
-                borderRadius: '4px'
-              }}
-            />
-          </div>
-
-          <div style={{ marginBottom: 16 }}>
-            <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
-              Email body
+              LinkedIn summary
             </label>
             <textarea
-              name="emailBody"
-              value={formData.emailBody}
+              name="linkedIninformation"
+              value={formData.linkedIninformation}
               onChange={handleInputChange}
+              placeholder="Add LinkedIn profile summary or notes..."
               rows={4}
               style={{
                 width: '100%',
                 padding: '8px 12px',
                 border: '1px solid #ddd',
                 borderRadius: '4px',
-                resize: 'vertical'
+                resize: 'vertical',
+                fontFamily: 'inherit'
               }}
             />
           </div>
-
-          <div style={{ marginBottom: 20 }}>
-            <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
-              Notes
-            </label>
-            <textarea
-              name="notes"
-              value={formData.notes}
-              onChange={handleInputChange}
-              rows={3}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                resize: 'vertical'
-              }}
-            />
-          </div>
-
         </form>
     </CommonSidePanel>
   );

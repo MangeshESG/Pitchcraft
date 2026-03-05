@@ -1694,7 +1694,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                 minWidth: "220px",
               }}
             >
-              {campaignTemplates.map((template) => (
+              {[...campaignTemplates].sort((a, b) => a.templateName.toLowerCase().localeCompare(b.templateName.toLowerCase())).map((template) => (
                 <option key={template.id} value={template.id}>
                   {template.templateName}
                 </option>
