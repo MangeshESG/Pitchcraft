@@ -29,7 +29,8 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
     companyEmployeeCount: '',
     companyIndustry: '',
     companyLinkedInURL: '',
-    companyEventLink: ''
+    companyEventLink: '',
+    linkedIninformation: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -92,7 +93,8 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
       companyEmployeeCount: '',
       companyIndustry: '',
       companyLinkedInURL: '',
-      companyEventLink: ''
+      companyEventLink: '',
+      linkedIninformation: ''
     });
     onClose();
   };
@@ -355,27 +357,28 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
               />
             </div>
             
-            {/* <div>
-              <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
-                Company event link
-              </label>
-              <input
-                type="text"
-                name="companyEventLink"
-                value={formData.companyEventLink}
-                onChange={handleInputChange}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px'
-                }}
-              />
-            </div> */}
           </div>
 
-
-
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+              LinkedIn summary
+            </label>
+            <textarea
+              name="linkedIninformation"
+              value={formData.linkedIninformation}
+              onChange={handleInputChange}
+              placeholder="Add LinkedIn profile summary or notes..."
+              rows={4}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid #ddd',
+                borderRadius: '4px',
+                resize: 'vertical',
+                fontFamily: 'inherit'
+              }}
+            />
+          </div>
         </form>
     </CommonSidePanel>
   );

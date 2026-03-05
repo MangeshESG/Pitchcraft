@@ -776,11 +776,13 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
             }}
           >
             <option value="">Select Blueprint</option>
-            {campaignBlueprints.map((bp) => (
-              <option key={bp.id} value={bp.id}>
-                {bp.templateName}
-              </option>
-            ))}
+            {[...campaignBlueprints]
+              .sort((a, b) => a.templateName.toLowerCase().localeCompare(b.templateName.toLowerCase()))
+              .map((bp) => (
+                <option key={bp.id} value={bp.id}>
+                  {bp.templateName}
+                </option>
+              ))}
           </select>
         </div>
 

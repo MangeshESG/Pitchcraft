@@ -1716,7 +1716,8 @@ useEffect(() => {
                     >
                       <option value="">Campaign</option>
                       {Array.isArray(campaigns) && campaigns
-                        .sort((a, b) => a.campaignName.localeCompare(b.campaignName, undefined, { sensitivity: 'base' }))
+                        .slice()
+                        .sort((a, b) => a.campaignName.toLowerCase().localeCompare(b.campaignName.toLowerCase()))
                         .map((campaign) => (
                         <option key={campaign.id} value={campaign.id.toString()}>
                           {campaign.campaignName}

@@ -20,14 +20,11 @@ interface Contact {
   jobTitle: string;
   linkedInUrl: string;
   countryOrAddress: string;
-  emailSubject: string;
-  emailBody: string;
   companyTelephone: string;
   companyEmployeeCount: string;
   companyIndustry: string;
   companyLinkedInURL: string;
-  // companyEventLink: string;
-  notes?: string;
+  linkedIninformation?: string;
 }
 
 const CreateListModal: React.FC<CreateListModalProps> = ({
@@ -50,14 +47,11 @@ const CreateListModal: React.FC<CreateListModalProps> = ({
     jobTitle: '',
     linkedInUrl: '',
     countryOrAddress: '',
-    emailSubject: '',
-    emailBody: '',
     companyTelephone: '',
     companyEmployeeCount: '',
     companyIndustry: '',
     companyLinkedInURL: '',
-    // companyEventLink: '',
-    notes: ''
+    linkedIninformation: ''
   }]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -76,14 +70,11 @@ const CreateListModal: React.FC<CreateListModalProps> = ({
       jobTitle: '',
       linkedInUrl: '',
       countryOrAddress: '',
-      emailSubject: '',
-      emailBody: '',
       companyTelephone: '',
       companyEmployeeCount: '',
       companyIndustry: '',
       companyLinkedInURL: '',
-      // companyEventLink: '',
-      notes: ''
+      linkedIninformation: ''
     }]);
   };
 
@@ -159,14 +150,11 @@ const CreateListModal: React.FC<CreateListModalProps> = ({
       jobTitle: '',
       linkedInUrl: '',
       countryOrAddress: '',
-      emailSubject: '',
-      emailBody: '',
       companyTelephone: '',
       companyEmployeeCount: '',
       companyIndustry: '',
       companyLinkedInURL: '',
-      // companyEventLink: '',
-      notes: ''
+      linkedIninformation: ''
     }]);
     onClose();
   };
@@ -218,7 +206,6 @@ const CreateListModal: React.FC<CreateListModalProps> = ({
       }
     >
       <form onSubmit={handleSubmit}>
-          {/* List Details */}
           <div style={{ marginBottom: 24, padding: 16, background: '#f8f9fa', borderRadius: 6 }}>
             <h4 style={{ marginTop: 0, marginBottom: 16 }}>List details</h4>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -258,7 +245,6 @@ const CreateListModal: React.FC<CreateListModalProps> = ({
             </div>
           </div>
 
-          {/* Contacts */}
           <div style={{ marginBottom: 20 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h4 style={{ margin: 0 }}>Contacts</h4>
@@ -308,7 +294,6 @@ const CreateListModal: React.FC<CreateListModalProps> = ({
                   )}
                 </div>
 
-                {/* Row 1 */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                   <div>
                     <label style={{ display: 'block', marginBottom: 4, fontWeight: 500, fontSize: '14px' }}>
@@ -333,7 +318,6 @@ const CreateListModal: React.FC<CreateListModalProps> = ({
                     />
                   </div>
                 </div>
-                {/* Row 2 */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                   <div>
                     <label style={{ display: 'block', marginBottom: 4, fontWeight: 500, fontSize: '14px' }}>Company name</label>
@@ -374,27 +358,9 @@ const CreateListModal: React.FC<CreateListModalProps> = ({
                     <input type="text" value={contact.companyIndustry} onChange={(e) => handleContactChange(index, 'companyIndustry', e.target.value)} style={{ width: '100%', padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px' }} />
                   </div>
                 </div>
-                {/* <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: 4, fontWeight: 500, fontSize: '14px' }}>Company linkedin URL</label>
-                    <input type="text" value={contact.companyLinkedInURL} onChange={(e) => handleContactChange(index, 'companyLinkedInURL', e.target.value)} style={{ width: '100%', padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px' }} />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: 4, fontWeight: 500, fontSize: '14px' }}>Company event link</label>
-                    <input type="text" value={contact.companyEventLink} onChange={(e) => handleContactChange(index, 'companyEventLink', e.target.value)} style={{ width: '100%', padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px' }} />
-                  </div>
-                </div> */}
-                <div style={{ marginBottom: 12 }}>
-                  <label style={{ display: 'block', marginBottom: 4, fontWeight: 500, fontSize: '14px' }}>Email subject</label>
-                  <input type="text" value={contact.emailSubject} onChange={(e) => handleContactChange(index, 'emailSubject', e.target.value)} style={{ width: '100%', padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px' }} />
-                </div>
-                <div style={{ marginBottom: 12 }}>
-                  <label style={{ display: 'block', marginBottom: 4, fontWeight: 500, fontSize: '14px' }}>Email body</label>
-                  <textarea value={contact.emailBody} onChange={(e) => handleContactChange(index, 'emailBody', e.target.value)} rows={3} style={{ width: '100%', padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px', resize: 'vertical' }} />
-                </div>
-                 <div>
-                  <label style={{ display: 'block', marginBottom: 4, fontWeight: 500, fontSize: '14px' }}>Notes</label>
-                  <textarea value={contact.notes} onChange={(e) => handleContactChange(index, 'notes', e.target.value)} rows={2} style={{ width: '100%', padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px', resize: 'vertical' }} />
+                <div>
+                  <label style={{ display: 'block', marginBottom: 4, fontWeight: 500, fontSize: '14px' }}>LinkedIn summary</label>
+                  <textarea value={contact.linkedIninformation} onChange={(e) => handleContactChange(index, 'linkedIninformation', e.target.value)} rows={3} placeholder="Add LinkedIn profile summary or notes..." style={{ width: '100%', padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px', resize: 'vertical', fontFamily: 'inherit' }} />
                 </div>
               </div>
             ))}

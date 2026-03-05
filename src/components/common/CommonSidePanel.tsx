@@ -26,7 +26,7 @@ const CommonSidePanel: React.FC<CommonSidePanelProps> = ({
       setTimeout(() => setIsAnimating(true), 10);
     } else {
       setIsAnimating(false);
-      const timer = setTimeout(() => setShouldRender(false), 5000);
+      const timer = setTimeout(() => setShouldRender(false), 350);
       return () => clearTimeout(timer);
     }
   }, [isOpen]);
@@ -44,7 +44,7 @@ const CommonSidePanel: React.FC<CommonSidePanelProps> = ({
         background: "#fff",
         boxShadow: "rgba(0, 0, 0, 0.30) -4px 0px 10px",
         transform: isAnimating ? "translateX(0)" : "translateX(100%)",
-        transition: "transform 1s ease-in-out",
+        transition: "transform 0.35s ease-in-out",
         zIndex: 1000,
         display: "flex",
         flexDirection: "column",
