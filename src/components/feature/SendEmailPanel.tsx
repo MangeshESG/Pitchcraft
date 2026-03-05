@@ -2,6 +2,7 @@ import { faAngleLeft, faAngleRight, faCircleLeft } from "@fortawesome/free-solid
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import React, { useState } from "react";
 import { toast } from "react-toastify";
+import{formatDateTimeLocal, formatTimeLocal}from "../common/dateFormatters";
 
 interface SendEmailPanelProps {
   isOpen: boolean;
@@ -101,21 +102,22 @@ setOverwriteDatabase,
     { id: 'kraft', label: 'Kraft' },
     { id: 'send', label: 'Send' },
   ];
-const formatLocalDateTime = (dateString: string | undefined | null): string => {
-  if (!dateString) return "N/A";
-  const dateObj = new Date(dateString);
-  if (isNaN(dateObj.getTime())) return "N/A";
+// const formatLocalDateTime = (dateString: string | undefined | null): string => {
+//   if (!dateString) return "N/A";
+//   const dateObj = new Date(dateString);
+//   if (isNaN(dateObj.getTime())) return "N/A";
 
-  return dateObj.toLocaleString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  }).replace(",", "");
-};
-
+//   return dateObj.toLocaleString("en-GB", {
+//     day: "2-digit",
+//     month: "short",
+//     year: "numeric",
+//     hour: "numeric",
+//     minute: "2-digit",
+//     hour12: true,
+//   }).replace(",", "");
+// };
+ const formatDateTimeIST = formatDateTimeLocal;
+ const formatTimeIST = formatTimeLocal;
 
   return (
     <>
@@ -271,7 +273,7 @@ const formatLocalDateTime = (dateString: string | undefined | null): string => {
         {combinedResponses[currentIndex]?.lastemailupdateddate && (
           <div>
             Krafted:{" "}
-            {formatLocalDateTime(
+            {formatDateTimeIST(
               combinedResponses[currentIndex]?.lastemailupdateddate
             )}
           </div>
@@ -279,7 +281,7 @@ const formatLocalDateTime = (dateString: string | undefined | null): string => {
         {combinedResponses[currentIndex]?.emailsentdate && (
           <div>
             Emailed:{" "}
-            {formatLocalDateTime(
+            {formatDateTimeIST(
               combinedResponses[currentIndex]?.emailsentdate
             )}
           </div>
@@ -638,33 +640,7 @@ const formatLocalDateTime = (dateString: string | undefined | null): string => {
                           fontFamily: "inherit",
                         }}
                       >
-                        Krafted: {(() => {
-                          const dateString = combinedResponses[currentIndex]?.lastemailupdateddate;
-                          if (!dateString) return "N/A";
-                          let dateObj: Date | null = null;
-                          if (/^\d{4}-\d{2}-\d{2}/.test(dateString)) {
-                            dateObj = new Date(dateString);
-                          } else if (/^\d{2}[-/]\d{2}[-/]\d{4}/.test(dateString)) {
-                            const [datePart, timePart] = dateString.split(" ");
-                            const [day, month, year] = datePart.split(/[-/]/).map(Number);
-                            let hour = 0, min = 0, sec = 0;
-                            if (timePart) {
-                              [hour, min, sec] = timePart.split(":").map(Number);
-                            }
-                            dateObj = new Date(year, month - 1, day, hour, min, sec);
-                          } else {
-                            dateObj = new Date(dateString);
-                          }
-                          if (!dateObj || isNaN(dateObj.getTime())) return "N/A";
-                          return dateObj.toLocaleString("en-GB", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                            hour: "numeric",
-                            minute: "2-digit",
-                            hour12: true,
-                          }).replace(",", "");
-                        })()}
+                        Krafted: {formatDateTimeIST(combinedResponses[currentIndex]?.lastemailupdateddate)}
                       </div>
                     )}
                     {combinedResponses[currentIndex]?.emailsentdate && (
@@ -676,33 +652,9 @@ const formatLocalDateTime = (dateString: string | undefined | null): string => {
                           fontFamily: "inherit",
                         }}
                       >
-                        Emailed: {(() => {
-                          const dateString = combinedResponses[currentIndex]?.emailsentdate;
-                          if (!dateString) return "N/A";
-                          let dateObj: Date | null = null;
-                          if (/^\d{4}-\d{2}-\d{2}/.test(dateString)) {
-                            dateObj = new Date(dateString);
-                          } else if (/^\d{2}[-/]\d{2}[-/]\d{4}/.test(dateString)) {
-                            const [datePart, timePart] = dateString.split(" ");
-                            const [day, month, year] = datePart.split(/[-/]/).map(Number);
-                            let hour = 0, min = 0, sec = 0;
-                            if (timePart) {
-                              [hour, min, sec] = timePart.split(":").map(Number);
-                            }
-                            dateObj = new Date(year, month - 1, day, hour, min, sec);
-                          } else {
-                            dateObj = new Date(dateString);
-                          }
-                          if (!dateObj || isNaN(dateObj.getTime())) return "N/A";
-                          return dateObj.toLocaleString("en-GB", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                            hour: "numeric",
-                            minute: "2-digit",
-                            hour12: true,
-                          }).replace(",", "");
-                        })()}
+                        Emailed: {formatDateTimeIST(
+          combinedResponses[currentIndex]?.emailsentdate
+        )}
                       </div>
                     )}
                   </div>

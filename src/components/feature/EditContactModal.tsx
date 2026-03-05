@@ -5,6 +5,7 @@ import { RootState } from '../../Redux/store';
 import axios from 'axios';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import DOMPurify from "dompurify";
+import { faEdit,faTrashAlt,faCircleXmark,faSquarePlus    } from "@fortawesome/free-regular-svg-icons";
 
 import {
   faAngleRight,
@@ -12,7 +13,7 @@ import {
   faBars,
   faBullhorn,
   faDashboard,
-  faEdit,
+ // faEdit,
   faEllipsisV,
   faEnvelope,
   faEnvelopeOpen,
@@ -29,6 +30,9 @@ import AccordionSection from '../common/accordion/Accordion';
 import deleteIcon from "../../assets/images/deleteiconn.png";
 import gpsPin from "../../assets/images/Unpin.png";
 import pinimage from "../../assets/images/pin.png";
+import { Slash } from "lucide-react";
+import { Pin, PinOff } from 'lucide-react';
+import{formatDateTimeLocal, formatTimeLocal}from "../common/dateFormatters";
 
 interface Contact {
   id: number;
@@ -187,7 +191,14 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
     fontSize: 14,
     textAlign: "left",
   };
-
+const menuIconStyle = {
+  width: 22,
+  height: 22,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flexShrink: 0,
+};
   const Stat = ({
     label,
     value,
@@ -543,31 +554,8 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
     [notesHistory]
   );
 
-  //IST Formatter
-  const formatDateTimeIST = (dateString?: string) => {
-    if (!dateString) return "-";
-
-    return new Intl.DateTimeFormat("en-IN", {
-      timeZone: "Asia/Kolkata",
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    }).format(new Date(dateString));
-  };
-
-  const formatTimeIST = (dateString?: string) => {
-    if (!dateString) return "-";
-
-    return new Intl.DateTimeFormat("en-IN", {
-      timeZone: "Asia/Kolkata",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    }).format(new Date(dateString));
-  };
+  const formatDateTimeIST = formatDateTimeLocal;
+   const formatTimeIST = formatTimeLocal;
   // const handleTogglePin = async (noteId: number) => {
   //   if (!reduxUserId || !contact?.id) return;
 
@@ -1271,13 +1259,14 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                                 //  await fetchNotesHistory();
                               }}
                               style={menuBtnStyle}
-                              className="flex gap-2 items-center ml-[4px]"
+                              className="flex gap-2 items-center"
                             >
-                              <span>
-                              
-                               <FontAwesomeIcon icon={faEdit} style={{ color: "#3f9f42", cursor: "pointer", }} className="text-[20px]" />
-                              
-                              </span>
+                               <div style={menuIconStyle}>
+                                  <FontAwesomeIcon
+                                  icon={faEdit}
+                                  style={{ color: "#3f9f42", fontSize: 19 }}
+                                  />
+                                </div>
                               <span className="font-[600]">Edit</span>
                             </button>
 
@@ -1291,19 +1280,13 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                               style={menuBtnStyle}
                               className="flex gap-2 items-center"
                             >
-                               <span>
-                                <img
-                                src={note.isPin ? gpsPin : pinimage}
-                                alt={note.isPin ? "Unpin" : "Pin"}
-                                style={{
-                                width: "25px",
-                                height: "25px",
-                                cursor: "pointer",
-                                transform: "rotate(314deg)", // ✅ 360° rotation
-                                transition: "transform 0.3s ease",
-                                }}
-                                />
-                                </span>
+                              <div style={menuIconStyle}>
+                               {note.isPin ? (
+                               <PinOff size={19} color="#3f9f42" strokeWidth={2.5} />
+                               ) : (
+                              <Pin size={21} color="#3f9f42" strokeWidth={2} />
+                              )}
+                              </div>
                               <span className="font-[600]">
                                 {note.isPin ? "Unpin" : "Pin"}
                               </span>
@@ -1319,13 +1302,12 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                               style={menuBtnStyle}
                               className="flex gap-2 items-center "
                             >
-                              <span className="ml-[3px]">
-                               <img
-                                                  src={deleteIcon}
-                                                  alt="Delete"
-                                                  className="w-[24px] h-[24px] font-normal"
-                                              />
-                              </span>
+                               <div style={menuIconStyle}>
+                                      <FontAwesomeIcon
+                                        icon={faTrashAlt}
+                                        style={{ color: "#3f9f42", fontSize: 18 }}
+                                      />
+                                    </div>
                               <span className="font-[600]">Delete</span>
                             </button>
                           </div>)}
@@ -1416,8 +1398,8 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                   <div
                     style={{
                       position: "absolute",
-                      right: 24,
-                      top: 48,
+                      right: 0,
+                      top: 34,
                       background: "#fff",
                       border: "1px solid #eee",
                       borderRadius: 6,
@@ -1436,9 +1418,12 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                       style={menuBtnStyle}
                       className="flex gap-2 items-center ml-[4px]"
                     >
-                      <span>
-                        <FontAwesomeIcon icon={faEdit} style={{ color: "#3f9f42", cursor: "pointer" }} className="text-[20px]" />
-                      </span>
+                      <div style={menuIconStyle}>
+                        <FontAwesomeIcon
+                        icon={faEdit}
+                        style={{ color: "#3f9f42", fontSize: 19 }}
+                        />
+                        </div>
                       <span className="font-[600]">Edit</span>
                     </button>
                     {/* Delete Button */}
@@ -1450,13 +1435,12 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
                       style={menuBtnStyle}
                       className="flex gap-2 items-center"
                     >
-                      <span className="ml-[3px]">
-                        <img
-                          src={deleteIcon}
-                          alt="Delete"
-                          className="w-[24px] h-[24px] font-normal"
-                        />
-                      </span>
+                      <div style={menuIconStyle}>
+                              <FontAwesomeIcon
+                                icon={faTrashAlt}
+                                style={{ color: "#3f9f42", fontSize: 18 }}
+                              />
+                            </div>
                       <span className="font-[600]">Delete</span>
                     </button>
                   </div>
