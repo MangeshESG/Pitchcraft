@@ -1871,7 +1871,7 @@ useEffect(() => {
               </div>
 
               {/* Middle section - Buttons and checkbox */}
-              <div className="flex items-center gap-4 mt-[26px]">
+              {/* <div className="flex items-center gap-4 mt-[26px]">
                 <div 
                   className="flex items-center gap-3 px-4 py-2" 
                   style={{
@@ -1913,7 +1913,7 @@ useEffect(() => {
                 >
                   Send emails
                 </button>
-              </div>
+              </div> */}
             </div>
 
             {/* Right side - Download button */}
