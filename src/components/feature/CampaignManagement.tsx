@@ -10,6 +10,8 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import CommonSidePanel from "../common/CommonSidePanel";
 import deleteIcon from "../../assets/images/deleteiconn.png";
+import { faEdit,faTrashAlt,faCircleXmark ,faFileLines   } from "@fortawesome/free-regular-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 interface CampaignManagementProps {
   selectedClient: string;
@@ -444,15 +446,24 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
       (currentPage - 1) * pageSize,
       currentPage * pageSize
     );
-  const menuBtnStyle: React.CSSProperties = {
+  const menuBtnStyle = {
     width: "100%",
-    padding: "8px 12px",
-    background: "transparent",
-    border: "none",
+    padding: "8px 18px",
     textAlign: "left",
-    fontSize: "14px",
+    background: "none",
+    border: "none",
+    color: "#222",
+    fontSize: "15px",
     cursor: "pointer",
-  };
+  } as React.CSSProperties;
+  const actionIconStyle = {
+  width: 24,
+  height: 24,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flexShrink: 0,
+};
   const renderSortArrow = (columnKey: string, currentSortKey: string, sortDirection: string) => {
     if (columnKey === currentSortKey) {
       return sortDirection === "asc" ? " ▲" : " ▼"
@@ -561,8 +572,8 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                           position: "absolute",
                           top: "30px",
                           right: 0,
-                          // background: "#fff",
-                          //border: "1px solid #ddd",
+                           background: "#fff",
+                          border: "1px solid #eee",
                           borderRadius: "6px",
                           boxShadow: "0px 4px 12px rgba(0,0,0,0.15)",
                           zIndex: 100,
@@ -590,7 +601,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                           style={{ ...menuBtnStyle, fontSize: '15px', fontWeight: 600 }}
                           className="flex gap-2 items-center"
                         >
-                          <span>
+                          {/* <span>
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
                               width="28px"
@@ -606,7 +617,14 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                                 stroke-linejoin="round"
                               ></path>
                             </svg>
-                          </span> Edit
+                          </span> Edit */}
+                          <span style={actionIconStyle}>
+                            <FontAwesomeIcon
+                            icon={faEdit}
+                            style={{ color: "#3f9f42", fontSize: 20 }}
+                            />
+                          </span>
+                           <span> Edit</span>
                         </button>
 
                         <button
@@ -617,13 +635,13 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                           style={{ ...menuBtnStyle, fontSize: '15px', fontWeight: 600 }}
                           className="flex gap-2 items-center"
                         >
-                          <span className="ml-[3px]">
-                             <img
-                              src={deleteIcon}
-                              alt="Delete"
-                              className="w-[24px] h-[24px] font-normal"
-                              />
-                          </span> Delete
+                          <span style={actionIconStyle}>
+                           <FontAwesomeIcon
+                            icon={faTrashAlt}
+                            style={{ color: "#3f9f42", fontSize: 20 }}
+                            />
+                            </span>
+                            <span> Delete</span> 
                         </button>
                       </div>
                     )}

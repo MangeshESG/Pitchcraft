@@ -26,6 +26,8 @@ import DOMPurify from "dompurify";
 import { faAngleRight, faAngleLeft, faCircleRight } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import LoadingSpinner from "../common/LoadingSpinner";
+import { faEdit,faTrashAlt,faCircleXmark,faSquarePlus    } from "@fortawesome/free-regular-svg-icons";
+import{formatDateTimeLocal, formatTimeLocal}from "../common/dateFormatters";
 
 // In Output.tsx
 interface ZohoClient {
@@ -1242,47 +1244,49 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
   }, [bccOptions]);
 
   // Add this function at the top of your component or in a utils file
-  function formatLocalDateTime(dateString: string | undefined | null): string {
-    if (!dateString) return "N/A";
+  // function formatLocalDateTime(dateString: string | undefined | null): string {
+  //   if (!dateString) return "N/A";
 
-    let dateObj: Date | null = null;
+  //   let dateObj: Date | null = null;
 
-    // ISO format: 'YYYY-MM-DD...'
-    if (/^\d{4}-\d{2}-\d{2}/.test(dateString)) {
-      dateObj = new Date(dateString);
-    }
-    // DD-MM-YYYY HH:mm:ss format (with either - or / as separator)
-    else if (/^\d{2}[-/]\d{2}[-/]\d{4}/.test(dateString)) {
-      // Accept both dashes and slashes
-      // e.g. '24-06-2025 16:35:25' or '24/06/2025 16:35:25'
-      const [datePart, timePart] = dateString.split(" ");
-      const [day, month, year] = datePart.split(/[-/]/).map(Number);
-      let hour = 0,
-        min = 0,
-        sec = 0;
-      if (timePart) {
-        [hour, min, sec] = timePart.split(":").map(Number);
-      }
-      dateObj = new Date(year, month - 1, day, hour, min, sec);
-    }
-    // fallback
-    else {
-      dateObj = new Date(dateString);
-    }
+  //   // ISO format: 'YYYY-MM-DD...'
+  //   if (/^\d{4}-\d{2}-\d{2}/.test(dateString)) {
+  //     dateObj = new Date(dateString);
+  //   }
+  //   // DD-MM-YYYY HH:mm:ss format (with either - or / as separator)
+  //   else if (/^\d{2}[-/]\d{2}[-/]\d{4}/.test(dateString)) {
+  //     // Accept both dashes and slashes
+  //     // e.g. '24-06-2025 16:35:25' or '24/06/2025 16:35:25'
+  //     const [datePart, timePart] = dateString.split(" ");
+  //     const [day, month, year] = datePart.split(/[-/]/).map(Number);
+  //     let hour = 0,
+  //       min = 0,
+  //       sec = 0;
+  //     if (timePart) {
+  //       [hour, min, sec] = timePart.split(":").map(Number);
+  //     }
+  //     dateObj = new Date(year, month - 1, day, hour, min, sec);
+  //   }
+  //   // fallback
+  //   else {
+  //     dateObj = new Date(dateString);
+  //   }
 
-    if (!dateObj || isNaN(dateObj.getTime())) return "N/A";
+  //   if (!dateObj || isNaN(dateObj.getTime())) return "N/A";
 
-    return dateObj
-      .toLocaleString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-      })
-      .replace(",", "");
-  }
+  //   return dateObj
+  //     .toLocaleString("en-GB", {
+  //       day: "2-digit",
+  //       month: "short",
+  //       year: "numeric",
+  //       hour: "numeric",
+  //       minute: "2-digit",
+  //       hour12: true,
+  //     })
+  //     .replace(",", "");
+  // }
+  const formatDateTimeIST = formatDateTimeLocal;
+  const formatTimeIST = formatTimeLocal;
 
   // Add this useEffect after the existing combinedResponses useEffect
   useEffect(() => {
@@ -1782,7 +1786,7 @@ useEffect(() => {
                           viewBox="0 0 16 16"
                           fill="none"
                         >
-                          <g fill="#000000">
+                          <g fill="#3f9f42">
                             <path d="M8 1.5A6.5 6.5 0 001.5 8 .75.75 0 010 8a8 8 0 0113.5-5.81v-.94a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zM15.25 7.25A.75.75 0 0116 8a8 8 0 01-13.5 5.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z" />
                           </g>
                         </svg>
@@ -1848,21 +1852,10 @@ useEffect(() => {
                             }}
                             title="Edit this campaign's blueprint"
                           >
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="28px"
-                              height="28px"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                            >
-                              <path
-                                d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
-                                stroke="#2563eb"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
+                              <FontAwesomeIcon
+                              icon={faEdit}
+                              style={{ color: "#3f9f42", fontSize: 20 }}
                               />
-                            </svg>
                           </button>
                         </>
                       )}
@@ -2001,7 +1994,7 @@ useEffect(() => {
                           <path
                             d="M3,12.3v7a2,2,0,0,0,2,2H19a2,2,0,0,0,2-2v-7"
                             fill="none"
-                            stroke="#000000"
+                            stroke="#3f9f42"
                             strokeLinecap="round"
                             strokeLinejoin="round"
                             strokeWidth="2"
@@ -2012,14 +2005,14 @@ useEffect(() => {
                               fill="none"
                               id="Right-2"
                               points="7.9 12.3 12 16.3 16.1 12.3"
-                              stroke="#000000"
+                              stroke="#3f9f42"
                               strokeLinecap="round"
                               strokeLinejoin="round"
                               strokeWidth="2"
                             />
                             <line
                               fill="none"
-                              stroke="#000000"
+                              stroke="#3f9f42"
                               strokeLinecap="round"
                               strokeLinejoin="round"
                               strokeWidth="2"
@@ -2680,8 +2673,8 @@ useEffect(() => {
                             marginLeft: "0px", // keeps alignment similar to your existing pitch date
                           }}
                         >
-                          {/* Pitch Generated Date */}
-                          <span
+                          
+                          {/* <span
                             style={{
                               fontSize: "13px",
                               color: "#666",
@@ -2689,15 +2682,15 @@ useEffect(() => {
                             }}
                           >
                             {combinedResponses[currentIndex]?.lastemailupdateddate
-                              ? `Krafted: ${formatLocalDateTime(
+                              ? `Krafted: ${formatDateTimeIST(
                                 combinedResponses[currentIndex]
                                   ?.lastemailupdateddate,
                               )}`
                               : ""}
-                          </span>
+                          </span> */}
 
                           {/* Email Sent Date */}
-                          <span
+                          {/* <span
                             style={{
                               fontSize: "13px",
                               color: "#666",
@@ -2706,11 +2699,11 @@ useEffect(() => {
                             }}
                           >
                             {combinedResponses[currentIndex]?.emailsentdate
-                              ? `Emailed: ${formatLocalDateTime(
+                              ? `Emailed: ${formatDateTimeIST(
                                 combinedResponses[currentIndex]?.emailsentdate,
                               )}`
                               : ""}
-                          </span>
+                          </span> */}
                         </div>
                       </div>
                       <div className="form-group" style={{ marginBottom: "20px" }}>

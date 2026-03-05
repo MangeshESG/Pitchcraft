@@ -20,11 +20,15 @@ import {
   faGear,
   faList,
   faRobot,
-  //faTrash ,
+  faTrash ,
   faThumbtack, // Add this for Campaign Builder
+  faThumbtackSlash,
+  faFileCirclePlus,
+  faFileSignature,
+  faFileEdit
 
 } from "@fortawesome/free-solid-svg-icons"
-import { faEdit, faTrashCan,faCircleXmark   } from "@fortawesome/free-regular-svg-icons";
+import { faEdit,faTrashAlt,faCircleXmark,faSquarePlus    } from "@fortawesome/free-regular-svg-icons";
 import EditContactModal from "../EditContactModal";
 import { useAppModal } from "../../../hooks/useAppModal";
 import pitchLogo from "../../../assets/images/pitch_logo.png";
@@ -42,6 +46,9 @@ import unpin from "../../../assets/images/pinicon.png";
 import gpsPin from "../../../assets/images/Unpin.png";
 import pinimage from "../../../assets/images/pin.png";
 import{formatDateTimeLocal, formatTimeLocal}from "../../common/dateFormatters";
+import { Slash } from "lucide-react";
+import { Pin, PinOff } from 'lucide-react';
+
 
 
 interface Contact {
@@ -145,8 +152,8 @@ const ContactDetailView: React.FC = () => {
 }
 `;
 const menuIconStyle = {
-  width: 20,
-  height: 20,
+  width: 22,
+  height: 22,
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
@@ -156,7 +163,7 @@ const menuIconStyle = {
 const menuItemStyle = {
   display: "flex",
   alignItems: "center",
-  gap: 10,
+  gap: 12,
   width: "100%",
   padding: "10px 16px",
   background: "transparent",
@@ -1466,7 +1473,7 @@ useEffect(() => {
                       //color: "#3f9f42",
                     }}
                   >
-                    <FontAwesomeIcon icon={faEdit} style={{ color: "#3f9f42", cursor: "pointer", }} className="text-[20px]" />
+                    <FontAwesomeIcon icon={faSquarePlus  } style={{ color: "#3f9f42", cursor: "pointer", }} className="text-[20px]" />
                     Add note
                   </button>
                 </div>
@@ -1809,22 +1816,22 @@ useEffect(() => {
                                         </button>
 
                                         {noteActionsAnchor === note.id && (
-  <div
-    style={{
-      position: "absolute",
-      right: 0,
-      top: 36,
-      background: "#fff",
-      border: "1px solid #e5e7eb",
-      borderRadius: 8,
-      boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
-      zIndex: 101,
-      minWidth: 170,
-      padding: "6px 0",
-    }}
-  >
-    {/* EDIT */}
-     <button
+                                        <div
+                                          style={{
+                                            position: "absolute",
+                                            right: 0,
+                                            top: 36,
+                                            background: "#fff",
+                                            border: "1px solid #e5e7eb",
+                                            borderRadius: 8,
+                                            boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
+                                            zIndex: 101,
+                                            minWidth: 170,
+                                            padding: "6px 0",
+                                          }}
+                                        >
+                                        {/* EDIT */}
+                                        <button
                                             onClick={() => {
                                               handleEditNote(note);
                                               setNoteActionsAnchor(null);
@@ -1833,12 +1840,12 @@ useEffect(() => {
                                             //className="flex gap-2 items-center ml-[0px]"
                                           >
                                             <div style={menuIconStyle}>
-        <FontAwesomeIcon
-          icon={faEdit}
-          style={{ color: "#3f9f42", width: "100%", height: "100%" }}
-        />
-      </div>
-                                            <span className="font-[600]">Edit</span>
+                                             <FontAwesomeIcon
+                                             icon={faEdit}
+                                            style={{ color: "#3f9f42", fontSize: 19 }}
+                                            />
+                                            </div>
+                                            <span>Edit</span>
                                           </button>
 
     {/* PIN / UNPIN */}
@@ -1847,17 +1854,13 @@ useEffect(() => {
   style={menuItemStyle}
 >
    <div style={menuIconStyle}>
-        <img
-          src={note.isPin ? gpsPin : pinimage}
-          alt={note.isPin ? "Unpin" : "Pin"}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "contain",
-            display: "block",
-          }}
-        />
-      </div>
+    {note.isPin ? (
+      <PinOff size={19} color="#3f9f42" strokeWidth={2.5} />
+    ) : (
+      <Pin size={21} color="#3f9f42" strokeWidth={2} />
+    )}
+  </div>
+
   <span>{note.isPin ? "Unpin" : "Pin"}</span>
 </button>
 
@@ -1867,10 +1870,10 @@ useEffect(() => {
     handleDeleteNote(note.id);
     setNoteActionsAnchor(null);
   }}
-  style={{ ...menuItemStyle, color: "#dc2626" }}
+  style={menuItemStyle}
 >
   <div style={menuIconStyle}>
-        <img
+        {/* <img
           src={deleteIcon}
           alt="Delete"
           style={{
@@ -1879,6 +1882,10 @@ useEffect(() => {
             objectFit: "contain",
             display: "block",
           }}
+        /> */}
+        <FontAwesomeIcon
+          icon={faTrashAlt}
+          style={{ color: "#3f9f42", fontSize: 18 }}
         />
       </div>
   <span>Delete</span>
@@ -2228,11 +2235,14 @@ useEffect(() => {
                                               setNoteActionsAnchor(null);
                                             }}
                                             style={menuBtnStyle}
-                                            className="flex gap-2 items-center ml-[0px]"
+                                            className="flex gap-2 items-center"
                                           >
-                                            <span>
-                                              <FontAwesomeIcon icon={faEdit} style={{ color: "#3f9f42", cursor: "pointer", }} className="text-[20px]" />
-                                            </span>
+                                             <div style={menuIconStyle}>
+                                             <FontAwesomeIcon
+                                             icon={faEdit}
+                                            style={{ color: "#3f9f42", fontSize: 19 }}
+                                            />
+                                            </div>
                                             <span className="font-[600]">Edit</span>
                                           </button>
 
@@ -2240,22 +2250,15 @@ useEffect(() => {
                                           <button
                                             onClick={() => handleTogglePin(note.id)}
                                             style={menuBtnStyle}
-                                            className="flex gap-2 items-center ml-[-4px]"
+                                            className="flex gap-2 items-center"
                                           >
-                                             <span>
-                                              <img
-                                               src={note.isPin ? gpsPin : pinimage}
-                                               alt={note.isPin ? "Unpin" : "Pin"}
-                                               style={{
-                                                width: "25px",
-                                                height: "25px",
-                                                cursor: "pointer",
-                                                transform: "rotate(314deg)", // ✅ 360° rotation
-                                                transition: "transform 0.3s ease",
-                                              //  filter: "invert(43%) sepia(68%) saturate(383%) hue-rotate(73deg) brightness(92%) contrast(89%)",
-                                               }}
-                                              />
-                                              </span>
+                                             <div style={menuIconStyle}>
+                                             {note.isPin ? (
+                                             <PinOff size={19} color="#3f9f42" strokeWidth={2.5} />
+                                             ) : (
+                                            <Pin size={21} color="#3f9f42" strokeWidth={2} />
+                                             )}
+                                            </div>
                                             <span className="font-[600]">
                                               {note.isPin ? "Unpin" : "Pin"}
                                             </span>
@@ -2268,15 +2271,14 @@ useEffect(() => {
                                               setNoteActionsAnchor(null);
                                             }}
                                             style={menuBtnStyle}
-                                            className="flex gap-2 items-center ml-[-4px]"
+                                            className="flex gap-2 items-center"
                                           >
-                                            <span className="ml-[3px] font-normal">
-                                              <img
-                                                  src={deleteIcon}
-                                                  alt="Delete"
-                                                  className="w-[24px] h-[24px] font-normal"
-                                              />
-                                            </span>
+                                            <div style={menuIconStyle}>
+                                            <FontAwesomeIcon
+                                            icon={faTrashAlt}
+                                            style={{ color: "#3f9f42", fontSize: 18 }}
+                                            />
+                                            </div>
                                             <span className="font-[600]">Delete</span>
                                           </button>
                                         </div>
