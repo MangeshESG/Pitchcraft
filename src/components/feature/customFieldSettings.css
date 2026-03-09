@@ -1,0 +1,121 @@
+/* Container */
+.custom-fields-container {
+  padding: 0;
+  margin: 0;
+  background: #ffffff;
+  border-radius: 8px;
+}
+
+/* Header */
+.custom-fields-header {
+  display: flex;
+  justify-content: space-between; /* pushes button to right */
+  align-items: center;
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.custom-fields-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* Add field button */
+.custom-field-btn {
+  background-color: #3f9f42;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 14px;
+  transition: background 0.2s ease;
+}
+
+.custom-field-btn:hover {
+  background-color: #2e7d32;
+}
+
+/* Table */
+.custom-fields-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  background: #fff;
+}
+
+.custom-fields-table th {
+  background: #f7f7f7;
+  text-align: left;
+  padding: 12px;
+  border-bottom: 2px solid #e5e7eb;
+  font-weight: 600;
+}
+
+.custom-fields-table td {
+  padding: 12px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+/* Empty state */
+.custom-fields-empty {
+  text-align: center;
+  padding: 24px;
+  color: #888;
+}
+
+/* Form inside side panel */
+.panel-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Input fields */
+.custom-field-input,
+.custom-field-select {
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  width: 100%;
+}
+
+.custom-field-input:focus,
+.custom-field-select:focus {
+  outline: none;
+  border-color: #3f9f42;
+}
+
+/* Cancel button */
+.panel-cancel-btn {
+  background: #fff;
+  border: 1px solid #ccc;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+/* Create button */
+.panel-create-btn {
+  background: #3f9f42;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.panel-create-btn:hover {
+  background: #2e7d32;
+}
+
+.dropdown-options {
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
+}

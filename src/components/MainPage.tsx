@@ -47,6 +47,7 @@ import Myplan from "./feature/Myplan";
 import { useSoundAlert } from "./common/useSoundAlert";
 import { link } from "node:fs";
 import LoadingSpinner from "./common/LoadingSpinner";
+import CustomFieldSettings from "./feature/CustomFieldSettings";
 
 interface Prompt {
   id: number;
@@ -3396,6 +3397,18 @@ try {
                               Segments
                             </button>
                           </li>
+                          <li className={contactsSubTab === "CustomFields" ? "active" : ""}>
+                          <button
+                            onClick={() => {
+                              setContactsSubTab("CustomFields");
+                              setTab("CustomFields");
+                              setShowMailSubmenu(false);
+                            }}
+                            className="submenu-button"
+                          >
+                            Custom Attributes
+                          </button>
+                        </li>
                         </ul>
                       )}
                     </li>
@@ -3769,6 +3782,11 @@ try {
                 }}
               />
             )}
+            {tab === "CustomFields" && (
+                <CustomFieldSettings
+                  clientId={Number(selectedClient)}
+                />
+              )}
 
             {/* Stop Confirmation Popup */}
             {showPopup && (
