@@ -123,9 +123,11 @@ return (
             {f.field_type}
 
             {f.field_type === "dropdown" && options.length > 0 && (
-              <div className="dropdown-options">
-                {options.join(", ")}
-              </div>
+            <div>
+            {options.map(opt => (
+              <span className="option-badge">{opt}</span>
+            ))}
+            </div>
             )}
           </td>
         </tr>
