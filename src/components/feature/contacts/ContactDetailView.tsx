@@ -105,7 +105,7 @@ const ContactDetailView: React.FC = () => {
   const popupRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const [showSupportPopup, setShowSupportPopup] = useState(false);
-  const [historyFilter, setHistoryFilter] = useState<"all" | "notes" | "emails">("all");
+  const [historyFilter, setHistoryFilter] = useState<"all" | "notes" | "emails" | "attachments">("all");
   const labelStyle: React.CSSProperties = {
     fontSize: "13px",
     fontWeight: 600,
@@ -1526,6 +1526,7 @@ useEffect(() => {
                     { key: "all", label: "All" },
                     { key: "notes", label: "Notes" },
                     { key: "emails", label: "Emails" },
+                    { key: "attachments", label: "Attachments" },
                   ].map(item => (
                     <button
                       key={item.key}
@@ -2028,7 +2029,28 @@ useEffect(() => {
                                           position: "relative",
                                         }}
                                       >
-                                        <div
+                                        <button
+                                          onClick={async () => {
+                                            try {
+                                              const response = await axios.get(
+                                                `${API_BASE_URL}/api/Attachment/download/${attachment.id}`,
+                                                { responseType: "blob" }
+                                              );
+                                              const url = window.URL.createObjectURL(new Blob([response.data]));
+                                              const link = document.createElement("a");
+                                              link.href = url;
+                                              link.setAttribute("download", attachment.fileName);
+                                              document.body.appendChild(link);
+                                              link.click();
+                                              link.remove();
+                                              window.URL.revokeObjectURL(url);
+                                            } catch (error) {
+                                              console.error("Download failed", error);
+                                              setToastMessage("Failed to download attachment.");
+                                              setShowErrorToast(true);
+                                              setTimeout(() => setShowErrorToast(false), 3000);
+                                            }
+                                          }}
                                           title="Download attachment"
                                           style={{
                                             position: "absolute",
@@ -2039,14 +2061,14 @@ useEffect(() => {
                                             borderRadius: "50%",
                                             width: 32,
                                             height: 32,
-                                            cursor: "default",
+                                            cursor: "pointer",
                                             display: "flex",
                                             alignItems: "center",
                                             justifyContent: "center",
                                           }}
                                         >
                                           <FontAwesomeIcon icon={faDownload} style={{ color: "#3f9f42" }} />
-                                        </div>
+                                        </button>
 
                                         <div
                                           style={{
@@ -2233,6 +2255,113 @@ useEffect(() => {
 
                           </div>
                         ))}
+                      {/* 🔹 ATTACHMENTS HISTORY */}
+                      {(historyFilter === "attachments") && (
+                        <>
+                          {attachmentsHistory.length === 0 && (
+                            <p style={{ color: "#666" }}>No attachments found.</p>
+                          )}
+
+                          {attachmentsHistory.map((attachment: any) => (
+                            <div key={attachment.id}>
+                              <div style={{ display: "flex", gap: 16, paddingBottom: 24 }}>
+                                <div style={{ position: "relative" }}>
+                                  <div
+                                    style={{
+                                      width: 10,
+                                      height: 10,
+                                      background: "#3f9f42",
+                                      borderRadius: "50%",
+                                      marginTop: 6,
+                                    }}
+                                  />
+                                  <div
+                                    style={{
+                                      position: "absolute",
+                                      top: 16,
+                                      left: 4,
+                                      width: 2,
+                                      height: "100%",
+                                      background: "#e5e7eb",
+                                    }}
+                                  />
+                                </div>
+
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ fontWeight: 600 }}>Attachment added</div>
+                                  <div style={{ fontSize: 13, color: "#666", marginBottom: 8 }}>
+                                    {formatDateTimeIST(attachment.createdDate)}
+                                  </div>
+
+                                  <div
+                                    style={{
+                                      background: "#fefcf9",
+                                      border: "1px solid #e5e7eb",
+                                      borderRadius: 12,
+                                      padding: 16,
+                                      position: "relative",
+                                    }}
+                                  >
+                                    <button
+                                      onClick={async () => {
+                                        try {
+                                          const response = await axios.get(
+                                            `${API_BASE_URL}/api/Attachment/download/${attachment.id}`,
+                                            { responseType: "blob" }
+                                          );
+                                          const url = window.URL.createObjectURL(new Blob([response.data]));
+                                          const link = document.createElement("a");
+                                          link.href = url;
+                                          link.setAttribute("download", attachment.fileName);
+                                          document.body.appendChild(link);
+                                          link.click();
+                                          link.remove();
+                                          window.URL.revokeObjectURL(url);
+                                        } catch (error) {
+                                          console.error("Download failed", error);
+                                          setToastMessage("Failed to download attachment.");
+                                          setShowErrorToast(true);
+                                          setTimeout(() => setShowErrorToast(false), 3000);
+                                        }
+                                      }}
+                                      title="Download attachment"
+                                      style={{
+                                        position: "absolute",
+                                        top: 12,
+                                        right: 12,
+                                        border: "none",
+                                        background: "#ede9fe",
+                                        borderRadius: "50%",
+                                        width: 32,
+                                        height: 32,
+                                        cursor: "pointer",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                      }}
+                                    >
+                                      <FontAwesomeIcon icon={faDownload} style={{ color: "#3f9f42" }} />
+                                    </button>
+
+                                    <div
+                                      style={{
+                                        fontSize: 14,
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 8,
+                                      }}
+                                    >
+                                      <FontAwesomeIcon icon={faPaperclip} style={{ color: "#3f9f42" }} />
+                                      <span>{attachment.fileName}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </>
+                      )}
+
                       {/* 🔹 NOTES HISTORY */}
                       {(historyFilter === "notes") && (
                         <>
@@ -2767,7 +2896,9 @@ useEffect(() => {
                   const formData = new FormData();
                   formData.append("ContactId", contactId);
                   formData.append("Name", attachmentName);
-                  formData.append("Description", attachmentDescription);
+                  if (attachmentDescription) {
+                    formData.append("Description", attachmentDescription);
+                  }
                   formData.append("File", attachmentFile);
                   await axios.post(`${API_BASE_URL}/api/Attachment/upload`, formData, {
                     headers: { "Content-Type": "multipart/form-data" },
@@ -2832,6 +2963,18 @@ useEffect(() => {
             <label style={labelStyle}>File</label>
             <div
               onClick={() => document.getElementById('attachment-file-input')?.click()}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const files = e.dataTransfer.files;
+                if (files && files[0]) {
+                  setAttachmentFile(files[0]);
+                }
+              }}
               style={{
                 ...inputStyle,
                 padding: "60px 12px",
