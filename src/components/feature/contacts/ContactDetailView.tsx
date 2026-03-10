@@ -42,8 +42,7 @@ import DOMPurify from "dompurify";
 import Detail from './Detail'
 import LoadingSpinner from '../../common/LoadingSpinner';
 import deleteIcon from "../../../assets/images/deleteiconn.png";
-import PushPinIcon from "@mui/icons-material/PushPin";
-import PushPinOutlinedIcon from "@mui/icons-material/PushPinOutlined";
+
 import unpin from "../../../assets/images/pinicon.png";
 import gpsPin from "../../../assets/images/Unpin.png";
 import pinimage from "../../../assets/images/pin.png";
