@@ -34,6 +34,8 @@ interface ProcessedContact {
   company_industry?: string;
   company_linkedin_url?: string;
   linkedIninformation?: string;
+    customFields?: Record<string, string>;
+
 }
 
 const REQUIRED_FIELDS = [
@@ -84,6 +86,8 @@ const DataFile: React.FC<DataFileProps> = ({
     invalid: 0,
   });
   const [isDragActive, setIsDragActive] = useState(false);
+  const reduxUserId = useSelector((state: RootState) => state.auth.userId);
+ const effectiveUserId = selectedClient !== "" ? selectedClient : reduxUserId;
 
   const [showDataFileModal, setShowDataFileModal] = useState(false);
   const [dataFileInfo, setDataFileInfo] = useState<DataFileInfo>({
@@ -97,54 +101,96 @@ const DataFile: React.FC<DataFileProps> = ({
     name: string;
     description: string;
   }
+  interface CustomField {
+  id: number;
+  field_name: string;
+  field_type: string;
+}
 
-  // Auto-detect column mappings
-  const autoDetectColumns = (headers: string[]) => {
-    const mappings: ColumnMapping = {};
-    
-    headers.forEach(header => {
-      const lowerHeader = header.toLowerCase().trim();
-      
-      // Map full name to first_name
-      if (lowerHeader === 'name' || lowerHeader === 'full name' || lowerHeader === 'fullname' || lowerHeader === 'contact name') {
-        mappings.first_name = header;
-      } else if (lowerHeader === 'first name' || lowerHeader === 'firstname' || lowerHeader === 'first_name') {
-        mappings.first_name = header;
-      } else if (lowerHeader === 'last name' || lowerHeader === 'lastname' || lowerHeader === 'last_name') {
-        mappings.last_name = header;
-      } else if (lowerHeader === 'email') mappings.email = header;
-      else if (lowerHeader === 'company') mappings.company = header;
-      else if (lowerHeader === 'location') mappings.location = header;
-      else if (lowerHeader === 'website') mappings.company_website = header;
-      else if (lowerHeader === 'job title') mappings.job_title = header;
-      else if (lowerHeader === 'li' || lowerHeader === 'linkedin') mappings.linkedin = header;
-    });
-    
-    // Pattern matching for common variations
-    const patterns = {
-      first_name: ['full name', 'fullname', 'contact name'],
-      email: ['email address', 'e-mail', 'mail'],
-      job_title: ['title', 'position', 'role'],
-      company: ['company name', 'organization'],
-      location: ['address', 'city', 'country'],
-      linkedin: ['linkedin url', 'linkedin profile'],
-      company_website: ['company website', 'company url']
-    };
-    
-    Object.entries(patterns).forEach(([field, patternList]) => {
-      if (!mappings[field]) {
-        const match = headers.find(header => 
-          patternList.some(pattern => header.toLowerCase().includes(pattern))
-        );
-        if (match) mappings[field] = match;
-      }
-    });
-
-    setColumnMappings(mappings);
+const [customFields, setCustomFields] = useState<CustomField[]>([]);
+const allFields = React.useMemo(() => [
+  ...REQUIRED_FIELDS,
+  ...customFields.map((f: CustomField) => ({
+    key: `custom_${f.field_name}`,
+    label: f.field_name,
+    required: false,
+    isCustom: true,
+  })),
+], [customFields]);
+useEffect(() => {
+  const fetchCustomFields = async () => {
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/Crm/custom-fields?clientId=${effectiveUserId}`
+      );
+      const data = await res.json();
+      setCustomFields(data || []);
+    } catch (err) {
+      console.error("Error fetching custom fields", err);
+    }
   };
 
-const reduxUserId = useSelector((state: RootState) => state.auth.userId);
-const effectiveUserId = selectedClient !== "" ? selectedClient : reduxUserId;
+  if (effectiveUserId) fetchCustomFields();
+}, [effectiveUserId]);
+
+  // Auto-detect column mappings
+ const autoDetectColumns = (headers: string[]) => {
+  const mappings: ColumnMapping = {};
+
+  headers.forEach((header) => {
+    const lowerHeader = header.toLowerCase().trim();
+
+    if (["name", "full name", "fullname", "contact name"].includes(lowerHeader)) {
+      mappings[header] = "first_name";
+    } else if (["first name", "firstname", "first_name"].includes(lowerHeader)) {
+      mappings[header] = "first_name";
+    } else if (["last name", "lastname", "last_name"].includes(lowerHeader)) {
+      mappings[header] = "last_name";
+    } else if (lowerHeader.includes("email")) {
+      mappings[header] = "email";
+    } else if (lowerHeader.includes("company")) {
+      mappings[header] = "company";
+    } else if (lowerHeader.includes("location")) {
+      mappings[header] = "location";
+    } else if (lowerHeader.includes("website")) {
+      mappings[header] = "company_website";
+    } else if (lowerHeader.includes("job")) {
+      mappings[header] = "job_title";
+    } else if (lowerHeader.includes("linkedin")) {
+      mappings[header] = "linkedin";
+    }
+  });
+
+  const patterns: Record<string, string[]> = {
+    first_name: ['full name', 'fullname', 'contact name'],
+    email: ['email address', 'e-mail', 'mail'],
+    job_title: ['title', 'position', 'role'],
+    company: ['company name', 'organization'],
+    location: ['address', 'city', 'country'],
+    linkedin: ['linkedin url', 'linkedin profile'],
+    company_website: ['company website', 'company url']
+  };
+
+  headers.forEach((header) => {
+  const lowerHeader = header.toLowerCase();
+
+  for (const [field, patternList] of Object.entries(patterns)) {
+    if (mappings[header]) break;
+
+    const matched = patternList.some(pattern =>
+      lowerHeader.includes(pattern)
+    );
+
+    if (matched) {
+      mappings[header] = field;
+      break;
+    }
+  }
+});
+
+  setColumnMappings(mappings);
+};
+
 
   // const userId = sessionStorage.getItem("clientId");
   //  console.log("Client ID stored in session:", userId);
@@ -288,17 +334,28 @@ const effectiveUserId = selectedClient !== "" ? selectedClient : reduxUserId;
     const totalRows = excelData.length;
 
     excelData.forEach((row, rowIndex) => {
-      const mappedRow: any = {};
+      const mappedRow: any = {
+        customFields: {}
+      };
       let isValid = true;
 
-      Object.entries(columnMappings).forEach(([field, column]) => {
+      Object.entries(columnMappings).forEach(([column, field]) => {
         const columnIndex = columnHeaders.indexOf(column);
         
         if (columnIndex !== -1 && columnIndex < row.length && row[columnIndex] !== undefined && row[columnIndex] !== null) {
           const cellValue = row[columnIndex];
-          mappedRow[field] = cellValue?.toString().trim() || "";
+          const value = cellValue?.toString().trim() || "";
+
+        if (field.startsWith("custom_")) {
+          const customKey = field.replace("custom_", "");
+          mappedRow.customFields[customKey] = value;
         } else {
-          mappedRow[field] = "";
+          mappedRow[field] = value;
+        }
+        } else {
+          if (!field.startsWith("custom_")) {
+            mappedRow[field] = "";
+          }
         }
       });
 
@@ -384,22 +441,25 @@ const effectiveUserId = selectedClient !== "" ? selectedClient : reduxUserId;
         name: dataFileInfo.name,
         dataFileName: uploadedFile?.name || "",
         description: dataFileInfo.description,
-        contacts: validatedData.map((contact) => ({
-          fullName: contact.name,
-          email: contact.email,
-          website: contact.company_website || "",
-          companyName: contact.company || "",
-          jobTitle: contact.job_title || "",
-          linkedInUrl: contact.linkedin || "",
-          countryOrAddress: contact.location || "",
-          emailSubject: contact.email_subject || "",
-          emailBody: contact.email_body || "",
-          companyTelephone: contact.company_telephone || "",
-          companyEmployeeCount: contact.company_employee_count || "",
-          companyIndustry: contact.company_industry || "",
-          companyLinkedInURL: contact.company_linkedin_url || "",
-          linkedIninformation: contact.linkedIninformation || "",
-        })),
+          contacts: validatedData.map((contact: any) => ({
+            fullName: contact.name,
+            email: contact.email,
+            website: contact.company_website || "",
+            companyName: contact.company || "",
+            jobTitle: contact.job_title || "",
+            linkedInUrl: contact.linkedin || "",
+            countryOrAddress: contact.location || "",
+            emailSubject: contact.email_subject || "",
+            emailBody: contact.email_body || "",
+            companyTelephone: contact.company_telephone || "",
+            companyEmployeeCount: contact.company_employee_count || "",
+            companyIndustry: contact.company_industry || "",
+            companyLinkedInURL: contact.company_linkedin_url || "",
+            linkedIninformation: contact.linkedIninformation || "",
+
+            // NEW
+            customFields: contact.customFields || {}
+          }))
       };
 
       setUploadProgress(50);
@@ -686,85 +746,33 @@ const effectiveUserId = selectedClient !== "" ? selectedClient : reduxUserId;
                 For best results, also include those fields with a blue asterisk (<span style={{color: 'blue'}}>*</span>).
               </p>
 
-              <div className="mapping-container">
-                {REQUIRED_FIELDS.map((field) => {
-                  // Define helper text for each field
-                  const getFieldDescription = (fieldKey: string) => {
-                    switch (fieldKey) {
-                      case 'first_name':
-                        return 'Required – map your first name column here. If your file has a full name column, map it here and it will be used as the complete name.';
-                      case 'last_name':
-                        return 'Optional – map your last name column here if it\'s separate. If you mapped full name to first name, leave this empty.';
-                      case 'email':
-                        return 'Required – mapping the email address is necessary for sending messages to each recipient.';
-                      case 'company':
-                        return 'Optional: mapping the company name lets you personalise messages and refer to each recipient\'s organisation.';
-                      case 'company_website':
-                        return 'Optional but very useful – mapping the company website lets PitchKraft personalize the emails based on your prospect\'s company.';
-                      case 'location':
-                        return 'Optional – mapping the location lets you tailor messages according to the prospect\'s region.';
-                      case 'linkedin':
-                        return 'Optional – mapping the contact\'s personal LinkedIn profile lets you add personal touches or include a direct profile link in your message.';
-                      case 'job_title':
-                        return 'Optional – mapping the job title lets you personalise your message by referencing the recipient\'s role and responsibilities.';
-                      case 'company_industry':
-                        return 'Optional – mapping the industry helps you tailor your messaging to the recipient\'s business sector and add relevant context.';
-                      // case 'company_event_link':
-                      //   return 'Optional – mapping the company event link lets you reference or share their events directly in personalised messages.';
-                       case 'company_linkedin_url':
-                        return 'Optional – mapping the company\'s LinkedIn page helps you add relevant context or include a direct link to their organisation profile.';
-                      case 'company_employee_count':
-                        return 'Optional – mapping the employee count helps you tailor messaging based on the organisation\'s size and structure.';
-                      case 'company_telephone':
-                        return 'Optional – mapping the company telephone number lets you include direct contact details when needed in personalised outreach.';
-                      case 'linkedIninformation':
-                        return 'Optional – mapping LinkedIn summary helps you understand the contact\'s professional background and personalize your outreach.';
-                      default:
-                        return null;
-                    }
-                  };
+<div className="mapping-container">
+  {columnHeaders.map((header) => (
+    <div key={header} className="form-group">
+      <label>{header}</label>
 
-                  const description = getFieldDescription(field.key);
+      <select
+        value={columnMappings[header] || ""}
+        onChange={(e) =>
+          setColumnMappings({
+            ...columnMappings,
+            [header]: e.target.value,
+          })
+        }
+      >
+        <option value="">--Do not include--</option>
 
-                  return (
-                    <div key={field.key} className="form-group">
-                      <label>
-                        {field.label}
-                        {field.required && <span className="required"> *</span>}
-                      </label>
-                      <select
-                        value={columnMappings[field.key] || ""}
-                        onChange={(e) =>
-                          handleMappingChange(field.key, e.target.value)
-                        }
-                        className={`${
-                          field.required && !columnMappings[field.key]
-                            ? "highlight-required"
-                            : ""
-                        }`}
-                      >
-                        <option value="">--Do not include--</option>
-                        {[...columnHeaders].sort().map((header, index) => (
-                          <option key={index} value={header}>
-                            {header}
-                          </option>
-                        ))}
-                      </select>
-                      {description && (
-                        <p style={{
-                          fontSize: '13px',
-                          color: '#666',
-                          marginTop: '4px',
-                          marginBottom: '0',
-                          lineHeight: '1.4'
-                        }}>
-                          {description}
-                        </p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+        {allFields.map((field) => (
+        <option key={field.key} value={field.key}>
+          {field.key
+            .replace(/_/g, " ")
+            .replace(/\b\w/g, (c) => c.toUpperCase())}
+        </option>
+        ))}
+      </select>
+    </div>
+  ))}
+</div>
 
               <div
                 className="
@@ -776,7 +784,10 @@ const effectiveUserId = selectedClient !== "" ? selectedClient : reduxUserId;
                 <button
                   onClick={generatePreview}
                   className="button action-button"
-                  disabled={!columnMappings.first_name || !columnMappings.email}
+                  disabled={
+                    !Object.values(columnMappings).includes("first_name") ||
+                    !Object.values(columnMappings).includes("email")
+                  }
                 >
                   Continue to preview
                 </button>
