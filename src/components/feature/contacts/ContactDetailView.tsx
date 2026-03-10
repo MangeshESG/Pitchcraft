@@ -21,7 +21,9 @@ import {
   faList,
   faRobot,
   faTrash ,
-  faThumbtack, // Add this for Campaign Builder
+  faThumbtack,
+  faPaperclip,
+  faDownload,
   faThumbtackSlash,
   faFileCirclePlus,
   faFileSignature,
@@ -49,6 +51,7 @@ import{formatDateTimeLocal, formatTimeLocal}from "../../common/dateFormatters";
 import { Slash } from "lucide-react";
 import { Pin, PinOff } from 'lucide-react';
 
+import CommonSidePanel from '../../common/CommonSidePanel';
 
 
 interface Contact {
@@ -109,7 +112,7 @@ const ContactDetailView: React.FC = () => {
   const popupRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const [showSupportPopup, setShowSupportPopup] = useState(false);
-  const [historyFilter, setHistoryFilter] = useState<"all" | "notes" | "emails">("all");
+  const [historyFilter, setHistoryFilter] = useState<"all" | "notes" | "emails" | "attachments">("all");
   const labelStyle: React.CSSProperties = {
     fontSize: "13px",
     fontWeight: 600,
@@ -215,6 +218,12 @@ const menuItemStyle = {
    const [expandedNoteIds, setExpandedNoteIds] = useState<Set<number>>(new Set());
   const [isSavingLinkedIn, setIsSavingLinkedIn] = useState(false);
  const [showErrorToast, setShowErrorToast] = useState(false);
+  const [isAttachmentPanelOpen, setIsAttachmentPanelOpen] = useState(false);
+  const [attachmentName, setAttachmentName] = useState("");
+  const [attachmentDescription, setAttachmentDescription] = useState("");
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+  const [attachmentsHistory, setAttachmentsHistory] = useState<any[]>([]);
 
 
 const NOTE_MAX_LENGTH = 10000;
@@ -370,9 +379,12 @@ useEffect(() => {
       );
 
       setEmailTimeline(data.emails || []);
+      setNotesHistory(data.notes || []); // ✅ Set notes from timeline API
+      setAttachmentsHistory(data.attachments || []); // ✅ Set attachments from timeline API
     } catch (err) {
       console.error(err);
       setEmailTimeline([]);
+      setNotesHistory([]);
     } finally {
       setIsLoadingHistory(false);
     }
@@ -772,11 +784,12 @@ useEffect(() => {
 //       setIsSavingNote(false);
 //     }
 //   };
-useEffect(() => {
-  if (contactId && effectiveUserId) {
-    fetchNotesHistory();
-  }
-}, [contactId, effectiveUserId]);
+// ✅ Notes now fetched from timeline API, no separate call needed
+// useEffect(() => {
+//   if (contactId && effectiveUserId) {
+//     fetchNotesHistory();
+//   }
+// }, [contactId, effectiveUserId]);
   const fetchNotesHistory = async () => {
     if (!effectiveUserId || !contactId) return;
 
@@ -1000,9 +1013,18 @@ useEffect(() => {
       });
     });
 
+    // Attachments
+    attachmentsHistory.forEach((attachment: any) => {
+      items.push({
+        type: "attachment",
+        time: new Date(attachment.createdDate).getTime(),
+        data: attachment,
+      });
+    });
+
     // newest → oldest
     return items.sort((a, b) => b.time - a.time);
-  }, [editingContact, emailTimeline, notesHistory]);
+  }, [editingContact, emailTimeline, notesHistory, attachmentsHistory]);
 
   return (
     <>
@@ -1441,7 +1463,7 @@ useEffect(() => {
                             : "2px solid transparent",
                       }}
                     >
-                      {tab === "profile" ? "Profile" : tab === "history" ? "History" : "Lists"}
+                      {tab === "profile" ? "Profile" : tab === "history" ? "Activity" : "Lists"}
 
                     </button>
                   ))}
@@ -1476,6 +1498,23 @@ useEffect(() => {
                     <FontAwesomeIcon icon={faSquarePlus  } style={{ color: "#3f9f42", cursor: "pointer", }} className="text-[20px]" />
                     Add note
                   </button>
+                  <button
+                    onClick={() => setIsAttachmentPanelOpen(true)}
+                    style={{
+                      display: "flex",
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 6,
+                      border: "none",
+                      background: "transparent",
+                      cursor: "pointer",
+                      fontSize: 15,
+                      fontWeight: 500,
+                    }}
+                  >
+                    <FontAwesomeIcon icon={faPaperclip} style={{ color: "#3f9f42", cursor: "pointer", }} className="text-[20px]" />
+                    Add attachment
+                  </button>
                 </div>
               </div>
 
@@ -1494,6 +1533,7 @@ useEffect(() => {
                     { key: "all", label: "All" },
                     { key: "notes", label: "Notes" },
                     { key: "emails", label: "Emails" },
+                    { key: "attachments", label: "Attachments" },
                   ].map(item => (
                     <button
                       key={item.key}
@@ -1952,6 +1992,109 @@ useEffect(() => {
                               );
                             }
 
+                            /* 🟢 ATTACHMENT */
+                            if (item.type === "attachment") {
+                              const attachment = item.data;
+
+                              return (
+                                <div key={attachment.id}>
+                                  <div style={{ display: "flex", gap: 16, paddingBottom: 24 }}>
+                                    <div style={{ position: "relative" }}>
+                                      <div
+                                        style={{
+                                          width: 10,
+                                          height: 10,
+                                          background: "#3f9f42",
+                                          borderRadius: "50%",
+                                          marginTop: 6,
+                                        }}
+                                      />
+                                      <div
+                                        style={{
+                                          position: "absolute",
+                                          top: 16,
+                                          left: 4,
+                                          width: 2,
+                                          height: "100%",
+                                          background: "#e5e7eb",
+                                        }}
+                                      />
+                                    </div>
+
+                                    <div style={{ flex: 1 }}>
+                                      <div style={{ fontWeight: 600 }}>Attachment added</div>
+                                      <div style={{ fontSize: 13, color: "#666", marginBottom: 8 }}>
+                                        {formatDateTimeIST(attachment.createdDate)}
+                                      </div>
+
+                                      <div
+                                        style={{
+                                          background: "#fefcf9",
+                                          border: "1px solid #e5e7eb",
+                                          borderRadius: 12,
+                                          padding: 16,
+                                          position: "relative",
+                                        }}
+                                      >
+                                        <button
+                                          onClick={async () => {
+                                            try {
+                                              const response = await axios.get(
+                                                `${API_BASE_URL}/api/Attachment/download/${attachment.id}`,
+                                                { responseType: "blob" }
+                                              );
+                                              const url = window.URL.createObjectURL(new Blob([response.data]));
+                                              const link = document.createElement("a");
+                                              link.href = url;
+                                              link.setAttribute("download", attachment.fileName);
+                                              document.body.appendChild(link);
+                                              link.click();
+                                              link.remove();
+                                              window.URL.revokeObjectURL(url);
+                                            } catch (error) {
+                                              console.error("Download failed", error);
+                                              setToastMessage("Failed to download attachment.");
+                                              setShowErrorToast(true);
+                                              setTimeout(() => setShowErrorToast(false), 3000);
+                                            }
+                                          }}
+                                          title="Download attachment"
+                                          style={{
+                                            position: "absolute",
+                                            top: 12,
+                                            right: 12,
+                                            border: "none",
+                                            background: "#ede9fe",
+                                            borderRadius: "50%",
+                                            width: 32,
+                                            height: 32,
+                                            cursor: "pointer",
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                          }}
+                                        >
+                                          <FontAwesomeIcon icon={faDownload} style={{ color: "#3f9f42" }} />
+                                        </button>
+
+                                        <div
+                                          style={{
+                                            fontSize: 14,
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: 8,
+                                          }}
+                                        >
+                                          <FontAwesomeIcon icon={faPaperclip} style={{ color: "#3f9f42" }} />
+                                          <span>{attachment.fileName}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            }
+
                             return null;
                           })}
                         </>
@@ -2119,6 +2262,113 @@ useEffect(() => {
 
                           </div>
                         ))}
+                      {/* 🔹 ATTACHMENTS HISTORY */}
+                      {(historyFilter === "attachments") && (
+                        <>
+                          {attachmentsHistory.length === 0 && (
+                            <p style={{ color: "#666" }}>No attachments found.</p>
+                          )}
+
+                          {attachmentsHistory.map((attachment: any) => (
+                            <div key={attachment.id}>
+                              <div style={{ display: "flex", gap: 16, paddingBottom: 24 }}>
+                                <div style={{ position: "relative" }}>
+                                  <div
+                                    style={{
+                                      width: 10,
+                                      height: 10,
+                                      background: "#3f9f42",
+                                      borderRadius: "50%",
+                                      marginTop: 6,
+                                    }}
+                                  />
+                                  <div
+                                    style={{
+                                      position: "absolute",
+                                      top: 16,
+                                      left: 4,
+                                      width: 2,
+                                      height: "100%",
+                                      background: "#e5e7eb",
+                                    }}
+                                  />
+                                </div>
+
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ fontWeight: 600 }}>Attachment added</div>
+                                  <div style={{ fontSize: 13, color: "#666", marginBottom: 8 }}>
+                                    {formatDateTimeIST(attachment.createdDate)}
+                                  </div>
+
+                                  <div
+                                    style={{
+                                      background: "#fefcf9",
+                                      border: "1px solid #e5e7eb",
+                                      borderRadius: 12,
+                                      padding: 16,
+                                      position: "relative",
+                                    }}
+                                  >
+                                    <button
+                                      onClick={async () => {
+                                        try {
+                                          const response = await axios.get(
+                                            `${API_BASE_URL}/api/Attachment/download/${attachment.id}`,
+                                            { responseType: "blob" }
+                                          );
+                                          const url = window.URL.createObjectURL(new Blob([response.data]));
+                                          const link = document.createElement("a");
+                                          link.href = url;
+                                          link.setAttribute("download", attachment.fileName);
+                                          document.body.appendChild(link);
+                                          link.click();
+                                          link.remove();
+                                          window.URL.revokeObjectURL(url);
+                                        } catch (error) {
+                                          console.error("Download failed", error);
+                                          setToastMessage("Failed to download attachment.");
+                                          setShowErrorToast(true);
+                                          setTimeout(() => setShowErrorToast(false), 3000);
+                                        }
+                                      }}
+                                      title="Download attachment"
+                                      style={{
+                                        position: "absolute",
+                                        top: 12,
+                                        right: 12,
+                                        border: "none",
+                                        background: "#ede9fe",
+                                        borderRadius: "50%",
+                                        width: 32,
+                                        height: 32,
+                                        cursor: "pointer",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                      }}
+                                    >
+                                      <FontAwesomeIcon icon={faDownload} style={{ color: "#3f9f42" }} />
+                                    </button>
+
+                                    <div
+                                      style={{
+                                        fontSize: 14,
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 8,
+                                      }}
+                                    >
+                                      <FontAwesomeIcon icon={faPaperclip} style={{ color: "#3f9f42" }} />
+                                      <span>{attachment.fileName}</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </>
+                      )}
+
                       {/* 🔹 NOTES HISTORY */}
                       {(historyFilter === "notes") && (
                         <>
@@ -2613,121 +2863,270 @@ useEffect(() => {
           </div>
         </div>
       </div>
-      {/* RIGHT SLIDE NOTE PANEL */}
-      <div
-        style={{
-          position: "fixed",
-          top: 0,
-          right: 0,
-          height: "100vh",
-          width: 454,
-          background: "#fff",
-          boxShadow: "rgba(0, 0, 0, 0.30) -4px 0px 10px",
-          transform: isNoteOpen ? "translateX(0)" : "translateX(100%)",
-          transition: "transform 0.35s ease-in-out",
-          zIndex: 1000,
-          display: "flex",
-          flexDirection: "column",
+
+      {/* ATTACHMENT PANEL */}
+      <CommonSidePanel
+        isOpen={isAttachmentPanelOpen}
+        onClose={() => {
+          setIsAttachmentPanelOpen(false);
+          setAttachmentName("");
+          setAttachmentDescription("");
+          setAttachmentFile(null);
         }}
+        title="Add attachment"
+        footerContent={
+          <>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button
+                onClick={() => {
+                  setIsAttachmentPanelOpen(false);
+                  setAttachmentName("");
+                  setAttachmentDescription("");
+                  setAttachmentFile(null);
+                }}
+                type="button"
+                className="px-5 py-2 border border-gray-300 rounded-full text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+            <button
+              onClick={async () => {
+                if (!attachmentFile || !contactId) return;
+                setIsUploadingAttachment(true);
+                try {
+                  const formData = new FormData();
+                  formData.append("ContactId", contactId);
+                  formData.append("Name", attachmentName);
+                  if (attachmentDescription) {
+                    formData.append("Description", attachmentDescription);
+                  }
+                  formData.append("File", attachmentFile);
+                  await axios.post(`${API_BASE_URL}/api/Attachment/upload`, formData, {
+                    headers: { "Content-Type": "multipart/form-data" },
+                  });
+                  setToastMessage("Attachment uploaded successfully.");
+                  setShowSuccessToast(true);
+                  setTimeout(() => setShowSuccessToast(false), 3000);
+                  setIsAttachmentPanelOpen(false);
+                  setAttachmentName("");
+                  setAttachmentDescription("");
+                  setAttachmentFile(null);
+                  // Refresh timeline to show new attachment
+                  if (contactId) {
+                    fetchEmailTimeline(Number(contactId));
+                  }
+                } catch (error) {
+                  console.error("Upload failed", error);
+                  setToastMessage("Failed to upload attachment.");
+                  setShowErrorToast(true);
+                  setTimeout(() => setShowErrorToast(false), 3000);
+                } finally {
+                  setIsUploadingAttachment(false);
+                }
+              }}
+              disabled={!attachmentFile || isUploadingAttachment}
+              style={{
+                background: !attachmentFile ? "#d1d5db" : "#3f9f42",
+                color: !attachmentFile ? "#6b7280" : "#ffffff",
+                border: "none",
+                padding: "8px 18px",
+                borderRadius: 18,
+                fontSize: 14,
+                cursor: !attachmentFile ? "not-allowed" : "pointer",
+              }}
+            >
+              {isUploadingAttachment ? "Uploading..." : "Upload"}
+            </button>
+          </>
+        }
       >
-        {/* HEADER */}
-        <div
-          style={{
-            background: "#ffffff",
-            padding: "16px 20px",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-          className='border-[#cccccc] border-b'
-        >
-          <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>
-            {isEditMode ? "Edit note" : "Add a note"}
-          </h3>
-          <button
-            onClick={() => setIsNoteOpen(false)}
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div>
+            <label style={labelStyle}>Name</label>
+            <input
+              type="text"
+              value={attachmentName}
+              onChange={(e) => setAttachmentName(e.target.value)}
+              style={inputStyle}
+              placeholder="Enter attachment name"
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>Description</label>
+            <textarea
+              value={attachmentDescription}
+              onChange={(e) => setAttachmentDescription(e.target.value)}
+              style={{ ...inputStyle, minHeight: 80, resize: "vertical" }}
+              placeholder="Enter description"
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>File</label>
+            <div
+              onClick={() => document.getElementById('attachment-file-input')?.click()}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const files = e.dataTransfer.files;
+                if (files && files[0]) {
+                  setAttachmentFile(files[0]);
+                }
+              }}
+              style={{
+                ...inputStyle,
+                padding: "60px 12px",
+                textAlign: "center",
+                cursor: "pointer",
+                border: "2px dashed #d1d5db",
+                background: "#f9fafb",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 12,
+              }}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="48"
+                height="48"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#9ca3af"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              <div style={{ fontSize: 14, color: "#374151" }}>
+                {attachmentFile ? attachmentFile.name : "Drag & drop your attachment file here, or click to select"}
+              </div>
+              <div style={{ fontSize: 12, color: "#9ca3af" }}>
+                Supports: .Pdf, .xlsx, .xls, .csv (Max size: 10MB)
+              </div>
+            </div>
+            <input
+              id="attachment-file-input"
+              type="file"
+              onChange={(e) => setAttachmentFile(e.target.files?.[0] || null)}
+              style={{ display: "none" }}
+            />
+          </div>
+        </div>
+      </CommonSidePanel>
+      {/* NOTE PANEL */}
+      <CommonSidePanel
+        isOpen={isNoteOpen}
+        onClose={() => setIsNoteOpen(false)}
+        title={isEditMode ? "Edit note" : "Add a note"}
+        footerContent={
+          <>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button
+                onClick={() => setIsNoteOpen(false)}
+                type="button"
+                className="px-5 py-2 border border-gray-300 rounded-full text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => setNoteText("")}
+                type="button"
+                className="px-5 py-2 border border-red-300 text-red-600 rounded-full text-sm"
+              >
+                Clear
+              </button>
+            </div>
+            <button
+              onClick={saveNote}
+              disabled={isSaveDisabled || isSavingNote}
+              style={{
+                background: isSaveDisabled ? "#d1d5db" : "#3f9f42",
+                color: isSaveDisabled ? "#6b7280" : "#ffffff",
+                border: "none",
+                padding: "8px 18px",
+                borderRadius: 18,
+                fontSize: 14,
+                cursor: isSaveDisabled ? "not-allowed" : "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              {isSavingNote && (
+                <span
+                  style={{
+                    width: 14,
+                    height: 14,
+                    border: "2px solid #fff",
+                    borderTop: "2px solid transparent",
+                    borderRadius: "50%",
+                    animation: "spin 1s linear infinite",
+                  }}
+                />
+              )}
+              {isSavingNote ? "Saving..." : "Save"}
+            </button>
+          </>
+        }
+      >
+        <style>
+          {`
+            .note-editor-wrapper .rich-text-editor > div {
+              height: auto !important;
+              min-height: 270px !important;
+              overflow: visible !important;
+            }
+          `}
+        </style>
+        <div className="note-editor-wrapper">
+          <div style={{ marginBottom: 10 }}>
+            <RichTextEditor value={noteText} onChange={setNoteText} />
+          </div>
+          <div
             style={{
-              border: "none",
-              background: "transparent",
-              fontSize: 22,
-              cursor: "pointer",
+              marginTop: 8,
+              fontSize: 12,
+              color: "#6b7280",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
             }}
           >
-            ✕
-          </button>
-        </div>
-<style>
-{`
-  .note-editor-wrapper .rich-text-editor > div {
-    height: auto !important;
-    min-height: 270px !important;
-    overflow: visible !important;
-  }
-`}
-</style>
-        {/* BODY */}
-        <div  className="note-editor-wrapper" style={{ padding: 20, flex: 1 , overflowY: "auto",}}>
-          {/* NOTE EDITOR */}
-          
-            {/* TOOLBAR */}
-            <div style={{ marginBottom: 10 }}>
-              <RichTextEditor
-               value={noteText}
-              // height={220}
-               onChange={setNoteText}
-               
-              />
-           </div>
-            {/* EDITABLE AREA */}
-          {/* Character Counters */}
-<div
-  style={{
-    marginTop: 8,
-    fontSize: 12,
-    color: "#6b7280",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  }}
->
-  {/* Left Column */}
-  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-    <h3 style={{ margin: 0, fontSize: 12, fontWeight: 500,color: "#111827",}}>
-      For this note
-    </h3>
-    <div>
-      {plainTextLength} / 10,000
-    </div>
-  </div>
-
-  {/* Right Column */}
-  <div
-    style={{
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "flex-end",
-      gap: 4,
-    }}
-  >
-    <h3 style={{ margin: 0, fontSize: 12, fontWeight: 500,color: "#111827" }}>
-      For all notes
-    </h3>
-    <div>
-      {totalNotesLength} / {MAX_TOTAL_NOTES}
-    </div>
-  </div>
-</div>
-          {/* PIN */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <h3 style={{ margin: 0, fontSize: 12, fontWeight: 500, color: "#111827" }}>
+                For this note
+              </h3>
+              <div>{plainTextLength} / 10,000</div>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-end",
+                gap: 4,
+              }}
+            >
+              <h3 style={{ margin: 0, fontSize: 12, fontWeight: 500, color: "#111827" }}>
+                For all notes
+              </h3>
+              <div>{totalNotesLength} / {MAX_TOTAL_NOTES}</div>
+            </div>
+          </div>
           <div className="flex items-start gap-2 mt-4">
             <input
               type="checkbox"
               checked={isPinned}
               onChange={(e) => setIsPinned(e.target.checked)}
-              className={`mt-1 w-4 h-4 accent-[#3f9f42] cursor-pointer"
-                }`}
+              className="mt-1 w-4 h-4 accent-[#3f9f42] cursor-pointer"
             />
-
-
             <div>
               <div className="text-sm font-medium text-gray-900">Pin note</div>
               <div className="text-xs text-gray-500">
@@ -2735,8 +3134,6 @@ useEffect(() => {
               </div>
             </div>
           </div>
-
-          {/* EMAIL PERSONALIZATION */}
           <div className="flex items-start gap-2 mt-6">
             <input
               type="checkbox"
@@ -2744,7 +3141,6 @@ useEffect(() => {
               onChange={(e) => setIsEmailPersonalization(e.target.checked)}
               className="mt-1 w-4 h-4 accent-[#3f9f42] cursor-pointer"
             />
-
             <div>
               <div className="text-sm font-medium text-gray-900">
                 Email personalization
@@ -2754,72 +3150,8 @@ useEffect(() => {
               </div>
             </div>
           </div>
-
-
         </div>
-
-        {/* FOOTER */}
-        <div
-          style={{
-            padding: 16,
-            display: "flex",
-            justifyContent: "space-between",
-            borderTop: "1px solid #e5e7eb",
-            marginBottom: 50,
-            position: "sticky",
-          }}
-        >
-           {/* LEFT SIDE BUTTONS */}
-           <div style={{ display: "flex", gap: 12 }}>
-           <button
-                  onClick={() => setIsNoteOpen(false)}
-                  type="button"
-                  className="px-5 py-2 border border-gray-300 rounded-full text-sm"
-                >
-                  Cancel
-          </button>
-           <button
-                  onClick={() => setNoteText("")}
-                  type="button"
-                  className="px-5 py-2 border border-red-300 text-red-600 rounded-full text-sm"
-                >
-                Clear
-            </button>
-            </div>
-          <button
-            onClick={saveNote}
-            disabled={isSaveDisabled || isSavingNote}
-            style={{
-              background: isSaveDisabled ? "#d1d5db" : "#3f9f42", // only invalid makes grey
-              color: isSaveDisabled ? "#6b7280" : "#ffffff",
-              border: "none",
-              padding: "8px 18px",
-              borderRadius: 18,
-              fontSize: 14,
-               cursor: isSaveDisabled ? "not-allowed" : "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            {isSavingNote && (
-              <span
-                style={{
-                  width: 14,
-                  height: 14,
-                  border: "2px solid #fff",
-                  borderTop: "2px solid transparent",
-                  borderRadius: "50%",
-                  animation: "spin 1s linear infinite",
-                }}
-              />
-            )}
-
-            {isSavingNote ? "Saving..." : "Save"}
-          </button>
-
-        </div>
-      </div>
+      </CommonSidePanel>
       <style>{toastAnimation}</style>
       {/* SUCCESS TOAST */}
 {showSuccessToast && (
