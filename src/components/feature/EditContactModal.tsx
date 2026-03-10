@@ -52,6 +52,8 @@ interface Contact {
   companyLinkedInURL?: string;
   notes?: string;
   linkedIninformation?: string;
+  customFields?: Record<string, string>;
+
 
 }
 
@@ -154,6 +156,26 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
    // 🔥 LinkedIn Summary Character Limit
   const LINKEDIN_SUMMARY_MAX_LENGTH = 10000;
   const LINKEDIN_TRUNCATE_LENGTH = 300;
+
+  const [customFieldDefs, setCustomFieldDefs] = useState<any[]>([]);
+const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
+const loadCustomFieldDefinitions = async () => {
+  try {
+    const res = await fetch(
+      `${API_BASE_URL}/api/crm/custom-fields?clientId=${reduxUserId}`
+    );
+
+    if (!res.ok) return;
+
+    const data = await res.json();
+    setCustomFieldDefs(data || []);
+  } catch (err) {
+    console.error("Failed loading custom field defs", err);
+  }
+};
+useEffect(() => {
+  loadCustomFieldDefinitions();
+}, []);
   
   const getLinkedInPlainTextLength = (html: string) => {
     if (!html) return 0;
@@ -295,12 +317,132 @@ const menuIconStyle = {
         companyIndustry: contact.companyIndustry || '',
         companyLinkedInURL: contact.companyLinkedInURL || '',
         notes: contact.notes ?? prev.notes,
+        
       }));
       setLinkedInSummary(contact.linkedIninformation || "");
       setSavedLinkedInSummary(contact.linkedIninformation || "");
+      setCustomFieldValues(contact.customFields || {});
     }
     console.log("Contact received:", contact);
   }, [contact]);
+
+  const handleCustomFieldChange = (key: string, value: any) => {
+      setCustomFieldValues(prev => ({
+        ...prev,
+        [key]: value
+      }));
+    };
+    const renderCustomField = (field: any) => {
+  const value = customFieldValues[field.field_name] || "";
+
+  switch (field.field_type) {
+
+    case "text":
+      return (
+        <input
+          type="text"
+          className={underlineInput}
+          value={value}
+          onChange={(e) =>
+            handleCustomFieldChange(field.field_name, e.target.value)
+          }
+        />
+      );
+
+    case "longtext":
+      return (
+        <textarea
+          className={underlineInput}
+          rows={3}
+          value={value}
+          onChange={(e) =>
+            handleCustomFieldChange(field.field_name, e.target.value)
+          }
+        />
+      );
+
+    case "number":
+      return (
+        <input
+          type="number"
+          className={underlineInput}
+          value={value}
+          onChange={(e) =>
+            handleCustomFieldChange(field.field_name, e.target.value)
+          }
+        />
+      );
+
+    case "boolean":
+      return (
+        <input
+          type="checkbox"
+          checked={value === "true" || value === true}
+          onChange={(e) =>
+            handleCustomFieldChange(field.field_name, e.target.checked)
+          }
+        />
+      );
+
+    case "date":
+      return (
+        <input
+          type="date"
+          className={underlineInput}
+          value={value}
+          onChange={(e) =>
+            handleCustomFieldChange(field.field_name, e.target.value)
+          }
+        />
+      );
+
+    case "datetime":
+      return (
+        <input
+          type="datetime-local"
+          className={underlineInput}
+          value={value}
+          onChange={(e) =>
+            handleCustomFieldChange(field.field_name, e.target.value)
+          }
+        />
+      );
+
+    case "dropdown":
+      const options = field.options_json
+        ? JSON.parse(field.options_json)
+        : [];
+
+      return (
+        <select
+          className={underlineInput}
+          value={value}
+          onChange={(e) =>
+            handleCustomFieldChange(field.field_name, e.target.value)
+          }
+        >
+          <option value="">Select</option>
+          {options.map((o: string) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </select>
+      );
+
+    default:
+      return (
+        <input
+          type="text"
+          className={underlineInput}
+          value={value}
+          onChange={(e) =>
+            handleCustomFieldChange(field.field_name, e.target.value)
+          }
+        />
+      );
+  }
+};
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -368,6 +510,11 @@ const menuIconStyle = {
           body: JSON.stringify({
             ...formData,
             emailBody: stripHtml(formData.emailBody),
+            customFields: Object.fromEntries(
+              Object.entries(customFieldValues).filter(
+                ([key]) => contact?.customFields?.hasOwnProperty(key)
+              )
+            )          
           })
         }
       );
@@ -395,6 +542,8 @@ const menuIconStyle = {
         companyIndustry: formData.companyIndustry,
         companyLinkedInURL: formData.companyLinkedInURL,
         notes: formData.notes, // 🔥 THIS WAS MISSING
+          customFields: customFieldValues   // ✅ ADD THIS
+
       };
      
       setToastMessage('Contact updated successfully!');
@@ -969,222 +1118,50 @@ const menuIconStyle = {
                 </div>
               </AccordionSection>
 
+              {/* CUSTOM FIELDS */}
+  <AccordionSection
+    icon={
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="20"
+        height="20"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="#3f9f42"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+          d="M9 12h6M9 16h6M9 8h6M5 4h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z" />
+      </svg>
+    }
+    title="Custom fields"
+  >
+  <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+
+    {customFieldDefs
+      .filter(field => contact?.customFields?.hasOwnProperty(field.field_name))
+      .map(field => (
+
+      <div
+        key={field.id}
+        className="flex flex-col gap-[5px] form-group !mb-[0]"
+      >
+        <label className={underlineLabel}>
+          {field.field_name}
+        </label>
+
+        {renderCustomField(field)}
+
+      </div>
+
+    ))}
+
+  </div>
+</AccordionSection>
+
               
 
 
 
-              {/* PERSONAL INFORMATION */}
-              {/* <div
-                onClick={() => setExpandedPersonalInfo(!expandedPersonalInfo)}
-                className="flex items-center justify-between cursor-pointer p-3 rounded hover:bg-gray-50 transition-colors"
-                style={{ marginTop: -12, marginLeft: -12, marginRight: -12, marginBottom: 8, paddingLeft: 16, paddingRight: 273 }}
-              >
-                <h3 className="text-sm font-semibold text-[#3f9f42]">Personal information</h3>
-                <FontAwesomeIcon
-                  icon={faAngleDown}
-                  style={{
-                    transform: expandedPersonalInfo ? 'rotate(180deg)' : 'rotate(0deg)',
-                    transition: 'transform 0.25s ease',
-                    fontSize: 16,
-                    marginTop: "auto"
-                  }}
-                  className="text-[#3f9f42]"
-                />
-              </div>
-              
-              {expandedPersonalInfo && (
-                <>
-                  <div className='flex flex-col gap-[5px]'>
-                    <label className={underlineLabel}>Full name</label>
-                    <input
-                      type="text"
-                      name="fullName"
-                      value={formData.fullName}
-                      onChange={handleInputChange}
-                      className={underlineInput}
-                      placeholder="Full name"
-                    />
-                  </div>
-
-                  <div className='flex flex-col gap-[5px]'>
-                    <label className={underlineLabel}>Email</label>
-                    <input
-                      type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      className={underlineInput}
-                      placeholder="Email"
-                    />
-                  </div>
-                </>
-              )} */}
-
-              {/* COMPANY INFORMATION */}
-              {/* <div
-                onClick={() => setExpandedCompanyInfo(!expandedCompanyInfo)}
-                className="flex items-center justify-between cursor-pointer p-3 rounded hover:bg-gray-50 transition-colors"
-                style={{ marginTop: 6, marginLeft: -12, marginRight: -12, marginBottom: 8, paddingLeft: 16, paddingRight: 273 }}
-              >
-                <h3 className="text-sm font-semibold text-[#3f9f42]">Company information</h3>
-                <FontAwesomeIcon
-                  icon={faAngleDown}
-                  style={{
-                    transform: expandedCompanyInfo ? 'rotate(180deg)' : 'rotate(0deg)',
-                    transition: 'transform 0.25s eas',
-                    fontSize: 16,
-                    marginTop: "auto"
-                  }}
-                  className="text-[#3f9f42]"
-                />
-              </div>
-              {expandedCompanyInfo && (
-                <>
-                  <div className='flex flex-col gap-[5px]'>
-                    <label className={underlineLabel}>Job title</label>
-                    <input
-                      type="text"
-                      name="jobTitle"
-                      value={formData.jobTitle}
-                      onChange={handleInputChange}
-                      placeholder="Job title"
-                      className={underlineInput}
-                    />
-                  </div>
-                  <div className='flex flex-col gap-[5px]'>
-                    <label className={underlineLabel}>Company name</label>
-                    <input
-                      type="text"
-                      name="companyName"
-                      value={formData.companyName}
-                      onChange={handleInputChange}
-                      placeholder="Company name"
-                      className={underlineInput}
-                    />
-                  </div>
-                  <div className='flex flex-col gap-[5px]'>
-                    <label className={underlineLabel}>Company industry</label>
-                    <input
-                      type="text"
-                      name="companyIndustry"
-                      value={formData.companyIndustry}
-                      onChange={handleInputChange}
-                      placeholder="Company industry"
-                      className={underlineInput}
-                    />
-                  </div>
-                  <div className='flex flex-col gap-[5px]'>
-                    <label className={underlineLabel}>Company employee count</label>
-                    <input
-                      type="text"
-                      name="companyEmployeeCount"
-                      value={formData.companyEmployeeCount}
-                      onChange={handleInputChange}
-                      placeholder="Company employee count"
-                      className={underlineInput}
-                    />
-                  </div>
-                  <div className='flex flex-col gap-[5px]'>
-                    <label className={underlineLabel}>Company telephone</label>
-                    <input
-                      type="text"
-                      name="companyTelephone"
-                      value={formData.companyTelephone}
-                      onChange={handleInputChange}
-                      placeholder="Company telephone"
-                      className={underlineInput}
-                    />
-                  </div>
-                  <div className='flex flex-col gap-[5px]'>
-                    <label className={underlineLabel}>Country/address</label>
-                    <input
-                      type="text"
-                      name="countryOrAddress"
-                      value={formData.countryOrAddress}
-                      onChange={handleInputChange}
-                      placeholder="Country/address"
-                      className={underlineInput}
-                    />
-                  </div>
-                </>
-              )} */}
-
-              {/* WEBSITE & SOCIAL */}
-              {/* <div
-                onClick={() => setExpandedWebsiteSocial(!expandedWebsiteSocial)}
-                className="flex items-center justify-between cursor-pointer p-3 rounded hover:bg-gray-50 transition-colors"
-                style={{ marginTop: 12, marginLeft: -12, marginRight: -12, marginBottom: 8, paddingLeft: 16, paddingRight: 273 }}
-              >
-                <h3 className="text-sm font-semibold text-[#3f9f42]">Website & social</h3>
-                <FontAwesomeIcon
-                  icon={faAngleDown}
-                  style={{
-                    transform: expandedWebsiteSocial ? 'rotate(180deg)' : 'rotate(0deg)',
-                    transition: 'transform 0.25s eas',
-                    fontSize: 16,
-                    marginTop: "auto"
-                  }}
-                  className="text-[#3f9f42]"
-                />
-              </div>
-              {expandedWebsiteSocial && (
-                <>
-                  <div className='flex flex-col gap-[5px]'>
-                    <label className={underlineLabel}>Website</label>
-                    <input type="text" name="website" value={formData.website} onChange={handleInputChange} placeholder="Enter website" className={`${underlineInput} text-[#3f9f42] underline cursor-pointer`}
-                      onDoubleClick={() => {
-                        if (formData.website) {
-                          const url = formData.website.startsWith("http")
-                            ? formData.website
-                            : `https://${formData.website}`;
-                          window.open(url, "_blank");
-                        }
-                      }}
-                    />
-                  </div>
-                  <div className='flex flex-col gap-[5px]'>
-                    <label className={underlineLabel}>LinkedIn URL</label>
-                    <input type="text" name="linkedInUrl" value={formData.linkedInUrl} onChange={handleInputChange} placeholder="Enter LinkedIn URL" className={`${underlineInput} text-[#3f9f42] underline cursor-pointer`}
-                      onDoubleClick={() => {
-                        if (formData.linkedInUrl) {
-                          const url = formData.linkedInUrl.startsWith("http")
-                            ? formData.linkedInUrl
-                            : `https://${formData.linkedInUrl}`;
-                          window.open(url, "_blank");
-                        }
-                      }}
-                    />
-                  </div>
-                  <div className='flex flex-col gap-[5px]'>
-                    <label className={underlineLabel}>Company linkedIn URL</label>
-                    <input
-                      type="text"
-                      name="companyLinkedInURL"
-                      value={formData.companyLinkedInURL}
-                      onChange={handleInputChange}
-                      placeholder="Company LinkedIn URL"
-                      className={underlineInput}
-                    />
-                  </div>
-                </>
-              )} */}
-
-              {/* SAVE / CANCEL BUTTONS */}
-              {/* <div className="flex justify-start items-center gap-3 mt-6 pt-4 border-gray-200 sticky bottom-0 bg-white z-10">
-                <button
-                  type="button"
-                  className="px-5 py-2 border border-gray-300 rounded-full text-sm"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting || !formData.fullName?.trim() || !formData.email?.trim()}
-                  className="px-6 py-2 bg-[#3f9f42] text-white rounded-full text-sm disabled:bg-gray-300"
-                >
-                  {isSubmitting ? "Saving..." : "Save"}
-                </button>
-              </div> */}
             </div>
           </form>
         </div>

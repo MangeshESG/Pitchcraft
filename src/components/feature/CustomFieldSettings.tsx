@@ -51,15 +51,29 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient  }) => {
   }, [effectiveUserId]);
 
   const createField = async () => {
-    if (!name) return;
+    if (!name.trim()) return;
+
+      const exists = fields.some(
+        f => f.field_name.toLowerCase() === name.toLowerCase()
+      );
+
+      if (exists) {
+        alert("Field already exists");
+        return;
+      }
 
     const body = {
       clientId: effectiveUserId,
       fieldName: name,
-      fieldKey: name.toLowerCase().replace(/\s+/g, "_"),
+      fieldKey: name
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, "")
+      .replace(/\s+/g, "_"),
       fieldType: type,
       optionsJson:
-        type === "dropdown" ? JSON.stringify(options.split(",")) : null,
+        type === "dropdown"
+          ? JSON.stringify(options.split(",").map(o => o.trim()))
+          : null,
     };
 
     const res = await fetch(`${API_BASE_URL}/api/crm/custom-field`, {
@@ -184,9 +198,12 @@ return (
           onChange={(e) => setType(e.target.value)}
         >
           <option value="text">Text</option>
+          <option value="longtext">Long Text</option>
           <option value="number">Number</option>
-          <option value="boolean">Yes / No</option>
-          <option value="dropdown">Dropdown</option>
+          <option value="boolean">Checkbox (Yes / No)</option>
+          <option value="date">Date</option>
+          <option value="datetime">Date & Time</option>
+          <option value="dropdown">Pick List</option>
         </select>
 
         {type === "dropdown" && (

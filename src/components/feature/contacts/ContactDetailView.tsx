@@ -388,6 +388,12 @@ useEffect(() => {
       setIsLoadingHistory(false);
     }
   };
+
+  useEffect(() => {
+  if (contactId) {
+    fetchEmailTimeline(Number(contactId));
+  }
+}, [contactId]);
   const stripHtml = (html: string) => {
     if (!html) return "";
     // Remove code block backticks if present
@@ -2551,23 +2557,23 @@ useEffect(() => {
                                         }}
                                       />
                                       {/* EXPAND BUTTON */}
-{getPlainText(note.note || "").length > TRUNCATE_LENGTH && (
-  <button
-    onClick={() => toggleNoteExpand(note.id)}
-    style={{
-      marginTop: 12,
-      background: "none",
-      border: "none",
-      color: "#3f9f42",
-      cursor: "pointer",
-      fontSize: 13,
-      fontWeight: 600,
-      padding: 0,
-    }}
-  >
-    {expandedNoteIds.has(note.id) ? "Show less" : "Expand"}
-  </button>
-)}
+                                      {getPlainText(note.note || "").length > TRUNCATE_LENGTH && (
+                                        <button
+                                          onClick={() => toggleNoteExpand(note.id)}
+                                          style={{
+                                            marginTop: 12,
+                                            background: "none",
+                                            border: "none",
+                                            color: "#3f9f42",
+                                            cursor: "pointer",
+                                            fontSize: 13,
+                                            fontWeight: 600,
+                                            padding: 0,
+                                          }}
+                                        >
+                                          {expandedNoteIds.has(note.id) ? "Show less" : "Expand"}
+                                        </button>
+                                      )}
 
                                     </div>
                                     {/* Optional badges */}
