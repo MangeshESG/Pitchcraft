@@ -61,6 +61,27 @@ interface SortConfig {
   key: string | null;
   direction: SortDirection;
 }
+
+const flattenObject = (obj: any) => {
+  const flattened: any = { ...obj };
+
+  Object.keys(obj).forEach((key) => {
+    const value = obj[key];
+
+    if (
+      value &&
+      typeof value === "object" &&
+      !Array.isArray(value)
+    ) {
+      Object.entries(value).forEach(([nestedKey, nestedValue]) => {
+        flattened[nestedKey] = nestedValue;
+      });
+    }
+  });
+
+  return flattened;
+};
+
 const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   data,
   isLoading,
@@ -340,6 +361,11 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
         return (value: any) => value || "-";
     }
   };
+    const processedData = useMemo(() => {
+  if (!data || data.length === 0) return [];
+
+  return data.map((item) => flattenObject(item));
+}, [data]);
 
   // Initialize columns with persistence support
   useEffect(() => {
@@ -356,7 +382,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
         });
         setColumns(columnsWithPersistence);
       } else if (autoGenerateColumns) {
-        const generatedColumns = generateColumnsFromData(data);
+        const generatedColumns = generateColumnsFromData(processedData);
         setColumns(generatedColumns);
       }
       isInitializedRef.current = true;
@@ -372,7 +398,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
       });
       setColumns(columnsWithPersistence);
     }
-  }, [data.length, customColumns, autoGenerateColumns, persistedColumnSelection]); // Added persistedColumnSelection
+  }, [processedData.length, customColumns, autoGenerateColumns, persistedColumnSelection]); // Added persistedColumnSelection
 
   // Reset initialization when switching between different data types
   useEffect(() => {
@@ -391,9 +417,11 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
     }
   }, [persistedColumnSelection]);
 
+
+
   // Dynamic filtering
   const getFilteredData = () => {
-    if (!search.trim()) return data;
+    if (!search.trim()) return processedData;
 
     const searchLower = search.toLowerCase();
     const fieldsToSearch =
@@ -403,7 +431,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
           .filter((col) => col.searchable !== false)
           .map((col) => col.key);
 
-    const filtered = data.filter((item) => {
+    const filtered = processedData.filter((item) => {
       return fieldsToSearch.some((field) => {
         const value = item[field];
         if (value === null || value === undefined) return false;

@@ -3784,7 +3784,7 @@ try {
             )}
             {tab === "CustomFields" && (
                 <CustomFieldSettings
-                  clientId={Number(selectedClient)}
+                  selectedClient={selectedClient}
                 />
               )}
 

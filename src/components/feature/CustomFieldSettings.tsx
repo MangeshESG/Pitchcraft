@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import API_BASE_URL from "../../config";
 import "./customFieldSettings.css";
 import CommonSidePanel from "../common/CommonSidePanel";
+import { useSelector } from "react-redux";
+import { RootState } from "../../Redux/store";
 
 interface CustomField {
   id: number;
@@ -12,10 +14,10 @@ interface CustomField {
 }
 
 interface Props {
-  clientId: number;
+  selectedClient: string;
 }
 
-const CustomFieldSettings: React.FC<Props> = ({ clientId }) => {
+const CustomFieldSettings: React.FC<Props> = ({ selectedClient  }) => {
 
   const [fields, setFields] = useState<CustomField[]>([]);
   const [name, setName] = useState("");
@@ -23,11 +25,16 @@ const CustomFieldSettings: React.FC<Props> = ({ clientId }) => {
   const [options, setOptions] = useState("");
 
   const [isPanelOpen, setIsPanelOpen] = useState(false);
+   const reduxUserId = useSelector((state: RootState) => state.auth.userId);
+
+  const effectiveUserId = Number(
+  selectedClient !== "" ? selectedClient : reduxUserId
+    );
 
   const loadFields = async () => {
     try {
       const res = await fetch(
-        `${API_BASE_URL}/api/crm/custom-fields?clientId=${clientId}`
+        `${API_BASE_URL}/api/crm/custom-fields?clientId=${effectiveUserId}`
       );
 
       if (!res.ok) return;
@@ -41,13 +48,13 @@ const CustomFieldSettings: React.FC<Props> = ({ clientId }) => {
 
   useEffect(() => {
     loadFields();
-  }, [clientId]);
+  }, [effectiveUserId]);
 
   const createField = async () => {
     if (!name) return;
 
     const body = {
-      clientId,
+      clientId: effectiveUserId,
       fieldName: name,
       fieldKey: name.toLowerCase().replace(/\s+/g, "_"),
       fieldType: type,

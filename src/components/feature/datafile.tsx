@@ -187,6 +187,18 @@ useEffect(() => {
     }
   }
 });
+  // Detect custom fields
+  headers.forEach((header) => {
+    const lowerHeader = header.toLowerCase().trim();
+
+    const matchedCustom = customFields.find(
+      (f) => f.field_name.toLowerCase() === lowerHeader
+    );
+
+    if (matchedCustom && !mappings[header]) {
+      mappings[header] = `custom_${matchedCustom.field_name}`;
+    }
+  });
 
   setColumnMappings(mappings);
 };
@@ -340,6 +352,7 @@ useEffect(() => {
       let isValid = true;
 
       Object.entries(columnMappings).forEach(([column, field]) => {
+      if (!field) return;
         const columnIndex = columnHeaders.indexOf(column);
         
         if (columnIndex !== -1 && columnIndex < row.length && row[columnIndex] !== undefined && row[columnIndex] !== null) {
@@ -353,10 +366,13 @@ useEffect(() => {
           mappedRow[field] = value;
         }
         } else {
-          if (!field.startsWith("custom_")) {
-            mappedRow[field] = "";
+            if (field.startsWith("custom_")) {
+              const customKey = field.replace("custom_", "");
+              mappedRow.customFields[customKey] = "";
+            } else {
+              mappedRow[field] = "";
+            }
           }
-        }
       });
 
       // Handle first_name + last_name combination
@@ -762,7 +778,13 @@ useEffect(() => {
       >
         <option value="">--Do not include--</option>
 
-        {allFields.map((field) => (
+        {allFields
+          .filter(
+            (field) =>
+              !Object.values(columnMappings).includes(field.key) ||
+              columnMappings[header] === field.key
+          )
+          .map((field) => (
         <option key={field.key} value={field.key}>
           {field.key
             .replace(/_/g, " ")
