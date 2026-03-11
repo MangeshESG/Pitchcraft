@@ -507,15 +507,17 @@ const menuIconStyle = {
             'Content-Type': 'application/json'
           },
           // body: JSON.stringify(formData)
-          body: JSON.stringify({
-            ...formData,
-            emailBody: stripHtml(formData.emailBody),
-            customFields: Object.fromEntries(
-              Object.entries(customFieldValues).filter(
-                ([key]) => contact?.customFields?.hasOwnProperty(key)
-              )
-            )          
-          })
+        body: JSON.stringify({
+          ...formData,
+          clientId: reduxUserId,
+          emailBody: stripHtml(formData.emailBody),
+          customFields: Object.fromEntries(
+            Object.entries(customFieldValues).map(([key, value]) => [
+              key,
+              value === null || value === undefined ? "" : value.toString()
+            ])
+          )
+        })
         }
       );
 
@@ -1137,9 +1139,7 @@ const menuIconStyle = {
   >
   <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
 
-    {customFieldDefs
-      .filter(field => contact?.customFields?.hasOwnProperty(field.field_name))
-      .map(field => (
+{customFieldDefs.map(field => (
 
       <div
         key={field.id}
