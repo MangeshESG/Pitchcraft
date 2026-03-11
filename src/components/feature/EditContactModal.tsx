@@ -373,16 +373,36 @@ const menuIconStyle = {
         />
       );
 
-    case "boolean":
-      return (
-        <input
-          type="checkbox"
-          checked={value === "true" || value === true}
-          onChange={(e) =>
-            handleCustomFieldChange(field.field_name, e.target.checked)
-          }
-        />
-      );
+case "boolean":
+  const isChecked = value === "true" || value === true;
+
+  return (
+    <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden w-fit">
+      <button
+        type="button"
+        onClick={() => handleCustomFieldChange(field.field_name, false)}
+        className={`px-4 py-1 text-sm font-medium transition ${
+          !isChecked
+            ? "bg-[#3f9f42] text-white"
+            : "bg-white text-gray-600"
+        }`}
+      >
+        No
+      </button>
+
+      <button
+        type="button"
+        onClick={() => handleCustomFieldChange(field.field_name, true)}
+        className={`px-4 py-1 text-sm font-medium transition ${
+          isChecked
+            ? "bg-[#3f9f42] text-white"
+            : "bg-white text-gray-600"
+        }`}
+      >
+        Yes
+      </button>
+    </div>
+  );
 
     case "date":
       return (
