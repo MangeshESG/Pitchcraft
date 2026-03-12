@@ -581,16 +581,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                           width: "120px",
                         }}
                       >
-                        {/* <button
-        onClick={() => {
-          handleCampaignSelect(c.id.toString());
-          setCampaignActionsAnchor(null);
-        }}
-        style={menuBtnStyle}
-        className="flex gap-2 items-center"
-      >
-        👁 View
-      </button> */}
+
 
                         <button
                           onClick={() => {

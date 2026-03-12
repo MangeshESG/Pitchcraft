@@ -4,6 +4,8 @@ import "./customFieldSettings.css";
 import CommonSidePanel from "../common/CommonSidePanel";
 import { useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faEdit, faTrashAlt } from "@fortawesome/free-regular-svg-icons";
 
 interface CustomField {
   id: number;
@@ -16,20 +18,32 @@ interface CustomField {
 interface Props {
   selectedClient: string;
 }
-
-const CustomFieldSettings: React.FC<Props> = ({ selectedClient  }) => {
+const actionIconStyle = {
+  width: 24,
+  height: 24,
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  flexShrink: 0,
+};
+const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
 
   const [fields, setFields] = useState<CustomField[]>([]);
   const [name, setName] = useState("");
   const [type, setType] = useState("text");
-  const [options, setOptions] = useState("");
+  const [options, setOptions] = useState<string[]>([""]);
 
   const [isPanelOpen, setIsPanelOpen] = useState(false);
-   const reduxUserId = useSelector((state: RootState) => state.auth.userId);
+
+  const [editingField, setEditingField] = useState<CustomField | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+
+  const reduxUserId = useSelector((state: RootState) => state.auth.userId);
+  const [fieldActionsAnchor, setFieldActionsAnchor] = useState<number | null>(null);
 
   const effectiveUserId = Number(
-  selectedClient !== "" ? selectedClient : reduxUserId
-    );
+    selectedClient !== "" ? selectedClient : reduxUserId
+  );
 
   const loadFields = async () => {
     try {
@@ -50,34 +64,43 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient  }) => {
     loadFields();
   }, [effectiveUserId]);
 
-  const createField = async () => {
+  const saveField = async () => {
+
     if (!name.trim()) return;
 
-      const exists = fields.some(
-        f => f.field_name.toLowerCase() === name.toLowerCase()
-      );
+    const exists = fields.some(
+      (f) =>
+        f.field_name.toLowerCase() === name.toLowerCase() &&
+        (!isEditMode || f.id !== editingField?.id)
+    );
 
-      if (exists) {
-        alert("Field already exists");
-        return;
-      }
+    if (exists) {
+      alert("Field already exists");
+      return;
+    }
 
     const body = {
       clientId: effectiveUserId,
       fieldName: name,
       fieldKey: name
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, "")
-      .replace(/\s+/g, "_"),
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, "")
+        .replace(/\s+/g, "_"),
       fieldType: type,
       optionsJson:
         type === "dropdown"
-          ? JSON.stringify(options.split(",").map(o => o.trim()))
+          ? JSON.stringify(options.filter(o => o.trim() !== ""))
           : null,
     };
 
-    const res = await fetch(`${API_BASE_URL}/api/crm/custom-field`, {
-      method: "POST",
+    const url = isEditMode
+      ? `${API_BASE_URL}/api/crm/custom-field-rename/${editingField?.id}`
+      : `${API_BASE_URL}/api/crm/custom-field`;
+
+    const method = isEditMode ? "PUT" : "POST";
+
+    const res = await fetch(url, {
+      method,
       headers: {
         "Content-Type": "application/json",
       },
@@ -86,142 +109,328 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient  }) => {
 
     if (res.ok) {
       setName("");
-      setOptions("");
+      setOptions([""]);
+      setIsEditMode(false);
+      setEditingField(null);
       setIsPanelOpen(false);
       loadFields();
     }
   };
 
-return (
-  <div className="section-wrapper">
+  const deleteField = async (id: number) => {
+    if (!window.confirm("Are you sure you want to delete this field?")) return;
 
-    {/* HEADER */}
-<div className="custom-fields-header">
-  <h3 className="custom-fields-title" style={{ marginTop: "-70px" }}>
-    Custom CRM Fields
-  </h3>
+    const res = await fetch(
+      `${API_BASE_URL}/api/crm/custom-field-delete/${id}`,
+      {
+        method: "POST",
+      }
+    );
 
-  <button
-    className="custom-field-btn"
-    onClick={() => setIsPanelOpen(true)}
-  >
-    + Add Field
-  </button>
-</div>
-    {/* TABLE */}
-    <table className="contacts-table">
-      <thead>
+    if (res.ok) {
+      loadFields();
+    }
+  };
+
+  const openCreatePanel = () => {
+    setIsEditMode(false);
+    setEditingField(null);
+    setName("");
+    setOptions([""]);
+    setType("text");
+    setIsPanelOpen(true);
+  };
+
+  const openEditPanel = (field: CustomField) => {
+
+    setIsEditMode(true);
+    setEditingField(field);
+    setName(field.field_name);
+    setType(field.field_type);
+
+    if (field.field_type === "dropdown" && field.options_json) {
+      try {
+        const opts = JSON.parse(field.options_json);
+        setOptions(opts);
+      } catch {
+        setOptions([""]);
+      }
+    }
+
+    setIsPanelOpen(true);
+  };
+
+    const addOption = () => {
+      setOptions([...options, ""]);
+    };
+
+    const updateOption = (value: string, index: number) => {
+      const updated = [...options];
+      updated[index] = value;
+      setOptions(updated);
+    };
+
+    const removeOption = (index: number) => {
+      const updated = options.filter((_, i) => i !== index);
+      setOptions(updated.length ? updated : [""]);
+    };
+  return (
+    <div className="section-wrapper">
+
+      <div className="custom-fields-header">
+        <h3 className="custom-fields-title" style={{ marginTop: "-70px" }}>
+          Custom CRM Fields
+        </h3>
+
+        <button
+          className="custom-field-btn"
+          onClick={openCreatePanel}
+        >
+          + Add Field
+        </button>
+      </div>
+
+      <table className="contacts-table">
+        <thead>
         <tr>
           <th>Field Name</th>
           <th>Field Type</th>
+          <th>Actions</th>
         </tr>
-      </thead>
+        </thead>
 
-<tbody>
-  {fields.length === 0 ? (
-    <tr>
-      <td colSpan={2} className="custom-fields-empty">
-        No custom fields created yet
-      </td>
-    </tr>
-  ) : (
-    fields.map((f) => {
-      let options: string[] = [];
+        <tbody>
+          {fields.length === 0 ? (
+            <tr>
+              <td colSpan={3} className="custom-fields-empty">
+                No custom fields created yet
+              </td>
+            </tr>
+          ) : (
+            fields.map((f) => {
+              let options: string[] = [];
 
-      if (f.field_type === "dropdown" && f.options_json) {
-        try {
-          options = JSON.parse(f.options_json);
-        } catch {
-          options = [];
-        }
+              if (f.field_type === "dropdown" && f.options_json) {
+                try {
+                  options = JSON.parse(f.options_json);
+                } catch {
+                  options = [];
+                }
+              }
+
+              return (
+<tr key={f.id}>
+  <td>{f.field_name}</td>
+
+  <td>
+    {f.field_type}
+
+    {f.field_type === "dropdown" && options.length > 0 && (
+      <div>
+        {options.map(opt => (
+          <span className="option-badge">{opt}</span>
+        ))}
+      </div>
+    )}
+  </td>
+
+  <td style={{ position: "relative" }}>
+
+    <button
+      onClick={() =>
+        setFieldActionsAnchor(
+          fieldActionsAnchor === f.id ? null : f.id
+        )
       }
-
-      return (
-        <tr key={f.id}>
-          <td>{f.field_name}</td>
-
-          <td>
-            {f.field_type}
-
-            {f.field_type === "dropdown" && options.length > 0 && (
-            <div>
-            {options.map(opt => (
-              <span className="option-badge">{opt}</span>
-            ))}
-            </div>
-            )}
-          </td>
-        </tr>
-      );
-    })
-  )}
-</tbody>
-    </table>
-
-    {/* SIDE PANEL */}
-    <CommonSidePanel
-      isOpen={isPanelOpen}
-      onClose={() => setIsPanelOpen(false)}
-      title="Create Custom Field"
-      footerContent={
-        <>
-          <button
-            className="panel-cancel-btn"
-            onClick={() => setIsPanelOpen(false)}
-          >
-            Cancel
-          </button>
-
-          <button
-            className="panel-create-btn"
-            onClick={createField}
-          >
-            Create
-          </button>
-        </>
-      }
+      style={{
+        padding: "4px 10px",
+        borderRadius: "5px",
+        fontSize: "20px",
+        fontWeight: "600",
+        cursor: "pointer",
+      }}
     >
-      <div className="panel-form">
+      ⋮
+    </button>
 
-        <label>Field Name</label>
-        <input
-          className="custom-field-input"
-          placeholder="Enter field name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
+    {fieldActionsAnchor === f.id && (
+      <div
+        style={{
+          position: "absolute",
+          top: "30px",
+          right: 0,
+          background: "#fff",
+          border: "1px solid #eee",
+          borderRadius: "6px",
+          boxShadow: "0px 4px 12px rgba(0,0,0,0.15)",
+          zIndex: 100,
+          padding: "8px 0",
+          width: "120px",
+        }}
+      >
 
-        <label>Field Type</label>
-        <select
-          className="custom-field-select"
-          value={type}
-          onChange={(e) => setType(e.target.value)}
-        >
-          <option value="text">Text</option>
-          <option value="longtext">Long Text</option>
-          <option value="number">Number</option>
-          <option value="boolean">Checkbox (Yes / No)</option>
-          <option value="date">Date</option>
-          <option value="datetime">Date & Time</option>
-          <option value="dropdown">Pick List</option>
-        </select>
+        {/* EDIT */}
+<button
+  onClick={() => {
+    openEditPanel(f);
+    setFieldActionsAnchor(null);
+  }}
+  style={{
+    width: "100%",
+    padding: "8px 18px",
+    textAlign: "left",
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    fontWeight: 600,
+    display: "flex",
+    gap: "8px",
+    alignItems: "center",
+  }}
+>
 
-        {type === "dropdown" && (
-          <>
-            <label>Dropdown Options</label>
-            <input
-              className="custom-field-input"
-              placeholder="Option1, Option2, Option3"
-              value={options}
-              onChange={(e) => setOptions(e.target.value)}
-            />
-          </>
-        )}
+  <span style={actionIconStyle}>
+    <FontAwesomeIcon
+      icon={faEdit}
+      style={{ color: "#3f9f42", fontSize: 20 }}
+    />
+  </span>
+
+  <span>Edit</span>
+
+</button>
+
+        {/* DELETE */}
+<button
+  onClick={() => {
+    deleteField(f.id);
+    setFieldActionsAnchor(null);
+  }}
+  style={{
+    width: "100%",
+    padding: "8px 18px",
+    textAlign: "left",
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    fontWeight: 600,
+    display: "flex",
+    gap: "8px",
+    alignItems: "center",
+  }}
+>
+
+  <span style={actionIconStyle}>
+    <FontAwesomeIcon
+      icon={faTrashAlt}
+      style={{ color: "#3f9f42", fontSize: 20 }}
+    />
+  </span>
+
+  <span>Delete</span>
+
+</button>
 
       </div>
-    </CommonSidePanel>
-  </div>
-);
+    )}
+
+  </td>
+</tr>
+              );
+            })
+          )}
+        </tbody>
+      </table>
+
+      <CommonSidePanel
+        isOpen={isPanelOpen}
+        onClose={() => setIsPanelOpen(false)}
+        title={isEditMode ? "Edit Custom Field" : "Create Custom Field"}
+        footerContent={
+          <>
+            <button
+              className="panel-cancel-btn"
+              onClick={() => setIsPanelOpen(false)}
+            >
+              Cancel
+            </button>
+
+            <button
+              className="panel-create-btn"
+              onClick={saveField}
+            >
+              {isEditMode ? "Update" : "Create"}
+            </button>
+          </>
+        }
+      >
+        <div className="panel-form">
+
+          <label>Field Name</label>
+          <input
+            className="custom-field-input"
+            placeholder="Enter field name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+
+          <label>Field Type</label>
+          <select
+            className="custom-field-select"
+            value={type}
+            onChange={(e) => setType(e.target.value)}
+          >
+            <option value="text">Text</option>
+            <option value="longtext">Long Text</option>
+            <option value="number">Number</option>
+            <option value="boolean">Checkbox (Yes / No)</option>
+            <option value="date">Date</option>
+            <option value="datetime">Date & Time</option>
+            <option value="dropdown">Pick List</option>
+          </select>
+
+          {type === "dropdown" && (
+            <>
+              <label>Dropdown Options</label>
+<div className="dropdown-options-container">
+
+  {options.map((opt, index) => (
+    <div key={index} className="dropdown-option-row">
+
+      <input
+        className="custom-field-input"
+        placeholder={`Option ${index + 1}`}
+        value={opt}
+        onChange={(e) => updateOption(e.target.value, index)}
+      />
+
+      <button
+        type="button"
+        className="remove-option-btn"
+        onClick={() => removeOption(index)}
+      >
+        ✕
+      </button>
+
+    </div>
+  ))}
+
+  <button
+    type="button"
+    className="add-option-btn"
+    onClick={addOption}
+  >
+    + Add option
+  </button>
+
+</div>
+            </>
+          )}
+
+        </div>
+      </CommonSidePanel>
+    </div>
+  );
 };
 
 export default CustomFieldSettings;

@@ -127,3 +127,54 @@ font-size:12px;
 margin-right:6px;
 display:inline-block;
 }
+.action-btn {
+  margin-right: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+}
+
+.action-btn.edit {
+  background: #3f9f42;
+  color: white;
+}
+
+.action-btn.delete {
+  background: #e53935;
+  color: white;
+}
+.dropdown-options-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dropdown-option-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.remove-option-btn {
+  background: #e53935;
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.add-option-btn {
+  background: #f3f4f6;
+  border: 1px dashed #ccc;
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  width: fit-content;
+}
+
+.add-option-btn:hover {
+  background: #e5e7eb;
+}
