@@ -6,6 +6,8 @@ import { useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEdit, faTrashAlt } from "@fortawesome/free-regular-svg-icons";
+import AppModal from "../common/AppModal";
+
 
 interface CustomField {
   id: number;
@@ -40,6 +42,10 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
 
   const reduxUserId = useSelector((state: RootState) => state.auth.userId);
   const [fieldActionsAnchor, setFieldActionsAnchor] = useState<number | null>(null);
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [fieldToDelete, setFieldToDelete] = useState<CustomField | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   const effectiveUserId = Number(
     selectedClient !== "" ? selectedClient : reduxUserId
@@ -130,6 +136,20 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
     if (res.ok) {
       loadFields();
     }
+  };
+  const confirmDeleteField = async () => {
+  if (!fieldToDelete) return;
+
+    const res = await fetch(
+      `${API_BASE_URL}/api/crm/custom-field-delete/${fieldToDelete.id}`,
+      { method: "POST" }
+    );
+
+    if (res.ok) {
+      loadFields();
+    }
+
+    setShowDeleteModal(false);
   };
 
   const openCreatePanel = () => {
@@ -303,7 +323,9 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
         {/* DELETE */}
 <button
   onClick={() => {
-    deleteField(f.id);
+    setFieldToDelete(f);
+    setShowDeleteModal(true);
+    setDeleteConfirmText("");
     setFieldActionsAnchor(null);
   }}
   style={{
@@ -429,6 +451,73 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
 
         </div>
       </CommonSidePanel>
+
+{showDeleteModal && (
+  <div
+    className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999]"
+    onClick={() => setShowDeleteModal(false)}
+  >
+    <div
+      className="bg-white rounded-xl p-6 w-[520px] relative"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* Title */}
+      <h3 className="text-lg font-semibold mb-3 text-gray-900">
+        Delete Custom Field
+      </h3>
+
+      {/* Message */}
+      <p className="text-sm text-gray-600 mb-3">
+        This action will permanently delete the field
+        <strong> "{fieldToDelete?.field_name}" </strong>
+        and all associated data.
+      </p>
+
+      <p className="text-sm text-gray-600 mb-4">
+        Please type <strong>DELETE</strong> to confirm.
+      </p>
+
+      {/* Input */}
+      <input
+        type="text"
+        value={deleteConfirmText}
+        onChange={(e) => setDeleteConfirmText(e.target.value)}
+        placeholder="Type DELETE"
+        className="w-full border border-gray-300 rounded-md px-3 py-2 mb-6 focus:outline-none focus:ring-2 focus:ring-red-500"
+      />
+
+      {/* Buttons */}
+      <div className="flex justify-end gap-3">
+        <button
+          onClick={() => setShowDeleteModal(false)}
+          className="px-5 py-2 rounded-full bg-black text-white"
+        >
+          Cancel
+        </button>
+
+        <button
+          onClick={confirmDeleteField}
+          disabled={deleteConfirmText !== "DELETE"}
+          className={`px-5 py-2 rounded-full text-white ${
+            deleteConfirmText === "DELETE"
+              ? "bg-red-600 hover:bg-red-700"
+              : "bg-gray-400 cursor-not-allowed"
+          }`}
+        >
+          Delete
+        </button>
+      </div>
+
+      {/* Close button */}
+      <button
+        onClick={() => setShowDeleteModal(false)}
+        className="absolute top-4 right-4 text-xl"
+      >
+        ✕
+      </button>
+    </div>
+  </div>
+)}
     </div>
   );
 };
