@@ -1242,6 +1242,19 @@ useEffect(() => {
                               Segments
                             </button>
                           </li>
+                          <li className={contactsSubTab === "CustomFields" ? "active" : ""}>
+                            <button
+                              onClick={() => {
+                                setContactsSubTab("CustomFields");
+                                setTab("DataCampaigns");   // ✅ FIX
+                                setShowMailSubmenu(false);
+                                navigate("/main?tab=DataCampaigns&subtab=CustomFields");
+                              }}
+                              className="submenu-button"
+                            >
+                              Custom attributes
+                            </button>
+                          </li>
                         </ul>
                       )}
                     </li>

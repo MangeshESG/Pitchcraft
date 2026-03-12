@@ -3406,7 +3406,7 @@ try {
                             }}
                             className="submenu-button"
                           >
-                            Custom Attributes
+                            Custom attributes
                           </button>
                         </li>
                         </ul>
