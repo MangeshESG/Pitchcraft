@@ -9,6 +9,7 @@ import EditContactModal from "./EditContactModal";
 import CreateListModal from "./CreateListModal";
 import SegmentModal from "../common/SegmentModal";
 import CommonSidePanel from "../common/CommonSidePanel";
+import FilterBuilder, { FilterCondition } from "../common/FilterBuilder";
 
 import { useAppModal } from "../../hooks/useAppModal";
 import { useSelector } from "react-redux";
@@ -207,6 +208,8 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   const [notesHistory, setNotesHistory] = useState<any[]>([]);
   const isDemoAccount = sessionStorage.getItem("isDemoAccount") === "true";
 
+  const [activeFilters, setActiveFilters] = useState<any[]>([]);
+
   // Segment interface - moved before usage to fix TDZ error
   interface Segment {
     id: number;
@@ -256,6 +259,14 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   const [isDeletingContact, setIsDeletingContact] = useState(false);
   const [isCloningContact, setIsCloningContact] = useState(false);
   const [isUnsubscribing, setIsUnsubscribing] = useState(false);
+
+  const [customFields, setCustomFields] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/Crm/custom-fields?clientId=${effectiveUserId}`)
+      .then((res) => res.json())
+      .then((data) => setCustomFields(data));
+  }, [effectiveUserId]);
 
   const handleTabChange = (tab: string) => {
     setActiveSubTab(tab);
@@ -1085,6 +1096,43 @@ const formatTimeIST = (dateString?: string) => {
 
   // Add detail view states
   const [detailContacts, setDetailContacts] = useState<Contact[]>([]);
+  const filteredDetailContacts = useMemo(() => {
+
+  if (activeFilters.length === 0) return detailContacts;
+
+  return detailContacts.filter((contact) => {
+
+    return activeFilters.every((filter) => {
+
+      const value = (contact as any)[filter.field];
+
+      if (!value) return false;
+
+      const contactValue = String(value).toLowerCase();
+      const filterValue = String(filter.value).toLowerCase();
+
+      switch (filter.operator) {
+        case "equals":
+          return contactValue === filterValue;
+
+        case "contains":
+          return contactValue.includes(filterValue);
+
+        case "startsWith":
+          return contactValue.startsWith(filterValue);
+
+        case "endsWith":
+          return contactValue.endsWith(filterValue);
+
+        default:
+          return true;
+      }
+
+    });
+
+  });
+
+}, [detailContacts, activeFilters]);
   const [detailTotalContacts, setDetailTotalContacts] = useState(0);
   const [detailCurrentPage, setDetailCurrentPage] = useState(1);
   const [detailPageSize] = useState(10);
@@ -1719,6 +1767,27 @@ const formatTimeIST = (dateString?: string) => {
     return { filtered, paginated, totalPages }
   }, [segmentContacts, segmentSearchQuery, segmentSortKey, segmentSortDirection, segmentCurrentPage, pageSize])
 
+const baseFields: any[] = [
+  { key: "full_name", label: "Full Name", type: "text" },
+  { key: "email", label: "Email", type: "text" },
+  { key: "company_name", label: "Company", type: "text" },
+  { key: "job_title", label: "Job Title", type: "text" },
+  { key: "country_or_address", label: "Country", type: "text" },
+  { key: "companyIndustry", label: "Industry", type: "text" },
+  { key: "companyEmployeeCount", label: "Employee Count", type: "number" },
+];
+const customFieldOptions = useMemo(() => {
+  return customFields.map((f: any) => ({
+    key: `custom_${f.id}`,
+    label: f.field_name,
+    type: f.field_type as any,
+    options: f.options_json ? JSON.parse(f.options_json) : undefined,
+  }));
+}, [customFields]);
+const filterFields: any = useMemo(() => {
+  return [...baseFields, ...customFieldOptions];
+}, [customFieldOptions]);
+
 
   return (
     <div className="data-campaigns-container">
@@ -2093,10 +2162,24 @@ const formatTimeIST = (dateString?: string) => {
                   />
 
                 </>
+                
               ) : (
-                // Detail view using ContactsTable
-                <DynamicContactsTable
+                  <>
+                {/* FILTER BUILDER */}
+              <div style={{ marginBottom: 16 }}>
+                <FilterBuilder
                   data={detailContacts}
+                  fields={filterFields}
+                  onFiltered={(data) => setDetailContacts(data)}
+                />
+              </div>
+
+                
+
+                
+       
+                <DynamicContactsTable
+                  data={filteredDetailContacts}
                   isLoading={isLoadingDetail}
                   search={detailSearchQuery}
                   setSearch={setDetailSearchQuery}
@@ -2367,6 +2450,8 @@ const formatTimeIST = (dateString?: string) => {
                   }
                 // customColumns={customColumns}
                 />
+              </>
+
               )}
 
               <CommonSidePanel
