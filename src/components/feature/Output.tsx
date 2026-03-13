@@ -963,52 +963,26 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
 
       // In handleSendEmail function, replace the requestBody with:
       const requestBody = {
-        clientId: effectiveUserId,
+        clientId: parseInt(effectiveUserId || "0"),
         contactid: currentContact.id,
-        campaignId: selectedCampaign ? parseInt(selectedCampaign) : null,
-
-        // Priority: segmentId first, then dataFileId, ensure at least one is always set
-        segmentId:
-          currentContact.segmentId &&
+        campaignid: selectedCampaign ? parseInt(selectedCampaign) : null,
+        isFollowUp: followupEnabled || false,
+        BccEmail: emailFormData.BccEmail || "",
+        SmtpId: parseInt(selectedSmtpUser || "0"),
+        SegmentId: currentContact.segmentId &&
           currentContact.segmentId !== "null" &&
           currentContact.segmentId !== "" &&
           !isNaN(parseInt(currentContact.segmentId))
             ? parseInt(currentContact.segmentId)
-            : null,
-
-        dataFileId:
-          // Only send dataFileId if segmentId is not present
-          (!currentContact.segmentId ||
-            currentContact.segmentId === "null" ||
-            currentContact.segmentId === "" ||
-            isNaN(parseInt(currentContact.segmentId))) &&
-          currentContact.dataFileId &&
-          currentContact.dataFileId !== "null" &&
-          currentContact.dataFileId !== "" &&
-          !isNaN(parseInt(currentContact.dataFileId))
-            ? parseInt(currentContact.dataFileId)
-            : null,
-
-        toEmail: currentContact.email,
-        subject: subjectToUse,
-        isFollowUp: followupEnabled || false,
-        bccEmail: emailFormData.BccEmail || "",
-        smtpId: selectedSmtpUser,
-        fullName: currentContact.name,
-        countryOrAddress: currentContact.location || "",
-        companyName: currentContact.company || "",
-        website: currentContact.website || "",
-        linkedinUrl: currentContact.linkedin || "",
-        jobTitle: currentContact.title || "",
+            : 0,
       };
 
       // Add validation before sending
-      if (!requestBody.segmentId && !requestBody.dataFileId) {
-        setEmailError("Contact must have either a Segment ID or Data File ID");
+      if (!requestBody.clientId || !requestBody.contactid || !requestBody.SmtpId || 
+          requestBody.clientId === 0 || requestBody.SmtpId === 0) {
+        setEmailError("Missing required fields: clientId, contactId, or SmtpId");
         setSendingEmail(false);
-        toast.error(
-          "Missing required ID: Contact must have either Segment ID or Data File ID",
-        );
+        toast.error("Missing required fields for email sending");
         return;
       }
 
@@ -1433,57 +1407,23 @@ const sleepWithCountdown = async (ms: number) => {
 
         // In sendEmailsInBulk function, replace the requestBody with:
         const requestBody = {
-          clientId: effectiveUserId,
+          clientId: parseInt(effectiveUserId || "0"),
           contactid: contact.id,
-          campaignId: selectedCampaign ? parseInt(selectedCampaign) : null,
-
-          // Priority: segmentId first, then dataFileId, then null (backend will handle)
-          segmentId:
-            contact.segmentId &&
+          campaignid: selectedCampaign ? parseInt(selectedCampaign) : null,
+          isFollowUp: followupEnabled || false,
+          BccEmail: emailFormData.BccEmail || "",
+          SmtpId: parseInt(selectedSmtpUser || "0"),
+          SegmentId: contact.segmentId &&
             contact.segmentId !== "null" &&
             contact.segmentId !== "" &&
             !isNaN(parseInt(contact.segmentId))
               ? parseInt(contact.segmentId)
-              : null,
-
-          dataFileId:
-            (!contact.segmentId ||
-              contact.segmentId === "null" ||
-              contact.segmentId === "" ||
-              isNaN(parseInt(contact.segmentId))) &&
-            contact.dataFileId &&
-            contact.dataFileId !== "null" &&
-            contact.dataFileId !== "" &&
-            !isNaN(parseInt(contact.dataFileId))
-              ? parseInt(contact.dataFileId)
-              : null,
-
-          toEmail: contact.email,
-          subject: subjectToUse,
-          isFollowUp: followupEnabled || false,
-          bccEmail: emailFormData.BccEmail || "",
-          smtpId: selectedSmtpUser,
-          fullName: contact.name,
-          countryOrAddress: contact.location || "",
-          companyName: contact.company || "",
-          website: contact.website || "",
-          linkedinUrl: contact.linkedin || "",
-          jobTitle: contact.title || "",
+              : 0,
         };
 
-        console.log('📧 Sending email for contact:', contact.id, 'segmentId:', requestBody.segmentId, 'dataFileId:', requestBody.dataFileId);
+        console.log('📧 Sending email for contact:', contact.id, 'SegmentId:', requestBody.SegmentId);
 
         // Remove validation - let backend handle it
-        // if (!requestBody.segmentId && !requestBody.dataFileId) {
-        //   console.error(
-        //     `Skipping contact ${contact.id}: Missing both segmentId and dataFileId`,
-        //   );
-        //   skippedCount++;
-        //   index++;
-        //   setBulkSendIndex(index);
-        //   await new Promise((res) => setTimeout(res, 500));
-        //   continue;
-        // }
 
         const response = await axios.post(
           `${API_BASE_URL}/api/email/send-singleEmail`,
