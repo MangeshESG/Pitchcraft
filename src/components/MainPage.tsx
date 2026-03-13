@@ -39,6 +39,7 @@ import CampaignManagement from "./feature/CampaignManagement";
 import { useAppData } from "../contexts/AppDataContext";
 import { Dashboard } from "./feature/Dashboard";
 import EmailCampaignBuilder from "./feature/blueprint/EmailCampaignBuilder";
+import Tracking from "./feature/Tracking";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { saveUserCredit } from "../slices/authSLice";
 import { useCreditCheck } from "../hooks/useCreditCheck";
@@ -404,6 +405,8 @@ const MainPage: React.FC = () => {
             : mailSubTab === "Configuration"
               ? "Mail Configuration - Configure email, schedule sends and review analytics"
               : "Mail Schedules - Configure email, schedule sends and review analytics";
+        case "Settings":
+          return "Settings - Application settings and tracking";
         case "MyPlan":
           return "My Plan";
         default:
@@ -416,6 +419,8 @@ const MainPage: React.FC = () => {
 
   const [showMailSubmenu, setShowMailSubmenu] = useState(initialTab === "Mail");
   const [showContactsSubmenu, setShowContactsSubmenu] = useState(false);
+  const [showSettingsSubmenu, setShowSettingsSubmenu] = useState(false);
+  const [settingsSubTab, setSettingsSubTab] = useState<string>("Tracking");
 
   useEffect(() => {
     // Safety reset for stuck loader after login
@@ -3208,6 +3213,7 @@ try {
                           setTab("Dashboard");
                           setShowMailSubmenu(false);
                           setShowContactsSubmenu(false);
+                          setShowSettingsSubmenu(false);
                           navigate("/main");
                         }}
                         className="side-menu-button"
@@ -3252,6 +3258,7 @@ try {
                             setShowBlueprintSubmenu(true);
                             setShowMailSubmenu(false);
                             setShowContactsSubmenu(false);
+                            setShowSettingsSubmenu(false);
                             navigate("/main?tab=TestTemplate");
                           } else {
                             setShowBlueprintSubmenu((prev: boolean) => !prev);
@@ -3341,6 +3348,7 @@ try {
                             setTab("DataCampaigns");
                             setShowContactsSubmenu(true);
                             setShowMailSubmenu(false);
+                            setShowSettingsSubmenu(false);
                           } else {
                             setShowContactsSubmenu((prev) => !prev);
                           }
@@ -3406,6 +3414,7 @@ try {
                           setTab("Campaigns");
                           setShowMailSubmenu(false);
                           setShowContactsSubmenu(false);
+                          setShowSettingsSubmenu(false);
                           navigate("/main?tab=Campaigns");
                         }}
                         className="side-menu-button"
@@ -3426,6 +3435,7 @@ try {
                           setTab("Output");
                           setShowMailSubmenu(false);
                           setShowContactsSubmenu(false);
+                          setShowSettingsSubmenu(false);
                           navigate("/main?tab=Output");
                           navigate("/main?tab=Output");
                         }}
@@ -3520,6 +3530,62 @@ try {
                               className="submenu-button"
                             >
                               Schedules
+                            </button>
+                          </li>
+                        </ul>
+                      )}
+                    </li>
+
+                    <li
+                      className={`${tab === "Settings" ? "active" : ""} ${
+                        showSettingsSubmenu
+                          ? "has-submenu submenu-open"
+                          : "has-submenu"
+                      }`}
+                    >
+                      <button
+                        onClick={() => {
+                          if (tab !== "Settings") {
+                            setTab("Settings");
+                            setShowSettingsSubmenu(true);
+                            setShowMailSubmenu(false);
+                            setShowContactsSubmenu(false);
+                          } else {
+                            setShowSettingsSubmenu((prev) => !prev);
+                          }
+                        }}
+                        className="side-menu-button"
+                        title="Application settings and tracking"
+                      >
+                        <span className="menu-icon">
+                          <FontAwesomeIcon
+                            icon={faGear}
+                            className=" text-[#333333] text-lg"
+                          />
+                        </span>
+                        <span className="menu-text">Settings</span>
+                        <span className="submenu-arrow">
+                          <FontAwesomeIcon
+                            icon={faAngleRight}
+                            className=" text-[#333333] text-lg"
+                          />
+                        </span>
+                      </button>
+                      {showSettingsSubmenu && (
+                        <ul className="submenu">
+                          <li
+                            className={
+                              settingsSubTab === "Tracking" ? "active" : ""
+                            }
+                          >
+                            <button
+                              onClick={() => {
+                                setSettingsSubTab("Tracking");
+                                setTab("Settings");
+                              }}
+                              className="submenu-button"
+                            >
+                              Tracking
                             </button>
                           </li>
                         </ul>
@@ -3777,6 +3843,9 @@ try {
                 <button onClick={() => handlePopupResponse(true)}>Yes</button>
                 <button onClick={() => handlePopupResponse(false)}>No</button>
               </div>
+            )}
+            {tab === "Settings" && (
+              <Tracking selectedClient={selectedClient} />
             )}
             {tab === "MyPlan" && <Myplan />}
           </div>

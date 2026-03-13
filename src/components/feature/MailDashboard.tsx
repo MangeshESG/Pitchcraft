@@ -171,6 +171,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     { key: "website", label: "Website", visible: false },
     { key: "hasOpened", label: "Opened", visible: true },
     { key: "hasClicked", label: "Clicked", visible: true },
+    { key: "botClicked", label: "Bot Clicked", visible: true },
     { key: "ipAddress", label: "IP Address", visible: true },
   ]);
 
@@ -938,6 +939,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
         targetUrl: item.targetUrl || undefined,
         hasOpened: false,
         hasClicked: false,
+        botClicked: (item as any).isBot,
         ipAddress: (item as any).ipAddress || "-",
       }));
 
@@ -2110,6 +2112,14 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
               // Boolean formatting
               hasOpened: (value: any) => (value ? "✅" : "-"),
               hasClicked: (value: any) => (value ? "✅" : "-"),
+              botClicked: (value: any, item: any) => {
+                if (value === true) {
+                  return <span style={{ color: "#28a745", fontSize: "16px" }}>✅</span>;
+                } else if (value === false) {
+                  return <span style={{ color: "#dc3545", fontSize: "16px" }}>❌</span>;
+                }
+                return "-";
+              },
 
               // Name formatting with warning
               // full_name: (value: any, item: any) => {
