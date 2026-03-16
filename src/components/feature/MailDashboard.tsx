@@ -47,6 +47,8 @@ interface EmailContact {
   targetUrl?: string;
   hasOpened?: boolean;
   hasClicked?: boolean;
+  botClicked?: boolean;
+  botOpened?: boolean;
 }
 
 interface ColumnConfig {
@@ -155,6 +157,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   const [deletingContacts, setDeletingContacts] = useState(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [contactsToDelete, setContactsToDelete] = useState<number[]>([]);
+  const [excludeBots, setExcludeBots] = useState(false);
 
   const [emailColumns, setEmailColumns] = useState<ColumnConfig[]>([
     { key: "checkbox", label: "", visible: true, width: "40px" },
@@ -172,6 +175,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     { key: "hasOpened", label: "Opened", visible: true },
     { key: "hasClicked", label: "Clicked", visible: true },
     { key: "botClicked", label: "Bot Clicked", visible: true },
+    { key: "botOpened", label: "Bot Opened", visible: true },
     { key: "ipAddress", label: "IP Address", visible: true },
   ]);
 
@@ -376,7 +380,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     if ((allEventData.length > 0 || allEmailLogs.length > 0) && isVisible) {
       processDataWithDateFilter(allEventData, allEmailLogs, startDate, endDate);
     }
-  }, [startDate, endDate, allEventData, allEmailLogs, isVisible]);
+  }, [startDate, endDate, allEventData, allEmailLogs, isVisible, excludeBots]);
 
   // 6. Load email logs for email-logs filter type - Updated for campaigns
   useEffect(() => {
@@ -519,6 +523,50 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   }, [effectiveUserId]);
 
 
+
+  // Debug useEffect for excludeBots
+  useEffect(() => {
+    console.log('=== BOT FILTER DEBUG ===');
+    console.log('excludeBots state:', excludeBots);
+    console.log('Total allEventData length:', allEventData.length);
+    console.log('Selected campaign:', selectedCampaign);
+    console.log('Date filters:', { startDate, endDate });
+    
+    const allOpens = allEventData.filter(item => item.eventType === 'Open');
+    const allClicks = allEventData.filter(item => item.eventType === 'Click');
+    const botOpens = allEventData.filter(item => item.eventType === 'Open' && item.isBot === true);
+    const botClicks = allEventData.filter(item => item.eventType === 'Click' && item.isBot === true);
+    const humanOpens = allEventData.filter(item => item.eventType === 'Open' && item.isBot === false);
+    const humanClicks = allEventData.filter(item => item.eventType === 'Click' && item.isBot === false);
+    
+    console.log('Total opens in allEventData:', allOpens.length);
+    console.log('Total clicks in allEventData:', allClicks.length);
+    console.log('Bot opens (isBot: true) in allEventData:', botOpens.length);
+    console.log('Bot clicks (isBot: true) in allEventData:', botClicks.length);
+    console.log('Human opens (isBot: false) in allEventData:', humanOpens.length);
+    console.log('Human clicks (isBot: false) in allEventData:', humanClicks.length);
+    
+    // Show all event data with bot status
+    console.log('All events with bot status:');
+    [...allOpens, ...allClicks].forEach((event, index) => {
+      console.log(`${index + 1}. ${event.eventType} - ${event.email} - isBot: ${event.isBot} - timestamp: ${event.timestamp}`);
+    });
+    
+    if (botOpens.length > 0) {
+      console.log('Sample bot open:', botOpens[0]);
+    }
+    if (botClicks.length > 0) {
+      console.log('Sample bot click:', botClicks[0]);
+    }
+    if (humanOpens.length > 0) {
+      console.log('Sample human open:', humanOpens[0]);
+    }
+    if (humanClicks.length > 0) {
+      console.log('Sample human click:', humanClicks[0]);
+    }
+    
+    console.log('=== END DEBUG ===');
+  }, [excludeBots, allEventData, selectedCampaign, startDate, endDate]);
 
   // Auto-save state when selectedCampaign changes
   useEffect(() => {
@@ -768,11 +816,25 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
       }
 
       if (item.eventType === "Open") {
-        dailyTracking[date].uniqueOpens.add(item.email);
-        uniqueOpensInDateRange.add(item.email);
+        console.log('Processing open:', { email: item.email, isBot: item.isBot, excludeBots });
+        // Filter out bot opens if excludeBots is true
+        if (!excludeBots || !item.isBot) {
+          console.log('Including open for:', item.email);
+          dailyTracking[date].uniqueOpens.add(item.email);
+          uniqueOpensInDateRange.add(item.email);
+        } else {
+          console.log('Excluding bot open for:', item.email);
+        }
       } else if (item.eventType === "Click") {
-        dailyTracking[date].uniqueClicks.add(item.email);
-        uniqueClicksInDateRange.add(item.email);
+        console.log('Processing click:', { email: item.email, isBot: item.isBot, excludeBots });
+        // Filter out bot clicks if excludeBots is true
+        if (!excludeBots || !item.isBot) {
+          console.log('Including click for:', item.email);
+          dailyTracking[date].uniqueClicks.add(item.email);
+          uniqueClicksInDateRange.add(item.email);
+        } else {
+          console.log('Excluding bot click for:', item.email);
+        }
       }
     });
 
@@ -797,7 +859,25 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     const totalSentCount = filteredEmailLogs.filter(
       (log: any) => log.isSuccess
     ).length;
-    const totalClickCount = filteredTrackingData.filter(item => item.eventType === 'Click').length;
+    
+    const allOpensBeforeFilter = filteredTrackingData.filter(item => item.eventType === 'Open');
+    const allClicksBeforeFilter = filteredTrackingData.filter(item => item.eventType === 'Click');
+    const totalClickCount = filteredTrackingData.filter(item => {
+      if (item.eventType === 'Click') {
+        const shouldInclude = !excludeBots || !item.isBot;
+        return shouldInclude;
+      }
+      return false;
+    }).length;
+    
+    console.log('TOTAL CALCULATION:');
+    console.log('- All opens before filter:', allOpensBeforeFilter.length);
+    console.log('- All clicks before filter:', allClicksBeforeFilter.length);
+    console.log('- excludeBots:', excludeBots);
+    console.log('- Final totalClickCount:', totalClickCount);
+    console.log('- uniqueOpensInDateRange size:', uniqueOpensInDateRange.size);
+    console.log('- uniqueClicksInDateRange size:', uniqueClicksInDateRange.size);
+    
     const errorCount = filteredEmailLogs.filter((log: any) => !log.isSuccess).length;
     
     setRequestCount(totalSentCount);
@@ -939,7 +1019,8 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
         targetUrl: item.targetUrl || undefined,
         hasOpened: false,
         hasClicked: false,
-        botClicked: (item as any).isBot,
+        botClicked: (item as any).isBot && item.eventType === "Click",
+        botOpened: (item as any).isBot && item.eventType === "Open",
         ipAddress: (item as any).ipAddress || "-",
       }));
 
@@ -981,6 +1062,19 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
         if (end && itemDate > end) return false;
         return true;
       });
+    }
+
+    // Filter out bot opens and clicks if excludeBots is true
+    if (excludeBots) {
+      console.log('Filtering bots from event data, original length:', filteredEventData.length);
+      filteredEventData = filteredEventData.filter((item) => {
+        if (item.eventType === 'Click' || item.eventType === 'Open') {
+          console.log('Filtering event:', { eventType: item.eventType, email: item.email, isBot: item.isBot });
+          return !item.isBot;
+        }
+        return true;
+      });
+      console.log('After bot filtering, length:', filteredEventData.length);
     }
 
     const transformedData = transformEventDataForTable(filteredEventData);
@@ -1768,6 +1862,27 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
           </span>
         </div>
 
+        <div className="form-group">
+          <label>Exclude bots:</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              onClick={() => setExcludeBots(!excludeBots)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
+                excludeBots ? 'bg-green-600' : 'bg-gray-200'
+              } cursor-pointer`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  excludeBots ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+            <span style={{ fontSize: '12px', color: '#666' }}>
+              {excludeBots ? 'ON' : 'OFF'}
+            </span>
+          </div>
+        </div>
+
         {(startDate || endDate) && (
           <div className="form-group flex items-start">
             <button
@@ -2113,6 +2228,14 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
               hasOpened: (value: any) => (value ? "✅" : "-"),
               hasClicked: (value: any) => (value ? "✅" : "-"),
               botClicked: (value: any, item: any) => {
+                if (value === true) {
+                  return <span style={{ color: "#28a745", fontSize: "16px" }}>✅</span>;
+                } else if (value === false) {
+                  return <span style={{ color: "#dc3545", fontSize: "16px" }}>❌</span>;
+                }
+                return "-";
+              },
+              botOpened: (value: any, item: any) => {
                 if (value === true) {
                   return <span style={{ color: "#28a745", fontSize: "16px" }}>✅</span>;
                 } else if (value === false) {

@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import API_BASE_URL from "../../config";
-
-const stripePromise = loadStripe("pk_test_51SMm5UHDCkj9hBmZl4yRaVsoNfGevHcE3aceEogIAULDMp6EibUTAZ6dCOsfimlofEUBRbwiisKPt0IOBjkvEWVm00OhJDFN0r"); // ✅ apna publishable key
+import { stripePromise } from "../../config/stripe";
 
 function CheckoutForm({ clientSecret }: { clientSecret: string }) {
     const stripe = useStripe();
@@ -64,9 +62,16 @@ export default function PaymentPage({ userId, planName, amount }: any) {
             <div className="bg-white p-8 rounded-2xl shadow-xl w-[400px]">
                 <h2 className="text-2xl font-bold mb-4 text-center">Complete Payment</h2>
                 {clientSecret ? (
-                    <Elements stripe={stripePromise} options={options}>
-                        <CheckoutForm clientSecret={clientSecret} />
-                    </Elements>
+                    stripePromise ? (
+                        <Elements stripe={stripePromise} options={options}>
+                            <CheckoutForm clientSecret={clientSecret} />
+                        </Elements>
+                    ) : (
+                        <div className="text-center">
+                            <p className="text-red-600 mb-4">Failed to load payment system</p>
+                            <p className="text-sm text-gray-600">Please refresh the page and try again</p>
+                        </div>
+                    )
                 ) : (
                     <p>Loading payment form...</p>
                 )}

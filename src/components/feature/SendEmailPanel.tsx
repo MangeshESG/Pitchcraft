@@ -44,6 +44,9 @@ interface SendEmailPanelProps {
   setOverwriteDatabase?: (val: boolean) => void;
   setFollowupEnabled?: (value: boolean) => void;
   isDemoAccount?: boolean;
+  showNotKrafted?: boolean;
+  setShowNotKrafted?: (val: boolean) => void;
+  filteredResponses?: any[];
 }
 
 const SendEmailPanel: React.FC<SendEmailPanelProps> = ({
@@ -86,6 +89,9 @@ const SendEmailPanel: React.FC<SendEmailPanelProps> = ({
 setOverwriteDatabase,
  setFollowupEnabled,
   isDemoAccount,
+  showNotKrafted,
+  setShowNotKrafted,
+  filteredResponses,
 }) => {
   const [internalEnableDelay, setInternalEnableDelay] = useState(false);
   const [internalEnableIndexRange, setInternalEnableIndexRange] = useState(false);
@@ -620,24 +626,60 @@ setOverwriteDatabase,
                     </div>
                     </div>
                   )}
+                  
+                  {/* Not krafted checkbox - separate container */}
+                  <div
+                    className="form-group"
+                    style={{
+                      padding: "12px",
+                      border: "1px solid #cccccc",
+                      borderRadius: "8px",
+                      backgroundColor: "#fff",
+                      flex: 1,
+                    }}
+                  >
+                    <div
+                      className="flex items-center gap-[8px]"
+                    >
+                      <label className="checkbox-label !mb-[0px] mr-[5px] flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={showNotKrafted || false}
+                          onChange={(e) => {
+                            setShowNotKrafted?.(e.target.checked);
+                          }}
+                          className="!mr-0"
+                        />
+                        <span style={{ fontSize: "14px", whiteSpace: "nowrap",marginLeft: "10px" }}>
+                          Not krafted
+                        </span>
+                      </label>
+                    </div>
+                  </div>
                 {/* Countdown */}
                 {isBulkSending && countdown !== null && (
                   <div
                     style={{
                       marginTop: 10,
-                      padding: 12,
+                      padding: "8px 12px",
                       background: "#f0fdf4",
                       borderRadius: 8,
                       fontSize: 14,
                       color: "#3f9f42",
                       fontWeight: 500,
                       textAlign: "center",
+                      whiteSpace: "nowrap",
+                      minWidth: "fit-content",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "4px",
                     }}
                   >
-                    ⏳Next email will be sent in {countdown} seconds
+                    <span>⏳</span>
+                    <span>Next email will be sent in {countdown} seconds</span>
                   </div>
                 )}
-
                 {/* Krafted and Emailed Dates */}
                 {combinedResponses[currentIndex] && (
                   <div style={{ marginTop: 16 }}>

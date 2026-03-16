@@ -9,11 +9,8 @@ import RocketImg from "../../assets/images/rocket.png";
 import PetrolPumpImg from "../../assets/images/petrol-pump.png";
 import API_BASE_URL from "../../config";
 import pitchLogo from "../../assets/images/pitch_logo.png";
-import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
-
-// ✅ Stripe publishable key (replace with your live or test key)
-const stripePromise = loadStripe("pk_live_51SJCuRFNcXTjravQ7KGvF9oNuYEAMKJNd7EkYdvOHTyLX63R7YY92DryJzECjetGm9VQaa34wAnjPWOxNQd0oC2W00F2HOLLhF");
+import { stripePromise } from "../../config/stripe";
 
 export type Plan = {
   icon: string;
@@ -316,9 +313,25 @@ const [errorPopup, setErrorPopup] = useState<string | null>(null);
     };
     
     return (
-      <Elements stripe={stripePromise} options={options}>
-        <PaymentForm clientSecret={clientSecret} selectedPlan={selectedPlan} onGoBack={handleGoBack} />
-      </Elements>
+      <div>
+        {stripePromise ? (
+          <Elements stripe={stripePromise} options={options}>
+            <PaymentForm clientSecret={clientSecret} selectedPlan={selectedPlan} onGoBack={handleGoBack} />
+          </Elements>
+        ) : (
+          <div className="flex justify-center items-center min-h-screen">
+            <div className="text-center">
+              <p className="text-red-600 mb-4">Failed to load payment system</p>
+              <button 
+                onClick={handleGoBack}
+                className="px-4 py-2 bg-gray-600 text-white rounded-md"
+              >
+                Go Back
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     );
   }
 
