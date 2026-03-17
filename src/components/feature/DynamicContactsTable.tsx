@@ -74,12 +74,35 @@ const flattenObject = (obj: any) => {
       !Array.isArray(value)
     ) {
       Object.entries(value).forEach(([nestedKey, nestedValue]) => {
-        flattened[nestedKey] = nestedValue;
+        flattened[nestedKey] =
+          nestedValue &&
+          typeof nestedValue === "object" &&
+          !Array.isArray(nestedValue)
+            ? JSON.stringify(nestedValue)
+            : nestedValue;
       });
+      delete flattened[key];
     }
   });
 
   return flattened;
+};
+
+const getSafeRenderableValue = (value: any) => {
+  if (value === null || value === undefined || value === "") {
+    return "-";
+  }
+
+  if (typeof value === "object") {
+    if (Array.isArray(value)) {
+      return value.length > 0 ? value.join(", ") : "-";
+    }
+
+    const keys = Object.keys(value);
+    return keys.length > 0 ? JSON.stringify(value) : "-";
+  }
+
+  return value;
 };
 
 const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
@@ -358,7 +381,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
         };
 
       default:
-        return (value: any) => value || "-";
+        return (value: any) => getSafeRenderableValue(value);
     }
   };
     const processedData = useMemo(() => {
@@ -484,7 +507,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
       return column.formatter(rawValue, item);
     }
 
-    return rawValue || "-";
+    return getSafeRenderableValue(rawValue);
   };
 
   // Filter and paginate data

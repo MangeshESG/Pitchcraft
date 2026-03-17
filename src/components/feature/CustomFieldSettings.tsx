@@ -6,7 +6,6 @@ import { useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEdit, faTrashAlt } from "@fortawesome/free-regular-svg-icons";
-import AppModal from "../common/AppModal";
 
 
 interface CustomField {
@@ -88,10 +87,12 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
     const body = {
       clientId: effectiveUserId,
       fieldName: name,
-      fieldKey: name
-        .toLowerCase()
-        .replace(/[^a-z0-9\s]/g, "")
-        .replace(/\s+/g, "_"),
+      fieldKey: isEditMode
+        ? editingField?.field_key
+        : name
+            .toLowerCase()
+            .replace(/[^a-z0-9\s]/g, "")
+            .replace(/\s+/g, "_"),
       fieldType: type,
       optionsJson:
         type === "dropdown"
@@ -123,20 +124,6 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
     }
   };
 
-  const deleteField = async (id: number) => {
-    if (!window.confirm("Are you sure you want to delete this field?")) return;
-
-    const res = await fetch(
-      `${API_BASE_URL}/api/crm/custom-field-delete/${id}`,
-      {
-        method: "POST",
-      }
-    );
-
-    if (res.ok) {
-      loadFields();
-    }
-  };
   const confirmDeleteField = async () => {
   if (!fieldToDelete) return;
 
@@ -150,6 +137,8 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
     }
 
     setShowDeleteModal(false);
+    setFieldToDelete(null);
+    setDeleteConfirmText("");
   };
 
   const openCreatePanel = () => {

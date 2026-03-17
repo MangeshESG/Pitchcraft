@@ -1095,44 +1095,9 @@ const formatTimeIST = (dateString?: string) => {
     useState<any>(null);
 
   // Add detail view states
+  const [allDetailContacts, setAllDetailContacts] = useState<Contact[]>([]);
   const [detailContacts, setDetailContacts] = useState<Contact[]>([]);
-  const filteredDetailContacts = useMemo(() => {
-
-  if (activeFilters.length === 0) return detailContacts;
-
-  return detailContacts.filter((contact) => {
-
-    return activeFilters.every((filter) => {
-
-      const value = (contact as any)[filter.field];
-
-      if (!value) return false;
-
-      const contactValue = String(value).toLowerCase();
-      const filterValue = String(filter.value).toLowerCase();
-
-      switch (filter.operator) {
-        case "equals":
-          return contactValue === filterValue;
-
-        case "contains":
-          return contactValue.includes(filterValue);
-
-        case "startsWith":
-          return contactValue.startsWith(filterValue);
-
-        case "endsWith":
-          return contactValue.endsWith(filterValue);
-
-        default:
-          return true;
-      }
-
-    });
-
-  });
-
-}, [detailContacts, activeFilters]);
+  const filteredDetailContacts = useMemo(() => detailContacts, [detailContacts]);
   const [detailTotalContacts, setDetailTotalContacts] = useState(0);
   const [detailCurrentPage, setDetailCurrentPage] = useState(1);
   const [detailPageSize] = useState(10);
@@ -1175,15 +1140,18 @@ const formatTimeIST = (dateString?: string) => {
 
       const data = await response.json();
       if (type === "list") {
+        setAllDetailContacts(data.contacts || []);
         setDetailContacts(data.contacts || []);
         setDetailTotalContacts(data.contactCount || 0);
       } else {
         // Extract contacts from the new response structure
+        setAllDetailContacts(data.contacts || []);
         setDetailContacts(data.contacts || []);
         setDetailTotalContacts(data.contactCount || 0);
       }
     } catch (error) {
       console.error("Error fetching contacts:", error);
+      setAllDetailContacts([]);
       setDetailContacts([]);
       setDetailTotalContacts(0);
     } finally {
@@ -1776,12 +1744,41 @@ const baseFields: any[] = [
   { key: "companyIndustry", label: "Industry", type: "text" },
   { key: "companyEmployeeCount", label: "Employee Count", type: "number" },
 ];
+const normalizeFilterFieldType = (fieldType?: string) => {
+  switch ((fieldType || "").toLowerCase()) {
+    case "number":
+      return "number";
+    case "date":
+    case "datetime":
+      return "date";
+    case "boolean":
+      return "boolean";
+    case "dropdown":
+      return "dropdown";
+    case "longtext":
+    case "text":
+    default:
+      return "text";
+  }
+};
+
+const safeParseFilterOptions = (value?: string) => {
+  if (!value) return undefined;
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 const customFieldOptions = useMemo(() => {
   return customFields.map((f: any) => ({
-    key: `custom_${f.id}`,
+    key: `custom_${f.field_name}`,
     label: f.field_name,
-    type: f.field_type as any,
-    options: f.options_json ? JSON.parse(f.options_json) : undefined,
+    type: normalizeFilterFieldType(f.field_type),
+    options: safeParseFilterOptions(f.options_json),
   }));
 }, [customFields]);
 const filterFields: any = useMemo(() => {
@@ -2168,9 +2165,21 @@ const filterFields: any = useMemo(() => {
                 {/* FILTER BUILDER */}
               <div style={{ marginBottom: 16 }}>
                 <FilterBuilder
-                  data={detailContacts}
+                  data={allDetailContacts}
                   fields={filterFields}
                   onFiltered={(data) => setDetailContacts(data)}
+                  saveViewConfig={{
+                    clientId: effectiveUserId,
+                    dataFileIds:
+                      selectedDataFileForView && selectedDataFileForView.id !== -1
+                        ? [selectedDataFileForView.id]
+                        : [],
+                    onSuccess: (view) =>
+                      appModal.showSuccess(
+                        `View "${view?.name || "Saved view"}" created successfully!`
+                      ),
+                    onError: (message) => appModal.showError(message),
+                  }}
                 />
               </div>
 
@@ -2198,6 +2207,7 @@ const filterFields: any = useMemo(() => {
                     "email_subject",
                     "dataFileId",
                     "data_file",
+                    "customFields",
                   ]} // Hide large/unwanted fields
                   onColumnsChange={(updatedColumns) => {
                     // Handle column changes from DynamicContactsTable
@@ -2746,6 +2756,10 @@ const filterFields: any = useMemo(() => {
                      setEditingContact(updatedContact);
 
                      // 🔥 update detail list if used
+                     setAllDetailContacts(prev =>
+                       prev.map(c =>
+                     c.id === updatedContact.id ? updatedContact : c
+                     ));
                      setDetailContacts(prev =>
                        prev.map(c =>
                      c.id === updatedContact.id ? updatedContact : c
@@ -3357,6 +3371,7 @@ const filterFields: any = useMemo(() => {
                     "email_subject",
                     "dataFileId",
                     "data_file",
+                    "customFields",
                   ]}
                   onColumnsChange={(updatedColumns) => {
                     // Handle column changes from DynamicContactsTable
@@ -3683,6 +3698,10 @@ const filterFields: any = useMemo(() => {
                      // 🔥 update profile contact immediately
                      setEditingContact(updatedContact);
                      // 🔥 update detail list if used
+                     setAllDetailContacts(prev =>
+                     prev.map(c =>
+                     c.id === updatedContact.id ? updatedContact : c
+                     ));
                      setDetailContacts(prev =>
                      prev.map(c =>
                      c.id === updatedContact.id ? updatedContact : c
