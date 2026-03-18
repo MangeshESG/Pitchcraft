@@ -9,7 +9,8 @@ import EditContactModal from "./EditContactModal";
 import CreateListModal from "./CreateListModal";
 import SegmentModal from "../common/SegmentModal";
 import CommonSidePanel from "../common/CommonSidePanel";
-import FilterBuilder, { FilterCondition } from "../common/FilterBuilder";
+import FilterBuilder from "../common/FilterBuilder";
+import ContactViews from "./ContactViews";
 
 import { useAppModal } from "../../hooks/useAppModal";
 import { useSelector } from "react-redux";
@@ -1809,6 +1810,16 @@ const filterFields: any = useMemo(() => {
                 }`}
             >
               Segments
+            </button>
+          </li>
+          <li>
+            <button
+              type="button"
+              onClick={() => handleTabChange("View")}
+              className={`button !pt-0 ${activeSubTab === "View" ? "active" : ""
+                }`}
+            >
+              Views
             </button>
           </li>
         </ul>
@@ -3927,6 +3938,29 @@ const filterFields: any = useMemo(() => {
             </div>
           )}
         </div>
+      )}
+
+      {activeSubTab === "View" && (
+        <ContactViews
+          clientId={effectiveUserId}
+          filterFields={filterFields}
+          columnNameMap={columnNameMap}
+          persistedColumnSelection={savedColumnSelection}
+          onColumnsChange={(updatedColumns) => {
+            const visibleColumns = updatedColumns
+              .filter((col: any) => col.visible && col.key !== "checkbox")
+              .map((col: any) => col.key);
+            setSavedColumnSelection(visibleColumns);
+            saveSelectedColumns(visibleColumns);
+          }}
+          onShowMessage={(message, type) => {
+            if (type === "success") {
+              appModal.showSuccess(message);
+            } else {
+              appModal.showError(message);
+            }
+          }}
+        />
       )}
 
       {/* Rename Segment Modal */}

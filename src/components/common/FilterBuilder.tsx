@@ -95,6 +95,23 @@ const actionButtonStyle: React.CSSProperties = {
 };
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
+const viewMetaKey = (clientId: string | number) =>
+  `crm_view_meta_${clientId}`;
+
+const saveViewMeta = (
+  clientId: string | number,
+  viewId: number,
+  meta: { filtersJson: string; dataFileIds: number[]; segmentIds: number[] }
+) => {
+  try {
+    const existingRaw = localStorage.getItem(viewMetaKey(clientId));
+    const existing = existingRaw ? JSON.parse(existingRaw) : {};
+    existing[String(viewId)] = meta;
+    localStorage.setItem(viewMetaKey(clientId), JSON.stringify(existing));
+  } catch (error) {
+    console.warn("Failed to persist view metadata:", error);
+  }
+};
 
 const createCondition = (joinWithPrevious: JoinOperator = "AND"): FilterCondition => ({
   id: generateId(),
@@ -364,6 +381,16 @@ function FilterBuilder<T extends Record<string, any>>({
       }
 
       const savedView = await response.json();
+      if (savedView?.id != null) {
+        saveViewMeta(saveViewConfig.clientId, Number(savedView.id), {
+          filtersJson,
+          dataFileIds: (saveViewConfig.dataFileIds || []).filter(
+            (id) => id !== -1
+          ),
+          segmentIds: saveViewConfig.segmentIds || [],
+        });
+      }
+
       setViewName("");
       setViewDescription("");
       setShowSavePanel(false);
