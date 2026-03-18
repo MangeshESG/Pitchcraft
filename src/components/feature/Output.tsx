@@ -2056,6 +2056,8 @@ useEffect(() => {
           kraftedNotSentEnabled={kraftedNotSentEnabled}
           setKraftedNotSentEnabled={setKraftedNotSentEnabled}
           filteredResponses={combinedResponses}
+          selectedZohoviewId={selectedZohoviewId}
+          fetchAndDisplayEmailBodies={fetchAndDisplayEmailBodies}
 
           setOverwriteDatabase={(val: boolean) =>
             settingsFormHandler?.({
