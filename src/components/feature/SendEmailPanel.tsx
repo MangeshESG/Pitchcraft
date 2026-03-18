@@ -44,8 +44,6 @@ interface SendEmailPanelProps {
   setOverwriteDatabase?: (val: boolean) => void;
   setFollowupEnabled?: (value: boolean) => void;
   isDemoAccount?: boolean;
-  showNotKrafted?: boolean;
-  setShowNotKrafted?: (val: boolean) => void;
   filteredResponses?: any[];
 }
 
@@ -89,8 +87,6 @@ const SendEmailPanel: React.FC<SendEmailPanelProps> = ({
 setOverwriteDatabase,
  setFollowupEnabled,
   isDemoAccount,
-  showNotKrafted,
-  setShowNotKrafted,
   filteredResponses,
 }) => {
   const [internalEnableDelay, setInternalEnableDelay] = useState(false);
@@ -627,35 +623,7 @@ setOverwriteDatabase,
                     </div>
                   )}
                   
-                  {/* Not krafted checkbox - separate container */}
-                  <div
-                    className="form-group"
-                    style={{
-                      padding: "12px",
-                      border: "1px solid #cccccc",
-                      borderRadius: "8px",
-                      backgroundColor: "#fff",
-                      flex: 1,
-                    }}
-                  >
-                    <div
-                      className="flex items-center gap-[8px]"
-                    >
-                      <label className="checkbox-label !mb-[0px] mr-[5px] flex items-center">
-                        <input
-                          type="checkbox"
-                          checked={showNotKrafted || false}
-                          onChange={(e) => {
-                            setShowNotKrafted?.(e.target.checked);
-                          }}
-                          className="!mr-0"
-                        />
-                        <span style={{ fontSize: "14px", whiteSpace: "nowrap",marginLeft: "10px" }}>
-                          Not krafted
-                        </span>
-                      </label>
-                    </div>
-                  </div>
+
                 {/* Countdown */}
                 {isBulkSending && countdown !== null && (
                   <div
