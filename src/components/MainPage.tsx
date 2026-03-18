@@ -818,7 +818,7 @@ const handleClientChange = async (
           console.log("Fetching segment contacts for segmentId:", segmentId);
 
           // ✅ Fetch from segment API
-          const url = `${API_BASE_URL}/api/Crm/contacts/by-client-segment?clientId=${effectiveUserId}&segmentId=${segmentId}&isFollowUp=${forceFollowup ?? followupEnabled}`;
+          const url = `${API_BASE_URL}/api/Crm/contacts/by-client-segment?clientId=${effectiveUserId}&segmentId=${segmentId}&isFollowUp=${forceFollowup ?? followupEnabled}&notKrafted=${notKraftedEnabled}&kraftedNotSent=${kraftedNotSentEnabled}`;
           const response = await fetch(url);
 
           if (!response.ok) {
