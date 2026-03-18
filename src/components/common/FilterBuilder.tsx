@@ -1,9 +1,8 @@
 import React, { useMemo, useState } from "react";
 import API_BASE_URL from "../../config";
 
-/* ---------------- TYPES ---------------- */
-
 type FieldType = "text" | "number" | "date" | "boolean" | "dropdown";
+type JoinOperator = "AND" | "OR";
 
 interface FieldOption {
   key: string;
@@ -17,9 +16,10 @@ export interface FilterCondition {
   field: string;
   operator: string;
   value: any;
+  joinWithPrevious?: JoinOperator;
 }
 
-export interface Props<T>  {
+export interface Props<T> {
   data: T[];
   fields: FieldOption[];
   onFiltered: (data: T[]) => void;
@@ -31,8 +31,6 @@ export interface Props<T>  {
     onError?: (message: string) => void;
   };
 }
-
-/* ---------------- OPERATORS ---------------- */
 
 const operatorsByType: Record<FieldType, { value: string; label: string }[]> = {
   text: [
@@ -60,11 +58,51 @@ const operatorsByType: Record<FieldType, { value: string; label: string }[]> = {
   ],
   dropdown: [
     { value: "equals", label: "Equals" },
-    { value: "notEquals", label: "Not Equals" },
+    { value: "notEquals", label: "Not equals" },
   ],
 };
 
+const cardStyle: React.CSSProperties = {
+  border: "1px solid #d8e6d9",
+  borderRadius: 16,
+  background:
+    "linear-gradient(180deg, rgba(248,252,248,1) 0%, rgba(255,255,255,1) 100%)",
+  boxShadow: "0 10px 30px rgba(35, 79, 38, 0.08)",
+  overflow: "hidden",
+};
+
+const controlStyle: React.CSSProperties = {
+  width: "100%",
+  minHeight: 44,
+  padding: "10px 14px",
+  border: "1px solid #cfe1d1",
+  borderRadius: 12,
+  background: "#fff",
+  color: "#1f2937",
+  fontSize: 14,
+  outline: "none",
+};
+
+const actionButtonStyle: React.CSSProperties = {
+  minHeight: 42,
+  padding: "0 16px",
+  borderRadius: 12,
+  border: "1px solid #d4d4d8",
+  background: "#fff",
+  color: "#1f2937",
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
 const generateId = () => Math.random().toString(36).substring(2, 9);
+
+const createCondition = (joinWithPrevious: JoinOperator = "AND"): FilterCondition => ({
+  id: generateId(),
+  field: "",
+  operator: "",
+  value: "",
+  joinWithPrevious,
+});
 
 const normalizeFieldType = (value?: string): FieldType => {
   switch ((value || "").toLowerCase()) {
@@ -128,7 +166,10 @@ const getRowValue = <T extends Record<string, any>>(row: T, fieldKey: string) =>
   return directValue;
 };
 
-/* ---------------- COMPONENT ---------------- */
+const isCompleteCondition = (condition: FilterCondition) =>
+  condition.field.trim() &&
+  condition.operator.trim() &&
+  String(condition.value ?? "").trim() !== "";
 
 function FilterBuilder<T extends Record<string, any>>({
   data,
@@ -136,35 +177,43 @@ function FilterBuilder<T extends Record<string, any>>({
   onFiltered,
   saveViewConfig,
 }: Props<T>) {
-  const [logic, setLogic] = useState<"AND" | "OR">("AND");
+  const [conditions, setConditions] = useState<FilterCondition[]>([
+    createCondition(),
+  ]);
   const [showSavePanel, setShowSavePanel] = useState(false);
   const [viewName, setViewName] = useState("");
   const [viewDescription, setViewDescription] = useState("");
   const [isSavingView, setIsSavingView] = useState(false);
 
-  const [conditions, setConditions] = useState<FilterCondition[]>([
-    {
-      id: generateId(),
-      field: "",
-      operator: "",
-      value: "",
-    },
-  ]);
+  const completeConditions = useMemo(
+    () => conditions.filter((condition) => isCompleteCondition(condition)),
+    [conditions]
+  );
 
-  /* ---------------- CONDITION MANAGEMENT ---------------- */
+  const filtersJson = useMemo(
+    () =>
+      JSON.stringify({
+        logic: "CHAIN",
+        conditions: completeConditions.map((condition, index) => ({
+          ...condition,
+          joinWithPrevious: index === 0 ? undefined : condition.joinWithPrevious || "AND",
+        })),
+      }),
+    [completeConditions]
+  );
 
   const addCondition = () => {
-    setConditions([
-      ...conditions,
-      { id: generateId(), field: "", operator: "", value: "" },
-    ]);
+    setConditions((previous) => [...previous, createCondition("AND")]);
   };
 
   const removeCondition = (id: string) => {
-    const updatedConditions = conditions.filter((c) => c.id !== id);
-    setConditions(updatedConditions.length > 0 ? updatedConditions : [
-      { id: generateId(), field: "", operator: "", value: "" },
-    ]);
+    setConditions((previous) => {
+      const updatedConditions = previous.filter((condition) => condition.id !== id);
+      if (updatedConditions.length === 0) {
+        return [createCondition()];
+      }
+      return updatedConditions;
+    });
   };
 
   const updateCondition = (
@@ -172,36 +221,87 @@ function FilterBuilder<T extends Record<string, any>>({
     key: keyof FilterCondition,
     value: any
   ) => {
-    setConditions(
-      conditions.map((c) =>
-        c.id === id ? { ...c, [key]: value } : c
-      )
+    setConditions((previous) =>
+      previous.map((condition) => {
+        if (condition.id !== id) {
+          return condition;
+        }
+
+        if (key === "field") {
+          return {
+            ...condition,
+            field: value,
+            operator: "",
+            value: "",
+          };
+        }
+
+        return {
+          ...condition,
+          [key]: value,
+        };
+      })
     );
   };
 
-  const getField = (key: string) => fields.find((f) => f.key === key);
+  const getField = (key: string) => fields.find((field) => field.key === key);
 
-  const completeConditions = useMemo(
-    () =>
-      conditions.filter(
-        (condition) =>
-          condition.field.trim() &&
-          condition.operator.trim() &&
-          String(condition.value ?? "").trim() !== ""
-      ),
-    [conditions]
-  );
+  const evaluateCondition = (row: T, condition: FilterCondition) => {
+    const value = getRowValue(row, condition.field);
+    const normalizedFieldType = normalizeFieldType(
+      getField(condition.field)?.type
+    );
 
-  const filtersJson = useMemo(
-    () =>
-      JSON.stringify({
-        logic,
-        conditions: completeConditions,
-      }),
-    [completeConditions, logic]
-  );
+    switch (condition.operator) {
+      case "contains":
+        return String(value)
+          .toLowerCase()
+          .includes(String(condition.value).toLowerCase());
 
-  /* ---------------- FILTER LOGIC ---------------- */
+      case "equals":
+        if (normalizedFieldType === "boolean") {
+          return String(value).toLowerCase() === String(condition.value).toLowerCase();
+        }
+        return String(value).toLowerCase() === String(condition.value).toLowerCase();
+
+      case "notEquals":
+        if (normalizedFieldType === "boolean") {
+          return String(value).toLowerCase() !== String(condition.value).toLowerCase();
+        }
+        return String(value).toLowerCase() !== String(condition.value).toLowerCase();
+
+      case "startsWith":
+        return String(value)
+          .toLowerCase()
+          .startsWith(String(condition.value).toLowerCase());
+
+      case "endsWith":
+        return String(value)
+          .toLowerCase()
+          .endsWith(String(condition.value).toLowerCase());
+
+      case "gt":
+        return Number(value) > Number(condition.value);
+
+      case "lt":
+        return Number(value) < Number(condition.value);
+
+      case "gte":
+        return Number(value) >= Number(condition.value);
+
+      case "lte":
+        return Number(value) <= Number(condition.value);
+
+      case "before":
+        return new Date(value) < new Date(condition.value);
+
+      case "after":
+        return new Date(value) > new Date(condition.value);
+
+      default:
+        return true;
+    }
+  };
 
   const applyFilters = () => {
     if (completeConditions.length === 0) {
@@ -209,93 +309,32 @@ function FilterBuilder<T extends Record<string, any>>({
       return;
     }
 
-    const filtered = data.filter((row) => {
-      const results = completeConditions.map((cond) => {
-        const value = getRowValue(row, cond.field);
-        const normalizedFieldType = normalizeFieldType(
-          getField(cond.field)?.type
-        );
+    const filtered = data.filter((row) =>
+      completeConditions.reduce((result, condition, index) => {
+        const conditionResult = evaluateCondition(row, condition);
 
-        switch (cond.operator) {
-          case "contains":
-            return String(value)
-              .toLowerCase()
-              .includes(String(cond.value).toLowerCase());
-
-          case "equals":
-            return String(value).toLowerCase() ===
-              String(cond.value).toLowerCase();
-
-          case "notEquals":
-            return String(value).toLowerCase() !==
-              String(cond.value).toLowerCase();
-
-          case "startsWith":
-            return String(value)
-              .toLowerCase()
-              .startsWith(String(cond.value).toLowerCase());
-
-          case "endsWith":
-            return String(value)
-              .toLowerCase()
-              .endsWith(String(cond.value).toLowerCase());
-
-          case "gt":
-            return Number(value) > Number(cond.value);
-
-          case "lt":
-            return Number(value) < Number(cond.value);
-
-          case "gte":
-            return Number(value) >= Number(cond.value);
-
-          case "lte":
-            return Number(value) <= Number(cond.value);
-
-          case "before":
-            return new Date(value) < new Date(cond.value);
-
-          case "after":
-            return new Date(value) > new Date(cond.value);
-
-          case "true":
-            return normalizedFieldType === "boolean"
-              ? String(value).toLowerCase() === "true"
-              : true;
-
-          case "false":
-            return normalizedFieldType === "boolean"
-              ? String(value).toLowerCase() === "false"
-              : true;
-
-          default:
-            return true;
+        if (index === 0) {
+          return conditionResult;
         }
-      });
 
-      return logic === "AND"
-        ? results.every(Boolean)
-        : results.some(Boolean);
-    });
+        return condition.joinWithPrevious === "OR"
+          ? result || conditionResult
+          : result && conditionResult;
+      }, true)
+    );
 
     onFiltered(filtered);
   };
 
   const clearFilters = () => {
-    setLogic("AND");
-    setConditions([
-      {
-        id: generateId(),
-        field: "",
-        operator: "",
-        value: "",
-      },
-    ]);
+    setConditions([createCondition()]);
     onFiltered(data);
   };
 
   const handleSaveView = async () => {
-    if (!saveViewConfig || !viewName.trim()) return;
+    if (!saveViewConfig || !viewName.trim()) {
+      return;
+    }
 
     if (completeConditions.length === 0) {
       saveViewConfig.onError?.("Add at least one complete filter before saving.");
@@ -315,9 +354,7 @@ function FilterBuilder<T extends Record<string, any>>({
           name: viewName.trim(),
           description: viewDescription.trim(),
           filtersJson,
-          dataFileIds: (saveViewConfig.dataFileIds || []).filter(
-            (id) => id !== -1
-          ),
+          dataFileIds: (saveViewConfig.dataFileIds || []).filter((id) => id !== -1),
           segmentIds: saveViewConfig.segmentIds || [],
         }),
       });
@@ -339,241 +376,331 @@ function FilterBuilder<T extends Record<string, any>>({
     }
   };
 
-  /* ---------------- UI ---------------- */
-
   return (
-    <div
-      style={{
-        padding: 16,
-        border: "1px solid #ddd",
-        borderRadius: 8,
-        background: "#fff",
-      }}
-    >
-      {/* LOGIC SELECTOR */}
-
-      <div style={{ marginBottom: 12 }}>
-        <label style={{ marginRight: 10 }}>Match</label>
-
-        <select
-          value={logic}
-          onChange={(e) =>
-            setLogic(e.target.value as "AND" | "OR")
-          }
-        >
-          <option value="AND">All conditions (AND)</option>
-          <option value="OR">Any condition (OR)</option>
-        </select>
-      </div>
-
-      {/* CONDITIONS */}
-
-      {conditions.map((condition) => {
-        const field = getField(condition.field);
-
-        const normalizedFieldType = normalizeFieldType(field?.type);
-        const operators = field
-          ? operatorsByType[normalizedFieldType]
-          : operatorsByType.text;
-
-        return (
-          <div
-            key={condition.id}
-            style={{
-              display: "flex",
-              gap: 10,
-              marginBottom: 10,
-            }}
-          >
-            {/* FIELD */}
-
-            <select
-              value={condition.field}
-              onChange={(e) =>
-                updateCondition(
-                  condition.id,
-                  "field",
-                  e.target.value
-                )
-              }
-            >
-              <option value="">Field</option>
-
-              {fields.map((f) => (
-                <option key={f.key} value={f.key}>
-                  {f.label}
-                </option>
-              ))}
-            </select>
-
-            {/* OPERATOR */}
-
-            <select
-              value={condition.operator}
-              onChange={(e) =>
-                updateCondition(
-                  condition.id,
-                  "operator",
-                  e.target.value
-                )
-              }
-            >
-              <option value="">Operator</option>
-
-              {operators.map((op) => (
-                <option key={op.value} value={op.value}>
-                  {op.label}
-                </option>
-              ))}
-            </select>
-
-            {/* VALUE */}
-
-            {normalizedFieldType === "dropdown" ? (
-              <select
-                value={condition.value}
-                onChange={(e) =>
-                  updateCondition(
-                    condition.id,
-                    "value",
-                    e.target.value
-                  )
-                }
-              >
-                <option value="">Select</option>
-
-                {field?.options?.map((o) => (
-                  <option key={o} value={o}>
-                    {o}
-                  </option>
-                ))}
-              </select>
-            ) : normalizedFieldType === "boolean" ? (
-              <select
-                value={condition.value}
-                onChange={(e) =>
-                  updateCondition(
-                  condition.id,
-                  "value",
-                  e.target.value
-                )
-              }
-              >
-                <option value="">Select</option>
-                <option value="true">True</option>
-                <option value="false">False</option>
-              </select>
-            ) : (
-              <input
-                type={
-                  normalizedFieldType === "number"
-                    ? "number"
-                    : normalizedFieldType === "date"
-                    ? "date"
-                    : "text"
-                }
-                value={condition.value}
-                onChange={(e) =>
-                  updateCondition(
-                    condition.id,
-                    "value",
-                    e.target.value
-                  )
-                }
-                placeholder="Value"
-              />
-            )}
-
-            {/* REMOVE */}
-
-            <button
-              onClick={() => removeCondition(condition.id)}
-            >
-              ✕
-            </button>
-          </div>
-        );
-      })}
-
-      {/* ACTIONS */}
-
-      <div style={{ display: "flex", gap: 10 }}>
-        <button onClick={addCondition}>+ Add Condition</button>
-
-        <button onClick={clearFilters}>Clear Filters</button>
-
-        <button
-          style={{
-            background: "#3f9f42",
-            color: "#fff",
-            padding: "6px 12px",
-          }}
-          onClick={applyFilters}
-        >
-          Apply Filters
-        </button>
-
-        {saveViewConfig && (
-          <button
-            onClick={() => setShowSavePanel((prev) => !prev)}
-            style={{
-              background: "#fff",
-              color: "#3f9f42",
-              padding: "6px 12px",
-              border: "1px solid #3f9f42",
-              borderRadius: 4,
-            }}
-          >
-            {showSavePanel ? "Close" : "Save as View"}
-          </button>
-        )}
-      </div>
-
-      {saveViewConfig && showSavePanel && (
+    <div style={cardStyle}>
+      <div
+        style={{
+          padding: "18px 20px 14px",
+          borderBottom: "1px solid #e5efe5",
+          background:
+            "linear-gradient(135deg, rgba(239,248,240,1) 0%, rgba(248,252,248,1) 100%)",
+        }}
+      >
         <div
           style={{
-            marginTop: 16,
-            padding: 16,
-            border: "1px solid #e5e7eb",
-            borderRadius: 8,
-            background: "#f8fafc",
+            fontSize: 18,
+            fontWeight: 700,
+            color: "#16331a",
+            marginBottom: 4,
           }}
         >
-          <div style={{ marginBottom: 12, fontWeight: 600 }}>
-            Save current filters as a view
+          Build Filter Rules
+        </div>
+        <div style={{ fontSize: 13, color: "#527057" }}>
+          Mix AND and OR between conditions to build more flexible contact views.
+        </div>
+      </div>
+
+      <div style={{ padding: 20 }}>
+        {conditions.map((condition, index) => {
+          const field = getField(condition.field);
+          const normalizedFieldType = normalizeFieldType(field?.type);
+          const operators = field
+            ? operatorsByType[normalizedFieldType]
+            : operatorsByType.text;
+
+          return (
+            <div key={condition.id} style={{ marginBottom: index === conditions.length - 1 ? 0 : 16 }}>
+              {index > 0 && (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    margin: "0 0 12px 0",
+                  }}
+                >
+                  <div style={{ flex: 1, height: 1, background: "#d8e6d9" }} />
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      padding: 4,
+                      borderRadius: 999,
+                      background: "#eef6ef",
+                      border: "1px solid #d5e7d7",
+                      gap: 4,
+                    }}
+                  >
+                    {(["AND", "OR"] as JoinOperator[]).map((joinOperator) => (
+                      <button
+                        key={`${condition.id}-${joinOperator}`}
+                        type="button"
+                        onClick={() =>
+                          updateCondition(condition.id, "joinWithPrevious", joinOperator)
+                        }
+                        style={{
+                          minWidth: 54,
+                          height: 32,
+                          borderRadius: 999,
+                          border: "none",
+                          background:
+                            (condition.joinWithPrevious || "AND") === joinOperator
+                              ? "#3f9f42"
+                              : "transparent",
+                          color:
+                            (condition.joinWithPrevious || "AND") === joinOperator
+                              ? "#fff"
+                              : "#2f4a33",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {joinOperator}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ flex: 1, height: 1, background: "#d8e6d9" }} />
+                </div>
+              )}
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1.3fr 1fr 1fr auto",
+                  gap: 12,
+                  padding: 16,
+                  borderRadius: 16,
+                  border: "1px solid #e0ece1",
+                  background: "#ffffff",
+                }}
+              >
+                <select
+                  value={condition.field}
+                  onChange={(event) =>
+                    updateCondition(condition.id, "field", event.target.value)
+                  }
+                  style={controlStyle}
+                >
+                  <option value="">Choose field</option>
+                  {fields.map((fieldOption) => (
+                    <option key={fieldOption.key} value={fieldOption.key}>
+                      {fieldOption.label}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={condition.operator}
+                  onChange={(event) =>
+                    updateCondition(condition.id, "operator", event.target.value)
+                  }
+                  style={controlStyle}
+                >
+                  <option value="">Operator</option>
+                  {operators.map((operator) => (
+                    <option key={operator.value} value={operator.value}>
+                      {operator.label}
+                    </option>
+                  ))}
+                </select>
+
+                {normalizedFieldType === "dropdown" ? (
+                  <select
+                    value={condition.value}
+                    onChange={(event) =>
+                      updateCondition(condition.id, "value", event.target.value)
+                    }
+                    style={controlStyle}
+                  >
+                    <option value="">Select value</option>
+                    {field?.options?.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                ) : normalizedFieldType === "boolean" ? (
+                  <select
+                    value={condition.value}
+                    onChange={(event) =>
+                      updateCondition(condition.id, "value", event.target.value)
+                    }
+                    style={controlStyle}
+                  >
+                    <option value="">Select value</option>
+                    <option value="true">True</option>
+                    <option value="false">False</option>
+                  </select>
+                ) : (
+                  <input
+                    type={
+                      normalizedFieldType === "number"
+                        ? "number"
+                        : normalizedFieldType === "date"
+                        ? "date"
+                        : "text"
+                    }
+                    value={condition.value}
+                    onChange={(event) =>
+                      updateCondition(condition.id, "value", event.target.value)
+                    }
+                    placeholder="Enter value"
+                    style={controlStyle}
+                  />
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => removeCondition(condition.id)}
+                  aria-label="Remove condition"
+                  style={{
+                    width: 44,
+                    minWidth: 44,
+                    height: 44,
+                    borderRadius: 14,
+                    border: "1px solid #f1d5d8",
+                    background: "#fff5f5",
+                    color: "#b42318",
+                    fontSize: 22,
+                    lineHeight: 1,
+                    cursor: "pointer",
+                  }}
+                >
+                  x
+                </button>
+              </div>
+            </div>
+          );
+        })}
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            flexWrap: "wrap",
+            marginTop: 20,
+          }}
+        >
+          <button
+            type="button"
+            onClick={addCondition}
+            style={{
+              ...actionButtonStyle,
+              borderColor: "#b9d4bc",
+              color: "#24572b",
+              background: "#f4fbf4",
+            }}
+          >
+            + Add Condition
+          </button>
+
+          <button type="button" onClick={clearFilters} style={actionButtonStyle}>
+            Clear Filters
+          </button>
+
+          <button
+            type="button"
+            onClick={applyFilters}
+            style={{
+              ...actionButtonStyle,
+              borderColor: "#3f9f42",
+              background: "#3f9f42",
+              color: "#fff",
+            }}
+          >
+            Apply Filters
+          </button>
+
+          {saveViewConfig && (
+            <button
+              type="button"
+              onClick={() => setShowSavePanel((previous) => !previous)}
+              style={{
+                ...actionButtonStyle,
+                borderColor: "#c6d9f8",
+                background: "#f7faff",
+                color: "#2158a8",
+              }}
+            >
+              {showSavePanel ? "Hide Save Panel" : "Save as View"}
+            </button>
+          )}
+
+          <div
+            style={{
+              marginLeft: "auto",
+              padding: "8px 12px",
+              borderRadius: 999,
+              background: "#f6faf6",
+              color: "#47624c",
+              fontSize: 13,
+              fontWeight: 600,
+            }}
+          >
+            {completeConditions.length} ready rule{completeConditions.length === 1 ? "" : "s"}
           </div>
+        </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <input
-              type="text"
-              placeholder="View name"
-              value={viewName}
-              onChange={(e) => setViewName(e.target.value)}
-            />
-
-            <textarea
-              placeholder="Description"
-              value={viewDescription}
-              onChange={(e) => setViewDescription(e.target.value)}
-              rows={3}
-            />
-
-            <div style={{ color: "#666", fontSize: 13 }}>
-              {completeConditions.length} complete filter
-              {completeConditions.length === 1 ? "" : "s"} ready to save
+        {saveViewConfig && showSavePanel && (
+          <div
+            style={{
+              marginTop: 18,
+              padding: 18,
+              borderRadius: 16,
+              border: "1px solid #d9e4f7",
+              background: "linear-gradient(180deg, #f8fbff 0%, #ffffff 100%)",
+            }}
+          >
+            <div style={{ fontWeight: 700, color: "#1f3d68", marginBottom: 12 }}>
+              Save this filter as a reusable view
             </div>
 
-            <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => setShowSavePanel(false)}>Cancel</button>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 12,
+              }}
+            >
+              <input
+                type="text"
+                placeholder="View name"
+                value={viewName}
+                onChange={(event) => setViewName(event.target.value)}
+                style={controlStyle}
+              />
+
+              <input
+                type="text"
+                placeholder="Short description"
+                value={viewDescription}
+                onChange={(event) => setViewDescription(event.target.value)}
+                style={controlStyle}
+              />
+            </div>
+
+            <div style={{ marginTop: 12, fontSize: 13, color: "#5e728f" }}>
+              The current chain of AND/OR rules will be stored in `filters_json`.
+            </div>
+
+            <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
               <button
+                type="button"
+                onClick={() => setShowSavePanel(false)}
+                style={actionButtonStyle}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
                 onClick={handleSaveView}
                 disabled={isSavingView || !viewName.trim()}
                 style={{
+                  ...actionButtonStyle,
+                  borderColor: "#3f9f42",
                   background: "#3f9f42",
                   color: "#fff",
-                  padding: "6px 12px",
-                  border: "1px solid #3f9f42",
-                  borderRadius: 4,
                   opacity: isSavingView || !viewName.trim() ? 0.7 : 1,
                   cursor:
                     isSavingView || !viewName.trim() ? "not-allowed" : "pointer",
@@ -583,8 +710,8 @@ function FilterBuilder<T extends Record<string, any>>({
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
