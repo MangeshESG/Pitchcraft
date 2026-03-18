@@ -181,6 +181,10 @@ interface OutputInterface {
   userId?: string | null; // Add this
   followupEnabled?: boolean;
   setFollowupEnabled?: (value: boolean) => void;
+  notKraftedEnabled?: boolean;
+  setNotKraftedEnabled?: (value: boolean) => void;
+  kraftedNotSentEnabled?: boolean;
+  setKraftedNotSentEnabled?: (value: boolean) => void;
 }
 
 const Output: React.FC<OutputInterface> = ({
@@ -231,6 +235,10 @@ const Output: React.FC<OutputInterface> = ({
   userId,
   followupEnabled,
   setFollowupEnabled,
+  notKraftedEnabled,
+  setNotKraftedEnabled,
+  kraftedNotSentEnabled,
+  setKraftedNotSentEnabled,
   isSoundEnabled,
   setIsSoundEnabled,
   clearUsage, 
@@ -2043,6 +2051,10 @@ useEffect(() => {
           setEnableIndexRange={setEnableIndexRange}
           overwriteDatabase={settingsForm?.overwriteDatabase ?? false}
           setFollowupEnabled={setFollowupEnabled}
+          notKraftedEnabled={notKraftedEnabled}
+          setNotKraftedEnabled={setNotKraftedEnabled}
+          kraftedNotSentEnabled={kraftedNotSentEnabled}
+          setKraftedNotSentEnabled={setKraftedNotSentEnabled}
           filteredResponses={combinedResponses}
 
           setOverwriteDatabase={(val: boolean) =>

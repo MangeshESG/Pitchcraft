@@ -784,6 +784,8 @@ const handleClientChange = async (
 
   const [isFetchingContacts, setIsFetchingContacts] = useState(false);
   const [followupEnabled, setFollowupEnabled] = useState(false);
+  const [notKraftedEnabled, setNotKraftedEnabled] = useState(false);
+  const [kraftedNotSentEnabled, setKraftedNotSentEnabled] = useState(false);
 
   const fetchAndDisplayEmailBodies = useCallback(
     async (
@@ -844,7 +846,7 @@ const handleClientChange = async (
           }
 
           // Use effectiveUserId instead of selectedClient in URL
-          const url = `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${dataFileId}&isFollowUp=${forceFollowup ?? followupEnabled}`;
+          const url = `${API_BASE_URL}/api/crm/contacts/by-client-datafile?clientId=${effectiveUserId}&dataFileId=${dataFileId}&isFollowUp=${forceFollowup ?? followupEnabled}&notKrafted=${notKraftedEnabled}&kraftedNotSent=${kraftedNotSentEnabled}`;
           console.log("Fetching datafile contacts with URL:", url);
           const response = await fetch(url);
 
@@ -924,7 +926,7 @@ const handleClientChange = async (
         setIsFetchingContacts(false); // Stop loader
       }
     },
-    [selectedClient, userId, followupEnabled],
+    [selectedClient, userId, followupEnabled, notKraftedEnabled, kraftedNotSentEnabled],
   );
 
   // Refetch data when followup checkbox changes
@@ -962,7 +964,7 @@ const handleClientChange = async (
         }, 100);
       });
     }
-  }, [followupEnabled, effectiveUserId]);
+  }, [followupEnabled, notKraftedEnabled, kraftedNotSentEnabled, effectiveUserId]);
 
   // Handle followup checkbox change
   const handleFollowupChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -3788,6 +3790,10 @@ try {
                 userId={userId}
                 followupEnabled={followupEnabled}
                 setFollowupEnabled={setFollowupEnabled}
+                notKraftedEnabled={notKraftedEnabled}
+                setNotKraftedEnabled={setNotKraftedEnabled}
+                kraftedNotSentEnabled={kraftedNotSentEnabled}
+                setKraftedNotSentEnabled={setKraftedNotSentEnabled}
                 isSoundEnabled={isSoundEnabled}
                 setIsSoundEnabled={setIsSoundEnabled}
                 clearUsage={clearUsage}

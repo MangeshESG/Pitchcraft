@@ -43,6 +43,10 @@ interface SendEmailPanelProps {
    overwriteDatabase?: boolean;
   setOverwriteDatabase?: (val: boolean) => void;
   setFollowupEnabled?: (value: boolean) => void;
+  notKraftedEnabled?: boolean;
+  setNotKraftedEnabled?: (value: boolean) => void;
+  kraftedNotSentEnabled?: boolean;
+  setKraftedNotSentEnabled?: (value: boolean) => void;
   isDemoAccount?: boolean;
   filteredResponses?: any[];
 }
@@ -86,6 +90,10 @@ const SendEmailPanel: React.FC<SendEmailPanelProps> = ({
   overwriteDatabase,
 setOverwriteDatabase,
  setFollowupEnabled,
+  notKraftedEnabled,
+  setNotKraftedEnabled,
+  kraftedNotSentEnabled,
+  setKraftedNotSentEnabled,
   isDemoAccount,
   filteredResponses,
 }) => {
@@ -600,7 +608,7 @@ setOverwriteDatabase,
                         border: "1px solid #cccccc",
                         borderRadius: "8px",
                         backgroundColor: "#fff",
-                        flex: 1,
+                        marginBottom: "12px",
                       }}
                     >
                     <div
@@ -617,6 +625,44 @@ setOverwriteDatabase,
                         />
                         <span style={{ fontSize: "14px", whiteSpace: "nowrap",marginLeft: "10px" }}>
                           Include email trail
+                        </span>
+                      </label>
+                    </div>
+                    
+                    {/* Not Krafted Checkbox */}
+                    <div
+                      className="flex items-center gap-[8px] mt-[8px]"
+                    >
+                      <label className="checkbox-label !mb-[0px] mr-[5px] flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={notKraftedEnabled || false}
+                          onChange={(e) => {
+                            setNotKraftedEnabled?.(e.target.checked);
+                          }}
+                          className="!mr-0"
+                        />
+                        <span style={{ fontSize: "14px", whiteSpace: "nowrap",marginLeft: "10px" }}>
+                          Not krafted
+                        </span>
+                      </label>
+                    </div>
+                    
+                    {/* Krafted Not Sent Checkbox */}
+                    <div
+                      className="flex items-center gap-[8px] mt-[8px]"
+                    >
+                      <label className="checkbox-label !mb-[0px] mr-[5px] flex items-center">
+                        <input
+                          type="checkbox"
+                          checked={kraftedNotSentEnabled || false}
+                          onChange={(e) => {
+                            setKraftedNotSentEnabled?.(e.target.checked);
+                          }}
+                          className="!mr-0"
+                        />
+                        <span style={{ fontSize: "14px", whiteSpace: "nowrap",marginLeft: "10px" }}>
+                          Krafted not sent
                         </span>
                       </label>
                     </div>
