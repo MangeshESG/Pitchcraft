@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import API_BASE_URL from "../../config";
 
 type FieldType = "text" | "number" | "date" | "boolean" | "dropdown";
@@ -23,6 +23,9 @@ export interface Props<T> {
   data: T[];
   fields: FieldOption[];
   onFiltered: (data: T[]) => void;
+  initialFiltersJson?: string;
+  onFiltersJsonChange?: (filtersJson: string, conditions: FilterCondition[]) => void;
+  hideApplyButton?: boolean;
   saveViewConfig?: {
     clientId: string | number;
     dataFileIds?: number[];
@@ -121,6 +124,22 @@ const createCondition = (joinWithPrevious: JoinOperator = "AND"): FilterConditio
   joinWithPrevious,
 });
 
+const parseFiltersJson = (filtersJson?: string): FilterCondition[] => {
+  if (!filtersJson) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(filtersJson);
+    if (!parsed || !Array.isArray(parsed.conditions)) {
+      return [];
+    }
+    return parsed.conditions as FilterCondition[];
+  } catch {
+    return [];
+  }
+};
+
 const normalizeFieldType = (value?: string): FieldType => {
   switch ((value || "").toLowerCase()) {
     case "number":
@@ -192,6 +211,9 @@ function FilterBuilder<T extends Record<string, any>>({
   data,
   fields,
   onFiltered,
+  initialFiltersJson,
+  onFiltersJsonChange,
+  hideApplyButton = false,
   saveViewConfig,
 }: Props<T>) {
   const [conditions, setConditions] = useState<FilterCondition[]>([
@@ -218,6 +240,26 @@ function FilterBuilder<T extends Record<string, any>>({
       }),
     [completeConditions]
   );
+
+  useEffect(() => {
+    const parsed = parseFiltersJson(initialFiltersJson);
+    if (parsed.length === 0) {
+      setConditions([createCondition()]);
+      return;
+    }
+
+    const hydrated = parsed.map((condition, index) => ({
+      ...condition,
+      id: condition.id || generateId(),
+      joinWithPrevious: index === 0 ? undefined : condition.joinWithPrevious || "AND",
+    }));
+
+    setConditions(hydrated);
+  }, [initialFiltersJson]);
+
+  useEffect(() => {
+    onFiltersJsonChange?.(filtersJson, completeConditions);
+  }, [filtersJson, completeConditions, onFiltersJsonChange]);
 
   const addCondition = () => {
     setConditions((previous) => [...previous, createCondition("AND")]);
@@ -626,18 +668,20 @@ function FilterBuilder<T extends Record<string, any>>({
             Clear Filters
           </button>
 
-          <button
-            type="button"
-            onClick={applyFilters}
-            style={{
-              ...actionButtonStyle,
-              borderColor: "#3f9f42",
-              background: "#3f9f42",
-              color: "#fff",
-            }}
-          >
-            Apply Filters
-          </button>
+          {!hideApplyButton && (
+            <button
+              type="button"
+              onClick={applyFilters}
+              style={{
+                ...actionButtonStyle,
+                borderColor: "#3f9f42",
+                background: "#3f9f42",
+                color: "#fff",
+              }}
+            >
+              Apply Filters
+            </button>
+          )}
 
           {saveViewConfig && (
             <button

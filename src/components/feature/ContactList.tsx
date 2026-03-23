@@ -1117,6 +1117,46 @@ const formatTimeIST = (dateString?: string) => {
     string | null
   >(null);
 
+  const fetchAllContactsFromDataFiles = async () => {
+    const dataFileIds = dataFiles
+      .filter((file) => file.id !== -1)
+      .map((file) => file.id);
+
+    if (dataFileIds.length === 0) {
+      return { contacts: [], contactCount: 0 };
+    }
+
+    const requests = dataFileIds.map(async (dataFileId) => {
+      const response = await fetch(
+        `${API_BASE_URL}/api/Crm/contacts/List-by-CleinteId?clientId=${effectiveUserId}&dataFileId=${dataFileId}`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch contacts");
+      }
+      const data = await response.json();
+      const contacts = (data.contacts || []).map((contact: any) => ({
+        ...contact,
+        dataFileId,
+      }));
+      return contacts;
+    });
+
+    const results = await Promise.allSettled(requests);
+    const merged = new Map<number, any>();
+
+    results.forEach((result) => {
+      if (result.status === "fulfilled") {
+        result.value.forEach((contact: any) => {
+          const existing = merged.get(contact.id);
+          merged.set(contact.id, existing ? { ...existing, ...contact } : contact);
+        });
+      }
+    });
+
+    const contacts = Array.from(merged.values());
+    return { contacts, contactCount: contacts.length };
+  };
+
   // Add after your other fetch functions
   const fetchDetailContacts = async (type: "list" | "segment", item: any) => {
     if (!item?.id || !effectiveUserId) return;
@@ -1127,7 +1167,11 @@ const formatTimeIST = (dateString?: string) => {
       if (type === "list") {
         // Check if Super List is selected
         if (item.id === -1) {
-          url = `${API_BASE_URL}/api/Crm/allcontacts/list-by-clientId?clientId=${effectiveUserId}`;
+          const data = await fetchAllContactsFromDataFiles();
+          setAllDetailContacts(data.contacts || []);
+          setDetailContacts(data.contacts || []);
+          setDetailTotalContacts(data.contactCount || 0);
+          return;
         } else {
           url = `${API_BASE_URL}/api/Crm/contacts/List-by-CleinteId?clientId=${effectiveUserId}&dataFileId=${item.id}`;
         }
@@ -2182,7 +2226,9 @@ const filterFields: any = useMemo(() => {
                   saveViewConfig={{
                     clientId: effectiveUserId,
                     dataFileIds:
-                      selectedDataFileForView && selectedDataFileForView.id !== -1
+                      selectedDataFileForView?.id === -1
+                        ? dataFiles.filter((file) => file.id !== -1).map((file) => file.id)
+                        : selectedDataFileForView
                         ? [selectedDataFileForView.id]
                         : [],
                     onSuccess: (view) =>

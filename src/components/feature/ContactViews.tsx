@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import API_BASE_URL from "../../config";
 import DynamicContactsTable from "./DynamicContactsTable";
 import PaginationControls from "./PaginationControls";
-import { FilterCondition } from "../common/FilterBuilder";
+import FilterBuilder, { FilterCondition } from "../common/FilterBuilder";
+import CommonSidePanel from "../common/CommonSidePanel";
 
 type FieldType = "text" | "number" | "date" | "boolean" | "dropdown";
 
@@ -35,6 +36,11 @@ interface ContactViewsProps {
   persistedColumnSelection?: string[];
   onColumnsChange?: (columns: any[]) => void;
   onShowMessage?: (message: string, type: "success" | "error") => void;
+}
+
+interface SourceOption {
+  id: number;
+  name: string;
 }
 
 const VIEW_META_PREFIX = "crm_view_meta_";
@@ -172,6 +178,9 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   const [currentPageViews, setCurrentPageViews] = useState(1);
   const [pageSizeViews, setPageSizeViews] = useState<number | "All">(10);
   const [isLoadingViews, setIsLoadingViews] = useState(false);
+  const [availableDataFiles, setAvailableDataFiles] = useState<SourceOption[]>([]);
+  const [availableSegments, setAvailableSegments] = useState<SourceOption[]>([]);
+  const [isLoadingSources, setIsLoadingSources] = useState(false);
 
   const [viewMode, setViewMode] = useState<"list" | "detail">("list");
   const [selectedView, setSelectedView] = useState<ViewItem | null>(null);
@@ -181,6 +190,15 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   const [viewPageSize] = useState(10);
   const [isLoadingViewContacts, setIsLoadingViewContacts] = useState(false);
   const [viewMetaMissing, setViewMetaMissing] = useState(false);
+  const [isEditPanelOpen, setIsEditPanelOpen] = useState(false);
+  const [isUpdatingView, setIsUpdatingView] = useState(false);
+  const [editingView, setEditingView] = useState<ViewItem | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editDataFileIds, setEditDataFileIds] = useState<number[]>([]);
+  const [editSegmentIds, setEditSegmentIds] = useState<number[]>([]);
+  const [editFiltersJson, setEditFiltersJson] = useState("");
+  const [editFiltersSeed, setEditFiltersSeed] = useState("");
 
   const fieldTypeMap = useMemo(() => {
     const map = new Map<string, FieldType>();
@@ -217,6 +235,51 @@ const ContactViews: React.FC<ContactViewsProps> = ({
 
   useEffect(() => {
     fetchViews();
+  }, [clientId]);
+
+  const fetchSources = async () => {
+    if (!clientId) return;
+    setIsLoadingSources(true);
+    try {
+      const [dataFilesResponse, segmentsResponse] = await Promise.all([
+        fetch(
+          `${API_BASE_URL}/api/Crm/datafile-byclientid?clientId=${clientId}`
+        ),
+        fetch(
+          `${API_BASE_URL}/api/Crm/get-segments-by-client?clientId=${clientId}`
+        ),
+      ]);
+
+      if (dataFilesResponse.ok) {
+        const dataFiles = await dataFilesResponse.json();
+        const normalized = (dataFiles || [])
+          .filter((file: any) => file?.id != null)
+          .map((file: any) => ({
+            id: Number(file.id),
+            name: file.name || file.data_file_name || `List ${file.id}`,
+          }));
+        setAvailableDataFiles(normalized);
+      }
+
+      if (segmentsResponse.ok) {
+        const segments = await segmentsResponse.json();
+        const normalized = (segments || [])
+          .filter((segment: any) => segment?.id != null)
+          .map((segment: any) => ({
+            id: Number(segment.id),
+            name: segment.name || `Segment ${segment.id}`,
+          }));
+        setAvailableSegments(normalized);
+      }
+    } catch (error) {
+      console.error("Error fetching view sources:", error);
+    } finally {
+      setIsLoadingSources(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSources();
   }, [clientId]);
 
   useEffect(() => {
@@ -478,6 +541,149 @@ const ContactViews: React.FC<ContactViewsProps> = ({
     setViewCurrentPage(1);
   };
 
+  const openEditPanel = (view: ViewItem) => {
+    setEditingView(view);
+    setEditName(view.name || "");
+    setEditDescription(view.description || "");
+    setEditDataFileIds(view.dataFileIds || []);
+    setEditSegmentIds(view.segmentIds || []);
+    setEditFiltersJson(view.filtersJson || "");
+    setEditFiltersSeed(view.filtersJson || "");
+    setIsEditPanelOpen(true);
+  };
+
+  const toggleId = (
+    list: number[],
+    id: number,
+    updater: (next: number[]) => void
+  ) => {
+    if (list.includes(id)) {
+      updater(list.filter((entry) => entry !== id));
+    } else {
+      updater([...list, id]);
+    }
+  };
+
+  const handleUpdateView = async () => {
+    if (!editingView) return;
+    if (!editName.trim()) {
+      onShowMessage?.("View name is required.", "error");
+      return;
+    }
+    const parsedFilters = parseFiltersJson(editFiltersJson);
+    const completeConditions = (parsedFilters.conditions || []).filter(
+      (condition) => isCompleteCondition(condition)
+    );
+    if (completeConditions.length === 0) {
+      onShowMessage?.("Add at least one complete filter before saving.", "error");
+      return;
+    }
+
+    setIsUpdatingView(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/Crm/update-view`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          viewId: editingView.id,
+          name: editName.trim(),
+          description: editDescription.trim(),
+          filtersJson: editFiltersJson,
+          dataFileIds: editDataFileIds,
+          segmentIds: editSegmentIds,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || "Failed to update view");
+      }
+
+      const updatedView: ViewItem = {
+        ...editingView,
+        name: editName.trim(),
+        description: editDescription.trim(),
+        filtersJson: editFiltersJson,
+        dataFileIds: editDataFileIds,
+        segmentIds: editSegmentIds,
+      };
+
+      setViews((prev) =>
+        prev.map((view) => (view.id === updatedView.id ? updatedView : view))
+      );
+
+      if (selectedView?.id === updatedView.id) {
+        setSelectedView(updatedView);
+      }
+
+      const metaMap = loadViewMetaMap(clientId);
+      metaMap[String(updatedView.id)] = {
+        filtersJson: editFiltersJson,
+        dataFileIds: editDataFileIds,
+        segmentIds: editSegmentIds,
+      };
+      saveViewMetaMap(clientId, metaMap);
+
+      onShowMessage?.("View updated successfully.", "success");
+      setIsEditPanelOpen(false);
+      setEditingView(null);
+    } catch (error) {
+      console.error("Error updating view:", error);
+      onShowMessage?.("Failed to update view.", "error");
+    } finally {
+      setIsUpdatingView(false);
+    }
+  };
+
+  const detailHeader = viewMetaMissing ? (
+    <div
+      style={{
+        marginBottom: 16,
+        padding: "12px 16px",
+        background: "#fff7ed",
+        borderRadius: 6,
+        border: "1px solid #fed7aa",
+        color: "#9a3412",
+      }}
+    >
+      This view was saved on the server, but its filter details are
+      not cached in this browser yet. Open the list where it was
+      created and save it again to make it usable here.
+    </div>
+  ) : (
+    <div
+      style={{
+        marginBottom: 16,
+        padding: "12px 16px",
+        background: "#f0f7ff",
+        borderRadius: 6,
+        display: "flex",
+        alignItems: "center",
+        gap: 16,
+        justifyContent: "space-between",
+      }}
+    >
+      <span style={{ fontWeight: 500 }}>
+        {viewContacts.length} contact
+        {viewContacts.length === 1 ? "" : "s"} in this view
+      </span>
+      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        {selectedView?.filtersJson && (
+          <span style={{ color: "#4b5563", fontSize: 13 }}>
+            Filter rules applied
+          </span>
+        )}
+        <button
+          type="button"
+          className="button secondary"
+          onClick={() => selectedView && openEditPanel(selectedView)}
+        >
+          Edit view
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="list-content">
       <div className="section-wrapper">
@@ -575,6 +781,12 @@ const ContactViews: React.FC<ContactViewsProps> = ({
                             onClick={() => openView(view)}
                           >
                             View
+                          </button>
+                          <button
+                            className="button secondary"
+                            onClick={() => openEditPanel(view)}
+                          >
+                            Edit
                           </button>
                           <button
                             className="button secondary"
@@ -757,50 +969,206 @@ const ContactViews: React.FC<ContactViewsProps> = ({
                 setViewMetaMissing(false);
               }}
               columnNameMap={columnNameMap}
-              customHeader={
-                viewMetaMissing ? (
-                  <div
-                    style={{
-                      marginBottom: 16,
-                      padding: "12px 16px",
-                      background: "#fff7ed",
-                      borderRadius: 6,
-                      border: "1px solid #fed7aa",
-                      color: "#9a3412",
-                    }}
-                  >
-                    This view was saved on the server, but its filter details are
-                    not cached in this browser yet. Open the list where it was
-                    created and save it again to make it usable here.
-                  </div>
-                ) : (
-                  <div
-                    style={{
-                      marginBottom: 16,
-                      padding: "12px 16px",
-                      background: "#f0f7ff",
-                      borderRadius: 6,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 16,
-                    }}
-                  >
-                    <span style={{ fontWeight: 500 }}>
-                      {viewContacts.length} contact
-                      {viewContacts.length === 1 ? "" : "s"} in this view
-                    </span>
-                    {selectedView?.filtersJson && (
-                      <span style={{ color: "#4b5563", fontSize: 13 }}>
-                        Filter rules applied
-                      </span>
-                    )}
-                  </div>
-                )
-              }
+              customHeader={detailHeader}
             />
           </>
         )}
       </div>
+
+      <CommonSidePanel
+        isOpen={isEditPanelOpen}
+        onClose={() => {
+          setIsEditPanelOpen(false);
+          setEditingView(null);
+          setEditFiltersSeed("");
+        }}
+        title="Edit view"
+        footerContent={
+          <>
+            <button
+              onClick={() => {
+                setIsEditPanelOpen(false);
+                setEditingView(null);
+                setEditFiltersSeed("");
+              }}
+              className="button secondary"
+              style={{
+                padding: "10px 32px",
+                border: "1px solid #ddd",
+                background: "#fff",
+                borderRadius: "24px",
+                cursor: "pointer",
+                fontSize: "14px",
+                fontWeight: "500",
+                color: "#333",
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              className="button primary"
+              onClick={handleUpdateView}
+              disabled={isUpdatingView || !editName.trim() || !editFiltersJson}
+              style={{
+                padding: "10px 32px",
+                background: "#fff",
+                color:
+                  editName.trim() && !isUpdatingView && editFiltersJson
+                    ? "#3f9f42"
+                    : "#ccc",
+                border: `1px solid ${
+                  editName.trim() && !isUpdatingView && editFiltersJson
+                    ? "#3f9f42"
+                    : "#ccc"
+                }`,
+                borderRadius: "24px",
+                cursor:
+                  editName.trim() && !isUpdatingView && editFiltersJson
+                    ? "pointer"
+                    : "not-allowed",
+                fontSize: "14px",
+                fontWeight: "500",
+              }}
+            >
+              {isUpdatingView ? "Saving..." : "Save"}
+            </button>
+          </>
+        }
+      >
+        {!editFiltersJson && (
+          <div
+            style={{
+              marginBottom: 16,
+              padding: 12,
+              borderRadius: 8,
+              border: "1px solid #fde68a",
+              background: "#fffbeb",
+              color: "#92400e",
+              fontSize: 13,
+            }}
+          >
+            Filters are not cached for this view. You can rebuild the filters
+            below, or open the original list and save the view again.
+          </div>
+        )}
+
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>
+            View name <span style={{ color: "red" }}>*</span>
+          </label>
+          <input
+            value={editName}
+            onChange={(event) => setEditName(event.target.value)}
+            style={{
+              width: "100%",
+              padding: "8px 12px",
+              border: "1px solid #ddd",
+              borderRadius: "4px",
+            }}
+            placeholder="Enter view name"
+          />
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: "block", marginBottom: 4, fontWeight: 500 }}>
+            Description
+          </label>
+          <textarea
+            value={editDescription}
+            onChange={(event) => setEditDescription(event.target.value)}
+            style={{
+              width: "100%",
+              padding: "8px 12px",
+              border: "1px solid #ddd",
+              borderRadius: "4px",
+              minHeight: "80px",
+              resize: "vertical",
+            }}
+            placeholder="Enter description"
+            rows={3}
+          />
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: "block", marginBottom: 6, fontWeight: 600 }}>
+            Lists
+          </label>
+          {isLoadingSources && availableDataFiles.length === 0 ? (
+            <div style={{ fontSize: 13, color: "#666" }}>Loading lists...</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {availableDataFiles.length === 0 && (
+                <div style={{ fontSize: 13, color: "#666" }}>
+                  No lists available.
+                </div>
+              )}
+              {availableDataFiles.map((file) => (
+                <label
+                  key={file.id}
+                  style={{ display: "flex", alignItems: "center", gap: 8 }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={editDataFileIds.includes(file.id)}
+                    onChange={() =>
+                      toggleId(editDataFileIds, file.id, setEditDataFileIds)
+                    }
+                  />
+                  <span>{file.name}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ display: "block", marginBottom: 6, fontWeight: 600 }}>
+            Segments
+          </label>
+          {isLoadingSources && availableSegments.length === 0 ? (
+            <div style={{ fontSize: 13, color: "#666" }}>Loading segments...</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {availableSegments.length === 0 && (
+                <div style={{ fontSize: 13, color: "#666" }}>
+                  No segments available.
+                </div>
+              )}
+              {availableSegments.map((segment) => (
+                <label
+                  key={segment.id}
+                  style={{ display: "flex", alignItems: "center", gap: 8 }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={editSegmentIds.includes(segment.id)}
+                    onChange={() =>
+                      toggleId(editSegmentIds, segment.id, setEditSegmentIds)
+                    }
+                  />
+                  <span>{segment.name}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div style={{ marginBottom: 8 }}>
+          <label style={{ display: "block", marginBottom: 6, fontWeight: 600 }}>
+            Filters
+          </label>
+          <FilterBuilder
+            data={[]}
+            fields={filterFields}
+            onFiltered={() => {}}
+            initialFiltersJson={editFiltersSeed}
+            onFiltersJsonChange={(nextFiltersJson) =>
+              setEditFiltersJson(nextFiltersJson)
+            }
+            hideApplyButton={true}
+          />
+        </div>
+      </CommonSidePanel>
     </div>
   );
 };
