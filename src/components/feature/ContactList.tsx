@@ -1470,6 +1470,98 @@ const formatTimeIST = (dateString?: string) => {
     }
   };
 
+  const normalizeCustomFieldKey = (value: string) =>
+    value
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+
+  const getCustomFieldValue = (contact: any, fieldName: string) => {
+    if (!contact) return "";
+
+    const directKey = `custom_${fieldName}`;
+    const normalizedKey = normalizeCustomFieldKey(fieldName);
+    const normalizedDirectKey = `custom_${normalizedKey}`;
+    if (contact[directKey] !== undefined) return contact[directKey];
+    if (contact[normalizedDirectKey] !== undefined) return contact[normalizedDirectKey];
+    if (contact[fieldName] !== undefined) return contact[fieldName];
+
+    let customFieldsValue = contact.customFields;
+    if (typeof customFieldsValue === "string") {
+      try {
+        customFieldsValue = JSON.parse(customFieldsValue);
+      } catch {
+        customFieldsValue = undefined;
+      }
+    }
+
+    if (customFieldsValue && typeof customFieldsValue === "object") {
+      if (fieldName in customFieldsValue) return customFieldsValue[fieldName];
+      const normalizedTarget = normalizeCustomFieldKey(fieldName);
+      const matchedEntry = Object.entries(customFieldsValue).find(
+        ([key]) => normalizeCustomFieldKey(key) === normalizedTarget
+      );
+      if (matchedEntry) return matchedEntry[1];
+    }
+
+    return "";
+  };
+
+  type CsvColumn = {
+    key: string;
+    header: string;
+    getValue?: (contact: any) => any;
+  };
+
+  const getCustomFieldColumns = (data: any[]): CsvColumn[] => {
+    const fieldMap = new Map<string, string>();
+
+    (customFields || []).forEach((field: any) => {
+      if (!field?.field_name) return;
+      const normalized = normalizeCustomFieldKey(field.field_name);
+      if (!fieldMap.has(normalized)) {
+        fieldMap.set(normalized, field.field_name);
+      }
+    });
+
+    data.forEach((contact) => {
+      let customFieldsValue = contact?.customFields;
+      if (typeof customFieldsValue === "string") {
+        try {
+          customFieldsValue = JSON.parse(customFieldsValue);
+        } catch {
+          customFieldsValue = undefined;
+        }
+      }
+
+      if (customFieldsValue && typeof customFieldsValue === "object") {
+        Object.keys(customFieldsValue).forEach((key) => {
+          const normalized = normalizeCustomFieldKey(key);
+          if (!fieldMap.has(normalized)) {
+            fieldMap.set(normalized, key);
+          }
+        });
+      }
+
+      Object.keys(contact || {}).forEach((key) => {
+        if (key.startsWith("custom_")) {
+          const rawKey = key.replace(/^custom_/, "");
+          const normalized = normalizeCustomFieldKey(rawKey);
+          if (!fieldMap.has(normalized)) {
+            fieldMap.set(normalized, rawKey);
+          }
+        }
+      });
+    });
+
+    return Array.from(fieldMap.entries()).map(([normalized, label]) => ({
+      key: `custom_${normalized}`,
+      header: label,
+      getValue: (contact: any) => getCustomFieldValue(contact, label),
+    }));
+  };
+
   // Helper function to convert data to CSV
   // Helper function to convert data to CSV
   const downloadCSV = (data: any[], filename: string) => {
@@ -1478,7 +1570,7 @@ const formatTimeIST = (dateString?: string) => {
       return;
     }
     // Define all possible columns
-    const allColumns = [
+    const baseColumns: CsvColumn[] = [
       { key: "full_name", header: "Full Name" },
       { key: "email", header: "Email" },
       { key: "website", header: "Website" },
@@ -1498,11 +1590,13 @@ const formatTimeIST = (dateString?: string) => {
       { key: "email_sent_at", header: "Email Sent Date" },
     ];
 
+    const customColumns: CsvColumn[] = getCustomFieldColumns(data);
+    const allColumns = [...baseColumns, ...customColumns];
 
     // Check which columns have data
     const columnsWithData = allColumns.filter((column) => {
       return data.some((contact) => {
-        const value = contact[column.key];
+        const value = column.getValue ? column.getValue(contact) : contact[column.key];
         // Check if value exists and is not empty
         return (
           value !== null &&
@@ -1528,7 +1622,8 @@ const formatTimeIST = (dateString?: string) => {
       headers.join(","), // Header row
       ...data.map((contact) => {
         const row = columnsWithData.map((column) => {
-          let value = contact[column.key] || "";
+          let value = column.getValue ? column.getValue(contact) : contact[column.key];
+          if (value === null || value === undefined) value = "";
 
           // Format dates if it's a date column
           if (
