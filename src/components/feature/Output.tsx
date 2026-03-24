@@ -181,6 +181,10 @@ interface OutputInterface {
   userId?: string | null; // Add this
   followupEnabled?: boolean;
   setFollowupEnabled?: (value: boolean) => void;
+  notKraftedEnabled?: boolean;
+  setNotKraftedEnabled?: (value: boolean) => void;
+  kraftedNotSentEnabled?: boolean;
+  setKraftedNotSentEnabled?: (value: boolean) => void;
 }
 
 const Output: React.FC<OutputInterface> = ({
@@ -231,6 +235,10 @@ const Output: React.FC<OutputInterface> = ({
   userId,
   followupEnabled,
   setFollowupEnabled,
+  notKraftedEnabled,
+  setNotKraftedEnabled,
+  kraftedNotSentEnabled,
+  setKraftedNotSentEnabled,
   isSoundEnabled,
   setIsSoundEnabled,
   clearUsage, 
@@ -240,16 +248,13 @@ const Output: React.FC<OutputInterface> = ({
   const appModal = useAppModal();
   const [loading, setLoading] = useState(true);
 
-  // Not krafted filter state - moved to top to avoid initialization errors
-  const [showNotKrafted, setShowNotKrafted] = useState(false);
-  const [filteredResponses, setFilteredResponses] = useState<any[]>([]);
+
 
   const [isCopyText, setIsCopyText] = useState(false);
   const { refreshTrigger } = useAppData(); // Make sure this includes refreshTrigger
 
   const copyToClipboardHandler = async () => {
-    const activeResponses = showNotKrafted ? filteredResponses : combinedResponses;
-    const contentToCopy = activeResponses[currentIndex]?.pitch || "";
+    const contentToCopy = combinedResponses[currentIndex]?.pitch || "";
 
     if (contentToCopy) {
       try {
@@ -393,30 +398,7 @@ const Output: React.FC<OutputInterface> = ({
     setCombinedResponses(newCombinedResponses);
   }, [allResponses, existingResponse]);
 
-  // Filter responses based on "Not krafted" checkbox
-  useEffect(() => {
-    if (showNotKrafted) {
-      const notKraftedRecords = combinedResponses.filter(record => {
-        const hasKraftedDate = record.lastemailupdateddate && 
-                              record.lastemailupdateddate !== null && 
-                              record.lastemailupdateddate !== "" && 
-                              record.lastemailupdateddate !== undefined &&
-                              record.lastemailupdateddate !== 'N/A';
-        
-        // Return true for records that are NOT krafted (don't have krafted date)
-        return !hasKraftedDate;
-      });
-      
-      setFilteredResponses(notKraftedRecords);
-      
-      // Reset to first record if current index is out of bounds
-      if (currentIndex >= notKraftedRecords.length && notKraftedRecords.length > 0) {
-        setCurrentIndex(0);
-      }
-    } else {
-      setFilteredResponses(combinedResponses);
-    }
-  }, [combinedResponses, showNotKrafted]);
+
 
   const [jumpToNewLast, setJumpToNewLast] = useState(false);
   const prevCountRef = useRef(combinedResponses.length);
@@ -431,10 +413,9 @@ const Output: React.FC<OutputInterface> = ({
   }, [jumpToNewLast, combinedResponses]);
 
   const handleNextPage = async () => {
-    const activeResponses = showNotKrafted ? filteredResponses : combinedResponses;
-    if (currentIndex < activeResponses.length - 1) {
+    if (currentIndex < combinedResponses.length - 1) {
       setCurrentIndex(currentIndex + 1);
-    } else if (!showNotKrafted) {
+    } else {
       const lastItem = combinedResponses[combinedResponses.length - 1];
       if (lastItem?.nextPageToken) {
         setEmailLoading(true);
@@ -458,7 +439,7 @@ const Output: React.FC<OutputInterface> = ({
   const handlePrevPage = async () => {
     if (currentIndex > 0) {
       setCurrentIndex(currentIndex - 1);
-    } else if (!showNotKrafted) {
+    } else {
       const firstItem = combinedResponses[0];
       if (firstItem?.prevPageToken) {
         setEmailLoading(true);
@@ -481,9 +462,8 @@ const Output: React.FC<OutputInterface> = ({
   };
 
   const handleLastPage = () => {
-    const activeResponses = showNotKrafted ? filteredResponses : combinedResponses;
-    if (activeResponses.length > 0) {
-      setCurrentIndex(activeResponses.length - 1);
+    if (combinedResponses.length > 0) {
+      setCurrentIndex(combinedResponses.length - 1);
     }
   };
 
@@ -499,23 +479,22 @@ const Output: React.FC<OutputInterface> = ({
 
   const handleIndexChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
-    const activeResponses = showNotKrafted ? filteredResponses : combinedResponses;
 
     // Always update the input field value
     setInputValue(newValue);
 
     // Only update the actual index if we have a valid number and responses exist
-    if (newValue.trim() !== "" && activeResponses.length > 0) {
+    if (newValue.trim() !== "" && combinedResponses.length > 0) {
       const pageNumber = parseInt(newValue, 10);
 
       if (!isNaN(pageNumber) && pageNumber > 0) {
         // Ensure it doesn't exceed the maximum
-        const validPageNumber = Math.min(pageNumber, activeResponses.length);
+        const validPageNumber = Math.min(pageNumber, combinedResponses.length);
 
         // Convert to zero-based index
         setCurrentIndex(validPageNumber - 1);
       }
-    } else if (activeResponses.length > 0) {
+    } else if (combinedResponses.length > 0) {
       // If input is cleared, default to index 0 (first item)
       setCurrentIndex(0);
     }
@@ -645,11 +624,10 @@ const [editableSubject, setEditableSubject] = useState("");
 const [isSavingSubject, setIsSavingSubject] = useState(false);
 
   useEffect(() => {
-    const activeResponses = showNotKrafted ? filteredResponses : combinedResponses;
-    const subject = activeResponses[currentIndex]?.subject || "";
+    const subject = combinedResponses[currentIndex]?.subject || "";
     setEditableSubject(subject);
     setIsEditingSubject(false);
-  }, [currentIndex, combinedResponses, showNotKrafted, filteredResponses]);
+  }, [currentIndex, combinedResponses]);
 
 // Function to save the edited subject
   const saveEditedSubject = async () => {
@@ -862,8 +840,7 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
 
   // When opening the modal or setting editable content
   useEffect(() => {
-    const activeResponses = showNotKrafted ? filteredResponses : combinedResponses;
-    const currentContact = activeResponses[currentIndex];
+    const currentContact = combinedResponses[currentIndex];
     if (currentContact?.pitch) {
       setEditableContent(
         aggressiveCleanHTML(currentContact.pitch),
@@ -871,7 +848,7 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
     } else {
       setEditableContent("");
     }
-  }, [currentIndex, combinedResponses, showNotKrafted, filteredResponses]);
+  }, [currentIndex, combinedResponses]);
 
   useEffect(() => {
     console.log("combinedResponses updated:", combinedResponses);
@@ -1199,11 +1176,10 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
 
 
   useEffect(() => {
-    const activeResponses = showNotKrafted ? filteredResponses : combinedResponses;
-    if (isEditing && activeResponses[currentIndex]?.pitch) {
-      setEditableContent(activeResponses[currentIndex].pitch);
+    if (isEditing && combinedResponses[currentIndex]?.pitch) {
+      setEditableContent(combinedResponses[currentIndex].pitch);
     }
-  }, [currentIndex, showNotKrafted, filteredResponses, combinedResponses, isEditing]);
+  }, [currentIndex, combinedResponses, isEditing]);
 
 
   useEffect(() => {
@@ -2075,9 +2051,13 @@ useEffect(() => {
           setEnableIndexRange={setEnableIndexRange}
           overwriteDatabase={settingsForm?.overwriteDatabase ?? false}
           setFollowupEnabled={setFollowupEnabled}
-          showNotKrafted={showNotKrafted}
-          setShowNotKrafted={setShowNotKrafted}
-          filteredResponses={filteredResponses}
+          notKraftedEnabled={notKraftedEnabled}
+          setNotKraftedEnabled={setNotKraftedEnabled}
+          kraftedNotSentEnabled={kraftedNotSentEnabled}
+          setKraftedNotSentEnabled={setKraftedNotSentEnabled}
+          filteredResponses={combinedResponses}
+          selectedZohoviewId={selectedZohoviewId}
+          fetchAndDisplayEmailBodies={fetchAndDisplayEmailBodies}
 
           setOverwriteDatabase={(val: boolean) =>
             settingsFormHandler?.({
@@ -2291,9 +2271,7 @@ useEffect(() => {
 
                 <button
                   onClick={handleNextPage}
-                  disabled={
-                    isProcessing || currentIndex === (showNotKrafted ? filteredResponses.length - 1 : combinedResponses.length - 1)
-                  }
+                  disabled={isProcessing || currentIndex === combinedResponses.length - 1}
                   className="secondary-button !h-[35px] !py-[10px] !px-[10px] flex justify-center items-center"
                   title="Click to go to the next generated email"
                 >
@@ -2313,9 +2291,7 @@ useEffect(() => {
 
                 <button
                   onClick={handleLastPage}
-                  disabled={
-                    isProcessing || currentIndex === (showNotKrafted ? filteredResponses.length - 1 : combinedResponses.length - 1)
-                  }
+                  disabled={isProcessing || currentIndex === combinedResponses.length - 1}
                   className="secondary-button h-[35px] w-[38px] !px-[5px] !py-[10px] flex justify-center items-center !px-[10px]"
                   title="Click to go to the last generated email"
                 >
@@ -2349,7 +2325,7 @@ useEffect(() => {
                     }
                   }}
                   min="1"
-                  max={showNotKrafted ? filteredResponses.length : combinedResponses.length}
+                  max={combinedResponses.length}
                   className="form-control text-center !mx-2"
                   style={{
                     width: "70px",
@@ -2360,21 +2336,20 @@ useEffect(() => {
                 />
                 <span className="flex items-center">
                   of{" "}
-                  {showNotKrafted ? filteredResponses.length : (
-                    selectedZohoviewId
-                      ? (() => {
-                        const selectedView = zohoClient.find(
-                          (client) => client.zohoviewId === selectedZohoviewId,
-                        );
-                        return selectedView
-                          ? selectedView.totalContact
-                          : combinedResponses.length;
-                      })()
-                      : zohoClient.reduce(
-                        (sum, client) => sum + client.totalContact,
-                        0,
-                      )
-                  )}
+                  {selectedZohoviewId
+                    ? (() => {
+                      const selectedView = zohoClient.find(
+                        (client) => client.zohoviewId === selectedZohoviewId,
+                      );
+                      return selectedView
+                        ? selectedView.totalContact
+                        : combinedResponses.length;
+                    })()
+                    : zohoClient.reduce(
+                      (sum, client) => sum + client.totalContact,
+                      0,
+                    )
+                  }
                 </span>
               </div>
               {/* Add this inside your green box area */}
@@ -2455,7 +2430,7 @@ useEffect(() => {
                           {/* <span style={{ whiteSpace: "pre" }}> </span> */}
                           <span
                            onClick={() => {
-                           const contact = showNotKrafted ? filteredResponses[currentIndex] : combinedResponses[currentIndex];
+                           const contact = combinedResponses[currentIndex];
                            if (!contact?.id) return;
 
                            const contactDetailsUrl = `/#/contact-details/${contact.id}?dataFileId=${contact?.dataFileId}`;
@@ -2463,17 +2438,17 @@ useEffect(() => {
                            }}
                            className="cursor-pointer text-[#3f9f42] hover:underline font-semibold px-[10px]"
                           >
-                          {(showNotKrafted ? filteredResponses[currentIndex] : combinedResponses[currentIndex])?.name || "NA"}
+                          {combinedResponses[currentIndex]?.name || "NA"}
                           </span>
-                          {(showNotKrafted ? filteredResponses[currentIndex] : combinedResponses[currentIndex])?.title || "NA"}
+                          {combinedResponses[currentIndex]?.title || "NA"}
                           <span className="text-[25px] inline-block relative top-[4px] px-[10px]">
                             &bull;
                           </span>
-                          {(showNotKrafted ? filteredResponses[currentIndex] : combinedResponses[currentIndex])?.company || "NA"}
+                          {combinedResponses[currentIndex]?.company || "NA"}
                           <span className="text-[25px] inline-block relative top-[4px] px-[10px]">
                             &bull;
                           </span>
-                          {(showNotKrafted ? filteredResponses[currentIndex] : combinedResponses[currentIndex])?.location || "NA"}
+                          {combinedResponses[currentIndex]?.location || "NA"}
                           <span style={{ whiteSpace: "pre" }}> </span>
                           {/* <span className="inline-block relative top-[6px] mr-[3px]">
                 <svg width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -2488,12 +2463,12 @@ useEffect(() => {
                           </ReactTooltip>
                           <a
                             href={
-                              (showNotKrafted ? filteredResponses[currentIndex] : combinedResponses[currentIndex])?.website &&
-                                !(showNotKrafted ? filteredResponses[currentIndex] : combinedResponses[currentIndex])?.website.startsWith(
+                              combinedResponses[currentIndex]?.website &&
+                                !combinedResponses[currentIndex]?.website.startsWith(
                                   "http",
                                 )
-                                ? `https://${(showNotKrafted ? filteredResponses[currentIndex] : combinedResponses[currentIndex])?.website}`
-                                : (showNotKrafted ? filteredResponses[currentIndex] : combinedResponses[currentIndex])?.website
+                                ? `https://${combinedResponses[currentIndex]?.website}`
+                                : combinedResponses[currentIndex]?.website
                             }
                             target="_blank"
                             rel="noopener noreferrer"
@@ -2522,7 +2497,7 @@ useEffect(() => {
                             Open this contact in LinkedIn
                           </ReactTooltip>
                           <a
-                            href={(showNotKrafted ? filteredResponses[currentIndex] : combinedResponses[currentIndex])?.linkedin}
+                            href={combinedResponses[currentIndex]?.linkedin}
                             target="_blank"
                             rel="noopener noreferrer"
                             style={{
@@ -2566,11 +2541,11 @@ useEffect(() => {
                             Open this email in your local email client
                           </ReactTooltip>
                           <a
-                            href={`mailto:${(showNotKrafted ? filteredResponses[currentIndex] : combinedResponses[currentIndex])?.email || ""
+                            href={`mailto:${combinedResponses[currentIndex]?.email || ""
                               }?subject=${encodeURIComponent(
-                                (showNotKrafted ? filteredResponses[currentIndex] : combinedResponses[currentIndex])?.subject || "",
+                                combinedResponses[currentIndex]?.subject || "",
                               )}&body=${encodeURIComponent(
-                                (showNotKrafted ? filteredResponses[currentIndex] : combinedResponses[currentIndex])?.pitch || "",
+                                combinedResponses[currentIndex]?.pitch || "",
                               )}`}
                             title="Open this email in your local email client"
                             className="ml-[3px]"
@@ -2729,13 +2704,13 @@ useEffect(() => {
                                   }}
                                   onClick={() => {
                                     setEditableSubject(
-                                      (showNotKrafted ? filteredResponses[currentIndex] : combinedResponses[currentIndex])?.subject || "",
+                                      combinedResponses[currentIndex]?.subject || "",
                                     );
                                     setIsEditingSubject(true);
                                   }}
                                   title="Click to edit subject"
                                 >
-                                  {(showNotKrafted ? filteredResponses[currentIndex] : combinedResponses[currentIndex])?.subject || "Click to add subject"}
+                                  {combinedResponses[currentIndex]?.subject || "Click to add subject"}
                                 </div>
                               ) : (
                                 /* EDIT MODE */
@@ -2766,7 +2741,7 @@ useEffect(() => {
                                       className="button secondary small"
                                       onClick={() => {
                                         setEditableSubject(
-                                          (showNotKrafted ? filteredResponses[currentIndex] : combinedResponses[currentIndex])?.subject || "",
+                                          combinedResponses[currentIndex]?.subject || "",
                                         );
                                         setIsEditingSubject(false);
                                       }}
@@ -3033,7 +3008,7 @@ useEffect(() => {
                                   }`,
                               }}
                               dangerouslySetInnerHTML={{
-                                __html: (showNotKrafted ? filteredResponses[currentIndex] : combinedResponses[currentIndex])?.pitch || "",
+                                __html: combinedResponses[currentIndex]?.pitch || "",
                               }}
 
                             ></div>
@@ -3370,7 +3345,7 @@ useEffect(() => {
                                   id="edit-email-body-tooltip"
                                   className="edit-button button d-flex align-center justify-center square-40"
                                   onClick={() => {
-                                    const pitch = (showNotKrafted ? filteredResponses[currentIndex] : combinedResponses[currentIndex])?.pitch || "";
+                                    const pitch = combinedResponses[currentIndex]?.pitch || "";
                                     setEditableContent(pitch);
                                     setEditableContent(pitch);       // store content
 
@@ -3410,7 +3385,7 @@ useEffect(() => {
                                   onClick={async () => {
                                     if (showCreditModal) return;
 
-                                    const currentContact = showNotKrafted ? filteredResponses[currentIndex] : combinedResponses[currentIndex];
+                                    const currentContact = combinedResponses[currentIndex];
                                     if (!currentContact) {
                                       alert("No contact selected to regenerate pitch for.");
                                       return;
@@ -3439,7 +3414,7 @@ useEffect(() => {
                                     setTimeout(() => setIsRegenerating(false), 2500);
                                   }}
                                   disabled={
-                                    !(showNotKrafted ? filteredResponses[currentIndex] : combinedResponses[currentIndex]) ||
+                                    !combinedResponses[currentIndex] ||
                                     !isResetEnabled ||
                                     isRegenerating
                                   }
@@ -3450,12 +3425,12 @@ useEffect(() => {
                                     borderRadius: "4px",
                                     background: "none !important",
                                     cursor:
-                                      (showNotKrafted ? filteredResponses[currentIndex] : combinedResponses[currentIndex]) &&
+                                      combinedResponses[currentIndex] &&
                                         !isRegenerating
                                         ? "pointer"
                                         : "not-allowed",
                                     opacity:
-                                      (showNotKrafted ? filteredResponses[currentIndex] : combinedResponses[currentIndex]) &&
+                                      combinedResponses[currentIndex] &&
                                         !isRegenerating
                                         ? 1
                                         : 0.6,

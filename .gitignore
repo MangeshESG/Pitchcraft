@@ -7,3 +7,10 @@ build/
 # Ignore system files
 .DS_Store
 Thumbs.db
+.vs/Pitchcraft/CopilotIndices/17.12.38.29086/CodeChunks.db
+.vs/slnx.sqlite
+.vs/Pitchcraft/CopilotIndices/17.12.38.29086/SemanticSymbols.db
+.vs/Pitchcraft/CopilotIndices/17.12.38.29086/SemanticSymbols.db-wal
+.vs/Pitchcraft/FileContentIndex/e2e66488-3a69-4e84-a789-e99c69ff428c.vsidx
+.vs/Pitchcraft/v17/.wsuo
+.vs/Pitchcraft/CopilotIndices/17.12.38.29086/SemanticSymbols.db-shm
