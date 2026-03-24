@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import API_BASE_URL from '../../config';
+import './ContactList.css';
 
 interface TrackingProps {
   selectedClient?: string;
@@ -104,45 +105,95 @@ const Tracking: React.FC<TrackingProps> = ({ selectedClient }) => {
   };
 
   return (
-    <div className="tracking-container">
+    <div className="data-campaigns-container"
+    style={{ marginTop:"-60px" }}>
       <style>{toastAnimation}</style>
-      
-      <div className="mb-20">
-        <h2 className="text-2xl font-bold mb-4">Tracking settings</h2>
-        <p className="text-gray-600 mb-6">
+
+      <div className="section-wrapper" style={{ paddingTop: 0 }}>
+        <h2 className="section-title" style={{ marginTop: 0 }}>
+          Tracking settings
+        </h2>
+        <p style={{ marginBottom: 16, color: "#555" }}>
           Enable or disable email tracking for client campaigns.
         </p>
-      </div>
 
-      <div className="bg-white p-6 rounded-lg border max-w-md">
-        <h3 className="text-lg font-semibold mb-4">Email tracking</h3>
-        
-        <div className="form-group mb-6">
-          <div className="flex items-center justify-between">
-            <span className="text-lg font-medium">
-              {loading ? 'Loading...' : (isTracking ? 'Tracking enabled' : 'Tracking disabled')}
-            </span>
-            <button
-              onClick={handleToggleTracking}
-              disabled={loading}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
-                isTracking ? 'bg-green-600' : 'bg-gray-200'
-              } ${loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-            >
+        <div
+          style={{
+            background: "#fff",
+            border: "1px solid #ddd",
+            borderRadius: 8,
+            padding: 16,
+            maxWidth: 620,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 16,
+              paddingBottom: 12,
+              borderBottom: "1px solid #eee",
+            }}
+          >
+            <div>
+              <div style={{ fontWeight: 600, color: "#333" }}>Email tracking</div>
+              <div style={{ fontSize: 13, color: "#666" }}>
+                Track opens and clicks for campaign emails.
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  isTracking ? 'translate-x-6' : 'translate-x-1'
-                }`}
-              />
-            </button>
+                style={{
+                  fontSize: 14,
+                  fontWeight: 600,
+                  color: loading ? "#666" : isTracking ? "#2f6f3e" : "#6b7280",
+                }}
+              >
+                {loading
+                  ? "Loading..."
+                  : isTracking
+                    ? "Enabled"
+                    : "Disabled"}
+              </span>
+              <button
+                onClick={handleToggleTracking}
+                disabled={loading}
+                style={{
+                  position: "relative",
+                  width: 44,
+                  height: 24,
+                  borderRadius: 999,
+                  border: "1px solid #d1d5db",
+                  background: isTracking ? "#3f9f42" : "#e5e7eb",
+                  cursor: loading ? "not-allowed" : "pointer",
+                  transition: "background 0.2s ease",
+                }}
+                aria-label="Toggle email tracking"
+              >
+                <span
+                  style={{
+                    position: "absolute",
+                    top: 3,
+                    left: isTracking ? 22 : 3,
+                    width: 16,
+                    height: 16,
+                    borderRadius: "50%",
+                    background: "#fff",
+                    boxShadow: "0 1px 2px rgba(0,0,0,0.2)",
+                    transition: "left 0.2s ease",
+                  }}
+                />
+              </button>
+            </div>
           </div>
-        </div>
 
-        {loading && (
-          <div className="mt-4 text-blue-600">
-            Updating tracking settings...
-          </div>
-        )}
+          {loading && (
+            <div style={{ marginTop: 12, color: "#2563eb", fontSize: 13 }}>
+              Updating tracking settings...
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Success Toast */}

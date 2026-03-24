@@ -4,10 +4,12 @@ import DynamicContactsTable from "./DynamicContactsTable";
 import PaginationControls from "./PaginationControls";
 import FilterBuilder, { FilterCondition } from "../common/FilterBuilder";
 import CommonSidePanel from "../common/CommonSidePanel";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faEdit, faTrashAlt } from "@fortawesome/free-regular-svg-icons";
 
 type FieldType = "text" | "number" | "date" | "boolean" | "dropdown";
 
-interface FieldOption {
+interface ContactFieldOption {
   key: string;
   label: string;
   type: string;
@@ -31,11 +33,18 @@ interface ViewItem extends ViewSummary, ViewMeta {}
 
 interface ContactViewsProps {
   clientId: string | number;
-  filterFields: FieldOption[];
+  filterFields: ContactFieldOption[];
   columnNameMap?: Record<string, string>;
   persistedColumnSelection?: string[];
   onColumnsChange?: (columns: any[]) => void;
   onShowMessage?: (message: string, type: "success" | "error") => void;
+}
+
+interface FilterBuilderFieldOption {
+  key: string;
+  label: string;
+  type: FieldType;
+  options?: string[];
 }
 
 interface SourceOption {
@@ -199,6 +208,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   const [editSegmentIds, setEditSegmentIds] = useState<number[]>([]);
   const [editFiltersJson, setEditFiltersJson] = useState("");
   const [editFiltersSeed, setEditFiltersSeed] = useState("");
+  const [viewActionsAnchor, setViewActionsAnchor] = useState<number | null>(null);
 
   const fieldTypeMap = useMemo(() => {
     const map = new Map<string, FieldType>();
@@ -207,6 +217,35 @@ const ContactViews: React.FC<ContactViewsProps> = ({
     });
     return map;
   }, [filterFields]);
+
+  const normalizedFilterFields = useMemo<FilterBuilderFieldOption[]>(
+    () =>
+      filterFields.map((field) => ({
+        ...field,
+        type: normalizeFieldType(field.type),
+      })),
+    [filterFields]
+  );
+
+  const menuBtnStyle: React.CSSProperties = {
+    width: "100%",
+    padding: "8px 18px",
+    textAlign: "left",
+    background: "none",
+    border: "none",
+    color: "#222",
+    fontSize: "15px",
+    cursor: "pointer",
+  };
+
+  const actionIconStyle: React.CSSProperties = {
+    width: 24,
+    height: 24,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  };
 
   const fetchViews = async () => {
     if (!clientId) return;
@@ -495,7 +534,6 @@ const ContactViews: React.FC<ContactViewsProps> = ({
       setViewContacts(filtered);
     } catch (error) {
       console.error("Error fetching view contacts:", error);
-      setAllViewContacts([]);
       setViewContacts([]);
       onShowMessage?.("Failed to load view contacts.", "error");
     } finally {
@@ -535,6 +573,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   };
 
   const openView = (view: ViewItem) => {
+    setViewActionsAnchor(null);
     setSelectedView(view);
     setViewMode("detail");
     setViewSearchQuery("");
@@ -775,26 +814,101 @@ const ContactViews: React.FC<ContactViewsProps> = ({
                           : "Not cached"}
                       </td>
                       <td>
-                        <div style={{ display: "flex", gap: 8 }}>
+                        <div style={{ position: "relative" }}>
                           <button
-                            className="button secondary"
-                            onClick={() => openView(view)}
+                            className="segment-actions-btn font-[600]"
+                            style={{
+                              border: "none",
+                              background: "none",
+                              fontSize: 24,
+                              cursor: "pointer",
+                              padding: "2px 10px",
+                            }}
+                            onClick={() =>
+                              setViewActionsAnchor(
+                                viewActionsAnchor === view.id ? null : view.id
+                              )
+                            }
+                            aria-label="View actions"
                           >
-                            View
+                            &#8942;
                           </button>
-                          <button
-                            className="button secondary"
-                            onClick={() => openEditPanel(view)}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            className="button secondary"
-                            style={{ background: "#dc3545", color: "#fff", border: "none" }}
-                            onClick={() => handleDeleteView(view)}
-                          >
-                            Delete
-                          </button>
+
+                          {viewActionsAnchor === view.id && (
+                            <div
+                              className="segment-actions-menu py-[10px]"
+                              style={{
+                                position: "absolute",
+                                right: 0,
+                                top: 32,
+                                background: "#fff",
+                                border: "1px solid #eee",
+                                borderRadius: 6,
+                                boxShadow: "0 2px 16px rgba(0,0,0,0.12)",
+                                zIndex: 101,
+                                minWidth: 160,
+                              }}
+                            >
+                              <button
+                                onClick={() => {
+                                  openView(view);
+                                  setViewActionsAnchor(null);
+                                }}
+                                style={menuBtnStyle}
+                                className="flex gap-2 items-center"
+                              >
+                                <span style={actionIconStyle}>
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="22px"
+                                    height="22px"
+                                    viewBox="0 0 24 20"
+                                    fill="none"
+                                  >
+                                    <circle cx="12" cy="12" r="4" fill="#3f9f42" />
+                                    <path
+                                      d="M21 12C21 12 20 4 12 4C4 4 3 12 3 12"
+                                      stroke="#3f9f42"
+                                      stroke-width="2"
+                                    />
+                                  </svg>
+                                </span>
+                                <span className="font-[600]">View</span>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  openEditPanel(view);
+                                  setViewActionsAnchor(null);
+                                }}
+                                style={menuBtnStyle}
+                                className="flex gap-2 items-center"
+                              >
+                                <span style={actionIconStyle}>
+                                  <FontAwesomeIcon
+                                    icon={faEdit}
+                                    style={{ color: "#3f9f42", fontSize: 20 }}
+                                  />
+                                </span>
+                                <span className="font-[600]">Edit</span>
+                              </button>
+                              <button
+                                onClick={() => {
+                                  handleDeleteView(view);
+                                  setViewActionsAnchor(null);
+                                }}
+                                style={menuBtnStyle}
+                                className="flex gap-2 items-center"
+                              >
+                                <span style={actionIconStyle}>
+                                  <FontAwesomeIcon
+                                    icon={faTrashAlt}
+                                    style={{ color: "#3f9f42", fontSize: 20 }}
+                                  />
+                                </span>
+                                <span className="font-[600]">Delete</span>
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1159,7 +1273,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
           </label>
           <FilterBuilder
             data={[]}
-            fields={filterFields}
+            fields={normalizedFilterFields}
             onFiltered={() => {}}
             initialFiltersJson={editFiltersSeed}
             onFiltersJsonChange={(nextFiltersJson) =>
