@@ -1941,6 +1941,16 @@ const filterFields: any = useMemo(() => {
               Lists
             </button>
           </li>
+            <li>
+            <button
+              type="button"
+              onClick={() => handleTabChange("View")}
+              className={`button !pt-0 ${activeSubTab === "View" ? "active" : ""
+                }`}
+            >
+              Views
+            </button>
+          </li>
           <li>
             <button
               type="button"
@@ -1951,16 +1961,7 @@ const filterFields: any = useMemo(() => {
               Segments
             </button>
           </li>
-          <li>
-            <button
-              type="button"
-              onClick={() => handleTabChange("View")}
-              className={`button !pt-0 ${activeSubTab === "View" ? "active" : ""
-                }`}
-            >
-              Views
-            </button>
-          </li>
+
         </ul>
       </div>
 

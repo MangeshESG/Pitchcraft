@@ -19,6 +19,12 @@ export interface FilterCondition {
   joinWithPrevious?: JoinOperator;
 }
 
+interface FilterGroup {
+  id: string;
+  conditions: FilterCondition[];
+  joinWithPrevious?: JoinOperator;
+}
+
 export interface Props<T> {
   data: T[];
   fields: FieldOption[];
@@ -124,17 +130,37 @@ const createCondition = (joinWithPrevious: JoinOperator = "AND"): FilterConditio
   joinWithPrevious,
 });
 
-const parseFiltersJson = (filtersJson?: string): FilterCondition[] => {
+const createGroup = (joinWithPrevious: JoinOperator = "AND"): FilterGroup => ({
+  id: generateId(),
+  conditions: [createCondition()],
+  joinWithPrevious,
+});
+
+const parseFiltersJson = (filtersJson?: string): FilterGroup[] => {
   if (!filtersJson) {
     return [];
   }
 
   try {
     const parsed = JSON.parse(filtersJson);
-    if (!parsed || !Array.isArray(parsed.conditions)) {
+    if (!parsed) {
       return [];
     }
-    return parsed.conditions as FilterCondition[];
+
+    if (Array.isArray(parsed.groups)) {
+      return parsed.groups as FilterGroup[];
+    }
+
+    if (Array.isArray(parsed.conditions)) {
+      return [
+        {
+          id: generateId(),
+          conditions: parsed.conditions as FilterCondition[],
+        },
+      ];
+    }
+
+    return [];
   } catch {
     return [];
   }
@@ -216,90 +242,168 @@ function FilterBuilder<T extends Record<string, any>>({
   hideApplyButton = false,
   saveViewConfig,
 }: Props<T>) {
-  const [conditions, setConditions] = useState<FilterCondition[]>([
-    createCondition(),
-  ]);
+  const [groups, setGroups] = useState<FilterGroup[]>([createGroup()]);
   const [showSavePanel, setShowSavePanel] = useState(false);
   const [viewName, setViewName] = useState("");
   const [viewDescription, setViewDescription] = useState("");
   const [isSavingView, setIsSavingView] = useState(false);
 
+  const completeGroups = useMemo(
+    () =>
+      groups
+        .map((group) => ({
+          ...group,
+          conditions: group.conditions.filter((condition) =>
+            isCompleteCondition(condition)
+          ),
+        }))
+        .filter((group) => group.conditions.length > 0),
+    [groups]
+  );
+
   const completeConditions = useMemo(
-    () => conditions.filter((condition) => isCompleteCondition(condition)),
-    [conditions]
+    () => completeGroups.flatMap((group) => group.conditions),
+    [completeGroups]
   );
 
   const filtersJson = useMemo(
     () =>
       JSON.stringify({
-        logic: "CHAIN",
-        conditions: completeConditions.map((condition, index) => ({
-          ...condition,
-          joinWithPrevious: index === 0 ? undefined : condition.joinWithPrevious || "AND",
+        logic: "GROUPS",
+        groups: completeGroups.map((group, groupIndex) => ({
+          id: group.id,
+          joinWithPrevious:
+            groupIndex === 0 ? undefined : group.joinWithPrevious || "AND",
+          conditions: group.conditions.map((condition, index) => ({
+            ...condition,
+            joinWithPrevious:
+              index === 0 ? undefined : condition.joinWithPrevious || "AND",
+          })),
         })),
       }),
-    [completeConditions]
+    [completeGroups]
   );
 
   useEffect(() => {
     const parsed = parseFiltersJson(initialFiltersJson);
     if (parsed.length === 0) {
-      setConditions([createCondition()]);
+      setGroups([createGroup()]);
       return;
     }
 
-    const hydrated = parsed.map((condition, index) => ({
-      ...condition,
-      id: condition.id || generateId(),
-      joinWithPrevious: index === 0 ? undefined : condition.joinWithPrevious || "AND",
+    const hydratedGroups = parsed.map((group, groupIndex) => ({
+      id: group.id || generateId(),
+      joinWithPrevious:
+        groupIndex === 0 ? undefined : group.joinWithPrevious || "AND",
+      conditions: (group.conditions || []).map((condition, index) => ({
+        ...condition,
+        id: condition.id || generateId(),
+        joinWithPrevious:
+          index === 0 ? undefined : condition.joinWithPrevious || "AND",
+      })),
     }));
 
-    setConditions(hydrated);
+    setGroups(
+      hydratedGroups.length > 0 ? hydratedGroups : [createGroup()]
+    );
   }, [initialFiltersJson]);
 
   useEffect(() => {
     onFiltersJsonChange?.(filtersJson, completeConditions);
   }, [filtersJson, completeConditions, onFiltersJsonChange]);
 
-  const addCondition = () => {
-    setConditions((previous) => [...previous, createCondition("AND")]);
+  const addGroup = () => {
+    setGroups((previous) => [...previous, createGroup("AND")]);
   };
 
-  const removeCondition = (id: string) => {
-    setConditions((previous) => {
-      const updatedConditions = previous.filter((condition) => condition.id !== id);
-      if (updatedConditions.length === 0) {
-        return [createCondition()];
+  const removeGroup = (groupId: string) => {
+    setGroups((previous) => {
+      const updatedGroups = previous.filter((group) => group.id !== groupId);
+      if (updatedGroups.length === 0) {
+        return [createGroup()];
       }
-      return updatedConditions;
+      return updatedGroups;
     });
   };
 
+  const addCondition = (groupId: string) => {
+    setGroups((previous) =>
+      previous.map((group) =>
+        group.id === groupId
+          ? {
+              ...group,
+              conditions: [...group.conditions, createCondition("AND")],
+            }
+          : group
+      )
+    );
+  };
+
+  const removeCondition = (groupId: string, conditionId: string) => {
+    setGroups((previous) =>
+      previous.map((group) => {
+        if (group.id !== groupId) {
+          return group;
+        }
+
+        const updatedConditions = group.conditions.filter(
+          (condition) => condition.id !== conditionId
+        );
+
+        return {
+          ...group,
+          conditions:
+            updatedConditions.length === 0 ? [createCondition()] : updatedConditions,
+        };
+      })
+    );
+  };
+
   const updateCondition = (
-    id: string,
+    groupId: string,
+    conditionId: string,
     key: keyof FilterCondition,
     value: any
   ) => {
-    setConditions((previous) =>
-      previous.map((condition) => {
-        if (condition.id !== id) {
-          return condition;
-        }
-
-        if (key === "field") {
-          return {
-            ...condition,
-            field: value,
-            operator: "",
-            value: "",
-          };
+    setGroups((previous) =>
+      previous.map((group) => {
+        if (group.id !== groupId) {
+          return group;
         }
 
         return {
-          ...condition,
-          [key]: value,
+          ...group,
+          conditions: group.conditions.map((condition) => {
+            if (condition.id !== conditionId) {
+              return condition;
+            }
+
+            if (key === "field") {
+              return {
+                ...condition,
+                field: value,
+                operator: "",
+                value: "",
+              };
+            }
+
+            return {
+              ...condition,
+              [key]: value,
+            };
+          }),
         };
       })
+    );
+  };
+
+  const updateGroupJoin = (groupId: string, value: JoinOperator) => {
+    setGroups((previous) =>
+      previous.map((group, index) =>
+        group.id === groupId && index !== 0
+          ? { ...group, joinWithPrevious: value }
+          : group
+      )
     );
   };
 
@@ -363,30 +467,43 @@ function FilterBuilder<T extends Record<string, any>>({
   };
 
   const applyFilters = () => {
-    if (completeConditions.length === 0) {
+    if (completeGroups.length === 0) {
       onFiltered(data);
       return;
     }
 
     const filtered = data.filter((row) =>
-      completeConditions.reduce((result, condition, index) => {
-        const conditionResult = evaluateCondition(row, condition);
+      completeGroups.reduce((groupResult, group, groupIndex) => {
+        const conditionResult = group.conditions.reduce(
+          (result, condition, index) => {
+            const evaluation = evaluateCondition(row, condition);
 
-        if (index === 0) {
+            if (index === 0) {
+              return evaluation;
+            }
+
+            return condition.joinWithPrevious === "OR"
+              ? result || evaluation
+              : result && evaluation;
+          },
+          true as boolean
+        );
+
+        if (groupIndex === 0) {
           return conditionResult;
         }
 
-        return condition.joinWithPrevious === "OR"
-          ? result || conditionResult
-          : result && conditionResult;
-      }, true)
+        return group.joinWithPrevious === "OR"
+          ? groupResult || conditionResult
+          : groupResult && conditionResult;
+      }, true as boolean)
     );
 
     onFiltered(filtered);
   };
 
   const clearFilters = () => {
-    setConditions([createCondition()]);
+    setGroups([createGroup()]);
     onFiltered(data);
   };
 
@@ -466,181 +583,344 @@ function FilterBuilder<T extends Record<string, any>>({
           Build Filter Rules
         </div>
         <div style={{ fontSize: 13, color: "#527057" }}>
-          Mix AND and OR between conditions to build more flexible contact views.
+          Mix AND and OR inside groups, then combine groups for advanced logic.
         </div>
       </div>
 
       <div style={{ padding: 20 }}>
-        {conditions.map((condition, index) => {
-          const field = getField(condition.field);
-          const normalizedFieldType = normalizeFieldType(field?.type);
-          const operators = field
-            ? operatorsByType[normalizedFieldType]
-            : operatorsByType.text;
-
-          return (
-            <div key={condition.id} style={{ marginBottom: index === conditions.length - 1 ? 0 : 16 }}>
-              {index > 0 && (
+        {groups.map((group, groupIndex) => (
+          <div
+            key={group.id}
+            style={{ marginBottom: groupIndex === groups.length - 1 ? 0 : 24 }}
+          >
+            {groupIndex > 0 && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  margin: "0 0 12px 0",
+                }}
+              >
+                <div style={{ flex: 1, height: 1, background: "#d8e6d9" }} />
                 <div
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                    margin: "0 0 12px 0",
+                    display: "inline-flex",
+                    padding: 4,
+                    borderRadius: 999,
+                    background: "#eef6ef",
+                    border: "1px solid #d5e7d7",
+                    gap: 4,
                   }}
                 >
-                  <div style={{ flex: 1, height: 1, background: "#d8e6d9" }} />
-                  <div
+                  {(["AND", "OR"] as JoinOperator[]).map((joinOperator) => (
+                    <button
+                      key={`${group.id}-${joinOperator}`}
+                      type="button"
+                      onClick={() => updateGroupJoin(group.id, joinOperator)}
+                      style={{
+                        minWidth: 54,
+                        height: 32,
+                        borderRadius: 999,
+                        border: "none",
+                        background:
+                          (group.joinWithPrevious || "AND") === joinOperator
+                            ? "#3f9f42"
+                            : "transparent",
+                        color:
+                          (group.joinWithPrevious || "AND") === joinOperator
+                            ? "#fff"
+                            : "#2f4a33",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {joinOperator}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ flex: 1, height: 1, background: "#d8e6d9" }} />
+              </div>
+            )}
+
+            <div
+              style={{
+                border: "1px solid #e0ece1",
+                borderRadius: 16,
+                padding: 16,
+                background: "#ffffff",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 12,
+                }}
+              >
+                <div
+                  style={{
+                    fontWeight: 700,
+                    color: "#24572b",
+                    fontSize: 14,
+                  }}
+                >
+                  Group {groupIndex + 1}
+                </div>
+                {groups.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeGroup(group.id)}
                     style={{
-                      display: "inline-flex",
-                      padding: 4,
+                      border: "1px solid #f1d5d8",
+                      background: "#fff5f5",
+                      color: "#b42318",
                       borderRadius: 999,
-                      background: "#eef6ef",
-                      border: "1px solid #d5e7d7",
-                      gap: 4,
+                      padding: "6px 12px",
+                      fontSize: 12,
+                      cursor: "pointer",
                     }}
                   >
-                    {(["AND", "OR"] as JoinOperator[]).map((joinOperator) => (
+                    Remove group
+                  </button>
+                )}
+              </div>
+
+              {group.conditions.map((condition, index) => {
+                const field = getField(condition.field);
+                const normalizedFieldType = normalizeFieldType(field?.type);
+                const operators = field
+                  ? operatorsByType[normalizedFieldType]
+                  : operatorsByType.text;
+
+                return (
+                  <div
+                    key={condition.id}
+                    style={{
+                      marginBottom:
+                        index === group.conditions.length - 1 ? 0 : 16,
+                    }}
+                  >
+                    {index > 0 && (
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 12,
+                          margin: "0 0 12px 0",
+                        }}
+                      >
+                        <div
+                          style={{ flex: 1, height: 1, background: "#d8e6d9" }}
+                        />
+                        <div
+                          style={{
+                            display: "inline-flex",
+                            padding: 4,
+                            borderRadius: 999,
+                            background: "#eef6ef",
+                            border: "1px solid #d5e7d7",
+                            gap: 4,
+                          }}
+                        >
+                          {(["AND", "OR"] as JoinOperator[]).map(
+                            (joinOperator) => (
+                              <button
+                                key={`${condition.id}-${joinOperator}`}
+                                type="button"
+                                onClick={() =>
+                                  updateCondition(
+                                    group.id,
+                                    condition.id,
+                                    "joinWithPrevious",
+                                    joinOperator
+                                  )
+                                }
+                                style={{
+                                  minWidth: 54,
+                                  height: 32,
+                                  borderRadius: 999,
+                                  border: "none",
+                                  background:
+                                    (condition.joinWithPrevious || "AND") ===
+                                    joinOperator
+                                      ? "#3f9f42"
+                                      : "transparent",
+                                  color:
+                                    (condition.joinWithPrevious || "AND") ===
+                                    joinOperator
+                                      ? "#fff"
+                                      : "#2f4a33",
+                                  fontWeight: 700,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                {joinOperator}
+                              </button>
+                            )
+                          )}
+                        </div>
+                        <div
+                          style={{ flex: 1, height: 1, background: "#d8e6d9" }}
+                        />
+                      </div>
+                    )}
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1.3fr 1fr 1fr auto",
+                        gap: 12,
+                        padding: 16,
+                        borderRadius: 16,
+                        border: "1px solid #e0ece1",
+                        background: "#ffffff",
+                      }}
+                    >
+                      <select
+                        value={condition.field}
+                        onChange={(event) =>
+                          updateCondition(
+                            group.id,
+                            condition.id,
+                            "field",
+                            event.target.value
+                          )
+                        }
+                        style={controlStyle}
+                      >
+                        <option value="">Choose field</option>
+                        {fields.map((fieldOption) => (
+                          <option key={fieldOption.key} value={fieldOption.key}>
+                            {fieldOption.label}
+                          </option>
+                        ))}
+                      </select>
+
+                      <select
+                        value={condition.operator}
+                        onChange={(event) =>
+                          updateCondition(
+                            group.id,
+                            condition.id,
+                            "operator",
+                            event.target.value
+                          )
+                        }
+                        style={controlStyle}
+                      >
+                        <option value="">Operator</option>
+                        {operators.map((operator) => (
+                          <option key={operator.value} value={operator.value}>
+                            {operator.label}
+                          </option>
+                        ))}
+                      </select>
+
+                      {normalizedFieldType === "dropdown" ? (
+                        <select
+                          value={condition.value}
+                          onChange={(event) =>
+                            updateCondition(
+                              group.id,
+                              condition.id,
+                              "value",
+                              event.target.value
+                            )
+                          }
+                          style={controlStyle}
+                        >
+                          <option value="">Select value</option>
+                          {field?.options?.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      ) : normalizedFieldType === "boolean" ? (
+                        <select
+                          value={condition.value}
+                          onChange={(event) =>
+                            updateCondition(
+                              group.id,
+                              condition.id,
+                              "value",
+                              event.target.value
+                            )
+                          }
+                          style={controlStyle}
+                        >
+                          <option value="">Select value</option>
+                          <option value="true">True</option>
+                          <option value="false">False</option>
+                        </select>
+                      ) : (
+                        <input
+                          type={
+                            normalizedFieldType === "number"
+                              ? "number"
+                              : normalizedFieldType === "date"
+                              ? "date"
+                              : "text"
+                          }
+                          value={condition.value}
+                          onChange={(event) =>
+                            updateCondition(
+                              group.id,
+                              condition.id,
+                              "value",
+                              event.target.value
+                            )
+                          }
+                          placeholder="Enter value"
+                          style={controlStyle}
+                        />
+                      )}
+
                       <button
-                        key={`${condition.id}-${joinOperator}`}
                         type="button"
                         onClick={() =>
-                          updateCondition(condition.id, "joinWithPrevious", joinOperator)
+                          removeCondition(group.id, condition.id)
                         }
+                        aria-label="Remove condition"
                         style={{
-                          minWidth: 54,
-                          height: 32,
-                          borderRadius: 999,
-                          border: "none",
-                          background:
-                            (condition.joinWithPrevious || "AND") === joinOperator
-                              ? "#3f9f42"
-                              : "transparent",
-                          color:
-                            (condition.joinWithPrevious || "AND") === joinOperator
-                              ? "#fff"
-                              : "#2f4a33",
-                          fontWeight: 700,
+                          width: 44,
+                          minWidth: 44,
+                          height: 44,
+                          borderRadius: 14,
+                          border: "1px solid #f1d5d8",
+                          background: "#fff5f5",
+                          color: "#b42318",
+                          fontSize: 22,
+                          lineHeight: 1,
                           cursor: "pointer",
                         }}
                       >
-                        {joinOperator}
+                        x
                       </button>
-                    ))}
+                    </div>
                   </div>
-                  <div style={{ flex: 1, height: 1, background: "#d8e6d9" }} />
-                </div>
-              )}
+                );
+              })}
 
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1.3fr 1fr 1fr auto",
-                  gap: 12,
-                  padding: 16,
-                  borderRadius: 16,
-                  border: "1px solid #e0ece1",
-                  background: "#ffffff",
-                }}
-              >
-                <select
-                  value={condition.field}
-                  onChange={(event) =>
-                    updateCondition(condition.id, "field", event.target.value)
-                  }
-                  style={controlStyle}
-                >
-                  <option value="">Choose field</option>
-                  {fields.map((fieldOption) => (
-                    <option key={fieldOption.key} value={fieldOption.key}>
-                      {fieldOption.label}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  value={condition.operator}
-                  onChange={(event) =>
-                    updateCondition(condition.id, "operator", event.target.value)
-                  }
-                  style={controlStyle}
-                >
-                  <option value="">Operator</option>
-                  {operators.map((operator) => (
-                    <option key={operator.value} value={operator.value}>
-                      {operator.label}
-                    </option>
-                  ))}
-                </select>
-
-                {normalizedFieldType === "dropdown" ? (
-                  <select
-                    value={condition.value}
-                    onChange={(event) =>
-                      updateCondition(condition.id, "value", event.target.value)
-                    }
-                    style={controlStyle}
-                  >
-                    <option value="">Select value</option>
-                    {field?.options?.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                ) : normalizedFieldType === "boolean" ? (
-                  <select
-                    value={condition.value}
-                    onChange={(event) =>
-                      updateCondition(condition.id, "value", event.target.value)
-                    }
-                    style={controlStyle}
-                  >
-                    <option value="">Select value</option>
-                    <option value="true">True</option>
-                    <option value="false">False</option>
-                  </select>
-                ) : (
-                  <input
-                    type={
-                      normalizedFieldType === "number"
-                        ? "number"
-                        : normalizedFieldType === "date"
-                        ? "date"
-                        : "text"
-                    }
-                    value={condition.value}
-                    onChange={(event) =>
-                      updateCondition(condition.id, "value", event.target.value)
-                    }
-                    placeholder="Enter value"
-                    style={controlStyle}
-                  />
-                )}
-
+              <div style={{ marginTop: 12 }}>
                 <button
                   type="button"
-                  onClick={() => removeCondition(condition.id)}
-                  aria-label="Remove condition"
+                  onClick={() => addCondition(group.id)}
                   style={{
-                    width: 44,
-                    minWidth: 44,
-                    height: 44,
-                    borderRadius: 14,
-                    border: "1px solid #f1d5d8",
-                    background: "#fff5f5",
-                    color: "#b42318",
-                    fontSize: 22,
-                    lineHeight: 1,
-                    cursor: "pointer",
+                    ...actionButtonStyle,
+                    borderColor: "#b9d4bc",
+                    color: "#24572b",
+                    background: "#f4fbf4",
                   }}
                 >
-                  x
+                  + Add Condition
                 </button>
               </div>
             </div>
-          );
-        })}
+          </div>
+        ))}
 
         <div
           style={{
@@ -653,7 +933,7 @@ function FilterBuilder<T extends Record<string, any>>({
         >
           <button
             type="button"
-            onClick={addCondition}
+            onClick={addGroup}
             style={{
               ...actionButtonStyle,
               borderColor: "#b9d4bc",
@@ -661,7 +941,7 @@ function FilterBuilder<T extends Record<string, any>>({
               background: "#f4fbf4",
             }}
           >
-            + Add Condition
+            + Add Group
           </button>
 
           <button type="button" onClick={clearFilters} style={actionButtonStyle}>
@@ -709,7 +989,8 @@ function FilterBuilder<T extends Record<string, any>>({
               fontWeight: 600,
             }}
           >
-            {completeConditions.length} ready rule{completeConditions.length === 1 ? "" : "s"}
+            {completeConditions.length} ready rule
+            {completeConditions.length === 1 ? "" : "s"}
           </div>
         </div>
 
@@ -752,7 +1033,7 @@ function FilterBuilder<T extends Record<string, any>>({
             </div>
 
             <div style={{ marginTop: 12, fontSize: 13, color: "#5e728f" }}>
-              The current chain of AND/OR rules will be stored in `filters_json`.
+              The current grouped rules will be stored in `filters_json`.
             </div>
 
             <div style={{ display: "flex", gap: 10, marginTop: 14 }}>

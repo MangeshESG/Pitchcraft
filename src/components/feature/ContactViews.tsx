@@ -8,6 +8,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEdit, faTrashAlt } from "@fortawesome/free-regular-svg-icons";
 
 type FieldType = "text" | "number" | "date" | "boolean" | "dropdown";
+type JoinOperator = "AND" | "OR";
 
 interface ContactFieldOption {
   key: string;
@@ -142,24 +143,39 @@ const isCompleteCondition = (condition: FilterCondition) =>
   condition.operator?.trim() &&
   String(condition.value ?? "").trim() !== "";
 
+interface FilterGroup {
+  id?: string;
+  joinWithPrevious?: JoinOperator;
+  conditions: FilterCondition[];
+}
+
 const parseFiltersJson = (
   filtersJson?: string
-): { logic: string; conditions: FilterCondition[] } => {
+): { logic: string; groups: FilterGroup[] } => {
   if (!filtersJson) {
-    return { logic: "NONE", conditions: [] };
+    return { logic: "NONE", groups: [] };
   }
 
   try {
     const parsed = JSON.parse(filtersJson);
-    if (!parsed || !Array.isArray(parsed.conditions)) {
-      return { logic: "NONE", conditions: [] };
+    if (!parsed) {
+      return { logic: "NONE", groups: [] };
+    }
+    if (Array.isArray(parsed.groups)) {
+      return { logic: String(parsed.logic || "GROUPS"), groups: parsed.groups };
+    }
+    if (Array.isArray(parsed.conditions)) {
+      return {
+        logic: String(parsed.logic || "CHAIN"),
+        groups: [{ conditions: parsed.conditions as FilterCondition[] }],
+      };
     }
     return {
-      logic: String(parsed.logic || "CHAIN"),
-      conditions: parsed.conditions as FilterCondition[],
+      logic: "NONE",
+      groups: [],
     };
   } catch {
-    return { logic: "NONE", conditions: [] };
+    return { logic: "NONE", groups: [] };
   }
 };
 
@@ -408,31 +424,41 @@ const ContactViews: React.FC<ContactViewsProps> = ({
 
   const applySavedFilters = (rows: any[], filtersJson?: string) => {
     const parsed = parseFiltersJson(filtersJson);
-    const conditions = parsed.conditions.filter((condition) =>
-      isCompleteCondition(condition)
-    );
-    if (conditions.length === 0) {
+    const groups = (parsed.groups || [])
+      .map((group, groupIndex) => ({
+        ...group,
+        joinWithPrevious:
+          groupIndex === 0 ? undefined : group.joinWithPrevious || "AND",
+        conditions: (group.conditions || []).filter((condition) =>
+          isCompleteCondition(condition)
+        ),
+      }))
+      .filter((group) => group.conditions.length > 0);
+
+    if (groups.length === 0) {
       return rows;
     }
 
-    if (parsed.logic === "AND" || parsed.logic === "OR") {
-      return rows.filter((row) => {
-        const results = conditions.map((condition) =>
-          evaluateCondition(row, condition)
-        );
-        return parsed.logic === "AND"
-          ? results.every(Boolean)
-          : results.some(Boolean);
-      });
-    }
-
     return rows.filter((row) =>
-      conditions.reduce((result, condition, index) => {
-        const conditionResult = evaluateCondition(row, condition);
-        if (index === 0) return conditionResult;
-        return condition.joinWithPrevious === "OR"
-          ? result || conditionResult
-          : result && conditionResult;
+      groups.reduce((groupResult, group, groupIndex) => {
+        const conditionsResult = group.conditions.reduce(
+          (result, condition, index) => {
+            const evaluation = evaluateCondition(row, condition);
+            if (index === 0) return evaluation;
+            return condition.joinWithPrevious === "OR"
+              ? result || evaluation
+              : result && evaluation;
+          },
+          true as boolean
+        );
+
+        if (groupIndex === 0) {
+          return conditionsResult;
+        }
+
+        return group.joinWithPrevious === "OR"
+          ? groupResult || conditionsResult
+          : groupResult && conditionsResult;
       }, true as boolean)
     );
   };
@@ -610,8 +636,8 @@ const ContactViews: React.FC<ContactViewsProps> = ({
       return;
     }
     const parsedFilters = parseFiltersJson(editFiltersJson);
-    const completeConditions = (parsedFilters.conditions || []).filter(
-      (condition) => isCompleteCondition(condition)
+    const completeConditions = (parsedFilters.groups || []).flatMap((group) =>
+      (group.conditions || []).filter((condition) => isCompleteCondition(condition))
     );
     if (completeConditions.length === 0) {
       onShowMessage?.("Add at least one complete filter before saving.", "error");

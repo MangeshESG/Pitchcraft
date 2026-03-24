@@ -393,9 +393,13 @@ const MainPage: React.FC = () => {
         case "Playground":
           return "Playground - Experiment with email generation";
         case "DataCampaigns":
-          return contactsSubTab === "List"
-            ? "Contact Lists - Create and manage contacts and segments"
-            : "Contact Segments - Create and manage contacts and segments";
+          if (contactsSubTab === "List") {
+            return "Contact Lists - Create and manage contacts and segments";
+          }
+          if (contactsSubTab === "View") {
+            return "Contact Views - Create and manage views";
+          }
+          return "Contact Segments - Create and manage contacts and segments";
         case "Campaigns":
           return "Campaigns - Create and manage email campaigns";
         case "Output":
@@ -3389,6 +3393,22 @@ try {
                               className="submenu-button"
                             >
                               Lists
+                            </button>
+                          </li>
+                          <li
+                            className={
+                              contactsSubTab === "View" ? "active" : ""
+                            }
+                          >
+                            <button
+                              onClick={() => {
+                                setContactsSubTab("View");
+                                setTab("DataCampaigns");
+                                setShowMailSubmenu(false);
+                              }}
+                              className="submenu-button"
+                            >
+                              Views
                             </button>
                           </li>
                           <li
