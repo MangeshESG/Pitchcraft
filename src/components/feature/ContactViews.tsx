@@ -202,6 +202,10 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   const [viewSearch, setViewSearch] = useState("");
   const [currentPageViews, setCurrentPageViews] = useState(1);
   const [pageSizeViews, setPageSizeViews] = useState<number | "All">(10);
+  const [viewSortKey, setViewSortKey] = useState("");
+  const [viewSortDirection, setViewSortDirection] = useState<"asc" | "desc">(
+    "asc"
+  );
   const [isLoadingViews, setIsLoadingViews] = useState(false);
   const [availableDataFiles, setAvailableDataFiles] = useState<SourceOption[]>([]);
   const [availableSegments, setAvailableSegments] = useState<SourceOption[]>([]);
@@ -344,16 +348,58 @@ const ContactViews: React.FC<ContactViewsProps> = ({
     setViewMetaMissing(false);
   }, [clientId]);
 
+  const handleViewSort = (key: string) => {
+    if (viewSortKey === key) {
+      setViewSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setViewSortKey(key);
+      setViewSortDirection("asc");
+    }
+    setCurrentPageViews(1);
+  };
+
+  const renderViewSortArrow = (columnKey: string) => {
+    if (columnKey === viewSortKey) {
+      return viewSortDirection === "asc" ? " ▲" : " ▼";
+    }
+    return "";
+  };
+
   const filteredViews = useMemo(() => {
     const searchLower = viewSearch.toLowerCase();
-    return views.filter((view) => {
+    let filtered = views.filter((view) => {
       return (
         view.name?.toLowerCase().includes(searchLower) ||
         view.description?.toLowerCase().includes(searchLower) ||
         String(view.id).includes(searchLower)
       );
     });
-  }, [views, viewSearch]);
+    if (viewSortKey) {
+      filtered = [...filtered].sort((a, b) => {
+        const aVal = (a as any)[viewSortKey] ?? "";
+        const bVal = (b as any)[viewSortKey] ?? "";
+
+        const dateA = new Date(aVal);
+        const dateB = new Date(bVal);
+        if (!isNaN(dateA.getTime()) && !isNaN(dateB.getTime())) {
+          return viewSortDirection === "asc"
+            ? dateA.getTime() - dateB.getTime()
+            : dateB.getTime() - dateA.getTime();
+        }
+
+        const numA = Number(aVal);
+        const numB = Number(bVal);
+        if (!isNaN(numA) && !isNaN(numB)) {
+          return viewSortDirection === "asc" ? numA - numB : numB - numA;
+        }
+
+        return viewSortDirection === "asc"
+          ? String(aVal).toLowerCase().localeCompare(String(bVal).toLowerCase())
+          : String(bVal).toLowerCase().localeCompare(String(aVal).toLowerCase());
+      });
+    }
+    return filtered;
+  }, [views, viewSearch, viewSortKey, viewSortDirection]);
 
   useEffect(() => {
     setCurrentPageViews(1);
@@ -794,24 +840,43 @@ const ContactViews: React.FC<ContactViewsProps> = ({
             >
               <thead>
                 <tr>
-                  <th>Views</th>
-                  <th>ID</th>
-                  <th>Created date</th>
-                  <th>Description</th>
-                  <th>Sources</th>
+                  <th
+                    onClick={() => handleViewSort("name")}
+                    style={{ cursor: "pointer" }}
+                  >
+                    Views{renderViewSortArrow("name")}
+                  </th>
+                  <th
+                    onClick={() => handleViewSort("id")}
+                    style={{ cursor: "pointer" }}
+                  >
+                    ID{renderViewSortArrow("id")}
+                  </th>
+                  <th
+                    onClick={() => handleViewSort("created_at")}
+                    style={{ cursor: "pointer" }}
+                  >
+                    Created date{renderViewSortArrow("created_at")}
+                  </th>
+                  <th
+                    onClick={() => handleViewSort("description")}
+                    style={{ cursor: "pointer" }}
+                  >
+                    Description{renderViewSortArrow("description")}
+                  </th>
                   <th style={{ minWidth: 48 }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {isLoadingViews ? (
                   <tr>
-                    <td colSpan={6} style={{ textAlign: "center" }}>
+                    <td colSpan={5} style={{ textAlign: "center" }}>
                       Loading...
                     </td>
                   </tr>
                 ) : paginatedViews.length === 0 ? (
                   <tr>
-                    <td colSpan={6} style={{ textAlign: "center" }}>
+                    <td colSpan={5} style={{ textAlign: "center" }}>
                       No views found.
                     </td>
                   </tr>
@@ -834,11 +899,6 @@ const ContactViews: React.FC<ContactViewsProps> = ({
                       <td>#{view.id}</td>
                       <td>{formatDate(view.created_at)}</td>
                       <td>{view.description || "-"}</td>
-                      <td>
-                        {view.dataFileIds?.length || view.segmentIds?.length
-                          ? `${view.dataFileIds?.length || 0} list(s), ${view.segmentIds?.length || 0} segment(s)`
-                          : "Not cached"}
-                      </td>
                       <td>
                         <div style={{ position: "relative" }}>
                           <button
