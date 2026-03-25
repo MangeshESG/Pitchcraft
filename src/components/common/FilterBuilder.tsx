@@ -36,6 +36,8 @@ export interface Props<T> {
     clientId: string | number;
     dataFileIds?: number[];
     segmentIds?: number[];
+    useAllDataFiles?: boolean;
+    excludedDataFileIds?: number[];
     onSuccess?: (view: any) => void;
     onError?: (message: string) => void;
   };
@@ -120,7 +122,13 @@ const sortByLabelAsc = <T extends { label: string }>(items: T[]) =>
 const saveViewMeta = (
   clientId: string | number,
   viewId: number,
-  meta: { filtersJson: string; dataFileIds: number[]; segmentIds: number[] }
+  meta: {
+    filtersJson: string;
+    dataFileIds: number[];
+    segmentIds: number[];
+    useAllDataFiles?: boolean;
+    excludedDataFileIds?: number[];
+  }
 ) => {
   try {
     const existingRaw = localStorage.getItem(viewMetaKey(clientId));
@@ -553,6 +561,8 @@ function FilterBuilder<T extends Record<string, any>>({
           filtersJson,
           dataFileIds: (saveViewConfig.dataFileIds || []).filter((id) => id !== -1),
           segmentIds: saveViewConfig.segmentIds || [],
+          useAllDataFiles: saveViewConfig.useAllDataFiles || false,
+          excludedDataFileIds: saveViewConfig.excludedDataFileIds || [],
         }),
       });
 
@@ -568,6 +578,8 @@ function FilterBuilder<T extends Record<string, any>>({
             (id) => id !== -1
           ),
           segmentIds: saveViewConfig.segmentIds || [],
+          useAllDataFiles: saveViewConfig.useAllDataFiles,
+          excludedDataFileIds: saveViewConfig.excludedDataFileIds,
         });
       }
 
