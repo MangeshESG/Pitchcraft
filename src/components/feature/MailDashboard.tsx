@@ -169,13 +169,13 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     { key: "eventType", label: "Event type", visible: true },
     { key: "timestamp", label: "Timestamp", visible: true },
     { key: "sentAt", label: "Sent At", visible: true },
+    { key: "hasOpened", label: "Opened", visible: true },
+    { key: "botOpened", label: "Bot Opened", visible: true },
+    { key: "hasClicked", label: "Clicked", visible: true },
+    { key: "botClicked", label: "Bot Clicked", visible: true },
     { key: "targetUrl", label: "Target URL", visible: false },
     { key: "linkedin_URL", label: "LinkedIn", visible: false },
     { key: "website", label: "Website", visible: false },
-    { key: "hasOpened", label: "Opened", visible: true },
-    { key: "hasClicked", label: "Clicked", visible: true },
-    { key: "botClicked", label: "Bot Clicked", visible: true },
-    { key: "botOpened", label: "Bot Opened", visible: true },
     { key: "ipAddress", label: "IP Address", visible: true },
   ]);
 
@@ -2229,17 +2229,17 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
               hasClicked: (value: any) => (value ? "✅" : "-"),
               botClicked: (value: any, item: any) => {
                 if (value === true) {
-                  return <span style={{ color: "#28a745", fontSize: "16px" }}>✅</span>;
+                  return <span style={{ color: "#28a745", fontSize: "14px" }}>✅</span>;
                 } else if (value === false) {
-                  return <span style={{ color: "#dc3545", fontSize: "16px" }}>❌</span>;
+                  return <span style={{ color: "#dc3545", fontSize: "16px" }}>-</span>;
                 }
                 return "-";
               },
               botOpened: (value: any, item: any) => {
                 if (value === true) {
-                  return <span style={{ color: "#28a745", fontSize: "16px" }}>✅</span>;
+                  return <span style={{ color: "#28a745", fontSize: "14px" }}>✅</span>;
                 } else if (value === false) {
-                  return <span style={{ color: "#dc3545", fontSize: "16px" }}>❌</span>;
+                  return <span style={{ color: "#dc3545", fontSize: "16px" }}>-</span>;
                 }
                 return "-";
               },

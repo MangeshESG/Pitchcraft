@@ -59,7 +59,9 @@ const getDefaultVisibleColumns = (): string[] => {
     'email',
     'company_name',
     'job_title',
-    'country_or_address'
+    'country_or_address',
+    'hasLinkedInInfo',
+    'hasNotes'
   ];
 };
 
@@ -244,10 +246,12 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     { key: "website", label: "Website", visible: false },
     { key: "linkedin_url", label: "LinkedIn profile", visible: false },
     { key: "country_or_address", label: "Location", visible: true },
+    { key: "hasLinkedInInfo", label: "LinkedIn Information", visible: true },
+    { key: "hasNotes", label: "Notes", visible: true },
     { key: "created_at", label: "Created date", visible: false },
     { key: "updated_at", label: "Last updated", visible: false },
     { key: "email_sent_at", label: "Email Sent Date", visible: false },
-    { key: "notes", label: "Notes", visible: false },
+    { key: "notes", label: "Notes Text", visible: false },
   ]);
 
   const appModal = useAppModal();
@@ -1826,10 +1830,12 @@ const formatTimeIST = (dateString?: string) => {
     companyTelephone: "Company telephone",
     companyEmployeeCount: "Company employee count",
     companyIndustry: "Company industry",
-    companyLinkedInURL: "Company linked in URL",
+    companyLinkedInURL: "Company LinkedIn URL",
     companyEventLink: "Company event link",
     unsubscribe: "Unsubscribe",
     notes: "Notes",
+    hasLinkedInInfo: "LinkedIn Information",
+    hasNotes: "Notes",
   };
   const segmentFilteredContacts = useMemo(() => {
     let filtered = segmentContacts.filter((contact) => {
@@ -1883,6 +1889,8 @@ const baseFields: any[] = [
   { key: "country_or_address", label: "Country", type: "text" },
   { key: "companyIndustry", label: "Industry", type: "text" },
   { key: "companyEmployeeCount", label: "Employee Count", type: "number" },
+  { key: "hasLinkedInInfo", label: "LinkedIn Information", type: "boolean" },
+  { key: "hasNotes", label: "Notes", type: "boolean" },
 ];
 const normalizeFilterFieldType = (fieldType?: string) => {
   switch ((fieldType || "").toLowerCase()) {
@@ -2450,6 +2458,26 @@ const filterFields: any = useMemo(() => {
                           {value}
                         </a>
                       );
+                    },
+
+                    // LinkedIn Info status
+                    hasLinkedInInfo: (value: any) => {
+                      if (value === true) {
+                        return <span style={{ color: "#28a745", fontSize: "16px" }}>✅</span>;
+                      } else if (value === false) {
+                        return <span style={{ color: "#dc3545", fontSize: "16px" }}>-</span>;
+                      }
+                      return "-";
+                    },
+
+                    // Notes status
+                    hasNotes: (value: any) => {
+                      if (value === true) {
+                        return <span style={{ color: "#28a745", fontSize: "16px" }}>✅</span>;
+                      } else if (value === false) {
+                        return <span style={{ color: "#dc3545", fontSize: "16px" }}>-</span>;
+                      }
+                      return "-";
                     },
 
                     // Notes formatting - show icon with tooltip
@@ -3642,6 +3670,26 @@ const filterFields: any = useMemo(() => {
                           {value}
                         </a>
                       );
+                    },
+
+                    // LinkedIn Info status
+                    hasLinkedInInfo: (value: any) => {
+                      if (value === true) {
+                        return <span style={{ color: "#28a745", fontSize: "16px" }}>✅</span>;
+                      } else if (value === false) {
+                        return <span style={{ color: "#dc3545", fontSize: "16px" }}>-</span>;
+                      }
+                      return "-";
+                    },
+
+                    // Notes status
+                    hasNotes: (value: any) => {
+                      if (value === true) {
+                        return <span style={{ color: "#28a745", fontSize: "16px" }}>✅</span>;
+                      } else if (value === false) {
+                        return <span style={{ color: "#dc3545", fontSize: "16px" }}>-</span>;
+                      }
+                      return "-";
                     },
 
                     // Notes formatting - show icon with tooltip

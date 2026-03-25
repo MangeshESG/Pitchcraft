@@ -269,6 +269,23 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
 
   // Generate human-readable label from key
   const generateLabel = (key: string): string => {
+    console.log('Generating label for key:', key); // Debug log
+    // Handle specific cases first
+    if (key === 'hasLinkedInInfo') return 'LinkedIn Information';
+    if (key === 'hasNotes') return 'Notes';
+    // if (key === 'companyLinkedInURL') return 'Company LinkedIn URL';
+    // if (key === 'company_linkedin_url') return 'Company LinkedIn URL';
+    // if (key === 'companyLinkedinUrl') return 'Company LinkedIn URL';
+    // if (key === 'companyLinkedInUrl') return 'Company LinkedIn URL';
+    
+    // Special handling for LinkedIn URL variations
+    if (key.toLowerCase().includes('linkedin') && key.toLowerCase().includes('url')) {
+      if (key.toLowerCase().includes('company')) {
+        return 'Company LinkedIn URL';
+      }
+      return 'LinkedIn URL';
+    }
+    
     return key
       .replace(/([A-Z])/g, " $1") // Add space before capital letters
       .replace(/[_-]/g, " ") // Replace underscores and dashes with spaces
@@ -864,8 +881,8 @@ const displayData =
                           onChange={(e) => handleSelectAll(e.target.checked)}
                         />
                       ) : (
+                        // First check columnNameMap, then fallback to column.label
                         columnNameMap?.[column.key] || column.label
-                        //column.label
                       )}
                       {sortConfig.key === column.key ? (sortConfig.direction === "asc" ? " ▲" : " ▼") : ""}
                     </th>
@@ -1063,8 +1080,7 @@ const displayData =
                           display: "block",
                         }}
                       >
-    {columnNameMap?.[column.key] || column.label}
-                        {/* {column.label} */}
+                        {columnNameMap?.[column.key] || column.label}
                       </span>
                       <span
                         style={{
