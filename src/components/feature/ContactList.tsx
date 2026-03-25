@@ -2033,7 +2033,7 @@ const filterFields: any = useMemo(() => {
                               cursor: "pointer"
                             }}
                           >
-                            📁 Upload File
+                            📁 Upload file
                           </button>
                           <button
                             onClick={() => {
@@ -2051,7 +2051,7 @@ const filterFields: any = useMemo(() => {
                               cursor: "pointer"
                             }}
                           >
-                            ✏️ Add Manually
+                            ✏️ Add manually
                           </button>
                         </div>
                       )}

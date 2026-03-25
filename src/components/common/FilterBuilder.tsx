@@ -601,7 +601,7 @@ function FilterBuilder<T extends Record<string, any>>({
             marginBottom: 4,
           }}
         >
-          Build Filter Rules
+          Build filter rules
         </div>
         <div style={{ fontSize: 13, color: "#527057" }}>
           Mix AND and OR inside groups, then combine groups for advanced logic.
@@ -672,24 +672,24 @@ function FilterBuilder<T extends Record<string, any>>({
                 background: "#ffffff",
               }}
             >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  marginBottom: 12,
-                }}
-              >
+              {groups.length > 1 && (
                 <div
                   style={{
-                    fontWeight: 700,
-                    color: "#24572b",
-                    fontSize: 14,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginBottom: 12,
                   }}
                 >
-                  Group {groupIndex + 1}
-                </div>
-                {groups.length > 1 && (
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      color: "#24572b",
+                      fontSize: 14,
+                    }}
+                  >
+                    Group {groupIndex + 1}
+                  </div>
                   <button
                     type="button"
                     onClick={() => removeGroup(group.id)}
@@ -705,8 +705,8 @@ function FilterBuilder<T extends Record<string, any>>({
                   >
                     Remove group
                   </button>
-                )}
-              </div>
+                </div>
+              )}
 
               {group.conditions.map((condition, index) => {
                 const field = getField(condition.field);
@@ -940,7 +940,7 @@ function FilterBuilder<T extends Record<string, any>>({
                     background: "#f4fbf4",
                   }}
                 >
-                  + Add Condition
+                  + Add condition
                 </button>
               </div>
             </div>
@@ -966,11 +966,11 @@ function FilterBuilder<T extends Record<string, any>>({
               background: "#f4fbf4",
             }}
           >
-            + Add Group
+            + Add group
           </button>
 
           <button type="button" onClick={clearFilters} style={actionButtonStyle}>
-            Clear Filters
+            Clear filters
           </button>
 
           {!hideApplyButton && (
@@ -984,7 +984,7 @@ function FilterBuilder<T extends Record<string, any>>({
                 color: "#fff",
               }}
             >
-              Apply Filters
+              Apply filters
             </button>
           )}
 
@@ -999,7 +999,7 @@ function FilterBuilder<T extends Record<string, any>>({
                 color: "#2158a8",
               }}
             >
-              {showSavePanel ? "Hide Save Panel" : "Save as View"}
+              {showSavePanel ? "Hide save panel" : "Save as view"}
             </button>
           )}
 
@@ -1057,10 +1057,6 @@ function FilterBuilder<T extends Record<string, any>>({
               />
             </div>
 
-            <div style={{ marginTop: 12, fontSize: 13, color: "#5e728f" }}>
-              The current grouped rules will be stored in `filters_json`.
-            </div>
-
             <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
               <button
                 type="button"
@@ -1083,7 +1079,7 @@ function FilterBuilder<T extends Record<string, any>>({
                     isSavingView || !viewName.trim() ? "not-allowed" : "pointer",
                 }}
               >
-                {isSavingView ? "Saving..." : "Save View"}
+                {isSavingView ? "Saving..." : "Save view"}
               </button>
             </div>
           </div>
