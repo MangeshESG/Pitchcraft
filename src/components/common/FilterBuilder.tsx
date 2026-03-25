@@ -107,6 +107,16 @@ const generateId = () => Math.random().toString(36).substring(2, 9);
 const viewMetaKey = (clientId: string | number) =>
   `crm_view_meta_${clientId}`;
 
+const sortStringsAsc = (values: string[]) =>
+  [...values].sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: "base" })
+  );
+
+const sortByLabelAsc = <T extends { label: string }>(items: T[]) =>
+  [...items].sort((a, b) =>
+    a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
+  );
+
 const saveViewMeta = (
   clientId: string | number,
   viewId: number,
@@ -247,6 +257,17 @@ function FilterBuilder<T extends Record<string, any>>({
   const [viewName, setViewName] = useState("");
   const [viewDescription, setViewDescription] = useState("");
   const [isSavingView, setIsSavingView] = useState(false);
+
+  const sortedFields = useMemo(() => sortByLabelAsc(fields), [fields]);
+  const sortedFieldOptions = useMemo(() => {
+    const map = new Map<string, string[]>();
+    fields.forEach((field) => {
+      if (field.options && field.options.length > 0) {
+        map.set(field.key, sortStringsAsc(field.options));
+      }
+    });
+    return map;
+  }, [fields]);
 
   const completeGroups = useMemo(
     () =>
@@ -693,6 +714,10 @@ function FilterBuilder<T extends Record<string, any>>({
                 const operators = field
                   ? operatorsByType[normalizedFieldType]
                   : operatorsByType.text;
+                const sortedOperators = sortByLabelAsc(operators);
+                const dropdownOptions = field?.options
+                  ? sortedFieldOptions.get(field.key) || sortStringsAsc(field.options)
+                  : [];
 
                 return (
                   <div
@@ -791,7 +816,7 @@ function FilterBuilder<T extends Record<string, any>>({
                         style={controlStyle}
                       >
                         <option value="">Choose field</option>
-                        {fields.map((fieldOption) => (
+                        {sortedFields.map((fieldOption) => (
                           <option key={fieldOption.key} value={fieldOption.key}>
                             {fieldOption.label}
                           </option>
@@ -811,7 +836,7 @@ function FilterBuilder<T extends Record<string, any>>({
                         style={controlStyle}
                       >
                         <option value="">Operator</option>
-                        {operators.map((operator) => (
+                        {sortedOperators.map((operator) => (
                           <option key={operator.value} value={operator.value}>
                             {operator.label}
                           </option>
@@ -832,7 +857,7 @@ function FilterBuilder<T extends Record<string, any>>({
                           style={controlStyle}
                         >
                           <option value="">Select value</option>
-                          {field?.options?.map((option) => (
+                          {dropdownOptions.map((option) => (
                             <option key={option} value={option}>
                               {option}
                             </option>
@@ -852,8 +877,8 @@ function FilterBuilder<T extends Record<string, any>>({
                           style={controlStyle}
                         >
                           <option value="">Select value</option>
-                          <option value="true">True</option>
                           <option value="false">False</option>
+                          <option value="true">True</option>
                         </select>
                       ) : (
                         <input

@@ -2313,33 +2313,6 @@ const filterFields: any = useMemo(() => {
                 
               ) : (
                   <>
-                {/* FILTER BUILDER */}
-              <div style={{ marginBottom: 16 }}>
-                <FilterBuilder
-                  data={allDetailContacts}
-                  fields={filterFields}
-                  onFiltered={(data) => setDetailContacts(data)}
-                  saveViewConfig={{
-                    clientId: effectiveUserId,
-                    dataFileIds:
-                      selectedDataFileForView?.id === -1
-                        ? dataFiles.filter((file) => file.id !== -1).map((file) => file.id)
-                        : selectedDataFileForView
-                        ? [selectedDataFileForView.id]
-                        : [],
-                    onSuccess: (view) =>
-                      appModal.showSuccess(
-                        `View "${view?.name || "Saved view"}" created successfully!`
-                      ),
-                    onError: (message) => appModal.showError(message),
-                  }}
-                />
-              </div>
-
-                
-
-                
-       
                 <DynamicContactsTable
                   data={filteredDetailContacts}
                   isLoading={isLoadingDetail}
@@ -2517,99 +2490,132 @@ const filterFields: any = useMemo(() => {
                   onAddItem={() => setShowAddContactModal(true)}
                   columnNameMap={columnNameMap}
                   customHeader={
-                    detailSelectedContacts.size > 0 && (
-                      <div
-                        style={{
-                          marginBottom: 16,
-                          padding: "12px 16px",
-                          background: "#f0f7ff",
-                          borderRadius: 6,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 16,
-                        }}
-                      >
-                        <span style={{ fontWeight: 500 }}>
-                          {detailSelectedContacts.size} contact
-                          {detailSelectedContacts.size > 1 ? "s" : ""} selected
-                        </span>
-                        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-                          {detailSelectedContacts.size === 1 && (
+                    <>
+                      <div style={{ marginBottom: 16 }}>
+                        <FilterBuilder
+                          data={allDetailContacts}
+                          fields={filterFields}
+                          onFiltered={(data) => setDetailContacts(data)}
+                          saveViewConfig={{
+                            clientId: effectiveUserId,
+                            dataFileIds:
+                              selectedDataFileForView?.id === -1
+                                ? dataFiles
+                                    .filter((file) => file.id !== -1)
+                                    .map((file) => file.id)
+                                : selectedDataFileForView
+                                ? [selectedDataFileForView.id]
+                                : [],
+                            onSuccess: (view) =>
+                              appModal.showSuccess(
+                                `View "${view?.name || "Saved view"}" created successfully!`
+                              ),
+                            onError: (message) => appModal.showError(message),
+                          }}
+                        />
+                      </div>
+                      {detailSelectedContacts.size > 0 && (
+                        <div
+                          style={{
+                            marginBottom: 16,
+                            padding: "12px 16px",
+                            background: "#f0f7ff",
+                            borderRadius: 6,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 16,
+                          }}
+                        >
+                          <span style={{ fontWeight: 500 }}>
+                            {detailSelectedContacts.size} contact
+                            {detailSelectedContacts.size > 1 ? "s" : ""} selected
+                          </span>
+                          <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+                            {detailSelectedContacts.size === 1 && (
+                              <button
+                                className="button secondary"
+                                onClick={async () => {
+                                  const contactId = Array.from(
+                                    detailSelectedContacts
+                                  )[0];
+                                  try {
+                                    setIsCloningContact(true);
+                                    const response = await fetch(
+                                      `${API_BASE_URL}/api/Crm/clone-contact?contactId=${contactId}`,
+                                      { method: "POST", headers: { accept: "*/*" } }
+                                    );
+                                    if (!response.ok)
+                                      throw new Error("Failed to clone contact");
+                                    appModal.showSuccess("Contact cloned successfully!");
+                                    if (selectedDataFileForView) {
+                                      fetchDetailContacts(
+                                        "list",
+                                        selectedDataFileForView
+                                      );
+                                    }
+                                    setDetailSelectedContacts(new Set());
+                                  } catch (error) {
+                                    appModal.showError("Failed to clone contact");
+                                  } finally {
+                                    setIsCloningContact(false);
+                                  }
+                                }}
+                                disabled={isCloningContact}
+                                style={{
+                                  background: "#17a2b8",
+                                  color: "#fff",
+                                  border: "none",
+                                }}
+                              >
+                                {isCloningContact
+                                  ? "Cloning..."
+                                  : "Clone contact"}
+                              </button>
+                            )}
                             <button
                               className="button secondary"
-                              onClick={async () => {
-                                const contactId = Array.from(detailSelectedContacts)[0];
-                                try {
-                                  setIsCloningContact(true);
-                                  const response = await fetch(
-                                    `${API_BASE_URL}/api/Crm/clone-contact?contactId=${contactId}`,
-                                    { method: "POST", headers: { "accept": "*/*" } }
-                                  );
-                                  if (!response.ok) throw new Error("Failed to clone contact");
-                                  appModal.showSuccess("Contact cloned successfully!");
-                                  if (selectedDataFileForView) {
-                                    fetchDetailContacts("list", selectedDataFileForView);
-                                  }
-                                  setDetailSelectedContacts(new Set());
-                                } catch (error) {
-                                  appModal.showError("Failed to clone contact");
-                                } finally {
-                                  setIsCloningContact(false);
-                                }
-                              }}
-                              disabled={isCloningContact}
+                              onClick={handleDeleteListContacts}
+                              disabled={isDeletingContact}
                               style={{
-                                background: "#17a2b8",
+                                background: "#dc3545",
                                 color: "#fff",
                                 border: "none",
                               }}
                             >
-                              {isCloningContact ? "Cloning..." : "Clone contact"}
+                              {isDeletingContact ? "Deleting..." : "Delete contacts"}
                             </button>
-                          )}
-                          <button
-                            className="button secondary"
-                            onClick={handleDeleteListContacts}
-                            disabled={isDeletingContact}
-                            style={{
-                              background: "#dc3545",
-                              color: "#fff",
-                              border: "none",
-                            }}
-                          >
-                            {isDeletingContact ? "Deleting..." : "Delete contacts"}
-                          </button>
-                          <button
-                            className="button secondary"
-                            onClick={handleUnsubscribeContacts}
-                            disabled={isUnsubscribing}
-                            style={{
-                              background: "#ff9800",
-                              color: "#fff",
-                              border: "none",
-                            }}
-                          >
-                            {isUnsubscribing ? "Processing..." : "Unsubscribe"}
-                          </button>
-                          <button
-                            className="button primary"
-                            onClick={() => {
-                              setShowSaveSegmentModal(true);
-                              if (segments.length === 0) {
-                                fetchSegments();
-                              }
-                            }}
-                            style={{ 
-                              backgroundColor: "#3f9f42",
-                              borderColor: "#3f9f42",
-                              color: "#fff"
-                            }}
-                          >
-                            Segment
-                          </button>
+                            <button
+                              className="button secondary"
+                              onClick={handleUnsubscribeContacts}
+                              disabled={isUnsubscribing}
+                              style={{
+                                background: "#ff9800",
+                                color: "#fff",
+                                border: "none",
+                              }}
+                            >
+                              {isUnsubscribing ? "Processing..." : "Unsubscribe"}
+                            </button>
+                            <button
+                              className="button primary"
+                              onClick={() => {
+                                setShowSaveSegmentModal(true);
+                                if (segments.length === 0) {
+                                  fetchSegments();
+                                }
+                              }}
+                              style={{
+                                backgroundColor: "#3f9f42",
+                                borderColor: "#3f9f42",
+                                color: "#fff",
+                              }}
+                            >
+                              Segment
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    )
+                      )}
+                    </>
                   }
                 // customColumns={customColumns}
                 />
