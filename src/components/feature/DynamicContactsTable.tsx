@@ -690,7 +690,7 @@ const displayData =
             }}
           >
             {onBack && (
-              <button className="button secondary" onClick={onBack}>
+              <button className="button secondary" onClick={onBack} style={{ borderRadius:"12px" }}>
                 ← Back
               </button>
             )}
@@ -705,7 +705,7 @@ const displayData =
                     color: "#fff",
                     border: "none",
                     padding: "8px 16px",
-                    borderRadius: "4px",
+                    borderRadius: "12px",
                     cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
@@ -718,6 +718,7 @@ const displayData =
               )}
               <button
                 className="button secondary"
+                style={{ borderRadius:"12px" }}
                 onClick={() => setShowColumnPanel(!showColumnPanel)}
               >
                 Show/hide columns

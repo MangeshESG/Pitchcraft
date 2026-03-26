@@ -583,7 +583,7 @@ useEffect(() => {
         <div className="col-12">
           {onBack && (
             <div className="mb-20">
-              <button className="button secondary" onClick={onBack}>
+              <button className="button secondary" onClick={onBack} style={{ borderRadius:"12px" }}>
                 ← Back to contacts
               </button>
             </div>
@@ -626,6 +626,7 @@ useEffect(() => {
                 <h4 className="!mb-0">Upload your contacts data file</h4>
                 <button
                   className="button secondary small flex items-center"
+                  style={{ borderRadius:"12px" }}
                   onClick={downloadTemplate}
                 >
                   <svg
@@ -800,12 +801,13 @@ useEffect(() => {
                 className="
               flex justify-end gap-2"
               >
-                <button onClick={resetUpload} className="button secondary">
+                <button onClick={resetUpload} className="button secondary"style={{ borderRadius:"12px" }}>
                   Back
                 </button>
                 <button
                   onClick={generatePreview}
                   className="button action-button"
+                  style={{ borderRadius:"12px" }}
                   disabled={
                     !Object.values(columnMappings).includes("first_name") ||
                     !Object.values(columnMappings).includes("email")
@@ -899,6 +901,7 @@ useEffect(() => {
               <div className="button-group mt-30">
                 <button
                   onClick={() => setCurrentStep(2)}
+                  style={{ borderRadius:"12px" }}
                   className="button secondary"
                 >
                   Back to mapping
@@ -906,6 +909,7 @@ useEffect(() => {
                 <button
                   //onClick={() => {console.log("Process & Save Data button clicked!");setShowDataFileModal(true)}}
                   onClick={handleButtonClick}
+                  style={{ borderRadius:"12px" }}
                   className="button action-button"
                   disabled={isProcessing || processingStats.valid === 0}
                 >

@@ -179,6 +179,7 @@ setOverwriteDatabase,
           <button
             className="bg-[#e7f5e8] text-[#3f9f42] font-[600] text-[14px] border border-dashed border-[#9b9b9b] !rounded-[4px] h-[30px] ml-[5px] py-[2px] px-[5px]"
             onClick={() => onClose()}
+            style={{ borderRadius: "12px" }}
           >
             <span className="flex items-center gap-[5px]">
               {/* <FontAwesomeIcon
@@ -405,6 +406,7 @@ setOverwriteDatabase,
 
            onStart();
         }}
+        style={{ borderRadius: "12px" }}
       >
         Start
       </button>
@@ -413,7 +415,7 @@ setOverwriteDatabase,
       type="button"
       className="button save-button w-[100%]"
       onClick={onStop}   // or separate stop handler if you have one
-      style={{ flex: 1, padding: "10px 16px", fontSize: 14, fontWeight: 600 }}
+      style={{ flex: 1, padding: "10px 16px", fontSize: 14, fontWeight: 600, borderRadius: "12px" }}
     >
       Stop
     </button>
@@ -833,7 +835,7 @@ setOverwriteDatabase,
                     }
                     return false;
                   })()}
-                  style={{ flex: 1, padding: "10px 16px", fontSize: 14, fontWeight: 600 }}
+                  style={{ flex: 1, padding: "10px 16px", fontSize: 14, fontWeight: 600, borderRadius: "12px" }}
                 >
                   {!sendingEmail && emailMessage === "" && "Send"}
                   {sendingEmail && "Sending..."}
@@ -879,7 +881,7 @@ setOverwriteDatabase,
                     }
                     return false;
                   })()}
-                  style={{ flex: 1, padding: "10px 16px", fontSize: 14, fontWeight: 600 }}
+                  style={{ flex: 1, padding: "10px 16px", fontSize: 14, fontWeight: 600, borderRadius: "12px" }}
                 >
                   {isBulkSending ? "Stop" : "Send all"}
                 </button>

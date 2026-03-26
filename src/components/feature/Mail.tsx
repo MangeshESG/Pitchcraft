@@ -1704,6 +1704,7 @@ const actionIconStyle = {
             <button
               onClick={() => setConfigTab("mailboxes")}
               className={configTab === "mailboxes" ? "active-config-tab" : "config-tab"}
+              style={{ borderRadius: "12px" }}
             >
               Mailboxes
             </button>
@@ -1711,6 +1712,7 @@ const actionIconStyle = {
             <button
               onClick={() => setConfigTab("bcc")}
               className={configTab === "bcc" ? "active-config-tab" : "config-tab"}
+              style={{ borderRadius: "12px" }}
             >
               BCC email management
             </button>
@@ -1718,6 +1720,7 @@ const actionIconStyle = {
             <button
               onClick={() => setConfigTab("domain")}
               className={configTab === "domain" ? "active-config-tab" : "config-tab"}
+              style={{ borderRadius: "12px" }}
             >
               Domain authentication
             </button>
@@ -1752,7 +1755,7 @@ const actionIconStyle = {
                   {!isDemoAccount && (
                     <button
                       className="save-button button auto-width small d-flex justify-between align-center"
-                      style={{ marginLeft: "auto" }}
+                      style={{ marginLeft: "auto", borderRadius: "12px" }}
                       onClick={() => handleModalOpen("modal-add-mailbox")}
                     >
                       + Add mailbox
@@ -1912,7 +1915,7 @@ const actionIconStyle = {
                           padding: "10px 32px",
                           border: "1px solid #ddd",
                           background: "#fff",
-                          borderRadius: "24px",
+                          borderRadius: "12px",
                           cursor: "pointer",
                           fontSize: "14px",
                           fontWeight: "500",
@@ -1929,7 +1932,7 @@ const actionIconStyle = {
                           background: "#fff",
                           color: smtpLoading ? "#ccc" : "#ef4444",
                           border: `1px solid ${smtpLoading ? "#ccc" : "#ef4444"}`,
-                          borderRadius: "24px",
+                          borderRadius: "12px",
                           cursor: smtpLoading ? "not-allowed" : "pointer",
                           fontSize: "14px",
                           fontWeight: "500",
@@ -2158,7 +2161,7 @@ const actionIconStyle = {
                   /> */}
                   <button
                     className="save-button button auto-width small d-flex justify-between align-center mt-10"
-                    style={{ marginLeft: "auto"}}
+                    style={{ marginLeft: "auto", borderRadius: "12px" }}
                     // onClick={handleAddBcc}
                     onClick={() => setShowPopup(true)}
                     //disabled={bccLoading || !newBccEmail}
@@ -2206,7 +2209,7 @@ const actionIconStyle = {
                                   background: "#dc3545",
                                   color: "#fff",
                                   border: "none",
-                                  borderRadius: "4px",
+                                  borderRadius: "12px",
                                   cursor: bccLoading ? "not-allowed" : "pointer",
                                 }}
                               >
@@ -2242,7 +2245,7 @@ const actionIconStyle = {
                           padding: "10px 32px",
                           border: "1px solid #ddd",
                           background: "#fff",
-                          borderRadius: "24px",
+                          borderRadius: "12px",
                           cursor: "pointer",
                           fontSize: "14px",
                           fontWeight: "500",
@@ -2259,7 +2262,7 @@ const actionIconStyle = {
                           background: "#fff",
                           color: bccLoading || !newBccEmail ? "#ccc" : "#ef4444",
                           border: `1px solid ${bccLoading || !newBccEmail ? "#ccc" : "#ef4444"}`,
-                          borderRadius: "24px",
+                          borderRadius: "12px",
                           cursor: bccLoading || !newBccEmail ? "not-allowed" : "pointer",
                           fontSize: "14px",
                           fontWeight: "500",
@@ -2370,7 +2373,7 @@ const actionIconStyle = {
                                 background: "#dc3545",
                                 color: "#fff",
                                 border: "none",
-                                borderRadius: "4px",
+                                borderRadius: "12px",
                                 cursor: "pointer",
                               }}
                             >
@@ -2470,7 +2473,7 @@ const actionIconStyle = {
                 {!isDemoAccount && (
                   <button
                     className="save-button button auto-width small d-flex justify-between align-center"
-                    style={{ marginLeft: "auto" }}
+                    style={{ marginLeft: "auto", borderRadius: "12px" }}
                     onClick={() => setShowScheduleModal(true)}
                   >
                     + Create schedule
@@ -2741,7 +2744,7 @@ const actionIconStyle = {
                     padding: "10px 32px",
                     border: "1px solid #ddd",
                     background: "#fff",
-                    borderRadius: "24px",
+                    borderRadius: "12px",
                     cursor: "pointer",
                     fontSize: "14px",
                     fontWeight: "500",
@@ -2758,7 +2761,7 @@ const actionIconStyle = {
                     background: "#fff",
                     color: isFormValid ? "#ef4444" : "#ccc",
                     border: `1px solid ${isFormValid ? "#ef4444" : "#ccc"}`,
-                    borderRadius: "24px",
+                    borderRadius: "12px",
                     cursor: isFormValid ? "pointer" : "not-allowed",
                     fontSize: "14px",
                     fontWeight: "500",

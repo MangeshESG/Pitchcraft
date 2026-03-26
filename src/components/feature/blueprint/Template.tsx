@@ -815,6 +815,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
               <button
                 className="button save-button auto-width small"
                 onClick={handleCreateCampaignClick}
+                style={{ borderRadius: "12px" }}
               >
                 <span className="text-[20px] mr-1">+</span> Create campaign
                 blueprint
@@ -1702,7 +1703,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                 background: "#eaeaea", // ✅ Match PitchKraft green
                 color: "#222",
                 border: "none",
-                borderRadius: "4px",
+                borderRadius: "12px",
                 padding: "8px 16px",
                 cursor: "pointer",
                 fontSize: "14px",

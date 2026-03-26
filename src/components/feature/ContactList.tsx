@@ -2006,6 +2006,7 @@ const filterFields: any = useMemo(() => {
                     <div style={{ marginLeft: "auto", position: "relative" }}>
                       <button
                         className="ml-10 save-button button auto-width small d-flex justify-between align-center"
+                        style={{ borderRadius: "12px"}}
                         onClick={(e) => {
                           e.stopPropagation();
                           setShowCreateListOptions(!showCreateListOptions);
@@ -2593,6 +2594,7 @@ const filterFields: any = useMemo(() => {
                                   background: "#17a2b8",
                                   color: "#fff",
                                   border: "none",
+                                  borderRadius: "12px"
                                 }}
                               >
                                 {isCloningContact
@@ -2608,6 +2610,7 @@ const filterFields: any = useMemo(() => {
                                 background: "#dc3545",
                                 color: "#fff",
                                 border: "none",
+                                borderRadius: "12px"
                               }}
                             >
                               {isDeletingContact ? "Deleting..." : "Delete contacts"}
@@ -2620,6 +2623,7 @@ const filterFields: any = useMemo(() => {
                                 background: "#ff9800",
                                 color: "#fff",
                                 border: "none",
+                                borderRadius: "12px"
                               }}
                             >
                               {isUnsubscribing ? "Processing..." : "Unsubscribe"}
@@ -2636,6 +2640,7 @@ const filterFields: any = useMemo(() => {
                                 backgroundColor: "#3f9f42",
                                 borderColor: "#3f9f42",
                                 color: "#fff",
+                                borderRadius: "12px"
                               }}
                             >
                               Segment
@@ -2878,7 +2883,7 @@ const filterFields: any = useMemo(() => {
                     padding: "6px 12px",
                     background: "#eaeaea",
                     border: "1px solid #ddd",
-                    borderRadius: 4,
+                    borderRadius: "12px",
                     cursor: "pointer",
                   }}
                 >
@@ -3773,6 +3778,7 @@ const filterFields: any = useMemo(() => {
                                 background: "#17a2b8",
                                 color: "#fff",
                                 border: "none",
+                                borderRadius: "12px"
                               }}
                             >
                               {isCloningContact ? "Cloning..." : "Clone contact"}
@@ -3786,6 +3792,7 @@ const filterFields: any = useMemo(() => {
                               background: "#dc3545",
                               color: "#fff",
                               border: "none",
+                              borderRadius: "12px"
                             }}
                           >
                             {isDeletingContact ? "Deleting..." : "Remove"}
@@ -3798,6 +3805,7 @@ const filterFields: any = useMemo(() => {
                               background: "#ff9800",
                               color: "#fff",
                               border: "none",
+                              borderRadius: "12px"
                             }}
                           >
                             {isUnsubscribing ? "Processing..." : "Unsubscribe"}
@@ -3808,7 +3816,8 @@ const filterFields: any = useMemo(() => {
                             style={{ 
                               backgroundColor: "#3f9f42",
                               borderColor: "#3f9f42",
-                              color: "#fff"
+                              color: "#fff",
+                              borderRadius: "12px"
                             }}
                           >
                             Segment
