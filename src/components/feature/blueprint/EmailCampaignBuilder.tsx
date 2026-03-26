@@ -951,6 +951,9 @@ const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
                 await regenerateExampleOutput();
               }
             }}
+            style={{
+              borderRadius: "12px",
+            }}
           >
             {isGenerating ? (
               <>
@@ -3952,6 +3955,7 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
               style={{
                 height: "30px",
                 objectFit: "contain",
+                borderRadius: "12px",
               }}
               onClick={toggleNotifications}
             />
@@ -4274,6 +4278,9 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
                         className="save-btn"
                         onClick={saveTemplateDefinition}
                         disabled={isSavingDefinition}
+                        style={{
+                          borderRadius: "12px",
+                        }}
                       >
                         {isSavingDefinition
                           ? "Saving..."
@@ -4285,7 +4292,7 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
                     {selectedTemplateDefinitionId !== null && (
                       <button
                         className="save-btn"
-                        style={{ background: "#2563eb" }}
+                        style={{ background: "#2563eb", borderRadius: "12px" }}
                         onClick={updateTemplateDefinition}
                         disabled={isSavingDefinition}
                       >
@@ -4299,17 +4306,22 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
                       className="start-btn"
                       onClick={startConversation}
                       disabled={!selectedTemplateDefinitionId}
+                      style={{
+                        borderRadius: "12px",
+                      }}
                     >
                       Start filling placeholders →
                     </button>
-                    <button className="new-btn" onClick={createNewInstruction}>
+                    <button className="new-btn" onClick={createNewInstruction} style={{
+                      borderRadius: "12px",
+                    }}>
                       + New instruction
                     </button>
                   </div>
                   {selectedTemplateDefinitionId !== null && (
                     <button
                       className="delete-btn"
-                      style={{ background: "#dc2626", color: "white" }}
+                      style={{ background: "#dc2626", color: "white", borderRadius: "12px" }}
                       onClick={deleteTemplateDefinition}
                     >
                       Delete
@@ -4798,7 +4810,7 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
                                 <button
                                   style={{
                                     padding: "4px 8px",
-                                    borderRadius: "6px",
+                                    borderRadius: "12px",
                                     background: "#e5e7eb",
                                     cursor: "pointer",
                                   }}
@@ -4810,7 +4822,7 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
                                 <button
                                   style={{
                                     padding: "4px 8px",
-                                    borderRadius: "6px",
+                                    borderRadius: "12px",
                                     background: "#e5e7eb",
                                     cursor: "pointer",
                                   }}
@@ -4833,7 +4845,7 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
                                   background: p.isRuntimeOnly ? "#9ca3af" : "#dc2626",
                                   cursor: p.isRuntimeOnly ? "not-allowed" : "pointer",
                                   color: "#fff",
-                                  borderRadius: "6px",
+                                  borderRadius: "12px",
                                   padding: "6px 10px",
                                 }}
                               >
@@ -4853,7 +4865,7 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
                           padding: "10px 18px",
                           background: "#3f9f42",
                           color: "#fff",
-                          borderRadius: "6px",
+                          borderRadius: "12px",
                           fontWeight: 600,
                         }}
                       >

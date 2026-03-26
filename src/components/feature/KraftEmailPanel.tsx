@@ -110,6 +110,7 @@ const KraftEmailPanel: React.FC<KraftEmailPanelProps> = ({
             background: "transparent",
             fontSize: 22,
             cursor: "pointer",
+            borderRadius: "12px",
           }}
         >
           ✕
@@ -261,6 +262,7 @@ const KraftEmailPanel: React.FC<KraftEmailPanelProps> = ({
                 cursor: "pointer",
                 fontSize: "14px",
                 color: "#64748b",
+                borderRadius: "12px",
               }}
             >
               ✕
@@ -346,7 +348,7 @@ const KraftEmailPanel: React.FC<KraftEmailPanelProps> = ({
               setShowValidationError(false);
               onStart();
             }}
-            style={{ flex: 1, padding: "10px 16px", fontSize: 14, fontWeight: 600 }}
+            style={{ flex: 1, padding: "10px 16px", fontSize: 14, fontWeight: 600, borderRadius: "12px" }}
           >
             Start
           </button>
@@ -355,7 +357,7 @@ const KraftEmailPanel: React.FC<KraftEmailPanelProps> = ({
             type="button"
             className="button save-button"
             onClick={onStop}
-            style={{ flex: 1, padding: "10px 16px", fontSize: 14, fontWeight: 600 }}
+            style={{ flex: 1, padding: "10px 16px", fontSize: 14, fontWeight: 600, borderRadius: "12px" }}
           >
             Stop
           </button>

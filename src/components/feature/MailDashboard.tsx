@@ -1607,12 +1607,14 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
           <button
             className="button secondary"
             onClick={() => setSelectedEmailLogs(new Set())}
+            style={{ borderRadius: "12px" }}
           >
             Clear Selection
           </button>
           <button
             className="button primary"
             onClick={() => setShowSaveSegmentModal(true)}
+            style={{ borderRadius: "12px" }}
           >
             Create Segment
           </button>
@@ -1644,12 +1646,14 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
           <button
             className="button secondary"
             onClick={() => setSelectedMissingLogs(new Set())}
+            style={{ borderRadius: "12px" }}
           >
             Clear Selection
           </button>
           <button
             className="button primary"
             onClick={() => setShowSaveSegmentModal(true)}
+            style={{ borderRadius: "12px" }}
           >
             Create Segment
           </button>
@@ -1688,12 +1692,14 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
           <button
             className="button secondary"
             onClick={() => setDetailSelectedContacts(new Set())}
+            style={{ borderRadius: "12px" }}
           >
             Clear Selection
           </button>
           <button
             className="button primary"
             onClick={() => setShowSaveSegmentModal(true)}
+            style={{ borderRadius: "12px" }}
           >
             Create Segment
           </button>
@@ -1704,7 +1710,8 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
             style={{
               backgroundColor: "#dc3545",
               color: "white",
-              border: "1px solid #dc3545"
+              border: "1px solid #dc3545",
+              borderRadius: "12px"
             }}
           >
             {deletingContacts ? "Deleting..." : "Delete Contact"}
@@ -1892,6 +1899,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
                 setEndDate("");
                 saveCurrentState();
               }}
+              style={{ borderRadius: "12px" }}
             >
               Clear dates
             </button>
@@ -2562,6 +2570,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
                     }}
                     className="button secondary"
                     disabled={deletingContacts}
+                    style={{ borderRadius: "12px" }}
                   >
                     Cancel
                   </button>
@@ -2576,7 +2585,8 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
                     style={{
                       backgroundColor: "#dc3545",
                       color: "white",
-                      border: "1px solid #dc3545"
+                      border: "1px solid #dc3545",
+                      borderRadius: "12px"
                     }}
                   >
                     Delete

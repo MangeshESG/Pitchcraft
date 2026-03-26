@@ -516,7 +516,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
           />
           <button
             className="save-button button small"
-            style={{ marginLeft: "auto" }}
+            style={{ marginLeft: "auto", borderRadius:"12px"}}
             onClick={() => {
               setShowCreateCampaignModal(true);
               setSelectedCampaign(null);

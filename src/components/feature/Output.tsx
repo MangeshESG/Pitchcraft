@@ -2733,6 +2733,7 @@ useEffect(() => {
                                       className="button save-button small"
                                       onClick={saveEditedSubject}
                                       disabled={isSavingSubject}
+                                      style={{ borderRadius: "12px" }}
                                     >
                                       {isSavingSubject ? "Saving..." : "Save"}
                                     </button>
@@ -2745,6 +2746,7 @@ useEffect(() => {
                                         );
                                         setIsEditingSubject(false);
                                       }}
+                                      style={{ borderRadius: "12px" }}
                                     >
                                       Cancel
                                     </button>
@@ -2967,6 +2969,7 @@ useEffect(() => {
                                   saveEditedContent();
                                 }}
                                 disabled={isSaving}
+                                style={{ borderRadius: "12px" }}
                               >
                                 {isSaving ? "Saving..." : "Save changes"}
                               </button>
@@ -2978,6 +2981,7 @@ useEffect(() => {
                                     combinedResponses[currentIndex]?.pitch || "",
                                   );
                                 }}
+                                style={{ borderRadius: "12px" }}
                               >
                                 Cancel
                               </button>

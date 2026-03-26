@@ -123,10 +123,9 @@ const VIDEO_BASE = "https://app.pitchkraft.ai";
                 <div className="flex justify-between h-[calc(100%-30px)]">
                   <div className="flex-1 flex flex-col">
                     <div className="text-gray-500 my-6">
-                      <p>Contact your account manager for new pitch blueprints. Soon you'll
-                        be able to build them right in PitchKraft.</p>
+                      <p>Similar to a template, but so much more, a blueprint is the recipe for your campaign emails. This is the most important part of the process but only takes 10 minutes. PitchKraft will talk you through it.</p>
                     </div>
-                    <button onClick={() => navigate("/main?tab=TestTemplate")} className="border-[#3f9f42] border  w-[fit-content] mt-[auto] text-[#3f9f42]  rounded-md px-3 py-1.5  font-semibold ">
+                    <button onClick={() => navigate("/main?tab=TestTemplate")} className="border-[#3f9f42] border  w-[fit-content] mt-[auto] text-[#3f9f42]  rounded-xl px-3 py-1.5  font-semibold ">
                       Create blueprint
                     </button>
                   </div>
@@ -198,9 +197,9 @@ const VIDEO_BASE = "https://app.pitchkraft.ai";
                 <div className="flex justify-between h-[calc(100%-30px)]">
                   <div className="flex-1 flex flex-col">
                     <div className="text-gray-500 my-6">
-                      <p className="flex-1">Add your audience (we’ll help map columns).</p>
+                      <p className="flex-1">Add your contacts from your CRM/Excel etc. The columns will be mapped automatically. You can also create them manually in PitchKraft. You’ll need these to send your beautifully personalized emails to.</p>
                     </div>
-                    <button onClick={() => navigate("/main?tab=DataCampaigns&subtab=List")} className="border-[#3f9f42] border  w-[fit-content] mt-[auto] text-[#3f9f42]  rounded-md px-3 py-1.5  font-semibold">
+                    <button onClick={() => navigate("/main?tab=DataCampaigns&subtab=List")} className="border-[#3f9f42] border  w-[fit-content] mt-[auto] text-[#3f9f42]  rounded-xl px-3 py-1.5  font-semibold">
                       Import contacts
                     </button>
                   </div>
@@ -279,9 +278,9 @@ const VIDEO_BASE = "https://app.pitchkraft.ai";
                 <div className="flex justify-between h-[calc(100%-30px)]">
                   <div className="flex-1 flex flex-col">
                     <div className="text-gray-500 my-6">
-                      <p className="flex-1">Pick a template + audience, then you’re ready to send.</p>
+                      <p className="flex-1">Connect your blueprints and contacts to form an email campaign. This takes a second.</p>
                     </div>
-                    <button onClick={() => navigate("/main?tab=Campaigns")} className="border-[#3f9f42] border  w-[fit-content] mt-[auto] text-[#3f9f42]  rounded-md px-3 py-1.5  font-semibold">
+                    <button onClick={() => navigate("/main?tab=Campaigns")} className="border-[#3f9f42] border  w-[fit-content] mt-[auto] text-[#3f9f42]  rounded-xl px-3 py-1.5  font-semibold">
                       New campaign
                     </button>
                   </div>
@@ -361,9 +360,9 @@ const VIDEO_BASE = "https://app.pitchkraft.ai";
                 <div className="flex justify-between h-[calc(100%-30px)]">
                   <div className="flex-1 flex flex-col">
                     <div className="text-gray-500 my-6">
-                      <p className="flex-1">Create hyper-personalized emails for your campaigns.</p>
+                      <p className="flex-1">This is where the magic happens. You’ve done all the hard work now, so all you have to do is click the ‘Kraft emails' button and watch the emails being written, one-by-one, hypnotically. Prepare to be amazed.</p>
                     </div>
-                    <button onClick={() => navigate("/main?tab=Output")} className="border-[#3f9f42] border  w-[fit-content] mt-[auto] text-[#3f9f42]  rounded-md px-3 py-1.5  font-semibold">
+                    <button onClick={() => navigate("/main?tab=Output")} className="border-[#3f9f42] border  w-[fit-content] mt-[auto] text-[#3f9f42]  rounded-xl px-3 py-1.5  font-semibold">
                       Kraft emails
                     </button>
                   </div>
@@ -393,9 +392,9 @@ const VIDEO_BASE = "https://app.pitchkraft.ai";
                 <div className="flex justify-between h-[calc(100%-30px)]">
                   <div className="flex-1 flex flex-col">
                     <div className="text-gray-500 my-6">
-                      <p className="flex-1">Add email settings, set sending schedules, then check analytics for opens, clicks and replies.</p>
+                      <p className="flex-1">Add email settings, use the free email deliverability tools, set sending schedules, then check analytics for opens, clicks and replies.</p>
                     </div>
-                    <button onClick={() => navigate("/main?tab=Mail&mailSubTab=Schedule")} className="border-[#3f9f42] border  w-[fit-content] mt-[auto] text-[#3f9f42]  rounded-md px-3 py-1.5  font-semibold">
+                    <button onClick={() => navigate("/main?tab=Mail&mailSubTab=Schedule")} className="border-[#3f9f42] border  w-[fit-content] mt-[auto] text-[#3f9f42]  rounded-xl px-3 py-1.5  font-semibold">
                       Schedule and review campaigns
                     </button>
                   </div>
@@ -424,8 +423,8 @@ const VIDEO_BASE = "https://app.pitchkraft.ai";
                   sample templates, dummy contacts, and a sample campaign. Go ahead
                   and play with it.
                 </div>
-                <button className="bg-[#3f9f42] text-white rounded-md px-3 py-1.5  font-semibold ">
-                  Try demo workspace
+                <button className="bg-[#3f9f42] text-white rounded-xl px-3 py-1.5  font-semibold ">
+                 Coming soon
                 </button>
               </div>
             </div>
@@ -448,10 +447,10 @@ const VIDEO_BASE = "https://app.pitchkraft.ai";
                   <div className=" text-gray-500">Draft • Updated 2h ago</div>
                 </div>
                 <div className="flex gap-2">
-                  <button className="bg-gray-100 border border-gray-200 text-gray-700 rounded-md px-2 py-1 ">
+                  <button className="bg-gray-100 border border-gray-200 text-gray-700 rounded-xl px-2 py-1 ">
                     View
                   </button>
-                  <button className="bg-white border border-gray-200 text-gray-700 rounded-md px-2 py-1 ">
+                  <button className="bg-white border border-gray-200 text-gray-700 rounded-xl px-2 py-1 ">
                     Edit
                   </button>
                 </div>

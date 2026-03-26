@@ -2385,7 +2385,7 @@
 .definition-select {
   width: 100%;
   padding: 10px;
-  border-radius: 6px;
+  border-radius: 12px;
   border: 1px solid #d1d5db;
 }
 
@@ -2398,7 +2398,7 @@
   background: #10b981;
   color: white;
   padding: 10px 14px;
-  border-radius: 6px;
+  border-radius: 12px;
   border: none;
 }
 
@@ -2406,7 +2406,7 @@
   background: #6366f1;
   color: white;
   padding: 10px 14px;
-  border-radius: 6px;
+  border-radius: 12px;
   border: none;
 }
 
@@ -2424,6 +2424,7 @@
   font-size: 15px;
   padding-bottom: 8px;
   cursor: pointer;
+  border-radius: 12px;
 }
 
 .subtab-btn.active {
@@ -2630,6 +2631,7 @@
 .email-campaign-builder .sticky-tabs button.active {
   color: #ffffff;
   background-color: #3f9f42;
+  border-radius: 12px;
 }
 /* ===============================
    BUILD SUB-TABS (Chat / Elements)
