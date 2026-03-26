@@ -17,12 +17,16 @@ export const Dashboard: React.FC = () => {
   const [showCampaignModal, setShowCampaignModal] = useState(false);
   const [showKraftEmailModal, setShowKraftEmailModal] = useState(false);
   const [showBlueprintModal, setShowBlueprintModal] = useState(false);
+  const [showIntroModal, setShowIntroModal] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
 
   const handleClose = () => {
     setShowBlueprintModal(false);
     setShowImportModal(false);
     setShowCampaignModal(false);
     setShowKraftEmailModal(false);
+    setShowIntroModal(false);
+    setShowScheduleModal(false);
   };
 const VIDEO_BASE = "https://app.pitchkraft.ai";
   return (
@@ -57,9 +61,52 @@ const VIDEO_BASE = "https://app.pitchkraft.ai";
                 Send your first campaign in about 15 minutes.
               </div>
             </div>
-            <span className="text-gray-600">
-              Watch 3-min intro — video coming soon
-            </span>
+            <button
+              onClick={() => setShowIntroModal(true)}
+              className="text-gray-600 green flex gap-2 items-center"
+            >
+              <FontAwesomeIcon
+                icon={faPlayCircle}
+                className=" text-[#3f9f42] text-[14px]"
+              />
+              <span>Watch 3-min intro</span>
+            </button>
+            {showIntroModal && (
+              <div
+                style={{
+                  position: "fixed",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                  backgroundColor: "rgba(0,0,0,0.5)",
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                <div
+                  style={{
+                    backgroundColor: "#fff",
+                    padding: "20px",
+                    borderRadius: "10px",
+                    maxWidth: "800px",
+                    width: "90%",
+                    zIndex: 2000,
+                  }}
+                >
+                  <button
+                    onClick={handleClose}
+                    style={{ float: "right", fontSize: "16px" }}
+                  >
+                    Close
+                  </button>
+                  <video width="100%" height="auto" controls autoPlay>
+                    <source src={`${VIDEO_BASE}/video/Intro_video_Pitchkraft.mp4`} />
+                  </video>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="py-3 pt-0 mt-[15px]">
@@ -386,7 +433,52 @@ const VIDEO_BASE = "https://app.pitchkraft.ai";
                     Schedule and review campaigns
                   </div>
 
-                  <span className=" text-gray-400">Video coming soon</span>
+                  <button
+                    onClick={() => setShowScheduleModal(true)}
+                    className="green flex gap-2 items-center"
+                  >
+                    <FontAwesomeIcon
+                      icon={faPlayCircle}
+                      className="text-[#3f9f42] text-[14px]"
+                    />
+                    <span>Watch quick intro</span>
+                  </button>
+                  {showScheduleModal && (
+                    <div
+                      style={{
+                        position: "fixed",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        height: "100%",
+                        backgroundColor: "rgba(0,0,0,0.5)",
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                      }}
+                    >
+                      <div
+                        style={{
+                          backgroundColor: "#fff",
+                          padding: "20px",
+                          borderRadius: "10px",
+                          maxWidth: "800px",
+                          width: "90%",
+                          zIndex: 2000,
+                        }}
+                      >
+                        <button
+                          onClick={handleClose}
+                          style={{ float: "right", fontSize: "16px" }}
+                        >
+                          Close
+                        </button>
+                        <video width="100%" height="auto" controls autoPlay>
+                          <source src={`${VIDEO_BASE}/video/Schedule_review_campaigns.mp4`} />
+                        </video>
+                      </div>
+                    </div>
+                  )}
 
                 </div>
                 <div className="flex justify-between h-[calc(100%-30px)]">
