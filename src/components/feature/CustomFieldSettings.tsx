@@ -84,27 +84,34 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
       return;
     }
 
-    const body = {
-      clientId: effectiveUserId,
-      fieldName: name,
-      fieldKey: isEditMode
-        ? editingField?.field_key
-        : name
+    const optionsJson =
+      type === "dropdown"
+        ? JSON.stringify(options.filter((o) => o.trim() !== ""))
+        : "[]";
+
+    const body = isEditMode
+      ? {
+          id: editingField?.id,
+          fieldName: name,
+          fieldType: type,
+          optionsJson,
+        }
+      : {
+          clientId: effectiveUserId,
+          fieldName: name,
+          fieldKey: name
             .toLowerCase()
             .replace(/[^a-z0-9\s]/g, "")
             .replace(/\s+/g, "_"),
-      fieldType: type,
-      optionsJson:
-        type === "dropdown"
-          ? JSON.stringify(options.filter(o => o.trim() !== ""))
-          : null,
-    };
+          fieldType: type,
+          optionsJson,
+        };
 
     const url = isEditMode
-      ? `${API_BASE_URL}/api/crm/custom-field-rename/${editingField?.id}`
+      ? `${API_BASE_URL}/api/crm/custom-field-rename`
       : `${API_BASE_URL}/api/crm/custom-field`;
 
-    const method = isEditMode ? "PUT" : "POST";
+    const method = "POST";
 
     const res = await fetch(url, {
       method,
@@ -121,6 +128,25 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
       setEditingField(null);
       setIsPanelOpen(false);
       loadFields();
+    } else {
+      try {
+        const errorData = await res.json();
+        if (errorData?.usedOptions?.length) {
+          alert(
+            `${errorData.message || "Cannot remove options"}: ${errorData.usedOptions.join(
+              ", "
+            )}`
+          );
+          return;
+        }
+        if (errorData?.message) {
+          alert(errorData.message);
+          return;
+        }
+      } catch {
+        // ignore parse errors and fall through to generic alert
+      }
+      alert("Failed to save custom field");
     }
   };
 
