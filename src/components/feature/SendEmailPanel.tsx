@@ -276,8 +276,8 @@ setOverwriteDatabase,
           }
           
           // Reset current index when filter changes
-          if (typeof window !== 'undefined' && window.resetCurrentIndex) {
-            window.resetCurrentIndex();
+          if (typeof window !== 'undefined' && (window as any).resetCurrentIndex) {
+            (window as any).resetCurrentIndex();
           }
           
           // Call filter change callback if provided
@@ -637,8 +637,8 @@ setOverwriteDatabase,
                       }
                       
                       // Reset current index when filter changes
-                      if (typeof window !== 'undefined' && window.resetCurrentIndex) {
-                        window.resetCurrentIndex();
+                      if (typeof window !== 'undefined' && (window as any).resetCurrentIndex) {
+                        (window as any).resetCurrentIndex();
                       }
                       
                       // Call filter change callback if provided

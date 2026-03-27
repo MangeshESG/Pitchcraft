@@ -7,6 +7,7 @@ interface CommonSidePanelProps {
   children: React.ReactNode;
   width?: number;
   footerContent?: React.ReactNode;
+  headerContent?: React.ReactNode;
 }
 
 const CommonSidePanel: React.FC<CommonSidePanelProps> = ({
@@ -16,6 +17,7 @@ const CommonSidePanel: React.FC<CommonSidePanelProps> = ({
   children,
   width = 454,
   footerContent,
+  headerContent,
 }) => {
   const [shouldRender, setShouldRender] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -56,16 +58,17 @@ const CommonSidePanel: React.FC<CommonSidePanelProps> = ({
         style={{
           background: "#E4F5E5",
           padding: "16px 20px",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
           borderTopLeftRadius: "30px",
+          display: "flex",
+          alignItems: "center",
+          gap: "16px"
         }}
         className='border-[#cccccc] border-b'
       >
         <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>
           {title}
         </h3>
+        {headerContent && headerContent}
         <button
           onClick={onClose}
           style={{
@@ -73,6 +76,7 @@ const CommonSidePanel: React.FC<CommonSidePanelProps> = ({
             background: "transparent",
             fontSize: 22,
             cursor: "pointer",
+            marginLeft: "auto"
           }}
         >
           ✕

@@ -314,7 +314,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
       const superList: DataFileItem = {
         id: -1,
         client_id: Number(effectiveUserId),
-        name: "All Contacts",
+        name: "All contacts",
         data_file_name: "super_list",
         description: "All contacts from all lists",
         created_at: new Date().toISOString(),
@@ -322,7 +322,18 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
         contactCount: superListCount
       };
       
-      setDataFiles([superList, ...data]);
+      // Find "All manually added contacts" if it exists
+      const manualContactsIndex = data.findIndex(file => file.name === "All manually added contacts");
+      let orderedData = [...data];
+      
+      if (manualContactsIndex !== -1) {
+        // Remove "All manually added contacts" from its current position
+        const manualContactsFile = orderedData.splice(manualContactsIndex, 1)[0];
+        // Insert it at the beginning of the remaining data
+        orderedData = [manualContactsFile, ...orderedData];
+      }
+      
+      setDataFiles([superList, ...orderedData]);
        
       console.log("datafiles",data);
     } catch (error) {
@@ -2003,10 +2014,29 @@ const filterFields: any = useMemo(() => {
                       value={listSearch}
                       onChange={(e) => setListSearch(e.target.value)}
                     />
-                    <div style={{ marginLeft: "auto", position: "relative" }}>
+                    <div style={{ marginLeft: "auto", position: "relative", display: "flex", gap: "12px" }}>
                       <button
                         className="ml-10 save-button button auto-width small d-flex justify-between align-center"
-                        style={{ borderRadius: "12px"}}
+                        style={{ 
+                          borderRadius: "12px",
+                          padding: "0.5rem 0.8rem",
+                          fontSize: "15px",
+                          fontWeight: "600",
+                          height: "42px"
+                        }}
+                        onClick={() => setShowAddContactModal(true)}
+                      >
+                        <span className="text-[20px] mr-1">+</span> Add contact
+                      </button>
+                      <button
+                        className="ml-10 save-button button auto-width small d-flex justify-between align-center"
+                        style={{ 
+                          borderRadius: "12px",
+                          padding: "0.5rem 0.8rem",
+                          fontSize: "15px",
+                          fontWeight: "600",
+                          height: "42px"
+                        }}
                         onClick={(e) => {
                           e.stopPropagation();
                           setShowCreateListOptions(!showCreateListOptions);
@@ -2057,7 +2087,7 @@ const filterFields: any = useMemo(() => {
                               border: "none",
                               color: "#222",
                               fontSize: "15px",
-                              cursor: "pointer"
+                              cursor: "pointer",
                             }}
                           >
                             ✏️ Add manually
@@ -4384,6 +4414,9 @@ const filterFields: any = useMemo(() => {
         onClose={() => setShowAddContactModal(false)}
         dataFileId={selectedDataFileForView?.id?.toString() || selectedDataFile}
         onContactAdded={() => {
+          // Refresh the data files grid to update contact counts
+          fetchDataFiles();
+          
           if (viewMode === "detail" && selectedDataFileForView) {
             fetchDetailContacts("list", selectedDataFileForView);
           } else if (segmentViewMode === "detail" && selectedSegmentForView) {

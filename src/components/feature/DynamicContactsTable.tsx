@@ -2,6 +2,17 @@ import { useRef, useCallback, useState, useEffect, useMemo } from "react";
 import React from "react";
 import PaginationControls from "./PaginationControls";
 
+interface DataFile {
+  id: number;
+  client_id: number;
+  name: string;
+  data_file_name: string;
+  description: string;
+  created_at: string;
+  updated_at: string | null;
+  contactCount: number;
+}
+
 // Enhanced column configuration with type information
 interface ColumnConfig {
   key: string;

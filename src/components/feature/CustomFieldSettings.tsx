@@ -188,22 +188,22 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
 
       <div className="custom-fields-header">
         <h3 className="custom-fields-title" style={{ marginTop: "-70px" }}>
-          Custom CRM Fields
+          Custom CRM fields
         </h3>
 
         <button
           className="custom-field-btn"
           onClick={openCreatePanel}
         >
-          + Add Field
+          + Add field
         </button>
       </div>
 
       <table className="contacts-table">
         <thead>
         <tr>
-          <th>Field Name</th>
-          <th>Field Type</th>
+          <th>Field name</th>
+          <th>Field type</th>
           <th>Actions</th>
         </tr>
         </thead>
@@ -356,7 +356,7 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
       <CommonSidePanel
         isOpen={isPanelOpen}
         onClose={() => setIsPanelOpen(false)}
-        title={isEditMode ? "Edit Custom Field" : "Create Custom Field"}
+        title={isEditMode ? "Edit custom field" : "Create custom field"}
         footerContent={
           <>
             <button
@@ -377,7 +377,7 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
       >
         <div className="panel-form">
 
-          <label>Field Name</label>
+          <label>Field name</label>
           <input
             className="custom-field-input"
             placeholder="Enter field name"
@@ -385,7 +385,7 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
             onChange={(e) => setName(e.target.value)}
           />
 
-          <label>Field Type</label>
+          <label>Field type</label>
           <select
             className="custom-field-select"
             value={type}
@@ -452,7 +452,7 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
     >
       {/* Title */}
       <h3 className="text-lg font-semibold mb-3 text-gray-900">
-        Delete Custom Field
+        Delete custom field
       </h3>
 
       {/* Message */}
