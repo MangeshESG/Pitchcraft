@@ -538,6 +538,38 @@ const ContactViews: React.FC<ContactViewsProps> = ({
           ? effectiveAllDataFileIds
           : view.dataFileIds || [];
       const segmentIds = view.segmentIds || [];
+      const hasLocalFilters = !!view.filtersJson;
+      const hasLocalSources = dataFileIds.length > 0 || segmentIds.length > 0;
+
+      if (!hasLocalFilters || !hasLocalSources) {
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/Crm/view-contacts`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              clientId: Number(clientId),
+              viewId: Number(view.id),
+              page: 1,
+              pageSize: 0,
+              search: "",
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error("Failed to fetch view contacts from server");
+          }
+
+          const data = await response.json();
+          const contacts = data.contacts || [];
+          setViewContacts(contacts);
+          return;
+        } catch (error) {
+          console.warn("Server fallback for view contacts failed:", error);
+          setViewContacts([]);
+          setViewMetaMissing(true);
+          return;
+        }
+      }
 
       if (dataFileIds.length === 0 && segmentIds.length === 0) {
         setViewContacts([]);

@@ -85,7 +85,9 @@ const ContactDetailView: React.FC = () => {
   const [contact, setContact] = useState<any>(null);
   const [searchParams] = useSearchParams();
     const dataFileId =
-      searchParams.get("dataFileId") || searchParams.get("dataField");
+      searchParams.get("dataFileId") ||
+      searchParams.get("dataFieldId") ||
+      searchParams.get("dataField");
     const segmentId = searchParams.get("segmentId");
 
   const [activeTab, setActiveTab] = useState<"profile" | "history" | "lists">("profile");
