@@ -602,7 +602,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
 
       const dataFileRequests = dataFileIds.map(async (dataFileId) => {
         const response = await fetch(
-          `${API_BASE_URL}/api/Crm/contacts/List-by-CleinteId?clientId=${clientId}&dataFileId=${dataFileId}`
+          `${API_BASE_URL}/api/Crm/contacts/List-by-ClientId?clientId=${clientId}&dataFileId=${dataFileId}`
         );
         if (!response.ok) {
           throw new Error("Failed to fetch contacts for view");

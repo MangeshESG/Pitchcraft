@@ -220,6 +220,18 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   const detectColumnType = (key: string, value: any): ColumnConfig["type"] => {
     const keyLower = key.toLowerCase();
 
+    // Boolean detection (value-first to avoid misclassifying flags like hasLinkedInInfo)
+    if (
+      typeof value === "boolean" ||
+      keyLower === "haslinkedininfo" ||
+      keyLower === "hasnotes" ||
+      keyLower.includes("success") ||
+      keyLower.includes("active") ||
+      keyLower.includes("enabled")
+    ) {
+      return "boolean";
+    }
+
     // URL detection
     if (
       keyLower.includes("url") ||
@@ -242,16 +254,6 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
       keyLower.includes("timestamp")
     ) {
       return "date";
-    }
-
-    // Boolean detection
-    if (
-      typeof value === "boolean" ||
-      keyLower.includes("success") ||
-      keyLower.includes("active") ||
-      keyLower.includes("enabled")
-    ) {
-      return "boolean";
     }
 
     // Number detection
@@ -369,6 +371,9 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
       case "url":
         return (value: any, item: any) => {
           if (!value || value === "-") return "-";
+          if (typeof value !== "string") {
+            return getSafeRenderableValue(value);
+          }
           const url = value.startsWith("http") ? value : `https://${value}`;
           return (
             <a
