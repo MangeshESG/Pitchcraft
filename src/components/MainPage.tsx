@@ -815,8 +815,34 @@ const handleClientChange = async (
         let dataFileId: string | null = null;
         let segmentId: string | null = null;
 
-        // ✅ Check if this is a segment-based call
-        if (zohoviewId.startsWith("segment_")) {
+        // ✅ Check if this is a view-based call
+        if (zohoviewId.startsWith("view_")) {
+          const viewId = zohoviewId.replace("view_", "");
+          if (!viewId) {
+            throw new Error("Invalid viewId - cannot fetch contacts");
+          }
+
+          const response = await fetch(`${API_BASE_URL}/api/Crm/view-contacts`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              clientId: effectiveUserId,
+              viewId: Number(viewId),
+              page: 1,
+              pageSize: 0,
+              search: "",
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error("Failed to fetch view contacts");
+          }
+
+          const fetchedViewData = await response.json();
+          contactsData = fetchedViewData.contacts || [];
+          console.log("Fetched view contacts:", contactsData);
+        } else if (zohoviewId.startsWith("segment_")) {
+          // ✅ Segment-based call
           // Extract segmentId from "segment_123" format
           segmentId = zohoviewId.replace("segment_", "");
           console.log("Fetching segment contacts for segmentId:", segmentId);
@@ -3072,6 +3098,10 @@ try {
     const segmentZohoviewId = `segment_${segmentId}`;
     setSelectedZohoviewId(segmentZohoviewId);
     await fetchAndDisplayEmailBodies(segmentZohoviewId);
+  } else if (dataFileId && typeof dataFileId === "string" && dataFileId.startsWith("view_")) {
+    const viewZohoviewId = dataFileId;
+    setSelectedZohoviewId(viewZohoviewId);
+    await fetchAndDisplayEmailBodies(viewZohoviewId);
   } else if (dataFileId) {
     const datafileZohoviewId = `${effectiveUserId},${dataFileId}`;
     setSelectedZohoviewId(datafileZohoviewId);

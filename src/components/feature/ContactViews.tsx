@@ -28,6 +28,8 @@ interface ViewMeta {
   filtersJson?: string;
   dataFileIds?: number[];
   segmentIds?: number[];
+  useAllDataFiles?: boolean;
+  excludedDataFileIds?: number[];
 }
 
 interface ViewItem extends ViewSummary, ViewMeta {}
@@ -225,6 +227,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editDataFileIds, setEditDataFileIds] = useState<number[]>([]);
+  const [editExcludedDataFileIds, setEditExcludedDataFileIds] = useState<number[]>([]);
   const [editSegmentIds, setEditSegmentIds] = useState<number[]>([]);
   const [editFiltersJson, setEditFiltersJson] = useState("");
   const [editFiltersSeed, setEditFiltersSeed] = useState("");
@@ -277,12 +280,24 @@ const ContactViews: React.FC<ContactViewsProps> = ({
       if (!response.ok) {
         throw new Error("Failed to fetch views");
       }
-      const data: ViewSummary[] = await response.json();
+      const data: any[] = await response.json();
       const metaMap = loadViewMetaMap(clientId);
-      const merged = data.map((view) => ({
-        ...view,
-        ...metaMap[String(view.id)],
-      }));
+      const merged = data.map((view) => {
+        const meta = metaMap[String(view.id)];
+        const serverUseAll =
+          view.useAllDataFiles ?? view.use_all_datafiles ?? meta?.useAllDataFiles;
+        const serverExcluded =
+          view.excludedDataFileIds ??
+          view.excluded_datafile_ids ??
+          meta?.excludedDataFileIds;
+
+        return {
+          ...view,
+          ...meta,
+          useAllDataFiles: serverUseAll,
+          excludedDataFileIds: serverExcluded,
+        };
+      });
       setViews(merged);
     } catch (error) {
       console.error("Error fetching views:", error);
@@ -513,8 +528,48 @@ const ContactViews: React.FC<ContactViewsProps> = ({
     setIsLoadingViewContacts(true);
     setViewMetaMissing(false);
     try {
-      const dataFileIds = view.dataFileIds || [];
+      const allDataFileIds = availableDataFiles.map((file) => file.id);
+      const excludedDataFileIds = view.excludedDataFileIds || [];
+      const effectiveAllDataFileIds = allDataFileIds.filter(
+        (id) => !excludedDataFileIds.includes(id)
+      );
+      const dataFileIds =
+        view.useAllDataFiles && effectiveAllDataFileIds.length > 0
+          ? effectiveAllDataFileIds
+          : view.dataFileIds || [];
       const segmentIds = view.segmentIds || [];
+      const hasLocalFilters = !!view.filtersJson;
+      const hasLocalSources = dataFileIds.length > 0 || segmentIds.length > 0;
+
+      if (!hasLocalFilters || !hasLocalSources) {
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/Crm/view-contacts`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              clientId: Number(clientId),
+              viewId: Number(view.id),
+              page: 1,
+              pageSize: 0,
+              search: "",
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error("Failed to fetch view contacts from server");
+          }
+
+          const data = await response.json();
+          const contacts = data.contacts || [];
+          setViewContacts(contacts);
+          return;
+        } catch (error) {
+          console.warn("Server fallback for view contacts failed:", error);
+          setViewContacts([]);
+          setViewMetaMissing(true);
+          return;
+        }
+      }
 
       if (dataFileIds.length === 0 && segmentIds.length === 0) {
         setViewContacts([]);
@@ -547,7 +602,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
 
       const dataFileRequests = dataFileIds.map(async (dataFileId) => {
         const response = await fetch(
-          `${API_BASE_URL}/api/Crm/contacts/List-by-CleinteId?clientId=${clientId}&dataFileId=${dataFileId}`
+          `${API_BASE_URL}/api/Crm/contacts/List-by-ClientId?clientId=${clientId}&dataFileId=${dataFileId}`
         );
         if (!response.ok) {
           throw new Error("Failed to fetch contacts for view");
@@ -617,7 +672,13 @@ const ContactViews: React.FC<ContactViewsProps> = ({
     if (viewMode === "detail" && selectedView) {
       fetchContactsForView(selectedView);
     }
-  }, [viewMode, selectedView?.id]);
+  }, [
+    viewMode,
+    selectedView?.id,
+    selectedView?.useAllDataFiles,
+    selectedView?.excludedDataFileIds?.length,
+    availableDataFiles.length,
+  ]);
 
   const handleDeleteView = async (view: ViewItem) => {
     const confirmed = window.confirm(
@@ -646,6 +707,9 @@ const ContactViews: React.FC<ContactViewsProps> = ({
 
   const openView = (view: ViewItem) => {
     setViewActionsAnchor(null);
+    if (view.useAllDataFiles) {
+      fetchSources();
+    }
     setSelectedView(view);
     setViewMode("detail");
     setViewSearchQuery("");
@@ -656,7 +720,18 @@ const ContactViews: React.FC<ContactViewsProps> = ({
     setEditingView(view);
     setEditName(view.name || "");
     setEditDescription(view.description || "");
-    setEditDataFileIds(view.dataFileIds || []);
+    if (view.useAllDataFiles) {
+      if (availableDataFiles.length === 0) {
+        fetchSources();
+      }
+      const excludedIds = view.excludedDataFileIds || [];
+      const allIds = availableDataFiles.map((file) => file.id);
+      setEditExcludedDataFileIds(excludedIds);
+      setEditDataFileIds(allIds.filter((id) => !excludedIds.includes(id)));
+    } else {
+      setEditExcludedDataFileIds([]);
+      setEditDataFileIds(view.dataFileIds || []);
+    }
     setEditSegmentIds(view.segmentIds || []);
     setEditFiltersJson(view.filtersJson || "");
     setEditFiltersSeed(view.filtersJson || "");
@@ -692,6 +767,8 @@ const ContactViews: React.FC<ContactViewsProps> = ({
 
     setIsUpdatingView(true);
     try {
+      const useAllDataFiles = !!editingView.useAllDataFiles;
+      const excludedDataFileIds = useAllDataFiles ? editExcludedDataFileIds : [];
       const response = await fetch(`${API_BASE_URL}/api/Crm/update-view`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -700,8 +777,10 @@ const ContactViews: React.FC<ContactViewsProps> = ({
           name: editName.trim(),
           description: editDescription.trim(),
           filtersJson: editFiltersJson,
-          dataFileIds: editDataFileIds,
+          dataFileIds: useAllDataFiles ? [] : editDataFileIds,
           segmentIds: editSegmentIds,
+          useAllDataFiles,
+          excludedDataFileIds,
         }),
       });
 
@@ -715,8 +794,10 @@ const ContactViews: React.FC<ContactViewsProps> = ({
         name: editName.trim(),
         description: editDescription.trim(),
         filtersJson: editFiltersJson,
-        dataFileIds: editDataFileIds,
+        dataFileIds: useAllDataFiles ? [] : editDataFileIds,
         segmentIds: editSegmentIds,
+        useAllDataFiles,
+        excludedDataFileIds,
       };
 
       setViews((prev) =>
@@ -730,8 +811,10 @@ const ContactViews: React.FC<ContactViewsProps> = ({
       const metaMap = loadViewMetaMap(clientId);
       metaMap[String(updatedView.id)] = {
         filtersJson: editFiltersJson,
-        dataFileIds: editDataFileIds,
+        dataFileIds: useAllDataFiles ? [] : editDataFileIds,
         segmentIds: editSegmentIds,
+        useAllDataFiles,
+        excludedDataFileIds,
       };
       saveViewMetaMap(clientId, metaMap);
 
@@ -1181,6 +1264,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
           setIsEditPanelOpen(false);
           setEditingView(null);
           setEditFiltersSeed("");
+          setEditExcludedDataFileIds([]);
         }}
         title="Edit view"
         footerContent={
@@ -1190,6 +1274,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
                 setIsEditPanelOpen(false);
                 setEditingView(null);
                 setEditFiltersSeed("");
+                setEditExcludedDataFileIds([]);
               }}
               className="button secondary"
               style={{
@@ -1309,10 +1394,28 @@ const ContactViews: React.FC<ContactViewsProps> = ({
                 >
                   <input
                     type="checkbox"
-                    checked={editDataFileIds.includes(file.id)}
-                    onChange={() =>
-                      toggleId(editDataFileIds, file.id, setEditDataFileIds)
+                    checked={
+                      editingView?.useAllDataFiles
+                        ? !editExcludedDataFileIds.includes(file.id)
+                        : editDataFileIds.includes(file.id)
                     }
+                    onChange={() => {
+                      if (editingView?.useAllDataFiles) {
+                        const isExcluded = editExcludedDataFileIds.includes(file.id);
+                        setEditExcludedDataFileIds((prev) =>
+                          isExcluded
+                            ? prev.filter((entry) => entry !== file.id)
+                            : [...prev, file.id]
+                        );
+                        setEditDataFileIds((prev) =>
+                          isExcluded
+                            ? [...prev, file.id]
+                            : prev.filter((entry) => entry !== file.id)
+                        );
+                      } else {
+                        toggleId(editDataFileIds, file.id, setEditDataFileIds);
+                      }
+                    }}
                   />
                   <span>{file.name}</span>
                 </label>

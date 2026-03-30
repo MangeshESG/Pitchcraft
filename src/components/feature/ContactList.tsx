@@ -2559,12 +2559,13 @@ const filterFields: any = useMemo(() => {
                             clientId: effectiveUserId,
                             dataFileIds:
                               selectedDataFileForView?.id === -1
-                                ? dataFiles
-                                    .filter((file) => file.id !== -1)
-                                    .map((file) => file.id)
+                                ? []
                                 : selectedDataFileForView
                                 ? [selectedDataFileForView.id]
                                 : [],
+                            useAllDataFiles: selectedDataFileForView?.id === -1,
+                            excludedDataFileIds:
+                              selectedDataFileForView?.id === -1 ? [] : undefined,
                             onSuccess: (view) =>
                               appModal.showSuccess(
                                 `View "${view?.name || "Saved view"}" created successfully!`

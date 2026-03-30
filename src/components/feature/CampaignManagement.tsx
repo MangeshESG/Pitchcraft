@@ -28,6 +28,12 @@ interface Segment {
   updatedAt: string | null;
 }
 
+interface ViewOption {
+  id: number;
+  name: string;
+  description?: string;
+}
+
 interface Prompt {
   id: number;
   name: string;
@@ -68,6 +74,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [dataFiles, setDataFiles] = useState<DataFile[]>([]);
   const [segments, setSegments] = useState<Segment[]>([]);
+  const [views, setViews] = useState<ViewOption[]>([]);
   const [promptList, setPromptList] = useState<Prompt[]>([]);
   const [campaignBlueprints, setCampaignBlueprints] = useState<CampaignBlueprint[]>([]);
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
@@ -173,6 +180,23 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
     }
   };
 
+  const fetchViews = async () => {
+    if (!effectiveUserId) return;
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/Crm/views-by-client?clientId=${effectiveUserId}`
+      );
+      const data: ViewOption[] = await res.json();
+      setViews(
+        data.sort((a, b) =>
+          a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+        )
+      );
+    } catch (err) {
+      console.error("Error fetching views:", err);
+    }
+  };
+
   const fetchPromptsList = async () => {
     if (!effectiveUserId) return;
     try {
@@ -203,6 +227,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
       fetchCampaigns();
       fetchDataFiles();
       fetchSegments();
+      fetchViews();
       fetchPromptsList();
       fetchCampaignBlueprints();
     }
@@ -217,10 +242,14 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
     setCampaignForm((prev) => ({ ...prev, promptId }));
   };
 
-  const handleDataSourceChange = (type: "datafile" | "segment", value: string) => {
+  const handleDataSourceChange = (
+    type: "datafile" | "segment" | "view",
+    value: string
+  ) => {
     setCampaignForm((prev) => ({
       ...prev,
-      zohoViewId: type === "datafile" ? value : "",
+      zohoViewId:
+        type === "datafile" ? value : type === "view" ? `view_${value}` : "",
       segmentId: type === "segment" ? value : "",
     }));
   };
@@ -543,9 +572,20 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                   </td>
 
                   <td>
-                    {c.dataSource === "Segment" && c.segmentName ? c.segmentName :
-                      c.dataSource === "DataFile" && c.dataFileName ? c.dataFileName :
-                        c.zohoViewId ? "List" : c.segmentId ? "Segment" : "-"}
+                    {typeof c.zohoViewId === "string" &&
+                    c.zohoViewId.startsWith("view_")
+                      ? views.find(
+                          (v) => v.id.toString() === c.zohoViewId.replace("view_", "")
+                        )?.name || "View"
+                      : c.dataSource === "Segment" && c.segmentName
+                      ? c.segmentName
+                      : c.dataSource === "DataFile" && c.dataFileName
+                      ? c.dataFileName
+                      : c.zohoViewId
+                      ? "List"
+                      : c.segmentId
+                      ? "Segment"
+                      : "-"}
                   </td>
                   <td>{c.description || "-"}</td>
                   <td style={{ position: "relative" }}>
@@ -795,10 +835,10 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
           </select>
         </div>
 
-        {/* List/Segment */}
+        {/* List/Segment/View */}
         <div style={{ marginBottom: "16px" }}>
           <label style={{ fontWeight: 500, display: "block", marginBottom: "4px" }}>
-            List/segment <span style={{ color: "red" }}>*</span>
+            List/segment/view <span style={{ color: "red" }}>*</span>
           </label>
           <select
             onChange={(e) => {
@@ -807,6 +847,8 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                 handleDataSourceChange("datafile", value.replace("list-", ""));
               } else if (value.startsWith("segment-")) {
                 handleDataSourceChange("segment", value.replace("segment-", ""));
+              } else if (value.startsWith("view-")) {
+                handleDataSourceChange("view", value.replace("view-", ""));
               } else {
                 setCampaignForm((prev) => ({
                   ...prev,
@@ -816,13 +858,20 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
               }
             }}
             value={
-              campaignForm.zohoViewId
+              campaignForm.segmentId
+                ? `segment-${campaignForm.segmentId}`
+                : campaignForm.zohoViewId?.startsWith("view_")
+                ? `view-${campaignForm.zohoViewId.replace("view_", "")}`
+                : campaignForm.zohoViewId
                 ? `list-${campaignForm.zohoViewId}`
-                : campaignForm.segmentId
-                  ? `segment-${campaignForm.segmentId}`
-                  : ""
+                : ""
             }
-            disabled={isLoading || (dataFiles.length === 0 && segments.length === 0)}
+            disabled={
+              isLoading ||
+              (dataFiles.length === 0 &&
+                segments.length === 0 &&
+                views.length === 0)
+            }
             style={{
               width: "100%",
               padding: "8px 12px",
@@ -831,7 +880,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
               fontSize: "14px",
             }}
           >
-            <option value="">Select list or segment</option>
+            <option value="">Select list, segment, or view</option>
             {dataFiles.length > 0 && (
               <optgroup label="Lists">
                 {dataFiles.map((file) => (
@@ -846,6 +895,15 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                 {segments.map((segment) => (
                   <option key={`segment-${segment.id}`} value={`segment-${segment.id}`}>
                     {segment.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {views.length > 0 && (
+              <optgroup label="Views">
+                {views.map((view) => (
+                  <option key={`view-${view.id}`} value={`view-${view.id}`}>
+                    {view.name}
                   </option>
                 ))}
               </optgroup>
