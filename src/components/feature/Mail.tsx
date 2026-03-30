@@ -100,7 +100,9 @@ interface ColumnConfig {
 interface EmailContact {
   id: number;
   contactId: number;
-  full_name: string;
+  first_name?: string;
+  last_name?: string;
+  full_name?: string;
   email: string;
   company: string;
   jobTitle: string;

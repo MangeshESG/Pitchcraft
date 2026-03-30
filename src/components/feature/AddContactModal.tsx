@@ -33,6 +33,8 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
   // Get client ID from session storage like EmailCampaignBuilder does
   const clientId = sessionStorage.getItem("clientId");
   const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
     fullName: '',
     email: '',
     website: '',
@@ -117,8 +119,8 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.fullName.trim() || !formData.email.trim()) {
-      onShowMessage('Full name and email are required', 'error');
+    if (!formData.email.trim()) {
+      onShowMessage('Email is required', 'error');
       return;
     }
 
@@ -139,8 +141,13 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
       const dataFileIdToSend = (isManualContacts || isNoFileSelected) ? null : selectedDataFileId;
       
       // Prepare request body with clientId
+      const trimmedFirstName = formData.firstName.trim();
+      const trimmedLastName = formData.lastName.trim();
+      const trimmedFullName = formData.fullName.trim();
       const requestBody = {
-        fullName: formData.fullName,
+        firstName: trimmedFirstName || undefined,
+        lastName: trimmedLastName || undefined,
+        fullName: trimmedFullName || undefined,
         email: formData.email,
         website: formData.website,
         companyName: formData.companyName,
@@ -200,6 +207,8 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
 
   const handleClose = () => {
     setFormData({
+      firstName: '',
+      lastName: '',
       fullName: '',
       email: '',
       website: '',
@@ -408,7 +417,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
           </button>
           <button
             onClick={handleSubmit}
-            disabled={isSubmitting || !formData.fullName.trim() || !formData.email.trim() || !selectedDataFileId}
+            disabled={isSubmitting || !formData.email.trim() || !selectedDataFileId}
             style={{
               padding: '10px 24px',
               borderRadius: '24px',
@@ -417,8 +426,8 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
               color: '#dc3545',
               fontSize: '14px',
               fontWeight: '500',
-              cursor: (isSubmitting || !formData.fullName.trim() || !formData.email.trim() || !selectedDataFileId) ? 'not-allowed' : 'pointer',
-              opacity: (isSubmitting || !formData.fullName.trim() || !formData.email.trim() || !selectedDataFileId) ? 0.5 : 1
+              cursor: (isSubmitting || !formData.email.trim() || !selectedDataFileId) ? 'not-allowed' : 'pointer',
+              opacity: (isSubmitting || !formData.email.trim() || !selectedDataFileId) ? 0.5 : 1
             }}
           >
             {isSubmitting ? 'Adding...' : 'Add contact'}
@@ -430,14 +439,51 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
             <div>
               <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
-                Full name <span style={{ color: 'red' }}>*</span>
+                First name
+              </label>
+              <input
+                type="text"
+                name="firstName"
+                value={formData.firstName}
+                onChange={handleInputChange}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px'
+                }}
+              />
+            </div>
+            
+            <div>
+              <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+                Last name
+              </label>
+              <input
+                type="text"
+                name="lastName"
+                value={formData.lastName}
+                onChange={handleInputChange}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px'
+                }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+                Full name (optional)
               </label>
               <input
                 type="text"
                 name="fullName"
                 value={formData.fullName}
                 onChange={handleInputChange}
-                required
                 style={{
                   width: '100%',
                   padding: '8px 12px',

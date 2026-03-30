@@ -46,7 +46,11 @@ const saveSelectedColumns = (columns: string[]) => {
 const loadSelectedColumns = (): string[] => {
   try {
     const saved = localStorage.getItem(CONTACTLIST_COLUMNS_KEY);
-    return saved ? JSON.parse(saved) : [];
+    const parsed = saved ? JSON.parse(saved) : [];
+    if (!Array.isArray(parsed)) return [];
+    if (parsed.length === 0) return [];
+    const requiredColumns = ["first_name", "last_name"];
+    return Array.from(new Set([...parsed, ...requiredColumns]));
   } catch (error) {
     console.warn('Failed to load column selection:', error);
     return [];
@@ -55,6 +59,8 @@ const loadSelectedColumns = (): string[] => {
 
 const getDefaultVisibleColumns = (): string[] => {
   return [
+    'first_name',
+    'last_name',
     'full_name',
     'email',
     'company_name',
@@ -113,7 +119,9 @@ interface DataFileItem {
 
 interface Contact {
   id: number;
-  full_name: string;
+  first_name?: string;
+  last_name?: string;
+  full_name?: string;
   email: string;
   website?: string;
   company_name?: string;
@@ -135,7 +143,48 @@ interface Contact {
   contactCreatedAt?: string;
 }
 
+const getContactNameParts = (contact: Contact) => {
+  const first =
+    contact.first_name?.trim() ||
+    (contact as any).firstName?.trim() ||
+    "";
+  const last =
+    contact.last_name?.trim() ||
+    (contact as any).lastName?.trim() ||
+    "";
+  let full =
+    contact.full_name?.trim() ||
+    (contact as any).fullName?.trim() ||
+    "";
+
+  if (!full && (first || last)) {
+    full = `${first} ${last}`.trim();
+  }
+
+  if (!first && !last && full) {
+    const parts = full.split(" ").filter(Boolean);
+    return {
+      firstName: parts[0] || "",
+      lastName: parts.slice(1).join(" ").trim(),
+      fullName: full,
+    };
+  }
+
+  return { firstName: first, lastName: last, fullName: full };
+};
+
+const getDisplayName = (contact: Contact) => {
+  const { fullName } = getContactNameParts(contact);
+  return fullName || contact.email || "-";
+};
+
 const getContactValue = (contact: Contact, key: string): any => {
+  if (key === "first_name" || key === "last_name" || key === "full_name") {
+    const { firstName, lastName, fullName } = getContactNameParts(contact);
+    if (key === "first_name") return firstName || fullName || "";
+    if (key === "last_name") return lastName || fullName || "";
+    return fullName || "";
+  }
   return (contact as any)[key];
 };
 
@@ -239,6 +288,8 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   // Column configuration - excluding email_subject and email_body
   const [columns, setColumns] = useState<ColumnConfig[]>([
     { key: "checkbox", label: "", visible: true, width: "40px" },
+    { key: "first_name", label: "First name", visible: true },
+    { key: "last_name", label: "Last name", visible: true },
     { key: "full_name", label: "Full name", visible: true },
     { key: "email", label: "Email address", visible: true },
     { key: "company_name", label: "Company name", visible: true },
@@ -482,8 +533,11 @@ const formatTimeIST = (dateString?: string) => {
   const filteredContacts = useMemo(() => {
     return contacts.filter((contact) => {
       const searchLower = searchQuery.toLowerCase()
+      const { firstName, lastName, fullName } = getContactNameParts(contact);
       return (
-        contact.full_name?.toLowerCase().includes(searchLower) ||
+        firstName.toLowerCase().includes(searchLower) ||
+        lastName.toLowerCase().includes(searchLower) ||
+        fullName.toLowerCase().includes(searchLower) ||
         contact.email?.toLowerCase().includes(searchLower) ||
         contact.company_name?.toLowerCase().includes(searchLower) ||
         contact.job_title?.toLowerCase().includes(searchLower) ||
@@ -1586,6 +1640,8 @@ const formatTimeIST = (dateString?: string) => {
     }
     // Define all possible columns
     const baseColumns: CsvColumn[] = [
+      { key: "first_name", header: "First Name" },
+      { key: "last_name", header: "Last Name" },
       { key: "full_name", header: "Full Name" },
       { key: "email", header: "Email" },
       { key: "website", header: "Website" },
@@ -1828,6 +1884,8 @@ const formatTimeIST = (dateString?: string) => {
 
   const columnNameMap: Record<string, string> = {
     id: "ID",
+    first_name: "First name",
+    last_name: "Last name",
     full_name: "Full name",
     email: "Email",
     website: "Website",
@@ -1851,8 +1909,11 @@ const formatTimeIST = (dateString?: string) => {
   const segmentFilteredContacts = useMemo(() => {
     let filtered = segmentContacts.filter((contact) => {
       const searchLower = segmentSearchQuery.toLowerCase()
+      const { firstName, lastName, fullName } = getContactNameParts(contact);
       return (
-        contact.full_name?.toLowerCase().includes(searchLower) ||
+        firstName.toLowerCase().includes(searchLower) ||
+        lastName.toLowerCase().includes(searchLower) ||
+        fullName.toLowerCase().includes(searchLower) ||
         contact.email?.toLowerCase().includes(searchLower) ||
         contact.company_name?.toLowerCase().includes(searchLower) ||
         contact.job_title?.toLowerCase().includes(searchLower) ||
@@ -1893,6 +1954,8 @@ const formatTimeIST = (dateString?: string) => {
   }, [segmentContacts, segmentSearchQuery, segmentSortKey, segmentSortDirection, segmentCurrentPage, pageSize])
 
 const baseFields: any[] = [
+  { key: "first_name", label: "First Name", type: "text" },
+  { key: "last_name", label: "Last Name", type: "text" },
   { key: "full_name", label: "Full Name", type: "text" },
   { key: "email", label: "Email", type: "text" },
   { key: "company_name", label: "Company", type: "text" },
@@ -2384,8 +2447,17 @@ const filterFields: any = useMemo(() => {
                   }}
                   persistedColumnSelection={savedColumnSelection}
                   customFormatters={{
+                    first_name: (value: any, row: any) => {
+                      const { firstName, fullName } = getContactNameParts(row as Contact);
+                      return firstName || fullName || "-";
+                    },
+                    last_name: (value: any, row: any) => {
+                      const { lastName, fullName } = getContactNameParts(row as Contact);
+                      return lastName || fullName || "-";
+                    },
                     full_name: (value: any, row: any) => {
-                      if (!value || value === "-") return "-";
+                      const displayName = getDisplayName(row as Contact);
+                      if (!displayName || displayName === "-") return "-";
 
                       return (
                         <span
@@ -2410,7 +2482,7 @@ const filterFields: any = useMemo(() => {
                            window.open(contactDetailsUrl, "_blank");
                           }}
                         >
-                          {value}
+                          {displayName}
                         </span>
                       );
                     },
@@ -2529,6 +2601,8 @@ const filterFields: any = useMemo(() => {
                     },
                   }}
                   searchFields={[
+                    "first_name",
+                    "last_name",
                     "full_name",
                     "email",
                     "company_name",
@@ -2922,7 +2996,7 @@ const filterFields: any = useMemo(() => {
                 </button>
 
                 <h2 style={{ margin: 0, fontWeight: 600 }}>
-                  {editingContact.full_name}
+                  {getDisplayName(editingContact)}
                 </h2>
               </div>
 
@@ -3606,8 +3680,17 @@ const filterFields: any = useMemo(() => {
                   }}
                   persistedColumnSelection={savedColumnSelection}
                   customFormatters={{
+                    first_name: (value: any, row: any) => {
+                      const { firstName, fullName } = getContactNameParts(row as Contact);
+                      return firstName || fullName || "-";
+                    },
+                    last_name: (value: any, row: any) => {
+                      const { lastName, fullName } = getContactNameParts(row as Contact);
+                      return lastName || fullName || "-";
+                    },
                     full_name: (value: any, row: any) => {
-                      if (!value || value === "-") return "-";
+                      const displayName = getDisplayName(row as Contact);
+                      if (!displayName || displayName === "-") return "-";
 
                       return (
                         <span
@@ -3632,7 +3715,7 @@ const filterFields: any = useMemo(() => {
                             window.open(contactDetailsUrl, "_blank");
                           }}
                         >
-                          {value}
+                          {displayName}
                         </span>
                       );
                     },
@@ -3746,6 +3829,8 @@ const filterFields: any = useMemo(() => {
                     },
                   }}
                   searchFields={[
+                    "first_name",
+                    "last_name",
                     "full_name",
                     "email",
                     "company_name",
@@ -3889,7 +3974,7 @@ const filterFields: any = useMemo(() => {
                 </button>
 
                 <h2 style={{ margin: 0, fontWeight: 600 }}>
-                  {editingContact.full_name}
+                  {getDisplayName(editingContact)}
                 </h2>
               </div>
 

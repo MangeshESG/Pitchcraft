@@ -55,7 +55,9 @@ import CommonSidePanel from '../../common/CommonSidePanel';
 
 interface Contact {
   id: number;
-  full_name: string;
+  first_name?: string;
+  last_name?: string;
+  full_name?: string;
   email: string;
   website?: string;
   company_name?: string;

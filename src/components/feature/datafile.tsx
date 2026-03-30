@@ -20,6 +20,8 @@ interface ColumnMapping {
 }
 
 interface ProcessedContact {
+  first_name?: string;
+  last_name?: string;
   name: string;
   email: string;
   job_title?: string;
@@ -39,7 +41,7 @@ interface ProcessedContact {
 }
 
 const REQUIRED_FIELDS = [
-  { key: "first_name", label: "First name", required: true },
+  { key: "first_name", label: "First name", required: false },
   { key: "last_name", label: "Last name", required: false },
   { key: "email", label: "Email address", required: true },
   { key: "job_title", label: <>Job title <span style={{ color: "blue" }}>*</span></>, required: false },
@@ -381,16 +383,6 @@ useEffect(() => {
       mappedRow.name = `${firstName} ${lastName}`.trim();
 
       // Validate required fields
-      if (!mappedRow.name) {
-        detailedErrors.push({
-          row: rowIndex + 2,
-          field: 'name',
-          value: mappedRow.name || '',
-          message: 'Missing required field: Full name'
-        });
-        isValid = false;
-      }
-      
       if (!mappedRow.email) {
         detailedErrors.push({
           row: rowIndex + 2,
@@ -457,25 +449,33 @@ useEffect(() => {
         name: dataFileInfo.name,
         dataFileName: uploadedFile?.name || "",
         description: dataFileInfo.description,
-          contacts: validatedData.map((contact: any) => ({
-            fullName: contact.name,
-            email: contact.email,
-            website: contact.company_website || "",
-            companyName: contact.company || "",
-            jobTitle: contact.job_title || "",
-            linkedInUrl: contact.linkedin || "",
-            countryOrAddress: contact.location || "",
-            emailSubject: contact.email_subject || "",
-            emailBody: contact.email_body || "",
-            companyTelephone: contact.company_telephone || "",
-            companyEmployeeCount: contact.company_employee_count || "",
-            companyIndustry: contact.company_industry || "",
-            companyLinkedInURL: contact.company_linkedin_url || "",
-            linkedIninformation: contact.linkedIninformation || "",
+          contacts: validatedData.map((contact: any) => {
+            const firstName = contact.first_name?.trim() || "";
+            const lastName = contact.last_name?.trim() || "";
+            const fullName = (contact.name || "").trim();
 
-            // NEW
-            customFields: contact.customFields || {}
-          }))
+            return {
+              firstName: firstName || undefined,
+              lastName: lastName || undefined,
+              fullName: fullName || undefined,
+              email: contact.email,
+              website: contact.company_website || "",
+              companyName: contact.company || "",
+              jobTitle: contact.job_title || "",
+              linkedInUrl: contact.linkedin || "",
+              countryOrAddress: contact.location || "",
+              emailSubject: contact.email_subject || "",
+              emailBody: contact.email_body || "",
+              companyTelephone: contact.company_telephone || "",
+              companyEmployeeCount: contact.company_employee_count || "",
+              companyIndustry: contact.company_industry || "",
+              companyLinkedInURL: contact.company_linkedin_url || "",
+              linkedIninformation: contact.linkedIninformation || "",
+
+              // NEW
+              customFields: contact.customFields || {}
+            };
+          })
       };
 
       setUploadProgress(50);

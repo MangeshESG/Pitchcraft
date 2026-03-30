@@ -1837,11 +1837,23 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       const abbrev = friendly
         ? friendly.toLowerCase().replace(/\s+/g, "-")
         : "";
-      const [first = "", last = ""] = (contact.full_name || "").split(" ");
+      let first = contact.first_name || "";
+      let last = contact.last_name || "";
+      let fullName = contact.full_name || "";
+
+      if (!fullName && (first || last)) {
+        fullName = `${String(first).trim()} ${String(last).trim()}`.trim();
+      }
+
+      if (!first && !last && fullName) {
+        const parts = fullName.split(" ").filter(Boolean);
+        first = parts[0] || "";
+        last = parts.slice(1).join(" ").trim();
+      }
 
       // ✅ Build contact placeholders exactly matching template placeholders
       const contactValues: Record<string, string> = {
-        full_name: contact.full_name || "",
+        full_name: fullName || "",
         first_name: first,
         last_name: last,
         job_title: contact.job_title || "",

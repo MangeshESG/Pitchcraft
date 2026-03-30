@@ -68,6 +68,8 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
   const filteredContacts = contacts.filter((contact) => {
     const searchLower = search.toLowerCase();
     return (
+      contact.first_name?.toLowerCase().includes(searchLower) ||
+      contact.last_name?.toLowerCase().includes(searchLower) ||
       contact.full_name?.toLowerCase().includes(searchLower) ||
       contact.email?.toLowerCase().includes(searchLower) ||
       contact.company_name?.toLowerCase().includes(searchLower) ||

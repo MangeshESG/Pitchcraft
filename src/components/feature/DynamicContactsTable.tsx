@@ -210,8 +210,10 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
           formatter: customFormatters[key] || getDefaultFormatter(columnType),
         });
       });
+      const alwaysIncludeKeys = new Set(["first_name", "last_name", "full_name"]);
       const filteredColumns = generatedColumns.filter((col) => {
         if (col.key === "checkbox") return true;
+        if (alwaysIncludeKeys.has(col.key)) return true;
         return dataArray.some((item) => {
           const value = item[col.key];
           return (

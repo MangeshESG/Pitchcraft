@@ -192,6 +192,41 @@ const formatDate = (dateString?: string | null) => {
   });
 };
 
+const getContactNameParts = (row: any) => {
+  const first =
+    row?.first_name?.trim() ||
+    row?.firstName?.trim() ||
+    "";
+  const last =
+    row?.last_name?.trim() ||
+    row?.lastName?.trim() ||
+    "";
+  let full =
+    row?.full_name?.trim() ||
+    row?.fullName?.trim() ||
+    "";
+
+  if (!full && (first || last)) {
+    full = `${first} ${last}`.trim();
+  }
+
+  if (!first && !last && full) {
+    const parts = full.split(" ").filter(Boolean);
+    return {
+      firstName: parts[0] || "",
+      lastName: parts.slice(1).join(" ").trim(),
+      fullName: full,
+    };
+  }
+
+  return { firstName: first, lastName: last, fullName: full };
+};
+
+const getDisplayName = (row: any) => {
+  const { fullName } = getContactNameParts(row);
+  return fullName || row?.email || "-";
+};
+
 const ContactViews: React.FC<ContactViewsProps> = ({
   clientId,
   filterFields,
@@ -1110,8 +1145,17 @@ const ContactViews: React.FC<ContactViewsProps> = ({
               onColumnsChange={onColumnsChange}
               persistedColumnSelection={persistedColumnSelection}
               customFormatters={{
+                first_name: (value: any, row: any) => {
+                  const { firstName, fullName } = getContactNameParts(row);
+                  return firstName || fullName || "-";
+                },
+                last_name: (value: any, row: any) => {
+                  const { lastName, fullName } = getContactNameParts(row);
+                  return lastName || fullName || "-";
+                },
                 full_name: (value: any, row: any) => {
-                  if (!value || value === "-") return "-";
+                  const displayName = getDisplayName(row);
+                  if (!displayName || displayName === "-") return "-";
 
                   const fallbackDataFileId =
                     selectedView?.dataFileIds?.length === 1
@@ -1148,7 +1192,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
                         window.open(contactDetailsUrl, "_blank");
                       }}
                     >
-                      {value}
+                      {displayName}
                     </span>
                   );
                 },
@@ -1233,6 +1277,8 @@ const ContactViews: React.FC<ContactViewsProps> = ({
                 },
               }}
               searchFields={[
+                "first_name",
+                "last_name",
                 "full_name",
                 "email",
                 "company_name",

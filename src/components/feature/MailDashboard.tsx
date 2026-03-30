@@ -34,7 +34,9 @@ interface DailyStats {
 interface EmailContact {
   id: number;
   contactId: number;
-  full_name: string;
+  first_name?: string;
+  last_name?: string;
+  full_name?: string;
   email: string;
   company: string;
   jobTitle: string;
@@ -84,6 +86,24 @@ interface MailDashboardProps {
   };
   onDataChange?: (data: any) => void;
 }
+
+const getDisplayNameFromContact = (contact: any) => {
+  const first =
+    contact?.first_name ||
+    contact?.firstName ||
+    "";
+  const last =
+    contact?.last_name ||
+    contact?.lastName ||
+    "";
+  const full =
+    contact?.full_name ||
+    contact?.fullName ||
+    contact?.name ||
+    "";
+  const combined = `${String(first).trim()} ${String(last).trim()}`.trim();
+  return (String(full).trim() || combined || "-");
+};
 
 const MailDashboard: React.FC<MailDashboardProps> = ({
   effectiveUserId,
@@ -482,7 +502,9 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
               const transformedData = missingContactsData.map((contact: any, index: number) => ({
                 id: contact.contactId || index + 1,
                 contactId: contact.contactId,
-                full_name: contact.full_name || contact.fullName || contact.name || "-",
+                first_name: contact.first_name || contact.firstName || "",
+                last_name: contact.last_name || contact.lastName || "",
+                full_name: getDisplayNameFromContact(contact),
                 email: contact.email || contact.emailAddress || "-",
                 company_name: contact.company_name || contact.companyName || contact.company || "-",
                 job_title: contact.job_title || contact.jobTitle || contact.title || "-",
@@ -1156,6 +1178,8 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
       const searchLower = missingLogsSearch.toLowerCase();
       filteredLogs = filteredLogs.filter(
         (log) =>
+          log.first_name?.toLowerCase().includes(searchLower) ||
+          log.last_name?.toLowerCase().includes(searchLower) ||
           log.full_name?.toLowerCase().includes(searchLower) ||
           log.email?.toLowerCase().includes(searchLower) ||
           log.company_name?.toLowerCase().includes(searchLower) ||
@@ -2453,6 +2477,8 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
                 ]
                 : emailFilterType === "missing-logs"
                 ? [
+                  "first_name",
+                  "last_name",
                   "full_name",
                   "email",
                   "company_name",
@@ -2460,7 +2486,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
                   "country_or_address",
                   "email_subject",
                 ]
-                : ["full_name", "email", "company", "jobTitle", "location", "ipAddress"]
+                : ["first_name", "last_name", "full_name", "email", "company", "jobTitle", "location", "ipAddress"]
             }
             primaryKey="id"
             viewMode="table"

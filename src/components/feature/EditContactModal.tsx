@@ -37,7 +37,9 @@ import CommonSidePanel from '../common/CommonSidePanel';
 
 interface Contact {
   id: number;
-  full_name: string;
+  first_name?: string;
+  last_name?: string;
+  full_name?: string;
   email: string;
   website?: string;
   company_name?: string;
@@ -102,6 +104,8 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   onSavingLinkedInChange,
 }) => {
   const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
     fullName: '',
     email: '',
     website: '',
@@ -266,6 +270,32 @@ const menuIconStyle = {
     temp.innerHTML = html;
     return temp.textContent || temp.innerText || "";
   };
+  const getContactNameParts = (value?: Contact | null) => {
+    const first = value?.first_name?.trim() || "";
+    const last = value?.last_name?.trim() || "";
+    let full = value?.full_name?.trim() || "";
+
+    if (!full && (first || last)) {
+      full = `${first} ${last}`.trim();
+    }
+
+    if (!first && !last && full) {
+      const parts = full.split(" ").filter(Boolean);
+      return {
+        firstName: parts[0] || "",
+        lastName: parts.slice(1).join(" ").trim(),
+        fullName: full,
+      };
+    }
+
+    return { firstName: first, lastName: last, fullName: full };
+  };
+
+  const buildFullName = (first: string, last: string, full: string) => {
+    const trimmedFull = full.trim();
+    if (trimmedFull) return trimmedFull;
+    return `${first.trim()} ${last.trim()}`.trim();
+  };
 
   // Toggle expand/collapse for a note
   const toggleNoteExpand = (noteId: number) => {
@@ -300,9 +330,12 @@ const menuIconStyle = {
 
   useEffect(() => {
     if (contact) {
+      const { firstName, lastName, fullName } = getContactNameParts(contact);
       setFormData(prev => ({
         ...prev,
-        fullName: contact.full_name || '',
+        firstName,
+        lastName,
+        fullName,
         email: contact.email || '',
         website: contact.website || '',
         companyName: contact.company_name || '',
@@ -505,8 +538,8 @@ case "boolean":
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.fullName.trim() || !formData.email.trim()) {
-      onShowMessage('Full name and email are required', 'error');
+    if (!formData.email.trim()) {
+      onShowMessage('Email is required', 'error');
       return;
     }
 
@@ -518,6 +551,15 @@ case "boolean":
     setIsSubmitting(true);
 
     try {
+      const trimmedFirstName = formData.firstName.trim();
+      const trimmedLastName = formData.lastName.trim();
+      const computedFullName = buildFullName(
+        trimmedFirstName,
+        trimmedLastName,
+        formData.fullName
+      );
+      const fullNameToSend = computedFullName ? computedFullName : undefined;
+
       const response = await fetch(
         `${API_BASE_URL}/api/Crm/update-contact?id=${contact.id}`,
         {
@@ -529,6 +571,9 @@ case "boolean":
           // body: JSON.stringify(formData)
         body: JSON.stringify({
           ...formData,
+          firstName: trimmedFirstName || undefined,
+          lastName: trimmedLastName || undefined,
+          fullName: fullNameToSend,
           clientId: reduxUserId,
           emailBody: stripHtml(formData.emailBody),
           customFields: Object.fromEntries(
@@ -550,7 +595,9 @@ case "boolean":
       await response.json()
       const updatedContact: Contact = {
         ...contact,
-        full_name: formData.fullName,
+        first_name: trimmedFirstName || undefined,
+        last_name: trimmedLastName || undefined,
+        full_name: fullNameToSend,
         email: formData.email,
         website: formData.website,
         company_name: formData.companyName,
@@ -892,7 +939,7 @@ case "boolean":
                 <button
                   type='submit'
                   className="rounded-lg bg-[#3f9f42] px-5 py-2.5 text-sm font-medium text-white hover:bg-green-700 disabled:bg-gray-300"
-                  disabled={isSubmitting || !formData.fullName?.trim() || !formData.email?.trim()}
+                  disabled={isSubmitting || !formData.email?.trim()}
                   onClick={handleSubmit}
                 >
                   {isSubmitting ? "Saving..." : "Save"}
@@ -914,7 +961,29 @@ case "boolean":
               >
                 <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                     <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
-                      <label className={underlineLabel}>Full name</label>
+                      <label className={underlineLabel}>First name</label>
+                      <input
+                        type="text"
+                        name="firstName"
+                        value={formData.firstName}
+                        onChange={handleInputChange}
+                        className={underlineInput}
+                        placeholder="First name"
+                      />
+                    </div>
+                    <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
+                      <label className={underlineLabel}>Last name</label>
+                      <input
+                        type="text"
+                        name="lastName"
+                        value={formData.lastName}
+                        onChange={handleInputChange}
+                        className={underlineInput}
+                        placeholder="Last name"
+                      />
+                    </div>
+                    <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
+                      <label className={underlineLabel}>Full name (optional)</label>
                       <input
                         type="text"
                         name="fullName"
@@ -1978,14 +2047,47 @@ case "boolean":
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
             <div>
               <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
-                Full name <span style={{ color: 'red' }}>*</span>
+                First name
+              </label>
+              <input
+                type="text"
+                name="firstName"
+                value={formData.firstName}
+                onChange={handleInputChange}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px'
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+                Last name
+              </label>
+              <input
+                type="text"
+                name="lastName"
+                value={formData.lastName}
+                onChange={handleInputChange}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  border: '1px solid #ddd',
+                  borderRadius: '4px'
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+                Full name (optional)
               </label>
               <input
                 type="text"
                 name="fullName"
                 value={formData.fullName}
                 onChange={handleInputChange}
-                required
                 style={{
                   width: '100%',
                   padding: '8px 12px',
@@ -2259,14 +2361,14 @@ case "boolean":
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || !formData.fullName.trim() || !formData.email.trim()}
+              disabled={isSubmitting || !formData.email.trim()}
               style={{
                 padding: '8px 16px',
-                background: isSubmitting || !formData.fullName.trim() || !formData.email.trim() ? '#ccc' : '#3f9f42',
+                background: isSubmitting || !formData.email.trim() ? '#ccc' : '#3f9f42',
                 color: '#fff',
                 border: 'none',
                 borderRadius: '4px',
-                cursor: isSubmitting || !formData.fullName.trim() || !formData.email.trim() ? 'not-allowed' : 'pointer'
+                cursor: isSubmitting || !formData.email.trim() ? 'not-allowed' : 'pointer'
               }}
             >
               {isSubmitting ? 'Updating...' : 'Update contact'}
