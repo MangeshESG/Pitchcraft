@@ -22,6 +22,7 @@ interface ColumnMapping {
 interface ProcessedContact {
   first_name?: string;
   last_name?: string;
+  full_name?: string;
   name: string;
   email: string;
   job_title?: string;
@@ -43,6 +44,7 @@ interface ProcessedContact {
 const REQUIRED_FIELDS = [
   { key: "first_name", label: "First name", required: false },
   { key: "last_name", label: "Last name", required: false },
+  { key: "full_name", label: "Full name", required: false },
   { key: "email", label: "Email address", required: true },
   { key: "job_title", label: <>Job title <span style={{ color: "blue" }}>*</span></>, required: false },
   { key: "company", label: <>Company <span style={{ color: "blue" }}>*</span></>, required: false },
@@ -143,7 +145,7 @@ useEffect(() => {
     const lowerHeader = header.toLowerCase().trim();
 
     if (["name", "full name", "fullname", "contact name"].includes(lowerHeader)) {
-      mappings[header] = "first_name";
+      mappings[header] = "full_name";
     } else if (["first name", "firstname", "first_name"].includes(lowerHeader)) {
       mappings[header] = "first_name";
     } else if (["last name", "lastname", "last_name"].includes(lowerHeader)) {
@@ -164,7 +166,7 @@ useEffect(() => {
   });
 
   const patterns: Record<string, string[]> = {
-    first_name: ['full name', 'fullname', 'contact name'],
+    full_name: ['full name', 'fullname', 'contact name', 'name'],
     email: ['email address', 'e-mail', 'mail'],
     job_title: ['title', 'position', 'role'],
     company: ['company name', 'organization'],
@@ -377,10 +379,15 @@ useEffect(() => {
           }
       });
 
-      // Handle first_name + last_name combination
+      // Handle full_name + first_name + last_name combination
       const firstName = mappedRow.first_name || "";
       const lastName = mappedRow.last_name || "";
-      mappedRow.name = `${firstName} ${lastName}`.trim();
+      const fullName = mappedRow.full_name || "";
+      const combinedName = fullName || `${firstName} ${lastName}`.trim();
+      mappedRow.name = combinedName;
+      if (!mappedRow.full_name && combinedName) {
+        mappedRow.full_name = combinedName;
+      }
 
       // Validate required fields
       if (!mappedRow.email) {
@@ -452,7 +459,7 @@ useEffect(() => {
           contacts: validatedData.map((contact: any) => {
             const firstName = contact.first_name?.trim() || "";
             const lastName = contact.last_name?.trim() || "";
-            const fullName = (contact.name || "").trim();
+            const fullName = (contact.full_name || contact.name || "").trim();
 
             return {
               firstName: firstName || undefined,
@@ -809,8 +816,9 @@ useEffect(() => {
                   className="button action-button"
                   style={{ borderRadius:"12px" }}
                   disabled={
-                    !Object.values(columnMappings).includes("first_name") ||
-                    !Object.values(columnMappings).includes("email")
+                    !Object.values(columnMappings).includes("email") ||
+                    !(Object.values(columnMappings).includes("first_name") ||
+                      Object.values(columnMappings).includes("full_name"))
                   }
                 >
                   Continue to preview
