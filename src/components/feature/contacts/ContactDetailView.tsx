@@ -1602,6 +1602,7 @@ useEffect(() => {
                       isOpen={true}
                       asPage={true}
                       hideOverlay={true}
+                      hideFullName={true}
                       contact={editingContact}
                       onClose={() => { }}
                       onContactUpdated={(updatedContact) => {

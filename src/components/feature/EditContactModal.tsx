@@ -65,6 +65,7 @@ interface EditContactModalProps {
   contact: Contact | null;
   onContactUpdated: (updatedContact: Contact) => void;
   onShowMessage: (message: string, type: 'success' | 'error') => void;
+  hideFullName?: boolean;
   hideOverlay?: boolean;
   asPage?: boolean;
   // pinnedNotes: Note[];
@@ -92,6 +93,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   contact,
   onContactUpdated,
   onShowMessage,
+  hideFullName = false,
   hideOverlay = false,
   asPage = false,
   //pinnedNotes,
@@ -982,17 +984,19 @@ case "boolean":
                         placeholder="Last name"
                       />
                     </div>
-                    <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
-                      <label className={underlineLabel}>Full name (optional)</label>
-                      <input
-                        type="text"
-                        name="fullName"
-                        value={formData.fullName}
-                        onChange={handleInputChange}
-                        className={underlineInput}
-                        placeholder="Full name"
-                      />
-                    </div>
+                    {!hideFullName && (
+                      <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
+                        <label className={underlineLabel}>Full name (optional)</label>
+                        <input
+                          type="text"
+                          name="fullName"
+                          value={formData.fullName}
+                          onChange={handleInputChange}
+                          className={underlineInput}
+                          placeholder="Full name"
+                        />
+                      </div>
+                    )}
                     <div className='flex flex-col gap-[5px] form-group !mb-[0]'>
                       <label className={underlineLabel}>Email</label>
                       <input
@@ -2079,23 +2083,25 @@ case "boolean":
                 }}
               />
             </div>
-            <div>
-              <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
-                Full name (optional)
-              </label>
-              <input
-                type="text"
-                name="fullName"
-                value={formData.fullName}
-                onChange={handleInputChange}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px'
-                }}
-              />
-            </div>
+            {!hideFullName && (
+              <div>
+                <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
+                  Full name (optional)
+                </label>
+                <input
+                  type="text"
+                  name="fullName"
+                  value={formData.fullName}
+                  onChange={handleInputChange}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid #ddd',
+                    borderRadius: '4px'
+                  }}
+                />
+              </div>
+            )}
 
             <div>
               <label style={{ display: 'block', marginBottom: 4, fontWeight: 500 }}>
