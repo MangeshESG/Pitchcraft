@@ -56,7 +56,7 @@ const AddContactModal: React.FC<AddContactModalProps> = ({
   useEffect(() => {
     const fetchDataFiles = async () => {
       try {
-        const response = await fetch('https://localhost:7216/api/Crm/datafile-byclientid?clientId=' + clientId);
+        const response = await fetch(`${API_BASE_URL}/api/Crm/datafile-byclientid?clientId=${clientId}`);
         if (response.ok) {
           const files = await response.json();
           

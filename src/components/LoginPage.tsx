@@ -447,17 +447,14 @@ const RegisterForm: React.FC<ViewProps> = ({ setView }) => {
               required
             />
             <span>
-              By completing and submitting this form, I agree to receive marketing emails
-              from PitchKraft.ai and its affiliates. I understand I can unsubscribe or
-              update my preferences at any time. My personal data will be processed in
-              accordance with the{" "}
+              By completing and submitting this form, I agree to receive emails regarding my account from PitchKraft.ai{" "}
               <a
                 href="https://www.pitchkraft.ai/privacy-policy/"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                PitchKraft.ai Privacy Policy
-              </a>.
+                Privacy Policy
+              </a>. My data will not be used in any other way.
             </span>
           </label>
         </div>
