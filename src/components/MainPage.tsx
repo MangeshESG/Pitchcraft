@@ -3457,18 +3457,7 @@ try {
                               Segments
                             </button>
                           </li>
-                          <li className={contactsSubTab === "CustomFields" ? "active" : ""}>
-                          <button
-                            onClick={() => {
-                              setContactsSubTab("CustomFields");
-                              setTab("CustomFields");
-                              setShowMailSubmenu(false);
-                            }}
-                            className="submenu-button"
-                          >
-                            Custom attributes
-                          </button>
-                        </li>
+
                         </ul>
                       )}
                     </li>
@@ -3653,6 +3642,18 @@ try {
                               Tracking
                             </button>
                           </li>
+                          <li className={contactsSubTab === "CustomFields" ? "active" : ""}>
+                          <button
+                            onClick={() => {
+                              setContactsSubTab("CustomFields");
+                              setTab("CustomFields");
+                              setShowMailSubmenu(false);
+                            }}
+                            className="submenu-button"
+                          >
+                            Custom attributes
+                          </button>
+                        </li>
                         </ul>
                       )}
                     </li>
