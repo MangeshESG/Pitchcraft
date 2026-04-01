@@ -2573,7 +2573,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
           <BulkUpdatePanel
             isOpen={showBulkUpdatePanel}
             onClose={() => setShowBulkUpdatePanel(false)}
-            selectedContactIds={getBulkUpdateContactIds()}
+            selectedContactIds={getBulkUpdateContactIds().map(id => id.toString())} 
             clientId={effectiveUserId!}
             onUpdateComplete={() => {
               // Clear selections after update
