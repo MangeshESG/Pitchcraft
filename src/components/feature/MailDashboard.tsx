@@ -227,6 +227,14 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     { key: "website", label: "Website", visible: true },
   ]);
 
+
+  const getSafeDataFileId = (campaign?: Campaign): number | undefined => {
+    if (!campaign?.zohoViewId) return undefined;
+
+    const parsed = Number(campaign.zohoViewId);
+    return isNaN(parsed) ? undefined : parsed;
+  };
+
   const appModal = useAppModal();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -403,139 +411,107 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   }, [startDate, endDate, allEventData, allEmailLogs, isVisible, excludeBots]);
 
   // 6. Load email logs for email-logs filter type - Updated for campaigns
-  useEffect(() => {
-    if (!isVisible) return;
+ useEffect(() => {
+  if (!isVisible) return;
 
-    if (
-      selectedCampaign &&
-      emailFilterType === "email-logs" &&
-      effectiveUserId
-    ) {
-      const loadEmailLogs = async () => {
-        await withLoader("Loading email logs...", async () => {
-          try {
-            const campaign = availableCampaigns.find(
-              (c) => c.id.toString() === selectedCampaign
-            );
+  // ================= EMAIL LOGS =================
+  if (
+    selectedCampaign &&
+    emailFilterType === "email-logs" &&
+    effectiveUserId
+  ) {
+    const loadEmailLogs = async () => {
+      await withLoader("Loading email logs...", async () => {
+        try {
+          const campaignIdNumber = Number(selectedCampaign);
+          const clientId = Number(effectiveUserId);
 
-            if (campaign?.dataSource === "DataFile" && campaign.zohoViewId) {
-              const dataFileId = Number(campaign.zohoViewId);
-              const clientId = Number(effectiveUserId);
-              const logs = await fetchEmailLogs(clientId, dataFileId);
-              setEmailLogs(logs);
+          const logs = await fetchEmailLogs(
+            clientId,
+            campaignIdNumber   // ✅ ONLY campaignId
+          );
 
-            } else if (campaign?.dataSource === "Segment" && campaign.segmentId) {
-              console.log("Loading email logs for segment:", campaign.segmentId);
-              try {
-                // Use the new segment email logs API
-                const response = await axios.get(
-                  `${API_BASE_URL}/api/Crm/getlogs-by-segment`,
-                  {
-                    params: {
-                      clientId: Number(effectiveUserId),
-                      segmentId: campaign.segmentId,
-                    },
-                    headers: {
-                      ...(token && { Authorization: `Bearer ${token}` }),
-                    },
-                  }
-                );
-                setEmailLogs(response.data || []);
-              } catch (error) {
-                console.error("Error loading segment email logs:", error);
-                setEmailLogs([]);
-              }
+          setEmailLogs(logs);
+        } catch (error) {
+          console.error("Error loading email logs:", error);
+          setEmailLogs([]);
+        }
+      });
+    };
+
+    loadEmailLogs();
+  }
+
+  // ================= MISSING LOGS =================
+  if (
+    selectedCampaign &&
+    emailFilterType === "missing-logs" &&
+    effectiveUserId &&
+    startDate &&
+    endDate
+  ) {
+    const loadMissingLogs = async () => {
+      await withLoader("Loading missing logs...", async () => {
+        try {
+          const campaignIdNumber = Number(selectedCampaign);
+
+          const response = await axios.get(
+            `${API_BASE_URL}/track/missing-log-contacts`,
+            {
+              params: {
+                startDate,
+                endDate,
+                campaignId: campaignIdNumber, // ✅ ONLY campaignId
+              },
+              headers: {
+                ...(token && { Authorization: `Bearer ${token}` }),
+              },
             }
-          } catch (error) {
-            console.error("Error loading email logs:", error);
-            setEmailLogs([]);
-          }
-        });
-      };
-      loadEmailLogs();
-    }
+          );
 
-    // Load missing logs
-    if (
-      selectedCampaign &&
-      emailFilterType === "missing-logs" &&
-      effectiveUserId &&
-      startDate &&
-      endDate
-    ) {
-      const loadMissingLogs = async () => {
-        await withLoader("Loading missing logs...", async () => {
-          try {
-            const campaign = availableCampaigns.find(
-              (c) => c.id.toString() === selectedCampaign
-            );
+          let missingContactsData = [];
 
-            if (campaign?.dataSource === "DataFile" && campaign.zohoViewId) {
-              const dataFileId = Number(campaign.zohoViewId);
-              const response = await axios.get(
-                `${API_BASE_URL}/track/missing-log-contacts`,
-                {
-                  params: {
-                    startDate,
-                    endDate,
-                    dataFileId,
-                  },
-                  headers: {
-                    ...(token && { Authorization: `Bearer ${token}` }),
-                  },
-                }
-              );
-              
-              console.log('Missing logs API response:', response.data);
-              
-              // Handle different response structures
-              let missingContactsData = [];
-              if (response.data.missingContacts) {
-                missingContactsData = response.data.missingContacts;
-              } else if (Array.isArray(response.data)) {
-                missingContactsData = response.data;
-              } else {
-                console.warn('Unexpected API response structure:', response.data);
-                missingContactsData = [];
-              }
-              
-              const transformedData = missingContactsData.map((contact: any, index: number) => ({
-                id: contact.contactId || index + 1,
-                contactId: contact.contactId,
-                first_name: contact.first_name || contact.firstName || "",
-                last_name: contact.last_name || contact.lastName || "",
-                full_name: getDisplayNameFromContact(contact),
-                email: contact.email || contact.emailAddress || "-",
-                company_name: contact.company_name || contact.companyName || contact.company || "-",
-                job_title: contact.job_title || contact.jobTitle || contact.title || "-",
-                country_or_address: contact.country_or_address || contact.address || contact.location || "-",
-                email_subject: contact.email_subject || contact.subject || "-",
-                linkedin_url: contact.linkedin_url || contact.linkedinUrl || contact.linkedin || "-",
-                website: contact.website || contact.websiteUrl || "-"
-              }));
-              
-              console.log('Transformed missing logs data:', transformedData);
-              setMissingLogs(transformedData);
-            } else {
-              setMissingLogs([]);
-            }
-          } catch (error) {
-            console.error("Error loading missing logs:", error);
-            setMissingLogs([]);
+          if (response.data.missingContacts) {
+            missingContactsData = response.data.missingContacts;
+          } else if (Array.isArray(response.data)) {
+            missingContactsData = response.data;
           }
-        });
-      };
-      loadMissingLogs();
-    }
-  }, [
-    selectedCampaign,
-    emailFilterType,
-    effectiveUserId,
-    isVisible,
-    availableCampaigns,
-    startDate,
-    endDate,
-  ]);
+
+          const transformedData = missingContactsData.map(
+            (contact: any, index: number) => ({
+              id: contact.contactId || index + 1,
+              contactId: contact.contactId,
+              first_name: contact.first_name || contact.firstName || "",
+              last_name: contact.last_name || contact.lastName || "",
+              full_name: getDisplayNameFromContact(contact),
+              email: contact.email || "-",
+              company_name: contact.company_name || "-",
+              job_title: contact.job_title || "-",
+              country_or_address: contact.country_or_address || "-",
+              email_subject: contact.email_subject || "-",
+              linkedin_url: contact.linkedin_url || "-",
+              website: contact.website || "-",
+            })
+          );
+
+          setMissingLogs(transformedData);
+        } catch (error) {
+          console.error("Error loading missing logs:", error);
+          setMissingLogs([]);
+        }
+      });
+    };
+
+    loadMissingLogs();
+  }
+}, [
+  selectedCampaign,
+  emailFilterType,
+  effectiveUserId,
+  isVisible,
+  startDate,
+  endDate,
+]);
 
   // 7. Clear cache when user changes
   useEffect(() => {
@@ -633,144 +609,130 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     saveFormState(FORM_STATE_KEY, stateToSave);
   };
 
-  const fetchEmailLogs = async (
-    effectiveUserId: number,
-    dataFileId: number
-  ) => {
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/Crm/getlogs?clientId=${effectiveUserId}&dataFileId=${dataFileId}`
-      );
+  const filterByCampaignIfPresent = <T extends { campaignId?: number }>(
+    items: T[],
+    campaignId: number
+  ): T[] => {
+    if (!items || items.length === 0) return items;
+    const hasCampaignId = items.some(
+      (item) =>
+        item.campaignId !== undefined && item.campaignId !== null
+    );
+    return hasCampaignId
+      ? items.filter((item) => item.campaignId === campaignId)
+      : items;
+  };
 
-      if (response.ok) {
-        const logs = await response.json();
-        console.log("COntacts",logs);
-        return logs;
-      } else {
-        console.error("Failed to fetch email logs");
-        return [];
-      }
-    } catch (error) {
-      console.error("Error fetching email logs:", error);
+const fetchEmailLogs = async (
+  clientId: number,
+  campaignId: number
+) => {
+  try {
+    const url = new URL(`${API_BASE_URL}/api/Crm/getlogs`);
+
+    url.searchParams.set("clientId", clientId.toString());
+    url.searchParams.set("campaignId", campaignId.toString());
+
+    const response = await fetch(url.toString());
+
+    if (response.ok) {
+      return await response.json(); // ✅ already filtered from backend
+    } else {
+      console.error("Failed to fetch email logs");
       return [];
     }
-  };
+  } catch (error) {
+    console.error("Error fetching email logs:", error);
+    return [];
+  }
+};
   // Updated fetchLogsByCampaign function
-  const fetchLogsByCampaign = async (campaignId: string) => {
-    await withLoader("Loading campaign data...", async () => {
-      try {
-        setLoading(true);
+const fetchLogsByCampaign = async (campaignId: string) => {
+  await withLoader("Loading campaign data...", async () => {
+    try {
+      setLoading(true);
 
-        const campaign = availableCampaigns.find(
-          (c) => c.id.toString() === campaignId
-        );
-        if (!campaign) {
-          return;
+      const campaign = availableCampaigns.find(
+        (c) => c.id.toString() === campaignId
+      );
+
+      if (!campaign) return;
+
+      const clientId = Number(effectiveUserId);
+      const campaignIdNumber = Number(campaignId);
+
+      let allTrackingData: EventItem[] = [];
+      let allEmailLogsData: any[] = [];
+
+      // ✅ ONLY CAMPAIGN BASED TRACKING
+      const trackingResponse = await axios.get(
+        `${API_BASE_URL}/api/Crm/gettrackinglogs`,
+        {
+          params: {
+            clientId,
+            campaignId: campaignIdNumber,
+          },
+          headers: { ...(token && { Authorization: `Bearer ${token}` }) },
         }
+      );
 
-        const clientId = Number(effectiveUserId);
-        let allTrackingData: EventItem[] = [];
-        let allEmailLogsData: any[] = [];
+      allTrackingData = trackingResponse.data || [];
 
-        if (campaign.dataSource === "DataFile" && campaign.zohoViewId) {
-          const dataFileId = Number(campaign.zohoViewId);
+      // ✅ ONLY CAMPAIGN BASED EMAIL LOGS
+      allEmailLogsData = await fetchEmailLogs(
+        clientId,
+        campaignIdNumber
+      );
 
-          const trackingResponse = await axios.get(
-            `${API_BASE_URL}/api/Crm/gettrackinglogs`,
-            {
-              params: { clientId, dataFileId },
-              headers: { ...(token && { Authorization: `Bearer ${token}` }) },
-            }
-          );
+      // ✅ SET STATE
+      setAllEventData(allTrackingData);
+      setAllEmailLogs(allEmailLogsData);
+      setEmailLogs(allEmailLogsData);
 
-          allTrackingData = trackingResponse.data || [];
-          allEmailLogsData = await fetchEmailLogs(clientId, dataFileId);
+      // ✅ CACHE
+      saveDashboardData(campaignId, {
+        allEventData: allTrackingData,
+        allEmailLogs: allEmailLogsData,
+        emailLogs: allEmailLogsData,
+        effectiveUserId: effectiveUserId!,
+      });
 
-        } else if (campaign.dataSource === "Segment" && campaign.segmentId) {
-          try {
-            // Use the new segment tracking logs API
-            const segmentTrackingResponse = await axios.get(
-              `${API_BASE_URL}/api/Crm/gettrackinglogs-by-segment`,
-              {
-                params: {
-                  clientId: clientId,
-                  segmentId: campaign.segmentId,
-                },
-                headers: { ...(token && { Authorization: `Bearer ${token}` }) },
-              }
-            );
+      setDataFetchedForCampaign(campaignId);
 
-            allTrackingData = segmentTrackingResponse.data || [];
+      // ✅ PROCESS
+      processDataWithDateFilter(
+        allTrackingData,
+        allEmailLogsData,
+        startDate,
+        endDate
+      );
 
-            // Use the new segment email logs API
-            try {
-              const segmentEmailLogsResponse = await axios.get(
-                `${API_BASE_URL}/api/Crm/getlogs-by-segment`,
-                {
-                  params: {
-                    clientId: clientId,
-                    segmentId: campaign.segmentId,
-                  },
-                  headers: { ...(token && { Authorization: `Bearer ${token}` }) },
-                }
-              );
-              allEmailLogsData = segmentEmailLogsResponse.data || [];
-            } catch (emailLogError) {
-              console.log(
-                "No email logs found for segment, continuing with empty array"
-              );
-              allEmailLogsData = [];
-            }
-          } catch (segmentError: any) {
-            if (segmentError.response?.status === 404) {
-              console.error("No data found for segment:", campaign.segmentId);
-            } else {
-              throw segmentError;
-            }
-          }
-        } else {
-          console.error("Campaign has neither valid dataFileId nor segmentId");
-          return;
-        }
+      console.log(
+        `✅ Campaign ${campaignId} loaded: ${allTrackingData.length} events, ${allEmailLogsData.length} logs`
+      );
+    } catch (error) {
+      console.error("Dashboard: Error fetching logs:", error);
 
-        setAllEventData(allTrackingData);
-        setAllEmailLogs(allEmailLogsData);
-        setEmailLogs(allEmailLogsData);
+      setAllEventData([]);
+      setAllEmailLogs([]);
+      setEmailLogs([]);
+      setFilteredEventData([]);
+      setRequestCount(0);
+      setDailyStats([]);
+      setTotalStats({
+        sent: 0,
+        opens: 0,
+        clicks: 0,
+        totalClicks: 0,
+        errors: 0,
+      });
 
-        saveDashboardData(campaignId, {
-          allEventData: allTrackingData,
-          allEmailLogs: allEmailLogsData,
-          emailLogs: allEmailLogsData,
-          effectiveUserId: effectiveUserId!,
-        });
-
-        setDataFetchedForCampaign(campaignId);
-
-        processDataWithDateFilter(
-          allTrackingData,
-          allEmailLogsData,
-          startDate,
-          endDate
-        );
-
-        console.log(
-          `✅ Data cached for campaign ${campaignId} - ${allTrackingData.length} events, ${allEmailLogsData.length} email logs`
-        );
-      } catch (error) {
-        console.error("Dashboard: Error fetching logs:", error);
-        setAllEventData([]);
-        setAllEmailLogs([]);
-        setEmailLogs([]);
-        setFilteredEventData([]);
-        setRequestCount(0);
-        setDailyStats([]);
-        setTotalStats({ sent: 0, opens: 0, clicks: 0, totalClicks: 0, errors: 0 });
-        setDataFetchedForCampaign(campaignId);
-      } finally {
-        setLoading(false);
-      }
-    });
-  };
+      setDataFetchedForCampaign(campaignId);
+    } finally {
+      setLoading(false);
+    }
+  });
+};
   // Process data with date filtering
   const processDataWithDateFilter = (
     trackingData: EventItem[],

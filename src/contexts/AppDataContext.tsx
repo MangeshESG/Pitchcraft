@@ -9,6 +9,8 @@ interface EventItem {
   eventType: string;
   timestamp: string;
   clientId: number;
+  campaignId?: number;
+  segmentId?: number;
   targetUrl: string | null;
   zohoViewName: string;
   dataFileId: number;
@@ -29,6 +31,8 @@ interface EmailLog {
   contactId: number | null;
   clientId: number;
   dataFileId: number;
+  campaignId?: number;
+  segmentId?: number;
   subject: string | null;
   body: string;
   sentAt: string;
