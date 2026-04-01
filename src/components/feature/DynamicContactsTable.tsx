@@ -284,7 +284,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   const generateLabel = (key: string): string => {
     console.log('Generating label for key:', key); // Debug log
     // Handle specific cases first
-    if (key === 'hasLinkedInInfo') return 'LinkedIn Information';
+    if (key === 'hasLinkedInInfo') return 'LinkedIn information';
     if (key === 'hasNotes') return 'Notes';
     // if (key === 'companyLinkedInURL') return 'Company LinkedIn URL';
     // if (key === 'company_linkedin_url') return 'Company LinkedIn URL';

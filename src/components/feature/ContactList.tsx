@@ -11,6 +11,7 @@ import SegmentModal from "../common/SegmentModal";
 import CommonSidePanel from "../common/CommonSidePanel";
 import FilterBuilder from "../common/FilterBuilder";
 import ContactViews from "./ContactViews";
+import BulkUpdatePanel from "./BulkUpdatePanel";
 
 import { useAppModal } from "../../hooks/useAppModal";
 import { useSelector } from "react-redux";
@@ -18,6 +19,7 @@ import { RootState } from "../../Redux/store";
 import PaginationControls from "./PaginationControls";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import deleteIcon from "../../assets/images/deleteiconn.png";
+import duplicateIcon from "../../assets/images/icons/duplicate.png";
 import {
   faAngleRight,
   faBars,
@@ -246,7 +248,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     { key: "website", label: "Website", visible: false },
     { key: "linkedin_url", label: "LinkedIn profile", visible: false },
     { key: "country_or_address", label: "Location", visible: true },
-    { key: "hasLinkedInInfo", label: "LinkedIn Information", visible: true },
+    { key: "hasLinkedInInfo", label: "LinkedIn information", visible: true },
     { key: "hasNotes", label: "Notes", visible: true },
     { key: "created_at", label: "Created date", visible: false },
     { key: "updated_at", label: "Last updated", visible: false },
@@ -725,6 +727,7 @@ const formatTimeIST = (dateString?: string) => {
 
   //Segment Modal States
   const [showSaveSegmentModal, setShowSaveSegmentModal] = useState(false);
+  const [showBulkUpdatePanel, setShowBulkUpdatePanel] = useState(false);
 
   // Delete contacts from Lists
   const handleDeleteListContacts = async () => {
@@ -1845,7 +1848,7 @@ const formatTimeIST = (dateString?: string) => {
     companyEventLink: "Company event link",
     unsubscribe: "Unsubscribe",
     notes: "Notes",
-    hasLinkedInInfo: "LinkedIn Information",
+    hasLinkedInInfo: "LinkedIn information",
     hasNotes: "Notes",
   };
   const segmentFilteredContacts = useMemo(() => {
@@ -1900,7 +1903,7 @@ const baseFields: any[] = [
   { key: "country_or_address", label: "Country", type: "text" },
   { key: "companyIndustry", label: "Industry", type: "text" },
   { key: "companyEmployeeCount", label: "Employee Count", type: "number" },
-  { key: "hasLinkedInInfo", label: "LinkedIn Information", type: "boolean" },
+  { key: "hasLinkedInInfo", label: "LinkedIn information", type: "boolean" },
   { key: "hasNotes", label: "Notes", type: "boolean" },
 ];
 const normalizeFilterFieldType = (fieldType?: string) => {
@@ -2622,15 +2625,31 @@ const filterFields: any = useMemo(() => {
                                 }}
                                 disabled={isCloningContact}
                                 style={{
-                                  background: "#17a2b8",
-                                  color: "#fff",
+                                  background: "none",
+                                  color: "#3f9f42",
                                   border: "none",
-                                  borderRadius: "12px"
+                                  borderRadius: "12px",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  width: "40px",
+                                  height: "40px",
+                                  padding: "0",
+                                  cursor: isCloningContact ? "not-allowed" : "pointer",
+                                  opacity: isCloningContact ? 0.6 : 1
                                 }}
+                                title={isCloningContact ? "Cloning..." : "Clone contact"}
                               >
-                                {isCloningContact
-                                  ? "Cloning..."
-                                  : "Clone contact"}
+                                <img
+                                  src={duplicateIcon}
+                                  alt="Clone"
+                                  style={{
+                                    width: 22,
+                                    height: 22,
+                                    objectFit: "contain",
+                                    filter: "invert(47%) sepia(82%) saturate(397%) hue-rotate(84deg) brightness(95%) contrast(90%)"
+                                  }}
+                                />
                               </button>
                             )}
                             <button
@@ -2638,26 +2657,52 @@ const filterFields: any = useMemo(() => {
                               onClick={handleDeleteListContacts}
                               disabled={isDeletingContact}
                               style={{
-                                background: "#dc3545",
-                                color: "#fff",
+                                background: "none",
+                                color: "#3f9f42",
                                 border: "none",
-                                borderRadius: "12px"
+                                borderRadius: "12px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                width: "40px",
+                                height: "40px",
+                                padding: "0",
+                                cursor: isDeletingContact ? "not-allowed" : "pointer",
+                                opacity: isDeletingContact ? 0.6 : 1
                               }}
+                              title={isDeletingContact ? "Deleting..." : "Delete contacts"}
                             >
-                              {isDeletingContact ? "Deleting..." : "Delete contacts"}
+                              <FontAwesomeIcon
+                                icon={faTrashAlt}
+                                style={{ fontSize: 20, color: "#3f9f42" }}
+                              />
                             </button>
                             <button
                               className="button secondary"
                               onClick={handleUnsubscribeContacts}
                               disabled={isUnsubscribing}
                               style={{
-                                background: "#ff9800",
-                                color: "#fff",
+                                background: "none",
+                                color: "#3f9f42",
                                 border: "none",
-                                borderRadius: "12px"
+                                borderRadius: "12px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                width: "40px",
+                                height: "40px",
+                                padding: "0",
+                                cursor: isUnsubscribing ? "not-allowed" : "pointer",
+                                opacity: isUnsubscribing ? 0.6 : 1
                               }}
+                              title={isUnsubscribing ? "Processing..." : "Unsubscribe"}
                             >
-                              {isUnsubscribing ? "Processing..." : "Unsubscribe"}
+                              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" height="22" width="22">
+                                <path stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" d="M11.25 17.25c0 1.5913 0.6321 3.1174 1.7574 4.2426 1.1252 1.1253 2.6513 1.7574 4.2426 1.7574 1.5913 0 3.1174 -0.6321 4.2426 -1.7574 1.1253 -1.1252 1.7574 -2.6513 1.7574 -4.2426 0 -1.5913 -0.6321 -3.1174 -1.7574 -4.2426 -1.1252 -1.1253 -2.6513 -1.7574 -4.2426 -1.7574 -1.5913 0 -3.1174 0.6321 -4.2426 1.7574 -1.1253 1.1252 -1.7574 2.6513 -1.7574 4.2426Z" strokeWidth="2"></path>
+                                <path stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" d="M14.25 17.25h6" strokeWidth="2"></path>
+                                <path stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" d="M8.25 15.75h-6c-0.39782 0 -0.77936 -0.158 -1.06066 -0.4393C0.908035 15.0294 0.75 14.6478 0.75 14.25v-12c0 -0.39782 0.158035 -0.77936 0.43934 -1.06066C1.47064 0.908035 1.85218 0.75 2.25 0.75h18c0.3978 0 0.7794 0.158035 1.0607 0.43934 0.2813 0.2813 0.4393 0.66284 0.4393 1.06066V9" strokeWidth="2"></path>
+                                <path stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" d="m21.41 1.30005 -8.143 6.264c-0.5783 0.44486 -1.2874 0.68606 -2.017 0.68606 -0.7296 0 -1.43873 -0.2412 -2.01701 -0.68606l-8.144 -6.264" strokeWidth="2"></path>
+                              </svg>
                             </button>
                             <button
                               className="button primary"
@@ -2668,13 +2713,66 @@ const filterFields: any = useMemo(() => {
                                 }
                               }}
                               style={{
-                                backgroundColor: "#3f9f42",
-                                borderColor: "#3f9f42",
-                                color: "#fff",
-                                borderRadius: "12px"
+                                backgroundColor: 'transparent',
+                                borderColor: 'transparent',
+                                color: '#3f9f42',
+                                border: 'none',
+                                borderRadius: '12px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '40px',
+                                height: '40px',
+                                padding: '0',
+                                cursor: 'pointer'
                               }}
+                              title="Segment"
                             >
-                              Segment
+                              <svg
+                                width="30"
+                                height="30"
+                                viewBox="0 0 100 100"
+                                fill="none"
+                                xmlns="http://www.w3.org/2000/svg"
+                              >
+                                <path
+                                  d="M50 50H85C85 69.33 69.33 85 50 85C30.67 85 15 69.33 15 50C15 30.67 30.67 15 50 15V50Z"
+                                  stroke="#3f9f42"
+                                  strokeWidth="6"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                                <path
+                                  d="M60 40V15C73.8071 15 85 26.1929 85 40H60Z"
+                                  stroke="#3f9f42"
+                                  strokeWidth="6"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                />
+                              </svg>
+                            </button>
+                            <button
+                              className="button secondary"
+                              onClick={() => setShowBulkUpdatePanel(true)}
+                              style={{
+                                background: "none",
+                                color: "#3f9f42",
+                                border: "none",
+                                borderRadius: "12px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                width: "40px",
+                                height: "40px",
+                                padding: "0",
+                                cursor: "pointer"
+                              }}
+                              title="Bulk update"
+                            >
+                              <FontAwesomeIcon
+                                icon={faEdit}
+                                style={{ fontSize: 20, color: "#3f9f42" }}
+                              />
                             </button>
                           </div>
                         </div>
@@ -3806,13 +3904,31 @@ const filterFields: any = useMemo(() => {
                               }}
                               disabled={isCloningContact}
                               style={{
-                                background: "#17a2b8",
-                                color: "#fff",
+                                background: "none",
+                                color: "#3f9f42",
                                 border: "none",
-                                borderRadius: "12px"
+                                borderRadius: "12px",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                width: "40px",
+                                height: "40px",
+                                padding: "0",
+                                cursor: isCloningContact ? "not-allowed" : "pointer",
+                                opacity: isCloningContact ? 0.6 : 1
                               }}
+                              title={isCloningContact ? "Cloning..." : "Clone contact"}
                             >
-                              {isCloningContact ? "Cloning..." : "Clone contact"}
+                              <img
+                                src={duplicateIcon}
+                                alt="Clone"
+                                style={{
+                                  width: 22,
+                                  height: 22,
+                                  objectFit: "contain",
+                                  filter: "invert(47%) sepia(82%) saturate(397%) hue-rotate(84deg) brightness(95%) contrast(90%)"
+                                }}
+                              />
                             </button>
                           )}
                           <button
@@ -3820,38 +3936,117 @@ const filterFields: any = useMemo(() => {
                             onClick={handleDeleteSegmentContacts}
                             disabled={isDeletingContact}
                             style={{
-                              background: "#dc3545",
-                              color: "#fff",
+                              background: "none",
+                              color: "#3f9f42",
                               border: "none",
-                              borderRadius: "12px"
+                              borderRadius: "12px",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              width: "40px",
+                              height: "40px",
+                              padding: "0",
+                              cursor: isDeletingContact ? "not-allowed" : "pointer",
+                              opacity: isDeletingContact ? 0.6 : 1
                             }}
+                            title={isDeletingContact ? "Deleting..." : "Remove"}
                           >
-                            {isDeletingContact ? "Deleting..." : "Remove"}
+                            <FontAwesomeIcon
+                              icon={faTrashAlt}
+                              style={{ fontSize: 20, color: "#3f9f42" }}
+                            />
                           </button>
                           <button
                             className="button secondary"
                             onClick={handleUnsubscribeContacts}
                             disabled={isUnsubscribing}
                             style={{
-                              background: "#ff9800",
-                              color: "#fff",
+                              background: "none",
+                              color: "#3f9f42",
                               border: "none",
-                              borderRadius: "12px"
+                              borderRadius: "12px",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              width: "40px",
+                              height: "40px",
+                              padding: "0",
+                              cursor: isUnsubscribing ? "not-allowed" : "pointer",
+                              opacity: isUnsubscribing ? 0.6 : 1
                             }}
+                            title={isUnsubscribing ? "Processing..." : "Unsubscribe"}
                           >
-                            {isUnsubscribing ? "Processing..." : "Unsubscribe"}
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" height="22" width="22">
+                              <path stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" d="M11.25 17.25c0 1.5913 0.6321 3.1174 1.7574 4.2426 1.1252 1.1253 2.6513 1.7574 4.2426 1.7574 1.5913 0 3.1174 -0.6321 4.2426 -1.7574 1.1253 -1.1252 1.7574 -2.6513 1.7574 -4.2426 0 -1.5913 -0.6321 -3.1174 -1.7574 -4.2426 -1.1252 -1.1253 -2.6513 -1.7574 -4.2426 -1.7574 -1.5913 0 -3.1174 0.6321 -4.2426 1.7574 -1.1253 1.1252 -1.7574 2.6513 -1.7574 4.2426Z" strokeWidth="2"></path>
+                              <path stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" d="M14.25 17.25h6" strokeWidth="2"></path>
+                              <path stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" d="M8.25 15.75h-6c-0.39782 0 -0.77936 -0.158 -1.06066 -0.4393C0.908035 15.0294 0.75 14.6478 0.75 14.25v-12c0 -0.39782 0.158035 -0.77936 0.43934 -1.06066C1.47064 0.908035 1.85218 0.75 2.25 0.75h18c0.3978 0 0.7794 0.158035 1.0607 0.43934 0.2813 0.2813 0.4393 0.66284 0.4393 1.06066V9" strokeWidth="2"></path>
+                              <path stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" d="m21.41 1.30005 -8.143 6.264c-0.5783 0.44486 -1.2874 0.68606 -2.017 0.68606 -0.7296 0 -1.43873 -0.2412 -2.01701 -0.68606l-8.144 -6.264" strokeWidth="2"></path>
+                            </svg>
                           </button>
                           <button
                             className="button primary"
                             onClick={() => setShowSaveSegmentModal(true)}
                             style={{ 
-                              backgroundColor: "#3f9f42",
-                              borderColor: "#3f9f42",
-                              color: "#fff",
-                              borderRadius: "12px"
+                              backgroundColor: 'transparent',
+                              borderColor: 'transparent',
+                              color: '#3f9f42',
+                              border: 'none',
+                              borderRadius: '12px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: '40px',
+                              height: '40px',
+                              padding: '0',
+                              cursor: 'pointer'
                             }}
+                            title="Segment"
                           >
-                            Segment
+                            <svg
+                              width="30"
+                              height="30"
+                              viewBox="0 0 100 100"
+                              fill="none"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                d="M50 50H85C85 69.33 69.33 85 50 85C30.67 85 15 69.33 15 50C15 30.67 30.67 15 50 15V50Z"
+                                stroke="#3f9f42"
+                                strokeWidth="6"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                              <path
+                                d="M60 40V15C73.8071 15 85 26.1929 85 40H60Z"
+                                stroke="#3f9f42"
+                                strokeWidth="6"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          </button>
+                          <button
+                            className="button secondary"
+                            onClick={() => setShowBulkUpdatePanel(true)}
+                            style={{
+                              background: "none",
+                              color: "#3f9f42",
+                              border: "none",
+                              borderRadius: "12px",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              width: "40px",
+                              height: "40px",
+                              padding: "0",
+                              cursor: "pointer"
+                            }}
+                            title="Bulk Update"
+                          >
+                            <FontAwesomeIcon
+                              icon={faEdit}
+                              style={{ fontSize: 20, color: "#3f9f42" }}
+                            />
                           </button>
                         </div>
                       </div>
@@ -4465,6 +4660,33 @@ const filterFields: any = useMemo(() => {
         isOpen={appModal.isOpen}
         onClose={appModal.hideModal}
         {...appModal.config}
+      />
+      <BulkUpdatePanel
+        isOpen={showBulkUpdatePanel}
+        onClose={() => setShowBulkUpdatePanel(false)}
+        selectedContactIds={
+          viewMode === "detail" || segmentViewMode === "detail"
+            ? Array.from(detailSelectedContacts)
+            : Array.from(selectedContacts)
+        }
+        clientId={effectiveUserId}
+        onUpdateComplete={() => {
+          // Refresh the appropriate grid based on current view
+          if (viewMode === "detail" && selectedDataFileForView) {
+            fetchDetailContacts("list", selectedDataFileForView);
+          } else if (segmentViewMode === "detail" && selectedSegmentForView) {
+            fetchDetailContacts("segment", selectedSegmentForView);
+          } else if (selectedDataFile) {
+            fetchContacts();
+          }
+          
+          // Clear selections after update
+          if (viewMode === "detail" || segmentViewMode === "detail") {
+            setDetailSelectedContacts(new Set());
+          } else {
+            setSelectedContacts(new Set());
+          }
+        }}
       />
     </div>
   );

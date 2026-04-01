@@ -6,6 +6,10 @@ import AppModal from "../common/AppModal";
 import { useAppModal } from "../../hooks/useAppModal";
 import SegmentModal from "../common/SegmentModal";
 import LoadingSpinner from "../common/LoadingSpinner";
+import BulkUpdatePanel from "./BulkUpdatePanel";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faTrashAlt } from "@fortawesome/free-regular-svg-icons";
+import { faEdit } from "@fortawesome/free-regular-svg-icons";
 
 import {
   LineChart,
@@ -152,6 +156,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   const [missingLogsCurrentPage, setMissingLogsCurrentPage] = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
   const [showSaveSegmentModal, setShowSaveSegmentModal] = useState(false);
+  const [showBulkUpdatePanel, setShowBulkUpdatePanel] = useState(false);
   const [dataFetchedForCampaign, setDataFetchedForCampaign] =
     useState<string>("");
   const [deletingContacts, setDeletingContacts] = useState(false);
@@ -1376,16 +1381,24 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   };
 
   // Selection Handlers
-  const handleSelectEmailLog = (logId: string) => {
-    setSelectedEmailLogs((prev) => {
+  const toggleSelection = (setter: React.Dispatch<React.SetStateAction<Set<string>>>, id: string) => {
+    setter(prev => {
       const newSelection = new Set(prev);
-      if (newSelection.has(logId)) {
-        newSelection.delete(logId);
+      if (newSelection.has(id)) {
+        newSelection.delete(id);
       } else {
-        newSelection.add(logId);
+        newSelection.add(id);
       }
       return newSelection;
     });
+  };
+
+  const handleSelectEmailLog = (logId: string) => {
+    toggleSelection(setSelectedEmailLogs, logId);
+  };
+
+  const handleSelectMissingLog = (logId: string) => {
+    toggleSelection(setSelectedMissingLogs, logId);
   };
 
   const handleSelectAllEmailLogs = () => {
@@ -1408,18 +1421,6 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     });
   };
 
-  const handleSelectMissingLog = (logId: string) => {
-    setSelectedMissingLogs((prev) => {
-      const newSelection = new Set(prev);
-      if (newSelection.has(logId)) {
-        newSelection.delete(logId);
-      } else {
-        newSelection.add(logId);
-      }
-      return newSelection;
-    });
-  };
-
   const handleSelectAllMissingLogs = () => {
     const currentPageLogs = getFilteredMissingLogs().slice(
       (missingLogsCurrentPage - 1) * 20,
@@ -1439,7 +1440,37 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     });
   };
 
-  // Helper function to get contact IDs based on filter type
+  // Helper function to get contact IDs for bulk update based on filter type
+  const getBulkUpdateContactIds = (): number[] => {
+    let contactIds: number[] = [];
+
+    if (emailFilterType === "email-logs") {
+      const selectedLogs = getFilteredEmailLogs().filter((log) =>
+        selectedEmailLogs.has(log.id.toString())
+      );
+      contactIds = selectedLogs
+        .map((log) => log.contactId)
+        .filter((id): id is number => id !== null && id !== undefined);
+    } else if (emailFilterType === "missing-logs") {
+      const selectedLogs = getFilteredMissingLogs().filter((log) =>
+        selectedMissingLogs.has(log.id.toString())
+      );
+      contactIds = selectedLogs
+        .map((log) => log.contactId)
+        .filter((id): id is number => id !== null && id !== undefined && id > 0);
+    } else {
+      const selectedContacts = getFilteredEmailContacts().filter((contact) =>
+        detailSelectedContacts.has(contact.id.toString())
+      );
+      contactIds = selectedContacts
+        .map((contact) => contact.contactId)
+        .filter(
+          (id): id is number => id !== null && id !== undefined && id > 0
+        );
+    }
+
+    return Array.from(new Set(contactIds));
+  };
   const getSegmentContactIds = (): number[] => {
     let contactIds: number[] = [];
 
@@ -1583,9 +1614,89 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
     });
   };
 
+  // Custom Clear Icon Component
+  const ClearIcon = ({ size = 20 }: { size?: number }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" height={size} width={size}>
+      <path fill="#3f9f42" d="m17.1 19.15 -2.3 2.325c-0.15 0.15 -0.325 0.225 -0.525 0.225s-0.375 -0.075 -0.525 -0.225c-0.15 -0.15 -0.225 -0.32915 -0.225 -0.5375 0 -0.20835 0.075 -0.3875 0.225 -0.5375l2.3 -2.3 -2.325 -2.3c-0.15 -0.15 -0.225 -0.325 -0.225 -0.525s0.075 -0.375 0.225 -0.525c0.15 -0.15 0.32915 -0.225 0.5375 -0.225 0.20835 0 0.3875 0.075 0.5375 0.225l2.3 2.3 2.3 -2.325c0.15 -0.15 0.325 -0.225 0.525 -0.225s0.375 0.075 0.525 0.225c0.15 0.15 0.225 0.32915 0.225 0.5375 0 0.20835 -0.075 0.3875 -0.225 0.5375l-2.3 2.3 2.325 2.3c0.15 0.15 0.225 0.325 0.225 0.525s-0.075 0.375 -0.225 0.525c-0.15 0.15 -0.32915 0.225 -0.5375 0.225 -0.20835 0 -0.3875 -0.075 -0.5375 -0.225l-2.3 -2.3ZM3.75 15.75c-0.2125 0 -0.390585 -0.07235 -0.53425 -0.217C3.071915 15.3885 3 15.20935 3 14.9955c0 -0.21365 0.071915 -0.39135 0.21575 -0.533 0.143665 -0.14165 0.32175 -0.2125 0.53425 -0.2125h6c0.2125 0 0.39065 0.07235 0.5345 0.217 0.14365 0.1445 0.2155 0.32365 0.2155 0.5375 0 0.21365 -0.07185 0.39135 -0.2155 0.533 -0.14385 0.14165 -0.322 0.2125 -0.5345 0.2125h-6Zm0 -4.125c-0.2125 0 -0.390585 -0.07235 -0.53425 -0.217C3.071915 11.2635 3 11.08435 3 10.8705c0 -0.21365 0.071915 -0.39135 0.21575 -0.533 0.143665 -0.14165 0.32175 -0.2125 0.53425 -0.2125H14c0.2125 0 0.39065 0.07235 0.5345 0.217 0.14365 0.1445 0.2155 0.32365 0.2155 0.5375 0 0.21365 -0.07185 0.39135 -0.2155 0.533 -0.14385 0.14165 -0.322 0.2125 -0.5345 0.2125H3.75Zm0 -4.125c-0.2125 0 -0.390585 -0.07235 -0.53425 -0.217C3.071915 7.1385 3 6.95935 3 6.7455c0 -0.21365 0.071915 -0.39135 0.21575 -0.533C3.359415 6.07085 3.5375 6 3.75 6H14c0.2125 0 0.39065 0.07235 0.5345 0.217 0.14365 0.1445 0.2155 0.32365 0.2155 0.5375 0 0.21365 -0.07185 0.39135 -0.2155 0.533 -0.14385 0.14165 -0.322 0.2125 -0.5345 0.2125H3.75Z" strokeWidth="0.5" />
+    </svg>
+  );
+
+  // Reusable SVG Component
+  const SegmentIcon = ({ size = 100 }: { size?: number }) => (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 100 100"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M50 50H85C85 69.33 69.33 85 50 85C30.67 85 15 69.33 15 50C15 30.67 30.67 15 50 15V50Z"
+        stroke="#3f9f42"
+        strokeWidth="6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M60 40V15C73.8071 15 85 26.1929 85 40H60Z"
+        stroke="#3f9f42"
+        strokeWidth="6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+
+  // Common button styles
+  const buttonStyles = {
+    clear: {
+      background: "none",
+      color: "#3f9f42",
+      border: "none",
+      borderRadius: "12px",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      width: "40px",
+      height: "40px",
+      padding: "0",
+      cursor: "pointer"
+    },
+    segment: {
+      backgroundColor: 'transparent',
+      borderColor: 'transparent',
+      color: '#3f9f42',
+      border: 'none',
+      borderRadius: '12px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '40px',
+      height: '40px',
+      padding: '0',
+      cursor: 'pointer'
+    }
+  };
+
   // Header Components
-  const getEmailLogsHeader = () => {
-    if (selectedEmailLogs.size === 0) return null;
+  const getSelectionHeader = (type: 'email-logs' | 'missing-logs' | 'engagement') => {
+    const size = type === 'email-logs' ? selectedEmailLogs.size
+      : type === 'missing-logs' ? selectedMissingLogs.size
+      : detailSelectedContacts.size;
+
+    if (size === 0) return null;
+
+    const label = type === 'email-logs' 
+      ? `${size} email log${size > 1 ? 's' : ''} selected`
+      : `${size} contact${size > 1 ? 's' : ''} selected`;
+
+    const onClear = () => {
+      if (type === 'email-logs') setSelectedEmailLogs(new Set());
+      else if (type === 'missing-logs') setSelectedMissingLogs(new Set());
+      else setDetailSelectedContacts(new Set());
+    };
+
+    const invalidCount = type === 'engagement' ? getInvalidContactsCount() : 0;
 
     return (
       <div
@@ -1600,88 +1711,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
         }}
       >
         <span style={{ fontWeight: 500 }}>
-          {selectedEmailLogs.size} email log
-          {selectedEmailLogs.size > 1 ? "s" : ""} selected
-        </span>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-          <button
-            className="button secondary"
-            onClick={() => setSelectedEmailLogs(new Set())}
-            style={{ borderRadius: "12px" }}
-          >
-            Clear Selection
-          </button>
-          <button
-            className="button primary"
-            onClick={() => setShowSaveSegmentModal(true)}
-            style={{ borderRadius: "12px" }}
-          >
-            Create Segment
-          </button>
-        </div>
-      </div>
-    );
-  };
-
-  const getMissingLogsHeader = () => {
-    if (selectedMissingLogs.size === 0) return null;
-
-    return (
-      <div
-        style={{
-          marginBottom: 16,
-          padding: "12px 16px",
-          background: "#f0f7ff",
-          borderRadius: 6,
-          display: "flex",
-          alignItems: "center",
-          gap: 16,
-        }}
-      >
-        <span style={{ fontWeight: 500 }}>
-          {selectedMissingLogs.size} contact
-          {selectedMissingLogs.size > 1 ? "s" : ""} selected
-        </span>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-          <button
-            className="button secondary"
-            onClick={() => setSelectedMissingLogs(new Set())}
-            style={{ borderRadius: "12px" }}
-          >
-            Clear Selection
-          </button>
-          <button
-            className="button primary"
-            onClick={() => setShowSaveSegmentModal(true)}
-            style={{ borderRadius: "12px" }}
-          >
-            Create Segment
-          </button>
-        </div>
-      </div>
-    );
-  };
-
-  const getEngagementHeader = () => {
-    if (detailSelectedContacts.size === 0) return null;
-
-    const invalidCount = getInvalidContactsCount();
-
-    return (
-      <div
-        style={{
-          marginBottom: 16,
-          padding: "12px 16px",
-          background: "#f0f7ff",
-          borderRadius: 6,
-          display: "flex",
-          alignItems: "center",
-          gap: 16,
-        }}
-      >
-        <span style={{ fontWeight: 500 }}>
-          {detailSelectedContacts.size} contact
-          {detailSelectedContacts.size > 1 ? "s" : ""} selected
+          {label}
           {invalidCount > 0 && (
             <span style={{ color: "#ff9800", marginLeft: 8 }}>
               ({invalidCount} without valid ID)
@@ -1691,31 +1721,63 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
           <button
             className="button secondary"
-            onClick={() => setDetailSelectedContacts(new Set())}
-            style={{ borderRadius: "12px" }}
+            onClick={onClear}
+            style={buttonStyles.clear}
+            title="Clear Selection"
           >
-            Clear Selection
+            <ClearIcon size={32} />
           </button>
+          {type === 'engagement' && (
+            <button
+              className="button"
+              onClick={handleDeleteContacts}
+              disabled={deletingContacts}
+              style={{
+                ...buttonStyles.clear,
+                cursor: deletingContacts ? "not-allowed" : "pointer",
+                opacity: deletingContacts ? 0.6 : 1
+              }}
+              title={deletingContacts ? "Deleting..." : "Delete Contact"}
+            >
+              <FontAwesomeIcon
+                icon={faTrashAlt}
+                style={{ fontSize: 20, color: "#3f9f42" }}
+              />
+            </button>
+          )}
           <button
             className="button primary"
             onClick={() => setShowSaveSegmentModal(true)}
-            style={{ borderRadius: "12px" }}
+            style={buttonStyles.segment}
+            title="Create Segment"
           >
-            Create Segment
+            <SegmentIcon size={type === 'engagement' ? 28 : 36} />
           </button>
-          <button
-            className="button"
-            onClick={handleDeleteContacts}
-            disabled={deletingContacts}
-            style={{
-              backgroundColor: "#dc3545",
-              color: "white",
-              border: "1px solid #dc3545",
-              borderRadius: "12px"
-            }}
-          >
-            {deletingContacts ? "Deleting..." : "Delete Contact"}
-          </button>
+          {type === 'engagement' && (
+            <button
+              className="button secondary"
+              onClick={() => setShowBulkUpdatePanel(true)}
+              style={{
+                background: "none",
+                color: "#3f9f42",
+                border: "none",
+                borderRadius: "12px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: "40px",
+                height: "40px",
+                padding: "0",
+                cursor: "pointer"
+              }}
+              title="Bulk Update"
+            >
+              <FontAwesomeIcon
+                icon={faEdit}
+                style={{ fontSize: 20, color: "#3f9f42" }}
+              />
+            </button>
+          )}
         </div>
       </div>
     );
@@ -2155,17 +2217,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
                 ? handleSelectEmailLog
                 : emailFilterType === "missing-logs"
                 ? handleSelectMissingLog
-                : (id: string) => {
-                  setDetailSelectedContacts((prev) => {
-                    const newSelection = new Set(prev);
-                    if (newSelection.has(id)) {
-                      newSelection.delete(id);
-                    } else {
-                      newSelection.add(id);
-                    }
-                    return newSelection;
-                  });
-                }
+                : (id: string) => toggleSelection(setDetailSelectedContacts, id)
             }
             totalItems={
               emailFilterType === "email-logs"
@@ -2466,10 +2518,10 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
             viewMode="table"
             customHeader={
               emailFilterType === "email-logs"
-                ? getEmailLogsHeader()
+                ? getSelectionHeader('email-logs')
                 : emailFilterType === "missing-logs"
-                ? getMissingLogsHeader()
-                : getEngagementHeader()
+                ? getSelectionHeader('missing-logs')
+                : getSelectionHeader('engagement')
             }
             onColumnsChange={
               emailFilterType === "email-logs"
@@ -2529,7 +2581,29 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
             getContactIds={getSegmentContactIds}
           />
 
-          {/* Delete Confirmation Modal */}
+          {/* Bulk Update Panel */}
+          <BulkUpdatePanel
+            isOpen={showBulkUpdatePanel}
+            onClose={() => setShowBulkUpdatePanel(false)}
+            selectedContactIds={getBulkUpdateContactIds()}
+            clientId={effectiveUserId!}
+            onUpdateComplete={() => {
+              // Clear selections after update
+              if (emailFilterType === "email-logs") {
+                setSelectedEmailLogs(new Set());
+              } else if (emailFilterType === "missing-logs") {
+                setSelectedMissingLogs(new Set());
+              } else {
+                setDetailSelectedContacts(new Set());
+              }
+              
+              // Refresh data if needed
+              if (selectedCampaign) {
+                setDataFetchedForCampaign("");
+                fetchLogsByCampaign(selectedCampaign);
+              }
+            }}
+          />
           {showDeleteConfirmModal && (
             <div
               style={{
