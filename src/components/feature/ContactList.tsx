@@ -1635,7 +1635,6 @@ const formatTimeIST = (dateString?: string) => {
   };
 
   // Helper function to convert data to CSV
-  // Helper function to convert data to CSV
   const downloadCSV = (data: any[], filename: string) => {
     if (!data || data.length === 0) {
       appModal.showWarning("No data to export");
@@ -1643,22 +1642,23 @@ const formatTimeIST = (dateString?: string) => {
     }
     // Define all possible columns
     const baseColumns: CsvColumn[] = [
+      { key: "full_name", header: "Full Name" },
       { key: "first_name", header: "First Name" },
       { key: "last_name", header: "Last Name" },
-      { key: "full_name", header: "Full Name" },
       { key: "email", header: "Email" },
-      { key: "website", header: "Website" },
-      { key: "company_name", header: "Company name" },
       { key: "job_title", header: "Job title" },
-      { key: "linkedin_url", header: "LinkedIn URL" },
-      { key: "country_or_address", header: "Country Or Address" },
+      { key: "company_name", header: "Company name" },
       { key: "companyTelephone", header: "Company telephone" },
-      { key: "companyEmployeeCount", header: "Company Employee Count" },
+      { key: "website", header: "Website" },
+      { key: "country_or_address", header: "Country Or Address" },
       { key: "companyIndustry", header: "Company industry" },
+      { key: "linkedin_url", header: "LinkedIn URL" },
+      { key: "companyEmployeeCount", header: "Company Employee Count" },
       { key: "companyLinkedInURL", header: "Company LinkedIn URL" },
-      // { key: "companyEventLink", header: "Company Event Link" },
+      { key: "hasLinkedInInfo", header: "LinkedIn Information" },
+      { key: "hasNotes", header: "Notes" },
       { key: "unsubscribe", header: "Unsubscribe" },
-      { key: "notes", header: "Notes" },
+      // { key: "companyEventLink", header: "Company Event Link" },
       { key: "created_at", header: "Created date" },
       { key: "updated_at", header: "Updated date" },
       { key: "email_sent_at", header: "Email Sent Date" },
@@ -1667,37 +1667,24 @@ const formatTimeIST = (dateString?: string) => {
     const customColumns: CsvColumn[] = getCustomFieldColumns(data);
     const allColumns = [...baseColumns, ...customColumns];
 
-    // Check which columns have data
-    const columnsWithData = allColumns.filter((column) => {
-      return data.some((contact) => {
-        const value = column.getValue ? column.getValue(contact) : contact[column.key];
-        // Check if value exists and is not empty
-        return (
-          value !== null &&
-          value !== undefined &&
-          value !== "" &&
-          value !== "NA" && // Exclude 'NA' values
-          value !== "-"
-        ); // Exclude '-' values
-      });
-    });
+    // Use all columns instead of filtering by data availability
+    const columnsToExport = allColumns;
 
-    // If no columns have data, alert and return
-    if (columnsWithData.length === 0) {
-      alert("No data to export");
-      return;
-    }
-
-    // Create header row with only columns that have data
-    const headers = columnsWithData.map((col) => col.header);
+    // Create header row with all columns
+    const headers = columnsToExport.map((col) => col.header);
 
     // Map the data to CSV rows
     const csvRows = [
       headers.join(","), // Header row
       ...data.map((contact) => {
-        const row = columnsWithData.map((column) => {
+        const row = columnsToExport.map((column) => {
           let value = column.getValue ? column.getValue(contact) : contact[column.key];
           if (value === null || value === undefined) value = "";
+
+          // Format boolean values for hasLinkedInInfo and hasNotes
+          if (column.key === "hasLinkedInInfo" || column.key === "hasNotes") {
+            value = value === true ? "Yes" : value === false ? "No" : "";
+          }
 
           // Format dates if it's a date column
           if (
