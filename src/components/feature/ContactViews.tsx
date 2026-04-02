@@ -2,19 +2,31 @@ import React, { useEffect, useMemo, useState } from "react";
 import API_BASE_URL from "../../config";
 import DynamicContactsTable from "./DynamicContactsTable";
 import PaginationControls from "./PaginationControls";
-import FilterBuilder, { FilterCondition } from "../common/FilterBuilder";
+import FilterBuilder from "../common/FilterBuilder";
 import CommonSidePanel from "../common/CommonSidePanel";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEdit, faTrashAlt } from "@fortawesome/free-regular-svg-icons";
-
-type FieldType = "text" | "number" | "date" | "boolean" | "dropdown";
-type JoinOperator = "AND" | "OR";
+import type {
+  FieldType,
+  FilterCondition,
+  FilterGroup,
+  JoinOperator,
+} from "../common/filterTypes";
+import {
+  TRACKING_CLICK_FIELD,
+  TRACKING_OPEN_FIELD,
+  buildTrackingIndexesForGroups,
+  conditionRequiresCampaign,
+  evaluateTrackingCondition,
+  hasRequiredConditionContext,
+} from "../../utils/trackingFilterUtils";
 
 interface ContactFieldOption {
   key: string;
   label: string;
   type: string;
   options?: string[];
+  contextType?: "campaign";
 }
 
 interface ViewSummary {
@@ -48,11 +60,7 @@ interface FilterBuilderFieldOption {
   label: string;
   type: FieldType;
   options?: string[];
-}
-
-interface SourceOption {
-  id: number;
-  name: string;
+  contextType?: "campaign";
 }
 
 const VIEW_META_PREFIX = "crm_view_meta_";
@@ -143,9 +151,15 @@ const getRowValue = (row: Record<string, any>, fieldKey: string) => {
 const isCompleteCondition = (condition: FilterCondition) =>
   condition.field?.trim() &&
   condition.operator?.trim() &&
-  String(condition.value ?? "").trim() !== "";
+  String(condition.value ?? "").trim() !== "" &&
+  hasRequiredConditionContext(condition);
 
-interface FilterGroup {
+interface SourceOption {
+  id: number;
+  name: string;
+}
+
+interface ParsedFilterGroup {
   id?: string;
   joinWithPrevious?: JoinOperator;
   conditions: FilterCondition[];
@@ -153,7 +167,7 @@ interface FilterGroup {
 
 const parseFiltersJson = (
   filtersJson?: string
-): { logic: string; groups: FilterGroup[] } => {
+): { logic: string; groups: ParsedFilterGroup[] } => {
   if (!filtersJson) {
     return { logic: "NONE", groups: [] };
   }
@@ -227,6 +241,18 @@ const getDisplayName = (row: any) => {
   return fullName || row?.email || "-";
 };
 
+const getTrackingCampaignIds = (groups: FilterGroup[]) =>
+  Array.from(
+    new Set(
+      groups.flatMap((group) =>
+        (group.conditions || [])
+          .filter((condition) => conditionRequiresCampaign(condition))
+          .map((condition) => Number(condition.context?.campaignId))
+          .filter((campaignId) => Number.isFinite(campaignId) && campaignId > 0)
+      )
+    )
+  );
+
 const ContactViews: React.FC<ContactViewsProps> = ({
   clientId,
   filterFields,
@@ -283,6 +309,14 @@ const ContactViews: React.FC<ContactViewsProps> = ({
         type: normalizeFieldType(field.type),
       })),
     [filterFields]
+  );
+  const viewColumnNameMap = useMemo(
+    () => ({
+      ...(columnNameMap || {}),
+      hasOpened: "Opened",
+      hasClicked: "Clicked",
+    }),
+    [columnNameMap]
   );
 
   const menuBtnStyle: React.CSSProperties = {
@@ -475,8 +509,13 @@ const ContactViews: React.FC<ContactViewsProps> = ({
 
   const evaluateCondition = (
     row: Record<string, any>,
-    condition: FilterCondition
+    condition: FilterCondition,
+    campaignIndexes: Awaited<ReturnType<typeof buildTrackingIndexesForGroups>>
   ) => {
+    if (conditionRequiresCampaign(condition)) {
+      return evaluateTrackingCondition(row, condition, campaignIndexes);
+    }
+
     const value = getRowValue(row, condition.field);
     const normalizedFieldType = fieldTypeMap.get(condition.field) || "text";
 
@@ -518,11 +557,11 @@ const ContactViews: React.FC<ContactViewsProps> = ({
     }
   };
 
-  const applySavedFilters = (rows: any[], filtersJson?: string) => {
+  const applySavedFilters = async (rows: any[], filtersJson?: string) => {
     const parsed = parseFiltersJson(filtersJson);
-    const groups = (parsed.groups || [])
+    const groups: FilterGroup[] = (parsed.groups || [])
       .map((group, groupIndex) => ({
-        ...group,
+        id: group.id || `group-${groupIndex}`,
         joinWithPrevious:
           groupIndex === 0 ? undefined : group.joinWithPrevious || "AND",
         conditions: (group.conditions || []).filter((condition) =>
@@ -535,11 +574,13 @@ const ContactViews: React.FC<ContactViewsProps> = ({
       return rows;
     }
 
+    const campaignIndexes = await buildTrackingIndexesForGroups(clientId, groups);
+
     return rows.filter((row) =>
       groups.reduce((groupResult, group, groupIndex) => {
         const conditionsResult = group.conditions.reduce(
           (result, condition, index) => {
-            const evaluation = evaluateCondition(row, condition);
+            const evaluation = evaluateCondition(row, condition, campaignIndexes);
             if (index === 0) return evaluation;
             return condition.joinWithPrevious === "OR"
               ? result || evaluation
@@ -557,6 +598,65 @@ const ContactViews: React.FC<ContactViewsProps> = ({
           : groupResult && conditionsResult;
       }, true as boolean)
     );
+  };
+
+  const decorateContactsWithTrackingState = async (
+    rows: any[],
+    filtersJson?: string
+  ) => {
+    const parsed = parseFiltersJson(filtersJson);
+    const groups: FilterGroup[] = (parsed.groups || [])
+      .map((group, groupIndex) => ({
+        id: group.id || `group-${groupIndex}`,
+        joinWithPrevious:
+          groupIndex === 0 ? undefined : group.joinWithPrevious || "AND",
+        conditions: (group.conditions || []).filter((condition) =>
+          isCompleteCondition(condition)
+        ),
+      }))
+      .filter((group) => group.conditions.length > 0);
+
+    const trackingCampaignIds = getTrackingCampaignIds(groups);
+
+    if (trackingCampaignIds.length === 0) {
+      return rows.map((row) => ({
+        ...row,
+        hasOpened: false,
+        hasClicked: false,
+      }));
+    }
+
+    const campaignIndexes = await buildTrackingIndexesForGroups(clientId, groups);
+
+    return rows.map((row) => ({
+      ...row,
+      hasOpened: trackingCampaignIds.some((campaignId) =>
+        evaluateTrackingCondition(
+          row,
+          {
+            id: `tracking-open-${campaignId}`,
+            field: TRACKING_OPEN_FIELD,
+            operator: "equals",
+            value: "true",
+            context: { campaignId },
+          },
+          campaignIndexes
+        )
+      ),
+      hasClicked: trackingCampaignIds.some((campaignId) =>
+        evaluateTrackingCondition(
+          row,
+          {
+            id: `tracking-click-${campaignId}`,
+            field: TRACKING_CLICK_FIELD,
+            operator: "equals",
+            value: "true",
+            context: { campaignId },
+          },
+          campaignIndexes
+        )
+      ),
+    }));
   };
 
   const fetchContactsForView = async (view: ViewItem) => {
@@ -595,7 +695,10 @@ const ContactViews: React.FC<ContactViewsProps> = ({
           }
 
           const data = await response.json();
-          const contacts = data.contacts || [];
+          const contacts = await decorateContactsWithTrackingState(
+            data.contacts || [],
+            view.filtersJson
+          );
           setViewContacts(contacts);
           return;
         } catch (error) {
@@ -692,8 +795,12 @@ const ContactViews: React.FC<ContactViewsProps> = ({
       });
 
       const mergedList = Array.from(mergedMap.values());
-      const filtered = applySavedFilters(mergedList, view.filtersJson);
-      setViewContacts(filtered);
+      const filtered = await applySavedFilters(mergedList, view.filtersJson);
+      const decorated = await decorateContactsWithTrackingState(
+        filtered,
+        view.filtersJson
+      );
+      setViewContacts(decorated);
     } catch (error) {
       console.error("Error fetching view contacts:", error);
       setViewContacts([]);
@@ -1199,6 +1306,8 @@ const ContactViews: React.FC<ContactViewsProps> = ({
                 created_at: (value: any) => formatDate(value),
                 updated_at: (value: any) => formatDate(value),
                 email_sent_at: (value: any) => formatDate(value),
+                hasOpened: (value: any) => (value ? "Yes" : "No"),
+                hasClicked: (value: any) => (value ? "Yes" : "No"),
                 website: (value: any) => {
                   if (!value || value === "-") return "-";
                   const url = value.startsWith("http") ? value : `https://${value}`;
@@ -1297,7 +1406,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
                 setViewContacts([]);
                 setViewMetaMissing(false);
               }}
-              columnNameMap={columnNameMap}
+              columnNameMap={viewColumnNameMap}
               customHeader={detailHeader}
             />
           </>
@@ -1510,6 +1619,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
             data={[]}
             fields={normalizedFilterFields}
             onFiltered={() => {}}
+            clientId={clientId}
             initialFiltersJson={editFiltersSeed}
             onFiltersJsonChange={(nextFiltersJson) =>
               setEditFiltersJson(nextFiltersJson)

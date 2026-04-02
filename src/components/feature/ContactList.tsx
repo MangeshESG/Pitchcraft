@@ -1968,6 +1968,18 @@ const baseFields: any[] = [
   { key: "companyEmployeeCount", label: "Employee Count", type: "number" },
   { key: "hasLinkedInInfo", label: "LinkedIn information", type: "boolean" },
   { key: "hasNotes", label: "Notes", type: "boolean" },
+  {
+    key: "tracking_open",
+    label: "Opened email",
+    type: "boolean",
+    contextType: "campaign",
+  },
+  {
+    key: "tracking_click",
+    label: "Clicked email",
+    type: "boolean",
+    contextType: "campaign",
+  },
 ];
 const normalizeFilterFieldType = (fieldType?: string) => {
   switch ((fieldType || "").toLowerCase()) {
@@ -2632,6 +2644,7 @@ const filterFields: any = useMemo(() => {
                           data={allDetailContacts}
                           fields={filterFields}
                           onFiltered={(data) => setDetailContacts(data)}
+                          clientId={effectiveUserId}
                           saveViewConfig={{
                             clientId: effectiveUserId,
                             dataFileIds:

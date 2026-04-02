@@ -1,28 +1,25 @@
 import React, { useEffect, useMemo, useState } from "react";
 import API_BASE_URL from "../../config";
-
-type FieldType = "text" | "number" | "date" | "boolean" | "dropdown";
-type JoinOperator = "AND" | "OR";
+import type {
+  FieldType,
+  FilterCondition,
+  FilterGroup,
+  JoinOperator,
+} from "./filterTypes";
+import {
+  buildTrackingIndexesForGroups,
+  conditionRequiresCampaign,
+  evaluateTrackingCondition,
+  getCampaignOptions,
+  hasRequiredConditionContext,
+} from "../../utils/trackingFilterUtils";
 
 interface FieldOption {
   key: string;
   label: string;
   type: FieldType;
   options?: string[];
-}
-
-export interface FilterCondition {
-  id: string;
-  field: string;
-  operator: string;
-  value: any;
-  joinWithPrevious?: JoinOperator;
-}
-
-interface FilterGroup {
-  id: string;
-  conditions: FilterCondition[];
-  joinWithPrevious?: JoinOperator;
+  contextType?: "campaign";
 }
 
 export interface Props<T> {
@@ -32,6 +29,7 @@ export interface Props<T> {
   initialFiltersJson?: string;
   onFiltersJsonChange?: (filtersJson: string, conditions: FilterCondition[]) => void;
   hideApplyButton?: boolean;
+  clientId?: string | number;
   saveViewConfig?: {
     clientId: string | number;
     dataFileIds?: number[];
@@ -249,7 +247,8 @@ const getRowValue = <T extends Record<string, any>>(row: T, fieldKey: string) =>
 const isCompleteCondition = (condition: FilterCondition) =>
   condition.field.trim() &&
   condition.operator.trim() &&
-  String(condition.value ?? "").trim() !== "";
+  String(condition.value ?? "").trim() !== "" &&
+  hasRequiredConditionContext(condition);
 
 function FilterBuilder<T extends Record<string, any>>({
   data,
@@ -258,6 +257,7 @@ function FilterBuilder<T extends Record<string, any>>({
   initialFiltersJson,
   onFiltersJsonChange,
   hideApplyButton = false,
+  clientId,
   saveViewConfig,
 }: Props<T>) {
   const [groups, setGroups] = useState<FilterGroup[]>([createGroup()]);
@@ -265,6 +265,10 @@ function FilterBuilder<T extends Record<string, any>>({
   const [viewName, setViewName] = useState("");
   const [viewDescription, setViewDescription] = useState("");
   const [isSavingView, setIsSavingView] = useState(false);
+  const [isApplyingFilters, setIsApplyingFilters] = useState(false);
+  const [campaignOptions, setCampaignOptions] = useState<
+    { id: number; name: string }[]
+  >([]);
 
   const sortedFields = useMemo(() => sortByLabelAsc(fields), [fields]);
   const sortedFieldOptions = useMemo(() => {
@@ -276,6 +280,11 @@ function FilterBuilder<T extends Record<string, any>>({
     });
     return map;
   }, [fields]);
+  const resolvedClientId = clientId ?? saveViewConfig?.clientId;
+  const hasCampaignAwareFields = useMemo(
+    () => fields.some((field) => field.contextType === "campaign"),
+    [fields]
+  );
 
   const completeGroups = useMemo(
     () =>
@@ -340,6 +349,32 @@ function FilterBuilder<T extends Record<string, any>>({
   useEffect(() => {
     onFiltersJsonChange?.(filtersJson, completeConditions);
   }, [filtersJson, completeConditions, onFiltersJsonChange]);
+
+  useEffect(() => {
+    if (!hasCampaignAwareFields || !resolvedClientId) {
+      setCampaignOptions([]);
+      return;
+    }
+
+    let isMounted = true;
+
+    getCampaignOptions(resolvedClientId)
+      .then((options) => {
+        if (isMounted) {
+          setCampaignOptions(options);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to load campaign options:", error);
+        if (isMounted) {
+          setCampaignOptions([]);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [hasCampaignAwareFields, resolvedClientId]);
 
   const addGroup = () => {
     setGroups((previous) => [...previous, createGroup("AND")]);
@@ -413,6 +448,7 @@ function FilterBuilder<T extends Record<string, any>>({
                 field: value,
                 operator: "",
                 value: "",
+                context: undefined,
               };
             }
 
@@ -438,7 +474,19 @@ function FilterBuilder<T extends Record<string, any>>({
 
   const getField = (key: string) => fields.find((field) => field.key === key);
 
-  const evaluateCondition = (row: T, condition: FilterCondition) => {
+  const evaluateCondition = (
+    row: T,
+    condition: FilterCondition,
+    campaignIndexes: Awaited<ReturnType<typeof buildTrackingIndexesForGroups>>
+  ) => {
+    if (conditionRequiresCampaign(condition)) {
+      return evaluateTrackingCondition(
+        row as Record<string, any>,
+        condition,
+        campaignIndexes
+      );
+    }
+
     const value = getRowValue(row, condition.field);
     const normalizedFieldType = normalizeFieldType(
       getField(condition.field)?.type
@@ -495,40 +543,53 @@ function FilterBuilder<T extends Record<string, any>>({
     }
   };
 
-  const applyFilters = () => {
-    if (completeGroups.length === 0) {
-      onFiltered(data);
-      return;
+  const applyFilters = async () => {
+    setIsApplyingFilters(true);
+
+    try {
+      const campaignIndexes =
+        resolvedClientId && completeGroups.length > 0
+          ? await buildTrackingIndexesForGroups(resolvedClientId, completeGroups)
+          : new Map();
+
+      if (completeGroups.length === 0) {
+        onFiltered(data);
+        return;
+      }
+
+      const filtered = data.filter((row) =>
+        completeGroups.reduce((groupResult, group, groupIndex) => {
+          const conditionResult = group.conditions.reduce(
+            (result, condition, index) => {
+              const evaluation = evaluateCondition(row, condition, campaignIndexes);
+
+              if (index === 0) {
+                return evaluation;
+              }
+
+              return condition.joinWithPrevious === "OR"
+                ? result || evaluation
+                : result && evaluation;
+            },
+            true as boolean
+          );
+
+          if (groupIndex === 0) {
+            return conditionResult;
+          }
+
+          return group.joinWithPrevious === "OR"
+            ? groupResult || conditionResult
+            : groupResult && conditionResult;
+        }, true as boolean)
+      );
+
+      onFiltered(filtered);
+    } catch (error) {
+      console.error("Failed to apply filters:", error);
+    } finally {
+      setIsApplyingFilters(false);
     }
-
-    const filtered = data.filter((row) =>
-      completeGroups.reduce((groupResult, group, groupIndex) => {
-        const conditionResult = group.conditions.reduce(
-          (result, condition, index) => {
-            const evaluation = evaluateCondition(row, condition);
-
-            if (index === 0) {
-              return evaluation;
-            }
-
-            return condition.joinWithPrevious === "OR"
-              ? result || evaluation
-              : result && evaluation;
-          },
-          true as boolean
-        );
-
-        if (groupIndex === 0) {
-          return conditionResult;
-        }
-
-        return group.joinWithPrevious === "OR"
-          ? groupResult || conditionResult
-          : groupResult && conditionResult;
-      }, true as boolean)
-    );
-
-    onFiltered(filtered);
   };
 
   const clearFilters = () => {
@@ -723,6 +784,7 @@ function FilterBuilder<T extends Record<string, any>>({
               {group.conditions.map((condition, index) => {
                 const field = getField(condition.field);
                 const normalizedFieldType = normalizeFieldType(field?.type);
+                const requiresCampaign = field?.contextType === "campaign";
                 const operators = field
                   ? operatorsByType[normalizedFieldType]
                   : operatorsByType.text;
@@ -807,7 +869,9 @@ function FilterBuilder<T extends Record<string, any>>({
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "1.3fr 1fr 1fr auto",
+                        gridTemplateColumns: requiresCampaign
+                          ? "1.2fr 1fr 1fr 1fr auto"
+                          : "1.3fr 1fr 1fr auto",
                         gap: 12,
                         padding: 16,
                         borderRadius: 16,
@@ -915,6 +979,31 @@ function FilterBuilder<T extends Record<string, any>>({
                         />
                       )}
 
+                      {requiresCampaign && (
+                        <select
+                          value={String(condition.context?.campaignId || "")}
+                          onChange={(event) => {
+                            const selectedCampaign = campaignOptions.find(
+                              (option) =>
+                                String(option.id) === event.target.value
+                            );
+
+                            updateCondition(group.id, condition.id, "context", {
+                              campaignId: event.target.value,
+                              campaignName: selectedCampaign?.name || "",
+                            });
+                          }}
+                          style={controlStyle}
+                        >
+                          <option value="">Select campaign</option>
+                          {campaignOptions.map((campaign) => (
+                            <option key={campaign.id} value={campaign.id}>
+                              {campaign.name}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+
                       <button
                         type="button"
                         onClick={() =>
@@ -989,14 +1078,17 @@ function FilterBuilder<T extends Record<string, any>>({
             <button
               type="button"
               onClick={applyFilters}
+              disabled={isApplyingFilters}
               style={{
                 ...actionButtonStyle,
                 borderColor: "#3f9f42",
                 background: "#3f9f42",
                 color: "#fff",
+                opacity: isApplyingFilters ? 0.7 : 1,
+                cursor: isApplyingFilters ? "not-allowed" : "pointer",
               }}
             >
-              Apply filters
+              {isApplyingFilters ? "Applying..." : "Apply filters"}
             </button>
           )}
 
@@ -1102,3 +1194,4 @@ function FilterBuilder<T extends Record<string, any>>({
 }
 
 export default FilterBuilder;
+export type { FilterCondition } from "./filterTypes";
