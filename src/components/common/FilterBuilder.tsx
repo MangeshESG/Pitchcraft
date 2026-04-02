@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import API_BASE_URL from "../../config";
 import type {
   FieldType,
@@ -20,6 +20,14 @@ interface FieldOption {
   type: FieldType;
   options?: string[];
   contextType?: "campaign";
+}
+
+type FieldCategoryKey = "system" | "custom" | "email";
+
+interface FieldCategory {
+  key: FieldCategoryKey;
+  label: string;
+  fields: FieldOption[];
 }
 
 export interface Props<T> {
@@ -77,7 +85,7 @@ const cardStyle: React.CSSProperties = {
   background:
     "linear-gradient(180deg, rgba(248,252,248,1) 0%, rgba(255,255,255,1) 100%)",
   boxShadow: "0 10px 30px rgba(35, 79, 38, 0.08)",
-  overflow: "hidden",
+  overflow: "visible",
 };
 
 const controlStyle: React.CSSProperties = {
@@ -103,6 +111,21 @@ const actionButtonStyle: React.CSSProperties = {
   cursor: "pointer",
 };
 
+const fieldPickerPopoverStyle: React.CSSProperties = {
+  position: "absolute",
+  top: "calc(100% + 8px)",
+  left: 0,
+  zIndex: 40,
+  width: "min(430px, calc(100vw - 64px))",
+  maxWidth: "100%",
+  maxHeight: 430,
+  borderRadius: 20,
+  border: "1px solid #d9e5db",
+  background: "#fff",
+  boxShadow: "0 20px 40px rgba(15, 23, 42, 0.14)",
+  overflow: "hidden",
+};
+
 const generateId = () => Math.random().toString(36).substring(2, 9);
 const viewMetaKey = (clientId: string | number) =>
   `crm_view_meta_${clientId}`;
@@ -116,6 +139,47 @@ const sortByLabelAsc = <T extends { label: string }>(items: T[]) =>
   [...items].sort((a, b) =>
     a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
   );
+
+const getFieldCategory = (field: FieldOption): FieldCategoryKey => {
+  if (field.key.startsWith("custom_")) {
+    return "custom";
+  }
+
+  const normalizedKey = field.key.toLowerCase();
+  const normalizedLabel = field.label.toLowerCase();
+
+  if (normalizedKey === "email") {
+    return "system";
+  }
+
+  if (
+    field.contextType === "campaign" ||
+    normalizedKey.startsWith("tracking_") ||
+    (normalizedKey.includes("email") && normalizedKey !== "email") ||
+    (normalizedLabel.includes("email") && normalizedKey !== "email")
+  ) {
+    return "email";
+  }
+
+  return "system";
+};
+
+const getFieldCategories = (sortedFields: FieldOption[]): FieldCategory[] => {
+  const categories: FieldCategory[] = [
+    { key: "system", label: "System Fields", fields: [] },
+    { key: "custom", label: "Custom Fields", fields: [] },
+    { key: "email", label: "Email", fields: [] },
+  ];
+
+  sortedFields.forEach((field) => {
+    const category = categories.find(
+      (entry) => entry.key === getFieldCategory(field)
+    );
+    category?.fields.push(field);
+  });
+
+  return categories.filter((category) => category.fields.length > 0);
+};
 
 const saveViewMeta = (
   clientId: string | number,
@@ -266,11 +330,23 @@ function FilterBuilder<T extends Record<string, any>>({
   const [viewDescription, setViewDescription] = useState("");
   const [isSavingView, setIsSavingView] = useState(false);
   const [isApplyingFilters, setIsApplyingFilters] = useState(false);
+  const [activeFieldPicker, setActiveFieldPicker] = useState<{
+    groupId: string;
+    conditionId: string;
+  } | null>(null);
+  const [fieldSearchTerm, setFieldSearchTerm] = useState("");
+  const [activeFieldCategory, setActiveFieldCategory] =
+    useState<FieldCategoryKey>("system");
   const [campaignOptions, setCampaignOptions] = useState<
     { id: number; name: string }[]
   >([]);
+  const fieldPickerRef = useRef<HTMLDivElement | null>(null);
 
   const sortedFields = useMemo(() => sortByLabelAsc(fields), [fields]);
+  const fieldCategories = useMemo(
+    () => getFieldCategories(sortedFields),
+    [sortedFields]
+  );
   const sortedFieldOptions = useMemo(() => {
     const map = new Map<string, string[]>();
     fields.forEach((field) => {
@@ -349,6 +425,26 @@ function FilterBuilder<T extends Record<string, any>>({
   useEffect(() => {
     onFiltersJsonChange?.(filtersJson, completeConditions);
   }, [filtersJson, completeConditions, onFiltersJsonChange]);
+
+  useEffect(() => {
+    if (!activeFieldPicker) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (
+        fieldPickerRef.current &&
+        !fieldPickerRef.current.contains(event.target as Node)
+      ) {
+        setActiveFieldPicker(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+    };
+  }, [activeFieldPicker]);
 
   useEffect(() => {
     if (!hasCampaignAwareFields || !resolvedClientId) {
@@ -473,6 +569,51 @@ function FilterBuilder<T extends Record<string, any>>({
   };
 
   const getField = (key: string) => fields.find((field) => field.key === key);
+
+  const openFieldPicker = (
+    groupId: string,
+    conditionId: string,
+    selectedFieldKey?: string
+  ) => {
+    const selectedField = selectedFieldKey ? getField(selectedFieldKey) : undefined;
+    const fallbackCategory = selectedField
+      ? getFieldCategory(selectedField)
+      : fieldCategories[0]?.key || "system";
+
+    setActiveFieldPicker({ groupId, conditionId });
+    setActiveFieldCategory(fallbackCategory);
+    setFieldSearchTerm("");
+  };
+
+  const filteredFieldCategories = useMemo(() => {
+    const normalizedSearch = fieldSearchTerm.trim().toLowerCase();
+
+    return fieldCategories
+      .map((category) => ({
+        ...category,
+        fields: category.fields.filter((field) =>
+          normalizedSearch.length === 0
+            ? true
+            : field.label.toLowerCase().includes(normalizedSearch) ||
+              field.key.toLowerCase().includes(normalizedSearch)
+        ),
+      }))
+      .filter((category) => category.fields.length > 0);
+  }, [fieldCategories, fieldSearchTerm]);
+
+  useEffect(() => {
+    if (filteredFieldCategories.length === 0) {
+      return;
+    }
+
+    const categoryExists = filteredFieldCategories.some(
+      (category) => category.key === activeFieldCategory
+    );
+
+    if (!categoryExists) {
+      setActiveFieldCategory(filteredFieldCategories[0].key);
+    }
+  }, [filteredFieldCategories, activeFieldCategory]);
 
   const evaluateCondition = (
     row: T,
@@ -785,6 +926,9 @@ function FilterBuilder<T extends Record<string, any>>({
                 const field = getField(condition.field);
                 const normalizedFieldType = normalizeFieldType(field?.type);
                 const requiresCampaign = field?.contextType === "campaign";
+                const isFieldPickerOpen =
+                  activeFieldPicker?.groupId === group.id &&
+                  activeFieldPicker?.conditionId === condition.id;
                 const operators = field
                   ? operatorsByType[normalizedFieldType]
                   : operatorsByType.text;
@@ -792,13 +936,26 @@ function FilterBuilder<T extends Record<string, any>>({
                 const dropdownOptions = field?.options
                   ? sortedFieldOptions.get(field.key) || sortStringsAsc(field.options)
                   : [];
+                const visibleFieldCategories = filteredFieldCategories;
+                const selectedFieldCategory =
+                  visibleFieldCategories.find(
+                    (category) => category.key === activeFieldCategory
+                  ) || visibleFieldCategories[0];
 
                 return (
                   <div
                     key={condition.id}
                     style={{
                       marginBottom:
-                        index === group.conditions.length - 1 ? 0 : 16,
+                        index === group.conditions.length - 1
+                          ? isFieldPickerOpen
+                            ? 440
+                            : 0
+                          : isFieldPickerOpen
+                          ? 456
+                          : 16,
+                      position: "relative",
+                      zIndex: isFieldPickerOpen ? 5 : 1,
                     }}
                   >
                     {index > 0 && (
@@ -877,27 +1034,200 @@ function FilterBuilder<T extends Record<string, any>>({
                         borderRadius: 16,
                         border: "1px solid #e0ece1",
                         background: "#ffffff",
+                        overflow: "visible",
                       }}
                     >
-                      <select
-                        value={condition.field}
-                        onChange={(event) =>
-                          updateCondition(
-                            group.id,
-                            condition.id,
-                            "field",
-                            event.target.value
-                          )
-                        }
-                        style={controlStyle}
+                      <div
+                        style={{ position: "relative", minWidth: 0 }}
+                        ref={isFieldPickerOpen ? fieldPickerRef : null}
                       >
-                        <option value="">Choose field</option>
-                        {sortedFields.map((fieldOption) => (
-                          <option key={fieldOption.key} value={fieldOption.key}>
-                            {fieldOption.label}
-                          </option>
-                        ))}
-                      </select>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            isFieldPickerOpen
+                              ? setActiveFieldPicker(null)
+                              : openFieldPicker(group.id, condition.id, condition.field)
+                          }
+                          style={{
+                            ...controlStyle,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            textAlign: "left",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <span
+                            style={{
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              color: condition.field ? "#1f2937" : "#6b7280",
+                            }}
+                          >
+                            {field?.label || "Choose field"}
+                          </span>
+                          <span
+                            style={{
+                              marginLeft: 10,
+                              color: "#5b6f5f",
+                              fontSize: 12,
+                            }}
+                          >
+                            {isFieldPickerOpen ? "▲" : "▼"}
+                          </span>
+                        </button>
+
+                        {isFieldPickerOpen && (
+                          <div style={fieldPickerPopoverStyle}>
+                            <div
+                              style={{
+                                padding: 14,
+                                borderBottom: "1px solid #e7efe8",
+                              }}
+                            >
+                              <input
+                                value={fieldSearchTerm}
+                                onChange={(event) =>
+                                  setFieldSearchTerm(event.target.value)
+                                }
+                                placeholder="Search fields"
+                                autoFocus
+                                style={{
+                                  ...controlStyle,
+                                  minHeight: 42,
+                                  borderRadius: 14,
+                                }}
+                              />
+                            </div>
+
+                            <div
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns: "170px minmax(0, 1fr)",
+                                height: 300,
+                              }}
+                            >
+                              <div
+                                style={{
+                                  borderRight: "1px solid #e7efe8",
+                                  background: "#fbfdfb",
+                                  overflowY: "auto",
+                                  padding: 10,
+                                  minHeight: 0,
+                                }}
+                              >
+                                {visibleFieldCategories.map((category) => (
+                                  <button
+                                    key={category.key}
+                                    type="button"
+                                    onClick={() =>
+                                      setActiveFieldCategory(category.key)
+                                    }
+                                    style={{
+                                      width: "100%",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "space-between",
+                                      padding: "12px 14px",
+                                      borderRadius: 14,
+                                      border: "none",
+                                      background:
+                                        category.key ===
+                                        (selectedFieldCategory?.key || activeFieldCategory)
+                                          ? "#edf7ee"
+                                          : "transparent",
+                                      color: "#1f2937",
+                                      fontWeight:
+                                        category.key ===
+                                        (selectedFieldCategory?.key || activeFieldCategory)
+                                          ? 700
+                                          : 600,
+                                      cursor: "pointer",
+                                      textAlign: "left",
+                                    }}
+                                  >
+                                    <span>{category.label}</span>
+                                    <span style={{ color: "#5f7664" }}>›</span>
+                                  </button>
+                                ))}
+                              </div>
+
+                              <div
+                                style={{
+                                  overflowY: "auto",
+                                  padding: 10,
+                                  background: "#fff",
+                                  minHeight: 0,
+                                }}
+                              >
+                                {selectedFieldCategory ? (
+                                  <>
+                                    <div
+                                      style={{
+                                        padding: "8px 12px 10px",
+                                        fontSize: 12,
+                                        fontWeight: 700,
+                                        letterSpacing: 0.3,
+                                        textTransform: "uppercase",
+                                        color: "#5f7664",
+                                      }}
+                                    >
+                                      {selectedFieldCategory.label}
+                                    </div>
+                                    {selectedFieldCategory.fields.map((fieldOption) => (
+                                      <button
+                                        key={fieldOption.key}
+                                        type="button"
+                                        onClick={() => {
+                                          updateCondition(
+                                            group.id,
+                                            condition.id,
+                                            "field",
+                                            fieldOption.key
+                                          );
+                                          setActiveFieldPicker(null);
+                                          setFieldSearchTerm("");
+                                        }}
+                                        style={{
+                                          width: "100%",
+                                          padding: "12px 14px",
+                                          borderRadius: 14,
+                                          border: "none",
+                                          background:
+                                            condition.field === fieldOption.key
+                                              ? "#f2fbf2"
+                                              : "transparent",
+                                          color: "#1f2937",
+                                          fontWeight:
+                                            condition.field === fieldOption.key
+                                              ? 700
+                                              : 500,
+                                          cursor: "pointer",
+                                          textAlign: "left",
+                                        }}
+                                      >
+                                        {fieldOption.label}
+                                      </button>
+                                    ))}
+                                    <div style={{ height: 12 }} />
+                                  </>
+                                ) : (
+                                  <div
+                                    style={{
+                                      padding: "16px 14px",
+                                      color: "#6b7280",
+                                      fontSize: 14,
+                                    }}
+                                  >
+                                    No matching fields found.
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
 
                       <select
                         value={condition.operator}
