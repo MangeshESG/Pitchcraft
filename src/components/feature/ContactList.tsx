@@ -2630,7 +2630,12 @@ const filterFields: any = useMemo(() => {
                         <FilterBuilder
                           data={allDetailContacts}
                           fields={filterFields}
-                          onFiltered={(data) => setDetailContacts(data)}
+                          onFiltered={(data) => {
+                            setDetailContacts(data);
+                            setDetailTotalContacts(data.length);
+                            setDetailCurrentPage(1);
+                            setDetailSelectedContacts(new Set());
+                          }}
                           clientId={effectiveUserId}
                           saveViewConfig={{
                             clientId: effectiveUserId,

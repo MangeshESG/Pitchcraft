@@ -3,6 +3,7 @@ import type { FilterCondition, FilterConditionContext, FilterGroup } from "../co
 
 export const TRACKING_OPEN_FIELD = "tracking_open";
 export const TRACKING_CLICK_FIELD = "tracking_click";
+export const ALL_CAMPAIGNS_ID = "__all__";
 
 export const isTrackingField = (fieldKey?: string) =>
   fieldKey === TRACKING_OPEN_FIELD || fieldKey === TRACKING_CLICK_FIELD;
@@ -21,7 +22,7 @@ export const hasRequiredConditionContext = (
 };
 
 export interface CampaignOption {
-  id: number;
+  id: number | string;
   name: string;
 }
 
@@ -170,7 +171,7 @@ export const getCampaignOptions = async (
   }
 
   const data = await response.json();
-  return (data || [])
+  const campaigns = (data || [])
     .filter((campaign: any) => campaign?.id != null)
     .map((campaign: any) => ({
       id: Number(campaign.id),
@@ -182,12 +183,23 @@ export const getCampaignOptions = async (
     .sort((left: CampaignOption, right: CampaignOption) =>
       left.name.localeCompare(right.name, undefined, { sensitivity: "base" })
     );
+
+  return [
+    { id: ALL_CAMPAIGNS_ID, name: "All campaigns" },
+    ...campaigns,
+  ];
 };
 
-const getCampaignIdFromContext = (context?: FilterConditionContext) => {
+const getCampaignIdFromContext = (
+  context?: FilterConditionContext
+): number | typeof ALL_CAMPAIGNS_ID | null => {
   const rawValue = context?.campaignId;
   if (rawValue === undefined || rawValue === null || rawValue === "") {
     return null;
+  }
+
+  if (String(rawValue) === ALL_CAMPAIGNS_ID) {
+    return ALL_CAMPAIGNS_ID;
   }
 
   const parsed = Number(rawValue);
@@ -203,16 +215,33 @@ export const buildTrackingIndexesForGroups = async (
     return new Map<number, CampaignEngagementIndex>();
   }
 
-  const campaignIds = Array.from(
+  const requestedCampaignIds = Array.from(
     new Set(
       groups.flatMap((group) =>
         (group.conditions || [])
           .filter((condition) => conditionRequiresCampaign(condition))
           .map((condition) => getCampaignIdFromContext(condition.context))
-          .filter((campaignId): campaignId is number => campaignId !== null)
+          .filter(
+            (
+              campaignId
+            ): campaignId is number | typeof ALL_CAMPAIGNS_ID => campaignId !== null
+          )
       )
     )
   );
+
+  if (requestedCampaignIds.length === 0) {
+    return new Map<number, CampaignEngagementIndex>();
+  }
+
+  const includesAllCampaigns = requestedCampaignIds.includes(ALL_CAMPAIGNS_ID);
+  const campaignIds = includesAllCampaigns
+    ? (await getCampaignOptions(numericClientId))
+        .map((campaign) => Number(campaign.id))
+        .filter((campaignId) => Number.isFinite(campaignId))
+    : requestedCampaignIds.filter(
+        (campaignId): campaignId is number => typeof campaignId === "number"
+      );
 
   if (campaignIds.length === 0) {
     return new Map<number, CampaignEngagementIndex>();
@@ -251,18 +280,23 @@ export const evaluateTrackingCondition = (
     return false;
   }
 
-  const campaignIndex = campaignIndexes.get(campaignId);
-  if (!campaignIndex) {
+  const indexesToEvaluate =
+    campaignId === ALL_CAMPAIGNS_ID
+      ? Array.from(campaignIndexes.values())
+      : [campaignIndexes.get(campaignId)].filter(
+          (campaignIndex): campaignIndex is CampaignEngagementIndex =>
+            Boolean(campaignIndex)
+        );
+
+  if (indexesToEvaluate.length === 0) {
     return false;
   }
 
-  const sentInCampaign = setHasIdentifier(
-    campaignIndex.sentContactIds,
-    campaignIndex.sentEmails,
-    row
+  const sentInCampaign = indexesToEvaluate.some((campaignIndex) =>
+    setHasIdentifier(campaignIndex.sentContactIds, campaignIndex.sentEmails, row)
   );
 
-  const eventOccurred =
+  const eventOccurred = indexesToEvaluate.some((campaignIndex) =>
     condition.field === TRACKING_OPEN_FIELD
       ? setHasIdentifier(
           campaignIndex.openedContactIds,
@@ -273,7 +307,8 @@ export const evaluateTrackingCondition = (
           campaignIndex.clickedContactIds,
           campaignIndex.clickedEmails,
           row
-        );
+        )
+  );
 
   const expectsPositive = String(condition.value).toLowerCase() === "true";
   const matches = expectsPositive

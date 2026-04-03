@@ -34,6 +34,7 @@ interface ViewSummary {
   name: string;
   description?: string;
   created_at?: string;
+  contactCount?: number;
 }
 
 interface ViewMeta {
@@ -62,6 +63,12 @@ interface FilterBuilderFieldOption {
   options?: string[];
   contextType?: "campaign";
 }
+
+type CsvColumn = {
+  key: string;
+  header: string;
+  getValue?: (contact: any) => any;
+};
 
 const VIEW_META_PREFIX = "crm_view_meta_";
 
@@ -241,6 +248,33 @@ const getDisplayName = (row: any) => {
   return fullName || row?.email || "-";
 };
 
+const getCustomFieldValue = (contact: any, fieldName: string) => {
+  const directKey = `custom_${normalizeCustomFieldKey(fieldName)}`;
+  if (contact?.[directKey] !== undefined) {
+    return contact[directKey];
+  }
+
+  let customFieldsValue = contact?.customFields;
+  if (typeof customFieldsValue === "string") {
+    try {
+      customFieldsValue = JSON.parse(customFieldsValue);
+    } catch {
+      customFieldsValue = undefined;
+    }
+  }
+
+  if (customFieldsValue && typeof customFieldsValue === "object") {
+    if (fieldName in customFieldsValue) return customFieldsValue[fieldName];
+    const normalizedTarget = normalizeCustomFieldKey(fieldName);
+    const matchedEntry = Object.entries(customFieldsValue).find(
+      ([key]) => normalizeCustomFieldKey(key) === normalizedTarget
+    );
+    if (matchedEntry) return matchedEntry[1];
+  }
+
+  return "";
+};
+
 const getTrackingCampaignIds = (groups: FilterGroup[]) =>
   Array.from(
     new Set(
@@ -293,6 +327,8 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   const [editFiltersJson, setEditFiltersJson] = useState("");
   const [editFiltersSeed, setEditFiltersSeed] = useState("");
   const [viewActionsAnchor, setViewActionsAnchor] = useState<number | null>(null);
+  const [viewContactCounts, setViewContactCounts] = useState<Record<number, number>>({});
+  const [downloadingViewId, setDownloadingViewId] = useState<number | null>(null);
 
   const fieldTypeMap = useMemo(() => {
     const map = new Map<string, FieldType>();
@@ -337,6 +373,147 @@ const ContactViews: React.FC<ContactViewsProps> = ({
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
+  };
+
+  const getCustomFieldColumns = (data: any[]): CsvColumn[] => {
+    const fieldMap = new Map<string, string>();
+
+    filterFields.forEach((field) => {
+      if (!field?.key?.startsWith("custom_")) return;
+      const label = field.label || field.key.replace(/^custom_/, "");
+      const normalized = normalizeCustomFieldKey(label);
+      if (!fieldMap.has(normalized)) {
+        fieldMap.set(normalized, label);
+      }
+    });
+
+    data.forEach((contact) => {
+      let customFieldsValue = contact?.customFields;
+      if (typeof customFieldsValue === "string") {
+        try {
+          customFieldsValue = JSON.parse(customFieldsValue);
+        } catch {
+          customFieldsValue = undefined;
+        }
+      }
+
+      if (customFieldsValue && typeof customFieldsValue === "object") {
+        Object.keys(customFieldsValue).forEach((key) => {
+          const normalized = normalizeCustomFieldKey(key);
+          if (!fieldMap.has(normalized)) {
+            fieldMap.set(normalized, key);
+          }
+        });
+      }
+
+      Object.keys(contact || {}).forEach((key) => {
+        if (!key.startsWith("custom_")) return;
+        const rawKey = key.replace(/^custom_/, "");
+        const normalized = normalizeCustomFieldKey(rawKey);
+        if (!fieldMap.has(normalized)) {
+          fieldMap.set(normalized, rawKey);
+        }
+      });
+    });
+
+    return Array.from(fieldMap.entries()).map(([normalized, label]) => ({
+      key: `custom_${normalized}`,
+      header: label,
+      getValue: (contact: any) => getCustomFieldValue(contact, label),
+    }));
+  };
+
+  const downloadCSV = (data: any[], filename: string) => {
+    if (!data || data.length === 0) {
+      onShowMessage?.("No contacts to download.", "error");
+      return;
+    }
+
+    const baseColumns: CsvColumn[] = [
+      { key: "full_name", header: "Full Name" },
+      { key: "first_name", header: "First Name" },
+      { key: "last_name", header: "Last Name" },
+      { key: "email", header: "Email" },
+      { key: "job_title", header: "Job title" },
+      { key: "company_name", header: "Company name" },
+      { key: "companyTelephone", header: "Company telephone" },
+      { key: "website", header: "Website" },
+      { key: "country_or_address", header: "Country Or Address" },
+      { key: "companyIndustry", header: "Company industry" },
+      { key: "linkedin_url", header: "LinkedIn URL" },
+      { key: "companyEmployeeCount", header: "Company Employee Count" },
+      { key: "companyLinkedInURL", header: "Company LinkedIn URL" },
+      { key: "hasLinkedInInfo", header: "LinkedIn Information" },
+      { key: "hasNotes", header: "Notes" },
+      { key: "hasOpened", header: "Opened" },
+      { key: "hasClicked", header: "Clicked" },
+      { key: "unsubscribe", header: "Unsubscribe" },
+      { key: "created_at", header: "Created date" },
+      { key: "updated_at", header: "Updated date" },
+      { key: "email_sent_at", header: "Email Sent Date" },
+    ];
+
+    const customColumns = getCustomFieldColumns(data);
+    const columnsToExport = [...baseColumns, ...customColumns];
+    const headers = columnsToExport.map((col) => col.header);
+
+    const csvRows = [
+      headers.join(","),
+      ...data.map((contact) => {
+        const row = columnsToExport.map((column) => {
+          let value = column.getValue ? column.getValue(contact) : contact[column.key];
+          if (value === null || value === undefined) value = "";
+
+          if (
+            column.key === "hasLinkedInInfo" ||
+            column.key === "hasNotes" ||
+            column.key === "hasOpened" ||
+            column.key === "hasClicked"
+          ) {
+            value = value === true ? "Yes" : value === false ? "No" : "";
+          }
+
+          if (
+            (column.key === "created_at" ||
+              column.key === "updated_at" ||
+              column.key === "email_sent_at") &&
+            value
+          ) {
+            value = formatDate(value);
+          }
+
+          const stringValue = String(value);
+          if (
+            stringValue.includes(",") ||
+            stringValue.includes('"') ||
+            stringValue.includes("\n") ||
+            stringValue.includes("\r")
+          ) {
+            return `"${stringValue.replace(/"/g, '""')}"`;
+          }
+
+          return stringValue;
+        });
+
+        return row.join(",");
+      }),
+    ];
+
+    const BOM = "\uFEFF";
+    const blob = new Blob([BOM + csvRows.join("\n")], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+
+    link.setAttribute("href", url);
+    link.setAttribute("download", `${filename}.csv`);
+    link.style.visibility = "hidden";
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const fetchViews = async () => {
@@ -430,6 +607,8 @@ const ContactViews: React.FC<ContactViewsProps> = ({
     setSelectedView(null);
     setViewContacts([]);
     setViewMetaMissing(false);
+    setViewContactCounts({});
+    setDownloadingViewId(null);
   }, [clientId]);
 
   const handleViewSort = (key: string) => {
@@ -659,154 +838,212 @@ const ContactViews: React.FC<ContactViewsProps> = ({
     }));
   };
 
+  const fetchViewContactsData = async (
+    view: ViewItem
+  ): Promise<{ contacts: any[]; metaMissing: boolean; contactCount: number }> => {
+    const allDataFileIds = availableDataFiles.map((file) => file.id);
+    const excludedDataFileIds = view.excludedDataFileIds || [];
+    const effectiveAllDataFileIds = allDataFileIds.filter(
+      (id) => !excludedDataFileIds.includes(id)
+    );
+    const dataFileIds =
+      view.useAllDataFiles && effectiveAllDataFileIds.length > 0
+        ? effectiveAllDataFileIds
+        : view.dataFileIds || [];
+    const segmentIds = view.segmentIds || [];
+    const hasLocalFilters = !!view.filtersJson;
+    const hasLocalSources = dataFileIds.length > 0 || segmentIds.length > 0;
+
+    if (!hasLocalFilters || !hasLocalSources) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/Crm/view-contacts`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientId: Number(clientId),
+            viewId: Number(view.id),
+            page: 1,
+            pageSize: 0,
+            search: "",
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch view contacts from server");
+        }
+
+        const data = await response.json();
+        const contacts = await decorateContactsWithTrackingState(
+          data.contacts || [],
+          view.filtersJson
+        );
+        return {
+          contacts,
+          metaMissing: false,
+          contactCount: data.contactCount ?? data.total ?? contacts.length,
+        };
+      } catch (error) {
+        console.warn("Server fallback for view contacts failed:", error);
+        return { contacts: [], metaMissing: true, contactCount: 0 };
+      }
+    }
+
+    if (dataFileIds.length === 0 && segmentIds.length === 0) {
+      return { contacts: [], metaMissing: true, contactCount: 0 };
+    }
+
+    let segmentDataFileMap: Record<number, number> = {};
+    if (segmentIds.length > 0) {
+      try {
+        const segmentResponse = await fetch(
+          `${API_BASE_URL}/api/Crm/get-segments-by-client?clientId=${clientId}`
+        );
+        if (segmentResponse.ok) {
+          const segmentData = await segmentResponse.json();
+          segmentDataFileMap = (segmentData || []).reduce(
+            (acc: Record<number, number>, segment: any) => {
+              if (segment?.id != null && segment?.dataFileId != null) {
+                acc[segment.id] = segment.dataFileId;
+              }
+              return acc;
+            },
+            {}
+          );
+        }
+      } catch (error) {
+        console.warn("Failed to load segment metadata:", error);
+      }
+    }
+
+    const dataFileRequests = dataFileIds.map(async (dataFileId) => {
+      const response = await fetch(
+        `${API_BASE_URL}/api/Crm/contacts/List-by-ClientId?clientId=${clientId}&dataFileId=${dataFileId}`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch contacts for view");
+      }
+      const data = await response.json();
+      const contacts = data.contacts || [];
+      return contacts.map((contact: any) => ({
+        ...contact,
+        dataFileId,
+      }));
+    });
+
+    const segmentRequests = segmentIds.map(async (segmentId) => {
+      const response = await fetch(
+        `${API_BASE_URL}/api/Crm/segment-contacts?clientId=${clientId}&segmentId=${segmentId}`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch segment contacts for view");
+      }
+      const data = await response.json();
+      const contacts = data.contacts || [];
+      const fallbackDataFileId = segmentDataFileMap[segmentId];
+      return contacts.map((contact: any) => ({
+        ...contact,
+        segmentId,
+        dataFileId: contact.dataFileId ?? fallbackDataFileId,
+      }));
+    });
+
+    const results = await Promise.all([
+      Promise.allSettled(dataFileRequests),
+      Promise.allSettled(segmentRequests),
+    ]);
+
+    const mergedContacts: any[] = [];
+    results.forEach((resultGroup) => {
+      resultGroup.forEach((result) => {
+        if (result.status === "fulfilled") {
+          mergedContacts.push(...result.value);
+        }
+      });
+    });
+
+    const mergedMap = new Map<number, any>();
+    mergedContacts.forEach((contact) => {
+      const existing = mergedMap.get(contact.id);
+      if (existing) {
+        mergedMap.set(contact.id, { ...existing, ...contact });
+      } else {
+        mergedMap.set(contact.id, contact);
+      }
+    });
+
+    const mergedList = Array.from(mergedMap.values());
+    const filtered = await applySavedFilters(mergedList, view.filtersJson);
+    const decorated = await decorateContactsWithTrackingState(
+      filtered,
+      view.filtersJson
+    );
+
+    return {
+      contacts: decorated,
+      metaMissing: false,
+      contactCount: decorated.length,
+    };
+  };
+
+  const updateViewCountCache = (viewId: number, count: number) => {
+    setViewContactCounts((prev) => ({ ...prev, [viewId]: count }));
+    setViews((prev) =>
+      prev.map((item) =>
+        item.id === viewId ? { ...item, contactCount: count } : item
+      )
+    );
+  };
+
   const fetchContactsForView = async (view: ViewItem) => {
     setIsLoadingViewContacts(true);
     setViewMetaMissing(false);
     try {
-      const allDataFileIds = availableDataFiles.map((file) => file.id);
-      const excludedDataFileIds = view.excludedDataFileIds || [];
-      const effectiveAllDataFileIds = allDataFileIds.filter(
-        (id) => !excludedDataFileIds.includes(id)
-      );
-      const dataFileIds =
-        view.useAllDataFiles && effectiveAllDataFileIds.length > 0
-          ? effectiveAllDataFileIds
-          : view.dataFileIds || [];
-      const segmentIds = view.segmentIds || [];
-      const hasLocalFilters = !!view.filtersJson;
-      const hasLocalSources = dataFileIds.length > 0 || segmentIds.length > 0;
-
-      if (!hasLocalFilters || !hasLocalSources) {
-        try {
-          const response = await fetch(`${API_BASE_URL}/api/Crm/view-contacts`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              clientId: Number(clientId),
-              viewId: Number(view.id),
-              page: 1,
-              pageSize: 0,
-              search: "",
-            }),
-          });
-
-          if (!response.ok) {
-            throw new Error("Failed to fetch view contacts from server");
-          }
-
-          const data = await response.json();
-          const contacts = await decorateContactsWithTrackingState(
-            data.contacts || [],
-            view.filtersJson
-          );
-          setViewContacts(contacts);
-          return;
-        } catch (error) {
-          console.warn("Server fallback for view contacts failed:", error);
-          setViewContacts([]);
-          setViewMetaMissing(true);
-          return;
-        }
+      const { contacts, metaMissing, contactCount } = await fetchViewContactsData(view);
+      setViewContacts(contacts);
+      setViewMetaMissing(metaMissing);
+      if (!metaMissing) {
+        updateViewCountCache(view.id, contactCount);
       }
-
-      if (dataFileIds.length === 0 && segmentIds.length === 0) {
-        setViewContacts([]);
-        setViewMetaMissing(true);
-        return;
-      }
-
-      let segmentDataFileMap: Record<number, number> = {};
-      if (segmentIds.length > 0) {
-        try {
-          const segmentResponse = await fetch(
-            `${API_BASE_URL}/api/Crm/get-segments-by-client?clientId=${clientId}`
-          );
-          if (segmentResponse.ok) {
-            const segmentData = await segmentResponse.json();
-            segmentDataFileMap = (segmentData || []).reduce(
-              (acc: Record<number, number>, segment: any) => {
-                if (segment?.id != null && segment?.dataFileId != null) {
-                  acc[segment.id] = segment.dataFileId;
-                }
-                return acc;
-              },
-              {}
-            );
-          }
-        } catch (error) {
-          console.warn("Failed to load segment metadata:", error);
-        }
-      }
-
-      const dataFileRequests = dataFileIds.map(async (dataFileId) => {
-        const response = await fetch(
-          `${API_BASE_URL}/api/Crm/contacts/List-by-ClientId?clientId=${clientId}&dataFileId=${dataFileId}`
-        );
-        if (!response.ok) {
-          throw new Error("Failed to fetch contacts for view");
-        }
-        const data = await response.json();
-        const contacts = data.contacts || [];
-        return contacts.map((contact: any) => ({
-          ...contact,
-          dataFileId,
-        }));
-      });
-
-      const segmentRequests = segmentIds.map(async (segmentId) => {
-        const response = await fetch(
-          `${API_BASE_URL}/api/Crm/segment-contacts?clientId=${clientId}&segmentId=${segmentId}`
-        );
-        if (!response.ok) {
-          throw new Error("Failed to fetch segment contacts for view");
-        }
-        const data = await response.json();
-        const contacts = data.contacts || [];
-        const fallbackDataFileId = segmentDataFileMap[segmentId];
-        return contacts.map((contact: any) => ({
-          ...contact,
-          segmentId,
-          dataFileId: contact.dataFileId ?? fallbackDataFileId,
-        }));
-      });
-
-      const results = await Promise.all([
-        Promise.allSettled(dataFileRequests),
-        Promise.allSettled(segmentRequests),
-      ]);
-
-      const mergedContacts: any[] = [];
-      results.forEach((resultGroup) => {
-        resultGroup.forEach((result) => {
-          if (result.status === "fulfilled") {
-            mergedContacts.push(...result.value);
-          }
-        });
-      });
-
-      const mergedMap = new Map<number, any>();
-      mergedContacts.forEach((contact) => {
-        const existing = mergedMap.get(contact.id);
-        if (existing) {
-          mergedMap.set(contact.id, { ...existing, ...contact });
-        } else {
-          mergedMap.set(contact.id, contact);
-        }
-      });
-
-      const mergedList = Array.from(mergedMap.values());
-      const filtered = await applySavedFilters(mergedList, view.filtersJson);
-      const decorated = await decorateContactsWithTrackingState(
-        filtered,
-        view.filtersJson
-      );
-      setViewContacts(decorated);
     } catch (error) {
       console.error("Error fetching view contacts:", error);
       setViewContacts([]);
+      setViewMetaMissing(false);
       onShowMessage?.("Failed to load view contacts.", "error");
     } finally {
       setIsLoadingViewContacts(false);
+    }
+  };
+
+  const handleDownloadView = async (view: ViewItem) => {
+    setDownloadingViewId(view.id);
+    try {
+      const { contacts, metaMissing, contactCount } = await fetchViewContactsData(view);
+
+      if (metaMissing) {
+        onShowMessage?.(
+          "This view is missing saved filter metadata in this browser, so it cannot be downloaded yet.",
+          "error"
+        );
+        return;
+      }
+
+      if (!contacts.length) {
+        onShowMessage?.("No contacts to download.", "error");
+        updateViewCountCache(view.id, 0);
+        return;
+      }
+
+      updateViewCountCache(view.id, contactCount);
+      const filename = `${view.name.replace(/[^a-z0-9]/gi, "_")}_${
+        new Date().toISOString().split("T")[0]
+      }`;
+      downloadCSV(contacts, filename);
+    } catch (error) {
+      console.error("Error downloading view:", error);
+      onShowMessage?.("Failed to download view data.", "error");
+    } finally {
+      setDownloadingViewId(null);
+      setViewActionsAnchor(null);
     }
   };
 
@@ -971,6 +1208,11 @@ const ContactViews: React.FC<ContactViewsProps> = ({
     }
   };
 
+  const selectedViewContactCount =
+    selectedView?.id != null
+      ? viewContactCounts[selectedView.id] ?? viewContacts.length
+      : viewContacts.length;
+
   const detailHeader = viewMetaMissing ? (
     <div
       style={{
@@ -1000,8 +1242,8 @@ const ContactViews: React.FC<ContactViewsProps> = ({
       }}
     >
       <span style={{ fontWeight: 500 }}>
-        {viewContacts.length} contact
-        {viewContacts.length === 1 ? "" : "s"} in this view
+        {selectedViewContactCount} contact
+        {selectedViewContactCount === 1 ? "" : "s"} in this view
       </span>
       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
         {selectedView?.filtersJson && (
@@ -1009,6 +1251,16 @@ const ContactViews: React.FC<ContactViewsProps> = ({
             Filter rules applied
           </span>
         )}
+        <button
+          type="button"
+          className="button secondary"
+          onClick={() => selectedView && handleDownloadView(selectedView)}
+          disabled={!selectedView || downloadingViewId === selectedView.id}
+        >
+          {selectedView && downloadingViewId === selectedView.id
+            ? "Downloading..."
+            : "Download"}
+        </button>
         <button
           type="button"
           className="button secondary"
@@ -1089,19 +1341,20 @@ const ContactViews: React.FC<ContactViewsProps> = ({
                   >
                     Description{renderViewSortArrow("description")}
                   </th>
+                  <th>Contacts</th>
                   <th style={{ minWidth: 48 }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {isLoadingViews ? (
                   <tr>
-                    <td colSpan={5} style={{ textAlign: "center" }}>
+                    <td colSpan={6} style={{ textAlign: "center" }}>
                       Loading...
                     </td>
                   </tr>
                 ) : paginatedViews.length === 0 ? (
                   <tr>
-                    <td colSpan={5} style={{ textAlign: "center" }}>
+                    <td colSpan={6} style={{ textAlign: "center" }}>
                       No views found.
                     </td>
                   </tr>
@@ -1124,6 +1377,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
                       <td>#{view.id}</td>
                       <td>{formatDate(view.created_at)}</td>
                       <td>{view.description || "-"}</td>
+                      <td>{view.contactCount ?? viewContactCounts[view.id] ?? "-"}</td>
                       <td>
                         <div style={{ position: "relative" }}>
                           <button
@@ -1201,6 +1455,65 @@ const ContactViews: React.FC<ContactViewsProps> = ({
                                   />
                                 </span>
                                 <span className="font-[600]">Edit</span>
+                              </button>
+                              <button
+                                onClick={() => handleDownloadView(view)}
+                                style={menuBtnStyle}
+                                className="flex gap-2 items-center"
+                                disabled={downloadingViewId === view.id}
+                              >
+                                <span className="ml-[2px]">
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="22px"
+                                    height="22px"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <title />
+                                    <g id="Complete">
+                                      <g id="download">
+                                        <g>
+                                          <path
+                                            d="M3,12.3v7a2,2,0,0,0,2,2H19a2,2,0,0,0,2-2v-7"
+                                            fill="none"
+                                            stroke="#3f9f42"
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            stroke-width="2"
+                                          />
+                                          <g>
+                                            <polyline
+                                              data-name="Right"
+                                              fill="none"
+                                              id="Right-2"
+                                              points="7.9 12.3 12 16.3 16.1 12.3"
+                                              stroke="#3f9f42"
+                                              stroke-linecap="round"
+                                              stroke-linejoin="round"
+                                              stroke-width="2"
+                                            />
+                                            <line
+                                              fill="none"
+                                              stroke="#3f9f42"
+                                              stroke-linecap="round"
+                                              stroke-linejoin="round"
+                                              stroke-width="2"
+                                              x1="12"
+                                              x2="12"
+                                              y1="2.7"
+                                              y2="14.2"
+                                            />
+                                          </g>
+                                        </g>
+                                      </g>
+                                    </g>
+                                  </svg>
+                                </span>
+                                <span className="font-[600]">
+                                  {downloadingViewId === view.id
+                                    ? "Downloading..."
+                                    : "Download"}
+                                </span>
                               </button>
                               <button
                                 onClick={() => {

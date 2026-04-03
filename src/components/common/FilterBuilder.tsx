@@ -7,12 +7,14 @@ import type {
   JoinOperator,
 } from "./filterTypes";
 import {
+  ALL_CAMPAIGNS_ID,
   buildTrackingIndexesForGroups,
   conditionRequiresCampaign,
   evaluateTrackingCondition,
   getCampaignOptions,
   hasRequiredConditionContext,
 } from "../../utils/trackingFilterUtils";
+import type { CampaignOption } from "../../utils/trackingFilterUtils";
 
 interface FieldOption {
   key: string;
@@ -337,9 +339,7 @@ function FilterBuilder<T extends Record<string, any>>({
   const [fieldSearchTerm, setFieldSearchTerm] = useState("");
   const [activeFieldCategory, setActiveFieldCategory] =
     useState<FieldCategoryKey>("system");
-  const [campaignOptions, setCampaignOptions] = useState<
-    { id: number; name: string }[]
-  >([]);
+  const [campaignOptions, setCampaignOptions] = useState<CampaignOption[]>([]);
   const fieldPickerRef = useRef<HTMLDivElement | null>(null);
 
   const sortedFields = useMemo(() => sortByLabelAsc(fields), [fields]);
@@ -1328,7 +1328,9 @@ function FilterBuilder<T extends Record<string, any>>({
                           <option value="">Select campaign</option>
                           {campaignOptions.map((campaign) => (
                             <option key={campaign.id} value={campaign.id}>
-                              {campaign.name}
+                              {campaign.id === ALL_CAMPAIGNS_ID
+                                ? "All campaigns"
+                                : campaign.name}
                             </option>
                           ))}
                         </select>
