@@ -47,8 +47,8 @@ const REQUIRED_FIELDS = [
   { key: "full_name", label: "Full name", required: false },
   { key: "email", label: "Email address", required: true },
   { key: "job_title", label: <>Job title <span style={{ color: "blue" }}>*</span></>, required: false },
-  { key: "company", label: <>Company <span style={{ color: "blue" }}>*</span></>, required: false },
-  { key: "location", label: <>Location <span style={{ color: "blue" }}>*</span></>, required: false },
+  { key: "company", label: <>Company Name <span style={{ color: "blue" }}>*</span></>, required: false },
+  { key: "location", label: <>Company Location <span style={{ color: "blue" }}>*</span></>, required: false },
   { key: "linkedin", label: "LinkedIn URL", required: false },
   { key: "company_website", label: <>Company website <span style={{ color: "blue" }}>*</span></>, required: false },
   { key: "company_telephone", label: "Company telephone", required: false },
@@ -765,9 +765,8 @@ useEffect(() => {
                 Map your contacts data file columns
               </h4>
               <p className="text-muted mb-20">
-                Please map your contacts data file to the required fields below.<br />
-                Mandatory fields are marked with a red asterisk (<span style={{color: 'red'}}>*</span>). 
-                For best results, also include those fields with a blue asterisk (<span style={{color: 'blue'}}>*</span>).
+                Please map your contacts data file to the fields in the pick lists below.<br />
+                Mandatory fields are 'Email address' and 'Full name'. Important, but not mandatory fields are 'Company name', 'Job title'.
               </p>
 
 <div className="mapping-container">
@@ -792,13 +791,27 @@ useEffect(() => {
               !Object.values(columnMappings).includes(field.key) ||
               columnMappings[header] === field.key
           )
-          .map((field) => (
-        <option key={field.key} value={field.key}>
-          {field.key
-            .replace(/_/g, " ")
-            .replace(/\b\w/g, (c) => c.toUpperCase())}
-        </option>
-        ))}
+          .map((field) => {
+            // Custom label mapping for specific fields
+            let displayLabel;
+            if (field.key === 'company') {
+              displayLabel = 'Company name';
+            } else if (field.key === 'location') {
+              displayLabel = 'Company location';
+            } else {
+              // Use sentence casing: capitalize only the first letter
+              displayLabel = field.key
+                .replace(/_/g, " ")
+                .toLowerCase()
+                .replace(/^\w/, (c) => c.toUpperCase());
+            }
+            
+            return (
+              <option key={field.key} value={field.key}>
+                {displayLabel}
+              </option>
+            );
+          })}
       </select>
     </div>
   ))}
