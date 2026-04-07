@@ -167,7 +167,30 @@ const Template: React.FC<TemplateProps> = ({
   const userId = sessionStorage.getItem("clientId");
   const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
 
-  const [showCampaignBuilder, setShowCampaignBuilder] = useState(false);
+  const BLUEPRINT_BUILDER_SESSION_KEY = "blueprintBuilderOpen";
+
+  const getStoredActiveBlueprintId = () => {
+    const storedId =
+      sessionStorage.getItem("newCampaignId") ||
+      sessionStorage.getItem("editTemplateId");
+    const parsedId = Number(storedId);
+
+    return Number.isFinite(parsedId) && parsedId > 0 ? parsedId : null;
+  };
+
+  const shouldRestoreCampaignBuilder = () => {
+    const hasActiveBlueprint = getStoredActiveBlueprintId() !== null;
+    const builderWasOpen =
+      sessionStorage.getItem(BLUEPRINT_BUILDER_SESSION_KEY) === "true";
+    const editModeRequested =
+      sessionStorage.getItem("editTemplateMode") === "true";
+
+    return hasActiveBlueprint && (builderWasOpen || editModeRequested);
+  };
+
+  const [showCampaignBuilder, setShowCampaignBuilder] = useState(() =>
+    shouldRestoreCampaignBuilder(),
+  );
 
   // ✅ NEW: Template name modal states
   const [showTemplateNameModal, setShowTemplateNameModal] = useState(false);
@@ -354,6 +377,7 @@ const Template: React.FC<TemplateProps> = ({
         );
         sessionStorage.setItem("autoStartConversation", "true");
         sessionStorage.setItem("openConversationTab", "true");
+        setActiveBlueprintId(data.campaignId);
 
         await fetchCampaignTemplates(); // ✅ CRITICAL
 
@@ -641,6 +665,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
     sessionStorage.setItem("newCampaignName", blueprint.templateName);
     sessionStorage.setItem("editTemplateId", blueprint.id.toString());
     sessionStorage.setItem("editTemplateMode", "true");
+    setActiveBlueprintId(blueprint.id);
 
     // Force builder re-mount
     setShowCampaignBuilder(false);
@@ -773,21 +798,39 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
       setIsLoading(false);
     }
   };
-  const [activeBlueprintId, setActiveBlueprintId] = useState<number | null>(
-  Number(sessionStorage.getItem("newCampaignId")) || null
-);
+  const [activeBlueprintId, setActiveBlueprintId] = useState<number | null>(() =>
+    getStoredActiveBlueprintId(),
+  );
 
   // Check if we should open builder directly on mount
   useEffect(() => {
-    const editTemplateId = sessionStorage.getItem("editTemplateId");
-    const editMode = sessionStorage.getItem("editTemplateMode");
-    
-    if (editTemplateId && editMode === "true") {
+    const storedId =
+      sessionStorage.getItem("newCampaignId") ||
+      sessionStorage.getItem("editTemplateId");
+    const parsedId = Number(storedId);
+    const hasStoredBlueprint = Number.isFinite(parsedId) && parsedId > 0;
+    const builderWasOpen =
+      sessionStorage.getItem(BLUEPRINT_BUILDER_SESSION_KEY) === "true";
+    const editModeRequested =
+      sessionStorage.getItem("editTemplateMode") === "true";
+
+    if (hasStoredBlueprint) {
+      setActiveBlueprintId(parsedId);
+    }
+
+    if (hasStoredBlueprint && (builderWasOpen || editModeRequested)) {
       setShowCampaignBuilder(true);
-      // Clear the flag so it doesn't trigger again
-      sessionStorage.removeItem("editTemplateMode");
     }
   }, []);
+
+  useEffect(() => {
+    if (showCampaignBuilder && activeBlueprintId !== null) {
+      sessionStorage.setItem(BLUEPRINT_BUILDER_SESSION_KEY, "true");
+      return;
+    }
+
+    sessionStorage.removeItem(BLUEPRINT_BUILDER_SESSION_KEY);
+  }, [activeBlueprintId, showCampaignBuilder]);
   // ✅ NEW: Render sort arrow indicator
   const renderSortArrow = (columnKey: string, currentSortKey: string, sortDirection: string) => {
     if (columnKey === currentSortKey) {
@@ -890,6 +933,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                               "newCampaignName",
                               template.templateName,
                             );
+                            setActiveBlueprintId(template.id);
 
                             // const example =
                             //   getTooltipText(exampleCache[template.id] || generateExampleEmail(template));
@@ -997,6 +1041,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                                   // REQUIRED FIX 🔥 (builder reads this!)
                                   sessionStorage.setItem("newCampaignId", template.id.toString());
                                   sessionStorage.setItem("newCampaignName", template.templateName);
+                                  setActiveBlueprintId(template.id);
                                  // ✅ FIXED: Load example email immediately
                                   try {
                                     const fullTemplate = await fetchCampaignTemplateDetails(template.id);
@@ -1684,6 +1729,8 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
               onClick={async () => {
                 // ✅ Close UI first
                 setShowCampaignBuilder(false);
+                setActiveBlueprintId(null);
+                sessionStorage.removeItem(BLUEPRINT_BUILDER_SESSION_KEY);
 
                 // ✅ Give React state a tick before cleanup
                 setTimeout(async () => {
@@ -1692,6 +1739,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                   sessionStorage.removeItem("newCampaignName");
                   sessionStorage.removeItem("autoStartConversation");
                   sessionStorage.removeItem("openConversationTab");
+                  sessionStorage.removeItem("initialExampleEmail");
 
                   // Don’t remove selectedTemplateDefinitionId – we need that next time
 
@@ -1713,7 +1761,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
               ← Back
             </button>
             <select
-              value={sessionStorage.getItem("newCampaignId") || ""}
+              value={activeBlueprintId?.toString() || ""}
               onChange={(e) => handleBlueprintSwitch(Number(e.target.value))}
               style={{
                 padding: "6px 12px",
