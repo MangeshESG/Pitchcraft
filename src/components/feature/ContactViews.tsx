@@ -214,7 +214,9 @@ const getRowValue = (row: Record<string, any>, fieldKey: string) => {
 const isCompleteCondition = (condition: FilterCondition) =>
   condition.field?.trim() &&
   condition.operator?.trim() &&
-  String(condition.value ?? "").trim() !== "" &&
+  (condition.operator === "isEmpty" ||
+    condition.operator === "isNotEmpty" ||
+    String(condition.value ?? "").trim() !== "") &&
   hasRequiredConditionContext(condition);
 
 interface SourceOption {
@@ -926,6 +928,18 @@ const handleCloneContacts = async () => {
         return new Date(value) < new Date(condition.value);
       case "after":
         return new Date(value) > new Date(condition.value);
+      case "isEmpty":
+        return (
+          value === null ||
+          value === undefined ||
+          String(value).trim() === ""
+        );
+      case "isNotEmpty":
+        return !(
+          value === null ||
+          value === undefined ||
+          String(value).trim() === ""
+        );
       default:
         return true;
     }

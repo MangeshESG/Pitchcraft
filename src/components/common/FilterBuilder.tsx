@@ -58,6 +58,8 @@ const operatorsByType: Record<FieldType, { value: string; label: string }[]> = {
     { value: "startsWith", label: "Starts with" },
     { value: "endsWith", label: "Ends with" },
     { value: "notEquals", label: "Not equals" },
+    { value: "isEmpty", label: "Is empty" },
+    { value: "isNotEmpty", label: "Is not empty" },
   ],
   number: [
     { value: "equals", label: "=" },
@@ -65,21 +67,32 @@ const operatorsByType: Record<FieldType, { value: string; label: string }[]> = {
     { value: "lt", label: "<" },
     { value: "gte", label: ">=" },
     { value: "lte", label: "<=" },
+    { value: "isEmpty", label: "Is empty" },
+    { value: "isNotEmpty", label: "Is not empty" },
   ],
   date: [
     { value: "equals", label: "Equals" },
     { value: "before", label: "Before" },
     { value: "after", label: "After" },
+    { value: "isEmpty", label: "Is empty" },
+    { value: "isNotEmpty", label: "Is not empty" },
   ],
   boolean: [
     { value: "equals", label: "Is" },
     { value: "notEquals", label: "Is not" },
+    { value: "isEmpty", label: "Is empty" },
+    { value: "isNotEmpty", label: "Is not empty" },
   ],
   dropdown: [
     { value: "equals", label: "Equals" },
     { value: "notEquals", label: "Not equals" },
+    { value: "isEmpty", label: "Is empty" },
+    { value: "isNotEmpty", label: "Is not empty" },
   ],
 };
+
+const isValueOptionalOperator = (operator?: string) =>
+  operator === "isEmpty" || operator === "isNotEmpty";
 
 const cardStyle: React.CSSProperties = {
   border: "1px solid #d8e6d9",
@@ -313,7 +326,8 @@ const getRowValue = <T extends Record<string, any>>(row: T, fieldKey: string) =>
 const isCompleteCondition = (condition: FilterCondition) =>
   condition.field.trim() &&
   condition.operator.trim() &&
-  String(condition.value ?? "").trim() !== "" &&
+  (isValueOptionalOperator(condition.operator) ||
+    String(condition.value ?? "").trim() !== "") &&
   hasRequiredConditionContext(condition);
 
 function FilterBuilder<T extends Record<string, any>>({
@@ -679,6 +693,20 @@ function FilterBuilder<T extends Record<string, any>>({
       case "after":
         return new Date(value) > new Date(condition.value);
 
+      case "isEmpty":
+        return (
+          value === null ||
+          value === undefined ||
+          String(value).trim() === ""
+        );
+
+      case "isNotEmpty":
+        return !(
+          value === null ||
+          value === undefined ||
+          String(value).trim() === ""
+        );
+
       default:
         return true;
     }
@@ -936,6 +964,9 @@ function FilterBuilder<T extends Record<string, any>>({
                 const dropdownOptions = field?.options
                   ? sortedFieldOptions.get(field.key) || sortStringsAsc(field.options)
                   : [];
+                const isValueOptional = isValueOptionalOperator(
+                  condition.operator
+                );
                 const visibleFieldCategories = filteredFieldCategories;
                 const selectedFieldCategory =
                   visibleFieldCategories.find(
@@ -1249,7 +1280,20 @@ function FilterBuilder<T extends Record<string, any>>({
                         ))}
                       </select>
 
-                      {normalizedFieldType === "dropdown" ? (
+                      {isValueOptional ? (
+                        <input
+                          type="text"
+                          value=""
+                          disabled
+                          placeholder="No value needed"
+                          style={{
+                            ...controlStyle,
+                            background: "#f8faf8",
+                            color: "#6b7280",
+                            cursor: "not-allowed",
+                          }}
+                        />
+                      ) : normalizedFieldType === "dropdown" ? (
                         <select
                           value={condition.value}
                           onChange={(event) =>
