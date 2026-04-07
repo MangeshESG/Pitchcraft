@@ -3,10 +3,15 @@ import type { FilterCondition, FilterConditionContext, FilterGroup } from "../co
 
 export const TRACKING_OPEN_FIELD = "tracking_open";
 export const TRACKING_CLICK_FIELD = "tracking_click";
+export const TRACKING_BOT_CLICK_FIELD = "tracking_bot_click";
+export const TRACKING_SEND_DATE_FIELD = "tracking_send_date";
 export const ALL_CAMPAIGNS_ID = "__all__";
 
 export const isTrackingField = (fieldKey?: string) =>
-  fieldKey === TRACKING_OPEN_FIELD || fieldKey === TRACKING_CLICK_FIELD;
+  fieldKey === TRACKING_OPEN_FIELD ||
+  fieldKey === TRACKING_CLICK_FIELD ||
+  fieldKey === TRACKING_BOT_CLICK_FIELD ||
+  fieldKey === TRACKING_SEND_DATE_FIELD;
 
 export const conditionRequiresCampaign = (condition: Pick<FilterCondition, "field">) =>
   isTrackingField(condition.field);
@@ -29,10 +34,16 @@ export interface CampaignOption {
 interface CampaignEngagementIndex {
   sentContactIds: Set<string>;
   sentEmails: Set<string>;
+  sentAtByContactId: Map<string, string>;
+  sentAtByEmail: Map<string, string>;
   openedContactIds: Set<string>;
   openedEmails: Set<string>;
   clickedContactIds: Set<string>;
   clickedEmails: Set<string>;
+  botClickedContactIds: Set<string>;
+  botClickedEmails: Set<string>;
+  humanClickedContactIds: Set<string>;
+  humanClickedEmails: Set<string>;
 }
 
 const normalizeId = (value: any) => {
@@ -76,11 +87,40 @@ const addIdentifiers = (
 const createEmptyCampaignIndex = (): CampaignEngagementIndex => ({
   sentContactIds: new Set<string>(),
   sentEmails: new Set<string>(),
+  sentAtByContactId: new Map<string, string>(),
+  sentAtByEmail: new Map<string, string>(),
   openedContactIds: new Set<string>(),
   openedEmails: new Set<string>(),
   clickedContactIds: new Set<string>(),
   clickedEmails: new Set<string>(),
+  botClickedContactIds: new Set<string>(),
+  botClickedEmails: new Set<string>(),
+  humanClickedContactIds: new Set<string>(),
+  humanClickedEmails: new Set<string>(),
 });
+
+const normalizeDate = (value: any) => {
+  if (value === undefined || value === null || value === "") {
+    return "";
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString();
+};
+
+const setLatestDate = (target: Map<string, string>, key: string, value: any) => {
+  const normalizedKey = normalizeId(key);
+  const normalizedValue = normalizeDate(value);
+
+  if (!normalizedKey || !normalizedValue) {
+    return;
+  }
+
+  const existing = target.get(normalizedKey);
+  if (!existing || new Date(normalizedValue) > new Date(existing)) {
+    target.set(normalizedKey, normalizedValue);
+  }
+};
 
 const fetchCampaignEmailLogs = async (clientId: number, campaignId: number) => {
   const url = new URL(`${API_BASE_URL}/api/Crm/getlogs`);
@@ -127,6 +167,17 @@ const buildCampaignEngagementIndex = async (
       index.sentContactIds,
       index.sentEmails
     );
+
+    setLatestDate(
+      index.sentAtByContactId,
+      item.ContactId ?? item.contactId,
+      item.SentAt ?? item.sentAt
+    );
+    setLatestDate(
+      index.sentAtByEmail,
+      item.ToEmail ?? item.toEmail ?? item.Email ?? item.email,
+      item.SentAt ?? item.sentAt
+    );
   });
 
   (trackingLogs || []).forEach((item: Record<string, any>) => {
@@ -152,6 +203,15 @@ const buildCampaignEngagementIndex = async (
         ["Email", "email"],
         index.clickedContactIds,
         index.clickedEmails
+      );
+
+      const isBot = Boolean(item.IsBot ?? item.isBot);
+      addIdentifiers(
+        item,
+        ["ContactId", "contactId"],
+        ["Email", "email"],
+        isBot ? index.botClickedContactIds : index.humanClickedContactIds,
+        isBot ? index.botClickedEmails : index.humanClickedEmails
       );
     }
   });
@@ -270,6 +330,32 @@ const setHasIdentifier = (
   );
 };
 
+const getMatchedDates = (
+  idMap: Map<string, string>,
+  emailMap: Map<string, string>,
+  row: Record<string, any>
+) => {
+  const dates: string[] = [];
+  const contactId = normalizeId(row.id ?? row.Id ?? row.contactId ?? row.ContactId);
+  const email = normalizeEmail(row.email ?? row.Email ?? row.toEmail ?? row.ToEmail);
+
+  if (contactId) {
+    const byId = idMap.get(contactId);
+    if (byId) {
+      dates.push(byId);
+    }
+  }
+
+  if (email) {
+    const byEmail = emailMap.get(email);
+    if (byEmail) {
+      dates.push(byEmail);
+    }
+  }
+
+  return dates;
+};
+
 export const evaluateTrackingCondition = (
   row: Record<string, any>,
   condition: FilterCondition,
@@ -292,28 +378,97 @@ export const evaluateTrackingCondition = (
     return false;
   }
 
+  if (condition.field === TRACKING_SEND_DATE_FIELD) {
+    const matchedDates = indexesToEvaluate
+      .flatMap((campaignIndex) =>
+        getMatchedDates(
+          campaignIndex.sentAtByContactId,
+          campaignIndex.sentAtByEmail,
+          row
+        )
+      )
+      .map((value) => new Date(value))
+      .filter((value) => !Number.isNaN(value.getTime()))
+      .sort((left, right) => right.getTime() - left.getTime());
+
+    if (condition.operator === "isEmpty") {
+      return matchedDates.length === 0;
+    }
+
+    if (condition.operator === "isNotEmpty") {
+      return matchedDates.length > 0;
+    }
+
+    if (matchedDates.length === 0) {
+      return false;
+    }
+
+    const latestSentDate = matchedDates[0];
+    const targetDate = new Date(String(condition.value));
+
+    if (Number.isNaN(targetDate.getTime())) {
+      return false;
+    }
+
+    switch (condition.operator) {
+      case "equals":
+        return latestSentDate.toDateString() === targetDate.toDateString();
+      case "before":
+        return latestSentDate < targetDate;
+      case "after":
+        return latestSentDate > targetDate;
+      case "notEquals":
+        return latestSentDate.toDateString() !== targetDate.toDateString();
+      default:
+        return false;
+    }
+  }
+
   const sentInCampaign = indexesToEvaluate.some((campaignIndex) =>
     setHasIdentifier(campaignIndex.sentContactIds, campaignIndex.sentEmails, row)
   );
 
-  const eventOccurred = indexesToEvaluate.some((campaignIndex) =>
-    condition.field === TRACKING_OPEN_FIELD
-      ? setHasIdentifier(
-          campaignIndex.openedContactIds,
-          campaignIndex.openedEmails,
-          row
-        )
-      : setHasIdentifier(
-          campaignIndex.clickedContactIds,
-          campaignIndex.clickedEmails,
-          row
-        )
-  );
+  const eventOccurred = indexesToEvaluate.some((campaignIndex) => {
+    if (condition.field === TRACKING_OPEN_FIELD) {
+      return setHasIdentifier(
+        campaignIndex.openedContactIds,
+        campaignIndex.openedEmails,
+        row
+      );
+    }
+
+    if (condition.field === TRACKING_BOT_CLICK_FIELD) {
+      return setHasIdentifier(
+        campaignIndex.botClickedContactIds,
+        campaignIndex.botClickedEmails,
+        row
+      );
+    }
+
+    return setHasIdentifier(
+      campaignIndex.clickedContactIds,
+      campaignIndex.clickedEmails,
+      row
+    );
+  });
 
   const expectsPositive = String(condition.value).toLowerCase() === "true";
-  const matches = expectsPositive
-    ? eventOccurred
-    : sentInCampaign && !eventOccurred;
+  const hasHumanClick = indexesToEvaluate.some((campaignIndex) =>
+    setHasIdentifier(
+      campaignIndex.humanClickedContactIds,
+      campaignIndex.humanClickedEmails,
+      row
+    )
+  );
+
+  const matches =
+    condition.field === TRACKING_BOT_CLICK_FIELD
+      ? expectsPositive
+        ? eventOccurred
+        : hasHumanClick
+      : expectsPositive
+        ? eventOccurred
+        : sentInCampaign && !eventOccurred;
 
   return condition.operator === "notEquals" ? !matches : matches;
 };

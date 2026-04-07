@@ -20,6 +20,12 @@ import PaginationControls from "./PaginationControls";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import deleteIcon from "../../assets/images/deleteiconn.png";
 import duplicateIcon from "../../assets/images/icons/duplicate.png";
+import {
+  TRACKING_BOT_CLICK_FIELD,
+  TRACKING_CLICK_FIELD,
+  TRACKING_OPEN_FIELD,
+  TRACKING_SEND_DATE_FIELD,
+} from "../../utils/trackingFilterUtils";
 
 import {
   faAngleRight,
@@ -1957,15 +1963,27 @@ const baseFields: any[] = [
   { key: "hasLinkedInInfo", label: "LinkedIn information", type: "boolean" },
   { key: "hasNotes", label: "Notes", type: "boolean" },
   {
-    key: "tracking_open",
+    key: TRACKING_OPEN_FIELD,
     label: "Opened email",
     type: "boolean",
     contextType: "campaign",
   },
   {
-    key: "tracking_click",
+    key: TRACKING_CLICK_FIELD,
     label: "Clicked email",
     type: "boolean",
+    contextType: "campaign",
+  },
+  {
+    key: TRACKING_BOT_CLICK_FIELD,
+    label: "Bot click",
+    type: "boolean",
+    contextType: "campaign",
+  },
+  {
+    key: TRACKING_SEND_DATE_FIELD,
+    label: "Send date",
+    type: "date",
     contextType: "campaign",
   },
 ];
