@@ -5,7 +5,15 @@ import PaginationControls from "./PaginationControls";
 import FilterBuilder from "../common/FilterBuilder";
 import CommonSidePanel from "../common/CommonSidePanel";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEdit, faTrashAlt } from "@fortawesome/free-regular-svg-icons";
+import duplicateIcon from "../../assets/images/icons/duplicate.png";
+import BulkUpdatePanel from "./BulkUpdatePanel";
+import SegmentModal from "../common/SegmentModal";
+
+import {
+  faEdit,
+  faTrashAlt,
+} from "@fortawesome/free-regular-svg-icons";
+
 import type {
   FieldType,
   FilterCondition,
@@ -20,6 +28,9 @@ import {
   evaluateTrackingCondition,
   hasRequiredConditionContext,
 } from "../../utils/trackingFilterUtils";
+
+import { useAppModal } from "../../hooks/useAppModal";
+
 
 interface ContactFieldOption {
   key: string;
@@ -71,9 +82,13 @@ type CsvColumn = {
 };
 
 const VIEW_META_PREFIX = "crm_view_meta_";
+const VIEW_STATE_PREFIX = "crm_view_state_";
 
 const getViewMetaKey = (clientId: string | number) =>
   `${VIEW_META_PREFIX}${clientId}`;
+
+const getViewStateKey = (clientId: string | number) =>
+  `${VIEW_STATE_PREFIX}${clientId}`;
 
 const loadViewMetaMap = (clientId: string | number): Record<string, ViewMeta> => {
   try {
@@ -90,6 +105,47 @@ const saveViewMetaMap = (clientId: string | number, map: Record<string, ViewMeta
     localStorage.setItem(getViewMetaKey(clientId), JSON.stringify(map));
   } catch (error) {
     console.warn("Failed to save view metadata:", error);
+  }
+};
+
+const loadViewState = (
+  clientId: string | number
+): { viewId: number; viewMode: "detail" } | null => {
+  try {
+    const raw = sessionStorage.getItem(getViewStateKey(clientId));
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    if (parsed?.viewMode !== "detail" || !Number.isFinite(Number(parsed?.viewId))) {
+      return null;
+    }
+
+    return {
+      viewId: Number(parsed.viewId),
+      viewMode: "detail",
+    };
+  } catch (error) {
+    console.warn("Failed to load view state:", error);
+    return null;
+  }
+};
+
+const saveViewState = (
+  clientId: string | number,
+  state: { viewId: number; viewMode: "detail" }
+) => {
+  try {
+    sessionStorage.setItem(getViewStateKey(clientId), JSON.stringify(state));
+  } catch (error) {
+    console.warn("Failed to save view state:", error);
+  }
+};
+
+const clearViewState = (clientId: string | number) => {
+  try {
+    sessionStorage.removeItem(getViewStateKey(clientId));
+  } catch (error) {
+    console.warn("Failed to clear view state:", error);
   }
 };
 
@@ -310,6 +366,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
 
   const [viewMode, setViewMode] = useState<"list" | "detail">("list");
   const [selectedView, setSelectedView] = useState<ViewItem | null>(null);
+  const [baseViewContacts, setBaseViewContacts] = useState<any[]>([]);
   const [viewContacts, setViewContacts] = useState<any[]>([]);
   const [viewSearchQuery, setViewSearchQuery] = useState("");
   const [viewCurrentPage, setViewCurrentPage] = useState(1);
@@ -329,7 +386,93 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   const [viewActionsAnchor, setViewActionsAnchor] = useState<number | null>(null);
   const [viewContactCounts, setViewContactCounts] = useState<Record<number, number>>({});
   const [downloadingViewId, setDownloadingViewId] = useState<number | null>(null);
+  const [showBulkUpdatePanel, setShowBulkUpdatePanel] = useState(false);
+  const [showSaveSegmentModal, setShowSaveSegmentModal] = useState(false);
+  const [isCloningContact, setIsCloningContact] = useState(false);
+  const [isUnsubscribing, setIsUnsubscribing] = useState(false);
 
+  const appModal = useAppModal(); // ✅ correct place
+  //------------------------------
+  const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set());
+  const handleSelectContact = (contactId: string) => {
+    setSelectedContacts(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(contactId)) newSet.delete(contactId);
+      else newSet.add(contactId);
+      return newSet;
+    });
+  };
+
+const handleSelectAll = (contacts: any[]) => {
+  const ids = contacts.map(c => c.id.toString());
+
+  setSelectedContacts(prev => {
+    const allSelected = ids.every(id => prev.has(id));
+    return allSelected ? new Set() : new Set(ids);
+  });
+};
+
+const handleUnsubscribeContacts = async () => {
+  const ids = Array.from(selectedContacts);
+  if (ids.length === 0) return;
+
+  try {
+    setIsUnsubscribing(true);
+
+    for (const id of ids) {
+      const contact = viewContacts.find((item) => item.id.toString() === id);
+
+      if (!contact?.email) continue;
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/Crm/UnsubscribeContacts?ClientId=${clientId}&email=${encodeURIComponent(contact.email)}`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to unsubscribe selected contacts");
+      }
+    }
+
+    setSelectedContacts(new Set());
+    if (selectedView) {
+      await fetchContactsForView(selectedView);
+    }
+    appModal.showSuccess("Selected contacts unsubscribed successfully!");
+  } catch (error) {
+    console.error("Failed to unsubscribe contacts:", error);
+    appModal.showError("Failed to unsubscribe selected contacts");
+  } finally {
+    setIsUnsubscribing(false);
+  }
+};
+
+const handleCloneContacts = async () => {
+  const ids = Array.from(selectedContacts);
+  if (ids.length !== 1) return;
+
+  try {
+    setIsCloningContact(true);
+
+    const response = await fetch(`${API_BASE_URL}/api/Crm/clone-contact?contactId=${ids[0]}`, {
+      method: "POST",
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to clone contact");
+    }
+
+    setSelectedContacts(new Set());
+    if (selectedView) {
+      await fetchContactsForView(selectedView);
+    }
+    appModal.showSuccess("Contact cloned successfully!");
+  } catch (error) {
+    console.error("Failed to clone contact:", error);
+    appModal.showError("Failed to clone contact");
+  } finally {
+    setIsCloningContact(false);
+  }
+};
   const fieldTypeMap = useMemo(() => {
     const map = new Map<string, FieldType>();
     filterFields.forEach((field) => {
@@ -557,6 +700,17 @@ const ContactViews: React.FC<ContactViewsProps> = ({
     fetchViews();
   }, [clientId]);
 
+  useEffect(() => {
+    if (!clientId) return;
+
+    if (viewMode === "detail" && selectedView?.id) {
+      saveViewState(clientId, {
+        viewId: selectedView.id,
+        viewMode: "detail",
+      });
+    }
+  }, [clientId, viewMode, selectedView?.id]);
+
   const fetchSources = async () => {
     if (!clientId) return;
     setIsLoadingSources(true);
@@ -605,11 +759,52 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   useEffect(() => {
     setViewMode("list");
     setSelectedView(null);
+    setBaseViewContacts([]);
     setViewContacts([]);
     setViewMetaMissing(false);
     setViewContactCounts({});
     setDownloadingViewId(null);
+    clearViewState(clientId);
   }, [clientId]);
+
+  useEffect(() => {
+    if (!clientId || isLoadingViews || views.length === 0) {
+      return;
+    }
+
+    if (viewMode === "detail" && selectedView?.id) {
+      const latestSelectedView = views.find((view) => view.id === selectedView.id);
+
+      if (!latestSelectedView) {
+        setViewMode("list");
+        setSelectedView(null);
+        setViewContacts([]);
+        setViewMetaMissing(false);
+        clearViewState(clientId);
+        return;
+      }
+
+      if (latestSelectedView !== selectedView) {
+        setSelectedView(latestSelectedView);
+      }
+
+      return;
+    }
+
+    const persistedState = loadViewState(clientId);
+    if (!persistedState?.viewId) {
+      return;
+    }
+
+    const persistedView = views.find((view) => view.id === persistedState.viewId);
+    if (!persistedView) {
+      clearViewState(clientId);
+      return;
+    }
+
+    setSelectedView(persistedView);
+    setViewMode("detail");
+  }, [clientId, isLoadingViews, selectedView, viewMode, views]);
 
   const handleViewSort = (key: string) => {
     if (viewSortKey === key) {
@@ -638,7 +833,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
       );
     });
     if (viewSortKey) {
-      filtered = [...filtered].sort((a, b) => {
+      filtered = [...filtered].sort((a: any, b: any) => {
         const aVal = (a as any)[viewSortKey] ?? "";
         const bVal = (b as any)[viewSortKey] ?? "";
 
@@ -999,6 +1194,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
     setViewMetaMissing(false);
     try {
       const { contacts, metaMissing, contactCount } = await fetchViewContactsData(view);
+      setBaseViewContacts(contacts);
       setViewContacts(contacts);
       setViewMetaMissing(metaMissing);
       if (!metaMissing) {
@@ -1006,6 +1202,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
       }
     } catch (error) {
       console.error("Error fetching view contacts:", error);
+      setBaseViewContacts([]);
       setViewContacts([]);
       setViewMetaMissing(false);
       onShowMessage?.("Failed to load view contacts.", "error");
@@ -1054,7 +1251,10 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   }, [
     viewMode,
     selectedView?.id,
+    selectedView?.filtersJson,
     selectedView?.useAllDataFiles,
+    selectedView?.dataFileIds?.length,
+    selectedView?.segmentIds?.length,
     selectedView?.excludedDataFileIds?.length,
     availableDataFiles.length,
   ]);
@@ -1077,6 +1277,14 @@ const ContactViews: React.FC<ContactViewsProps> = ({
       delete metaMap[String(view.id)];
       saveViewMetaMap(clientId, metaMap);
       setViews((prev) => prev.filter((item) => item.id !== view.id));
+      if (selectedView?.id === view.id) {
+        setSelectedView(null);
+        setViewMode("list");
+        setBaseViewContacts([]);
+        setViewContacts([]);
+        setViewMetaMissing(false);
+        clearViewState(clientId);
+      }
       onShowMessage?.("View deleted successfully.", "success");
     } catch (error) {
       console.error("Error deleting view:", error);
@@ -1091,6 +1299,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
     }
     setSelectedView(view);
     setViewMode("detail");
+    setSelectedContacts(new Set());
     setViewSearchQuery("");
     setViewCurrentPage(1);
   };
@@ -1212,6 +1421,9 @@ const ContactViews: React.FC<ContactViewsProps> = ({
     selectedView?.id != null
       ? viewContactCounts[selectedView.id] ?? viewContacts.length
       : viewContacts.length;
+  const refinedViewContactCount = viewContacts.length;
+  const hasRefinedViewResults =
+    baseViewContacts.length > 0 && refinedViewContactCount !== baseViewContacts.length;
 
   const detailHeader = viewMetaMissing ? (
     <div
@@ -1229,6 +1441,160 @@ const ContactViews: React.FC<ContactViewsProps> = ({
       created and save it again to make it usable here.
     </div>
   ) : (
+  <>
+    {/* ✅ BULK ACTION BAR */}
+{selectedContacts.size > 0 && (
+  <div
+    style={{
+      marginBottom: 16,
+      padding: "12px 16px",
+      background: "#f0f7ff",
+      borderRadius: 6,
+      display: "flex",
+      alignItems: "center",
+      gap: 16,
+    }}
+  >
+    <span style={{ fontWeight: 500 }}>
+      {selectedContacts.size} contact
+      {selectedContacts.size > 1 ? "s" : ""} selected
+    </span>
+
+    <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+      {selectedContacts.size === 1 && (
+        <button
+          className="button secondary"
+          onClick={handleCloneContacts}
+          disabled={isCloningContact}
+          style={{
+            background: "none",
+            color: "#3f9f42",
+            border: "none",
+            borderRadius: "12px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: "40px",
+            height: "40px",
+            padding: "0",
+            cursor: isCloningContact ? "not-allowed" : "pointer",
+            opacity: isCloningContact ? 0.6 : 1,
+          }}
+          title={isCloningContact ? "Cloning..." : "Clone contact"}
+        >
+          <img
+            src={duplicateIcon}
+            alt="Clone"
+            style={{
+              width: 22,
+              height: 22,
+              objectFit: "contain",
+              filter:
+                "invert(47%) sepia(82%) saturate(397%) hue-rotate(84deg) brightness(95%) contrast(90%)",
+            }}
+          />
+        </button>
+      )}
+
+      <button
+        className="button secondary"
+        onClick={handleUnsubscribeContacts}
+        disabled={isUnsubscribing}
+        style={{
+          background: "none",
+          color: "#3f9f42",
+          border: "none",
+          borderRadius: "12px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: "40px",
+          height: "40px",
+          padding: "0",
+          cursor: isUnsubscribing ? "not-allowed" : "pointer",
+          opacity: isUnsubscribing ? 0.6 : 1,
+        }}
+        title={isUnsubscribing ? "Processing..." : "Unsubscribe"}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" height="22" width="22">
+          <path stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" d="M11.25 17.25c0 1.5913 0.6321 3.1174 1.7574 4.2426 1.1252 1.1253 2.6513 1.7574 4.2426 1.7574 1.5913 0 3.1174 -0.6321 4.2426 -1.7574 1.1253 -1.1252 1.7574 -2.6513 1.7574 -4.2426 0 -1.5913 -0.6321 -3.1174 -1.7574 -4.2426 -1.1252 -1.1253 -2.6513 -1.7574 -4.2426 -1.7574 -1.5913 0 -3.1174 0.6321 -4.2426 1.7574 -1.1253 1.1252 -1.7574 2.6513 -1.7574 4.2426Z" strokeWidth="2"></path>
+          <path stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" d="M14.25 17.25h6" strokeWidth="2"></path>
+          <path stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" d="M8.25 15.75h-6c-0.39782 0 -0.77936 -0.158 -1.06066 -0.4393C0.908035 15.0294 0.75 14.6478 0.75 14.25v-12c0 -0.39782 0.158035 -0.77936 0.43934 -1.06066C1.47064 0.908035 1.85218 0.75 2.25 0.75h18c0.3978 0 0.7794 0.158035 1.0607 0.43934 0.2813 0.2813 0.4393 0.66284 0.4393 1.06066V9" strokeWidth="2"></path>
+          <path stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" d="m21.41 1.30005 -8.143 6.264c-0.5783 0.44486 -1.2874 0.68606 -2.017 0.68606 -0.7296 0 -1.43873 -0.2412 -2.01701 -0.68606l-8.144 -6.264" strokeWidth="2"></path>
+        </svg>
+      </button>
+
+      <button
+        className="button primary"
+        onClick={() => setShowSaveSegmentModal(true)}
+        style={{
+          backgroundColor: "transparent",
+          borderColor: "transparent",
+          color: "#3f9f42",
+          border: "none",
+          borderRadius: "12px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: "40px",
+          height: "40px",
+          padding: "0",
+          cursor: "pointer",
+        }}
+        title="Segment"
+      >
+        <svg
+          width="30"
+          height="30"
+          viewBox="0 0 100 100"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M50 50H85C85 69.33 69.33 85 50 85C30.67 85 15 69.33 15 50C15 30.67 30.67 15 50 15V50Z"
+            stroke="#3f9f42"
+            strokeWidth="6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M60 40V15C73.8071 15 85 26.1929 85 40H60Z"
+            stroke="#3f9f42"
+            strokeWidth="6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+
+      <button
+        className="button secondary"
+        onClick={() => setShowBulkUpdatePanel(true)}
+        style={{
+          background: "none",
+          color: "#3f9f42",
+          border: "none",
+          borderRadius: "12px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: "40px",
+          height: "40px",
+          padding: "0",
+          cursor: "pointer",
+        }}
+        title="Bulk Update"
+      >
+        <FontAwesomeIcon
+          icon={faEdit}
+          style={{ fontSize: 20, color: "#3f9f42" }}
+        />
+      </button>
+    </div>
+  </div>
+)}
+
+    {/* ✅ EXISTING HEADER (DON’T REMOVE) */}
     <div
       style={{
         marginBottom: 16,
@@ -1242,25 +1608,26 @@ const ContactViews: React.FC<ContactViewsProps> = ({
       }}
     >
       <span style={{ fontWeight: 500 }}>
-        {selectedViewContactCount} contact
-        {selectedViewContactCount === 1 ? "" : "s"} in this view
+        {hasRefinedViewResults
+          ? `Showing ${refinedViewContactCount} of ${selectedViewContactCount} contacts in this view`
+          : `${selectedViewContactCount} contact${selectedViewContactCount === 1 ? "" : "s"} in this view`}
       </span>
+
       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
         {selectedView?.filtersJson && (
           <span style={{ color: "#4b5563", fontSize: 13 }}>
             Filter rules applied
           </span>
         )}
+
         <button
           type="button"
           className="button secondary"
           onClick={() => selectedView && handleDownloadView(selectedView)}
-          disabled={!selectedView || downloadingViewId === selectedView.id}
         >
-          {selectedView && downloadingViewId === selectedView.id
-            ? "Downloading..."
-            : "Download"}
+          Download
         </button>
+
         <button
           type="button"
           className="button secondary"
@@ -1270,7 +1637,8 @@ const ContactViews: React.FC<ContactViewsProps> = ({
         </button>
       </div>
     </div>
-  );
+  </>
+);
 
   return (
     <div className="list-content">
@@ -1543,18 +1911,56 @@ const ContactViews: React.FC<ContactViewsProps> = ({
           </>
         ) : (
           <>
+            {!viewMetaMissing && selectedView && (
+              <div style={{ marginBottom: 20 }}>
+                <FilterBuilder
+                  key={`${selectedView.id}-${selectedView.filtersJson || ""}`}
+                  data={baseViewContacts}
+                  fields={normalizedFilterFields}
+                  clientId={clientId}
+                  initialFiltersJson={selectedView.filtersJson}
+                  onFiltered={(filteredData) => {
+                    setViewContacts(filteredData);
+                    setViewCurrentPage(1);
+                    setSelectedContacts(new Set());
+                  }}
+                  saveViewConfig={{
+                    clientId,
+                    dataFileIds: selectedView.useAllDataFiles
+                      ? []
+                      : selectedView.dataFileIds || [],
+                    segmentIds: selectedView.segmentIds || [],
+                    useAllDataFiles: !!selectedView.useAllDataFiles,
+                    excludedDataFileIds: selectedView.excludedDataFileIds || [],
+                    onSuccess: (savedView) => {
+                      fetchViews();
+                      onShowMessage?.(
+                        `New view "${savedView?.name || "Untitled view"}" created successfully.`,
+                        "success"
+                      );
+                    },
+                    onError: (message) => {
+                      onShowMessage?.(message, "error");
+                    },
+                  }}
+                />
+              </div>
+            )}
+
             <DynamicContactsTable
               data={viewContacts}
               isLoading={isLoadingViewContacts}
               search={viewSearchQuery}
               setSearch={setViewSearchQuery}
-              showCheckboxes={false}
+              showCheckboxes={true}
               paginated={true}
               currentPage={viewCurrentPage}
               pageSize={viewPageSize}
               onPageChange={setViewCurrentPage}
               totalItems={viewContacts.length}
               autoGenerateColumns={true}
+              selectedItems={selectedContacts}
+              onSelectItem={handleSelectContact}
               excludeFields={[
                 "email_body",
                 "email_subject",
@@ -1716,8 +2122,11 @@ const ContactViews: React.FC<ContactViewsProps> = ({
               onBack={() => {
                 setViewMode("list");
                 setSelectedView(null);
+                setBaseViewContacts([]);
                 setViewContacts([]);
                 setViewMetaMissing(false);
+                setSelectedContacts(new Set());
+                clearViewState(clientId);
               }}
               columnNameMap={viewColumnNameMap}
               customHeader={detailHeader}
@@ -1938,11 +2347,56 @@ const ContactViews: React.FC<ContactViewsProps> = ({
               setEditFiltersJson(nextFiltersJson)
             }
             hideApplyButton={true}
+            
           />
         </div>
       </CommonSidePanel>
+<BulkUpdatePanel
+  isOpen={showBulkUpdatePanel}
+  onClose={() => setShowBulkUpdatePanel(false)}
+  selectedContactIds={Array.from(selectedContacts)}
+  clientId={String(clientId)}
+  onUpdateComplete={() => {
+    setSelectedContacts(new Set());
+    if (selectedView) {
+      fetchContactsForView(selectedView);
+    }
+  }}
+/>
+
+<SegmentModal
+  isOpen={showSaveSegmentModal}
+  onClose={() => setShowSaveSegmentModal(false)}
+
+  getContactIds={() =>
+    Array.from(selectedContacts).map(id => Number(id))
+  }
+
+  selectedContactsCount={selectedContacts.size}
+
+effectiveUserId={String(clientId)}
+
+  onSuccess={(message) => {
+    appModal.showSuccess(message);
+    setSelectedContacts(new Set());
+    setShowSaveSegmentModal(false);
+  }}
+
+  onError={(message: string) => {
+    console.error("Segment save error:", message);
+    appModal.showError(message);
+  }}
+
+  onContactsCleared={() => {
+    setSelectedContacts(new Set());
+  }}
+/>
+      
     </div>
+
+    
   );
+  
 };
 
 export default ContactViews;

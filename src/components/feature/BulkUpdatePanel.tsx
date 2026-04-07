@@ -97,7 +97,7 @@ const BulkUpdatePanel: React.FC<BulkUpdatePanelProps> = ({
             isCustomField: false,
             fieldType: 'text'
           }))
-          .sort((a, b) => a.label.localeCompare(b.label));
+          .sort((a: any, b: any) => a.label.localeCompare(b.label));
 
         // Convert and sort custom fields alphabetically
         const customColumns = customFields
@@ -120,7 +120,7 @@ const BulkUpdatePanel: React.FC<BulkUpdatePanelProps> = ({
               options: options
             };
           })
-          .sort((a, b) => a.label.localeCompare(b.label));
+          .sort((a: any, b: any) => a.label.localeCompare(b.label));
 
         // Combine with separator
         const formattedColumns: ContactColumn[] = [

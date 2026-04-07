@@ -423,7 +423,9 @@ const MainPage: React.FC = () => {
   }, [tab, contactsSubTab, mailSubTab]);
 
   const [showMailSubmenu, setShowMailSubmenu] = useState(initialTab === "Mail");
-  const [showContactsSubmenu, setShowContactsSubmenu] = useState(false);
+  const [showContactsSubmenu, setShowContactsSubmenu] = useState(
+    initialTab === "DataCampaigns",
+  );
   const [showSettingsSubmenu, setShowSettingsSubmenu] = useState(false);
   const [settingsSubTab, setSettingsSubTab] = useState<string>("Tracking");
 
@@ -445,6 +447,44 @@ const MainPage: React.FC = () => {
 
     setMailSubTab(initialMailSubTab);
   }, [initialTab, initialContactsSubTab, initialMailSubTab]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const nextTab = params.get("tab") || "Dashboard";
+    const nextContactsSubTab = params.get("subtab") || "List";
+    const nextMailSubTab = params.get("mailSubTab") || "Dashboard";
+
+    let shouldReplace = false;
+
+    if (tab !== nextTab) {
+      params.set("tab", tab);
+      shouldReplace = true;
+    }
+
+    if (tab === "DataCampaigns") {
+      if (contactsSubTab !== nextContactsSubTab) {
+        params.set("subtab", contactsSubTab);
+        shouldReplace = true;
+      }
+    } else if (params.has("subtab")) {
+      params.delete("subtab");
+      shouldReplace = true;
+    }
+
+    if (tab === "Mail") {
+      if (mailSubTab !== nextMailSubTab) {
+        params.set("mailSubTab", mailSubTab);
+        shouldReplace = true;
+      }
+    } else if (params.has("mailSubTab")) {
+      params.delete("mailSubTab");
+      shouldReplace = true;
+    }
+
+    if (shouldReplace) {
+      navigate(`/main?${params.toString()}`, { replace: true });
+    }
+  }, [tab, contactsSubTab, mailSubTab, location.search, navigate]);
 
   const [showDataFileUpload, setShowDataFileUpload] = useState(false);
 
@@ -3386,6 +3426,7 @@ try {
                             setShowContactsSubmenu(true);
                             setShowMailSubmenu(false);
                             setShowSettingsSubmenu(false);
+                            navigate(`/main?tab=DataCampaigns&subtab=${contactsSubTab}`);
                           } else {
                             setShowContactsSubmenu((prev) => !prev);
                           }
@@ -3419,6 +3460,7 @@ try {
                                 setContactsSubTab("List");
                                 setTab("DataCampaigns");
                                 setShowMailSubmenu(false);
+                                navigate("/main?tab=DataCampaigns&subtab=List");
                               }}
                               className="submenu-button"
                             >
@@ -3435,6 +3477,7 @@ try {
                                 setContactsSubTab("View");
                                 setTab("DataCampaigns");
                                 setShowMailSubmenu(false);
+                                navigate("/main?tab=DataCampaigns&subtab=View");
                               }}
                               className="submenu-button"
                             >
@@ -3451,6 +3494,7 @@ try {
                                 setContactsSubTab("Segment");
                                 setTab("DataCampaigns");
                                 setShowMailSubmenu(false);
+                                navigate("/main?tab=DataCampaigns&subtab=Segment");
                               }}
                               className="submenu-button"
                             >

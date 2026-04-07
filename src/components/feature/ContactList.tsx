@@ -20,6 +20,7 @@ import PaginationControls from "./PaginationControls";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import deleteIcon from "../../assets/images/deleteiconn.png";
 import duplicateIcon from "../../assets/images/icons/duplicate.png";
+
 import {
   faAngleRight,
   faBars,
@@ -4461,7 +4462,7 @@ const filterFields: any = useMemo(() => {
         </div>
       )}
 
-      {activeSubTab === "View" && (
+      <div style={{ display: activeSubTab === "View" ? "block" : "none" }}>
         <ContactViews
           clientId={effectiveUserId}
           filterFields={filterFields}
@@ -4482,7 +4483,7 @@ const filterFields: any = useMemo(() => {
             }
           }}
         />
-      )}
+      </div>
 
       {/* Rename Segment Modal */}
       <CommonSidePanel
