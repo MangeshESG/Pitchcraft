@@ -487,6 +487,24 @@ const MainPage: React.FC = () => {
   }, [tab, contactsSubTab, mailSubTab, location.search, navigate]);
 
   const [showDataFileUpload, setShowDataFileUpload] = useState(false);
+  const [mountedTabs, setMountedTabs] = useState<Record<string, boolean>>(() => ({
+    [initialTab]: true,
+  }));
+  const [hasMountedDataFileUpload, setHasMountedDataFileUpload] =
+    useState(false);
+
+  useEffect(() => {
+    setMountedTabs((prev) => {
+      if (prev[tab]) return prev;
+      return { ...prev, [tab]: true };
+    });
+  }, [tab]);
+
+  useEffect(() => {
+    if (showDataFileUpload) {
+      setHasMountedDataFileUpload(true);
+    }
+  }, [showDataFileUpload]);
 
   const [isLoadingClientSettings, setIsLoadingClientSettings] = useState(false);
   const clientID = sessionStorage.getItem("clientId");
@@ -3246,6 +3264,10 @@ try {
     }));
   };
 
+  const getTabPanelStyle = (isVisible: boolean): React.CSSProperties => ({
+    display: isVisible ? "block" : "none",
+  });
+
   const [showBlueprintSubmenu, setShowBlueprintSubmenu] =
     useState<boolean>(false);
   const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
@@ -3779,181 +3801,202 @@ try {
           >
             {/* Main Content Area */}
 
-            <div className="tab-content">
-              {tab === "Dashboard" && <Dashboard />}
-            </div>
+            {mountedTabs.Dashboard && (
+              <div className="tab-content preserved-tab-panel" style={getTabPanelStyle(tab === "Dashboard")}>
+                <Dashboard />
+              </div>
+            )}
 
-            {/* Tab Content */}
             <div className="tab-content"></div>
 
-            {tab === "DataCampaigns" && !showDataFileUpload && (
-              <DataCampaigns
-                selectedClient={selectedClient}
-                onDataProcessed={handleExcelDataProcessed}
-                isProcessing={isProcessing}
-                initialTab={contactsSubTab}
-                onTabChange={setContactsSubTab}
-                onAddContactClick={() => setShowDataFileUpload(true)} // Add this
-              />
+            {mountedTabs.DataCampaigns && (
+              <>
+                <div
+                  className="preserved-tab-panel"
+                  style={getTabPanelStyle(tab === "DataCampaigns" && !showDataFileUpload)}
+                >
+                  <DataCampaigns
+                    selectedClient={selectedClient}
+                    onDataProcessed={handleExcelDataProcessed}
+                    isProcessing={isProcessing}
+                    initialTab={contactsSubTab}
+                    onTabChange={setContactsSubTab}
+                    onAddContactClick={() => setShowDataFileUpload(true)}
+                  />
+                </div>
+
+                {(hasMountedDataFileUpload || showDataFileUpload) && (
+                  <div
+                    className="preserved-tab-panel"
+                    style={getTabPanelStyle(tab === "DataCampaigns" && showDataFileUpload)}
+                  >
+                    <DataFile
+                      selectedClient={selectedClient}
+                      onDataProcessed={(data) => {
+                        handleExcelDataProcessed(data);
+                        setShowDataFileUpload(false);
+                      }}
+                      isProcessing={isProcessing}
+                      onBack={() => setShowDataFileUpload(false)}
+                    />
+                  </div>
+                )}
+              </>
+            )}
+            {mountedTabs.Campaigns && (
+              <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "Campaigns")}>
+                <CampaignManagement
+                  selectedClient={selectedClient}
+                  userRole={userRole}
+                />
+              </div>
+            )}
+            {mountedTabs.Output && (
+              <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "Output")}>
+                <Output
+                  outputForm={outputForm}
+                  outputFormHandler={outputFormHandler}
+                  setOutputForm={setOutputForm}
+                  allResponses={allResponses}
+                  isPaused={isPaused}
+                  setAllResponses={setAllResponses}
+                  currentIndex={currentIndex}
+                  setCurrentIndex={setCurrentIndex}
+                  onClearOutput={clearOutputForm}
+                  allprompt={allprompt}
+                  setallprompt={setallprompt}
+                  allsearchResults={allsearchResults}
+                  setallsearchResults={setallsearchResults}
+                  everyscrapedData={everyscrapedData}
+                  seteveryscrapedData={seteveryscrapedData}
+                  allSearchTermBodies={allSearchTermBodies}
+                  setallSearchTermBodies={setallSearchTermBodies}
+                  onClearContent={handleClearContent}
+                  setallsummery={setallsummery}
+                  allsummery={allsummery}
+                  existingResponse={existingResponse}
+                  setexistingResponse={setexistingResponse}
+                  currentPage={currentPage}
+                  setCurrentPage={setCurrentPage}
+                  prevPageToken={prevPageToken}
+                  nextPageToken={nextPageToken}
+                  fetchAndDisplayEmailBodies={fetchAndDisplayEmailBodies}
+                  selectedZohoviewId={selectedZohoviewId}
+                  onClearExistingResponse={setClearExistingResponse}
+                  isResetEnabled={!isProcessing}
+                  zohoClient={zohoClient}
+                  onRegenerateContact={goToTab}
+                  recentlyAddedOrUpdatedId={recentlyAddedOrUpdatedId}
+                  setRecentlyAddedOrUpdatedId={setRecentlyAddedOrUpdatedId}
+                  selectedClient={selectedClient}
+                  isStarted={isStarted}
+                  handleStart={handleStart}
+                  handleReset={handleReset}
+                  isPitchUpdateCompleted={isPitchUpdateCompleted}
+                  allRecordsProcessed={allRecordsProcessed}
+                  isDemoAccount={isDemoAccount}
+                  settingsForm={settingsForm}
+                  settingsFormHandler={settingsFormHandler}
+                  delayTime={delayTime.toString()}
+                  setDelay={(value: string) => setDelay(parseInt(value) || 0)}
+                  handleClearAll={handleClearAll}
+                  campaigns={campaigns}
+                  selectedCampaign={selectedCampaign}
+                  handleCampaignChange={handleCampaignChange}
+                  selectionMode={selectionMode}
+                  promptList={promptList}
+                  handleSelectChange={handleSelectChange}
+                  userRole={userRole}
+                  dataFiles={dataFiles}
+                  handleZohoModelChange={handleZohoModelChange}
+                  emailLoading={emailLoading}
+                  languages={Object.values(Languages)}
+                  selectedPrompt={selectedPrompt}
+                  handleStop={handleStop}
+                  isStopRequested={stopRef.current}
+                  selectedSegmentId={selectedSegmentId}
+                  handleSubjectTextChange={handleSubjectTextChange}
+                  showCreditModal={showCreditModal}
+                  checkUserCredits={checkUserCredits}
+                  userId={userId}
+                  followupEnabled={followupEnabled}
+                  setFollowupEnabled={setFollowupEnabled}
+                  notKraftedEnabled={notKraftedEnabled}
+                  setNotKraftedEnabled={setNotKraftedEnabled}
+                  kraftedNotSentEnabled={kraftedNotSentEnabled}
+                  setKraftedNotSentEnabled={setKraftedNotSentEnabled}
+                  isSoundEnabled={isSoundEnabled}
+                  setIsSoundEnabled={setIsSoundEnabled}
+                  clearUsage={clearUsage}
+                />
+              </div>
             )}
 
-            {tab === "DataCampaigns" && showDataFileUpload && (
-              <DataFile
-                selectedClient={selectedClient}
-                onDataProcessed={(data) => {
-                  handleExcelDataProcessed(data);
-                  setShowDataFileUpload(false); // Return to contacts list
-                  // Optionally refresh data or perform other actions
-                }}
-                isProcessing={isProcessing}
-                onBack={() => setShowDataFileUpload(false)} // Add back functionality
-              />
+            {mountedTabs.Mail && (
+              <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "Mail")}>
+                <Mail
+                  selectedClient={selectedClient}
+                  outputForm={outputForm}
+                  outputFormHandler={outputFormHandler}
+                  setOutputForm={setOutputForm}
+                  allResponses={allResponses}
+                  isPaused={isPaused}
+                  setAllResponses={setAllResponses}
+                  currentIndex={currentIndex}
+                  setCurrentIndex={setCurrentIndex}
+                  onClearOutput={clearOutputForm}
+                  allprompt={allprompt}
+                  setallprompt={setallprompt}
+                  allsearchResults={allsearchResults}
+                  setallsearchResults={setallsearchResults}
+                  everyscrapedData={everyscrapedData}
+                  seteveryscrapedData={seteveryscrapedData}
+                  allSearchTermBodies={allSearchTermBodies}
+                  setallSearchTermBodies={setallSearchTermBodies}
+                  onClearContent={handleClearContent}
+                  setallsummery={setallsummery}
+                  allsummery={allsummery}
+                  existingResponse={existingResponse}
+                  setexistingResponse={setexistingResponse}
+                  currentPage={currentPage}
+                  setCurrentPage={setCurrentPage}
+                  prevPageToken={prevPageToken}
+                  nextPageToken={nextPageToken}
+                  fetchAndDisplayEmailBodies={fetchAndDisplayEmailBodies}
+                  selectedZohoviewId={selectedZohoviewId}
+                  onClearExistingResponse={setClearExistingResponse}
+                  isResetEnabled={!isProcessing}
+                  zohoClient={zohoClient}
+                  initialTab={mailSubTab}
+                  onTabChange={setMailSubTab}
+                />
+              </div>
             )}
-            {tab === "Campaigns" && (
-              <CampaignManagement
-                selectedClient={selectedClient}
-                userRole={userRole}
-              />
-            )}
-            {tab === "Output" && (
-              <Output
-                outputForm={outputForm}
-                outputFormHandler={outputFormHandler}
-                setOutputForm={setOutputForm}
-                allResponses={allResponses}
-                isPaused={isPaused}
-                setAllResponses={setAllResponses}
-                currentIndex={currentIndex}
-                setCurrentIndex={setCurrentIndex}
-                onClearOutput={clearOutputForm}
-                allprompt={allprompt}
-                setallprompt={setallprompt}
-                allsearchResults={allsearchResults}
-                setallsearchResults={setallsearchResults}
-                everyscrapedData={everyscrapedData}
-                seteveryscrapedData={seteveryscrapedData}
-                allSearchTermBodies={allSearchTermBodies}
-                setallSearchTermBodies={setallSearchTermBodies}
-                onClearContent={handleClearContent}
-                setallsummery={setallsummery}
-                allsummery={allsummery}
-                existingResponse={existingResponse}
-                setexistingResponse={setexistingResponse}
-                currentPage={currentPage}
-                setCurrentPage={setCurrentPage}
-                prevPageToken={prevPageToken}
-                nextPageToken={nextPageToken}
-                fetchAndDisplayEmailBodies={fetchAndDisplayEmailBodies}
-                selectedZohoviewId={selectedZohoviewId}
-                onClearExistingResponse={setClearExistingResponse}
-                isResetEnabled={!isProcessing}
-                zohoClient={zohoClient}
-                onRegenerateContact={goToTab}
-                recentlyAddedOrUpdatedId={recentlyAddedOrUpdatedId}
-                setRecentlyAddedOrUpdatedId={setRecentlyAddedOrUpdatedId}
-                selectedClient={selectedClient}
-                isStarted={isStarted}
-                handleStart={handleStart}
-                handleReset={handleReset}
-                isPitchUpdateCompleted={isPitchUpdateCompleted}
-                allRecordsProcessed={allRecordsProcessed}
-                isDemoAccount={isDemoAccount}
-                settingsForm={settingsForm}
-                settingsFormHandler={settingsFormHandler}
-                delayTime={delayTime.toString()} // Convert number to string
-                setDelay={(value: string) => setDelay(parseInt(value) || 0)} // Convert string back to number
-                handleClearAll={handleClearAll}
-                campaigns={campaigns}
-                selectedCampaign={selectedCampaign}
-                handleCampaignChange={handleCampaignChange}
-                selectionMode={selectionMode}
-                promptList={promptList}
-                handleSelectChange={handleSelectChange}
-                userRole={userRole}
-                dataFiles={dataFiles}
-                handleZohoModelChange={handleZohoModelChange}
-                emailLoading={emailLoading}
-                languages={Object.values(Languages)}
-       
-                selectedPrompt={selectedPrompt} // Make sure this is passed
-                handleStop={handleStop}
-                isStopRequested={stopRef.current} // Add this line
-                selectedSegmentId={selectedSegmentId}
-                handleSubjectTextChange={handleSubjectTextChange}
-                showCreditModal={showCreditModal}
-                checkUserCredits={checkUserCredits}
-                userId={userId}
-                followupEnabled={followupEnabled}
-                setFollowupEnabled={setFollowupEnabled}
-                notKraftedEnabled={notKraftedEnabled}
-                setNotKraftedEnabled={setNotKraftedEnabled}
-                kraftedNotSentEnabled={kraftedNotSentEnabled}
-                setKraftedNotSentEnabled={setKraftedNotSentEnabled}
-                isSoundEnabled={isSoundEnabled}
-                setIsSoundEnabled={setIsSoundEnabled}
-                clearUsage={clearUsage}
-
-              />
+            {mountedTabs.Playground && userRole === "ADMIN" && (
+              <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "Playground")}>
+                <EmailCampaignBuilder selectedClient={selectedClient} />
+              </div>
             )}
 
-            {tab === "Mail" && (
-              <Mail
-                selectedClient={selectedClient}
-                outputForm={outputForm}
-                outputFormHandler={outputFormHandler}
-                setOutputForm={setOutputForm}
-                allResponses={allResponses}
-                isPaused={isPaused}
-                setAllResponses={setAllResponses}
-                currentIndex={currentIndex}
-                setCurrentIndex={setCurrentIndex}
-                onClearOutput={clearOutputForm}
-                allprompt={allprompt}
-                setallprompt={setallprompt}
-                allsearchResults={allsearchResults}
-                setallsearchResults={setallsearchResults}
-                everyscrapedData={everyscrapedData}
-                seteveryscrapedData={seteveryscrapedData}
-                allSearchTermBodies={allSearchTermBodies}
-                setallSearchTermBodies={setallSearchTermBodies}
-                onClearContent={handleClearContent}
-                setallsummery={setallsummery}
-                allsummery={allsummery}
-                existingResponse={existingResponse}
-                setexistingResponse={setexistingResponse}
-                currentPage={currentPage}
-                setCurrentPage={setCurrentPage}
-                prevPageToken={prevPageToken}
-                nextPageToken={nextPageToken}
-                fetchAndDisplayEmailBodies={fetchAndDisplayEmailBodies}
-                selectedZohoviewId={selectedZohoviewId}
-                onClearExistingResponse={setClearExistingResponse}
-                isResetEnabled={!isProcessing}
-                zohoClient={zohoClient}
-                initialTab={mailSubTab}
-                onTabChange={setMailSubTab}
-              />
+            {mountedTabs.TestTemplate && (
+              <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "TestTemplate")}>
+                <Template
+                  selectedClient={selectedClient}
+                  userRole={userRole}
+                  isDemoAccount={isDemoAccount}
+                  onTemplateSelect={(template) => {
+                    setSelectedPrompt(template);
+                  }}
+                />
+              </div>
             )}
-            {tab === "Playground" && userRole === "ADMIN" && (
-              <EmailCampaignBuilder selectedClient={selectedClient} />
-            )}
-
-            {tab === "TestTemplate" && (
-              <Template
-                selectedClient={selectedClient}
-                userRole={userRole}
-                isDemoAccount={isDemoAccount}
-                onTemplateSelect={(template) => {
-                  setSelectedPrompt(template);
-                  // You can add any additional logic here when a template is selected
-                }}
-              />
-            )}
-            {tab === "CustomFields" && (
+            {mountedTabs.CustomFields && (
+              <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "CustomFields")}>
                 <CustomFieldSettings
                   selectedClient={selectedClient}
                 />
-              )}
+              </div>
+            )}
 
             {/* Stop Confirmation Popup */}
             {showPopup && (
@@ -3963,10 +4006,16 @@ try {
                 <button onClick={() => handlePopupResponse(false)}>No</button>
               </div>
             )}
-            {tab === "Settings" && (
-              <Tracking selectedClient={selectedClient} />
+            {mountedTabs.Settings && (
+              <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "Settings")}>
+                <Tracking selectedClient={selectedClient} />
+              </div>
             )}
-            {tab === "MyPlan" && <Myplan />}
+            {mountedTabs.MyPlan && (
+              <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "MyPlan")}>
+                <Myplan />
+              </div>
+            )}
           </div>
         </main>
       </div>
