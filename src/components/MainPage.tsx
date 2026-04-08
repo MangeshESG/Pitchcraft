@@ -3753,7 +3753,7 @@ try {
                             href="mailto:support@pitchkraft.co"
                             className="text-blue-600 hover:underline"
                           >
-                            support@pitchkraft.co
+                            support@pitchkraft.ai
                           </a>
                         </p>
                       </div>
