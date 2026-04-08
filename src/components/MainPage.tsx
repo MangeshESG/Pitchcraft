@@ -441,50 +441,68 @@ const MainPage: React.FC = () => {
   // update states when query changes
 
   useEffect(() => {
-    setTab(initialTab);
+    if (tab !== initialTab) {
+      setTab(initialTab);
+    }
 
-    setContactsSubTab(initialContactsSubTab);
+    if (contactsSubTab !== initialContactsSubTab) {
+      setContactsSubTab(initialContactsSubTab);
+    }
 
-    setMailSubTab(initialMailSubTab);
-  }, [initialTab, initialContactsSubTab, initialMailSubTab]);
+    if (mailSubTab !== initialMailSubTab) {
+      setMailSubTab(initialMailSubTab);
+    }
+
+    setShowContactsSubmenu(initialTab === "DataCampaigns");
+    setShowMailSubmenu(initialTab === "Mail");
+    if (initialTab !== "Settings") {
+      setShowSettingsSubmenu(false);
+    }
+  }, [
+    initialTab,
+    initialContactsSubTab,
+    initialMailSubTab,
+    tab,
+    contactsSubTab,
+    mailSubTab,
+  ]);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const nextTab = params.get("tab") || "Dashboard";
-    const nextContactsSubTab = params.get("subtab") || "List";
-    const nextMailSubTab = params.get("mailSubTab") || "Dashboard";
-
-    let shouldReplace = false;
-
-    if (tab !== nextTab) {
-      params.set("tab", tab);
-      shouldReplace = true;
-    }
+    let nextSearch = "";
 
     if (tab === "DataCampaigns") {
-      if (contactsSubTab !== nextContactsSubTab) {
-        params.set("subtab", contactsSubTab);
-        shouldReplace = true;
-      }
+      params.set("tab", tab);
+      params.set("subtab", contactsSubTab);
     } else if (params.has("subtab")) {
       params.delete("subtab");
-      shouldReplace = true;
+      if (tab === "Dashboard") {
+        params.delete("tab");
+      } else {
+        params.set("tab", tab);
+      }
+    } else if (tab === "Dashboard") {
+      params.delete("tab");
+    } else {
+      params.set("tab", tab);
     }
 
     if (tab === "Mail") {
-      if (mailSubTab !== nextMailSubTab) {
-        params.set("mailSubTab", mailSubTab);
-        shouldReplace = true;
-      }
+      params.set("mailSubTab", mailSubTab);
     } else if (params.has("mailSubTab")) {
       params.delete("mailSubTab");
-      shouldReplace = true;
     }
 
-    if (shouldReplace) {
-      navigate(`/main?${params.toString()}`, { replace: true });
+    nextSearch = params.toString();
+
+    const normalizedCurrentSearch = location.search.startsWith("?")
+      ? location.search.slice(1)
+      : location.search;
+
+    if (nextSearch !== normalizedCurrentSearch) {
+      navigate(nextSearch ? `/main?${nextSearch}` : "/main", { replace: true });
     }
-  }, [tab, contactsSubTab, mailSubTab, location.search, navigate]);
+  }, [tab, contactsSubTab, mailSubTab, navigate]);
 
   const [showDataFileUpload, setShowDataFileUpload] = useState(false);
   const [mountedTabs, setMountedTabs] = useState<Record<string, boolean>>(() => ({
