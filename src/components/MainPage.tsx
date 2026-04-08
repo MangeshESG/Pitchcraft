@@ -369,6 +369,7 @@ const MainPage: React.FC = () => {
   //submenu
   const location = useLocation();
   const navigate = useNavigate();
+  const latestLocationSearchRef = useRef(location.search);
   const queryParams = new URLSearchParams(location.search);
 
   const initialTab = queryParams.get("tab") || "Dashboard";
@@ -441,6 +442,10 @@ const MainPage: React.FC = () => {
   // update states when query changes
 
   useEffect(() => {
+    latestLocationSearchRef.current = location.search;
+  }, [location.search]);
+
+  useEffect(() => {
     if (tab !== initialTab) {
       setTab(initialTab);
     }
@@ -468,7 +473,7 @@ const MainPage: React.FC = () => {
   ]);
 
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
+    const params = new URLSearchParams(latestLocationSearchRef.current);
     let nextSearch = "";
 
     if (tab === "DataCampaigns") {
@@ -495,9 +500,10 @@ const MainPage: React.FC = () => {
 
     nextSearch = params.toString();
 
-    const normalizedCurrentSearch = location.search.startsWith("?")
-      ? location.search.slice(1)
-      : location.search;
+    const currentSearch = latestLocationSearchRef.current;
+    const normalizedCurrentSearch = currentSearch.startsWith("?")
+      ? currentSearch.slice(1)
+      : currentSearch;
 
     if (nextSearch !== normalizedCurrentSearch) {
       navigate(nextSearch ? `/main?${nextSearch}` : "/main", { replace: true });
