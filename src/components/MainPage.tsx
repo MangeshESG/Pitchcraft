@@ -3290,7 +3290,11 @@ try {
 
   const getTabPanelStyle = (isVisible: boolean): React.CSSProperties => ({
     display: isVisible ? "block" : "none",
+    animation: isVisible ? "main-page-tab-enter 220ms ease-out" : undefined,
   });
+
+  const shouldRenderTab = (tabName: string) =>
+    mountedTabs[tabName] || tab === tabName;
 
   const [showBlueprintSubmenu, setShowBlueprintSubmenu] =
     useState<boolean>(false);
@@ -3825,7 +3829,7 @@ try {
           >
             {/* Main Content Area */}
 
-            {mountedTabs.Dashboard && (
+            {shouldRenderTab("Dashboard") && (
               <div className="tab-content preserved-tab-panel" style={getTabPanelStyle(tab === "Dashboard")}>
                 <Dashboard />
               </div>
@@ -3833,7 +3837,7 @@ try {
 
             <div className="tab-content"></div>
 
-            {mountedTabs.DataCampaigns && (
+            {shouldRenderTab("DataCampaigns") && (
               <>
                 <div
                   className="preserved-tab-panel"
@@ -3867,7 +3871,7 @@ try {
                 )}
               </>
             )}
-            {mountedTabs.Campaigns && (
+            {shouldRenderTab("Campaigns") && (
               <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "Campaigns")}>
                 <CampaignManagement
                   selectedClient={selectedClient}
@@ -3875,7 +3879,7 @@ try {
                 />
               </div>
             )}
-            {mountedTabs.Output && (
+            {shouldRenderTab("Output") && (
               <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "Output")}>
                 <Output
                   outputForm={outputForm}
@@ -3956,7 +3960,7 @@ try {
               </div>
             )}
 
-            {mountedTabs.Mail && (
+            {shouldRenderTab("Mail") && (
               <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "Mail")}>
                 <Mail
                   selectedClient={selectedClient}
@@ -3996,13 +4000,13 @@ try {
                 />
               </div>
             )}
-            {mountedTabs.Playground && userRole === "ADMIN" && (
+            {shouldRenderTab("Playground") && userRole === "ADMIN" && (
               <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "Playground")}>
                 <EmailCampaignBuilder selectedClient={selectedClient} />
               </div>
             )}
 
-            {mountedTabs.TestTemplate && (
+            {shouldRenderTab("TestTemplate") && (
               <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "TestTemplate")}>
                 <Template
                   selectedClient={selectedClient}
@@ -4014,7 +4018,7 @@ try {
                 />
               </div>
             )}
-            {mountedTabs.CustomFields && (
+            {shouldRenderTab("CustomFields") && (
               <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "CustomFields")}>
                 <CustomFieldSettings
                   selectedClient={selectedClient}
@@ -4030,12 +4034,12 @@ try {
                 <button onClick={() => handlePopupResponse(false)}>No</button>
               </div>
             )}
-            {mountedTabs.Settings && (
+            {shouldRenderTab("Settings") && (
               <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "Settings")}>
                 <Tracking selectedClient={selectedClient} />
               </div>
             )}
-            {mountedTabs.MyPlan && (
+            {shouldRenderTab("MyPlan") && (
               <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "MyPlan")}>
                 <Myplan />
               </div>
