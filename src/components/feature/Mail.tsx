@@ -1702,7 +1702,7 @@ const actionIconStyle = {
       {tab === "Configuration" && (
         <>
           {/* --- SUB TABS --- */}
-          <div className="config-tab-container" style={{ display: "flex", gap: "20px", marginBottom: "20px",marginTop:"-68px" }}>
+          <div className="config-tab-container" style={{ display: "flex", gap: "20px", marginBottom: "20px",marginTop:"-45px" }}>
             <button
               onClick={() => setConfigTab("mailboxes")}
               className={configTab === "mailboxes" ? "active-config-tab" : "config-tab"}
@@ -2449,7 +2449,7 @@ const actionIconStyle = {
       {/* Schedule Tab */}
       {tab === "Schedule" && (
         <>
-          <div className="data-campaigns-container" style={{ marginTop: "-60px" }}>
+          <div className="data-campaigns-container" style={{ marginTop: "-45px" }}>
             <div className="section-wrapper">
               <h2 className="section-title" style={{ color: "black", textAlign: "left" }}>Email schedules</h2>
               <div style={{ marginBottom: 4, color: "#555" }}>

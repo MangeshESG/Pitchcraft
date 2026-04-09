@@ -850,7 +850,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
     <div className="template-container">
       {!showCampaignBuilder ? (
         <>
-          <div className="section-wrapper" style={{ marginTop: "-60px" }}>
+          <div className="section-wrapper" style={{ marginTop: "-40px" }}>
             <h2 className="section-title">Blueprints</h2>
 
             {/* Search and Create button */}

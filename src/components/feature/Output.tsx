@@ -1644,7 +1644,7 @@ useEffect(() => {
       {/* Add the selection dropdowns and subject line section */}
       <div
         className="d-flex justify-between align-center mb-3"
-        style={{ marginTop: "-60px" }}
+        style={{ marginTop: "-45px" }}
       >
         <div className="input-section edit-section w-[100%]">
           {/* Dropdowns Row */}

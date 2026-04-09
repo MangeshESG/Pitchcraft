@@ -1826,7 +1826,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
   return (
     <div
       className="dashboard-section"
-      style={{ display: isVisible ? "block" : "none",marginTop:"-60px" }}
+      style={{ display: isVisible ? "block" : "none",marginTop:"-45px" }}
     >
       {/* Dashboard Sub-tabs */}
       <div className="dashboard-tabs">

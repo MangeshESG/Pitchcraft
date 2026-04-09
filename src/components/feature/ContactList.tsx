@@ -2033,7 +2033,7 @@ const filterFields: any = useMemo(() => {
     <div className="data-campaigns-container">
       {/* Sub-tabs Navigation */}
       <div className="tabs secondary mb-20">
-        <ul className="d-flex" style={{ marginTop: "-56px" }}>
+        <ul className="d-flex" style={{ marginTop: "-47px" }}>
           <li>
             <button
               type="button"
