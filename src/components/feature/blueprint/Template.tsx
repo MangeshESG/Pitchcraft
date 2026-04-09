@@ -200,6 +200,8 @@ const Template: React.FC<TemplateProps> = ({
   >([]);
   const [selectedTemplateDefinitionId, setSelectedTemplateDefinitionId] =
     useState<number | null>(null);
+  const [isPreparingCreateCampaign, setIsPreparingCreateCampaign] =
+    useState(false);
   const [isCreatingCampaign, setIsCreatingCampaign] = useState(false);
   const [hoveredTemplateId, setHoveredTemplateId] = useState<number | null>(
     null,
@@ -315,12 +317,17 @@ const Template: React.FC<TemplateProps> = ({
       }
     }
 
-    // Fetch template definitions first
-    await fetchTemplateDefinitions();
-
-    // Show template name modal
+    setIsPreparingCreateCampaign(true);
     setShowTemplateNameModal(true);
     setTemplateNameInput("");
+    setSelectedTemplateDefinitionId(null);
+    setTemplateDefinitions([]);
+
+    try {
+      await fetchTemplateDefinitions();
+    } finally {
+      setIsPreparingCreateCampaign(false);
+    }
   };
 
   // ✅ NEW: Handle template name submission
@@ -1209,6 +1216,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                   className="button save-button"
                   onClick={handleTemplateNameSubmit}
                   disabled={
+                    isPreparingCreateCampaign ||
                     !templateNameInput.trim() ||
                     !selectedTemplateDefinitionId ||
                     isCreatingCampaign
@@ -1221,8 +1229,8 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                     color: "#dc3545",
                     fontSize: "14px",
                     fontWeight: "500",
-                    cursor: (!templateNameInput.trim() || !selectedTemplateDefinitionId || isCreatingCampaign) ? "not-allowed" : "pointer",
-                    opacity: (!templateNameInput.trim() || !selectedTemplateDefinitionId || isCreatingCampaign) ? 0.5 : 1
+                    cursor: (isPreparingCreateCampaign || !templateNameInput.trim() || !selectedTemplateDefinitionId || isCreatingCampaign) ? "not-allowed" : "pointer",
+                    opacity: (isPreparingCreateCampaign || !templateNameInput.trim() || !selectedTemplateDefinitionId || isCreatingCampaign) ? 0.5 : 1
                   }}
                 >
                   {isCreatingCampaign ? (
@@ -1237,53 +1245,90 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
               </>
             }
           >
-            {isAdmin && (
-              <div className="form-group" style={{ marginBottom: "20px" }}>
-                <label>
-                  Select base template <span style={{ color: "red" }}>*</span>
-                </label>
-                <select
-                  value={selectedTemplateDefinitionId || ""}
-                  onChange={(e) => setSelectedTemplateDefinitionId(parseInt(e.target.value))}
-                >
-                  <option value="">-- Select a template definition --</option>
-                  {templateDefinitions.map((def) => (
-                    <option key={def.id} value={def.id}>
-                      {def.templateName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div className="form-group" style={{ marginBottom: "20px" }}>
-              <label htmlFor="templateName" style={{ display: "block", marginBottom: "8px", fontWeight: "500" }}>
-                Campaign name <span style={{ color: "red" }}>*</span>
-              </label>
-              <input
-                id="templateName"
-                type="text"
-                value={templateNameInput}
-                onChange={(e) => setTemplateNameInput(e.target.value)}
-                placeholder="e.g., IBM Sales Outreach"
-                autoFocus
-                onKeyPress={(e) => {
-                  if (e.key === "Enter" && templateNameInput.trim() && selectedTemplateDefinitionId) {
-                    handleTemplateNameSubmit();
-                  }
-                }}
+            {isPreparingCreateCampaign ? (
+              <div
                 style={{
-                  width: "100%",
-                  padding: "12px 16px",
-                  border: "2px solid #e5e7eb",
-                  borderRadius: "8px",
-                  fontSize: "15px",
+                  minHeight: "220px",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "14px",
+                  color: "#4b5563",
                 }}
-              />
-              <p style={{ marginTop: "8px", fontSize: "13px", color: "#6b7280" }}>
-                💡 Give this specific campaign instance a unique name
-              </p>
-            </div>
+              >
+                <style>
+                  {`
+                    @keyframes templatePanelSpin {
+                      to { transform: rotate(360deg); }
+                    }
+                  `}
+                </style>
+                <div
+                  style={{
+                    width: "36px",
+                    height: "36px",
+                    border: "4px solid #e5e7eb",
+                    borderTopColor: "#dc3545",
+                    borderRadius: "50%",
+                    animation: "templatePanelSpin 0.8s linear infinite",
+                  }}
+                />
+                <div style={{ fontSize: "14px", fontWeight: 500 }}>
+                  Loading blueprint options...
+                </div>
+              </div>
+            ) : (
+              <>
+                {isAdmin && (
+                  <div className="form-group" style={{ marginBottom: "20px" }}>
+                    <label>
+                      Select base template <span style={{ color: "red" }}>*</span>
+                    </label>
+                    <select
+                      value={selectedTemplateDefinitionId || ""}
+                      onChange={(e) => setSelectedTemplateDefinitionId(parseInt(e.target.value))}
+                    >
+                      <option value="">-- Select a template definition --</option>
+                      {templateDefinitions.map((def) => (
+                        <option key={def.id} value={def.id}>
+                          {def.templateName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div className="form-group" style={{ marginBottom: "20px" }}>
+                  <label htmlFor="templateName" style={{ display: "block", marginBottom: "8px", fontWeight: "500" }}>
+                    Campaign name <span style={{ color: "red" }}>*</span>
+                  </label>
+                  <input
+                    id="templateName"
+                    type="text"
+                    value={templateNameInput}
+                    onChange={(e) => setTemplateNameInput(e.target.value)}
+                    placeholder="e.g., IBM Sales Outreach"
+                    autoFocus
+                    onKeyPress={(e) => {
+                      if (e.key === "Enter" && templateNameInput.trim() && selectedTemplateDefinitionId) {
+                        handleTemplateNameSubmit();
+                      }
+                    }}
+                    style={{
+                      width: "100%",
+                      padding: "12px 16px",
+                      border: "2px solid #e5e7eb",
+                      borderRadius: "8px",
+                      fontSize: "15px",
+                    }}
+                  />
+                  <p style={{ marginTop: "8px", fontSize: "13px", color: "#6b7280" }}>
+                    💡 Give this specific campaign instance a unique name
+                  </p>
+                </div>
+              </>
+            )}
           </CommonSidePanel>
           {/* Clone Name Input Modal */}
           <CommonSidePanel
