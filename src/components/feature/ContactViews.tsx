@@ -2011,6 +2011,8 @@ const handleCloneContacts = async () => {
                   const segmentId = row.segmentId || row.SegmentId || fallbackSegmentId;
 
                   const params = new URLSearchParams();
+                  params.set("tab", "DataCampaigns");
+                  params.set("subtab", "View");
                   if (segmentId) params.set("segmentId", String(segmentId));
                   if (dataFileId != null) params.set("dataFileId", String(dataFileId));
                   const query = params.toString();

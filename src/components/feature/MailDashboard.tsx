@@ -2320,7 +2320,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
               console.log("[v0] Opening contact - id:", contactId, "dataFileId:", dataFileId, "item:", item);
               // 👇 OPEN IN NEW TAB
               window.open(
-                `${window.location.origin}/#/contact-details/${item.contactId}?dataFileId=${dataFileId}`,
+                `${window.location.origin}/#/contact-details/${item.contactId}?tab=Mail&mailSubTab=Dashboard&dataFileId=${dataFileId}`,
                 "_blank"
               )
 
@@ -2358,7 +2358,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
               const contactId = item.id || item.contactId;
               console.log("[v0] Opening contact from name - id:", contactId, "dataFileId:", dataFileId);
               window.open(
-                `${window.location.origin}/#/contact-details/${item.contactId}?dataFileId=${dataFileId}`,
+                `${window.location.origin}/#/contact-details/${item.contactId}?tab=Mail&mailSubTab=Dashboard&dataFileId=${dataFileId}`,
                 "_blank"
               )
 

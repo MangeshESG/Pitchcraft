@@ -49,6 +49,7 @@ import { useSoundAlert } from "./common/useSoundAlert";
 import { link } from "node:fs";
 import LoadingSpinner from "./common/LoadingSpinner";
 import CustomFieldSettings from "./feature/CustomFieldSettings";
+import ContactDetailView from "./feature/contacts/ContactDetailView";
 
 interface Prompt {
   id: number;
@@ -371,6 +372,7 @@ const MainPage: React.FC = () => {
   const navigate = useNavigate();
   const latestLocationSearchRef = useRef(location.search);
   const queryParams = new URLSearchParams(location.search);
+  const isContactDetailPage = location.pathname.startsWith("/contact-details/");
 
   const initialTab = queryParams.get("tab") || "Dashboard";
   const initialContactsSubTab = queryParams.get("subtab") || "List";
@@ -386,6 +388,10 @@ const MainPage: React.FC = () => {
   // Update page title when tab changes
   useEffect(() => {
     const getPageTitle = () => {
+      if (isContactDetailPage) {
+        return "Contact Details";
+      }
+
       switch (tab) {
         case "Dashboard":
           return "Dashboard - View progress and help videos";
@@ -421,7 +427,7 @@ const MainPage: React.FC = () => {
     };
 
     document.title = `${getPageTitle()} - PitchKraft`;
-  }, [tab, contactsSubTab, mailSubTab]);
+  }, [isContactDetailPage, tab, contactsSubTab, mailSubTab]);
 
   const [showMailSubmenu, setShowMailSubmenu] = useState(initialTab === "Mail");
   const [showContactsSubmenu, setShowContactsSubmenu] = useState(
@@ -3823,11 +3829,15 @@ try {
         <main className="flex-1 overflow-y-auto h-[calc(100%-87px)] p-[20px] bg-[#eeeeee]">
           <div
             className={`
-               rounded-md p-6
-              ${tab !== "Dashboard" && "bg-white p-4 shadow-md"}
+               rounded-md
+              ${!isContactDetailPage && tab !== "Dashboard" ? "bg-white p-4 shadow-md" : ""}
             `}
           >
             {/* Main Content Area */}
+            {isContactDetailPage ? (
+              <ContactDetailView embedded />
+            ) : (
+              <>
 
             {shouldRenderTab("Dashboard") && (
               <div className="tab-content preserved-tab-panel" style={getTabPanelStyle(tab === "Dashboard")}>
@@ -4043,6 +4053,8 @@ try {
               <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "MyPlan")}>
                 <Myplan />
               </div>
+            )}
+              </>
             )}
           </div>
         </main>

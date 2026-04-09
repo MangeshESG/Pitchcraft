@@ -2499,7 +2499,7 @@ const filterFields: any = useMemo(() => {
                              rowData: row
                            });
 
-                           const contactDetailsUrl = `/#/contact-details/${row.id}?dataFileId=${dataFileId}`;
+                           const contactDetailsUrl = `/#/contact-details/${row.id}?tab=DataCampaigns&subtab=List&dataFileId=${dataFileId}`;
                            window.open(contactDetailsUrl, "_blank");
                           }}
                         >
@@ -3833,7 +3833,7 @@ const filterFields: any = useMemo(() => {
                             // Use row.dataFileId if available, otherwise use segment's dataFileId
                             const dataFileId = row.dataFileId || selectedSegmentForView.dataFileId;
                             
-                            const contactDetailsUrl = `/#/contact-details/${row.id}?segmentId=${selectedSegmentForView.id}&dataFileId=${dataFileId}`;
+                            const contactDetailsUrl = `/#/contact-details/${row.id}?tab=DataCampaigns&subtab=Segment&segmentId=${selectedSegmentForView.id}&dataFileId=${dataFileId}`;
                             window.open(contactDetailsUrl, "_blank");
                           }}
                         >

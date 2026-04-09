@@ -2433,7 +2433,7 @@ useEffect(() => {
                            const contact = combinedResponses[currentIndex];
                            if (!contact?.id) return;
 
-                           const contactDetailsUrl = `/#/contact-details/${contact.id}?dataFileId=${contact?.dataFileId}`;
+                           const contactDetailsUrl = `/#/contact-details/${contact.id}?tab=Output&dataFileId=${contact?.dataFileId}`;
                            window.open(contactDetailsUrl, "_blank");
                            }}
                            className="cursor-pointer text-[#3f9f42] hover:underline font-semibold px-[10px]"

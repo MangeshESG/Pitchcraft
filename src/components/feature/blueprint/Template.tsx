@@ -1765,7 +1765,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
               gap: "16px",
               alignItems: "center",
               marginBottom: "20px",
-              marginTop: "-60px",
+              marginTop: "-35px",
               // borderBottom: "1px solid #e5e7eb",
               // background: "#f9fafb"
             }}
