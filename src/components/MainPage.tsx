@@ -452,17 +452,13 @@ const MainPage: React.FC = () => {
   }, [location.search]);
 
   useEffect(() => {
-    if (tab !== initialTab) {
-      setTab(initialTab);
-    }
-
-    if (contactsSubTab !== initialContactsSubTab) {
-      setContactsSubTab(initialContactsSubTab);
-    }
-
-    if (mailSubTab !== initialMailSubTab) {
-      setMailSubTab(initialMailSubTab);
-    }
+    setTab((prev) => (prev !== initialTab ? initialTab : prev));
+    setContactsSubTab((prev) =>
+      prev !== initialContactsSubTab ? initialContactsSubTab : prev,
+    );
+    setMailSubTab((prev) =>
+      prev !== initialMailSubTab ? initialMailSubTab : prev,
+    );
 
     setShowContactsSubmenu(initialTab === "DataCampaigns");
     setShowMailSubmenu(initialTab === "Mail");
@@ -473,9 +469,6 @@ const MainPage: React.FC = () => {
     initialTab,
     initialContactsSubTab,
     initialMailSubTab,
-    tab,
-    contactsSubTab,
-    mailSubTab,
   ]);
 
   useEffect(() => {

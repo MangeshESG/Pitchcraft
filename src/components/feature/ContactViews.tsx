@@ -65,6 +65,8 @@ interface ContactViewsProps {
   persistedColumnSelection?: string[];
   onColumnsChange?: (columns: any[]) => void;
   onShowMessage?: (message: string, type: "success" | "error") => void;
+  isActive?: boolean;
+  refreshToken?: number;
 }
 
 interface FilterBuilderFieldOption {
@@ -352,6 +354,8 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   persistedColumnSelection = [],
   onColumnsChange,
   onShowMessage,
+  isActive = false,
+  refreshToken = 0,
 }) => {
   const [views, setViews] = useState<ViewItem[]>([]);
   const [viewSearch, setViewSearch] = useState("");
@@ -701,6 +705,11 @@ const handleCloneContacts = async () => {
   useEffect(() => {
     fetchViews();
   }, [clientId]);
+
+  useEffect(() => {
+    if (!clientId || !isActive) return;
+    fetchViews();
+  }, [clientId, isActive, refreshToken]);
 
   useEffect(() => {
     if (!clientId) return;

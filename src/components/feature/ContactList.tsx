@@ -293,6 +293,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     const saved = loadSelectedColumns();
     return saved.length > 0 ? saved : getDefaultVisibleColumns();
   });
+  const [viewRefreshToken, setViewRefreshToken] = useState(0);
 
   // Column configuration - excluding email_subject and email_body
   const [columns, setColumns] = useState<ColumnConfig[]>([
@@ -2667,10 +2668,12 @@ const filterFields: any = useMemo(() => {
                             useAllDataFiles: selectedDataFileForView?.id === -1,
                             excludedDataFileIds:
                               selectedDataFileForView?.id === -1 ? [] : undefined,
-                            onSuccess: (view) =>
+                            onSuccess: (view) => {
+                              setViewRefreshToken((prev) => prev + 1);
                               appModal.showSuccess(
                                 `View "${view?.name || "Saved view"}" created successfully!`
-                              ),
+                              );
+                            },
                             onError: (message) => appModal.showError(message),
                           }}
                         />
@@ -4484,6 +4487,8 @@ const filterFields: any = useMemo(() => {
         <ContactViews
           clientId={effectiveUserId}
           filterFields={filterFields}
+          isActive={activeSubTab === "View"}
+          refreshToken={viewRefreshToken}
           columnNameMap={columnNameMap}
           persistedColumnSelection={savedColumnSelection}
           onColumnsChange={(updatedColumns) => {
