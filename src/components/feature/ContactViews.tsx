@@ -394,6 +394,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   const [downloadingViewId, setDownloadingViewId] = useState<number | null>(null);
   const [showBulkUpdatePanel, setShowBulkUpdatePanel] = useState(false);
   const [showSaveSegmentModal, setShowSaveSegmentModal] = useState(false);
+  const [isDeletingContact, setIsDeletingContact] = useState(false);
   const [isCloningContact, setIsCloningContact] = useState(false);
   const [isUnsubscribing, setIsUnsubscribing] = useState(false);
 
@@ -477,6 +478,42 @@ const handleCloneContacts = async () => {
     appModal.showError("Failed to clone contact");
   } finally {
     setIsCloningContact(false);
+  }
+};
+
+const handleDeleteContacts = async () => {
+  const ids = Array.from(selectedContacts);
+  if (ids.length === 0) return;
+
+  try {
+    setIsDeletingContact(true);
+
+    for (const id of ids) {
+      const response = await fetch(
+        `${API_BASE_URL}/api/Crm/delete-Datafile-contact?contactId=${id}`,
+        {
+          method: "POST",
+          headers: {
+            accept: "*/*",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete contact ${id}`);
+      }
+    }
+
+    setSelectedContacts(new Set());
+    if (selectedView) {
+      await fetchContactsForView(selectedView);
+    }
+    appModal.showSuccess(`${ids.length} contact(s) deleted successfully!`);
+  } catch (error) {
+    console.error("Failed to delete contacts:", error);
+    appModal.showError("Failed to delete contacts");
+  } finally {
+    setIsDeletingContact(false);
   }
 };
   const fieldTypeMap = useMemo(() => {
@@ -1518,6 +1555,32 @@ const handleCloneContacts = async () => {
           />
         </button>
       )}
+
+      <button
+        className="button secondary"
+        onClick={handleDeleteContacts}
+        disabled={isDeletingContact}
+        style={{
+          background: "none",
+          color: "#3f9f42",
+          border: "none",
+          borderRadius: "12px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: "40px",
+          height: "40px",
+          padding: "0",
+          cursor: isDeletingContact ? "not-allowed" : "pointer",
+          opacity: isDeletingContact ? 0.6 : 1,
+        }}
+        title={isDeletingContact ? "Deleting..." : "Delete contacts"}
+      >
+        <FontAwesomeIcon
+          icon={faTrashAlt}
+          style={{ fontSize: 20, color: "#3f9f42" }}
+        />
+      </button>
 
       <button
         className="button secondary"
