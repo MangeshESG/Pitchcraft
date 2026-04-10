@@ -323,19 +323,27 @@ const isSaveDisabled =
 const reduxUserId = useSelector((state: RootState) => state.auth.userId);
 
 const effectiveUserId = useMemo(() => {
-  const storedClientId = sessionStorage.getItem("selectedClientId");
+  const storedClientId =
+    searchParams.get("clientId") ||
+    localStorage.getItem("selectedClientId") ||
+    sessionStorage.getItem("selectedClientId");
 
   if (storedClientId && storedClientId !== "" && storedClientId !== "null") {
     return Number(storedClientId);
   }
 
   return Number(reduxUserId);
-}, [reduxUserId]);
+}, [reduxUserId, searchParams]);
 useEffect(() => {
   console.log("Redux User:", reduxUserId);
-  console.log("Stored Client:", sessionStorage.getItem("selectedClientId"));
+  console.log(
+    "Stored Client:",
+    searchParams.get("clientId") ||
+      localStorage.getItem("selectedClientId") ||
+      sessionStorage.getItem("selectedClientId"),
+  );
   console.log("Effective Client:", effectiveUserId);
-}, [reduxUserId, effectiveUserId]);
+}, [reduxUserId, effectiveUserId, searchParams]);
 
   const inputStyle: React.CSSProperties = {
     width: "100%",

@@ -326,7 +326,17 @@ const MainPage: React.FC = () => {
   const [clearExistingResponse, setClearExistingResponse] = useState<
     () => void
   >(() => {});
-  const [selectedClient, setSelectedClient] = useState<string>("");
+  const [selectedClient, setSelectedClient] = useState<string>(() => {
+    const hashQuery = window.location.hash.split("?")[1] || "";
+    const initialClientIdFromQuery = new URLSearchParams(hashQuery).get("clientId");
+
+    return (
+      initialClientIdFromQuery ||
+      localStorage.getItem("selectedClientId") ||
+      sessionStorage.getItem("selectedClientId") ||
+      ""
+    );
+  });
   const [clientNames, setClientNames] = useState<Client[]>([]);
 
   const processCacheRef = useRef<Record<string, any>>({});
@@ -373,6 +383,7 @@ const MainPage: React.FC = () => {
   const latestLocationSearchRef = useRef(location.search);
   const queryParams = new URLSearchParams(location.search);
   const isContactDetailPage = location.pathname.startsWith("/contact-details/");
+  const selectedClientIdFromQuery = queryParams.get("clientId") || "";
 
   const initialTab = queryParams.get("tab") || "Dashboard";
   const initialContactsSubTab = queryParams.get("subtab") || "List";
@@ -450,6 +461,16 @@ const MainPage: React.FC = () => {
   useEffect(() => {
     latestLocationSearchRef.current = location.search;
   }, [location.search]);
+
+  useEffect(() => {
+    if (!selectedClientIdFromQuery) return;
+
+    setSelectedClient((prev) =>
+      prev !== selectedClientIdFromQuery ? selectedClientIdFromQuery : prev,
+    );
+    localStorage.setItem("selectedClientId", selectedClientIdFromQuery);
+    sessionStorage.setItem("selectedClientId", selectedClientIdFromQuery);
+  }, [selectedClientIdFromQuery]);
 
   useEffect(() => {
     setTab((prev) => (prev !== initialTab ? initialTab : prev));

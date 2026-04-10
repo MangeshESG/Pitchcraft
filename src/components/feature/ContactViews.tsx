@@ -2022,6 +2022,7 @@ const handleCloneContacts = async () => {
                   const params = new URLSearchParams();
                   params.set("tab", "DataCampaigns");
                   params.set("subtab", "View");
+                  params.set("clientId", String(clientId));
                   if (segmentId) params.set("segmentId", String(segmentId));
                   if (dataFileId != null) params.set("dataFileId", String(dataFileId));
                   const query = params.toString();

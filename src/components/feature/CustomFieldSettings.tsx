@@ -46,8 +46,17 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
   const [fieldToDelete, setFieldToDelete] = useState<CustomField | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
+  const storedSelectedClientId =
+    localStorage.getItem("selectedClientId") ||
+    sessionStorage.getItem("selectedClientId") ||
+    "";
+
   const effectiveUserId = Number(
-    selectedClient !== "" ? selectedClient : reduxUserId
+    selectedClient !== ""
+      ? selectedClient
+      : storedSelectedClientId !== ""
+        ? storedSelectedClientId
+        : reduxUserId
   );
 
   const loadFields = async () => {

@@ -3,6 +3,7 @@ import API_BASE_URL from '../../config';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../Redux/store';
 import axios from 'axios';
+import { useLocation } from 'react-router-dom';
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import DOMPurify from "dompurify";
 import { faEdit,faTrashAlt,faCircleXmark,faSquarePlus    } from "@fortawesome/free-regular-svg-icons";
@@ -130,6 +131,8 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   const [emailTimeline, setEmailTimeline] = useState<any[]>([]);
   // const [notesHistory, setNotesHistory] = useState<Note[]>([]);
   const reduxUserId = useSelector((state: RootState) => state.auth.userId);
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
   const [isEditMode, setIsEditMode] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [noteActionsAnchor, setNoteActionsAnchor] = useState<string | null>(null);
@@ -165,10 +168,23 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
 
   const [customFieldDefs, setCustomFieldDefs] = useState<any[]>([]);
 const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
+const effectiveUserId = React.useMemo(() => {
+  const storedClientId =
+    searchParams.get("clientId") ||
+    localStorage.getItem("selectedClientId") ||
+    sessionStorage.getItem("selectedClientId");
+
+  if (storedClientId && storedClientId !== "" && storedClientId !== "null") {
+    return Number(storedClientId);
+  }
+
+  return Number(reduxUserId);
+}, [reduxUserId, searchParams]);
+
 const loadCustomFieldDefinitions = async () => {
   try {
     const res = await fetch(
-      `${API_BASE_URL}/api/crm/custom-fields?clientId=${reduxUserId}`
+      `${API_BASE_URL}/api/crm/custom-fields?clientId=${effectiveUserId}`
     );
 
     if (!res.ok) return;
@@ -181,7 +197,7 @@ const loadCustomFieldDefinitions = async () => {
 };
 useEffect(() => {
   loadCustomFieldDefinitions();
-}, []);
+}, [effectiveUserId]);
   
   const getLinkedInPlainTextLength = (html: string) => {
     if (!html) return 0;
@@ -576,7 +592,7 @@ case "boolean":
           firstName: trimmedFirstName || undefined,
           lastName: trimmedLastName || undefined,
           fullName: fullNameToSend,
-          clientId: reduxUserId,
+          clientId: effectiveUserId,
           emailBody: stripHtml(formData.emailBody),
           customFields: Object.fromEntries(
             Object.entries(customFieldValues).map(([key, value]) => [
@@ -732,7 +748,7 @@ case "boolean":
   //   }
   // },[reduxUserId, contact?.id]);
   const handleEditNote = async (note: any) => {
-    if (!reduxUserId || !contact?.id) return;
+    if (!effectiveUserId || !contact?.id) return;
 
     try {
       setIsEditMode(true);
@@ -743,7 +759,7 @@ case "boolean":
         `${API_BASE_URL}/api/notes/Get-Note-By-Id`,
         {
           params: {
-            clientId: reduxUserId,
+            clientId: effectiveUserId,
             contactId: contact.id,
             noteId: note.id,
           },
@@ -805,7 +821,7 @@ case "boolean":
   //   }
   // };
   const handleTogglePin = async (noteId: number) => {
-    if (!reduxUserId || !contact?.id) return;
+    if (!effectiveUserId || !contact?.id) return;
 
     try {
       // Get current note to find its current pin status
@@ -821,7 +837,7 @@ case "boolean":
         {
           params: {
             NoteId: noteId,
-            clientId: reduxUserId,
+            clientId: effectiveUserId,
             contactId: contact.id,
             Note: noteToToggle.note,
             IsPin: newPinStatus,
@@ -852,12 +868,12 @@ case "boolean":
     setDeletePopupOpen(true);
   };
   const confirmDeleteNote = async () => {
-    if (!reduxUserId || !contact?.id || !noteToDelete) return;
+    if (!effectiveUserId || !contact?.id || !noteToDelete) return;
 
     try {
       await axios.delete(`${API_BASE_URL}/api/notes/Delete-Note`, {
         params: {
-          clientId: reduxUserId,
+          clientId: effectiveUserId,
           contactId: contact.id,
           noteId: noteToDelete,
         },
