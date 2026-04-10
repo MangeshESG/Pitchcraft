@@ -4,6 +4,7 @@ import DynamicContactsTable from "./DynamicContactsTable";
 import PaginationControls from "./PaginationControls";
 import FilterBuilder from "../common/FilterBuilder";
 import CommonSidePanel from "../common/CommonSidePanel";
+import AppModal from "../common/AppModal";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import duplicateIcon from "../../assets/images/icons/duplicate.png";
 import BulkUpdatePanel from "./BulkUpdatePanel";
@@ -1320,36 +1321,39 @@ const handleDeleteContacts = async () => {
   ]);
 
   const handleDeleteView = async (view: ViewItem) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete view "${view.name}"?`
+    appModal.showConfirm(
+      `Are you sure you want to delete view "${view.name}"?`,
+      async () => {
+        try {
+          const response = await fetch(
+            `${API_BASE_URL}/api/Crm/delete-view?viewId=${view.id}`,
+            { method: "POST" }
+          );
+          if (!response.ok) {
+            throw new Error("Failed to delete view");
+          }
+          const metaMap = loadViewMetaMap(clientId);
+          delete metaMap[String(view.id)];
+          saveViewMetaMap(clientId, metaMap);
+          setViews((prev) => prev.filter((item) => item.id !== view.id));
+          if (selectedView?.id === view.id) {
+            setSelectedView(null);
+            setViewMode("list");
+            setBaseViewContacts([]);
+            setViewContacts([]);
+            setViewMetaMissing(false);
+            clearViewState(clientId);
+          }
+          onShowMessage?.("View deleted successfully.", "success");
+        } catch (error) {
+          console.error("Error deleting view:", error);
+          onShowMessage?.("Failed to delete view.", "error");
+        }
+      },
+      "Delete view",
+      "Delete",
+      "Cancel"
     );
-    if (!confirmed) return;
-
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/Crm/delete-view?viewId=${view.id}`,
-        { method: "POST" }
-      );
-      if (!response.ok) {
-        throw new Error("Failed to delete view");
-      }
-      const metaMap = loadViewMetaMap(clientId);
-      delete metaMap[String(view.id)];
-      saveViewMetaMap(clientId, metaMap);
-      setViews((prev) => prev.filter((item) => item.id !== view.id));
-      if (selectedView?.id === view.id) {
-        setSelectedView(null);
-        setViewMode("list");
-        setBaseViewContacts([]);
-        setViewContacts([]);
-        setViewMetaMissing(false);
-        clearViewState(clientId);
-      }
-      onShowMessage?.("View deleted successfully.", "success");
-    } catch (error) {
-      console.error("Error deleting view:", error);
-      onShowMessage?.("Failed to delete view.", "error");
-    }
   };
 
   const openView = (view: ViewItem) => {
@@ -2479,6 +2483,12 @@ effectiveUserId={String(clientId)}
   onContactsCleared={() => {
     setSelectedContacts(new Set());
   }}
+/>
+
+<AppModal
+  isOpen={appModal.isOpen}
+  onClose={appModal.hideModal}
+  {...appModal.config}
 />
       
     </div>
