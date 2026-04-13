@@ -705,12 +705,19 @@ const formatTimeIST = (dateString?: string) => {
     setColumns(prev => applyColumnSelection(prev, savedColumnSelection));
   }, [savedColumnSelection]);
 
-  // Load data when client changes
+  // Load data when client changes or component mounts
   useEffect(() => {
     if (effectiveUserId) {
       fetchDataFiles();
     }
   }, [effectiveUserId]);
+
+  // Load data when switching to List tab
+  useEffect(() => {
+    if (activeSubTab === "List" && effectiveUserId && dataFiles.length === 0 && !isLoading) {
+      fetchDataFiles();
+    }
+  }, [activeSubTab, effectiveUserId]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -2176,15 +2183,21 @@ const filterFields: any = useMemo(() => {
                       </tr>
                     </thead>
                     <tbody>
-                      {currentData.length === 0 && (
+                      {isLoading ? (
+                        <tr>
+                          <td colSpan={7} style={{ textAlign: "center", padding: "20px" }}>
+                            Loading lists...
+                          </td>
+                        </tr>
+                      ) : currentData.length === 0 ? (
                         <tr>
                           <td colSpan={7} style={{ textAlign: "center" }}>
                             No lists found.
                           </td>
                         </tr>
-                      )}
-                      {currentData.map((file) => (
-                        <tr key={file.id}>
+                      ) : (
+                        currentData.map((file) => (
+                          <tr key={file.id}>
                           <td>
                             <span
                               className="list-link text-[#3f9f42]"
@@ -2387,7 +2400,8 @@ const filterFields: any = useMemo(() => {
                             )}
                           </td>
                         </tr>
-                      ))}
+                        ))
+                      )}
                     </tbody>
                   </table>
                   <PaginationControls
@@ -3428,11 +3442,11 @@ const filterFields: any = useMemo(() => {
                     <tbody>
                       {isLoadingSegments ? (
                         <tr>
-                          <td colSpan={5} style={{ textAlign: "center" }}>
+                          <td colSpan={5} style={{ textAlign: "center", padding: "20px" }}>
                             Loading segments...
                           </td>
                         </tr>
-                      ) : filteredSegments.length === 0 ? (
+                      ) : paginatedSegments.length === 0 ? (
                         <tr>
                           <td colSpan={5} style={{ textAlign: "center" }}>
                             No segments found.

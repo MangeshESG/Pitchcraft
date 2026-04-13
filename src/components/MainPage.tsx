@@ -3586,6 +3586,21 @@ try {
                               Schedules
                             </button>
                           </li>
+                          <li
+                            className={
+                              mailSubTab === "Inbox" ? "active" : ""
+                            }
+                          >
+                            <button
+                              onClick={() => {
+                                setMailSubTab("Inbox");
+                                setTab("Mail");
+                              }}
+                              className="submenu-button"
+                            >
+                              Inbox
+                            </button>
+                          </li>
                         </ul>
                       )}
                     </li>

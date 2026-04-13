@@ -318,6 +318,10 @@ const RegisterForm: React.FC<ViewProps> = ({ setView }) => {
       localStorage.setItem("registerEmail", form.email);
       localStorage.setItem("registerUsername", form.username);
       localStorage.setItem("registerPassword", form.password);
+      localStorage.setItem("registerFirstName", form.firstName);
+      localStorage.setItem("registerLastName", form.lastName);
+      localStorage.setItem("registerCompanyName", form.companyName);
+      localStorage.setItem("registerJobTitle", form.jobTitle);
       dispatch(saveEmail(form.email));
 
       setMessage("OTP sent to your email!");
@@ -447,14 +451,14 @@ const RegisterForm: React.FC<ViewProps> = ({ setView }) => {
               required
             />
             <span>
-              By completing and submitting this form, I agree to receive emails regarding my account from PitchKraft.ai{" "}
+              By submitting this form, I agree that PitchKraft will process all data confidentially as per our{" "}
               <a
                 href="https://www.pitchkraft.ai/privacy-policy/"
                 target="_blank"
                 rel="noopener noreferrer"
               >
                 Privacy Policy
-              </a>. My data will not be used in any other way.
+              </a>
             </span>
           </label>
         </div>
@@ -686,6 +690,10 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
           localStorage.removeItem("registerEmail");
           localStorage.removeItem("registerUsername");
           localStorage.removeItem("registerPassword");
+          localStorage.removeItem("registerFirstName");
+          localStorage.removeItem("registerLastName");
+          localStorage.removeItem("registerCompanyName");
+          localStorage.removeItem("registerJobTitle");
           localStorage.removeItem('creditModalSkipped');
 
           setMsg("Registration successful! Logging you in...");
@@ -809,6 +817,7 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
     setMsg("");
 
     try {
+      // Login OTP resend
       if (loginUser && loginPassword) {
         const trustedDeviceNumber = getCookie("trustedDeviceNumber");
         const body: any = { username: loginUser, password: loginPassword };
@@ -836,6 +845,46 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
         }
 
         if (response.ok && (data.success || data.message?.toLowerCase().includes("otp"))) {
+          setMsg("OTP resent successfully!");
+          startTimer();
+          setTimeout(() => setMsg(""), 3000);
+        } else {
+          setError("Failed to resend OTP. Please try again.");
+        }
+      }
+      // Registration OTP resend
+      else if (registerEmail && registerUsername && registerPassword) {
+        const response = await fetch(`${API_BASE_URL}/api/login/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            firstName: localStorage.getItem("registerFirstName") || "",
+            lastName: localStorage.getItem("registerLastName") || "",
+            username: registerUsername,
+            email: registerEmail,
+            password: registerPassword,
+            companyName: localStorage.getItem("registerCompanyName") || "",
+            jobTitle: localStorage.getItem("registerJobTitle") || "",
+            marketingConsent: true
+          }),
+        });
+
+        if (response.ok) {
+          setMsg("OTP resent successfully!");
+          startTimer();
+          setTimeout(() => setMsg(""), 3000);
+        } else {
+          setError("Failed to resend OTP. Please try again.");
+        }
+      }
+      // Forgot password OTP resend
+      else if (resetEmail) {
+        const response = await fetch(
+          `${API_BASE_URL}/api/login/restpass_send-otp?email=${resetEmail}`,
+          { method: "POST" }
+        );
+
+        if (response.ok) {
           setMsg("OTP resent successfully!");
           startTimer();
           setTimeout(() => setMsg(""), 3000);
@@ -910,14 +959,24 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
           />
         )}
 
-        <button type="submit" className="login-button" disabled={isLoading || isExpired}>
+        <button 
+          type={isExpired ? "button" : "submit"} 
+          className="login-button" 
+          disabled={isLoading || isResending}
+          onClick={isExpired ? handleResendOtp : undefined}
+        >
           {isLoading ? (
             <>
               <div className="spinner"></div>
               Verifying...
             </>
+          ) : isResending ? (
+            <>
+              <div className="spinner"></div>
+              Resending...
+            </>
           ) : isExpired ? (
-            "OTP Expired"
+            "Resend OTP"
           ) : (
             "Verify OTP"
           )}
@@ -938,28 +997,7 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
         {isExpired ? 'OTP Expired' : `Time Remaining: ${formatTime}`}
       </div>
 
-      {isExpired && loginUser && (
-        <button
-          type="button"
-          onClick={handleResendOtp}
-          disabled={isResending}
-          className="login-button"
-          style={{
-            width: '100%',
-            marginTop: '15px',
-            backgroundColor: isResending ? '#ccc' : '#007bff'
-          }}
-        >
-          {isResending ? (
-            <>
-              <div className="spinner"></div>
-              Resending...
-            </>
-          ) : (
-            'Resend OTP'
-          )}
-        </button>
-      )}
+
 
       {msg && <div className="success-message">{msg}</div>}
       {error && <div className="error-message">{error}</div>}
@@ -970,6 +1008,10 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
             localStorage.removeItem("registerEmail");
             localStorage.removeItem("registerUsername");
             localStorage.removeItem("registerPassword");
+            localStorage.removeItem("registerFirstName");
+            localStorage.removeItem("registerLastName");
+            localStorage.removeItem("registerCompanyName");
+            localStorage.removeItem("registerJobTitle");
             localStorage.removeItem("resetEmail");
             localStorage.removeItem("loginUser");
             localStorage.removeItem("loginPassword");

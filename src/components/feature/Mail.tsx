@@ -21,11 +21,13 @@ import ValidateRecordsModal from "./ValidateRecordsModal";
 import OtpModal from "./OtpModal";
 import DomainAuthColumn from "./DomainAuthColumn";
 import DomainAuthModal from "./DomainAuthModal";
+import AddMailboxModal from "../common/AddMailboxModal";
 import CommonSidePanel from "../common/CommonSidePanel";
 import deleteIcon from "../../assets/images/deleteiconn.png";
 import { faEdit,faTrashAlt,faCircleXmark ,faFileLines   } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-type MailTabType = "Dashboard" | "Configuration" | "Schedule";
+import InboxView from "./InboxView";
+type MailTabType = "Dashboard" | "Configuration" | "Schedule" | "Inbox";
 
 
 interface scheduleFetch {
@@ -59,6 +61,21 @@ interface SmtpConfig {
   usessl: boolean;
   useSsl?: boolean;
   fromEmail: string;
+}
+
+interface InboxCredential {
+  id: number;
+  clientId: number;
+  emailAddress: string;
+  protocol: "IMAP" | "POP3";
+  host: string;
+  port: number;
+  useSSL: boolean;
+  username: string;
+  password: string;
+  syncIntervalMinutes: number;
+  createdAt: string;
+  updatedAt: string;
 }
 interface EmailEntry {
   id?: string;
@@ -288,6 +305,9 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   const token = sessionStorage.getItem("token");
   // SMTP View
   const [smtpList, setSmtpList] = useState<SmtpConfig[]>([]);
+  // IMAP/POP3 View
+  const [inboxList, setInboxList] = useState<InboxCredential[]>([]);
+  const [inboxLoading, setInboxLoading] = useState(false);
   const [form, setForm] = useState({
     server: "",
     port: "",
@@ -297,13 +317,27 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     senderName: "",
     usessl: "nossl",
   });
+  
+  // IMAP form state
+  const [imapForm, setImapForm] = useState({
+    emailAddress: "",
+    protocol: "IMAP",
+    host: "",
+    port: "",
+    username: "",
+    password: "",
+    useSSL: false,
+  });
+  
   const [editingId, setEditingId] = useState(null);
+  const [editingImapId, setEditingImapId] = useState<number | null>(null);
   const [smtpLoading, setSmtpLoading] = useState(false);
   const [showSmtpOtpModal, setShowSmtpOtpModal] = useState(false);
   const [smtpOtpEmail, setSmtpOtpEmail] = useState("");
   const [smtpOtpVerifying, setSmtpOtpVerifying] = useState(false);
   const [deletePopupOpen, setDeletePopupOpen] = useState(false);
   const [selectedDeleteId, setSelectedDeleteId] = useState<any>(null);
+  const [deletingImapId, setDeletingImapId] = useState<number | null>(null);
   // Fetch SMTP List
   const fetchSmtp = async () => {
     try {
@@ -324,8 +358,32 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     }
   };
 
+  // Fetch IMAP/POP3 List
+  const fetchInboxCredentials = async () => {
+    setInboxLoading(true);
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/api/Inbox/Get-Inboxcredentials?clientId=${effectiveUserId}`,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            //...(token && { 'Authorization': `Bearer ${token}` })
+          },
+        }
+      );
+
+      setInboxList(response.data || []);
+    } catch (error) {
+      console.error('Error fetching inbox credentials:', error);
+      setInboxList([]);
+    } finally {
+      setInboxLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchSmtp();
+    fetchInboxCredentials();
   }, [effectiveUserId]);
 
   // Handle Form Change
@@ -335,6 +393,98 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       ...prevForm,
       [name]: value,
     }));
+  };
+
+  // Handle IMAP Form Change
+  const handleChangeIMAP = (e: any) => {
+    const { name, value, type, checked } = e.target;
+    setImapForm((prevForm) => ({
+      ...prevForm,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  };
+
+  // Handle IMAP Edit
+  const handleEditImap = (item: InboxCredential) => {
+    setImapForm({
+      emailAddress: item.emailAddress,
+      protocol: item.protocol,
+      host: item.host,
+      port: item.port.toString(),
+      username: item.username,
+      password: item.password,
+      useSSL: item.useSSL,
+    });
+    setEditingImapId(item.id);
+    handleModalOpen("modal-edit-imap");
+  };
+
+  // Handle IMAP Update Submit
+  const handleSubmitIMAP = async (e: any) => {
+    e.preventDefault();
+    setInboxLoading(true);
+
+    try {
+      const payload = {
+        clientId: effectiveUserId,
+        emailAddress: imapForm.emailAddress,
+        protocol: imapForm.protocol,
+        host: imapForm.host,
+        port: parseInt(imapForm.port),
+        useSSL: imapForm.useSSL,
+        username: imapForm.username,
+        password: imapForm.password,
+      };
+
+      await axios.post(
+        `${API_BASE_URL}/api/Inbox/update-Inboxcredentials?id=${editingImapId}`,
+        payload,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      setToastMessage("IMAP configuration updated successfully");
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 6000);
+      
+      // Reset form and close modal
+      setImapForm({
+        emailAddress: "",
+        protocol: "IMAP",
+        host: "",
+        port: "",
+        username: "",
+        password: "",
+        useSSL: false,
+      });
+      setEditingImapId(null);
+      handleModalClose("modal-edit-imap");
+      
+      // Refresh IMAP list
+      fetchInboxCredentials();
+    } catch (err: any) {
+      console.error(err);
+      let errorMessage = "Failed to update IMAP configuration";
+      
+      if (err.response?.data) {
+        const errorData = err.response.data;
+        if (typeof errorData === 'string') {
+          errorMessage = errorData;
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        }
+      }
+      
+      setToastMessage(errorMessage);
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 6000);
+    } finally {
+      setInboxLoading(false);
+    }
   };
 
   // Handle Add/Update Submit
@@ -362,8 +512,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
         setShowSmtpOtpModal(true);
       } else {
         // For Edit operation, just show success
-       // appModal.showSuccess("Updated successfully");
-        setToastMessage("Updated successfully");
+        setToastMessage("SMTP configuration updated successfully");
         setShowSuccessToast(true);
         setTimeout(() => setShowSuccessToast(false), 6000);
         setForm({
@@ -376,7 +525,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
           usessl: "nossl",
         });
         setEditingId(null);
-        handleModalClose("modal-add-mailbox");
+        handleModalClose("modal-edit-smtp");
         fetchSmtp(); // Refresh grid
       }
     } catch (err: any) {
@@ -398,7 +547,9 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
         }
       }
       
-      appModal.showError(errorMessage);
+      setToastMessage(errorMessage);
+      setShowErrorToast(true);
+      setTimeout(() => setShowErrorToast(false), 6000);
     } finally {
       setSmtpLoading(false);
     }
@@ -461,11 +612,67 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       usessl: (item.SecurityType || item.securityType || "nossl").toLowerCase()
     });
     setEditingId(item.id);
-    handleModalOpen("modal-edit-link-mailbox");
+    handleModalOpen("modal-edit-smtp");
   };
 const handleDelete = (id: any) => {
   setSelectedDeleteId(id);
   setDeletePopupOpen(true);
+};
+
+// Handle IMAP Delete
+const handleDeleteImap = (id: number) => {
+  setDeletingImapId(id);
+  setDeletePopupOpen(true);
+};
+
+// Confirm IMAP Delete
+const confirmDeleteImap = async () => {
+  if (!deletingImapId) return;
+
+  setInboxLoading(true);
+  try {
+    await axios.post(
+      `${API_BASE_URL}/api/Inbox/delete-Inboxcredentials?id=${deletingImapId}`,
+      {},
+      {
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      }
+    );
+
+    setToastMessage("IMAP configuration deleted successfully");
+    setShowSuccessToast(true);
+    setTimeout(() => setShowSuccessToast(false), 6000);
+    
+    setDeletePopupOpen(false);
+    setDeletingImapId(null);
+    
+    // Refresh IMAP list
+    fetchInboxCredentials();
+  } catch (err: any) {
+    console.error(err);
+    let errorMessage = "Failed to delete IMAP configuration";
+    
+    if (err.response?.data) {
+      const errorData = err.response.data;
+      if (typeof errorData === 'string') {
+        errorMessage = errorData;
+      } else if (errorData.message) {
+        errorMessage = errorData.message;
+      }
+    }
+    
+    setToastMessage(errorMessage);
+    setShowErrorToast(true);
+    setTimeout(() => setShowErrorToast(false), 6000);
+    
+    setDeletePopupOpen(false);
+    setDeletingImapId(null);
+  } finally {
+    setInboxLoading(false);
+  }
 };
 const confirmDeleteSmtp = async () => {
   if (!selectedDeleteId) return;
@@ -485,6 +692,9 @@ const confirmDeleteSmtp = async () => {
     fetchSmtp(); // Refresh grid
     setDeletePopupOpen(false);
     setSelectedDeleteId(null);
+    setToastMessage("SMTP configuration deleted successfully");
+    setShowSuccessToast(true);
+    setTimeout(() => setShowSuccessToast(false), 6000);
   } catch (err) {
     console.error(err);
     setToastMessage("Error deleting SMTP");
@@ -1149,6 +1359,7 @@ const confirmDeleteSmtp = async () => {
   const [newBccEmail, setNewBccEmail] = useState<string>("");
   const [bccLoading, setBccLoading] = useState(false);
   const [configTab, setConfigTab] = useState("mailboxes");
+  const [mailboxSubTab, setMailboxSubTab] = useState<"smtp" | "imap">("smtp");
 
 
   type BccEmail = { id: number; bccEmailAddress: string; clinteId: number };
@@ -1567,6 +1778,23 @@ const actionIconStyle = {
   const endIndex = startIndex + pageSize;
 
   const currentMailboxes = filteredMailboxes.slice(startIndex, endIndex);
+
+  // IMAP/POP3 pagination
+  const [currentPageInbox, setCurrentPageInbox] = useState(1);
+
+  const filteredInboxes = inboxList.filter(
+    (item) =>
+      item.host?.toLowerCase().includes(mailboxSearch.toLowerCase()) ||
+      item.username?.toLowerCase().includes(mailboxSearch.toLowerCase()) ||
+      item.emailAddress?.toLowerCase().includes(mailboxSearch.toLowerCase())
+  );
+
+  const totalPagesInbox = Math.ceil(filteredInboxes.length / pageSize);
+
+  const startIndexInbox = (currentPageInbox - 1) * pageSize;
+  const endIndexInbox = startIndexInbox + pageSize;
+
+  const currentInboxes = filteredInboxes.slice(startIndexInbox, endIndexInbox);
   //pagination for bcc
   const [bccPage, setBccPage] = useState(1);
   const bccPageSize = 10;
@@ -1742,148 +1970,385 @@ const actionIconStyle = {
                   style={{
                     display: "flex",
                     alignItems: "center",
+                    justifyContent: "space-between",
                     marginBottom: 16,
-                    gap: 16,
                   }}
                 >
-                  <input
-                    type="text"
-                    className="search-input"
-                    style={{ width: 340 }}
-                    placeholder="Search mailbox by server or username"
-                    value={mailboxSearch}
-                    onChange={(e) => setMailboxSearch(e.target.value)}
-                  />
+                  {/* Mailbox Sub-tabs */}
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 12,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    {[
+                      { key: "smtp", label: "SMTP List" },
+                      { key: "imap", label: "IMAP List" },
+                    ].map(item => (
+                      <button
+                        key={item.key}
+                        onClick={() => setMailboxSubTab(item.key as any)}
+                        style={{
+                          padding: "6px 14px",
+                          borderRadius: 999,
+                          fontSize: 13,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          background:
+                            mailboxSubTab === item.key ? "#eef2ff" : "#ffffff",
+                          color:
+                            mailboxSubTab === item.key ? "#3f9f42" : "#374151",
+                          border:
+                            mailboxSubTab === item.key
+                              ? "1px solid #3f9f42"
+                              : "1px solid #d1d5db",
+                        }}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Add Mailbox Button */}
                   {!isDemoAccount && (
                     <button
                       className="save-button button auto-width small d-flex justify-between align-center"
-                      style={{ marginLeft: "auto", borderRadius: "12px" }}
+                      style={{ borderRadius: "12px" }}
                       onClick={() => handleModalOpen("modal-add-mailbox")}
                     >
                       + Add mailbox
                     </button>
                   )}
                 </div>
-                <table className="contacts-table" style={{ background: "#fff" }}>
-                  <thead>
-                    <tr>
-                      <th>Server</th>
-                      <th>Port</th>
-                      <th>Username</th>
-                      <th>From email</th>
-                      <th>Sender name</th>
-                      <th>SSL</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {currentMailboxes.length === 0 ? (
-                      <tr>
-                        <td colSpan={7} style={{ textAlign: "center" }}>
-                          No mailboxes configured.
-                        </td>
-                      </tr>
-                    ) : (
-                      currentMailboxes.map((item, index) => (
-                        <tr key={item.id || index}>
-                          <td>{item.server}</td>
-                          <td>{item.port}</td>
-                          <td>{item.username}</td>
-                          <td>{item.fromEmail}</td>
-                          <td>{(item as any).senderName || "-"}</td>
-                          <td>{((item as any).SecurityType || (item as any).securityType)?.toUpperCase()}</td>
-                          <td style={{ position: "relative" }}>
-                            <button
-                              className="segment-actions-btn"
-                              style={{
-                                border: "none",
-                                background: "none",
-                                fontSize: 24,
-                                cursor: "pointer",
-                                padding: "2px 10px",
-                              }}
-                              onClick={() =>
-                                setMailboxActionsAnchor(
-                                  item.id?.toString() === mailboxActionsAnchor ? null : (item.id?.toString() ?? null), // Convert undefined to null
-                                )
-                              }
-                            >
-                              ⋮
-                            </button>
-                            {mailboxActionsAnchor === item.id?.toString() && (
-                              <div
-                                className="segment-actions-menu py-[10px]"
-                                style={{
-                                  position: "absolute",
-                                  right: 0,
-                                  top: 32,
-                                  background: "#fff",
-                                  border: "1px solid #eee",
-                                  borderRadius: 6,
-                                  boxShadow: "0 2px 16px rgba(0,0,0,0.12)",
-                                  zIndex: 101,
-                                  minWidth: 160,
-                                }}
-                              >
-                                {!isDemoAccount && (
-                                  <button
-                                    onClick={() => {
-                                      handleEdit(item)
-                                      setMailboxActionsAnchor(null)
-                                    }}
-                                    style={menuBtnStyle}
-                                    className="flex gap-2 items-center"
-                                  >
-                                    <span style={actionIconStyle}>
-                                    <FontAwesomeIcon
-                                    icon={faEdit}
-                                    style={{ color: "#3f9f42", fontSize: 20 }}
-                                     />
-                                    </span>
-                                    <span className="font-[600]">Edit</span>
-                                  </button>
-                                )}
-                                {!isDemoAccount && (
-                                  <button
-                                    onClick={() => {
-                                      handleDelete(item.id)
-                                      setMailboxActionsAnchor(null)
-                                    }}
-                                    style={{ ...menuBtnStyle }}
-                                    className="flex gap-2 items-center"
-                                  >
-                                    <span style={actionIconStyle}>
-                                    <FontAwesomeIcon
-                                    icon={faTrashAlt}
-                                    style={{ color: "#3f9f42", fontSize: 20 }}
-                                    />
-                                    </span>
-                                    <span className="font-[600]">Delete</span>
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                          </td>
+
+                {/* SMTP List Content */}
+                {mailboxSubTab === "smtp" && (
+                  <>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        marginBottom: 16,
+                        gap: 16,
+                      }}
+                    >
+                      <input
+                        type="text"
+                        className="search-input"
+                        style={{ width: 340 }}
+                        placeholder="Search SMTP by server or username"
+                        value={mailboxSearch}
+                        onChange={(e) => setMailboxSearch(e.target.value)}
+                      />
+                    </div>
+                    <table className="contacts-table" style={{ background: "#fff" }}>
+                      <thead>
+                        <tr>
+                          <th>Server</th>
+                          <th>Port</th>
+                          <th>Username</th>
+                          <th>From email</th>
+                          <th>Sender name</th>
+                          <th>SSL</th>
+                          <th>Actions</th>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-                <PaginationControls
-                  currentPage={currentPageMailbox}
-                  totalPages={totalPagesMailbox}
-                  totalRecords={filteredMailboxes.length} // Use filteredMailboxes for totalRecords if filtering is applied before pagination
-                  pageSize={pageSize}
-                  setCurrentPage={setCurrentPageMailbox}
-                  setPageSize={(size) => setPageSize(Number(size))}
-                   showPageSizeDropdown={true}
-                   pageLabel="Page:"
-                />
+                      </thead>
+                      <tbody>
+                        {currentMailboxes.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} style={{ textAlign: "center" }}>
+                              No SMTP configurations found.
+                            </td>
+                          </tr>
+                        ) : (
+                          currentMailboxes.map((item, index) => (
+                            <tr key={item.id || index}>
+                              <td>{item.server}</td>
+                              <td>{item.port}</td>
+                              <td>{item.username}</td>
+                              <td>{item.fromEmail}</td>
+                              <td>{(item as any).senderName || "-"}</td>
+                              <td>{((item as any).SecurityType || (item as any).securityType)?.toUpperCase()}</td>
+                              <td style={{ position: "relative" }}>
+                                <button
+                                  className="segment-actions-btn"
+                                  style={{
+                                    border: "none",
+                                    background: "none",
+                                    fontSize: 24,
+                                    cursor: "pointer",
+                                    padding: "2px 10px",
+                                  }}
+                                  onClick={() =>
+                                    setMailboxActionsAnchor(
+                                      item.id?.toString() === mailboxActionsAnchor ? null : (item.id?.toString() ?? null), // Convert undefined to null
+                                    )
+                                  }
+                                >
+                                  ⋮
+                                </button>
+                                {mailboxActionsAnchor === item.id?.toString() && (
+                                  <div
+                                    className="segment-actions-menu py-[10px]"
+                                    style={{
+                                      position: "absolute",
+                                      right: 0,
+                                      top: 32,
+                                      background: "#fff",
+                                      border: "1px solid #eee",
+                                      borderRadius: 6,
+                                      boxShadow: "0 2px 16px rgba(0,0,0,0.12)",
+                                      zIndex: 101,
+                                      minWidth: 160,
+                                    }}
+                                  >
+                                    {!isDemoAccount && (
+                                      <button
+                                        onClick={() => {
+                                          handleEdit(item)
+                                          setMailboxActionsAnchor(null)
+                                        }}
+                                        style={menuBtnStyle}
+                                        className="flex gap-2 items-center"
+                                      >
+                                        <span style={actionIconStyle}>
+                                        <FontAwesomeIcon
+                                        icon={faEdit}
+                                        style={{ color: "#3f9f42", fontSize: 20 }}
+                                         />
+                                        </span>
+                                        <span className="font-[600]">Edit</span>
+                                      </button>
+                                    )}
+                                    {!isDemoAccount && (
+                                      <button
+                                        onClick={() => {
+                                          handleDelete(item.id)
+                                          setMailboxActionsAnchor(null)
+                                        }}
+                                        style={{ ...menuBtnStyle }}
+                                        className="flex gap-2 items-center"
+                                      >
+                                        <span style={actionIconStyle}>
+                                        <FontAwesomeIcon
+                                        icon={faTrashAlt}
+                                        style={{ color: "#3f9f42", fontSize: 20 }}
+                                        />
+                                        </span>
+                                        <span className="font-[600]">Delete</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                    <PaginationControls
+                      currentPage={currentPageMailbox}
+                      totalPages={totalPagesMailbox}
+                      totalRecords={filteredMailboxes.length} // Use filteredMailboxes for totalRecords if filtering is applied before pagination
+                      pageSize={pageSize}
+                      setCurrentPage={setCurrentPageMailbox}
+                      setPageSize={(size) => setPageSize(Number(size))}
+                       showPageSizeDropdown={true}
+                       pageLabel="Page:"
+                    />
+                  </>
+                )}
+
+                {/* IMAP List Content */}
+                {mailboxSubTab === "imap" && (
+                  <>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        marginBottom: 16,
+                        gap: 16,
+                      }}
+                    >
+                      <input
+                        type="text"
+                        className="search-input"
+                        style={{ width: 340 }}
+                        placeholder="Search IMAP by server or username"
+                        value={mailboxSearch}
+                        onChange={(e) => setMailboxSearch(e.target.value)}
+                      />
+                    </div>
+
+                    <table className="contacts-table" style={{ background: "#fff" }}>
+                      <thead>
+                        <tr>
+                          <th>Host</th>
+                          <th>Port</th>
+                          <th>Email Address</th>
+                          <th>Username</th>
+                          <th>SSL</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {inboxLoading ? (
+                          <tr>
+                            <td colSpan={6} style={{ textAlign: "center" }}>
+                              Loading inbox credentials...
+                            </td>
+                          </tr>
+                        ) : currentInboxes.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} style={{ textAlign: "center" }}>
+                              No IMAP/POP3 configurations found.
+                            </td>
+                          </tr>
+                        ) : (
+                          currentInboxes.map((item, index) => (
+                            <tr key={item.id || index}>
+                              <td>{item.host}</td>
+                              <td>{item.port}</td>
+                              <td>{item.emailAddress}</td>
+                              <td>{item.username}</td>
+                              <td>
+                                <span
+                                  style={{
+                                    padding: "4px 8px",
+                                    borderRadius: "4px",
+                                    fontSize: "12px",
+                                    fontWeight: "600",
+                                    background: item.useSSL ? "#e8f5e8" : "#ffebee",
+                                    color: item.useSSL ? "#2e7d32" : "#c62828",
+                                  }}
+                                >
+                                  {item.useSSL ? "SSL" : "No SSL"}
+                                </span>
+                              </td>
+                              <td style={{ position: "relative" }}>
+                                <button
+                                  className="segment-actions-btn"
+                                  style={{
+                                    border: "none",
+                                    background: "none",
+                                    fontSize: 24,
+                                    cursor: "pointer",
+                                    padding: "2px 10px",
+                                  }}
+                                  onClick={() =>
+                                    setMailboxActionsAnchor(
+                                      `inbox-${item.id}` === mailboxActionsAnchor ? null : `inbox-${item.id}`
+                                    )
+                                  }
+                                >
+                                  ⋮
+                                </button>
+                                {mailboxActionsAnchor === `inbox-${item.id}` && (
+                                  <div
+                                    className="segment-actions-menu py-[10px]"
+                                    style={{
+                                      position: "absolute",
+                                      right: 0,
+                                      top: 32,
+                                      background: "#fff",
+                                      border: "1px solid #eee",
+                                      borderRadius: 6,
+                                      boxShadow: "0 2px 16px rgba(0,0,0,0.12)",
+                                      zIndex: 101,
+                                      minWidth: 160,
+                                    }}
+                                  >
+                                    {!isDemoAccount && (
+                                      <button
+                                        onClick={() => {
+                                          handleEditImap(item);
+                                          setMailboxActionsAnchor(null);
+                                        }}
+                                        style={menuBtnStyle}
+                                        className="flex gap-2 items-center"
+                                      >
+                                        <span style={actionIconStyle}>
+                                        <FontAwesomeIcon
+                                        icon={faEdit}
+                                        style={{ color: "#3f9f42", fontSize: 20 }}
+                                         />
+                                        </span>
+                                        <span className="font-[600]">Edit</span>
+                                      </button>
+                                    )}
+                                    {!isDemoAccount && (
+                                      <button
+                                        onClick={() => {
+                                          handleDeleteImap(item.id);
+                                          setMailboxActionsAnchor(null);
+                                        }}
+                                        style={{ ...menuBtnStyle }}
+                                        className="flex gap-2 items-center"
+                                      >
+                                        <span style={actionIconStyle}>
+                                        <FontAwesomeIcon
+                                        icon={faTrashAlt}
+                                        style={{ color: "#3f9f42", fontSize: 20 }}
+                                        />
+                                        </span>
+                                        <span className="font-[600]">Delete</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+
+                    <PaginationControls
+                      currentPage={currentPageInbox}
+                      totalPages={totalPagesInbox}
+                      totalRecords={filteredInboxes.length}
+                      pageSize={pageSize}
+                      setCurrentPage={setCurrentPageInbox}
+                      setPageSize={(size) => setPageSize(Number(size))}
+                       showPageSizeDropdown={true}
+                       pageLabel="Page:"
+                    />
+                  </>
+                )}
                 {/* Add/Edit Mailbox Modal */}
-                <CommonSidePanel
-                  isOpen={openModals["modal-add-mailbox"] || editingId !== null}
+                <AddMailboxModal
+                  isOpen={openModals["modal-add-mailbox"] || false}
                   onClose={() => {
                     handleModalClose("modal-add-mailbox");
+                    setEditingId(null);
+                  }}
+                  editingId={editingId}
+                  form={form}
+                  setForm={setForm}
+                  handleChangeSMTP={handleChangeSMTP}
+                  handleSubmitSMTP={handleSubmitSMTP}
+                  smtpLoading={smtpLoading}
+                  setEditingId={setEditingId}
+                  effectiveUserId={effectiveUserId}
+                  token={token}
+                  onSuccess={(message) => {
+                    setToastMessage(message);
+                    setShowSuccessToast(true);
+                    setTimeout(() => setShowSuccessToast(false), 6000);
+                  }}
+                  onError={(message) => {
+                    setToastMessage(message);
+                    setShowErrorToast(true);
+                    setTimeout(() => setShowErrorToast(false), 6000);
+                  }}
+                />
+
+                {/* SMTP Edit Modal */}
+                <CommonSidePanel
+                  isOpen={openModals["modal-edit-smtp"] || false}
+                  onClose={() => {
+                    handleModalClose("modal-edit-smtp");
                     setEditingId(null);
                     setForm({
                       server: "",
@@ -1895,13 +2360,13 @@ const actionIconStyle = {
                       usessl: "nossl",
                     });
                   }}
-                  title={editingId ? "Edit mailbox" : "Add mailbox"}
+                  title="Edit SMTP Configuration"
+                  width={500}
                   footerContent={
                     <>
                       <button
-                        type="button"
                         onClick={() => {
-                          handleModalClose("modal-add-mailbox");
+                          handleModalClose("modal-edit-smtp");
                           setEditingId(null);
                           setForm({
                             server: "",
@@ -1917,7 +2382,7 @@ const actionIconStyle = {
                           padding: "10px 32px",
                           border: "1px solid #ddd",
                           background: "#fff",
-                          borderRadius: "12px",
+                          borderRadius: "24px",
                           cursor: "pointer",
                           fontSize: "14px",
                           fontWeight: "500",
@@ -1934,119 +2399,314 @@ const actionIconStyle = {
                           background: "#fff",
                           color: smtpLoading ? "#ccc" : "#ef4444",
                           border: `1px solid ${smtpLoading ? "#ccc" : "#ef4444"}`,
-                          borderRadius: "12px",
+                          borderRadius: "24px",
                           cursor: smtpLoading ? "not-allowed" : "pointer",
                           fontSize: "14px",
                           fontWeight: "500",
                         }}
                       >
-                        {smtpLoading ? "Testing..." : editingId ? "Update" : "Add"}
+                        {smtpLoading ? "Updating..." : "Update"}
                       </button>
                     </>
                   }
                 >
-                  <form onSubmit={(e) => e.preventDefault()}>
-                    <div className="flex gap-4">
-                      <div className="form-group flex-1">
+                  <form onSubmit={handleSubmitSMTP}>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr",
+                        gap: "20px",
+                        marginBottom: "24px",
+                      }}
+                    >
+                      <div className="form-group">
                         <label>
-                          Host <span style={{ color: "red" }}>*</span>
+                          Server <span style={{ color: "red" }}>*</span>
                         </label>
                         <input
+                          type="text"
                           name="server"
-                          placeholder="smtp.example.com"
                           value={form.server}
                           onChange={handleChangeSMTP}
                           required
+                          style={{ width: "100%" }}
+                          placeholder="smtp.gmail.com"
                         />
                       </div>
-                      <div className="form-group flex-1">
+
+                      <div className="form-group">
                         <label>
                           Port <span style={{ color: "red" }}>*</span>
                         </label>
                         <input
-                          name="port"
                           type="number"
-                          placeholder="587"
+                          name="port"
                           value={form.port}
                           onChange={handleChangeSMTP}
                           required
+                          style={{ width: "100%" }}
+                          placeholder="587"
                         />
                       </div>
-                    </div>
-                    <div className="flex gap-4">
-                      <div className="form-group flex-1">
+
+                      <div className="form-group">
                         <label>
                           Username <span style={{ color: "red" }}>*</span>
                         </label>
                         <input
+                          type="text"
                           name="username"
-                          placeholder="user@example.com"
                           value={form.username}
                           onChange={handleChangeSMTP}
                           required
+                          style={{ width: "100%" }}
+                          placeholder="username"
                         />
                       </div>
-                      <div className="form-group flex-1">
+
+                      <div className="form-group">
                         <label>
                           Password <span style={{ color: "red" }}>*</span>
                         </label>
                         <input
-                          name="password"
                           type="password"
-                          placeholder="••••••••"
+                          name="password"
                           value={form.password}
                           onChange={handleChangeSMTP}
                           required
+                          style={{ width: "100%" }}
+                          placeholder="••••••••"
                         />
                       </div>
-                    </div>
-                    <div className="flex gap-4">
-                      <div className="form-group flex-1">
+
+                      <div className="form-group">
                         <label>
-                          From email <span style={{ color: "red" }}>*</span>
+                          From Email <span style={{ color: "red" }}>*</span>
                         </label>
                         <input
-                          name="fromEmail"
                           type="email"
-                          placeholder="sender@example.com"
+                          name="fromEmail"
                           value={form.fromEmail}
                           onChange={handleChangeSMTP}
                           required
+                          style={{ width: "100%" }}
+                          placeholder="user@example.com"
                         />
                       </div>
-                      <div className="form-group flex-1">
+
+                      <div className="form-group">
                         <label>
-                          Sender name <span style={{ color: "red" }}>*</span>
+                          Sender Name
                         </label>
                         <input
-                          name="senderName"
                           type="text"
-                          placeholder="John Doe"
+                          name="senderName"
                           value={form.senderName}
                           onChange={handleChangeSMTP}
-                          required
+                          style={{ width: "100%" }}
+                          placeholder="Your Name"
                         />
                       </div>
                     </div>
+
                     <div className="form-group">
-                      <label>SSL Configuration</label>
+                      <label>
+                        Security Type <span style={{ color: "red" }}>*</span>
+                      </label>
                       <select
                         name="usessl"
                         value={form.usessl}
                         onChange={handleChangeSMTP}
-                        style={{
-                          width: "100%",
-                          padding: "8px 12px",
-                          border: "1px solid #ccc",
-                          borderRadius: "4px",
-                          fontSize: "14px",
-                          backgroundColor: "white",
-                        }}
+                        required
+                        style={{ width: "100%" }}
                       >
                         <option value="nossl">No SSL</option>
                         <option value="ssl">SSL</option>
                         <option value="ssl/tls">SSL/TLS</option>
                       </select>
+                    </div>
+                  </form>
+                </CommonSidePanel>
+
+                {/* IMAP Edit Modal */}
+                <CommonSidePanel
+                  isOpen={openModals["modal-edit-imap"] || false}
+                  onClose={() => {
+                    handleModalClose("modal-edit-imap");
+                    setEditingImapId(null);
+                    setImapForm({
+                      emailAddress: "",
+                      protocol: "IMAP",
+                      host: "",
+                      port: "",
+                      username: "",
+                      password: "",
+                      useSSL: false,
+                    });
+                  }}
+                  title="Edit IMAP Configuration"
+                  width={500}
+                  footerContent={
+                    <>
+                      <button
+                        onClick={() => {
+                          handleModalClose("modal-edit-imap");
+                          setEditingImapId(null);
+                          setImapForm({
+                            emailAddress: "",
+                            protocol: "IMAP",
+                            host: "",
+                            port: "",
+                            username: "",
+                            password: "",
+                            useSSL: false,
+                          });
+                        }}
+                        style={{
+                          padding: "10px 32px",
+                          border: "1px solid #ddd",
+                          background: "#fff",
+                          borderRadius: "24px",
+                          cursor: "pointer",
+                          fontSize: "14px",
+                          fontWeight: "500",
+                          color: "#333",
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleSubmitIMAP}
+                        disabled={inboxLoading}
+                        style={{
+                          padding: "10px 32px",
+                          background: "#fff",
+                          color: inboxLoading ? "#ccc" : "#ef4444",
+                          border: `1px solid ${inboxLoading ? "#ccc" : "#ef4444"}`,
+                          borderRadius: "24px",
+                          cursor: inboxLoading ? "not-allowed" : "pointer",
+                          fontSize: "14px",
+                          fontWeight: "500",
+                        }}
+                      >
+                        {inboxLoading ? "Updating..." : "Update"}
+                      </button>
+                    </>
+                  }
+                >
+                  <form onSubmit={handleSubmitIMAP}>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr",
+                        gap: "20px",
+                        marginBottom: "24px",
+                      }}
+                    >
+                      <div className="form-group">
+                        <label>
+                          Email Address <span style={{ color: "red" }}>*</span>
+                        </label>
+                        <input
+                          type="email"
+                          name="emailAddress"
+                          value={imapForm.emailAddress}
+                          onChange={handleChangeIMAP}
+                          required
+                          style={{ width: "100%" }}
+                          placeholder="user@example.com"
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label>
+                          Protocol <span style={{ color: "red" }}>*</span>
+                        </label>
+                        <select
+                          name="protocol"
+                          value={imapForm.protocol}
+                          onChange={handleChangeIMAP}
+                          required
+                          style={{ width: "100%" }}
+                        >
+                          <option value="IMAP">IMAP</option>
+                          <option value="POP3">POP3</option>
+                        </select>
+                      </div>
+
+                      <div className="form-group">
+                        <label>
+                          Host <span style={{ color: "red" }}>*</span>
+                        </label>
+                        <input
+                          type="text"
+                          name="host"
+                          value={imapForm.host}
+                          onChange={handleChangeIMAP}
+                          required
+                          style={{ width: "100%" }}
+                          placeholder="imap.gmail.com"
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label>
+                          Port <span style={{ color: "red" }}>*</span>
+                        </label>
+                        <input
+                          type="number"
+                          name="port"
+                          value={imapForm.port}
+                          onChange={handleChangeIMAP}
+                          required
+                          style={{ width: "100%" }}
+                          placeholder="993"
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label>
+                          Username <span style={{ color: "red" }}>*</span>
+                        </label>
+                        <input
+                          type="text"
+                          name="username"
+                          value={imapForm.username}
+                          onChange={handleChangeIMAP}
+                          required
+                          style={{ width: "100%" }}
+                          placeholder="username"
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label>
+                          Password <span style={{ color: "red" }}>*</span>
+                        </label>
+                        <input
+                          type="password"
+                          name="password"
+                          value={imapForm.password}
+                          onChange={handleChangeIMAP}
+                          required
+                          style={{ width: "100%" }}
+                          placeholder="••••••••"
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", marginTop: "16px" }}>
+                      <input
+                        type="checkbox"
+                        id="useSSL"
+                        name="useSSL"
+                        checked={imapForm.useSSL}
+                        onChange={handleChangeIMAP}
+                        style={{ marginRight: "8px" }}
+                      />
+                      <label htmlFor="useSSL" style={{ marginBottom: 0, cursor: "pointer" }}>
+                        Use SSL
+                      </label>
                     </div>
                   </form>
                 </CommonSidePanel>
@@ -2930,6 +3590,15 @@ const actionIconStyle = {
         </>
       )}
 
+      {/* Inbox Tab */}
+      {tab === "Inbox" && (
+        <InboxView 
+          effectiveUserId={effectiveUserId} 
+          token={token}
+          isVisible={tab === "Inbox"}
+        />
+      )}
+
       <AppModal
         isOpen={appModal.isOpen}
         onClose={appModal.hideModal}
@@ -2944,6 +3613,7 @@ const actionIconStyle = {
       {deletingDomain && <LoadingSpinner message="Deleting domain..." />}
       {smtpOtpVerifying && <LoadingSpinner message="Verifying OTP..." />}
       {scheduleDataLoading && <LoadingSpinner message="Loading schedules..." />}
+      {inboxLoading && <LoadingSpinner message="Loading inbox credentials..." />}
 
       {/* Domain Validation Modals */}
       <DomainAuthModal
@@ -3022,23 +3692,27 @@ const actionIconStyle = {
       onClick={(e) => e.stopPropagation()}
     >
       <h3 className="text-lg font-semibold mb-3 text-gray-900">
-        Delete SMTP configuration
+        Delete {deletingImapId ? 'IMAP' : 'SMTP'} configuration
       </h3>
 
       <p className="text-sm text-gray-600 mb-6">
-        Are you sure you want to delete this SMTP configuration?
+        Are you sure you want to delete this {deletingImapId ? 'IMAP' : 'SMTP'} configuration?
       </p>
 
       <div className="flex justify-end gap-3">
         <button
-          onClick={() => setDeletePopupOpen(false)}
+          onClick={() => {
+            setDeletePopupOpen(false);
+            setDeletingImapId(null);
+            setSelectedDeleteId(null);
+          }}
           className="px-5 py-2 rounded-full bg-black text-white"
         >
           Cancel
         </button>
 
         <button
-          onClick={confirmDeleteSmtp}
+          onClick={deletingImapId ? confirmDeleteImap : confirmDeleteSmtp}
           className="px-5 py-2 rounded-full bg-red-600 text-white hover:bg-red-700"
         >
           Delete
@@ -3046,7 +3720,11 @@ const actionIconStyle = {
       </div>
 
       <button
-        onClick={() => setDeletePopupOpen(false)}
+        onClick={() => {
+          setDeletePopupOpen(false);
+          setDeletingImapId(null);
+          setSelectedDeleteId(null);
+        }}
         className="absolute top-4 right-4 text-xl"
       >
         ✕
