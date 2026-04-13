@@ -895,7 +895,7 @@ const handleClientChange = async (
 
   const fetchAndDisplayEmailBodies = useCallback(
     async (
-      zohoviewId: string, // Format: "clientId,dataFileId" OR "segment_segmentId"
+      zohoviewId: string, // Format: "clientId,dataFileId" OR "segment_segmentId" OR "view_viewId"
       pageToken: string | null = null,
       direction: "next" | "previous" | null = null,
       forceFollowup?: boolean,
@@ -933,6 +933,9 @@ const handleClientChange = async (
               page: 1,
               pageSize: 0,
               search: "",
+              isFollowUp: forceFollowup ?? followupEnabled,
+              notKrafted: notKraftedEnabled,
+              kraftedNotSent: kraftedNotSentEnabled,
             }),
           });
 
@@ -1000,7 +1003,7 @@ const handleClientChange = async (
         }
         const emailResponses = contactsData.map((entry: any) => ({
           id: entry.id,
-          dataFileId: dataFileId || entry.dataFileId || "null", // Add dataFileId to response
+          dataFileId: dataFileId || entry.dataFileId || entry.DataFileId || entry.data_file_id || "null", // Add dataFileId to response
           segmentId: segmentId || "null", // Add segmentId to response
           name: entry.full_name || "N/A",
           title: entry.job_title || "N/A",
@@ -1080,6 +1083,7 @@ const handleClientChange = async (
       // If it's just a number (dataFileId) and not segment format, fix it
       if (
         !selectedZohoviewId.startsWith("segment_") &&
+        !selectedZohoviewId.startsWith("view_") &&
         !selectedZohoviewId.includes(",")
       ) {
         correctedZohoviewId = `${effectiveUserId},${selectedZohoviewId}`;
@@ -1601,8 +1605,16 @@ const resolvePromptSafely = async () => {
     let parsedClientId: number;
     let parsedDataFileId: number | null = null;
     let segmentId: string | null = null;
+    let viewId: string | null = null;
     if (selectedZohoviewId) {
-      if (selectedZohoviewId.startsWith("segment_")) {
+      if (selectedZohoviewId.startsWith("view_")) {
+        // Handle view-based campaign
+        viewId = selectedZohoviewId.replace("view_", "");
+        parsedClientId =
+          selectedClient !== "" ? Number(selectedClient) : Number(userId);
+        parsedDataFileId = null;
+        console.log("Using view-based campaign, viewId:", viewId);
+      } else if (selectedZohoviewId.startsWith("segment_")) {
         // ✅ Handle segment-based campaign
         segmentId = selectedZohoviewId.replace("segment_", "");
         parsedClientId =
@@ -1989,7 +2001,28 @@ const resolvePromptSafely = async () => {
           contacts = cachedContacts;
         } else {
           // ✅ Fetch contacts based on campaign type
-          if (segmentId) {
+          if (viewId) {
+            console.log("Fetching contacts from view API, viewId:", viewId);
+            const response = await fetch(`${API_BASE_URL}/api/Crm/view-contacts`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                clientId: effectiveUserId,
+                viewId: Number(viewId),
+                page: 1,
+                pageSize: 0,
+                search: "",
+              }),
+            });
+
+            if (!response.ok) {
+              throw new Error("Failed to fetch view contacts");
+            }
+
+            const data = await response.json();
+            contacts = data.contacts || [];
+            console.log("Fetched view contacts:", contacts.length);
+          } else if (segmentId) {
             // Fetch from segment API
             console.log(
               "Fetching contacts from segment API, segmentId:",
@@ -2025,7 +2058,7 @@ const resolvePromptSafely = async () => {
             console.log("Fetched datafile contacts:", contacts.length);
           } else {
             throw new Error(
-              "No valid data source found (neither segment nor datafile)",
+              "No valid data source found (neither view, segment nor datafile)",
             );
           }
         }
@@ -2104,8 +2137,9 @@ const resolvePromptSafely = async () => {
               subject: entry.email_subject || "N/A",
               lastemailupdateddate: entry.updated_at || "N/A",
               emailsentdate: entry.email_sent_at || "N/A",
-              dataFileId: entry.dataFileId, // Make sure this is preserved correctly
+              dataFileId: entry.dataFileId || entry.DataFileId || entry.data_file_id, // Make sure this is preserved correctly
               segmentId: segmentId ? parseInt(segmentId) : null, // Also preserve segmentId
+              viewId: viewId ? parseInt(viewId) : null,
             };
 
             setAllResponses((prevResponses) => {
@@ -2495,8 +2529,9 @@ totalEmailCostRef.current += subjectCost;
           // Update generatedPitches to include subject
           generatedPitches.push({
             ...entry,
-            name: entry.full_name || "N/A",
-            title: entry.job_title || "N/A",
+            dataFileId: entry.dataFileId || entry.DataFileId || entry.data_file_id || parsedDataFileId || null,
+            segmentId: entry.segmentId || (segmentId ? parseInt(segmentId) : null),
+            viewId: viewId ? parseInt(viewId) : null,
             company: entry.company_name || "N/A",
             location: entry.country_or_address || "N/A",
             website: entry.website || "N/A",
