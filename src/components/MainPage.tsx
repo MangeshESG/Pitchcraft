@@ -771,6 +771,14 @@ const handleClientChange = async (
     setUserRole(isAdmin ? "ADMIN" : "USER");
   }, []);
 
+  useEffect(() => {
+    if (!userRole || userRole === "ADMIN" || !selectedClient) return;
+
+    setSelectedClient("");
+    localStorage.removeItem("selectedClientId");
+    sessionStorage.removeItem("selectedClientId");
+  }, [userRole, selectedClient]);
+
   // Listen for blueprint edit event from Output
   useEffect(() => {
     const handleShowLoader = () => {

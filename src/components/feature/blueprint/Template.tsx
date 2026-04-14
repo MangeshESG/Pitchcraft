@@ -164,8 +164,25 @@ const Template: React.FC<TemplateProps> = ({
     handleSkipModal,
     credits,
   } = useCreditCheck();
-  const userId = sessionStorage.getItem("clientId");
-  const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
+  const DEFAULT_USER_TEMPLATE_ID = 65;
+  const DEFAULT_USER_TEMPLATE_NAME = "PKB- FINAL 2.0";
+  const isAdmin = userRole?.toUpperCase() === "ADMIN";
+  const normalizeClientId = (value?: string | null) => {
+    const trimmedValue = value?.trim();
+
+    if (
+      !trimmedValue ||
+      trimmedValue === "null" ||
+      trimmedValue === "undefined"
+    ) {
+      return "";
+    }
+
+    return trimmedValue;
+  };
+  const loggedInClientId = normalizeClientId(sessionStorage.getItem("clientId"));
+  const selectedClientId = normalizeClientId(selectedClient);
+  const effectiveUserId = isAdmin ? selectedClientId : loggedInClientId;
 
   const BLUEPRINT_BUILDER_SESSION_KEY = "blueprintBuilderOpen";
 
@@ -213,9 +230,6 @@ const Template: React.FC<TemplateProps> = ({
   const [listSortKey, setListSortKey] = useState<string>("templateName");
   const [listSortDirection, setListSortDirection] = useState<"asc" | "desc">("asc");
 
-  const DEFAULT_USER_TEMPLATE_ID = 65;
-  const DEFAULT_USER_TEMPLATE_NAME = "PKB- FINAL 2.0";
-  const isAdmin = userRole?.toUpperCase() === "ADMIN";
    // Utility functions
   // ✅ NEW: String comparison helper for sorting
   const compareStrings = (a?: string, b?: string, direction: "asc" | "desc" = "asc") => {
@@ -308,6 +322,15 @@ const Template: React.FC<TemplateProps> = ({
 
   // ✅ NEW: Handle create campaign button click
   const handleCreateCampaignClick = async () => {
+    if (!effectiveUserId) {
+      appModal.showError(
+        isAdmin
+          ? "Please select a client before creating a blueprint"
+          : "Client ID missing. Please log in again.",
+      );
+      return;
+    }
+
     // Check credits before allowing blueprint creation
     if (sessionStorage.getItem("isDemoAccount") !== "true" && effectiveUserId) {
       const currentCredits = await checkUserCredits(effectiveUserId);
@@ -335,6 +358,15 @@ const Template: React.FC<TemplateProps> = ({
   const handleTemplateNameSubmit = async () => {
     if (!templateNameInput.trim()) {
       appModal.showError("Please enter a campaign name");
+      return;
+    }
+
+    if (!effectiveUserId) {
+      appModal.showError(
+        isAdmin
+          ? "Please select a client before creating a blueprint"
+          : "Client ID missing. Please log in again.",
+      );
       return;
     }
 
@@ -1829,7 +1861,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
             {/* <h2 className="font-[600]">{sessionStorage.getItem("newCampaignName") || "Blueprint"}</h2> */}
           </div>
 
-          <EmailCampaignBuilder selectedClient={selectedClient} />
+          <EmailCampaignBuilder selectedClient={effectiveUserId} />
         </div>
       )}
 

@@ -43,6 +43,11 @@ const getCookie = (name: string): string | null => {
   return null;
 };
 
+const clearSelectedClientContext = () => {
+  localStorage.removeItem("selectedClientId");
+  sessionStorage.removeItem("selectedClientId");
+};
+
 /* ---------------- LOGIN FORM ---------------- */
 const LoginForm: React.FC<ViewProps> = ({ setView }) => {
   const reduxUserId = useSelector((state: RootState) => state.auth.userId);
@@ -133,6 +138,7 @@ const LoginForm: React.FC<ViewProps> = ({ setView }) => {
       if (response.ok && data.token) {
         localStorage.setItem("token", data.token);   // ✅ ADD THIS LINE
         dispatch(setToken(data.token));
+        clearSelectedClientContext();
 
 
         const userId = getUserIdFromToken(data.token);
@@ -635,6 +641,7 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
         if (response.ok && data.token) {
           localStorage.setItem("token", data.token);
           dispatch(setToken(data.token));
+          clearSelectedClientContext();
 
           const userId = getUserIdFromToken(data.token);
           const userRole = getUserRoleFromToken(data.token);
@@ -733,7 +740,7 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
         if (res.ok && data.token) {
           localStorage.setItem("token", data.token);   // ✅ ADD THIS LINE
           dispatch(setToken(data.token));
-
+          clearSelectedClientContext();
 
           const userId = getUserIdFromToken(data.token);
           const userRole = getUserRoleFromToken(data.token);
