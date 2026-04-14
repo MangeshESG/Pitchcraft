@@ -182,7 +182,9 @@ const Template: React.FC<TemplateProps> = ({
   };
   const loggedInClientId = normalizeClientId(sessionStorage.getItem("clientId"));
   const selectedClientId = normalizeClientId(selectedClient);
-  const effectiveUserId = isAdmin ? selectedClientId : loggedInClientId;
+  const effectiveUserId = isAdmin
+    ? selectedClientId || loggedInClientId
+    : loggedInClientId;
 
   const BLUEPRINT_BUILDER_SESSION_KEY = "blueprintBuilderOpen";
 
@@ -325,7 +327,7 @@ const Template: React.FC<TemplateProps> = ({
     if (!effectiveUserId) {
       appModal.showError(
         isAdmin
-          ? "Please select a client before creating a blueprint"
+          ? "Please select a client or log in again to use the admin account."
           : "Client ID missing. Please log in again.",
       );
       return;
@@ -364,7 +366,7 @@ const Template: React.FC<TemplateProps> = ({
     if (!effectiveUserId) {
       appModal.showError(
         isAdmin
-          ? "Please select a client before creating a blueprint"
+          ? "Please select a client or log in again to use the admin account."
           : "Client ID missing. Please log in again.",
       );
       return;
