@@ -1,0 +1,8 @@
+.dynamic-contacts-column-panel {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.dynamic-contacts-column-panel::-webkit-scrollbar {
+  display: none;
+}

@@ -1,6 +1,7 @@
 import { useRef, useCallback, useState, useEffect, useMemo } from "react";
 import React from "react";
 import PaginationControls from "./PaginationControls";
+import "./DynamicContactsTable.css";
 
 interface DataFile {
   id: number;
@@ -675,25 +676,6 @@ const displayData =
     };
   }, [showColumnPanel]);
 
-  const [tableWidth, setTableWidth] = useState(window.innerWidth - 300);
-
-  useEffect(() => {
-    const handleResize = () => {
-      setTableWidth(window.innerWidth - 300);
-    };
-
-    // Set initial width
-    handleResize();
-
-    // Add resize listener
-    window.addEventListener('resize', handleResize);
-
-    // Cleanup on unmount
-    return () => {
-      window.removeEventListener('resize', handleResize);
-    };
-  }, []);
-
   return (
     <>
       {/* Detail View Header */}
@@ -871,18 +853,32 @@ const displayData =
       )}
 
       {/* Main Content with Sidebar */}
-      <div style={{ position: "relative", display: "flex" }}>
+      <div style={{ position: "relative", width: "100%", minWidth: 0 }}>
 
         {/* Table Content */}
         <div
           style={{
             flex: 1,
-            marginRight: showColumnPanel ? "300px" : "0",
-            transition: "margin-right 0.3s ease",
+            width: "100%",
+            minWidth: 0,
           }}
         >
-          <div className="contacts-table-wrapper " style={{ width: `${tableWidth}px` }}>
-            <table className="contacts-table">
+          <div
+            className="contacts-table-wrapper "
+            style={{
+              width: "100%",
+              maxWidth: "100%",
+              overflowX: "auto",
+              overflowY: "hidden",
+            }}
+          >
+            <table
+              className="contacts-table"
+              style={{
+                minWidth: "100%",
+                width: "max-content",
+              }}
+            >
               <thead>
                 <tr>
                   {visibleColumns.map((column) => (
@@ -1012,18 +1008,21 @@ const displayData =
         {showColumnPanel && (
           <div
             ref={columnPanelRef}
+            className="dynamic-contacts-column-panel"
             style={{
               position: "fixed",
-              top: 0,
-              right: 0,
-              height: "100vh",
-              width: "300px",
+              top: 8,
+              right: 8,
+              bottom: 8,
+              width: "min(320px, calc(100vw - 16px))",
               background: "#fff",
               border: "1px solid #e0e0e0",
               boxShadow: "-4px 0 12px rgba(0,0,0,0.15)",
               padding: "20px",
               zIndex: 1000,
               overflowY: "auto",
+              boxSizing: "border-box",
+              borderRadius: "12px",
             }}
           >
             <div

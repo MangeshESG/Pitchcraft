@@ -106,7 +106,7 @@ const Tracking: React.FC<TrackingProps> = ({ selectedClient }) => {
 
   return (
     <div className="data-campaigns-container"
-    style={{ marginTop:"-60px" }}>
+    style={{ marginTop:"-45px" }}>
       <style>{toastAnimation}</style>
 
       <div className="section-wrapper" style={{ paddingTop: 0 }}>

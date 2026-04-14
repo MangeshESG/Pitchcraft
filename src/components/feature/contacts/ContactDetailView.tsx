@@ -11,43 +11,26 @@ import {
   faAngleRight,
   faBars,
   faBullhorn,
-  faDashboard,
- // faEdit,
   faEllipsisV,
   faEnvelope,
   faEnvelopeOpen,
   faFileAlt,
   faGear,
   faList,
-  faRobot,
-  faTrash ,
-  faThumbtack,
   faPaperclip,
   faDownload,
-  faThumbtackSlash,
-  faFileCirclePlus,
-  faFileSignature,
-  faFileEdit
-
-} from "@fortawesome/free-solid-svg-icons"
-import { faEdit,faTrashAlt,faCircleXmark,faSquarePlus    } from "@fortawesome/free-regular-svg-icons";
+} from "@fortawesome/free-solid-svg-icons";
+import { faEdit, faTrashAlt, faSquarePlus } from "@fortawesome/free-regular-svg-icons";
 import EditContactModal from "../EditContactModal";
 import { useAppModal } from "../../../hooks/useAppModal";
 import pitchLogo from "../../../assets/images/pitch_logo.png";
-import ReactQuill from "react-quill";
 import "react-quill/dist/quill.snow.css";
 import emailPersonalizationIcon from "../../../assets/images/emailPersonal.png";
 import RichTextEditor from '../../common/RTEEditor';
-import DOMPurify from "dompurify";
-import Detail from './Detail'
 import LoadingSpinner from '../../common/LoadingSpinner';
 import deleteIcon from "../../../assets/images/deleteiconn.png";
 
-import unpin from "../../../assets/images/pinicon.png";
-import gpsPin from "../../../assets/images/Unpin.png";
-import pinimage from "../../../assets/images/pin.png";
 import{formatDateTimeLocal, formatTimeLocal}from "../../common/dateFormatters";
-import { Slash } from "lucide-react";
 import { Pin, PinOff } from 'lucide-react';
 
 import CommonSidePanel from '../../common/CommonSidePanel';
@@ -80,7 +63,13 @@ interface Contact {
   linkedIninformation?: string;
 }
 
-const ContactDetailView: React.FC = () => {
+interface ContactDetailViewProps {
+  embedded?: boolean;
+}
+
+const ContactDetailView: React.FC<ContactDetailViewProps> = ({
+  embedded = false,
+}) => {
   const params = useParams<{ contactId: string }>();
   const contactId = params.contactId;
 
@@ -102,8 +91,6 @@ const ContactDetailView: React.FC = () => {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   const appModal = useAppModal();
-  // Side menu states
-  // Side menu states
   const [tab, setTab] = useState("Dashboard");
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showBlueprintSubmenu, setShowBlueprintSubmenu] = useState(false);
@@ -336,19 +323,27 @@ const isSaveDisabled =
 const reduxUserId = useSelector((state: RootState) => state.auth.userId);
 
 const effectiveUserId = useMemo(() => {
-  const storedClientId = sessionStorage.getItem("selectedClientId");
+  const storedClientId =
+    searchParams.get("clientId") ||
+    localStorage.getItem("selectedClientId") ||
+    sessionStorage.getItem("selectedClientId");
 
   if (storedClientId && storedClientId !== "" && storedClientId !== "null") {
     return Number(storedClientId);
   }
 
   return Number(reduxUserId);
-}, [reduxUserId]);
+}, [reduxUserId, searchParams]);
 useEffect(() => {
   console.log("Redux User:", reduxUserId);
-  console.log("Stored Client:", sessionStorage.getItem("selectedClientId"));
+  console.log(
+    "Stored Client:",
+    searchParams.get("clientId") ||
+      localStorage.getItem("selectedClientId") ||
+      sessionStorage.getItem("selectedClientId"),
+  );
   console.log("Effective Client:", effectiveUserId);
-}, [reduxUserId, effectiveUserId]);
+}, [reduxUserId, effectiveUserId, searchParams]);
 
   const inputStyle: React.CSSProperties = {
     width: "100%",
@@ -1038,9 +1033,9 @@ useEffect(() => {
   return (
     <>
     
-    <div className="flex h-screen overflow-hidden">
+    <div className={embedded ? "w-full" : "flex h-screen overflow-hidden"}>
       {/* SIDE MENU */}
-      {isSidebarOpen && (
+      {!embedded && isSidebarOpen && (
         <aside className="w-[250px] bg-white border-r shadow-sm flex flex-col h-screen sticky top-0 overflow-hidden">
           <div className="p-2 text-xl font-bold border-b">
             <div className="flex justify-between items-start">
@@ -1434,9 +1429,15 @@ useEffect(() => {
       )}
 
       {/* Content Area */}
-      <div className="flex flex-col flex-1  overflow-hidden bg-gray-100">
-        <div className="w-full h-screen overflow-y-auto bg-gray-100">
-          <div className="pt-4 pb-20 px-6 min-h-screen">
+      <div
+        className={
+          embedded
+            ? "w-full"
+            : "flex flex-col flex-1 overflow-hidden bg-gray-100"
+        }
+      >
+        <div className={embedded ? "w-full" : "w-full h-screen overflow-y-auto bg-gray-100"}>
+          <div className={embedded ? "pt-4 pb-20 px-2 min-h-full" : "pt-4 pb-20 px-6 min-h-screen"}>
             <div className="bg-white rounded-lg shadow-md p-6 mb-8 ">
               {/* TOP TABS */}
               {/* TOP TABS + RIGHT ACTIONS */}

@@ -21,6 +21,13 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import deleteIcon from "../../assets/images/deleteiconn.png";
 import duplicateIcon from "../../assets/images/icons/duplicate.png";
 import {
+  TRACKING_BOT_CLICK_FIELD,
+  TRACKING_CLICK_FIELD,
+  TRACKING_OPEN_FIELD,
+  TRACKING_SEND_DATE_FIELD,
+} from "../../utils/trackingFilterUtils";
+
+import {
   faAngleRight,
   faBars,
   faBullhorn,
@@ -286,6 +293,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     const saved = loadSelectedColumns();
     return saved.length > 0 ? saved : getDefaultVisibleColumns();
   });
+  const [viewRefreshToken, setViewRefreshToken] = useState(0);
 
   // Column configuration - excluding email_subject and email_body
   const [columns, setColumns] = useState<ColumnConfig[]>([
@@ -1962,6 +1970,30 @@ const baseFields: any[] = [
   { key: "companyEmployeeCount", label: "Employee Count", type: "number" },
   { key: "hasLinkedInInfo", label: "LinkedIn information", type: "boolean" },
   { key: "hasNotes", label: "Notes", type: "boolean" },
+  {
+    key: TRACKING_OPEN_FIELD,
+    label: "Opened email",
+    type: "boolean",
+    contextType: "campaign",
+  },
+  {
+    key: TRACKING_CLICK_FIELD,
+    label: "Clicked email",
+    type: "boolean",
+    contextType: "campaign",
+  },
+  {
+    key: TRACKING_BOT_CLICK_FIELD,
+    label: "Bot click",
+    type: "boolean",
+    contextType: "campaign",
+  },
+  {
+    key: TRACKING_SEND_DATE_FIELD,
+    label: "Send date",
+    type: "date",
+    contextType: "campaign",
+  },
 ];
 const normalizeFilterFieldType = (fieldType?: string) => {
   switch ((fieldType || "").toLowerCase()) {
@@ -2009,7 +2041,7 @@ const filterFields: any = useMemo(() => {
     <div className="data-campaigns-container">
       {/* Sub-tabs Navigation */}
       <div className="tabs secondary mb-20">
-        <ul className="d-flex" style={{ marginTop: "-56px" }}>
+        <ul className="d-flex" style={{ marginTop: "-47px" }}>
           <li>
             <button
               type="button"
@@ -2482,7 +2514,7 @@ const filterFields: any = useMemo(() => {
                              rowData: row
                            });
 
-                           const contactDetailsUrl = `/#/contact-details/${row.id}?dataFileId=${dataFileId}`;
+                           const contactDetailsUrl = `/#/contact-details/${row.id}?tab=DataCampaigns&subtab=List&dataFileId=${dataFileId}&clientId=${effectiveUserId}`;
                            window.open(contactDetailsUrl, "_blank");
                           }}
                         >
@@ -2632,7 +2664,13 @@ const filterFields: any = useMemo(() => {
                         <FilterBuilder
                           data={allDetailContacts}
                           fields={filterFields}
-                          onFiltered={(data) => setDetailContacts(data)}
+                          onFiltered={(data) => {
+                            setDetailContacts(data);
+                            setDetailTotalContacts(data.length);
+                            setDetailCurrentPage(1);
+                            setDetailSelectedContacts(new Set());
+                          }}
+                          clientId={effectiveUserId}
                           saveViewConfig={{
                             clientId: effectiveUserId,
                             dataFileIds:
@@ -2644,10 +2682,12 @@ const filterFields: any = useMemo(() => {
                             useAllDataFiles: selectedDataFileForView?.id === -1,
                             excludedDataFileIds:
                               selectedDataFileForView?.id === -1 ? [] : undefined,
-                            onSuccess: (view) =>
+                            onSuccess: (view) => {
+                              setViewRefreshToken((prev) => prev + 1);
                               appModal.showSuccess(
                                 `View "${view?.name || "Saved view"}" created successfully!`
-                              ),
+                              );
+                            },
                             onError: (message) => appModal.showError(message),
                           }}
                         />
@@ -3810,7 +3850,7 @@ const filterFields: any = useMemo(() => {
                             // Use row.dataFileId if available, otherwise use segment's dataFileId
                             const dataFileId = row.dataFileId || selectedSegmentForView.dataFileId;
                             
-                            const contactDetailsUrl = `/#/contact-details/${row.id}?segmentId=${selectedSegmentForView.id}&dataFileId=${dataFileId}`;
+                            const contactDetailsUrl = `/#/contact-details/${row.id}?tab=DataCampaigns&subtab=Segment&segmentId=${selectedSegmentForView.id}&dataFileId=${dataFileId}&clientId=${effectiveUserId}`;
                             window.open(contactDetailsUrl, "_blank");
                           }}
                         >
@@ -4457,10 +4497,12 @@ const filterFields: any = useMemo(() => {
         </div>
       )}
 
-      {activeSubTab === "View" && (
+      <div style={{ display: activeSubTab === "View" ? "block" : "none" }}>
         <ContactViews
           clientId={effectiveUserId}
           filterFields={filterFields}
+          isActive={activeSubTab === "View"}
+          refreshToken={viewRefreshToken}
           columnNameMap={columnNameMap}
           persistedColumnSelection={savedColumnSelection}
           onColumnsChange={(updatedColumns) => {
@@ -4478,7 +4520,7 @@ const filterFields: any = useMemo(() => {
             }
           }}
         />
-      )}
+      </div>
 
       {/* Rename Segment Modal */}
       <CommonSidePanel

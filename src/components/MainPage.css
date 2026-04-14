@@ -2122,6 +2122,28 @@ textarea {
 
 }
 
+@keyframes main-page-tab-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.preserved-tab-panel {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: visible;
+  will-change: opacity, transform;
+}
+
 /* Checkbox styling */
 .checkbox-label {
   display: flex;

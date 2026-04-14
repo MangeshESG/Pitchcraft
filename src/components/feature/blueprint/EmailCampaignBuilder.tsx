@@ -39,6 +39,11 @@ interface Message {
   timestamp: Date;
 }
 
+interface StoredChatMessage {
+  role?: string;
+  content?: string;
+}
+
 // include both old and new tab keys
 type MainTab = "build" | "instructions" | "ct";
 type BuildSubTab = "chat" | "elements";
@@ -293,6 +298,68 @@ export function useSessionState<T>(
 
   return [state, setState];
 }
+
+const cleanStoredAssistantMessage = (text: string): string => {
+  if (!text) return "";
+
+  return text
+    .replace(
+      /==PLACEHOLDER_VALUES_START==[\s\S]*?==PLACEHOLDER_VALUES_END==/g,
+      "",
+    )
+    .replace(/{\s*"status"[\s\S]*?}/g, "")
+    .trim();
+};
+
+const readStoredChatMessages = (source: any): StoredChatMessage[] | undefined => {
+  if (!source) return undefined;
+
+  if (Array.isArray(source)) {
+    return source;
+  }
+
+  if (typeof source === "string") {
+    try {
+      const parsed = JSON.parse(source);
+      return Array.isArray(parsed) ? parsed : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  return (
+    readStoredChatMessages(source.messages) ||
+    readStoredChatMessages(source.Messages) ||
+    readStoredChatMessages(source.conversationData) ||
+    readStoredChatMessages(source.ConversationData) ||
+    readStoredChatMessages(source.history) ||
+    readStoredChatMessages(source.History) ||
+    readStoredChatMessages(source.conversation) ||
+    readStoredChatMessages(source.Conversation)
+  );
+};
+
+const mapStoredChatMessages = (storedMessages?: StoredChatMessage[]): Message[] => {
+  if (!Array.isArray(storedMessages)) return [];
+
+  return storedMessages
+    .filter((message) => {
+      const role = message.role?.toLowerCase();
+      return role === "user" || role === "assistant";
+    })
+    .map((message): Message => {
+      const role = message.role?.toLowerCase();
+      const content = message.content || "";
+
+      return {
+        type: role === "assistant" ? "bot" : "user",
+        content:
+          role === "assistant" ? cleanStoredAssistantMessage(content) : content,
+        timestamp: new Date(),
+      };
+    })
+    .filter((message) => message.content.trim().length > 0);
+};
 
 const ConversationTab: React.FC<ConversationTabProps> = ({
   conversationStarted,
@@ -1178,6 +1245,7 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
     "campaign_messages",
     [],
   );
+  const hasAttemptedChatRestoreRef = useRef(false);
   const [usageInfo, setUsageInfo] = useState<any>(null);
 
   const [finalPrompt, setFinalPrompt] = useSessionState<string>(
@@ -2417,6 +2485,76 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
     sessionStorage.removeItem("campaign_template_name");
   };
 
+  const applyStoredChatMessages = (storedMessages?: StoredChatMessage[]) => {
+    const restoredMessages = mapStoredChatMessages(storedMessages);
+
+    if (restoredMessages.length === 0) {
+      return false;
+    }
+
+    const rawMessages = Array.isArray(storedMessages) ? storedMessages : [];
+    const restoredComplete = rawMessages.some((message) => {
+      const content = message.content || "";
+      return (
+        content.includes("==PLACEHOLDER_VALUES_START==") &&
+        content.includes("==PLACEHOLDER_VALUES_END==") &&
+        content.includes('"complete"')
+      );
+    });
+
+    setMessages(restoredMessages);
+    setConversationStarted(true);
+    setIsComplete(restoredComplete);
+    setActiveMainTab("build");
+    setActiveBuildTab("chat");
+
+    return true;
+  };
+
+  const getStoredCampaignId = () => {
+    const storedId =
+      sessionStorage.getItem("newCampaignId") ||
+      sessionStorage.getItem("editTemplateId");
+    const parsedId = Number(storedId);
+
+    return Number.isFinite(parsedId) && parsedId > 0 ? parsedId : null;
+  };
+
+  const restoreChatFromBackend = async () => {
+    if (!effectiveUserId || messages.length > 0) return;
+
+    const campaignId = getStoredCampaignId();
+    if (!campaignId) return;
+
+    const isStartingNewCampaign =
+      sessionStorage.getItem("autoStartConversation") === "true";
+    const isOpeningForElementEdit =
+      sessionStorage.getItem("editTemplateMode") === "true";
+
+    if (isStartingNewCampaign || isOpeningForElementEdit) return;
+
+    try {
+      const historyResponse = await axios.get(
+        `${API_BASE_URL}/api/CampaignPrompt/history/${effectiveUserId}`,
+      );
+      const historyData = historyResponse.data?.response ?? historyResponse.data;
+
+      applyStoredChatMessages(readStoredChatMessages(historyData));
+    } catch (error) {
+      console.warn("Failed to restore campaign chat from backend:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (!effectiveUserId || messages.length > 0) return;
+    if (hasAttemptedChatRestoreRef.current) return;
+
+    hasAttemptedChatRestoreRef.current = true;
+    restoreChatFromBackend();
+    // Restore should run once per builder mount when local chat is empty.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveUserId, messages.length]);
+
   const loadTemplateForEdit = async (templateId: number) => {
     setIsLoadingTemplate(true);
     try {
@@ -2442,17 +2580,17 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       // --------------------------------------------
       // LOAD PREVIOUS CONVERSATION MESSAGES
       // --------------------------------------------
-      if (template.conversation && template.conversation.messages) {
+      let loadedMessages: Message[] = [];
+
+      const storedConversationMessages = readStoredChatMessages(template);
+
+      if (storedConversationMessages) {
         console.log(
           "📨 Loading past conversation messages:",
-          template.conversation.messages.length,
+          storedConversationMessages.length,
         );
 
-        const loadedMessages = template.conversation.messages.map((m: any) => ({
-          type: m.role === "assistant" ? "bot" : "user",
-          content: m.content,
-          timestamp: new Date(),
-        }));
+        loadedMessages = mapStoredChatMessages(storedConversationMessages);
 
         setMessages(loadedMessages);
       } else {
@@ -2481,7 +2619,7 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
 
       setActiveMainTab("build");
       setActiveBuildTab("chat");
-      setConversationStarted(false);
+      setConversationStarted(loadedMessages.length > 0);
       setIsTyping(false);
       // setIsEditMode(true);
     } catch (error) {

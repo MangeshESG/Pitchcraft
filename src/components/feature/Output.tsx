@@ -1644,7 +1644,7 @@ useEffect(() => {
       {/* Add the selection dropdowns and subject line section */}
       <div
         className="d-flex justify-between align-center mb-3"
-        style={{ marginTop: "-60px" }}
+        style={{ marginTop: "-45px" }}
       >
         <div className="input-section edit-section w-[100%]">
           {/* Dropdowns Row */}
@@ -2433,7 +2433,7 @@ useEffect(() => {
                            const contact = combinedResponses[currentIndex];
                            if (!contact?.id) return;
 
-                           const contactDetailsUrl = `/#/contact-details/${contact.id}?dataFileId=${contact?.dataFileId}`;
+                           const contactDetailsUrl = `/#/contact-details/${contact.id}?tab=Output&dataFileId=${contact?.dataFileId}&clientId=${effectiveUserId}`;
                            window.open(contactDetailsUrl, "_blank");
                            }}
                            className="cursor-pointer text-[#3f9f42] hover:underline font-semibold px-[10px]"

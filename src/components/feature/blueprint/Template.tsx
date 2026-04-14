@@ -164,10 +164,52 @@ const Template: React.FC<TemplateProps> = ({
     handleSkipModal,
     credits,
   } = useCreditCheck();
-  const userId = sessionStorage.getItem("clientId");
-  const effectiveUserId = selectedClient !== "" ? selectedClient : userId;
+  const DEFAULT_USER_TEMPLATE_ID = 65;
+  const DEFAULT_USER_TEMPLATE_NAME = "PKB- FINAL 2.0";
+  const isAdmin = userRole?.toUpperCase() === "ADMIN";
+  const normalizeClientId = (value?: string | null) => {
+    const trimmedValue = value?.trim();
 
-  const [showCampaignBuilder, setShowCampaignBuilder] = useState(false);
+    if (
+      !trimmedValue ||
+      trimmedValue === "null" ||
+      trimmedValue === "undefined"
+    ) {
+      return "";
+    }
+
+    return trimmedValue;
+  };
+  const loggedInClientId = normalizeClientId(sessionStorage.getItem("clientId"));
+  const selectedClientId = normalizeClientId(selectedClient);
+  const effectiveUserId = isAdmin
+    ? selectedClientId || loggedInClientId
+    : loggedInClientId;
+
+  const BLUEPRINT_BUILDER_SESSION_KEY = "blueprintBuilderOpen";
+
+  const getStoredActiveBlueprintId = () => {
+    const storedId =
+      sessionStorage.getItem("newCampaignId") ||
+      sessionStorage.getItem("editTemplateId");
+    const parsedId = Number(storedId);
+
+    return Number.isFinite(parsedId) && parsedId > 0 ? parsedId : null;
+  };
+
+  const shouldRestoreCampaignBuilder = () => {
+    const hasActiveBlueprint = getStoredActiveBlueprintId() !== null;
+    const builderWasOpen =
+      sessionStorage.getItem(BLUEPRINT_BUILDER_SESSION_KEY) === "true";
+    const editModeRequested =
+      sessionStorage.getItem("editTemplateMode") === "true";
+
+    return hasActiveBlueprint && (builderWasOpen || editModeRequested);
+  };
+
+  const [showCampaignBuilder, setShowCampaignBuilder] = useState(() =>
+    shouldRestoreCampaignBuilder(),
+  );
 
   // ✅ NEW: Template name modal states
   const [showTemplateNameModal, setShowTemplateNameModal] = useState(false);
@@ -177,6 +219,8 @@ const Template: React.FC<TemplateProps> = ({
   >([]);
   const [selectedTemplateDefinitionId, setSelectedTemplateDefinitionId] =
     useState<number | null>(null);
+  const [isPreparingCreateCampaign, setIsPreparingCreateCampaign] =
+    useState(false);
   const [isCreatingCampaign, setIsCreatingCampaign] = useState(false);
   const [hoveredTemplateId, setHoveredTemplateId] = useState<number | null>(
     null,
@@ -188,9 +232,6 @@ const Template: React.FC<TemplateProps> = ({
   const [listSortKey, setListSortKey] = useState<string>("templateName");
   const [listSortDirection, setListSortDirection] = useState<"asc" | "desc">("asc");
 
-  const DEFAULT_USER_TEMPLATE_ID = 65;
-  const DEFAULT_USER_TEMPLATE_NAME = "PKB- FINAL 2.0";
-  const isAdmin = userRole?.toUpperCase() === "ADMIN";
    // Utility functions
   // ✅ NEW: String comparison helper for sorting
   const compareStrings = (a?: string, b?: string, direction: "asc" | "desc" = "asc") => {
@@ -283,6 +324,15 @@ const Template: React.FC<TemplateProps> = ({
 
   // ✅ NEW: Handle create campaign button click
   const handleCreateCampaignClick = async () => {
+    if (!effectiveUserId) {
+      appModal.showError(
+        isAdmin
+          ? "Please select a client or log in again to use the admin account."
+          : "Client ID missing. Please log in again.",
+      );
+      return;
+    }
+
     // Check credits before allowing blueprint creation
     if (sessionStorage.getItem("isDemoAccount") !== "true" && effectiveUserId) {
       const currentCredits = await checkUserCredits(effectiveUserId);
@@ -292,12 +342,17 @@ const Template: React.FC<TemplateProps> = ({
       }
     }
 
-    // Fetch template definitions first
-    await fetchTemplateDefinitions();
-
-    // Show template name modal
+    setIsPreparingCreateCampaign(true);
     setShowTemplateNameModal(true);
     setTemplateNameInput("");
+    setSelectedTemplateDefinitionId(null);
+    setTemplateDefinitions([]);
+
+    try {
+      await fetchTemplateDefinitions();
+    } finally {
+      setIsPreparingCreateCampaign(false);
+    }
   };
 
   // ✅ NEW: Handle template name submission
@@ -305,6 +360,15 @@ const Template: React.FC<TemplateProps> = ({
   const handleTemplateNameSubmit = async () => {
     if (!templateNameInput.trim()) {
       appModal.showError("Please enter a campaign name");
+      return;
+    }
+
+    if (!effectiveUserId) {
+      appModal.showError(
+        isAdmin
+          ? "Please select a client or log in again to use the admin account."
+          : "Client ID missing. Please log in again.",
+      );
       return;
     }
 
@@ -354,6 +418,7 @@ const Template: React.FC<TemplateProps> = ({
         );
         sessionStorage.setItem("autoStartConversation", "true");
         sessionStorage.setItem("openConversationTab", "true");
+        setActiveBlueprintId(data.campaignId);
 
         await fetchCampaignTemplates(); // ✅ CRITICAL
 
@@ -641,6 +706,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
     sessionStorage.setItem("newCampaignName", blueprint.templateName);
     sessionStorage.setItem("editTemplateId", blueprint.id.toString());
     sessionStorage.setItem("editTemplateMode", "true");
+    setActiveBlueprintId(blueprint.id);
 
     // Force builder re-mount
     setShowCampaignBuilder(false);
@@ -773,21 +839,39 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
       setIsLoading(false);
     }
   };
-  const [activeBlueprintId, setActiveBlueprintId] = useState<number | null>(
-  Number(sessionStorage.getItem("newCampaignId")) || null
-);
+  const [activeBlueprintId, setActiveBlueprintId] = useState<number | null>(() =>
+    getStoredActiveBlueprintId(),
+  );
 
   // Check if we should open builder directly on mount
   useEffect(() => {
-    const editTemplateId = sessionStorage.getItem("editTemplateId");
-    const editMode = sessionStorage.getItem("editTemplateMode");
-    
-    if (editTemplateId && editMode === "true") {
+    const storedId =
+      sessionStorage.getItem("newCampaignId") ||
+      sessionStorage.getItem("editTemplateId");
+    const parsedId = Number(storedId);
+    const hasStoredBlueprint = Number.isFinite(parsedId) && parsedId > 0;
+    const builderWasOpen =
+      sessionStorage.getItem(BLUEPRINT_BUILDER_SESSION_KEY) === "true";
+    const editModeRequested =
+      sessionStorage.getItem("editTemplateMode") === "true";
+
+    if (hasStoredBlueprint) {
+      setActiveBlueprintId(parsedId);
+    }
+
+    if (hasStoredBlueprint && (builderWasOpen || editModeRequested)) {
       setShowCampaignBuilder(true);
-      // Clear the flag so it doesn't trigger again
-      sessionStorage.removeItem("editTemplateMode");
     }
   }, []);
+
+  useEffect(() => {
+    if (showCampaignBuilder && activeBlueprintId !== null) {
+      sessionStorage.setItem(BLUEPRINT_BUILDER_SESSION_KEY, "true");
+      return;
+    }
+
+    sessionStorage.removeItem(BLUEPRINT_BUILDER_SESSION_KEY);
+  }, [activeBlueprintId, showCampaignBuilder]);
   // ✅ NEW: Render sort arrow indicator
   const renderSortArrow = (columnKey: string, currentSortKey: string, sortDirection: string) => {
     if (columnKey === currentSortKey) {
@@ -800,7 +884,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
     <div className="template-container">
       {!showCampaignBuilder ? (
         <>
-          <div className="section-wrapper" style={{ marginTop: "-60px" }}>
+          <div className="section-wrapper" style={{ marginTop: "-40px" }}>
             <h2 className="section-title">Blueprints</h2>
 
             {/* Search and Create button */}
@@ -890,6 +974,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                               "newCampaignName",
                               template.templateName,
                             );
+                            setActiveBlueprintId(template.id);
 
                             // const example =
                             //   getTooltipText(exampleCache[template.id] || generateExampleEmail(template));
@@ -997,6 +1082,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                                   // REQUIRED FIX 🔥 (builder reads this!)
                                   sessionStorage.setItem("newCampaignId", template.id.toString());
                                   sessionStorage.setItem("newCampaignName", template.templateName);
+                                  setActiveBlueprintId(template.id);
                                  // ✅ FIXED: Load example email immediately
                                   try {
                                     const fullTemplate = await fetchCampaignTemplateDetails(template.id);
@@ -1164,6 +1250,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                   className="button save-button"
                   onClick={handleTemplateNameSubmit}
                   disabled={
+                    isPreparingCreateCampaign ||
                     !templateNameInput.trim() ||
                     !selectedTemplateDefinitionId ||
                     isCreatingCampaign
@@ -1176,8 +1263,8 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                     color: "#dc3545",
                     fontSize: "14px",
                     fontWeight: "500",
-                    cursor: (!templateNameInput.trim() || !selectedTemplateDefinitionId || isCreatingCampaign) ? "not-allowed" : "pointer",
-                    opacity: (!templateNameInput.trim() || !selectedTemplateDefinitionId || isCreatingCampaign) ? 0.5 : 1
+                    cursor: (isPreparingCreateCampaign || !templateNameInput.trim() || !selectedTemplateDefinitionId || isCreatingCampaign) ? "not-allowed" : "pointer",
+                    opacity: (isPreparingCreateCampaign || !templateNameInput.trim() || !selectedTemplateDefinitionId || isCreatingCampaign) ? 0.5 : 1
                   }}
                 >
                   {isCreatingCampaign ? (
@@ -1192,53 +1279,90 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
               </>
             }
           >
-            {isAdmin && (
-              <div className="form-group" style={{ marginBottom: "20px" }}>
-                <label>
-                  Select base template <span style={{ color: "red" }}>*</span>
-                </label>
-                <select
-                  value={selectedTemplateDefinitionId || ""}
-                  onChange={(e) => setSelectedTemplateDefinitionId(parseInt(e.target.value))}
-                >
-                  <option value="">-- Select a template definition --</option>
-                  {templateDefinitions.map((def) => (
-                    <option key={def.id} value={def.id}>
-                      {def.templateName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div className="form-group" style={{ marginBottom: "20px" }}>
-              <label htmlFor="templateName" style={{ display: "block", marginBottom: "8px", fontWeight: "500" }}>
-                Campaign name <span style={{ color: "red" }}>*</span>
-              </label>
-              <input
-                id="templateName"
-                type="text"
-                value={templateNameInput}
-                onChange={(e) => setTemplateNameInput(e.target.value)}
-                placeholder="e.g., IBM Sales Outreach"
-                autoFocus
-                onKeyPress={(e) => {
-                  if (e.key === "Enter" && templateNameInput.trim() && selectedTemplateDefinitionId) {
-                    handleTemplateNameSubmit();
-                  }
-                }}
+            {isPreparingCreateCampaign ? (
+              <div
                 style={{
-                  width: "100%",
-                  padding: "12px 16px",
-                  border: "2px solid #e5e7eb",
-                  borderRadius: "8px",
-                  fontSize: "15px",
+                  minHeight: "220px",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "14px",
+                  color: "#4b5563",
                 }}
-              />
-              <p style={{ marginTop: "8px", fontSize: "13px", color: "#6b7280" }}>
-                💡 Give this specific campaign instance a unique name
-              </p>
-            </div>
+              >
+                <style>
+                  {`
+                    @keyframes templatePanelSpin {
+                      to { transform: rotate(360deg); }
+                    }
+                  `}
+                </style>
+                <div
+                  style={{
+                    width: "36px",
+                    height: "36px",
+                    border: "4px solid #e5e7eb",
+                    borderTopColor: "#dc3545",
+                    borderRadius: "50%",
+                    animation: "templatePanelSpin 0.8s linear infinite",
+                  }}
+                />
+                <div style={{ fontSize: "14px", fontWeight: 500 }}>
+                  Loading blueprint options...
+                </div>
+              </div>
+            ) : (
+              <>
+                {isAdmin && (
+                  <div className="form-group" style={{ marginBottom: "20px" }}>
+                    <label>
+                      Select base template <span style={{ color: "red" }}>*</span>
+                    </label>
+                    <select
+                      value={selectedTemplateDefinitionId || ""}
+                      onChange={(e) => setSelectedTemplateDefinitionId(parseInt(e.target.value))}
+                    >
+                      <option value="">-- Select a template definition --</option>
+                      {templateDefinitions.map((def) => (
+                        <option key={def.id} value={def.id}>
+                          {def.templateName}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div className="form-group" style={{ marginBottom: "20px" }}>
+                  <label htmlFor="templateName" style={{ display: "block", marginBottom: "8px", fontWeight: "500" }}>
+                    Campaign name <span style={{ color: "red" }}>*</span>
+                  </label>
+                  <input
+                    id="templateName"
+                    type="text"
+                    value={templateNameInput}
+                    onChange={(e) => setTemplateNameInput(e.target.value)}
+                    placeholder="e.g., IBM Sales Outreach"
+                    autoFocus
+                    onKeyPress={(e) => {
+                      if (e.key === "Enter" && templateNameInput.trim() && selectedTemplateDefinitionId) {
+                        handleTemplateNameSubmit();
+                      }
+                    }}
+                    style={{
+                      width: "100%",
+                      padding: "12px 16px",
+                      border: "2px solid #e5e7eb",
+                      borderRadius: "8px",
+                      fontSize: "15px",
+                    }}
+                  />
+                  <p style={{ marginTop: "8px", fontSize: "13px", color: "#6b7280" }}>
+                    💡 Give this specific campaign instance a unique name
+                  </p>
+                </div>
+              </>
+            )}
           </CommonSidePanel>
           {/* Clone Name Input Modal */}
           <CommonSidePanel
@@ -1675,7 +1799,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
               gap: "16px",
               alignItems: "center",
               marginBottom: "20px",
-              marginTop: "-60px",
+              marginTop: "-35px",
               // borderBottom: "1px solid #e5e7eb",
               // background: "#f9fafb"
             }}
@@ -1684,6 +1808,8 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
               onClick={async () => {
                 // ✅ Close UI first
                 setShowCampaignBuilder(false);
+                setActiveBlueprintId(null);
+                sessionStorage.removeItem(BLUEPRINT_BUILDER_SESSION_KEY);
 
                 // ✅ Give React state a tick before cleanup
                 setTimeout(async () => {
@@ -1692,6 +1818,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                   sessionStorage.removeItem("newCampaignName");
                   sessionStorage.removeItem("autoStartConversation");
                   sessionStorage.removeItem("openConversationTab");
+                  sessionStorage.removeItem("initialExampleEmail");
 
                   // Don’t remove selectedTemplateDefinitionId – we need that next time
 
@@ -1713,7 +1840,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
               ← Back
             </button>
             <select
-              value={sessionStorage.getItem("newCampaignId") || ""}
+              value={activeBlueprintId?.toString() || ""}
               onChange={(e) => handleBlueprintSwitch(Number(e.target.value))}
               style={{
                 padding: "6px 12px",
@@ -1736,7 +1863,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
             {/* <h2 className="font-[600]">{sessionStorage.getItem("newCampaignName") || "Blueprint"}</h2> */}
           </div>
 
-          <EmailCampaignBuilder selectedClient={selectedClient} />
+          <EmailCampaignBuilder selectedClient={effectiveUserId} />
         </div>
       )}
 

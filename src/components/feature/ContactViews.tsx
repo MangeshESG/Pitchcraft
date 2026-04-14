@@ -2,19 +2,43 @@ import React, { useEffect, useMemo, useState } from "react";
 import API_BASE_URL from "../../config";
 import DynamicContactsTable from "./DynamicContactsTable";
 import PaginationControls from "./PaginationControls";
-import FilterBuilder, { FilterCondition } from "../common/FilterBuilder";
+import FilterBuilder from "../common/FilterBuilder";
 import CommonSidePanel from "../common/CommonSidePanel";
+import AppModal from "../common/AppModal";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEdit, faTrashAlt } from "@fortawesome/free-regular-svg-icons";
+import duplicateIcon from "../../assets/images/icons/duplicate.png";
+import BulkUpdatePanel from "./BulkUpdatePanel";
+import SegmentModal from "../common/SegmentModal";
 
-type FieldType = "text" | "number" | "date" | "boolean" | "dropdown";
-type JoinOperator = "AND" | "OR";
+import {
+  faEdit,
+  faTrashAlt,
+} from "@fortawesome/free-regular-svg-icons";
+
+import type {
+  FieldType,
+  FilterCondition,
+  FilterGroup,
+  JoinOperator,
+} from "../common/filterTypes";
+import {
+  TRACKING_CLICK_FIELD,
+  TRACKING_OPEN_FIELD,
+  buildTrackingIndexesForGroups,
+  conditionRequiresCampaign,
+  evaluateTrackingCondition,
+  hasRequiredConditionContext,
+} from "../../utils/trackingFilterUtils";
+
+import { useAppModal } from "../../hooks/useAppModal";
+
 
 interface ContactFieldOption {
   key: string;
   label: string;
   type: string;
   options?: string[];
+  contextType?: "campaign";
 }
 
 interface ViewSummary {
@@ -22,6 +46,7 @@ interface ViewSummary {
   name: string;
   description?: string;
   created_at?: string;
+  contactCount?: number;
 }
 
 interface ViewMeta {
@@ -41,6 +66,8 @@ interface ContactViewsProps {
   persistedColumnSelection?: string[];
   onColumnsChange?: (columns: any[]) => void;
   onShowMessage?: (message: string, type: "success" | "error") => void;
+  isActive?: boolean;
+  refreshToken?: number;
 }
 
 interface FilterBuilderFieldOption {
@@ -48,17 +75,23 @@ interface FilterBuilderFieldOption {
   label: string;
   type: FieldType;
   options?: string[];
+  contextType?: "campaign";
 }
 
-interface SourceOption {
-  id: number;
-  name: string;
-}
+type CsvColumn = {
+  key: string;
+  header: string;
+  getValue?: (contact: any) => any;
+};
 
 const VIEW_META_PREFIX = "crm_view_meta_";
+const VIEW_STATE_PREFIX = "crm_view_state_";
 
 const getViewMetaKey = (clientId: string | number) =>
   `${VIEW_META_PREFIX}${clientId}`;
+
+const getViewStateKey = (clientId: string | number) =>
+  `${VIEW_STATE_PREFIX}${clientId}`;
 
 const loadViewMetaMap = (clientId: string | number): Record<string, ViewMeta> => {
   try {
@@ -75,6 +108,47 @@ const saveViewMetaMap = (clientId: string | number, map: Record<string, ViewMeta
     localStorage.setItem(getViewMetaKey(clientId), JSON.stringify(map));
   } catch (error) {
     console.warn("Failed to save view metadata:", error);
+  }
+};
+
+const loadViewState = (
+  clientId: string | number
+): { viewId: number; viewMode: "detail" } | null => {
+  try {
+    const raw = sessionStorage.getItem(getViewStateKey(clientId));
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    if (parsed?.viewMode !== "detail" || !Number.isFinite(Number(parsed?.viewId))) {
+      return null;
+    }
+
+    return {
+      viewId: Number(parsed.viewId),
+      viewMode: "detail",
+    };
+  } catch (error) {
+    console.warn("Failed to load view state:", error);
+    return null;
+  }
+};
+
+const saveViewState = (
+  clientId: string | number,
+  state: { viewId: number; viewMode: "detail" }
+) => {
+  try {
+    sessionStorage.setItem(getViewStateKey(clientId), JSON.stringify(state));
+  } catch (error) {
+    console.warn("Failed to save view state:", error);
+  }
+};
+
+const clearViewState = (clientId: string | number) => {
+  try {
+    sessionStorage.removeItem(getViewStateKey(clientId));
+  } catch (error) {
+    console.warn("Failed to clear view state:", error);
   }
 };
 
@@ -143,9 +217,17 @@ const getRowValue = (row: Record<string, any>, fieldKey: string) => {
 const isCompleteCondition = (condition: FilterCondition) =>
   condition.field?.trim() &&
   condition.operator?.trim() &&
-  String(condition.value ?? "").trim() !== "";
+  (condition.operator === "isEmpty" ||
+    condition.operator === "isNotEmpty" ||
+    String(condition.value ?? "").trim() !== "") &&
+  hasRequiredConditionContext(condition);
 
-interface FilterGroup {
+interface SourceOption {
+  id: number;
+  name: string;
+}
+
+interface ParsedFilterGroup {
   id?: string;
   joinWithPrevious?: JoinOperator;
   conditions: FilterCondition[];
@@ -153,7 +235,7 @@ interface FilterGroup {
 
 const parseFiltersJson = (
   filtersJson?: string
-): { logic: string; groups: FilterGroup[] } => {
+): { logic: string; groups: ParsedFilterGroup[] } => {
   if (!filtersJson) {
     return { logic: "NONE", groups: [] };
   }
@@ -227,6 +309,45 @@ const getDisplayName = (row: any) => {
   return fullName || row?.email || "-";
 };
 
+const getCustomFieldValue = (contact: any, fieldName: string) => {
+  const directKey = `custom_${normalizeCustomFieldKey(fieldName)}`;
+  if (contact?.[directKey] !== undefined) {
+    return contact[directKey];
+  }
+
+  let customFieldsValue = contact?.customFields;
+  if (typeof customFieldsValue === "string") {
+    try {
+      customFieldsValue = JSON.parse(customFieldsValue);
+    } catch {
+      customFieldsValue = undefined;
+    }
+  }
+
+  if (customFieldsValue && typeof customFieldsValue === "object") {
+    if (fieldName in customFieldsValue) return customFieldsValue[fieldName];
+    const normalizedTarget = normalizeCustomFieldKey(fieldName);
+    const matchedEntry = Object.entries(customFieldsValue).find(
+      ([key]) => normalizeCustomFieldKey(key) === normalizedTarget
+    );
+    if (matchedEntry) return matchedEntry[1];
+  }
+
+  return "";
+};
+
+const getTrackingCampaignIds = (groups: FilterGroup[]) =>
+  Array.from(
+    new Set(
+      groups.flatMap((group) =>
+        (group.conditions || [])
+          .filter((condition) => conditionRequiresCampaign(condition))
+          .map((condition) => Number(condition.context?.campaignId))
+          .filter((campaignId) => Number.isFinite(campaignId) && campaignId > 0)
+      )
+    )
+  );
+
 const ContactViews: React.FC<ContactViewsProps> = ({
   clientId,
   filterFields,
@@ -234,6 +355,8 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   persistedColumnSelection = [],
   onColumnsChange,
   onShowMessage,
+  isActive = false,
+  refreshToken = 0,
 }) => {
   const [views, setViews] = useState<ViewItem[]>([]);
   const [viewSearch, setViewSearch] = useState("");
@@ -250,6 +373,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
 
   const [viewMode, setViewMode] = useState<"list" | "detail">("list");
   const [selectedView, setSelectedView] = useState<ViewItem | null>(null);
+  const [baseViewContacts, setBaseViewContacts] = useState<any[]>([]);
   const [viewContacts, setViewContacts] = useState<any[]>([]);
   const [viewSearchQuery, setViewSearchQuery] = useState("");
   const [viewCurrentPage, setViewCurrentPage] = useState(1);
@@ -267,7 +391,132 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   const [editFiltersJson, setEditFiltersJson] = useState("");
   const [editFiltersSeed, setEditFiltersSeed] = useState("");
   const [viewActionsAnchor, setViewActionsAnchor] = useState<number | null>(null);
+  const [viewContactCounts, setViewContactCounts] = useState<Record<number, number>>({});
+  const [downloadingViewId, setDownloadingViewId] = useState<number | null>(null);
+  const [showBulkUpdatePanel, setShowBulkUpdatePanel] = useState(false);
+  const [showSaveSegmentModal, setShowSaveSegmentModal] = useState(false);
+  const [isDeletingContact, setIsDeletingContact] = useState(false);
+  const [isCloningContact, setIsCloningContact] = useState(false);
+  const [isUnsubscribing, setIsUnsubscribing] = useState(false);
 
+  const appModal = useAppModal(); // ✅ correct place
+  //------------------------------
+  const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set());
+  const handleSelectContact = (contactId: string) => {
+    setSelectedContacts(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(contactId)) newSet.delete(contactId);
+      else newSet.add(contactId);
+      return newSet;
+    });
+  };
+
+const handleSelectAll = (contacts: any[]) => {
+  const ids = contacts.map(c => c.id.toString());
+
+  setSelectedContacts(prev => {
+    const allSelected = ids.every(id => prev.has(id));
+    return allSelected ? new Set() : new Set(ids);
+  });
+};
+
+const handleUnsubscribeContacts = async () => {
+  const ids = Array.from(selectedContacts);
+  if (ids.length === 0) return;
+
+  try {
+    setIsUnsubscribing(true);
+
+    for (const id of ids) {
+      const contact = viewContacts.find((item) => item.id.toString() === id);
+
+      if (!contact?.email) continue;
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/Crm/UnsubscribeContacts?ClientId=${clientId}&email=${encodeURIComponent(contact.email)}`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to unsubscribe selected contacts");
+      }
+    }
+
+    setSelectedContacts(new Set());
+    if (selectedView) {
+      await fetchContactsForView(selectedView);
+    }
+    appModal.showSuccess("Selected contacts unsubscribed successfully!");
+  } catch (error) {
+    console.error("Failed to unsubscribe contacts:", error);
+    appModal.showError("Failed to unsubscribe selected contacts");
+  } finally {
+    setIsUnsubscribing(false);
+  }
+};
+
+const handleCloneContacts = async () => {
+  const ids = Array.from(selectedContacts);
+  if (ids.length !== 1) return;
+
+  try {
+    setIsCloningContact(true);
+
+    const response = await fetch(`${API_BASE_URL}/api/Crm/clone-contact?contactId=${ids[0]}`, {
+      method: "POST",
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to clone contact");
+    }
+
+    setSelectedContacts(new Set());
+    if (selectedView) {
+      await fetchContactsForView(selectedView);
+    }
+    appModal.showSuccess("Contact cloned successfully!");
+  } catch (error) {
+    console.error("Failed to clone contact:", error);
+    appModal.showError("Failed to clone contact");
+  } finally {
+    setIsCloningContact(false);
+  }
+};
+
+const handleDeleteContacts = async () => {
+  const ids = Array.from(selectedContacts);
+  if (ids.length === 0) return;
+
+  try {
+    setIsDeletingContact(true);
+
+    for (const id of ids) {
+      const response = await fetch(
+        `${API_BASE_URL}/api/Crm/delete-Datafile-contact?contactId=${id}`,
+        {
+          method: "POST",
+          headers: {
+            accept: "*/*",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete contact ${id}`);
+      }
+    }
+
+    setSelectedContacts(new Set());
+    if (selectedView) {
+      await fetchContactsForView(selectedView);
+    }
+    appModal.showSuccess(`${ids.length} contact(s) deleted successfully!`);
+  } catch (error) {
+    console.error("Failed to delete contacts:", error);
+    appModal.showError("Failed to delete contacts");
+  } finally {
+    setIsDeletingContact(false);
+  }
+};
   const fieldTypeMap = useMemo(() => {
     const map = new Map<string, FieldType>();
     filterFields.forEach((field) => {
@@ -283,6 +532,14 @@ const ContactViews: React.FC<ContactViewsProps> = ({
         type: normalizeFieldType(field.type),
       })),
     [filterFields]
+  );
+  const viewColumnNameMap = useMemo(
+    () => ({
+      ...(columnNameMap || {}),
+      hasOpened: "Opened",
+      hasClicked: "Clicked",
+    }),
+    [columnNameMap]
   );
 
   const menuBtnStyle: React.CSSProperties = {
@@ -303,6 +560,147 @@ const ContactViews: React.FC<ContactViewsProps> = ({
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
+  };
+
+  const getCustomFieldColumns = (data: any[]): CsvColumn[] => {
+    const fieldMap = new Map<string, string>();
+
+    filterFields.forEach((field) => {
+      if (!field?.key?.startsWith("custom_")) return;
+      const label = field.label || field.key.replace(/^custom_/, "");
+      const normalized = normalizeCustomFieldKey(label);
+      if (!fieldMap.has(normalized)) {
+        fieldMap.set(normalized, label);
+      }
+    });
+
+    data.forEach((contact) => {
+      let customFieldsValue = contact?.customFields;
+      if (typeof customFieldsValue === "string") {
+        try {
+          customFieldsValue = JSON.parse(customFieldsValue);
+        } catch {
+          customFieldsValue = undefined;
+        }
+      }
+
+      if (customFieldsValue && typeof customFieldsValue === "object") {
+        Object.keys(customFieldsValue).forEach((key) => {
+          const normalized = normalizeCustomFieldKey(key);
+          if (!fieldMap.has(normalized)) {
+            fieldMap.set(normalized, key);
+          }
+        });
+      }
+
+      Object.keys(contact || {}).forEach((key) => {
+        if (!key.startsWith("custom_")) return;
+        const rawKey = key.replace(/^custom_/, "");
+        const normalized = normalizeCustomFieldKey(rawKey);
+        if (!fieldMap.has(normalized)) {
+          fieldMap.set(normalized, rawKey);
+        }
+      });
+    });
+
+    return Array.from(fieldMap.entries()).map(([normalized, label]) => ({
+      key: `custom_${normalized}`,
+      header: label,
+      getValue: (contact: any) => getCustomFieldValue(contact, label),
+    }));
+  };
+
+  const downloadCSV = (data: any[], filename: string) => {
+    if (!data || data.length === 0) {
+      onShowMessage?.("No contacts to download.", "error");
+      return;
+    }
+
+    const baseColumns: CsvColumn[] = [
+      { key: "full_name", header: "Full Name" },
+      { key: "first_name", header: "First Name" },
+      { key: "last_name", header: "Last Name" },
+      { key: "email", header: "Email" },
+      { key: "job_title", header: "Job title" },
+      { key: "company_name", header: "Company name" },
+      { key: "companyTelephone", header: "Company telephone" },
+      { key: "website", header: "Website" },
+      { key: "country_or_address", header: "Country Or Address" },
+      { key: "companyIndustry", header: "Company industry" },
+      { key: "linkedin_url", header: "LinkedIn URL" },
+      { key: "companyEmployeeCount", header: "Company Employee Count" },
+      { key: "companyLinkedInURL", header: "Company LinkedIn URL" },
+      { key: "hasLinkedInInfo", header: "LinkedIn Information" },
+      { key: "hasNotes", header: "Notes" },
+      { key: "hasOpened", header: "Opened" },
+      { key: "hasClicked", header: "Clicked" },
+      { key: "unsubscribe", header: "Unsubscribe" },
+      { key: "created_at", header: "Created date" },
+      { key: "updated_at", header: "Updated date" },
+      { key: "email_sent_at", header: "Email Sent Date" },
+    ];
+
+    const customColumns = getCustomFieldColumns(data);
+    const columnsToExport = [...baseColumns, ...customColumns];
+    const headers = columnsToExport.map((col) => col.header);
+
+    const csvRows = [
+      headers.join(","),
+      ...data.map((contact) => {
+        const row = columnsToExport.map((column) => {
+          let value = column.getValue ? column.getValue(contact) : contact[column.key];
+          if (value === null || value === undefined) value = "";
+
+          if (
+            column.key === "hasLinkedInInfo" ||
+            column.key === "hasNotes" ||
+            column.key === "hasOpened" ||
+            column.key === "hasClicked"
+          ) {
+            value = value === true ? "Yes" : value === false ? "No" : "";
+          }
+
+          if (
+            (column.key === "created_at" ||
+              column.key === "updated_at" ||
+              column.key === "email_sent_at") &&
+            value
+          ) {
+            value = formatDate(value);
+          }
+
+          const stringValue = String(value);
+          if (
+            stringValue.includes(",") ||
+            stringValue.includes('"') ||
+            stringValue.includes("\n") ||
+            stringValue.includes("\r")
+          ) {
+            return `"${stringValue.replace(/"/g, '""')}"`;
+          }
+
+          return stringValue;
+        });
+
+        return row.join(",");
+      }),
+    ];
+
+    const BOM = "\uFEFF";
+    const blob = new Blob([BOM + csvRows.join("\n")], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+
+    link.setAttribute("href", url);
+    link.setAttribute("download", `${filename}.csv`);
+    link.style.visibility = "hidden";
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const fetchViews = async () => {
@@ -345,6 +743,22 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   useEffect(() => {
     fetchViews();
   }, [clientId]);
+
+  useEffect(() => {
+    if (!clientId || !isActive) return;
+    fetchViews();
+  }, [clientId, isActive, refreshToken]);
+
+  useEffect(() => {
+    if (!clientId) return;
+
+    if (viewMode === "detail" && selectedView?.id) {
+      saveViewState(clientId, {
+        viewId: selectedView.id,
+        viewMode: "detail",
+      });
+    }
+  }, [clientId, viewMode, selectedView?.id]);
 
   const fetchSources = async () => {
     if (!clientId) return;
@@ -394,9 +808,52 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   useEffect(() => {
     setViewMode("list");
     setSelectedView(null);
+    setBaseViewContacts([]);
     setViewContacts([]);
     setViewMetaMissing(false);
+    setViewContactCounts({});
+    setDownloadingViewId(null);
+    clearViewState(clientId);
   }, [clientId]);
+
+  useEffect(() => {
+    if (!clientId || isLoadingViews || views.length === 0) {
+      return;
+    }
+
+    if (viewMode === "detail" && selectedView?.id) {
+      const latestSelectedView = views.find((view) => view.id === selectedView.id);
+
+      if (!latestSelectedView) {
+        setViewMode("list");
+        setSelectedView(null);
+        setViewContacts([]);
+        setViewMetaMissing(false);
+        clearViewState(clientId);
+        return;
+      }
+
+      if (latestSelectedView !== selectedView) {
+        setSelectedView(latestSelectedView);
+      }
+
+      return;
+    }
+
+    const persistedState = loadViewState(clientId);
+    if (!persistedState?.viewId) {
+      return;
+    }
+
+    const persistedView = views.find((view) => view.id === persistedState.viewId);
+    if (!persistedView) {
+      clearViewState(clientId);
+      return;
+    }
+
+    setSelectedView(persistedView);
+    setViewMode("detail");
+  }, [clientId, isLoadingViews, selectedView, viewMode, views]);
 
   const handleViewSort = (key: string) => {
     if (viewSortKey === key) {
@@ -425,7 +882,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
       );
     });
     if (viewSortKey) {
-      filtered = [...filtered].sort((a, b) => {
+      filtered = [...filtered].sort((a: any, b: any) => {
         const aVal = (a as any)[viewSortKey] ?? "";
         const bVal = (b as any)[viewSortKey] ?? "";
 
@@ -475,8 +932,13 @@ const ContactViews: React.FC<ContactViewsProps> = ({
 
   const evaluateCondition = (
     row: Record<string, any>,
-    condition: FilterCondition
+    condition: FilterCondition,
+    campaignIndexes: Awaited<ReturnType<typeof buildTrackingIndexesForGroups>>
   ) => {
+    if (conditionRequiresCampaign(condition)) {
+      return evaluateTrackingCondition(row, condition, campaignIndexes);
+    }
+
     const value = getRowValue(row, condition.field);
     const normalizedFieldType = fieldTypeMap.get(condition.field) || "text";
 
@@ -513,16 +975,28 @@ const ContactViews: React.FC<ContactViewsProps> = ({
         return new Date(value) < new Date(condition.value);
       case "after":
         return new Date(value) > new Date(condition.value);
+      case "isEmpty":
+        return (
+          value === null ||
+          value === undefined ||
+          String(value).trim() === ""
+        );
+      case "isNotEmpty":
+        return !(
+          value === null ||
+          value === undefined ||
+          String(value).trim() === ""
+        );
       default:
         return true;
     }
   };
 
-  const applySavedFilters = (rows: any[], filtersJson?: string) => {
+  const applySavedFilters = async (rows: any[], filtersJson?: string) => {
     const parsed = parseFiltersJson(filtersJson);
-    const groups = (parsed.groups || [])
+    const groups: FilterGroup[] = (parsed.groups || [])
       .map((group, groupIndex) => ({
-        ...group,
+        id: group.id || `group-${groupIndex}`,
         joinWithPrevious:
           groupIndex === 0 ? undefined : group.joinWithPrevious || "AND",
         conditions: (group.conditions || []).filter((condition) =>
@@ -535,11 +1009,13 @@ const ContactViews: React.FC<ContactViewsProps> = ({
       return rows;
     }
 
+    const campaignIndexes = await buildTrackingIndexesForGroups(clientId, groups);
+
     return rows.filter((row) =>
       groups.reduce((groupResult, group, groupIndex) => {
         const conditionsResult = group.conditions.reduce(
           (result, condition, index) => {
-            const evaluation = evaluateCondition(row, condition);
+            const evaluation = evaluateCondition(row, condition, campaignIndexes);
             if (index === 0) return evaluation;
             return condition.joinWithPrevious === "OR"
               ? result || evaluation
@@ -559,147 +1035,273 @@ const ContactViews: React.FC<ContactViewsProps> = ({
     );
   };
 
+  const decorateContactsWithTrackingState = async (
+    rows: any[],
+    filtersJson?: string
+  ) => {
+    const parsed = parseFiltersJson(filtersJson);
+    const groups: FilterGroup[] = (parsed.groups || [])
+      .map((group, groupIndex) => ({
+        id: group.id || `group-${groupIndex}`,
+        joinWithPrevious:
+          groupIndex === 0 ? undefined : group.joinWithPrevious || "AND",
+        conditions: (group.conditions || []).filter((condition) =>
+          isCompleteCondition(condition)
+        ),
+      }))
+      .filter((group) => group.conditions.length > 0);
+
+    const trackingCampaignIds = getTrackingCampaignIds(groups);
+
+    if (trackingCampaignIds.length === 0) {
+      return rows.map((row) => ({
+        ...row,
+        hasOpened: false,
+        hasClicked: false,
+      }));
+    }
+
+    const campaignIndexes = await buildTrackingIndexesForGroups(clientId, groups);
+
+    return rows.map((row) => ({
+      ...row,
+      hasOpened: trackingCampaignIds.some((campaignId) =>
+        evaluateTrackingCondition(
+          row,
+          {
+            id: `tracking-open-${campaignId}`,
+            field: TRACKING_OPEN_FIELD,
+            operator: "equals",
+            value: "true",
+            context: { campaignId },
+          },
+          campaignIndexes
+        )
+      ),
+      hasClicked: trackingCampaignIds.some((campaignId) =>
+        evaluateTrackingCondition(
+          row,
+          {
+            id: `tracking-click-${campaignId}`,
+            field: TRACKING_CLICK_FIELD,
+            operator: "equals",
+            value: "true",
+            context: { campaignId },
+          },
+          campaignIndexes
+        )
+      ),
+    }));
+  };
+
+  const fetchViewContactsData = async (
+    view: ViewItem
+  ): Promise<{ contacts: any[]; metaMissing: boolean; contactCount: number }> => {
+    const allDataFileIds = availableDataFiles.map((file) => file.id);
+    const excludedDataFileIds = view.excludedDataFileIds || [];
+    const effectiveAllDataFileIds = allDataFileIds.filter(
+      (id) => !excludedDataFileIds.includes(id)
+    );
+    const dataFileIds =
+      view.useAllDataFiles && effectiveAllDataFileIds.length > 0
+        ? effectiveAllDataFileIds
+        : view.dataFileIds || [];
+    const segmentIds = view.segmentIds || [];
+    const hasLocalFilters = !!view.filtersJson;
+    const hasLocalSources = dataFileIds.length > 0 || segmentIds.length > 0;
+
+    if (!hasLocalFilters || !hasLocalSources) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/Crm/view-contacts`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clientId: Number(clientId),
+            viewId: Number(view.id),
+            page: 1,
+            pageSize: 0,
+            search: "",
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch view contacts from server");
+        }
+
+        const data = await response.json();
+        const contacts = await decorateContactsWithTrackingState(
+          data.contacts || [],
+          view.filtersJson
+        );
+        return {
+          contacts,
+          metaMissing: false,
+          contactCount: data.contactCount ?? data.total ?? contacts.length,
+        };
+      } catch (error) {
+        console.warn("Server fallback for view contacts failed:", error);
+        return { contacts: [], metaMissing: true, contactCount: 0 };
+      }
+    }
+
+    if (dataFileIds.length === 0 && segmentIds.length === 0) {
+      return { contacts: [], metaMissing: true, contactCount: 0 };
+    }
+
+    let segmentDataFileMap: Record<number, number> = {};
+    if (segmentIds.length > 0) {
+      try {
+        const segmentResponse = await fetch(
+          `${API_BASE_URL}/api/Crm/get-segments-by-client?clientId=${clientId}`
+        );
+        if (segmentResponse.ok) {
+          const segmentData = await segmentResponse.json();
+          segmentDataFileMap = (segmentData || []).reduce(
+            (acc: Record<number, number>, segment: any) => {
+              if (segment?.id != null && segment?.dataFileId != null) {
+                acc[segment.id] = segment.dataFileId;
+              }
+              return acc;
+            },
+            {}
+          );
+        }
+      } catch (error) {
+        console.warn("Failed to load segment metadata:", error);
+      }
+    }
+
+    const dataFileRequests = dataFileIds.map(async (dataFileId) => {
+      const response = await fetch(
+        `${API_BASE_URL}/api/Crm/contacts/List-by-ClientId?clientId=${clientId}&dataFileId=${dataFileId}`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch contacts for view");
+      }
+      const data = await response.json();
+      const contacts = data.contacts || [];
+      return contacts.map((contact: any) => ({
+        ...contact,
+        dataFileId,
+      }));
+    });
+
+    const segmentRequests = segmentIds.map(async (segmentId) => {
+      const response = await fetch(
+        `${API_BASE_URL}/api/Crm/segment-contacts?clientId=${clientId}&segmentId=${segmentId}`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch segment contacts for view");
+      }
+      const data = await response.json();
+      const contacts = data.contacts || [];
+      const fallbackDataFileId = segmentDataFileMap[segmentId];
+      return contacts.map((contact: any) => ({
+        ...contact,
+        segmentId,
+        dataFileId: contact.dataFileId ?? fallbackDataFileId,
+      }));
+    });
+
+    const results = await Promise.all([
+      Promise.allSettled(dataFileRequests),
+      Promise.allSettled(segmentRequests),
+    ]);
+
+    const mergedContacts: any[] = [];
+    results.forEach((resultGroup) => {
+      resultGroup.forEach((result) => {
+        if (result.status === "fulfilled") {
+          mergedContacts.push(...result.value);
+        }
+      });
+    });
+
+    const mergedMap = new Map<number, any>();
+    mergedContacts.forEach((contact) => {
+      const existing = mergedMap.get(contact.id);
+      if (existing) {
+        mergedMap.set(contact.id, { ...existing, ...contact });
+      } else {
+        mergedMap.set(contact.id, contact);
+      }
+    });
+
+    const mergedList = Array.from(mergedMap.values());
+    const filtered = await applySavedFilters(mergedList, view.filtersJson);
+    const decorated = await decorateContactsWithTrackingState(
+      filtered,
+      view.filtersJson
+    );
+
+    return {
+      contacts: decorated,
+      metaMissing: false,
+      contactCount: decorated.length,
+    };
+  };
+
+  const updateViewCountCache = (viewId: number, count: number) => {
+    setViewContactCounts((prev) => ({ ...prev, [viewId]: count }));
+    setViews((prev) =>
+      prev.map((item) =>
+        item.id === viewId ? { ...item, contactCount: count } : item
+      )
+    );
+  };
+
   const fetchContactsForView = async (view: ViewItem) => {
     setIsLoadingViewContacts(true);
     setViewMetaMissing(false);
     try {
-      const allDataFileIds = availableDataFiles.map((file) => file.id);
-      const excludedDataFileIds = view.excludedDataFileIds || [];
-      const effectiveAllDataFileIds = allDataFileIds.filter(
-        (id) => !excludedDataFileIds.includes(id)
-      );
-      const dataFileIds =
-        view.useAllDataFiles && effectiveAllDataFileIds.length > 0
-          ? effectiveAllDataFileIds
-          : view.dataFileIds || [];
-      const segmentIds = view.segmentIds || [];
-      const hasLocalFilters = !!view.filtersJson;
-      const hasLocalSources = dataFileIds.length > 0 || segmentIds.length > 0;
-
-      if (!hasLocalFilters || !hasLocalSources) {
-        try {
-          const response = await fetch(`${API_BASE_URL}/api/Crm/view-contacts`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              clientId: Number(clientId),
-              viewId: Number(view.id),
-              page: 1,
-              pageSize: 0,
-              search: "",
-            }),
-          });
-
-          if (!response.ok) {
-            throw new Error("Failed to fetch view contacts from server");
-          }
-
-          const data = await response.json();
-          const contacts = data.contacts || [];
-          setViewContacts(contacts);
-          return;
-        } catch (error) {
-          console.warn("Server fallback for view contacts failed:", error);
-          setViewContacts([]);
-          setViewMetaMissing(true);
-          return;
-        }
+      const { contacts, metaMissing, contactCount } = await fetchViewContactsData(view);
+      setBaseViewContacts(contacts);
+      setViewContacts(contacts);
+      setViewMetaMissing(metaMissing);
+      if (!metaMissing) {
+        updateViewCountCache(view.id, contactCount);
       }
-
-      if (dataFileIds.length === 0 && segmentIds.length === 0) {
-        setViewContacts([]);
-        setViewMetaMissing(true);
-        return;
-      }
-
-      let segmentDataFileMap: Record<number, number> = {};
-      if (segmentIds.length > 0) {
-        try {
-          const segmentResponse = await fetch(
-            `${API_BASE_URL}/api/Crm/get-segments-by-client?clientId=${clientId}`
-          );
-          if (segmentResponse.ok) {
-            const segmentData = await segmentResponse.json();
-            segmentDataFileMap = (segmentData || []).reduce(
-              (acc: Record<number, number>, segment: any) => {
-                if (segment?.id != null && segment?.dataFileId != null) {
-                  acc[segment.id] = segment.dataFileId;
-                }
-                return acc;
-              },
-              {}
-            );
-          }
-        } catch (error) {
-          console.warn("Failed to load segment metadata:", error);
-        }
-      }
-
-      const dataFileRequests = dataFileIds.map(async (dataFileId) => {
-        const response = await fetch(
-          `${API_BASE_URL}/api/Crm/contacts/List-by-ClientId?clientId=${clientId}&dataFileId=${dataFileId}`
-        );
-        if (!response.ok) {
-          throw new Error("Failed to fetch contacts for view");
-        }
-        const data = await response.json();
-        const contacts = data.contacts || [];
-        return contacts.map((contact: any) => ({
-          ...contact,
-          dataFileId,
-        }));
-      });
-
-      const segmentRequests = segmentIds.map(async (segmentId) => {
-        const response = await fetch(
-          `${API_BASE_URL}/api/Crm/segment-contacts?clientId=${clientId}&segmentId=${segmentId}`
-        );
-        if (!response.ok) {
-          throw new Error("Failed to fetch segment contacts for view");
-        }
-        const data = await response.json();
-        const contacts = data.contacts || [];
-        const fallbackDataFileId = segmentDataFileMap[segmentId];
-        return contacts.map((contact: any) => ({
-          ...contact,
-          segmentId,
-          dataFileId: contact.dataFileId ?? fallbackDataFileId,
-        }));
-      });
-
-      const results = await Promise.all([
-        Promise.allSettled(dataFileRequests),
-        Promise.allSettled(segmentRequests),
-      ]);
-
-      const mergedContacts: any[] = [];
-      results.forEach((resultGroup) => {
-        resultGroup.forEach((result) => {
-          if (result.status === "fulfilled") {
-            mergedContacts.push(...result.value);
-          }
-        });
-      });
-
-      const mergedMap = new Map<number, any>();
-      mergedContacts.forEach((contact) => {
-        const existing = mergedMap.get(contact.id);
-        if (existing) {
-          mergedMap.set(contact.id, { ...existing, ...contact });
-        } else {
-          mergedMap.set(contact.id, contact);
-        }
-      });
-
-      const mergedList = Array.from(mergedMap.values());
-      const filtered = applySavedFilters(mergedList, view.filtersJson);
-      setViewContacts(filtered);
     } catch (error) {
       console.error("Error fetching view contacts:", error);
+      setBaseViewContacts([]);
       setViewContacts([]);
+      setViewMetaMissing(false);
       onShowMessage?.("Failed to load view contacts.", "error");
     } finally {
       setIsLoadingViewContacts(false);
+    }
+  };
+
+  const handleDownloadView = async (view: ViewItem) => {
+    setDownloadingViewId(view.id);
+    try {
+      const { contacts, metaMissing, contactCount } = await fetchViewContactsData(view);
+
+      if (metaMissing) {
+        onShowMessage?.(
+          "This view is missing saved filter metadata in this browser, so it cannot be downloaded yet.",
+          "error"
+        );
+        return;
+      }
+
+      if (!contacts.length) {
+        onShowMessage?.("No contacts to download.", "error");
+        updateViewCountCache(view.id, 0);
+        return;
+      }
+
+      updateViewCountCache(view.id, contactCount);
+      const filename = `${view.name.replace(/[^a-z0-9]/gi, "_")}_${
+        new Date().toISOString().split("T")[0]
+      }`;
+      downloadCSV(contacts, filename);
+    } catch (error) {
+      console.error("Error downloading view:", error);
+      onShowMessage?.("Failed to download view data.", "error");
+    } finally {
+      setDownloadingViewId(null);
+      setViewActionsAnchor(null);
     }
   };
 
@@ -710,34 +1312,48 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   }, [
     viewMode,
     selectedView?.id,
+    selectedView?.filtersJson,
     selectedView?.useAllDataFiles,
+    selectedView?.dataFileIds?.length,
+    selectedView?.segmentIds?.length,
     selectedView?.excludedDataFileIds?.length,
     availableDataFiles.length,
   ]);
 
   const handleDeleteView = async (view: ViewItem) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete view "${view.name}"?`
+    appModal.showConfirm(
+      `Are you sure you want to delete view "${view.name}"?`,
+      async () => {
+        try {
+          const response = await fetch(
+            `${API_BASE_URL}/api/Crm/delete-view?viewId=${view.id}`,
+            { method: "POST" }
+          );
+          if (!response.ok) {
+            throw new Error("Failed to delete view");
+          }
+          const metaMap = loadViewMetaMap(clientId);
+          delete metaMap[String(view.id)];
+          saveViewMetaMap(clientId, metaMap);
+          setViews((prev) => prev.filter((item) => item.id !== view.id));
+          if (selectedView?.id === view.id) {
+            setSelectedView(null);
+            setViewMode("list");
+            setBaseViewContacts([]);
+            setViewContacts([]);
+            setViewMetaMissing(false);
+            clearViewState(clientId);
+          }
+          onShowMessage?.("View deleted successfully.", "success");
+        } catch (error) {
+          console.error("Error deleting view:", error);
+          onShowMessage?.("Failed to delete view.", "error");
+        }
+      },
+      "Delete view",
+      "Delete",
+      "Cancel"
     );
-    if (!confirmed) return;
-
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/Crm/delete-view?viewId=${view.id}`,
-        { method: "POST" }
-      );
-      if (!response.ok) {
-        throw new Error("Failed to delete view");
-      }
-      const metaMap = loadViewMetaMap(clientId);
-      delete metaMap[String(view.id)];
-      saveViewMetaMap(clientId, metaMap);
-      setViews((prev) => prev.filter((item) => item.id !== view.id));
-      onShowMessage?.("View deleted successfully.", "success");
-    } catch (error) {
-      console.error("Error deleting view:", error);
-      onShowMessage?.("Failed to delete view.", "error");
-    }
   };
 
   const openView = (view: ViewItem) => {
@@ -747,6 +1363,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
     }
     setSelectedView(view);
     setViewMode("detail");
+    setSelectedContacts(new Set());
     setViewSearchQuery("");
     setViewCurrentPage(1);
   };
@@ -864,6 +1481,14 @@ const ContactViews: React.FC<ContactViewsProps> = ({
     }
   };
 
+  const selectedViewContactCount =
+    selectedView?.id != null
+      ? viewContactCounts[selectedView.id] ?? viewContacts.length
+      : viewContacts.length;
+  const refinedViewContactCount = viewContacts.length;
+  const hasRefinedViewResults =
+    baseViewContacts.length > 0 && refinedViewContactCount !== baseViewContacts.length;
+
   const detailHeader = viewMetaMissing ? (
     <div
       style={{
@@ -880,6 +1505,186 @@ const ContactViews: React.FC<ContactViewsProps> = ({
       created and save it again to make it usable here.
     </div>
   ) : (
+  <>
+    {/* ✅ BULK ACTION BAR */}
+{selectedContacts.size > 0 && (
+  <div
+    style={{
+      marginBottom: 16,
+      padding: "12px 16px",
+      background: "#f0f7ff",
+      borderRadius: 6,
+      display: "flex",
+      alignItems: "center",
+      gap: 16,
+    }}
+  >
+    <span style={{ fontWeight: 500 }}>
+      {selectedContacts.size} contact
+      {selectedContacts.size > 1 ? "s" : ""} selected
+    </span>
+
+    <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+      {selectedContacts.size === 1 && (
+        <button
+          className="button secondary"
+          onClick={handleCloneContacts}
+          disabled={isCloningContact}
+          style={{
+            background: "none",
+            color: "#3f9f42",
+            border: "none",
+            borderRadius: "12px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: "40px",
+            height: "40px",
+            padding: "0",
+            cursor: isCloningContact ? "not-allowed" : "pointer",
+            opacity: isCloningContact ? 0.6 : 1,
+          }}
+          title={isCloningContact ? "Cloning..." : "Clone contact"}
+        >
+          <img
+            src={duplicateIcon}
+            alt="Clone"
+            style={{
+              width: 22,
+              height: 22,
+              objectFit: "contain",
+              filter:
+                "invert(47%) sepia(82%) saturate(397%) hue-rotate(84deg) brightness(95%) contrast(90%)",
+            }}
+          />
+        </button>
+      )}
+
+      <button
+        className="button secondary"
+        onClick={handleDeleteContacts}
+        disabled={isDeletingContact}
+        style={{
+          background: "none",
+          color: "#3f9f42",
+          border: "none",
+          borderRadius: "12px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: "40px",
+          height: "40px",
+          padding: "0",
+          cursor: isDeletingContact ? "not-allowed" : "pointer",
+          opacity: isDeletingContact ? 0.6 : 1,
+        }}
+        title={isDeletingContact ? "Deleting..." : "Delete contacts"}
+      >
+        <FontAwesomeIcon
+          icon={faTrashAlt}
+          style={{ fontSize: 20, color: "#3f9f42" }}
+        />
+      </button>
+
+      <button
+        className="button secondary"
+        onClick={handleUnsubscribeContacts}
+        disabled={isUnsubscribing}
+        style={{
+          background: "none",
+          color: "#3f9f42",
+          border: "none",
+          borderRadius: "12px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: "40px",
+          height: "40px",
+          padding: "0",
+          cursor: isUnsubscribing ? "not-allowed" : "pointer",
+          opacity: isUnsubscribing ? 0.6 : 1,
+        }}
+        title={isUnsubscribing ? "Processing..." : "Unsubscribe"}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" height="22" width="22">
+          <path stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" d="M11.25 17.25c0 1.5913 0.6321 3.1174 1.7574 4.2426 1.1252 1.1253 2.6513 1.7574 4.2426 1.7574 1.5913 0 3.1174 -0.6321 4.2426 -1.7574 1.1253 -1.1252 1.7574 -2.6513 1.7574 -4.2426 0 -1.5913 -0.6321 -3.1174 -1.7574 -4.2426 -1.1252 -1.1253 -2.6513 -1.7574 -4.2426 -1.7574 -1.5913 0 -3.1174 0.6321 -4.2426 1.7574 -1.1253 1.1252 -1.7574 2.6513 -1.7574 4.2426Z" strokeWidth="2"></path>
+          <path stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" d="M14.25 17.25h6" strokeWidth="2"></path>
+          <path stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" d="M8.25 15.75h-6c-0.39782 0 -0.77936 -0.158 -1.06066 -0.4393C0.908035 15.0294 0.75 14.6478 0.75 14.25v-12c0 -0.39782 0.158035 -0.77936 0.43934 -1.06066C1.47064 0.908035 1.85218 0.75 2.25 0.75h18c0.3978 0 0.7794 0.158035 1.0607 0.43934 0.2813 0.2813 0.4393 0.66284 0.4393 1.06066V9" strokeWidth="2"></path>
+          <path stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" d="m21.41 1.30005 -8.143 6.264c-0.5783 0.44486 -1.2874 0.68606 -2.017 0.68606 -0.7296 0 -1.43873 -0.2412 -2.01701 -0.68606l-8.144 -6.264" strokeWidth="2"></path>
+        </svg>
+      </button>
+
+      <button
+        className="button primary"
+        onClick={() => setShowSaveSegmentModal(true)}
+        style={{
+          backgroundColor: "transparent",
+          borderColor: "transparent",
+          color: "#3f9f42",
+          border: "none",
+          borderRadius: "12px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: "40px",
+          height: "40px",
+          padding: "0",
+          cursor: "pointer",
+        }}
+        title="Segment"
+      >
+        <svg
+          width="30"
+          height="30"
+          viewBox="0 0 100 100"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M50 50H85C85 69.33 69.33 85 50 85C30.67 85 15 69.33 15 50C15 30.67 30.67 15 50 15V50Z"
+            stroke="#3f9f42"
+            strokeWidth="6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M60 40V15C73.8071 15 85 26.1929 85 40H60Z"
+            stroke="#3f9f42"
+            strokeWidth="6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+
+      <button
+        className="button secondary"
+        onClick={() => setShowBulkUpdatePanel(true)}
+        style={{
+          background: "none",
+          color: "#3f9f42",
+          border: "none",
+          borderRadius: "12px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: "40px",
+          height: "40px",
+          padding: "0",
+          cursor: "pointer",
+        }}
+        title="Bulk Update"
+      >
+        <FontAwesomeIcon
+          icon={faEdit}
+          style={{ fontSize: 20, color: "#3f9f42" }}
+        />
+      </button>
+    </div>
+  </div>
+)}
+
+    {/* ✅ EXISTING HEADER (DON’T REMOVE) */}
     <div
       style={{
         marginBottom: 16,
@@ -893,15 +1698,26 @@ const ContactViews: React.FC<ContactViewsProps> = ({
       }}
     >
       <span style={{ fontWeight: 500 }}>
-        {viewContacts.length} contact
-        {viewContacts.length === 1 ? "" : "s"} in this view
+        {hasRefinedViewResults
+          ? `Showing ${refinedViewContactCount} of ${selectedViewContactCount} contacts in this view`
+          : `${selectedViewContactCount} contact${selectedViewContactCount === 1 ? "" : "s"} in this view`}
       </span>
+
       <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
         {selectedView?.filtersJson && (
           <span style={{ color: "#4b5563", fontSize: 13 }}>
             Filter rules applied
           </span>
         )}
+
+        <button
+          type="button"
+          className="button secondary"
+          onClick={() => selectedView && handleDownloadView(selectedView)}
+        >
+          Download
+        </button>
+
         <button
           type="button"
           className="button secondary"
@@ -911,7 +1727,8 @@ const ContactViews: React.FC<ContactViewsProps> = ({
         </button>
       </div>
     </div>
-  );
+  </>
+);
 
   return (
     <div className="list-content">
@@ -982,19 +1799,20 @@ const ContactViews: React.FC<ContactViewsProps> = ({
                   >
                     Description{renderViewSortArrow("description")}
                   </th>
+                  <th>Contacts</th>
                   <th style={{ minWidth: 48 }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {isLoadingViews ? (
                   <tr>
-                    <td colSpan={5} style={{ textAlign: "center" }}>
+                    <td colSpan={6} style={{ textAlign: "center" }}>
                       Loading...
                     </td>
                   </tr>
                 ) : paginatedViews.length === 0 ? (
                   <tr>
-                    <td colSpan={5} style={{ textAlign: "center" }}>
+                    <td colSpan={6} style={{ textAlign: "center" }}>
                       No views found.
                     </td>
                   </tr>
@@ -1017,6 +1835,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
                       <td>#{view.id}</td>
                       <td>{formatDate(view.created_at)}</td>
                       <td>{view.description || "-"}</td>
+                      <td>{view.contactCount ?? viewContactCounts[view.id] ?? "-"}</td>
                       <td>
                         <div style={{ position: "relative" }}>
                           <button
@@ -1096,6 +1915,65 @@ const ContactViews: React.FC<ContactViewsProps> = ({
                                 <span className="font-[600]">Edit</span>
                               </button>
                               <button
+                                onClick={() => handleDownloadView(view)}
+                                style={menuBtnStyle}
+                                className="flex gap-2 items-center"
+                                disabled={downloadingViewId === view.id}
+                              >
+                                <span className="ml-[2px]">
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="22px"
+                                    height="22px"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <title />
+                                    <g id="Complete">
+                                      <g id="download">
+                                        <g>
+                                          <path
+                                            d="M3,12.3v7a2,2,0,0,0,2,2H19a2,2,0,0,0,2-2v-7"
+                                            fill="none"
+                                            stroke="#3f9f42"
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            stroke-width="2"
+                                          />
+                                          <g>
+                                            <polyline
+                                              data-name="Right"
+                                              fill="none"
+                                              id="Right-2"
+                                              points="7.9 12.3 12 16.3 16.1 12.3"
+                                              stroke="#3f9f42"
+                                              stroke-linecap="round"
+                                              stroke-linejoin="round"
+                                              stroke-width="2"
+                                            />
+                                            <line
+                                              fill="none"
+                                              stroke="#3f9f42"
+                                              stroke-linecap="round"
+                                              stroke-linejoin="round"
+                                              stroke-width="2"
+                                              x1="12"
+                                              x2="12"
+                                              y1="2.7"
+                                              y2="14.2"
+                                            />
+                                          </g>
+                                        </g>
+                                      </g>
+                                    </g>
+                                  </svg>
+                                </span>
+                                <span className="font-[600]">
+                                  {downloadingViewId === view.id
+                                    ? "Downloading..."
+                                    : "Download"}
+                                </span>
+                              </button>
+                              <button
                                 onClick={() => {
                                   handleDeleteView(view);
                                   setViewActionsAnchor(null);
@@ -1123,18 +2001,56 @@ const ContactViews: React.FC<ContactViewsProps> = ({
           </>
         ) : (
           <>
+            {!viewMetaMissing && selectedView && (
+              <div style={{ marginBottom: 20 }}>
+                <FilterBuilder
+                  key={`${selectedView.id}-${selectedView.filtersJson || ""}`}
+                  data={baseViewContacts}
+                  fields={normalizedFilterFields}
+                  clientId={clientId}
+                  initialFiltersJson={selectedView.filtersJson}
+                  onFiltered={(filteredData) => {
+                    setViewContacts(filteredData);
+                    setViewCurrentPage(1);
+                    setSelectedContacts(new Set());
+                  }}
+                  saveViewConfig={{
+                    clientId,
+                    dataFileIds: selectedView.useAllDataFiles
+                      ? []
+                      : selectedView.dataFileIds || [],
+                    segmentIds: selectedView.segmentIds || [],
+                    useAllDataFiles: !!selectedView.useAllDataFiles,
+                    excludedDataFileIds: selectedView.excludedDataFileIds || [],
+                    onSuccess: (savedView) => {
+                      fetchViews();
+                      onShowMessage?.(
+                        `New view "${savedView?.name || "Untitled view"}" created successfully.`,
+                        "success"
+                      );
+                    },
+                    onError: (message) => {
+                      onShowMessage?.(message, "error");
+                    },
+                  }}
+                />
+              </div>
+            )}
+
             <DynamicContactsTable
               data={viewContacts}
               isLoading={isLoadingViewContacts}
               search={viewSearchQuery}
               setSearch={setViewSearchQuery}
-              showCheckboxes={false}
+              showCheckboxes={true}
               paginated={true}
               currentPage={viewCurrentPage}
               pageSize={viewPageSize}
               onPageChange={setViewCurrentPage}
               totalItems={viewContacts.length}
               autoGenerateColumns={true}
+              selectedItems={selectedContacts}
+              onSelectItem={handleSelectContact}
               excludeFields={[
                 "email_body",
                 "email_subject",
@@ -1171,6 +2087,9 @@ const ContactViews: React.FC<ContactViewsProps> = ({
                   const segmentId = row.segmentId || row.SegmentId || fallbackSegmentId;
 
                   const params = new URLSearchParams();
+                  params.set("tab", "DataCampaigns");
+                  params.set("subtab", "View");
+                  params.set("clientId", String(clientId));
                   if (segmentId) params.set("segmentId", String(segmentId));
                   if (dataFileId != null) params.set("dataFileId", String(dataFileId));
                   const query = params.toString();
@@ -1199,6 +2118,8 @@ const ContactViews: React.FC<ContactViewsProps> = ({
                 created_at: (value: any) => formatDate(value),
                 updated_at: (value: any) => formatDate(value),
                 email_sent_at: (value: any) => formatDate(value),
+                hasOpened: (value: any) => (value ? "Yes" : "No"),
+                hasClicked: (value: any) => (value ? "Yes" : "No"),
                 website: (value: any) => {
                   if (!value || value === "-") return "-";
                   const url = value.startsWith("http") ? value : `https://${value}`;
@@ -1294,10 +2215,13 @@ const ContactViews: React.FC<ContactViewsProps> = ({
               onBack={() => {
                 setViewMode("list");
                 setSelectedView(null);
+                setBaseViewContacts([]);
                 setViewContacts([]);
                 setViewMetaMissing(false);
+                setSelectedContacts(new Set());
+                clearViewState(clientId);
               }}
-              columnNameMap={columnNameMap}
+              columnNameMap={viewColumnNameMap}
               customHeader={detailHeader}
             />
           </>
@@ -1510,16 +2434,68 @@ const ContactViews: React.FC<ContactViewsProps> = ({
             data={[]}
             fields={normalizedFilterFields}
             onFiltered={() => {}}
+            clientId={clientId}
             initialFiltersJson={editFiltersSeed}
             onFiltersJsonChange={(nextFiltersJson) =>
               setEditFiltersJson(nextFiltersJson)
             }
             hideApplyButton={true}
+            
           />
         </div>
       </CommonSidePanel>
+<BulkUpdatePanel
+  isOpen={showBulkUpdatePanel}
+  onClose={() => setShowBulkUpdatePanel(false)}
+  selectedContactIds={Array.from(selectedContacts)}
+  clientId={String(clientId)}
+  onUpdateComplete={() => {
+    setSelectedContacts(new Set());
+    if (selectedView) {
+      fetchContactsForView(selectedView);
+    }
+  }}
+/>
+
+<SegmentModal
+  isOpen={showSaveSegmentModal}
+  onClose={() => setShowSaveSegmentModal(false)}
+
+  getContactIds={() =>
+    Array.from(selectedContacts).map(id => Number(id))
+  }
+
+  selectedContactsCount={selectedContacts.size}
+
+effectiveUserId={String(clientId)}
+
+  onSuccess={(message) => {
+    appModal.showSuccess(message);
+    setSelectedContacts(new Set());
+    setShowSaveSegmentModal(false);
+  }}
+
+  onError={(message: string) => {
+    console.error("Segment save error:", message);
+    appModal.showError(message);
+  }}
+
+  onContactsCleared={() => {
+    setSelectedContacts(new Set());
+  }}
+/>
+
+<AppModal
+  isOpen={appModal.isOpen}
+  onClose={appModal.hideModal}
+  {...appModal.config}
+/>
+      
     </div>
+
+    
   );
+  
 };
 
 export default ContactViews;

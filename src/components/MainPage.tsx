@@ -49,6 +49,7 @@ import { useSoundAlert } from "./common/useSoundAlert";
 import { link } from "node:fs";
 import LoadingSpinner from "./common/LoadingSpinner";
 import CustomFieldSettings from "./feature/CustomFieldSettings";
+import ContactDetailView from "./feature/contacts/ContactDetailView";
 
 interface Prompt {
   id: number;
@@ -325,7 +326,17 @@ const MainPage: React.FC = () => {
   const [clearExistingResponse, setClearExistingResponse] = useState<
     () => void
   >(() => {});
-  const [selectedClient, setSelectedClient] = useState<string>("");
+  const [selectedClient, setSelectedClient] = useState<string>(() => {
+    const hashQuery = window.location.hash.split("?")[1] || "";
+    const initialClientIdFromQuery = new URLSearchParams(hashQuery).get("clientId");
+
+    return (
+      initialClientIdFromQuery ||
+      localStorage.getItem("selectedClientId") ||
+      sessionStorage.getItem("selectedClientId") ||
+      ""
+    );
+  });
   const [clientNames, setClientNames] = useState<Client[]>([]);
 
   const processCacheRef = useRef<Record<string, any>>({});
@@ -369,7 +380,10 @@ const MainPage: React.FC = () => {
   //submenu
   const location = useLocation();
   const navigate = useNavigate();
+  const latestLocationSearchRef = useRef(location.search);
   const queryParams = new URLSearchParams(location.search);
+  const isContactDetailPage = location.pathname.startsWith("/contact-details/");
+  const selectedClientIdFromQuery = queryParams.get("clientId") || "";
 
   const initialTab = queryParams.get("tab") || "Dashboard";
   const initialContactsSubTab = queryParams.get("subtab") || "List";
@@ -385,6 +399,10 @@ const MainPage: React.FC = () => {
   // Update page title when tab changes
   useEffect(() => {
     const getPageTitle = () => {
+      if (isContactDetailPage) {
+        return "Contact Details";
+      }
+
       switch (tab) {
         case "Dashboard":
           return "Dashboard - View progress and help videos";
@@ -420,10 +438,12 @@ const MainPage: React.FC = () => {
     };
 
     document.title = `${getPageTitle()} - PitchKraft`;
-  }, [tab, contactsSubTab, mailSubTab]);
+  }, [isContactDetailPage, tab, contactsSubTab, mailSubTab]);
 
   const [showMailSubmenu, setShowMailSubmenu] = useState(initialTab === "Mail");
-  const [showContactsSubmenu, setShowContactsSubmenu] = useState(false);
+  const [showContactsSubmenu, setShowContactsSubmenu] = useState(
+    initialTab === "DataCampaigns",
+  );
   const [showSettingsSubmenu, setShowSettingsSubmenu] = useState(false);
   const [settingsSubTab, setSettingsSubTab] = useState<string>("Tracking");
 
@@ -439,14 +459,96 @@ const MainPage: React.FC = () => {
   // update states when query changes
 
   useEffect(() => {
-    setTab(initialTab);
+    latestLocationSearchRef.current = location.search;
+  }, [location.search]);
 
-    setContactsSubTab(initialContactsSubTab);
+  useEffect(() => {
+    if (!selectedClientIdFromQuery) return;
 
-    setMailSubTab(initialMailSubTab);
-  }, [initialTab, initialContactsSubTab, initialMailSubTab]);
+    setSelectedClient((prev) =>
+      prev !== selectedClientIdFromQuery ? selectedClientIdFromQuery : prev,
+    );
+    localStorage.setItem("selectedClientId", selectedClientIdFromQuery);
+    sessionStorage.setItem("selectedClientId", selectedClientIdFromQuery);
+  }, [selectedClientIdFromQuery]);
+
+  useEffect(() => {
+    setTab((prev) => (prev !== initialTab ? initialTab : prev));
+    setContactsSubTab((prev) =>
+      prev !== initialContactsSubTab ? initialContactsSubTab : prev,
+    );
+    setMailSubTab((prev) =>
+      prev !== initialMailSubTab ? initialMailSubTab : prev,
+    );
+
+    setShowContactsSubmenu(initialTab === "DataCampaigns");
+    setShowMailSubmenu(initialTab === "Mail");
+    if (initialTab !== "Settings") {
+      setShowSettingsSubmenu(false);
+    }
+  }, [
+    initialTab,
+    initialContactsSubTab,
+    initialMailSubTab,
+  ]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(latestLocationSearchRef.current);
+    let nextSearch = "";
+
+    if (tab === "DataCampaigns") {
+      params.set("tab", tab);
+      params.set("subtab", contactsSubTab);
+    } else if (params.has("subtab")) {
+      params.delete("subtab");
+      if (tab === "Dashboard") {
+        params.delete("tab");
+      } else {
+        params.set("tab", tab);
+      }
+    } else if (tab === "Dashboard") {
+      params.delete("tab");
+    } else {
+      params.set("tab", tab);
+    }
+
+    if (tab === "Mail") {
+      params.set("mailSubTab", mailSubTab);
+    } else if (params.has("mailSubTab")) {
+      params.delete("mailSubTab");
+    }
+
+    nextSearch = params.toString();
+
+    const currentSearch = latestLocationSearchRef.current;
+    const normalizedCurrentSearch = currentSearch.startsWith("?")
+      ? currentSearch.slice(1)
+      : currentSearch;
+
+    if (nextSearch !== normalizedCurrentSearch) {
+      navigate(nextSearch ? `/main?${nextSearch}` : "/main", { replace: true });
+    }
+  }, [tab, contactsSubTab, mailSubTab, navigate]);
 
   const [showDataFileUpload, setShowDataFileUpload] = useState(false);
+  const [mountedTabs, setMountedTabs] = useState<Record<string, boolean>>(() => ({
+    [initialTab]: true,
+  }));
+  const [hasMountedDataFileUpload, setHasMountedDataFileUpload] =
+    useState(false);
+
+  useEffect(() => {
+    setMountedTabs((prev) => {
+      if (prev[tab]) return prev;
+      return { ...prev, [tab]: true };
+    });
+  }, [tab]);
+
+  useEffect(() => {
+    if (showDataFileUpload) {
+      setHasMountedDataFileUpload(true);
+    }
+  }, [showDataFileUpload]);
 
   const [isLoadingClientSettings, setIsLoadingClientSettings] = useState(false);
   const clientID = sessionStorage.getItem("clientId");
@@ -669,6 +771,14 @@ const handleClientChange = async (
     setUserRole(isAdmin ? "ADMIN" : "USER");
   }, []);
 
+  useEffect(() => {
+    if (!userRole || userRole === "ADMIN" || !selectedClient) return;
+
+    setSelectedClient("");
+    localStorage.removeItem("selectedClientId");
+    sessionStorage.removeItem("selectedClientId");
+  }, [userRole, selectedClient]);
+
   // Listen for blueprint edit event from Output
   useEffect(() => {
     const handleShowLoader = () => {
@@ -751,6 +861,31 @@ const handleClientChange = async (
     .trim();
 };
 
+  const getEmailTrailHtml = (emailBody?: string) => {
+    if (!followupEnabled || !emailBody) return "";
+
+    const body = String(emailBody);
+    const markerIndexes = [
+      body.search(/<hr\b/i),
+      body.search(/<b>\s*From:\s*<\/b>/i),
+      body.search(/(^|\n)\s*From:\s*/i),
+    ].filter((index) => index >= 0);
+
+    if (markerIndexes.length === 0) return "";
+
+    return body.slice(Math.min(...markerIndexes)).trim();
+  };
+
+  const mergeGeneratedPitchWithEmailTrail = (
+    generatedPitch?: string,
+    previousEmailBody?: string,
+  ) => {
+    const pitch = generatedPitch || "";
+    const oldThread = getEmailTrailHtml(previousEmailBody);
+
+    return oldThread ? `${pitch}\n\n${oldThread}` : pitch;
+  };
+
   const buildReplacements = (
     entry: any,
     currentDate: string,
@@ -793,7 +928,7 @@ const handleClientChange = async (
 
   const fetchAndDisplayEmailBodies = useCallback(
     async (
-      zohoviewId: string, // Format: "clientId,dataFileId" OR "segment_segmentId"
+      zohoviewId: string, // Format: "clientId,dataFileId" OR "segment_segmentId" OR "view_viewId"
       pageToken: string | null = null,
       direction: "next" | "previous" | null = null,
       forceFollowup?: boolean,
@@ -831,6 +966,9 @@ const handleClientChange = async (
               page: 1,
               pageSize: 0,
               search: "",
+              isFollowUp: forceFollowup ?? followupEnabled,
+              notKrafted: notKraftedEnabled,
+              kraftedNotSent: kraftedNotSentEnabled,
             }),
           });
 
@@ -898,7 +1036,7 @@ const handleClientChange = async (
         }
         const emailResponses = contactsData.map((entry: any) => ({
           id: entry.id,
-          dataFileId: dataFileId || entry.dataFileId || "null", // Add dataFileId to response
+          dataFileId: dataFileId || entry.dataFileId || entry.DataFileId || entry.data_file_id || "null", // Add dataFileId to response
           segmentId: segmentId || "null", // Add segmentId to response
           name: entry.full_name || "N/A",
           title: entry.job_title || "N/A",
@@ -978,6 +1116,7 @@ const handleClientChange = async (
       // If it's just a number (dataFileId) and not segment format, fix it
       if (
         !selectedZohoviewId.startsWith("segment_") &&
+        !selectedZohoviewId.startsWith("view_") &&
         !selectedZohoviewId.includes(",")
       ) {
         correctedZohoviewId = `${effectiveUserId},${selectedZohoviewId}`;
@@ -1499,8 +1638,16 @@ const resolvePromptSafely = async () => {
     let parsedClientId: number;
     let parsedDataFileId: number | null = null;
     let segmentId: string | null = null;
+    let viewId: string | null = null;
     if (selectedZohoviewId) {
-      if (selectedZohoviewId.startsWith("segment_")) {
+      if (selectedZohoviewId.startsWith("view_")) {
+        // Handle view-based campaign
+        viewId = selectedZohoviewId.replace("view_", "");
+        parsedClientId =
+          selectedClient !== "" ? Number(selectedClient) : Number(userId);
+        parsedDataFileId = null;
+        console.log("Using view-based campaign, viewId:", viewId);
+      } else if (selectedZohoviewId.startsWith("segment_")) {
         // ✅ Handle segment-based campaign
         segmentId = selectedZohoviewId.replace("segment_", "");
         parsedClientId =
@@ -1695,13 +1842,17 @@ const resolvePromptSafely = async () => {
 
         cost += bodyCost;
         totaltokensused += bodyTokens;
+        const displayPitch = mergeGeneratedPitchWithEmailTrail(
+          pitchData.response.content,
+          entry.email_body || entry.pitch,
+        );
 
         setOutputForm(prev => ({
           ...prev,
           generatedContent:
             `<span style="color:green">[${formatDateTime(new Date())}] Pitch successfully crafted for contact ${full_name} with company name ${company_name} and domain ${entry.email}</span><br/>`
             + prev.generatedContent,
-          linkLabel: pitchData.response.content,
+          linkLabel: displayPitch,
         }));
 
         // ✅ SUBJECT LOGIC UNCHANGED
@@ -1823,7 +1974,7 @@ const resolvePromptSafely = async () => {
         setAllResponses(prev =>
           prev.map(r =>
             r.id === entry.id
-              ? { ...r, pitch: pitchData.response.content, subject: subjectLine }
+              ? { ...r, pitch: displayPitch, subject: subjectLine }
               : r,
           ),
         );
@@ -1887,7 +2038,28 @@ const resolvePromptSafely = async () => {
           contacts = cachedContacts;
         } else {
           // ✅ Fetch contacts based on campaign type
-          if (segmentId) {
+          if (viewId) {
+            console.log("Fetching contacts from view API, viewId:", viewId);
+            const response = await fetch(`${API_BASE_URL}/api/Crm/view-contacts`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                clientId: effectiveUserId,
+                viewId: Number(viewId),
+                page: 1,
+                pageSize: 0,
+                search: "",
+              }),
+            });
+
+            if (!response.ok) {
+              throw new Error("Failed to fetch view contacts");
+            }
+
+            const data = await response.json();
+            contacts = data.contacts || [];
+            console.log("Fetched view contacts:", contacts.length);
+          } else if (segmentId) {
             // Fetch from segment API
             console.log(
               "Fetching contacts from segment API, segmentId:",
@@ -1923,7 +2095,7 @@ const resolvePromptSafely = async () => {
             console.log("Fetched datafile contacts:", contacts.length);
           } else {
             throw new Error(
-              "No valid data source found (neither segment nor datafile)",
+              "No valid data source found (neither view, segment nor datafile)",
             );
           }
         }
@@ -2002,8 +2174,9 @@ const resolvePromptSafely = async () => {
               subject: entry.email_subject || "N/A",
               lastemailupdateddate: entry.updated_at || "N/A",
               emailsentdate: entry.email_sent_at || "N/A",
-              dataFileId: entry.dataFileId, // Make sure this is preserved correctly
+              dataFileId: entry.dataFileId || entry.DataFileId || entry.data_file_id, // Make sure this is preserved correctly
               segmentId: segmentId ? parseInt(segmentId) : null, // Also preserve segmentId
+              viewId: viewId ? parseInt(viewId) : null,
             };
 
             setAllResponses((prevResponses) => {
@@ -2250,6 +2423,10 @@ totalEmailCountRef.current += 1;
             // keep legacy totals
             cost += bodyCost;
             totaltokensused += bodyTokens;
+            const displayPitch = mergeGeneratedPitchWithEmailTrail(
+              pitchData.response.content,
+              entry.email_body || entry.pitch,
+            );
 
 
           // Success: Update UI with the generated pitch
@@ -2268,7 +2445,7 @@ totalEmailCountRef.current += 1;
 
           setOutputForm((prevOutputForm) => ({
             ...prevOutputForm,
-            linkLabel: pitchData.response.content,
+            linkLabel: displayPitch,
           }));
 
           generatedPitches.push({
@@ -2279,7 +2456,7 @@ totalEmailCountRef.current += 1;
             location: entry.country_or_address || "N/A",
             website: entry.website || "N/A",
             linkedin: entry.linkedin_url || "N/A",
-            pitch: pitchData.response.content,
+            pitch: displayPitch,
             subject: entry.email_subject || "N/A",
             lastemailupdateddate: entry.updated_at || "N/A",
             emailsentdate: entry.email_sent_at || "N/A",
@@ -2386,20 +2563,21 @@ totalEmailCostRef.current += subjectCost;
           // Update the linkLabel to show both subject and pitch
           setOutputForm((prevOutputForm) => ({
             ...prevOutputForm,
-            linkLabel: pitchData.response.content,
+            linkLabel: displayPitch,
             emailSubject: subjectLine,
           }));
 
           // Update generatedPitches to include subject
           generatedPitches.push({
             ...entry,
-            name: entry.full_name || "N/A",
-            title: entry.job_title || "N/A",
+            dataFileId: entry.dataFileId || entry.DataFileId || entry.data_file_id || parsedDataFileId || null,
+            segmentId: entry.segmentId || (segmentId ? parseInt(segmentId) : null),
+            viewId: viewId ? parseInt(viewId) : null,
             company: entry.company_name || "N/A",
             location: entry.country_or_address || "N/A",
             website: entry.website || "N/A",
             linkedin: entry.linkedin_url || "N/A",
-            pitch: pitchData.response.content,
+            pitch: displayPitch,
             subject: subjectLine,
             lastemailupdateddate: entry.updated_at || "N/A",
             emailsentdate: entry.email_sent_at || "N/A",
@@ -2414,7 +2592,7 @@ totalEmailCostRef.current += subjectCost;
             location: entry.country_or_address || "N/A",
             website: entry.website || "N/A",
             linkedin: entry.linkedin_url || "N/A",
-            pitch: pitchData.response.content,
+            pitch: displayPitch,
             subject: subjectLine,
             timestamp: new Date().toISOString(),
             id: entry.id,
@@ -3206,6 +3384,14 @@ try {
     }));
   };
 
+  const getTabPanelStyle = (isVisible: boolean): React.CSSProperties => ({
+    display: isVisible ? "block" : "none",
+    animation: isVisible ? "main-page-tab-enter 220ms ease-out" : undefined,
+  });
+
+  const shouldRenderTab = (tabName: string) =>
+    mountedTabs[tabName] || tab === tabName;
+
   const [showBlueprintSubmenu, setShowBlueprintSubmenu] =
     useState<boolean>(false);
   const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
@@ -3386,6 +3572,7 @@ try {
                             setShowContactsSubmenu(true);
                             setShowMailSubmenu(false);
                             setShowSettingsSubmenu(false);
+                            navigate(`/main?tab=DataCampaigns&subtab=${contactsSubTab}`);
                           } else {
                             setShowContactsSubmenu((prev) => !prev);
                           }
@@ -3419,6 +3606,7 @@ try {
                                 setContactsSubTab("List");
                                 setTab("DataCampaigns");
                                 setShowMailSubmenu(false);
+                                navigate("/main?tab=DataCampaigns&subtab=List");
                               }}
                               className="submenu-button"
                             >
@@ -3435,6 +3623,7 @@ try {
                                 setContactsSubTab("View");
                                 setTab("DataCampaigns");
                                 setShowMailSubmenu(false);
+                                navigate("/main?tab=DataCampaigns&subtab=View");
                               }}
                               className="submenu-button"
                             >
@@ -3451,6 +3640,7 @@ try {
                                 setContactsSubTab("Segment");
                                 setTab("DataCampaigns");
                                 setShowMailSubmenu(false);
+                                navigate("/main?tab=DataCampaigns&subtab=Segment");
                               }}
                               className="submenu-button"
                             >
@@ -3702,7 +3892,7 @@ try {
                             href="mailto:support@pitchkraft.co"
                             className="text-blue-600 hover:underline"
                           >
-                            support@pitchkraft.co
+                            support@pitchkraft.ai
                           </a>
                         </p>
                       </div>
@@ -3744,187 +3934,212 @@ try {
         <main className="flex-1 overflow-y-auto h-[calc(100%-87px)] p-[20px] bg-[#eeeeee]">
           <div
             className={`
-               rounded-md p-6
-              ${tab !== "Dashboard" && "bg-white p-4 shadow-md"}
+               rounded-md
+              ${!isContactDetailPage && tab !== "Dashboard" ? "bg-white p-4 shadow-md" : ""}
             `}
           >
             {/* Main Content Area */}
+            {isContactDetailPage ? (
+              <ContactDetailView embedded />
+            ) : (
+              <>
 
-            <div className="tab-content">
-              {tab === "Dashboard" && <Dashboard />}
-            </div>
+            {shouldRenderTab("Dashboard") && (
+              <div className="tab-content preserved-tab-panel" style={getTabPanelStyle(tab === "Dashboard")}>
+                <Dashboard />
+              </div>
+            )}
 
-            {/* Tab Content */}
             <div className="tab-content"></div>
 
-            {tab === "DataCampaigns" && !showDataFileUpload && (
-              <DataCampaigns
-                selectedClient={selectedClient}
-                onDataProcessed={handleExcelDataProcessed}
-                isProcessing={isProcessing}
-                initialTab={contactsSubTab}
-                onTabChange={setContactsSubTab}
-                onAddContactClick={() => setShowDataFileUpload(true)} // Add this
-              />
+            {shouldRenderTab("DataCampaigns") && (
+              <>
+                <div
+                  className="preserved-tab-panel"
+                  style={getTabPanelStyle(tab === "DataCampaigns" && !showDataFileUpload)}
+                >
+                  <DataCampaigns
+                    selectedClient={selectedClient}
+                    onDataProcessed={handleExcelDataProcessed}
+                    isProcessing={isProcessing}
+                    initialTab={contactsSubTab}
+                    onTabChange={setContactsSubTab}
+                    onAddContactClick={() => setShowDataFileUpload(true)}
+                  />
+                </div>
+
+                {(hasMountedDataFileUpload || showDataFileUpload) && (
+                  <div
+                    className="preserved-tab-panel"
+                    style={getTabPanelStyle(tab === "DataCampaigns" && showDataFileUpload)}
+                  >
+                    <DataFile
+                      selectedClient={selectedClient}
+                      onDataProcessed={(data) => {
+                        handleExcelDataProcessed(data);
+                        setShowDataFileUpload(false);
+                      }}
+                      isProcessing={isProcessing}
+                      onBack={() => setShowDataFileUpload(false)}
+                    />
+                  </div>
+                )}
+              </>
+            )}
+            {shouldRenderTab("Campaigns") && (
+              <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "Campaigns")}>
+                <CampaignManagement
+                  selectedClient={selectedClient}
+                  userRole={userRole}
+                />
+              </div>
+            )}
+            {shouldRenderTab("Output") && (
+              <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "Output")}>
+                <Output
+                  outputForm={outputForm}
+                  outputFormHandler={outputFormHandler}
+                  setOutputForm={setOutputForm}
+                  allResponses={allResponses}
+                  isPaused={isPaused}
+                  setAllResponses={setAllResponses}
+                  currentIndex={currentIndex}
+                  setCurrentIndex={setCurrentIndex}
+                  onClearOutput={clearOutputForm}
+                  allprompt={allprompt}
+                  setallprompt={setallprompt}
+                  allsearchResults={allsearchResults}
+                  setallsearchResults={setallsearchResults}
+                  everyscrapedData={everyscrapedData}
+                  seteveryscrapedData={seteveryscrapedData}
+                  allSearchTermBodies={allSearchTermBodies}
+                  setallSearchTermBodies={setallSearchTermBodies}
+                  onClearContent={handleClearContent}
+                  setallsummery={setallsummery}
+                  allsummery={allsummery}
+                  existingResponse={existingResponse}
+                  setexistingResponse={setexistingResponse}
+                  currentPage={currentPage}
+                  setCurrentPage={setCurrentPage}
+                  prevPageToken={prevPageToken}
+                  nextPageToken={nextPageToken}
+                  fetchAndDisplayEmailBodies={fetchAndDisplayEmailBodies}
+                  selectedZohoviewId={selectedZohoviewId}
+                  onClearExistingResponse={setClearExistingResponse}
+                  isResetEnabled={!isProcessing}
+                  zohoClient={zohoClient}
+                  onRegenerateContact={goToTab}
+                  recentlyAddedOrUpdatedId={recentlyAddedOrUpdatedId}
+                  setRecentlyAddedOrUpdatedId={setRecentlyAddedOrUpdatedId}
+                  selectedClient={selectedClient}
+                  isStarted={isStarted}
+                  handleStart={handleStart}
+                  handleReset={handleReset}
+                  isPitchUpdateCompleted={isPitchUpdateCompleted}
+                  allRecordsProcessed={allRecordsProcessed}
+                  isDemoAccount={isDemoAccount}
+                  settingsForm={settingsForm}
+                  settingsFormHandler={settingsFormHandler}
+                  delayTime={delayTime.toString()}
+                  setDelay={(value: string) => setDelay(parseInt(value) || 0)}
+                  handleClearAll={handleClearAll}
+                  campaigns={campaigns}
+                  selectedCampaign={selectedCampaign}
+                  handleCampaignChange={handleCampaignChange}
+                  selectionMode={selectionMode}
+                  promptList={promptList}
+                  handleSelectChange={handleSelectChange}
+                  userRole={userRole}
+                  dataFiles={dataFiles}
+                  handleZohoModelChange={handleZohoModelChange}
+                  emailLoading={emailLoading}
+                  languages={Object.values(Languages)}
+                  selectedPrompt={selectedPrompt}
+                  handleStop={handleStop}
+                  isStopRequested={stopRef.current}
+                  selectedSegmentId={selectedSegmentId}
+                  handleSubjectTextChange={handleSubjectTextChange}
+                  showCreditModal={showCreditModal}
+                  checkUserCredits={checkUserCredits}
+                  userId={userId}
+                  followupEnabled={followupEnabled}
+                  setFollowupEnabled={setFollowupEnabled}
+                  notKraftedEnabled={notKraftedEnabled}
+                  setNotKraftedEnabled={setNotKraftedEnabled}
+                  kraftedNotSentEnabled={kraftedNotSentEnabled}
+                  setKraftedNotSentEnabled={setKraftedNotSentEnabled}
+                  isSoundEnabled={isSoundEnabled}
+                  setIsSoundEnabled={setIsSoundEnabled}
+                  clearUsage={clearUsage}
+                />
+              </div>
             )}
 
-            {tab === "DataCampaigns" && showDataFileUpload && (
-              <DataFile
-                selectedClient={selectedClient}
-                onDataProcessed={(data) => {
-                  handleExcelDataProcessed(data);
-                  setShowDataFileUpload(false); // Return to contacts list
-                  // Optionally refresh data or perform other actions
-                }}
-                isProcessing={isProcessing}
-                onBack={() => setShowDataFileUpload(false)} // Add back functionality
-              />
+            {shouldRenderTab("Mail") && (
+              <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "Mail")}>
+                <Mail
+                  selectedClient={selectedClient}
+                  outputForm={outputForm}
+                  outputFormHandler={outputFormHandler}
+                  setOutputForm={setOutputForm}
+                  allResponses={allResponses}
+                  isPaused={isPaused}
+                  setAllResponses={setAllResponses}
+                  currentIndex={currentIndex}
+                  setCurrentIndex={setCurrentIndex}
+                  onClearOutput={clearOutputForm}
+                  allprompt={allprompt}
+                  setallprompt={setallprompt}
+                  allsearchResults={allsearchResults}
+                  setallsearchResults={setallsearchResults}
+                  everyscrapedData={everyscrapedData}
+                  seteveryscrapedData={seteveryscrapedData}
+                  allSearchTermBodies={allSearchTermBodies}
+                  setallSearchTermBodies={setallSearchTermBodies}
+                  onClearContent={handleClearContent}
+                  setallsummery={setallsummery}
+                  allsummery={allsummery}
+                  existingResponse={existingResponse}
+                  setexistingResponse={setexistingResponse}
+                  currentPage={currentPage}
+                  setCurrentPage={setCurrentPage}
+                  prevPageToken={prevPageToken}
+                  nextPageToken={nextPageToken}
+                  fetchAndDisplayEmailBodies={fetchAndDisplayEmailBodies}
+                  selectedZohoviewId={selectedZohoviewId}
+                  onClearExistingResponse={setClearExistingResponse}
+                  isResetEnabled={!isProcessing}
+                  zohoClient={zohoClient}
+                  initialTab={mailSubTab}
+                  onTabChange={setMailSubTab}
+                />
+              </div>
             )}
-            {tab === "Campaigns" && (
-              <CampaignManagement
-                selectedClient={selectedClient}
-                userRole={userRole}
-              />
-            )}
-            {tab === "Output" && (
-              <Output
-                outputForm={outputForm}
-                outputFormHandler={outputFormHandler}
-                setOutputForm={setOutputForm}
-                allResponses={allResponses}
-                isPaused={isPaused}
-                setAllResponses={setAllResponses}
-                currentIndex={currentIndex}
-                setCurrentIndex={setCurrentIndex}
-                onClearOutput={clearOutputForm}
-                allprompt={allprompt}
-                setallprompt={setallprompt}
-                allsearchResults={allsearchResults}
-                setallsearchResults={setallsearchResults}
-                everyscrapedData={everyscrapedData}
-                seteveryscrapedData={seteveryscrapedData}
-                allSearchTermBodies={allSearchTermBodies}
-                setallSearchTermBodies={setallSearchTermBodies}
-                onClearContent={handleClearContent}
-                setallsummery={setallsummery}
-                allsummery={allsummery}
-                existingResponse={existingResponse}
-                setexistingResponse={setexistingResponse}
-                currentPage={currentPage}
-                setCurrentPage={setCurrentPage}
-                prevPageToken={prevPageToken}
-                nextPageToken={nextPageToken}
-                fetchAndDisplayEmailBodies={fetchAndDisplayEmailBodies}
-                selectedZohoviewId={selectedZohoviewId}
-                onClearExistingResponse={setClearExistingResponse}
-                isResetEnabled={!isProcessing}
-                zohoClient={zohoClient}
-                onRegenerateContact={goToTab}
-                recentlyAddedOrUpdatedId={recentlyAddedOrUpdatedId}
-                setRecentlyAddedOrUpdatedId={setRecentlyAddedOrUpdatedId}
-                selectedClient={selectedClient}
-                isStarted={isStarted}
-                handleStart={handleStart}
-                handleReset={handleReset}
-                isPitchUpdateCompleted={isPitchUpdateCompleted}
-                allRecordsProcessed={allRecordsProcessed}
-                isDemoAccount={isDemoAccount}
-                settingsForm={settingsForm}
-                settingsFormHandler={settingsFormHandler}
-                delayTime={delayTime.toString()} // Convert number to string
-                setDelay={(value: string) => setDelay(parseInt(value) || 0)} // Convert string back to number
-                handleClearAll={handleClearAll}
-                campaigns={campaigns}
-                selectedCampaign={selectedCampaign}
-                handleCampaignChange={handleCampaignChange}
-                selectionMode={selectionMode}
-                promptList={promptList}
-                handleSelectChange={handleSelectChange}
-                userRole={userRole}
-                dataFiles={dataFiles}
-                handleZohoModelChange={handleZohoModelChange}
-                emailLoading={emailLoading}
-                languages={Object.values(Languages)}
-       
-                selectedPrompt={selectedPrompt} // Make sure this is passed
-                handleStop={handleStop}
-                isStopRequested={stopRef.current} // Add this line
-                selectedSegmentId={selectedSegmentId}
-                handleSubjectTextChange={handleSubjectTextChange}
-                showCreditModal={showCreditModal}
-                checkUserCredits={checkUserCredits}
-                userId={userId}
-                followupEnabled={followupEnabled}
-                setFollowupEnabled={setFollowupEnabled}
-                notKraftedEnabled={notKraftedEnabled}
-                setNotKraftedEnabled={setNotKraftedEnabled}
-                kraftedNotSentEnabled={kraftedNotSentEnabled}
-                setKraftedNotSentEnabled={setKraftedNotSentEnabled}
-                isSoundEnabled={isSoundEnabled}
-                setIsSoundEnabled={setIsSoundEnabled}
-                clearUsage={clearUsage}
-
-              />
+            {shouldRenderTab("Playground") && userRole === "ADMIN" && (
+              <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "Playground")}>
+                <EmailCampaignBuilder selectedClient={selectedClient} />
+              </div>
             )}
 
-            {tab === "Mail" && (
-              <Mail
-                selectedClient={selectedClient}
-                outputForm={outputForm}
-                outputFormHandler={outputFormHandler}
-                setOutputForm={setOutputForm}
-                allResponses={allResponses}
-                isPaused={isPaused}
-                setAllResponses={setAllResponses}
-                currentIndex={currentIndex}
-                setCurrentIndex={setCurrentIndex}
-                onClearOutput={clearOutputForm}
-                allprompt={allprompt}
-                setallprompt={setallprompt}
-                allsearchResults={allsearchResults}
-                setallsearchResults={setallsearchResults}
-                everyscrapedData={everyscrapedData}
-                seteveryscrapedData={seteveryscrapedData}
-                allSearchTermBodies={allSearchTermBodies}
-                setallSearchTermBodies={setallSearchTermBodies}
-                onClearContent={handleClearContent}
-                setallsummery={setallsummery}
-                allsummery={allsummery}
-                existingResponse={existingResponse}
-                setexistingResponse={setexistingResponse}
-                currentPage={currentPage}
-                setCurrentPage={setCurrentPage}
-                prevPageToken={prevPageToken}
-                nextPageToken={nextPageToken}
-                fetchAndDisplayEmailBodies={fetchAndDisplayEmailBodies}
-                selectedZohoviewId={selectedZohoviewId}
-                onClearExistingResponse={setClearExistingResponse}
-                isResetEnabled={!isProcessing}
-                zohoClient={zohoClient}
-                initialTab={mailSubTab}
-                onTabChange={setMailSubTab}
-              />
+            {shouldRenderTab("TestTemplate") && (
+              <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "TestTemplate")}>
+                <Template
+                  selectedClient={selectedClient}
+                  userRole={userRole}
+                  isDemoAccount={isDemoAccount}
+                  onTemplateSelect={(template) => {
+                    setSelectedPrompt(template);
+                  }}
+                />
+              </div>
             )}
-            {tab === "Playground" && userRole === "ADMIN" && (
-              <EmailCampaignBuilder selectedClient={selectedClient} />
-            )}
-
-            {tab === "TestTemplate" && (
-              <Template
-                selectedClient={selectedClient}
-                userRole={userRole}
-                isDemoAccount={isDemoAccount}
-                onTemplateSelect={(template) => {
-                  setSelectedPrompt(template);
-                  // You can add any additional logic here when a template is selected
-                }}
-              />
-            )}
-            {tab === "CustomFields" && (
+            {shouldRenderTab("CustomFields") && (
+              <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "CustomFields")}>
                 <CustomFieldSettings
                   selectedClient={selectedClient}
                 />
-              )}
+              </div>
+            )}
 
             {/* Stop Confirmation Popup */}
             {showPopup && (
@@ -3934,10 +4149,18 @@ try {
                 <button onClick={() => handlePopupResponse(false)}>No</button>
               </div>
             )}
-            {tab === "Settings" && (
-              <Tracking selectedClient={selectedClient} />
+            {shouldRenderTab("Settings") && (
+              <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "Settings")}>
+                <Tracking selectedClient={selectedClient} />
+              </div>
             )}
-            {tab === "MyPlan" && <Myplan />}
+            {shouldRenderTab("MyPlan") && (
+              <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "MyPlan")}>
+                <Myplan />
+              </div>
+            )}
+              </>
+            )}
           </div>
         </main>
       </div>

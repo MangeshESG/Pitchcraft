@@ -1,28 +1,35 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import API_BASE_URL from "../../config";
-
-type FieldType = "text" | "number" | "date" | "boolean" | "dropdown";
-type JoinOperator = "AND" | "OR";
+import type {
+  FieldType,
+  FilterCondition,
+  FilterGroup,
+  JoinOperator,
+} from "./filterTypes";
+import {
+  ALL_CAMPAIGNS_ID,
+  buildTrackingIndexesForGroups,
+  conditionRequiresCampaign,
+  evaluateTrackingCondition,
+  getCampaignOptions,
+  hasRequiredConditionContext,
+} from "../../utils/trackingFilterUtils";
+import type { CampaignOption } from "../../utils/trackingFilterUtils";
 
 interface FieldOption {
   key: string;
   label: string;
   type: FieldType;
   options?: string[];
+  contextType?: "campaign";
 }
 
-export interface FilterCondition {
-  id: string;
-  field: string;
-  operator: string;
-  value: any;
-  joinWithPrevious?: JoinOperator;
-}
+type FieldCategoryKey = "system" | "custom" | "email";
 
-interface FilterGroup {
-  id: string;
-  conditions: FilterCondition[];
-  joinWithPrevious?: JoinOperator;
+interface FieldCategory {
+  key: FieldCategoryKey;
+  label: string;
+  fields: FieldOption[];
 }
 
 export interface Props<T> {
@@ -32,6 +39,7 @@ export interface Props<T> {
   initialFiltersJson?: string;
   onFiltersJsonChange?: (filtersJson: string, conditions: FilterCondition[]) => void;
   hideApplyButton?: boolean;
+  clientId?: string | number;
   saveViewConfig?: {
     clientId: string | number;
     dataFileIds?: number[];
@@ -50,6 +58,8 @@ const operatorsByType: Record<FieldType, { value: string; label: string }[]> = {
     { value: "startsWith", label: "Starts with" },
     { value: "endsWith", label: "Ends with" },
     { value: "notEquals", label: "Not equals" },
+    { value: "isEmpty", label: "Is empty" },
+    { value: "isNotEmpty", label: "Is not empty" },
   ],
   number: [
     { value: "equals", label: "=" },
@@ -57,21 +67,32 @@ const operatorsByType: Record<FieldType, { value: string; label: string }[]> = {
     { value: "lt", label: "<" },
     { value: "gte", label: ">=" },
     { value: "lte", label: "<=" },
+    { value: "isEmpty", label: "Is empty" },
+    { value: "isNotEmpty", label: "Is not empty" },
   ],
   date: [
     { value: "equals", label: "Equals" },
     { value: "before", label: "Before" },
     { value: "after", label: "After" },
+    { value: "isEmpty", label: "Is empty" },
+    { value: "isNotEmpty", label: "Is not empty" },
   ],
   boolean: [
     { value: "equals", label: "Is" },
     { value: "notEquals", label: "Is not" },
+    { value: "isEmpty", label: "Is empty" },
+    { value: "isNotEmpty", label: "Is not empty" },
   ],
   dropdown: [
     { value: "equals", label: "Equals" },
     { value: "notEquals", label: "Not equals" },
+    { value: "isEmpty", label: "Is empty" },
+    { value: "isNotEmpty", label: "Is not empty" },
   ],
 };
+
+const isValueOptionalOperator = (operator?: string) =>
+  operator === "isEmpty" || operator === "isNotEmpty";
 
 const cardStyle: React.CSSProperties = {
   border: "1px solid #d8e6d9",
@@ -79,7 +100,7 @@ const cardStyle: React.CSSProperties = {
   background:
     "linear-gradient(180deg, rgba(248,252,248,1) 0%, rgba(255,255,255,1) 100%)",
   boxShadow: "0 10px 30px rgba(35, 79, 38, 0.08)",
-  overflow: "hidden",
+  overflow: "visible",
 };
 
 const controlStyle: React.CSSProperties = {
@@ -105,6 +126,21 @@ const actionButtonStyle: React.CSSProperties = {
   cursor: "pointer",
 };
 
+const fieldPickerPopoverStyle: React.CSSProperties = {
+  position: "absolute",
+  top: "calc(100% + 8px)",
+  left: 0,
+  zIndex: 40,
+  width: "min(430px, calc(100vw - 64px))",
+  maxWidth: "100%",
+  maxHeight: 430,
+  borderRadius: 20,
+  border: "1px solid #d9e5db",
+  background: "#fff",
+  boxShadow: "0 20px 40px rgba(15, 23, 42, 0.14)",
+  overflow: "hidden",
+};
+
 const generateId = () => Math.random().toString(36).substring(2, 9);
 const viewMetaKey = (clientId: string | number) =>
   `crm_view_meta_${clientId}`;
@@ -118,6 +154,47 @@ const sortByLabelAsc = <T extends { label: string }>(items: T[]) =>
   [...items].sort((a, b) =>
     a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
   );
+
+const getFieldCategory = (field: FieldOption): FieldCategoryKey => {
+  if (field.key.startsWith("custom_")) {
+    return "custom";
+  }
+
+  const normalizedKey = field.key.toLowerCase();
+  const normalizedLabel = field.label.toLowerCase();
+
+  if (normalizedKey === "email") {
+    return "system";
+  }
+
+  if (
+    field.contextType === "campaign" ||
+    normalizedKey.startsWith("tracking_") ||
+    (normalizedKey.includes("email") && normalizedKey !== "email") ||
+    (normalizedLabel.includes("email") && normalizedKey !== "email")
+  ) {
+    return "email";
+  }
+
+  return "system";
+};
+
+const getFieldCategories = (sortedFields: FieldOption[]): FieldCategory[] => {
+  const categories: FieldCategory[] = [
+    { key: "system", label: "System Fields", fields: [] },
+    { key: "custom", label: "Custom Fields", fields: [] },
+    { key: "email", label: "Email", fields: [] },
+  ];
+
+  sortedFields.forEach((field) => {
+    const category = categories.find(
+      (entry) => entry.key === getFieldCategory(field)
+    );
+    category?.fields.push(field);
+  });
+
+  return categories.filter((category) => category.fields.length > 0);
+};
 
 const saveViewMeta = (
   clientId: string | number,
@@ -249,7 +326,9 @@ const getRowValue = <T extends Record<string, any>>(row: T, fieldKey: string) =>
 const isCompleteCondition = (condition: FilterCondition) =>
   condition.field.trim() &&
   condition.operator.trim() &&
-  String(condition.value ?? "").trim() !== "";
+  (isValueOptionalOperator(condition.operator) ||
+    String(condition.value ?? "").trim() !== "") &&
+  hasRequiredConditionContext(condition);
 
 function FilterBuilder<T extends Record<string, any>>({
   data,
@@ -258,6 +337,7 @@ function FilterBuilder<T extends Record<string, any>>({
   initialFiltersJson,
   onFiltersJsonChange,
   hideApplyButton = false,
+  clientId,
   saveViewConfig,
 }: Props<T>) {
   const [groups, setGroups] = useState<FilterGroup[]>([createGroup()]);
@@ -265,8 +345,22 @@ function FilterBuilder<T extends Record<string, any>>({
   const [viewName, setViewName] = useState("");
   const [viewDescription, setViewDescription] = useState("");
   const [isSavingView, setIsSavingView] = useState(false);
+  const [isApplyingFilters, setIsApplyingFilters] = useState(false);
+  const [activeFieldPicker, setActiveFieldPicker] = useState<{
+    groupId: string;
+    conditionId: string;
+  } | null>(null);
+  const [fieldSearchTerm, setFieldSearchTerm] = useState("");
+  const [activeFieldCategory, setActiveFieldCategory] =
+    useState<FieldCategoryKey>("system");
+  const [campaignOptions, setCampaignOptions] = useState<CampaignOption[]>([]);
+  const fieldPickerRef = useRef<HTMLDivElement | null>(null);
 
   const sortedFields = useMemo(() => sortByLabelAsc(fields), [fields]);
+  const fieldCategories = useMemo(
+    () => getFieldCategories(sortedFields),
+    [sortedFields]
+  );
   const sortedFieldOptions = useMemo(() => {
     const map = new Map<string, string[]>();
     fields.forEach((field) => {
@@ -276,6 +370,11 @@ function FilterBuilder<T extends Record<string, any>>({
     });
     return map;
   }, [fields]);
+  const resolvedClientId = clientId ?? saveViewConfig?.clientId;
+  const hasCampaignAwareFields = useMemo(
+    () => fields.some((field) => field.contextType === "campaign"),
+    [fields]
+  );
 
   const completeGroups = useMemo(
     () =>
@@ -340,6 +439,52 @@ function FilterBuilder<T extends Record<string, any>>({
   useEffect(() => {
     onFiltersJsonChange?.(filtersJson, completeConditions);
   }, [filtersJson, completeConditions, onFiltersJsonChange]);
+
+  useEffect(() => {
+    if (!activeFieldPicker) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (
+        fieldPickerRef.current &&
+        !fieldPickerRef.current.contains(event.target as Node)
+      ) {
+        setActiveFieldPicker(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+    };
+  }, [activeFieldPicker]);
+
+  useEffect(() => {
+    if (!hasCampaignAwareFields || !resolvedClientId) {
+      setCampaignOptions([]);
+      return;
+    }
+
+    let isMounted = true;
+
+    getCampaignOptions(resolvedClientId)
+      .then((options) => {
+        if (isMounted) {
+          setCampaignOptions(options);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to load campaign options:", error);
+        if (isMounted) {
+          setCampaignOptions([]);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [hasCampaignAwareFields, resolvedClientId]);
 
   const addGroup = () => {
     setGroups((previous) => [...previous, createGroup("AND")]);
@@ -413,6 +558,7 @@ function FilterBuilder<T extends Record<string, any>>({
                 field: value,
                 operator: "",
                 value: "",
+                context: undefined,
               };
             }
 
@@ -438,7 +584,64 @@ function FilterBuilder<T extends Record<string, any>>({
 
   const getField = (key: string) => fields.find((field) => field.key === key);
 
-  const evaluateCondition = (row: T, condition: FilterCondition) => {
+  const openFieldPicker = (
+    groupId: string,
+    conditionId: string,
+    selectedFieldKey?: string
+  ) => {
+    const selectedField = selectedFieldKey ? getField(selectedFieldKey) : undefined;
+    const fallbackCategory = selectedField
+      ? getFieldCategory(selectedField)
+      : fieldCategories[0]?.key || "system";
+
+    setActiveFieldPicker({ groupId, conditionId });
+    setActiveFieldCategory(fallbackCategory);
+    setFieldSearchTerm("");
+  };
+
+  const filteredFieldCategories = useMemo(() => {
+    const normalizedSearch = fieldSearchTerm.trim().toLowerCase();
+
+    return fieldCategories
+      .map((category) => ({
+        ...category,
+        fields: category.fields.filter((field) =>
+          normalizedSearch.length === 0
+            ? true
+            : field.label.toLowerCase().includes(normalizedSearch) ||
+              field.key.toLowerCase().includes(normalizedSearch)
+        ),
+      }))
+      .filter((category) => category.fields.length > 0);
+  }, [fieldCategories, fieldSearchTerm]);
+
+  useEffect(() => {
+    if (filteredFieldCategories.length === 0) {
+      return;
+    }
+
+    const categoryExists = filteredFieldCategories.some(
+      (category) => category.key === activeFieldCategory
+    );
+
+    if (!categoryExists) {
+      setActiveFieldCategory(filteredFieldCategories[0].key);
+    }
+  }, [filteredFieldCategories, activeFieldCategory]);
+
+  const evaluateCondition = (
+    row: T,
+    condition: FilterCondition,
+    campaignIndexes: Awaited<ReturnType<typeof buildTrackingIndexesForGroups>>
+  ) => {
+    if (conditionRequiresCampaign(condition)) {
+      return evaluateTrackingCondition(
+        row as Record<string, any>,
+        condition,
+        campaignIndexes
+      );
+    }
+
     const value = getRowValue(row, condition.field);
     const normalizedFieldType = normalizeFieldType(
       getField(condition.field)?.type
@@ -490,45 +693,72 @@ function FilterBuilder<T extends Record<string, any>>({
       case "after":
         return new Date(value) > new Date(condition.value);
 
+      case "isEmpty":
+        return (
+          value === null ||
+          value === undefined ||
+          String(value).trim() === ""
+        );
+
+      case "isNotEmpty":
+        return !(
+          value === null ||
+          value === undefined ||
+          String(value).trim() === ""
+        );
+
       default:
         return true;
     }
   };
 
-  const applyFilters = () => {
-    if (completeGroups.length === 0) {
-      onFiltered(data);
-      return;
+  const applyFilters = async () => {
+    setIsApplyingFilters(true);
+
+    try {
+      const campaignIndexes =
+        resolvedClientId && completeGroups.length > 0
+          ? await buildTrackingIndexesForGroups(resolvedClientId, completeGroups)
+          : new Map();
+
+      if (completeGroups.length === 0) {
+        onFiltered(data);
+        return;
+      }
+
+      const filtered = data.filter((row) =>
+        completeGroups.reduce((groupResult, group, groupIndex) => {
+          const conditionResult = group.conditions.reduce(
+            (result, condition, index) => {
+              const evaluation = evaluateCondition(row, condition, campaignIndexes);
+
+              if (index === 0) {
+                return evaluation;
+              }
+
+              return condition.joinWithPrevious === "OR"
+                ? result || evaluation
+                : result && evaluation;
+            },
+            true as boolean
+          );
+
+          if (groupIndex === 0) {
+            return conditionResult;
+          }
+
+          return group.joinWithPrevious === "OR"
+            ? groupResult || conditionResult
+            : groupResult && conditionResult;
+        }, true as boolean)
+      );
+
+      onFiltered(filtered);
+    } catch (error) {
+      console.error("Failed to apply filters:", error);
+    } finally {
+      setIsApplyingFilters(false);
     }
-
-    const filtered = data.filter((row) =>
-      completeGroups.reduce((groupResult, group, groupIndex) => {
-        const conditionResult = group.conditions.reduce(
-          (result, condition, index) => {
-            const evaluation = evaluateCondition(row, condition);
-
-            if (index === 0) {
-              return evaluation;
-            }
-
-            return condition.joinWithPrevious === "OR"
-              ? result || evaluation
-              : result && evaluation;
-          },
-          true as boolean
-        );
-
-        if (groupIndex === 0) {
-          return conditionResult;
-        }
-
-        return group.joinWithPrevious === "OR"
-          ? groupResult || conditionResult
-          : groupResult && conditionResult;
-      }, true as boolean)
-    );
-
-    onFiltered(filtered);
   };
 
   const clearFilters = () => {
@@ -723,6 +953,10 @@ function FilterBuilder<T extends Record<string, any>>({
               {group.conditions.map((condition, index) => {
                 const field = getField(condition.field);
                 const normalizedFieldType = normalizeFieldType(field?.type);
+                const requiresCampaign = field?.contextType === "campaign";
+                const isFieldPickerOpen =
+                  activeFieldPicker?.groupId === group.id &&
+                  activeFieldPicker?.conditionId === condition.id;
                 const operators = field
                   ? operatorsByType[normalizedFieldType]
                   : operatorsByType.text;
@@ -730,13 +964,29 @@ function FilterBuilder<T extends Record<string, any>>({
                 const dropdownOptions = field?.options
                   ? sortedFieldOptions.get(field.key) || sortStringsAsc(field.options)
                   : [];
+                const isValueOptional = isValueOptionalOperator(
+                  condition.operator
+                );
+                const visibleFieldCategories = filteredFieldCategories;
+                const selectedFieldCategory =
+                  visibleFieldCategories.find(
+                    (category) => category.key === activeFieldCategory
+                  ) || visibleFieldCategories[0];
 
                 return (
                   <div
                     key={condition.id}
                     style={{
                       marginBottom:
-                        index === group.conditions.length - 1 ? 0 : 16,
+                        index === group.conditions.length - 1
+                          ? isFieldPickerOpen
+                            ? 440
+                            : 0
+                          : isFieldPickerOpen
+                          ? 456
+                          : 16,
+                      position: "relative",
+                      zIndex: isFieldPickerOpen ? 5 : 1,
                     }}
                   >
                     {index > 0 && (
@@ -807,33 +1057,208 @@ function FilterBuilder<T extends Record<string, any>>({
                     <div
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "1.3fr 1fr 1fr auto",
+                        gridTemplateColumns: requiresCampaign
+                          ? "1.2fr 1fr 1fr 1fr auto"
+                          : "1.3fr 1fr 1fr auto",
                         gap: 12,
                         padding: 16,
                         borderRadius: 16,
                         border: "1px solid #e0ece1",
                         background: "#ffffff",
+                        overflow: "visible",
                       }}
                     >
-                      <select
-                        value={condition.field}
-                        onChange={(event) =>
-                          updateCondition(
-                            group.id,
-                            condition.id,
-                            "field",
-                            event.target.value
-                          )
-                        }
-                        style={controlStyle}
+                      <div
+                        style={{ position: "relative", minWidth: 0 }}
+                        ref={isFieldPickerOpen ? fieldPickerRef : null}
                       >
-                        <option value="">Choose field</option>
-                        {sortedFields.map((fieldOption) => (
-                          <option key={fieldOption.key} value={fieldOption.key}>
-                            {fieldOption.label}
-                          </option>
-                        ))}
-                      </select>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            isFieldPickerOpen
+                              ? setActiveFieldPicker(null)
+                              : openFieldPicker(group.id, condition.id, condition.field)
+                          }
+                          style={{
+                            ...controlStyle,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            textAlign: "left",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <span
+                            style={{
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                              color: condition.field ? "#1f2937" : "#6b7280",
+                            }}
+                          >
+                            {field?.label || "Choose field"}
+                          </span>
+                          <span
+                            style={{
+                              marginLeft: 10,
+                              color: "#5b6f5f",
+                              fontSize: 12,
+                            }}
+                          >
+                            {isFieldPickerOpen ? "▲" : "▼"}
+                          </span>
+                        </button>
+
+                        {isFieldPickerOpen && (
+                          <div style={fieldPickerPopoverStyle}>
+                            <div
+                              style={{
+                                padding: 14,
+                                borderBottom: "1px solid #e7efe8",
+                              }}
+                            >
+                              <input
+                                value={fieldSearchTerm}
+                                onChange={(event) =>
+                                  setFieldSearchTerm(event.target.value)
+                                }
+                                placeholder="Search fields"
+                                autoFocus
+                                style={{
+                                  ...controlStyle,
+                                  minHeight: 42,
+                                  borderRadius: 14,
+                                }}
+                              />
+                            </div>
+
+                            <div
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns: "170px minmax(0, 1fr)",
+                                height: 300,
+                              }}
+                            >
+                              <div
+                                style={{
+                                  borderRight: "1px solid #e7efe8",
+                                  background: "#fbfdfb",
+                                  overflowY: "auto",
+                                  padding: 10,
+                                  minHeight: 0,
+                                }}
+                              >
+                                {visibleFieldCategories.map((category) => (
+                                  <button
+                                    key={category.key}
+                                    type="button"
+                                    onClick={() =>
+                                      setActiveFieldCategory(category.key)
+                                    }
+                                    style={{
+                                      width: "100%",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "space-between",
+                                      padding: "12px 14px",
+                                      borderRadius: 14,
+                                      border: "none",
+                                      background:
+                                        category.key ===
+                                        (selectedFieldCategory?.key || activeFieldCategory)
+                                          ? "#edf7ee"
+                                          : "transparent",
+                                      color: "#1f2937",
+                                      fontWeight:
+                                        category.key ===
+                                        (selectedFieldCategory?.key || activeFieldCategory)
+                                          ? 700
+                                          : 600,
+                                      cursor: "pointer",
+                                      textAlign: "left",
+                                    }}
+                                  >
+                                    <span>{category.label}</span>
+                                    <span style={{ color: "#5f7664" }}>›</span>
+                                  </button>
+                                ))}
+                              </div>
+
+                              <div
+                                style={{
+                                  overflowY: "auto",
+                                  padding: 10,
+                                  background: "#fff",
+                                  minHeight: 0,
+                                }}
+                              >
+                                {selectedFieldCategory ? (
+                                  <>
+                                    <div
+                                      style={{
+                                        padding: "8px 12px 10px",
+                                        fontSize: 12,
+                                        fontWeight: 700,
+                                        letterSpacing: 0.3,
+                                        textTransform: "uppercase",
+                                        color: "#5f7664",
+                                      }}
+                                    >
+                                      {selectedFieldCategory.label}
+                                    </div>
+                                    {selectedFieldCategory.fields.map((fieldOption) => (
+                                      <button
+                                        key={fieldOption.key}
+                                        type="button"
+                                        onClick={() => {
+                                          updateCondition(
+                                            group.id,
+                                            condition.id,
+                                            "field",
+                                            fieldOption.key
+                                          );
+                                          setActiveFieldPicker(null);
+                                          setFieldSearchTerm("");
+                                        }}
+                                        style={{
+                                          width: "100%",
+                                          padding: "12px 14px",
+                                          borderRadius: 14,
+                                          border: "none",
+                                          background:
+                                            condition.field === fieldOption.key
+                                              ? "#f2fbf2"
+                                              : "transparent",
+                                          color: "#1f2937",
+                                          fontWeight:
+                                            condition.field === fieldOption.key
+                                              ? 700
+                                              : 500,
+                                          cursor: "pointer",
+                                          textAlign: "left",
+                                        }}
+                                      >
+                                        {fieldOption.label}
+                                      </button>
+                                    ))}
+                                    <div style={{ height: 12 }} />
+                                  </>
+                                ) : (
+                                  <div
+                                    style={{
+                                      padding: "16px 14px",
+                                      color: "#6b7280",
+                                      fontSize: 14,
+                                    }}
+                                  >
+                                    No matching fields found.
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
 
                       <select
                         value={condition.operator}
@@ -855,7 +1280,20 @@ function FilterBuilder<T extends Record<string, any>>({
                         ))}
                       </select>
 
-                      {normalizedFieldType === "dropdown" ? (
+                      {isValueOptional ? (
+                        <input
+                          type="text"
+                          value=""
+                          disabled
+                          placeholder="No value needed"
+                          style={{
+                            ...controlStyle,
+                            background: "#f8faf8",
+                            color: "#6b7280",
+                            cursor: "not-allowed",
+                          }}
+                        />
+                      ) : normalizedFieldType === "dropdown" ? (
                         <select
                           value={condition.value}
                           onChange={(event) =>
@@ -913,6 +1351,33 @@ function FilterBuilder<T extends Record<string, any>>({
                           placeholder="Enter value"
                           style={controlStyle}
                         />
+                      )}
+
+                      {requiresCampaign && (
+                        <select
+                          value={String(condition.context?.campaignId || "")}
+                          onChange={(event) => {
+                            const selectedCampaign = campaignOptions.find(
+                              (option) =>
+                                String(option.id) === event.target.value
+                            );
+
+                            updateCondition(group.id, condition.id, "context", {
+                              campaignId: event.target.value,
+                              campaignName: selectedCampaign?.name || "",
+                            });
+                          }}
+                          style={controlStyle}
+                        >
+                          <option value="">Select campaign</option>
+                          {campaignOptions.map((campaign) => (
+                            <option key={campaign.id} value={campaign.id}>
+                              {campaign.id === ALL_CAMPAIGNS_ID
+                                ? "All campaigns"
+                                : campaign.name}
+                            </option>
+                          ))}
+                        </select>
                       )}
 
                       <button
@@ -989,14 +1454,17 @@ function FilterBuilder<T extends Record<string, any>>({
             <button
               type="button"
               onClick={applyFilters}
+              disabled={isApplyingFilters}
               style={{
                 ...actionButtonStyle,
                 borderColor: "#3f9f42",
                 background: "#3f9f42",
                 color: "#fff",
+                opacity: isApplyingFilters ? 0.7 : 1,
+                cursor: isApplyingFilters ? "not-allowed" : "pointer",
               }}
             >
-              Apply filters
+              {isApplyingFilters ? "Applying..." : "Apply filters"}
             </button>
           )}
 
@@ -1102,3 +1570,4 @@ function FilterBuilder<T extends Record<string, any>>({
 }
 
 export default FilterBuilder;
+export type { FilterCondition } from "./filterTypes";

@@ -14,7 +14,6 @@ import Planes from "./components/feature/planes";
 import CustomerCreateForm from "./components/feature/CustomerCreateForm";
 import PlanHistory from "./components/feature/PlanHistory";
 import Myplan from "./components/feature/Myplan";
-import ContactDetailView from "./components/feature/contacts/ContactDetailView";
 const UserComp = lazy(() => import("./components/User") as any);
 
 const App: React.FC = () => {
@@ -71,13 +70,8 @@ const App: React.FC = () => {
 
             <Route path="/amend-prompt/:id" element={<AmendPrompt />} />
             <Route path="/create-customer" element={<CustomerCreateForm />} />
+            <Route path="/contact-details/:contactId" element={<MainPage />} />
           </Route>
-
-          {/* ✅ CONTACT DETAILS MUST BE BEFORE WILDCARD */}
-          <Route
-            path="/contact-details/:contactId"
-            element={<ContactDetailView />}
-          />
 
           {/* ✅ ALWAYS LAST */}
           <Route path="*" element={<Navigate to="/" replace />} />
