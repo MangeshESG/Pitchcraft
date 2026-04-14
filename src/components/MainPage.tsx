@@ -861,6 +861,31 @@ const handleClientChange = async (
     .trim();
 };
 
+  const getEmailTrailHtml = (emailBody?: string) => {
+    if (!followupEnabled || !emailBody) return "";
+
+    const body = String(emailBody);
+    const markerIndexes = [
+      body.search(/<hr\b/i),
+      body.search(/<b>\s*From:\s*<\/b>/i),
+      body.search(/(^|\n)\s*From:\s*/i),
+    ].filter((index) => index >= 0);
+
+    if (markerIndexes.length === 0) return "";
+
+    return body.slice(Math.min(...markerIndexes)).trim();
+  };
+
+  const mergeGeneratedPitchWithEmailTrail = (
+    generatedPitch?: string,
+    previousEmailBody?: string,
+  ) => {
+    const pitch = generatedPitch || "";
+    const oldThread = getEmailTrailHtml(previousEmailBody);
+
+    return oldThread ? `${pitch}\n\n${oldThread}` : pitch;
+  };
+
   const buildReplacements = (
     entry: any,
     currentDate: string,
@@ -1817,13 +1842,17 @@ const resolvePromptSafely = async () => {
 
         cost += bodyCost;
         totaltokensused += bodyTokens;
+        const displayPitch = mergeGeneratedPitchWithEmailTrail(
+          pitchData.response.content,
+          entry.email_body || entry.pitch,
+        );
 
         setOutputForm(prev => ({
           ...prev,
           generatedContent:
             `<span style="color:green">[${formatDateTime(new Date())}] Pitch successfully crafted for contact ${full_name} with company name ${company_name} and domain ${entry.email}</span><br/>`
             + prev.generatedContent,
-          linkLabel: pitchData.response.content,
+          linkLabel: displayPitch,
         }));
 
         // ✅ SUBJECT LOGIC UNCHANGED
@@ -1945,7 +1974,7 @@ const resolvePromptSafely = async () => {
         setAllResponses(prev =>
           prev.map(r =>
             r.id === entry.id
-              ? { ...r, pitch: pitchData.response.content, subject: subjectLine }
+              ? { ...r, pitch: displayPitch, subject: subjectLine }
               : r,
           ),
         );
@@ -2394,6 +2423,10 @@ totalEmailCountRef.current += 1;
             // keep legacy totals
             cost += bodyCost;
             totaltokensused += bodyTokens;
+            const displayPitch = mergeGeneratedPitchWithEmailTrail(
+              pitchData.response.content,
+              entry.email_body || entry.pitch,
+            );
 
 
           // Success: Update UI with the generated pitch
@@ -2412,7 +2445,7 @@ totalEmailCountRef.current += 1;
 
           setOutputForm((prevOutputForm) => ({
             ...prevOutputForm,
-            linkLabel: pitchData.response.content,
+            linkLabel: displayPitch,
           }));
 
           generatedPitches.push({
@@ -2423,7 +2456,7 @@ totalEmailCountRef.current += 1;
             location: entry.country_or_address || "N/A",
             website: entry.website || "N/A",
             linkedin: entry.linkedin_url || "N/A",
-            pitch: pitchData.response.content,
+            pitch: displayPitch,
             subject: entry.email_subject || "N/A",
             lastemailupdateddate: entry.updated_at || "N/A",
             emailsentdate: entry.email_sent_at || "N/A",
@@ -2530,7 +2563,7 @@ totalEmailCostRef.current += subjectCost;
           // Update the linkLabel to show both subject and pitch
           setOutputForm((prevOutputForm) => ({
             ...prevOutputForm,
-            linkLabel: pitchData.response.content,
+            linkLabel: displayPitch,
             emailSubject: subjectLine,
           }));
 
@@ -2544,7 +2577,7 @@ totalEmailCostRef.current += subjectCost;
             location: entry.country_or_address || "N/A",
             website: entry.website || "N/A",
             linkedin: entry.linkedin_url || "N/A",
-            pitch: pitchData.response.content,
+            pitch: displayPitch,
             subject: subjectLine,
             lastemailupdateddate: entry.updated_at || "N/A",
             emailsentdate: entry.email_sent_at || "N/A",
@@ -2559,7 +2592,7 @@ totalEmailCostRef.current += subjectCost;
             location: entry.country_or_address || "N/A",
             website: entry.website || "N/A",
             linkedin: entry.linkedin_url || "N/A",
-            pitch: pitchData.response.content,
+            pitch: displayPitch,
             subject: subjectLine,
             timestamp: new Date().toISOString(),
             id: entry.id,
