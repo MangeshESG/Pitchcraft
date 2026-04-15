@@ -2536,6 +2536,11 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
     try {
       const historyResponse = await axios.get(
         `${API_BASE_URL}/api/CampaignPrompt/history/${effectiveUserId}`,
+        {
+          params: {
+            campaignTemplateId: campaignId,
+          },
+        },
       );
       const historyData = historyResponse.data?.response ?? historyResponse.data;
 
