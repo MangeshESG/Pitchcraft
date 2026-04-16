@@ -3256,10 +3256,13 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
     };
 
     try {
+      const campaignTemplateId = getStoredCampaignId();
+
       const response = await axios.post(
         `${API_BASE_URL}/api/CampaignPrompt/chat`,
         {
           userId: effectiveUserId,
+          campaignTemplateId,
           message: masterPrompt,
           images: attachedImages, // 🔥 ADD THIS
 
@@ -3396,6 +3399,7 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
         }
         : {
           userId: effectiveUserId,
+          campaignTemplateId,
           message: answerText,
           systemPrompt: "",
           model: selectedModel,
