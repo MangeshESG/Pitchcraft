@@ -31,6 +31,7 @@ import {
 } from "../../utils/trackingFilterUtils";
 
 import { useAppModal } from "../../hooks/useAppModal";
+import { useAppData } from "../../contexts/AppDataContext";
 
 
 interface ContactFieldOption {
@@ -400,6 +401,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   const [isUnsubscribing, setIsUnsubscribing] = useState(false);
 
   const appModal = useAppModal(); // ✅ correct place
+  const { triggerRefresh } = useAppData();
   //------------------------------
   const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set());
   const handleSelectContact = (contactId: string) => {
@@ -1336,6 +1338,7 @@ const handleDeleteContacts = async () => {
           delete metaMap[String(view.id)];
           saveViewMetaMap(clientId, metaMap);
           setViews((prev) => prev.filter((item) => item.id !== view.id));
+          triggerRefresh();
           if (selectedView?.id === view.id) {
             setSelectedView(null);
             setViewMode("list");
@@ -1470,6 +1473,7 @@ const handleDeleteContacts = async () => {
       };
       saveViewMetaMap(clientId, metaMap);
 
+      triggerRefresh();
       onShowMessage?.("View updated successfully.", "success");
       setIsEditPanelOpen(false);
       setEditingView(null);
@@ -2024,6 +2028,7 @@ const handleDeleteContacts = async () => {
                     excludedDataFileIds: selectedView.excludedDataFileIds || [],
                     onSuccess: (savedView) => {
                       fetchViews();
+                      triggerRefresh();
                       onShowMessage?.(
                         `New view "${savedView?.name || "Untitled view"}" created successfully.`,
                         "success"
