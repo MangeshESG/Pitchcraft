@@ -3127,11 +3127,13 @@ const filterFields: any = useMemo(() => {
                     setEditingContact(null);
                   }}
                   style={{
-                    padding: "6px 12px",
-                    background: "#eaeaea",
-                    border: "1px solid #ddd",
+                    padding: "8px 16px",
+                    background: "#3f9f42",
+                    color: "#fff",
+                    border: "none",
                     borderRadius: "12px",
                     cursor: "pointer",
+                    fontWeight: 600,
                   }}
                 >
                   ← Back
@@ -4202,11 +4204,13 @@ const filterFields: any = useMemo(() => {
                     setEditingContact(null);
                   }}
                   style={{
-                    padding: "6px 12px",
-                    background: "#eaeaea",
-                    border: "1px solid #ddd",
-                    borderRadius: 4,
+                    padding: "8px 16px",
+                    background: "#3f9f42",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "12px",
                     cursor: "pointer",
+                    fontWeight: 600,
                   }}
                 >
                   ← Back
