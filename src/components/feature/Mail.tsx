@@ -197,6 +197,33 @@ interface OutputInterface {
   zohoClient: ZohoClient[]; // Add this new prop type
 }
 
+const asArray = <T,>(value: unknown): T[] => {
+  if (Array.isArray(value)) return value as T[];
+
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const arrayKeys = [
+      "data",
+      "items",
+      "result",
+      "results",
+      "records",
+      "campaigns",
+      "mailboxes",
+      "schedules",
+      "emails",
+    ];
+
+    for (const key of arrayKeys) {
+      if (Array.isArray(record[key])) {
+        return record[key] as T[];
+      }
+    }
+  }
+
+  return [];
+};
+
 const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   outputForm,
   //outputFormHandler,
@@ -352,7 +379,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
         }
       );
 
-      setSmtpList(response.data); // Assuming the API returns a single object
+      setSmtpList(asArray<SmtpConfig>(response.data));
     } catch (error) {
       setSmtpList([]); // No records found or error
     }
@@ -372,7 +399,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
         }
       );
 
-      setInboxList(response.data || []);
+      setInboxList(asArray<InboxCredential>(response.data));
     } catch (error) {
       console.error('Error fetching inbox credentials:', error);
       setInboxList([]);
@@ -761,7 +788,7 @@ const confirmDeleteSmtp = async () => {
             }
           );
           console.log('Campaigns response:', campaignsResponse.data);
-          setScheduleCampaigns(campaignsResponse.data || []);
+          setScheduleCampaigns(asArray<any>(campaignsResponse.data));
         } catch (error) {
           console.error("Error fetching campaigns:", error);
           setScheduleCampaigns([]);
@@ -1065,7 +1092,7 @@ const confirmDeleteSmtp = async () => {
           }
         );
         //setSmtpUsers(response.data);
-        setSmtpUsers(response.data?.data || []);
+        setSmtpUsers(asArray<SmtpUser>(response.data));
       } catch (error) {
         if (axios.isAxiosError(error)) {
           console.error("Axios error:", error);
@@ -1102,7 +1129,7 @@ const confirmDeleteSmtp = async () => {
         }
       );
 
-      setScheduleList(response.data);
+      setScheduleList(asArray<scheduleFetch>(response.data));
     } catch (error) {
       setScheduleList([]); // No records found or error
     }
@@ -1341,12 +1368,13 @@ const confirmDeleteSmtp = async () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
   // Calculate total pages
-  const totalPages = Math.ceil(scheduleList.length / rowsPerPage);
+  const safeScheduleList = asArray<scheduleFetch>(scheduleList);
+  const totalPages = Math.ceil(safeScheduleList.length / rowsPerPage);
 
   // Calculate the current page data
   const indexOfLastItem = currentPage * rowsPerPage;
   const indexOfFirstItem = indexOfLastItem - rowsPerPage;
-  const currentData = scheduleList.slice(indexOfFirstItem, indexOfLastItem);
+  const currentData = safeScheduleList.slice(indexOfFirstItem, indexOfLastItem);
 
   const handlePageChange = (pageNumber: number) => {
     if (pageNumber < 1 || pageNumber > totalPages) return;
@@ -1376,7 +1404,7 @@ const confirmDeleteSmtp = async () => {
         );
         if (!res.ok) throw new Error("Failed to fetch BCC emails");
         const data = await res.json();
-        setBccEmails(data);
+        setBccEmails(asArray<BccEmail>(data));
         setBccError("");
       } catch (error: any) {
         setBccError("Could not fetch BCC emails");
@@ -1408,7 +1436,8 @@ const confirmDeleteSmtp = async () => {
       const updated = await fetch(
         `${API_BASE_URL}/api/email/get-by-clinte?clinteId=${effectiveUserId}`
       );
-      setBccEmails(await updated.json());
+      const updatedData = await updated.json();
+      setBccEmails(asArray<BccEmail>(updatedData));
     } catch (error: any) {
       setBccError("Error adding BCC email");
     } finally {
@@ -1489,7 +1518,7 @@ const confirmDeleteSmtp = async () => {
             }
           );
           console.log('Modal - Campaigns response:', campaignsResponse.data);
-          setScheduleCampaigns(campaignsResponse.data || []);
+          setScheduleCampaigns(asArray<any>(campaignsResponse.data));
         } catch (error) {
           console.error('Modal - Error fetching campaigns:', error);
           setScheduleCampaigns([]);
@@ -1766,7 +1795,8 @@ const actionIconStyle = {
 
   const [currentPageMailbox, setCurrentPageMailbox] = useState(1);
 
-  const filteredMailboxes = smtpList.filter(
+  const safeSmtpList = asArray<SmtpConfig>(smtpList);
+  const filteredMailboxes = safeSmtpList.filter(
     (item) =>
       item.server?.toLowerCase().includes(mailboxSearch.toLowerCase()) ||
       item.username?.toLowerCase().includes(mailboxSearch.toLowerCase())
@@ -1782,7 +1812,8 @@ const actionIconStyle = {
   // IMAP/POP3 pagination
   const [currentPageInbox, setCurrentPageInbox] = useState(1);
 
-  const filteredInboxes = inboxList.filter(
+  const safeInboxList = asArray<InboxCredential>(inboxList);
+  const filteredInboxes = safeInboxList.filter(
     (item) =>
       item.host?.toLowerCase().includes(mailboxSearch.toLowerCase()) ||
       item.username?.toLowerCase().includes(mailboxSearch.toLowerCase()) ||
@@ -1798,9 +1829,10 @@ const actionIconStyle = {
   //pagination for bcc
   const [bccPage, setBccPage] = useState(1);
   const bccPageSize = 10;
-  const totalPagesBCC = Math.ceil(bccEmails.length / bccPageSize);
+  const safeBccEmails = asArray<BccEmail>(bccEmails);
+  const totalPagesBCC = Math.ceil(safeBccEmails.length / bccPageSize);
 
-  const paginatedBccEmails = bccEmails.slice(
+  const paginatedBccEmails = safeBccEmails.slice(
     (bccPage - 1) * bccPageSize,
     bccPage * bccPageSize
   );
@@ -2843,7 +2875,7 @@ const actionIconStyle = {
                     </tr>
                   </thead>
                   <tbody>
-                    {bccLoading && bccEmails.length === 0 ? (
+                    {bccLoading && safeBccEmails.length === 0 ? (
                       <tr>
                         <td colSpan={2} style={{ textAlign: "center" }}>
                           Loading BCC emails...
@@ -2887,7 +2919,7 @@ const actionIconStyle = {
                 <PaginationControls
                   currentPage={bccPage}
                   totalPages={totalPagesBCC}
-                  totalRecords={bccEmails.length}
+                  totalRecords={safeBccEmails.length}
                   pageSize={pageSize}
                   setCurrentPage={setBccPage}
                    setPageSize={(size) => setPageSize(Number(size))}
@@ -3157,14 +3189,14 @@ const actionIconStyle = {
                   </tr>
                 </thead>
                 <tbody>
-                  {scheduleList.length === 0 ? (
+                  {safeScheduleList.length === 0 ? (
                     <tr>
                       <td colSpan={8} style={{ textAlign: "center" }}>
                         No schedules found.
                       </td>
                     </tr>
                   ) : (
-                    scheduleList
+                    safeScheduleList
                       .filter(
                         (item) =>
                           item.title

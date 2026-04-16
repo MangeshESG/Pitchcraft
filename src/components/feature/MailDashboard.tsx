@@ -91,6 +91,34 @@ interface MailDashboardProps {
   onDataChange?: (data: any) => void;
 }
 
+const asArray = <T,>(value: unknown): T[] => {
+  if (Array.isArray(value)) return value as T[];
+
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const arrayKeys = [
+      "data",
+      "items",
+      "result",
+      "results",
+      "records",
+      "campaigns",
+      "logs",
+      "events",
+      "emailLogs",
+      "missingContacts",
+    ];
+
+    for (const key of arrayKeys) {
+      if (Array.isArray(record[key])) {
+        return record[key] as T[];
+      }
+    }
+  }
+
+  return [];
+};
+
 const getDisplayNameFromContact = (contact: any) => {
   const first =
     contact?.first_name ||
@@ -308,18 +336,22 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
             campaignToLoad
           );
           console.log("📦 Initial cached data:", {
-            events: cachedData.allEventData.length,
-            emails: cachedData.allEmailLogs.length,
+            events: asArray<EventItem>(cachedData.allEventData).length,
+            emails: asArray<any>(cachedData.allEmailLogs).length,
           });
 
-          setAllEventData(cachedData.allEventData);
-          setAllEmailLogs(cachedData.allEmailLogs);
-          setEmailLogs(cachedData.emailLogs);
+          const cachedEvents = asArray<EventItem>(cachedData.allEventData);
+          const cachedAllLogs = asArray<any>(cachedData.allEmailLogs);
+          const cachedEmailLogs = asArray<EmailLog>(cachedData.emailLogs);
+
+          setAllEventData(cachedEvents);
+          setAllEmailLogs(cachedAllLogs);
+          setEmailLogs(cachedEmailLogs);
           setDataFetchedForCampaign(campaignToLoad);
 
           processDataWithDateFilter(
-            cachedData.allEventData,
-            cachedData.allEmailLogs,
+            cachedEvents,
+            cachedAllLogs,
             startDate,
             endDate
           );
@@ -347,7 +379,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
             `${API_BASE_URL}/api/auth/campaigns/client/${effectiveUserId}`,
             { headers: { ...(token && { Authorization: `Bearer ${token}` }) } }
           );
-          setAvailableCampaigns(response.data);
+          setAvailableCampaigns(asArray<Campaign>(response.data));
         } catch (error) {
           console.error("Dashboard: Error loading campaigns:", error);
           setAvailableCampaigns([]);
@@ -372,19 +404,23 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
         selectedCampaign
       );
       console.log("📦 Cached data details:", {
-        events: cachedData.allEventData.length,
-        emails: cachedData.allEmailLogs.length,
-        emailLogs: cachedData.emailLogs.length,
+        events: asArray<EventItem>(cachedData.allEventData).length,
+        emails: asArray<any>(cachedData.allEmailLogs).length,
+        emailLogs: asArray<EmailLog>(cachedData.emailLogs).length,
       });
 
-      setAllEventData(cachedData.allEventData);
-      setAllEmailLogs(cachedData.allEmailLogs);
-      setEmailLogs(cachedData.emailLogs);
+      const cachedEvents = asArray<EventItem>(cachedData.allEventData);
+      const cachedAllLogs = asArray<any>(cachedData.allEmailLogs);
+      const cachedEmailLogs = asArray<EmailLog>(cachedData.emailLogs);
+
+      setAllEventData(cachedEvents);
+      setAllEmailLogs(cachedAllLogs);
+      setEmailLogs(cachedEmailLogs);
       setDataFetchedForCampaign(selectedCampaign);
 
       processDataWithDateFilter(
-        cachedData.allEventData,
-        cachedData.allEmailLogs,
+        cachedEvents,
+        cachedAllLogs,
         startDate,
         endDate
       );
@@ -436,7 +472,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
             campaignIdNumber   // ✅ ONLY campaignId
           );
 
-          setEmailLogs(logs);
+          setEmailLogs(asArray<EmailLog>(logs));
         } catch (error) {
           console.error("Error loading email logs:", error);
           setEmailLogs([]);
@@ -474,10 +510,10 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
             }
           );
 
-          let missingContactsData = [];
+          let missingContactsData: any[] = [];
 
           if (response.data.missingContacts) {
-            missingContactsData = response.data.missingContacts;
+            missingContactsData = asArray<any>(response.data.missingContacts);
           } else if (Array.isArray(response.data)) {
             missingContactsData = response.data;
           }
@@ -681,13 +717,13 @@ const fetchLogsByCampaign = async (campaignId: string) => {
         }
       );
 
-      allTrackingData = trackingResponse.data || [];
+      allTrackingData = asArray<EventItem>(trackingResponse.data);
 
       // ✅ ONLY CAMPAIGN BASED EMAIL LOGS
-      allEmailLogsData = await fetchEmailLogs(
+      allEmailLogsData = asArray<any>(await fetchEmailLogs(
         clientId,
         campaignIdNumber
-      );
+      ));
 
       // ✅ SET STATE
       setAllEventData(allTrackingData);
@@ -745,20 +781,25 @@ const fetchLogsByCampaign = async (campaignId: string) => {
     startDate?: string,
     endDate?: string
   ) => {
+    trackingData = asArray<EventItem>(trackingData);
+    emailLogs = asArray<any>(emailLogs);
+
     // Apply date filtering
     let filteredTrackingData = trackingData;
     let filteredEmailLogs = emailLogs;
 
     if (startDate || endDate) {
       filteredTrackingData = trackingData.filter((item) => {
-        const itemDate = item.timestamp.split("T")[0];
+        if (!item.timestamp) return false;
+        const itemDate = String(item.timestamp).split("T")[0];
         const isAfterStart = !startDate || itemDate >= startDate;
         const isBeforeEnd = !endDate || itemDate <= endDate;
         return isAfterStart && isBeforeEnd;
       });
 
       filteredEmailLogs = emailLogs.filter((log: any) => {
-        const sentDate = log.sentAt.split("T")[0];
+        if (!log.sentAt) return false;
+        const sentDate = String(log.sentAt).split("T")[0];
         const isAfterStart = !startDate || sentDate >= startDate;
         const isBeforeEnd = !endDate || sentDate <= endDate;
         return isAfterStart && isBeforeEnd;
@@ -777,7 +818,8 @@ const fetchLogsByCampaign = async (campaignId: string) => {
 
     filteredEmailLogs.forEach((log: any) => {
       if (log.isSuccess) {
-        const date = log.sentAt.split("T")[0];
+        if (!log.sentAt) return;
+        const date = String(log.sentAt).split("T")[0];
         if (!dailyTracking[date]) {
           dailyTracking[date] = {
             uniqueOpens: new Set(),
@@ -795,7 +837,8 @@ const fetchLogsByCampaign = async (campaignId: string) => {
 
     // Process opens and clicks
     filteredTrackingData.forEach((item) => {
-      const date = item.timestamp.split("T")[0];
+      if (!item.timestamp) return;
+      const date = String(item.timestamp).split("T")[0];
       if (!dailyTracking[date]) {
         dailyTracking[date] = {
           uniqueOpens: new Set(),
