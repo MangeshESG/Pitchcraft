@@ -3342,6 +3342,40 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
     }
   };
 
+const parsePlaceholdersSafe = (block: string) => {
+  const dict: Record<string, string> = {};
+
+  const lines = block.split("\n");
+
+  let currentKey: string | null = null;
+  let currentValue: string[] = [];
+
+  lines.forEach((rawLine) => {
+    const line = rawLine.replace(/\r$/, ""); // ✅ preserve spaces
+
+    const match = line.match(/^\{([^}]+)\}\s*=\s*(.*)/);
+
+    if (match) {
+      if (currentKey) {
+        dict[currentKey] = currentValue.join("\n").trim();
+      }
+
+      currentKey = match[1].trim();
+      currentValue = match[2] ? [match[2]] : []; // ✅ safe init
+    } else {
+      if (currentKey && line !== "") {
+        currentValue.push(line);
+      }
+    }
+  });
+
+  if (currentKey) {
+    dict[currentKey] = currentValue.join("\n").trim();
+  }
+
+  return dict;
+};
+
   const handleSendMessage = async () => {
     if (
       isTyping ||
@@ -3462,17 +3496,7 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
 
         if (match) {
           const placeholderBlock = match[1] || "";
-          const parsedPlaceholders: Record<string, string> = {};
-          const kvRegex =
-            /\{([^}]+)\}\s*=\s*([\s\S]*?)(?=\r?\n\{[^}]+\}\s*=|\r?\n==PLACEHOLDER_VALUES_END==|$)/g;
-          let m: RegExpExecArray | null;
-          while ((m = kvRegex.exec(placeholderBlock)) !== null) {
-            const key = m[1].trim();
-            let value = m[2] ?? "";
-            value = value.replace(/^\r?\n/, "").replace(/\s+$/, "");
-            parsedPlaceholders[key] = value;
-          }
-
+          const parsedPlaceholders = parsePlaceholdersSafe(placeholderBlock);
           // split current placeholders into conversation/contact
           const currentConversationValues =
             getConversationPlaceholders(placeholderValues);
