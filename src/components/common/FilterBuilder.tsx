@@ -341,7 +341,7 @@ function FilterBuilder<T extends Record<string, any>>({
   saveViewConfig,
 }: Props<T>) {
   const [groups, setGroups] = useState<FilterGroup[]>([createGroup()]);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const [showSavePanel, setShowSavePanel] = useState(false);
   const [viewName, setViewName] = useState("");
   const [viewDescription, setViewDescription] = useState("");

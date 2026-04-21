@@ -1235,6 +1235,9 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   const [selectedPlaceholder, setSelectedPlaceholder] = useState<string>("");
   const [isLoadingTemplate, setIsLoadingTemplate] = useState(false);
   const [selectedElement, setSelectedElement] = useState<string | null>(null);
+  const [isPreparingAutoStart, setIsPreparingAutoStart] = useState<boolean>(
+    () => sessionStorage.getItem("autoStartConversation") === "true",
+  );
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [showErrorToast, setShowErrorToast] = useState(false);
@@ -1551,26 +1554,33 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   }, []);
 
   useEffect(() => {
-    if (!selectedTemplateDefinitionId) return;
+    if (!selectedTemplateDefinitionId) {
+      setUiPlaceholders([]);
+      return;
+    }
+
+    let isCancelled = false;
+    setUiPlaceholders([]);
 
     axios
       .get(
         `${API_BASE_URL}/api/CampaignPrompt/placeholders/by-template/${selectedTemplateDefinitionId}`,
       )
       .then((res) => {
-        if (Array.isArray(res.data) && res.data.length > 0) {
+        if (isCancelled) return;
+
+        const nextPlaceholders = Array.isArray(res.data) ? res.data : [];
 
           setUiPlaceholders(
-            res.data.map((p: any, index: number) => ({
+            nextPlaceholders.map((p: any, index: number) => ({
               ...p,
               category: normalizeCategory(p.category),
               categorySequence: p.categorySequence ?? 999,
               placeholderSequence: p.placeholderSequence ?? index + 1,
-            }))
+            })),
           );
 
           console.log("✅ Loaded element definitions from backend");
-        }
       })
       .catch((err) =>
         console.error("❌ Failed to load element definitions", err),
@@ -1689,6 +1699,8 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       if (autoStart && newCampaignId && selectedDefinition) {
         console.log(`🚀 Auto-starting campaign "${campaignName}"...`);
         const definitionId = parseInt(selectedDefinition);
+        setIsPreparingAutoStart(true);
+        resetTransientCampaignState({ clearUiPlaceholders: true });
 
         // Set states (async)
         setSelectedTemplateDefinitionId(definitionId);
@@ -1707,6 +1719,8 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       if (attempts < 10) {
         attempts++;
         setTimeout(tryAutoStart, 300);
+      } else {
+        setIsPreparingAutoStart(false);
       }
     };
 
@@ -1803,6 +1817,30 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
     return cleaned;
   };
 
+  const applyPlaceholderDefaults = (
+    values: Record<string, string>,
+    definitions: PlaceholderDefinitionUI[],
+  ) => {
+    const withDefaults = { ...values };
+
+    definitions.forEach((placeholder) => {
+      const currentValue = withDefaults[placeholder.placeholderKey];
+      const defaultValue = placeholder.defaultValue;
+      const shouldUseDefault =
+        (currentValue === null ||
+          currentValue === undefined ||
+          currentValue === "") &&
+        defaultValue != null &&
+        defaultValue !== "";
+
+      if (shouldUseDefault) {
+        withDefaults[placeholder.placeholderKey] = defaultValue;
+      }
+    });
+
+    return withDefaults;
+  };
+
 
 
 
@@ -1822,9 +1860,17 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       }
 
       // ✅ ONE source of truth
+      const mergedValues = {
+        ...placeholderValues,
+        ...formValues,
+      };
+      const valuesWithDefaults = applyPlaceholderDefaults(
+        mergedValues,
+        uiPlaceholders,
+      );
       const cleanedValues = sanitizePlaceholders(
-        formValues,
-        uiPlaceholders
+        valuesWithDefaults,
+        uiPlaceholders,
       );
 
       console.log("FINAL PAYLOAD", cleanedValues);
@@ -1976,6 +2022,30 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   const [searchResults, setSearchResults] = useState<string[]>([]);
   const [allSourcedData, setAllSourcedData] = useState<string>("");
   const [sourcedSummary, setSourcedSummary] = useState<string>("");
+
+  function resetTransientCampaignState(options?: { clearUiPlaceholders?: boolean }) {
+    setMessages([]);
+    setCurrentAnswer("");
+    setFinalPrompt("");
+    setFinalPreviewText("");
+    setPlaceholderValues({});
+    setFormValues({});
+    setIsComplete(false);
+    setConversationStarted(false);
+    setExampleOutput("");
+    setFilledTemplate("");
+    setEditableExampleOutput("");
+    setAttachedImages([]);
+    setSelectedPlaceholder("");
+    setSelectedElement(null);
+    setSearchResults([]);
+    setAllSourcedData("");
+    setSourcedSummary("");
+
+    if (options?.clearUiPlaceholders) {
+      setUiPlaceholders([]);
+    }
+  }
   // ===============================
   // RUNTIME-ONLY PLACEHOLDERS
   // ===============================
@@ -2444,6 +2514,7 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       setSelectedTemplateDefinitionId(def.id);
     } catch (error) {
       console.error("⚠️ Failed to load template definition:", error);
+      setIsPreparingAutoStart(false);
     }
   };
 
@@ -2563,6 +2634,8 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   const loadTemplateForEdit = async (templateId: number) => {
     setIsLoadingTemplate(true);
     try {
+      resetTransientCampaignState({ clearUiPlaceholders: true });
+
       const res = await axios.get(
         `${API_BASE_URL}/api/CampaignPrompt/campaign/${templateId}`,
       );
@@ -3094,6 +3167,16 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       return acc;
     }, {});
 
+  const visibleMessages: Message[] = isPreparingAutoStart ? [] : messages;
+  const visiblePlaceholderValues: Record<string, string> = isPreparingAutoStart
+    ? {}
+    : placeholderValues;
+  const visibleGroupedPlaceholders: Record<string, PlaceholderDefinitionUI[]> =
+    isPreparingAutoStart ? {} : groupedPlaceholders;
+  const visibleFormValues: Record<string, string> = isPreparingAutoStart
+    ? {}
+    : formValues;
+
   const [initialExampleEmail, setInitialExampleEmail] = useState<string>("");
   const [currentCampaignId, setCurrentCampaignId] = useState<string | null>(null);
   const hasExampleEmail = initialExampleEmail.trim().length > 0;
@@ -3231,11 +3314,7 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
       return;
     }
 
-    setMessages([]);
-    setFinalPrompt("");
-    setFinalPreviewText("");
-    setPlaceholderValues({});
-    setIsComplete(false);
+    resetTransientCampaignState();
     setConversationStarted(true);
     setActiveMainTab("build");
     setActiveBuildTab("chat");
@@ -3339,6 +3418,7 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
       playNotificationSound();
     } finally {
       setIsTyping(false);
+      setIsPreparingAutoStart(false);
     }
   };
 
@@ -3688,11 +3768,7 @@ const parsePlaceholdersSafe = (block: string) => {
     setSelectedTemplateDefinitionId(null);
     setTemplateName("");
 
-    setMessages([]);
-    setFinalPrompt("");
-    setFinalPreviewText("");
-    setPlaceholderValues({});
-    setIsComplete(false);
+    resetTransientCampaignState({ clearUiPlaceholders: true });
     setConversationStarted(false);
     setSystemPrompt("");
     setSystemPromptForEdit("");
@@ -4209,7 +4285,7 @@ const parsePlaceholdersSafe = (block: string) => {
                   {activeBuildTab === "chat" && (
                     <ConversationTab
                       conversationStarted={conversationStarted}
-                      messages={messages}
+                      messages={visibleMessages}
                       isTyping={isTyping}
                       isComplete={isComplete}
                       currentAnswer={currentAnswer}
@@ -4219,7 +4295,7 @@ const parsePlaceholdersSafe = (block: string) => {
                       resetAll={resetAll}
                       isEditMode={isEditMode}
                       availablePlaceholders={extractPlaceholders(masterPrompt)}
-                      placeholderValues={placeholderValues}
+                      placeholderValues={visiblePlaceholderValues}
                       onPlaceholderSelect={startEditConversation}
                       selectedPlaceholder={selectedPlaceholder}
                       setIsTyping={setIsTyping}
@@ -4236,7 +4312,7 @@ const parsePlaceholdersSafe = (block: string) => {
                       allSourcedData={allSourcedData}
                       sourcedSummary={sourcedSummary}
                       filledTemplate={filledTemplate}
-                      groupedPlaceholders={groupedPlaceholders}
+                      groupedPlaceholders={visibleGroupedPlaceholders}
                       initialExampleEmail={initialExampleEmail}
                       selectedElement={selectedElement}
                       attachedImages={attachedImages}
@@ -4247,8 +4323,8 @@ const parsePlaceholdersSafe = (block: string) => {
 
                   {activeBuildTab === "elements" && (
                     <ElementsTab
-                      groupedPlaceholders={groupedPlaceholders}
-                      formValues={formValues}
+                      groupedPlaceholders={visibleGroupedPlaceholders}
+                      formValues={visibleFormValues}
                       setFormValues={setFormValues}
                       setExpandedKey={(key, friendlyName) => {
                         setExpandedPlaceholder({ key, friendlyName });
