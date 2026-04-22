@@ -1805,6 +1805,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
             }}
           >
             <button
+              className="button save-button"
               onClick={async () => {
                 // ✅ Close UI first
                 setShowCampaignBuilder(false);
@@ -1827,13 +1828,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                 }, 300);
               }}
               style={{
-                background: "#eaeaea", // ✅ Match PitchKraft green
-                color: "#222",
-                border: "none",
                 borderRadius: "12px",
-                padding: "8px 16px",
-                cursor: "pointer",
-                fontSize: "14px",
                 fontWeight: "600",
               }}
             >
@@ -1880,3 +1875,4 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
 };
 
 export default Template;
+
