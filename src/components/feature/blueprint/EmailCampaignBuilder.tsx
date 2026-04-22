@@ -361,6 +361,39 @@ const mapStoredChatMessages = (storedMessages?: StoredChatMessage[]): Message[] 
     .filter((message) => message.content.trim().length > 0);
 };
 
+const INITIAL_BLUEPRINT_WELCOME_MESSAGE = `
+<div style="font-family:Inter, Segoe UI, Calibri, Arial, sans-serif; font-size:16px; line-height:1.6; color:#111827; background:#ffffff; border:1px solid #e5e7eb; border-radius:18px; padding:22px 20px; box-shadow:0 8px 30px rgba(15,23,42,0.06);">
+  <div style="font-size:22px; line-height:1.3; font-weight:800; color:#111827; margin:0 0 14px 0;">
+    Welcome to PitchKraft Blueprint Builder
+  </div>
+  <p style="margin:0 0 12px 0;">
+    This sets the base blueprint for future emails.
+  </p>
+  <p style="margin:0 0 12px 0;">
+    Let’s start with the reference email.
+  </p>
+  <p style="margin:0 0 12px 0;">
+    A reference email is an email which you already use for this campaign. This will help define the style and structure of all the emails created in this campaign.
+  </p>
+  <div style="margin:0 0 14px 0; padding:12px 14px; border:1px solid #e5e7eb; border-radius:14px; background:#f9fafb;">
+    <div style="font-size:14px; line-height:1.5; font-weight:800; color:#374151; margin:0 0 8px 0;">
+      What I need
+    </div>
+    <ul style="margin:0; padding-left:18px; color:#111827;">
+      <li style="margin:0 0 6px 0;">an email you already use or like</li>
+      <li style="margin:0 0 6px 0;">or a sample with your preferred tone or structure</li>
+      <li style="margin:0;">or a short description of the style and goal you want</li>
+    </ul>
+  </div>
+  <div style="margin:0 0 16px 0; display:flex; align-items:center; gap:8px;">
+    <img src="https://user6733.na.imgto.link/public/20260406/help-removebg-preview.avif" alt="" style="width:17px; height:17px; display:block;">
+    <a href="https://www.pitchkraft.ai/your-current-email-template/" target="_blank" rel="noopener noreferrer" style="font-size:15px; line-height:1.5; color:#16a34a; text-decoration:underline; font-weight:600;">
+      What is a reference email and why it matters
+    </a>
+  </div>
+</div>
+`.trim();
+
 const ConversationTab: React.FC<ConversationTabProps> = ({
   conversationStarted,
   messages,
@@ -3323,6 +3356,14 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
     setAttachedImages([]); // 🔥 clear images after start
 
 
+    setMessages([
+      {
+        type: "bot",
+        content: INITIAL_BLUEPRINT_WELCOME_MESSAGE,
+        timestamp: new Date(),
+      },
+    ]);
+
     const cleanAssistantMessage = (text: string): string => {
       if (!text) return "";
       return text
@@ -3393,12 +3434,13 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
 
             timestamp: new Date(),
           };
-          setMessages([completionMessage]);
+          setMessages((prev) => [...prev, completionMessage]);
           setIsComplete(true);
           playNotificationSound();
         } else if (data.assistantText) {
           const cleanText = cleanAssistantMessage(data.assistantText);
-          setMessages([
+          setMessages((prev) => [
+            ...prev,
             { type: "bot", content: cleanText, timestamp: new Date() },
           ]);
           playNotificationSound();
@@ -3414,7 +3456,7 @@ const renderPlaceholderInput = (p: PlaceholderDefinitionUI) => {
           "You can also choose one of the contacts in the 'Preview email' area on the right and see how the actual emails will look as you continue to play with and change the elements of the blueprint. If you don't have any contacts saved then just hop over to the Contacts area and add some manually or import them from a spreadsheet.",
         timestamp: new Date(),
       };
-      setMessages([errorMessage]);
+      setMessages((prev) => [...prev, errorMessage]);
       playNotificationSound();
     } finally {
       setIsTyping(false);
