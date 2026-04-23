@@ -79,6 +79,21 @@ interface CampaignTemplate {
 }
 
 // ✅ NEW: Template Definition interface
+const dedupeCampaignTemplatesById = (
+  templates: CampaignTemplate[],
+): CampaignTemplate[] => {
+  const seen = new Set<number>();
+
+  return templates.filter((template) => {
+    if (seen.has(template.id)) {
+      return false;
+    }
+
+    seen.add(template.id);
+    return true;
+  });
+};
+
 interface TemplateDefinition {
   id: number;
   templateName: string;
@@ -313,7 +328,9 @@ const Template: React.FC<TemplateProps> = ({
       }
 
       const data = await response.json();
-      setCampaignTemplates(data.templates || []);
+      setCampaignTemplates(
+        dedupeCampaignTemplatesById(data.templates || []),
+      );
     } catch (error) {
       console.error("Error fetching campaign templates:", error);
       setCampaignTemplates([]);

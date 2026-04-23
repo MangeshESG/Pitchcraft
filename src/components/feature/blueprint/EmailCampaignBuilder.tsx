@@ -364,29 +364,32 @@ const mapStoredChatMessages = (storedMessages?: StoredChatMessage[]): Message[] 
 const INITIAL_BLUEPRINT_WELCOME_MESSAGE = `
 <div style="font-family:Inter, Segoe UI, Calibri, Arial, sans-serif; font-size:16px; line-height:1.6; color:#111827; background:#ffffff; border:1px solid #e5e7eb; border-radius:18px; padding:22px 20px; box-shadow:0 8px 30px rgba(15,23,42,0.06);">
   <div style="font-size:22px; line-height:1.3; font-weight:800; color:#111827; margin:0 0 14px 0;">
-    Welcome to PitchKraft Blueprint Builder
+    Welcome to PitchKraft Blueprint Builder. What does it do and how?
   </div>
   <p style="margin:0 0 12px 0;">
-    This sets the base blueprint for future emails.
+    The Blueprint Builder sets the base blueprint (template) which PitchKraft will use to create all the beautifully relevant emails in this email campaign. It's a quick process and the thing to remember is: you don't need it perfect because you can change it anytime by going into the 'Elements' section afterwards. Just play, get a feel, use the Preview email section in the right to see how the emails will look and then play around in 'Elements' until you get that 'eureka' moment. Contact us for support ANYTIME.
+  </p>
+  <p style="margin:0 0 12px 0; font-weight:700; color:#111827;">
+    Let's start with the 'reference email'.
   </p>
   <p style="margin:0 0 12px 0;">
-    Let’s start with the reference email.
-  </p>
-  <p style="margin:0 0 12px 0;">
-    A reference email is an email which you already use for this campaign. This will help define the style and structure of all the emails created in this campaign.
+    A reference email is an email which you might already use for this campaign. This is the quickest way to get up and running. The Blueprint Builder will extract the style and structure from the reference email for the emails it will create in PitchKraft for this campaign. Don't have a reference email? Don't worry. Blueprint Builder will build one with you.
   </p>
   <div style="margin:0 0 14px 0; padding:12px 14px; border:1px solid #e5e7eb; border-radius:14px; background:#f9fafb;">
     <div style="font-size:14px; line-height:1.5; font-weight:800; color:#374151; margin:0 0 8px 0;">
       What I need
     </div>
     <ul style="margin:0; padding-left:18px; color:#111827;">
-      <li style="margin:0 0 6px 0;">an email you already use or like</li>
+      <li style="margin:0 0 6px 0;">an email you already use or have written for this campaign</li>
       <li style="margin:0 0 6px 0;">or a sample with your preferred tone or structure</li>
       <li style="margin:0;">or a short description of the style and goal you want</li>
     </ul>
   </div>
   <div style="margin:0 0 16px 0; display:flex; align-items:center; gap:8px;">
     <img src="https://user6733.na.imgto.link/public/20260406/help-removebg-preview.avif" alt="" style="width:17px; height:17px; display:block;">
+    <span style="font-size:15px; line-height:1.5; color:#111827;">
+      More help here:
+    </span>
     <a href="https://www.pitchkraft.ai/your-current-email-template/" target="_blank" rel="noopener noreferrer" style="font-size:15px; line-height:1.5; color:#16a34a; text-decoration:underline; font-weight:600;">
       What is a reference email and why it matters
     </a>
@@ -5438,3 +5441,4 @@ const parsePlaceholdersSafe = (block: string) => {
 };
 
 export default MasterPromptCampaignBuilder;
+
