@@ -920,7 +920,7 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
     const fetchSmtpUsers = async () => {
       try {
         const response = await axios.get(
-          `${API_BASE_URL}/api/email/get-SMTPUser?ClientId=${effectiveUserId}`,
+          `${API_BASE_URL}/api/email/get-Outboxs?clientId=${effectiveUserId}`,
           {
             headers: {
               ...(token && { Authorization: `Bearer ${token}` }),
@@ -973,13 +973,15 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
       console.log("Sending email to:", currentContact?.name);
 
       // In handleSendEmail function, replace the requestBody with:
+      const selectedSmtp = smtpUsers.find(u => u.id === parseInt(selectedSmtpUser || "0"));
       const requestBody = {
         clientId: parseInt(effectiveUserId || "0"),
         contactid: currentContact.id,
         campaignid: selectedCampaign ? parseInt(selectedCampaign) : null,
         isFollowUp: followupEnabled || false,
         BccEmail: emailFormData.BccEmail || "",
-        SmtpId: parseInt(selectedSmtpUser || "0"),
+        OutboxId: parseInt(selectedSmtpUser || "0"),
+        Type: selectedSmtp?.type || selectedSmtp?.smtpType || "",
         SegmentId: currentContact.segmentId &&
           currentContact.segmentId !== "null" &&
           currentContact.segmentId !== "" &&
@@ -989,9 +991,9 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
       };
 
       // Add validation before sending
-      if (!requestBody.clientId || !requestBody.contactid || !requestBody.SmtpId || 
-          requestBody.clientId === 0 || requestBody.SmtpId === 0) {
-        setEmailError("Missing required fields: clientId, contactId, or SmtpId");
+      if (!requestBody.clientId || !requestBody.contactid || !requestBody.OutboxId || 
+          requestBody.clientId === 0 || requestBody.OutboxId === 0) {
+        setEmailError("Missing required fields: clientId, contactId, or OutboxId");
         setSendingEmail(false);
         toast.error("Missing required fields for email sending");
         return;
@@ -1417,13 +1419,15 @@ const sleepWithCountdown = async (ms: number) => {
         }
 
         // In sendEmailsInBulk function, replace the requestBody with:
+        const selectedSmtp = smtpUsers.find(u => u.id === parseInt(selectedSmtpUser || "0"));
         const requestBody = {
           clientId: parseInt(effectiveUserId || "0"),
           contactid: contact.id,
           campaignid: selectedCampaign ? parseInt(selectedCampaign) : null,
           isFollowUp: followupEnabled || false,
           BccEmail: emailFormData.BccEmail || "",
-          SmtpId: parseInt(selectedSmtpUser || "0"),
+          OutboxId: parseInt(selectedSmtpUser || "0"),
+          Type: selectedSmtp?.type || selectedSmtp?.smtpType || "",
           SegmentId: contact.segmentId &&
             contact.segmentId !== "null" &&
             contact.segmentId !== "" &&

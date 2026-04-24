@@ -345,8 +345,8 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     usessl: "nossl",
   });
   
-  // IMAP form state
-  const [imapForm, setImapForm] = useState({
+  // Inbox form state
+  const [inboxForm, setInboxForm] = useState({
     emailAddress: "",
     protocol: "IMAP",
     host: "",
@@ -357,14 +357,14 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   });
   
   const [editingId, setEditingId] = useState(null);
-  const [editingImapId, setEditingImapId] = useState<number | null>(null);
+  const [editingInboxId, setEditingInboxId] = useState<number | null>(null);
   const [smtpLoading, setSmtpLoading] = useState(false);
   const [showSmtpOtpModal, setShowSmtpOtpModal] = useState(false);
   const [smtpOtpEmail, setSmtpOtpEmail] = useState("");
   const [smtpOtpVerifying, setSmtpOtpVerifying] = useState(false);
   const [deletePopupOpen, setDeletePopupOpen] = useState(false);
   const [selectedDeleteId, setSelectedDeleteId] = useState<any>(null);
-  const [deletingImapId, setDeletingImapId] = useState<number | null>(null);
+  const [deletingInboxId, setDeletingInboxId] = useState<number | null>(null);
   // Fetch SMTP List
   const fetchSmtp = async () => {
     try {
@@ -422,18 +422,18 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     }));
   };
 
-  // Handle IMAP Form Change
-  const handleChangeIMAP = (e: any) => {
+  // Handle Inbox Form Change
+  const handleChangeInbox = (e: any) => {
     const { name, value, type, checked } = e.target;
-    setImapForm((prevForm) => ({
+    setInboxForm((prevForm) => ({
       ...prevForm,
       [name]: type === "checkbox" ? checked : value,
     }));
   };
 
-  // Handle IMAP Edit
-  const handleEditImap = (item: InboxCredential) => {
-    setImapForm({
+  // Handle Inbox Edit
+  const handleEditInbox = (item: InboxCredential) => {
+    setInboxForm({
       emailAddress: item.emailAddress,
       protocol: item.protocol,
       host: item.host,
@@ -442,29 +442,29 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       password: item.password,
       useSSL: item.useSSL,
     });
-    setEditingImapId(item.id);
-    handleModalOpen("modal-edit-imap");
+    setEditingInboxId(item.id);
+    handleModalOpen("modal-edit-inbox");
   };
 
-  // Handle IMAP Update Submit
-  const handleSubmitIMAP = async (e: any) => {
+  // Handle Inbox Update Submit
+  const handleSubmitInbox = async (e: any) => {
     e.preventDefault();
     setInboxLoading(true);
 
     try {
       const payload = {
         clientId: effectiveUserId,
-        emailAddress: imapForm.emailAddress,
-        protocol: imapForm.protocol,
-        host: imapForm.host,
-        port: parseInt(imapForm.port),
-        useSSL: imapForm.useSSL,
-        username: imapForm.username,
-        password: imapForm.password,
+        emailAddress: inboxForm.emailAddress,
+        protocol: inboxForm.protocol,
+        host: inboxForm.host,
+        port: parseInt(inboxForm.port),
+        useSSL: inboxForm.useSSL,
+        username: inboxForm.username,
+        password: inboxForm.password,
       };
 
       await axios.post(
-        `${API_BASE_URL}/api/Inbox/update-Inboxcredentials?id=${editingImapId}`,
+        `${API_BASE_URL}/api/Inbox/update-Inboxcredentials?id=${editingInboxId}`,
         payload,
         {
           headers: {
@@ -474,12 +474,12 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
         }
       );
 
-      setToastMessage("IMAP configuration updated successfully");
+      setToastMessage("Inbox configuration updated successfully");
       setShowSuccessToast(true);
       setTimeout(() => setShowSuccessToast(false), 6000);
       
       // Reset form and close modal
-      setImapForm({
+      setInboxForm({
         emailAddress: "",
         protocol: "IMAP",
         host: "",
@@ -488,14 +488,14 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
         password: "",
         useSSL: false,
       });
-      setEditingImapId(null);
-      handleModalClose("modal-edit-imap");
+      setEditingInboxId(null);
+      handleModalClose("modal-edit-inbox");
       
-      // Refresh IMAP list
+      // Refresh Inbox list
       fetchInboxCredentials();
     } catch (err: any) {
       console.error(err);
-      let errorMessage = "Failed to update IMAP configuration";
+      let errorMessage = "Failed to update Inbox configuration";
       
       if (err.response?.data) {
         const errorData = err.response.data;
@@ -646,20 +646,20 @@ const handleDelete = (id: any) => {
   setDeletePopupOpen(true);
 };
 
-// Handle IMAP Delete
-const handleDeleteImap = (id: number) => {
-  setDeletingImapId(id);
+// Handle Inbox Delete
+const handleDeleteInbox = (id: number) => {
+  setDeletingInboxId(id);
   setDeletePopupOpen(true);
 };
 
-// Confirm IMAP Delete
-const confirmDeleteImap = async () => {
-  if (!deletingImapId) return;
+// Confirm Inbox Delete
+const confirmDeleteInbox = async () => {
+  if (!deletingInboxId) return;
 
   setInboxLoading(true);
   try {
     await axios.post(
-      `${API_BASE_URL}/api/Inbox/delete-Inboxcredentials?id=${deletingImapId}`,
+      `${API_BASE_URL}/api/Inbox/delete-Inboxcredentials?id=${deletingInboxId}`,
       {},
       {
         headers: {
@@ -669,18 +669,18 @@ const confirmDeleteImap = async () => {
       }
     );
 
-    setToastMessage("IMAP configuration deleted successfully");
+    setToastMessage("Inbox configuration deleted successfully");
     setShowSuccessToast(true);
     setTimeout(() => setShowSuccessToast(false), 6000);
     
     setDeletePopupOpen(false);
-    setDeletingImapId(null);
+    setDeletingInboxId(null);
     
-    // Refresh IMAP list
+    // Refresh Inbox list
     fetchInboxCredentials();
   } catch (err: any) {
     console.error(err);
-    let errorMessage = "Failed to delete IMAP configuration";
+    let errorMessage = "Failed to delete Inbox configuration";
     
     if (err.response?.data) {
       const errorData = err.response.data;
@@ -696,7 +696,7 @@ const confirmDeleteImap = async () => {
     setTimeout(() => setShowErrorToast(false), 6000);
     
     setDeletePopupOpen(false);
-    setDeletingImapId(null);
+    setDeletingInboxId(null);
   } finally {
     setInboxLoading(false);
   }
@@ -1387,7 +1387,7 @@ const confirmDeleteSmtp = async () => {
   const [newBccEmail, setNewBccEmail] = useState<string>("");
   const [bccLoading, setBccLoading] = useState(false);
   const [configTab, setConfigTab] = useState("mailboxes");
-  const [mailboxSubTab, setMailboxSubTab] = useState<"smtp" | "imap">("smtp");
+  const [mailboxSubTab, setMailboxSubTab] = useState<"smtp" | "inbox">("smtp");
 
 
   type BccEmail = { id: number; bccEmailAddress: string; clinteId: number };
@@ -2016,7 +2016,7 @@ const actionIconStyle = {
                   >
                     {[
                       { key: "smtp", label: "SMTP List" },
-                      { key: "imap", label: "IMAP List" },
+                      { key: "inbox", label: "Inbox List" },
                     ].map(item => (
                       <button
                         key={item.key}
@@ -2192,8 +2192,8 @@ const actionIconStyle = {
                   </>
                 )}
 
-                {/* IMAP List Content */}
-                {mailboxSubTab === "imap" && (
+                {/* Inbox List Content */}
+                {mailboxSubTab === "inbox" && (
                   <>
                     <div
                       style={{
@@ -2207,7 +2207,7 @@ const actionIconStyle = {
                         type="text"
                         className="search-input"
                         style={{ width: 340 }}
-                        placeholder="Search IMAP by server or username"
+                        placeholder="Search Inbox by server or username"
                         value={mailboxSearch}
                         onChange={(e) => setMailboxSearch(e.target.value)}
                       />
@@ -2234,7 +2234,7 @@ const actionIconStyle = {
                         ) : currentInboxes.length === 0 ? (
                           <tr>
                             <td colSpan={6} style={{ textAlign: "center" }}>
-                              No IMAP/POP3 configurations found.
+                              No Inbox configurations found.
                             </td>
                           </tr>
                         ) : (
@@ -2294,7 +2294,7 @@ const actionIconStyle = {
                                     {!isDemoAccount && (
                                       <button
                                         onClick={() => {
-                                          handleEditImap(item);
+                                          handleEditInbox(item);
                                           setMailboxActionsAnchor(null);
                                         }}
                                         style={menuBtnStyle}
@@ -2312,7 +2312,7 @@ const actionIconStyle = {
                                     {!isDemoAccount && (
                                       <button
                                         onClick={() => {
-                                          handleDeleteImap(item.id);
+                                          handleDeleteInbox(item.id);
                                           setMailboxActionsAnchor(null);
                                         }}
                                         style={{ ...menuBtnStyle }}
@@ -2343,8 +2343,8 @@ const actionIconStyle = {
                       pageSize={pageSize}
                       setCurrentPage={setCurrentPageInbox}
                       setPageSize={(size) => setPageSize(Number(size))}
-                       showPageSizeDropdown={true}
-                       pageLabel="Page:"
+                      showPageSizeDropdown={true}
+                      pageLabel="Page:"
                     />
                   </>
                 )}
@@ -2392,7 +2392,7 @@ const actionIconStyle = {
                       usessl: "nossl",
                     });
                   }}
-                  title="Edit SMTP Configuration"
+                  title="Edit SMTP configuration"
                   width={500}
                   footerContent={
                     <>
@@ -2560,13 +2560,13 @@ const actionIconStyle = {
                   </form>
                 </CommonSidePanel>
 
-                {/* IMAP Edit Modal */}
+                {/* Inbox Edit Modal */}
                 <CommonSidePanel
-                  isOpen={openModals["modal-edit-imap"] || false}
+                  isOpen={openModals["modal-edit-inbox"] || false}
                   onClose={() => {
-                    handleModalClose("modal-edit-imap");
-                    setEditingImapId(null);
-                    setImapForm({
+                    handleModalClose("modal-edit-inbox");
+                    setEditingInboxId(null);
+                    setInboxForm({
                       emailAddress: "",
                       protocol: "IMAP",
                       host: "",
@@ -2576,15 +2576,15 @@ const actionIconStyle = {
                       useSSL: false,
                     });
                   }}
-                  title="Edit IMAP Configuration"
+                  title="Edit Inbox configuration"
                   width={500}
                   footerContent={
                     <>
                       <button
                         onClick={() => {
-                          handleModalClose("modal-edit-imap");
-                          setEditingImapId(null);
-                          setImapForm({
+                          handleModalClose("modal-edit-inbox");
+                          setEditingInboxId(null);
+                          setInboxForm({
                             emailAddress: "",
                             protocol: "IMAP",
                             host: "",
@@ -2608,7 +2608,7 @@ const actionIconStyle = {
                         Cancel
                       </button>
                       <button
-                        onClick={handleSubmitIMAP}
+                        onClick={handleSubmitInbox}
                         disabled={inboxLoading}
                         style={{
                           padding: "10px 32px",
@@ -2626,7 +2626,7 @@ const actionIconStyle = {
                     </>
                   }
                 >
-                  <form onSubmit={handleSubmitIMAP}>
+                  <form onSubmit={handleSubmitInbox}>
                     <div
                       style={{
                         display: "grid",
@@ -2642,8 +2642,8 @@ const actionIconStyle = {
                         <input
                           type="email"
                           name="emailAddress"
-                          value={imapForm.emailAddress}
-                          onChange={handleChangeIMAP}
+                          value={inboxForm.emailAddress}
+                          onChange={handleChangeInbox}
                           required
                           style={{ width: "100%" }}
                           placeholder="user@example.com"
@@ -2656,8 +2656,8 @@ const actionIconStyle = {
                         </label>
                         <select
                           name="protocol"
-                          value={imapForm.protocol}
-                          onChange={handleChangeIMAP}
+                          value={inboxForm.protocol}
+                          onChange={handleChangeInbox}
                           required
                           style={{ width: "100%" }}
                         >
@@ -2673,8 +2673,8 @@ const actionIconStyle = {
                         <input
                           type="text"
                           name="host"
-                          value={imapForm.host}
-                          onChange={handleChangeIMAP}
+                          value={inboxForm.host}
+                          onChange={handleChangeInbox}
                           required
                           style={{ width: "100%" }}
                           placeholder="imap.gmail.com"
@@ -2688,8 +2688,8 @@ const actionIconStyle = {
                         <input
                           type="number"
                           name="port"
-                          value={imapForm.port}
-                          onChange={handleChangeIMAP}
+                          value={inboxForm.port}
+                          onChange={handleChangeInbox}
                           required
                           style={{ width: "100%" }}
                           placeholder="993"
@@ -2703,8 +2703,8 @@ const actionIconStyle = {
                         <input
                           type="text"
                           name="username"
-                          value={imapForm.username}
-                          onChange={handleChangeIMAP}
+                          value={inboxForm.username}
+                          onChange={handleChangeInbox}
                           required
                           style={{ width: "100%" }}
                           placeholder="username"
@@ -2718,8 +2718,8 @@ const actionIconStyle = {
                         <input
                           type="password"
                           name="password"
-                          value={imapForm.password}
-                          onChange={handleChangeIMAP}
+                          value={inboxForm.password}
+                          onChange={handleChangeInbox}
                           required
                           style={{ width: "100%" }}
                           placeholder="••••••••"
@@ -2732,8 +2732,8 @@ const actionIconStyle = {
                         type="checkbox"
                         id="useSSL"
                         name="useSSL"
-                        checked={imapForm.useSSL}
-                        onChange={handleChangeIMAP}
+                        checked={inboxForm.useSSL}
+                        onChange={handleChangeInbox}
                         style={{ marginRight: "8px" }}
                       />
                       <label htmlFor="useSSL" style={{ marginBottom: 0, cursor: "pointer" }}>
@@ -3724,18 +3724,18 @@ const actionIconStyle = {
       onClick={(e) => e.stopPropagation()}
     >
       <h3 className="text-lg font-semibold mb-3 text-gray-900">
-        Delete {deletingImapId ? 'IMAP' : 'SMTP'} configuration
+        Delete {deletingInboxId ? 'Inbox' : 'SMTP'} configuration
       </h3>
 
       <p className="text-sm text-gray-600 mb-6">
-        Are you sure you want to delete this {deletingImapId ? 'IMAP' : 'SMTP'} configuration?
+        Are you sure you want to delete this {deletingInboxId ? 'Inbox' : 'SMTP'} configuration?
       </p>
 
       <div className="flex justify-end gap-3">
         <button
           onClick={() => {
             setDeletePopupOpen(false);
-            setDeletingImapId(null);
+            setDeletingInboxId(null);
             setSelectedDeleteId(null);
           }}
           className="px-5 py-2 rounded-full bg-black text-white"
@@ -3744,7 +3744,7 @@ const actionIconStyle = {
         </button>
 
         <button
-          onClick={deletingImapId ? confirmDeleteImap : confirmDeleteSmtp}
+          onClick={deletingInboxId ? confirmDeleteInbox : confirmDeleteSmtp}
           className="px-5 py-2 rounded-full bg-red-600 text-white hover:bg-red-700"
         >
           Delete
@@ -3754,7 +3754,7 @@ const actionIconStyle = {
       <button
         onClick={() => {
           setDeletePopupOpen(false);
-          setDeletingImapId(null);
+          setDeletingInboxId(null);
           setSelectedDeleteId(null);
         }}
         className="absolute top-4 right-4 text-xl"

@@ -468,10 +468,11 @@ setOverwriteDatabase,
                     >
                       <option value="">Sender</option>
                       {smtpUsers
-                        .sort((a, b) => a.username.localeCompare(b.username, undefined, { sensitivity: 'base' }))
+                        .filter(user => user && user.email)
+                        .sort((a, b) => a.email.localeCompare(b.email, undefined, { sensitivity: 'base' }))
                         .map((user) => (
                         <option key={user.id} value={user.id}>
-                          {user.username}
+                          {user.email}
                         </option>
                       ))}
                     </select>
@@ -502,6 +503,7 @@ setOverwriteDatabase,
                     >
                       <option value="">BCC email</option>
                       {bccOptions
+                        .filter(option => option && option.bccEmailAddress)
                         .sort((a, b) => a.bccEmailAddress.localeCompare(b.bccEmailAddress, undefined, { sensitivity: 'base' }))
                         .map((option) => (
                         <option key={option.id} value={option.bccEmailAddress}>

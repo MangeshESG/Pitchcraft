@@ -7,22 +7,28 @@ import './InboxView.css';
 interface InboxDropdownItem {
   inboxId: number;
   emailAddress: string;
+  provider: string;
 }
 
-interface InboxMail {
-  id: number;
-  clientId: number;
-  contactId: number;
-  campaignId: number;
+interface InboxMessage {
+  type: string;
   messageId: string;
-  inReplyTo: string;
-  fromEmail: string;
   subject: string;
   body: string;
-  trackingId: string;
+  fromEmail: string;
+  toEmail: string;
   date: string;
   isRead: boolean;
-  createdAt: string;
+}
+
+interface InboxThread {
+  trackingId: string;
+  subject: string;
+  contactEmail: string;
+  totalMessages: number;
+  lastMessageDate: string;
+  hasUnread: boolean;
+  messages: InboxMessage[];
 }
 
 interface InboxViewProps {
@@ -34,10 +40,13 @@ interface InboxViewProps {
 const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible }) => {
   const [inboxList, setInboxList] = useState<InboxDropdownItem[]>([]);
   const [selectedInboxId, setSelectedInboxId] = useState<number | null>(null);
-  const [mails, setMails] = useState<InboxMail[]>([]);
-  const [selectedMail, setSelectedMail] = useState<InboxMail | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<string>('');
+  const [threads, setThreads] = useState<InboxThread[]>([]);
+  const [selectedThread, setSelectedThread] = useState<InboxThread | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
+  const [replyText, setReplyText] = useState<string>('');
+  const [isSending, setIsSending] = useState(false);
 
   useEffect(() => {
     const fetchInboxList = async () => {
@@ -77,7 +86,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       setError('');
       try {
         const response = await axios.get(
-          `${API_BASE_URL}/api/Inbox/inbox?inboxId=${selectedInboxId}`,
+          `${API_BASE_URL}/api/Inbox/inbox?inboxId=${selectedInboxId}&Provider=${selectedProvider}`,
           {
             headers: {
               accept: '*/*',
@@ -87,7 +96,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         );
 
         if (response.data.success && response.data.data) {
-          setMails(response.data.data);
+          setThreads(response.data.data);
         }
       } catch (err) {
         console.error('Error fetching mails:', err);
@@ -98,16 +107,82 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     };
 
     fetchMails();
-  }, [selectedInboxId, token, isVisible]);
+  }, [selectedInboxId, selectedProvider, token, isVisible]);
 
   const handleInboxChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const inboxId = parseInt(e.target.value);
+    const inbox = inboxList.find(i => i.inboxId === inboxId);
     setSelectedInboxId(inboxId);
-    setSelectedMail(null);
+    setSelectedProvider(inbox?.provider || '');
+    setSelectedThread(null);
   };
 
-  const handleMailClick = (mail: InboxMail) => {
-    setSelectedMail(mail);
+  const handleThreadClick = (thread: InboxThread) => {
+    setSelectedThread(thread);
+  };
+
+  const handleBackToList = () => {
+    setSelectedThread(null);
+    setReplyText('');
+  };
+
+  const handleSendReply = async () => {
+    if (!replyText.trim() || !selectedThread) return;
+    
+    setIsSending(true);
+    setError('');
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/email/reply_email`,
+        {
+          trackingId: selectedThread.trackingId,
+          clientId: parseInt(effectiveUserId),
+          replyBody: replyText,
+          outboxId: selectedInboxId,
+          bccEmail: '',
+          Provider: selectedProvider
+        },                          
+        {
+          headers: {
+            'accept': '*/*',
+            'Content-Type': 'application/json',
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      if (response.data.success) {
+        setReplyText('');
+        // Refresh the thread to show the new reply
+        const refreshResponse = await axios.get(
+          `${API_BASE_URL}/api/Inbox/inbox?inboxId=${selectedInboxId}&Provider=${selectedProvider}`,
+          {
+            headers: {
+              accept: '*/*',
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+          }
+        );
+        
+        if (refreshResponse.data.success && refreshResponse.data.data) {
+          setThreads(refreshResponse.data.data);
+          // Update selected thread with new data
+          const updatedThread = refreshResponse.data.data.find(
+            (t: InboxThread) => t.trackingId === selectedThread.trackingId
+          );
+          if (updatedThread) {
+            setSelectedThread(updatedThread);
+          }
+        }
+      } else {
+        setError('Failed to send reply');
+      }
+    } catch (err: any) {
+      console.error('Error sending reply:', err);
+      setError(err.response?.data?.message || 'Failed to send reply');
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const extractEmailAddress = (emailString: string): string => {
@@ -117,7 +192,11 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
   const extractSenderName = (emailString: string): string => {
     const match = emailString.match(/^"?(.+?)"?\s*</);
-    return match ? match[1] : extractEmailAddress(emailString);
+    if (match) {
+      return match[1].replace(/"/g, '').trim();
+    }
+    const email = extractEmailAddress(emailString);
+    return email.split('@')[0];
   };
 
   const formatDate = (dateString: string): string => {
@@ -145,12 +224,18 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     return 'Older';
   };
 
-  const groupedMails = mails.reduce((acc, mail) => {
-    const group = getTimeGroup(mail.date);
+  const groupedThreads = threads.reduce((acc, thread) => {
+    const group = getTimeGroup(thread.lastMessageDate);
     if (!acc[group]) acc[group] = [];
-    acc[group].push(mail);
+    acc[group].push(thread);
     return acc;
-  }, {} as Record<string, InboxMail[]>);
+  }, {} as Record<string, InboxThread[]>);
+
+  // Sort groups to show Today first, then Last Week, then Older
+  const sortedGroups = Object.entries(groupedThreads).sort(([groupA], [groupB]) => {
+    const order = { 'Today': 0, 'Last Week': 1, 'Older': 2 };
+    return order[groupA as keyof typeof order] - order[groupB as keyof typeof order];
+  });
 
   const getInitials = (email: string): string => {
     const name = extractSenderName(email);
@@ -162,13 +247,15 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   };
 
   const formatEmailBody = (body: string): string => {
-    return body
-      .replace(/&gt;/g, '')
+    // Decode HTML entities
+    let formatted = body
+      .replace(/&gt;/g, '>')
       .replace(/&lt;/g, '<')
       .replace(/&amp;/g, '&')
       .replace(/&quot;/g, '"')
-      .replace(/&#39;/g, "'")
-      .replace(/\n/g, '<br>');
+      .replace(/&#39;/g, "'");
+    
+    return formatted;
   };
 
   if (!isVisible) {
@@ -177,8 +264,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
   return (
     <div className="dashboard-section" style={{ display: isVisible ? 'block' : 'none', marginTop: '-60px' }}>
-      {/* Description */}
-      <p style={{ marginBottom: '20px' }}>
+      <p>
         View and manage your inbox emails with sender information and full message content.
       </p>
 
@@ -222,64 +308,122 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       {/* Email Content */}
       {selectedInboxId && !loading && !error && (
         <div className="inbox-content">
-          <div className="mail-list">
-            {mails.length === 0 ? (
+          {!selectedThread ? (
+            <div className="mail-list mail-list-fullwidth">
+            {threads.length === 0 ? (
               <div className="no-mails">No emails found</div>
             ) : (
-              Object.entries(groupedMails).map(([group, groupMails]) => (
+              sortedGroups.map(([group, groupThreads]) => (
                 <div key={group}>
                   <div className="mail-group-header">{group}</div>
-                  {groupMails.map((mail) => (
-                    <div
-                      key={mail.id}
-                      className={`mail-item ${selectedMail?.id === mail.id ? 'selected' : ''} ${!mail.isRead ? 'unread' : ''}`}
-                      onClick={() => handleMailClick(mail)}
-                    >
-                      <div className="mail-avatar">{getInitials(mail.fromEmail)}</div>
-                      <div className="mail-content">
-                        <div className="mail-item-header">
-                          <span className="mail-sender">{extractSenderName(mail.fromEmail)}</span>
-                          <span className="mail-date">{formatDate(mail.date)}</span>
-                        </div>
-                        <div className="mail-subject">
-                          {mail.inReplyTo && <span className="reply-icon">↩</span>}
-                          {mail.subject}
-                        </div>
-                        <div className="mail-preview">
-                          {mail.body.replace(/<[^>]*>/g, '').substring(0, 80)}...
+                  {groupThreads.map((thread) => {
+                    const lastMessage = thread.messages[thread.messages.length - 1];
+                    return (
+                      <div
+                        key={thread.trackingId}
+                        className={`mail-item ${selectedThread?.trackingId === thread.trackingId ? 'selected' : ''} ${thread.hasUnread ? 'unread' : ''}`}
+                        onClick={() => handleThreadClick(thread)}
+                      >
+                        <div className="mail-avatar">{getInitials(thread.contactEmail)}</div>
+                        <div className="mail-content">
+                          <div className="mail-item-header">
+                            <span className="mail-sender">{extractSenderName(thread.contactEmail)}</span>
+                            <span className="mail-date">{formatDate(thread.lastMessageDate)}</span>
+                          </div>
+                          <div className="mail-subject">
+                            {thread.totalMessages > 1 && <span className="reply-icon">↩ {thread.totalMessages}</span>}
+                            {thread.subject}
+                          </div>
+                          <div className="mail-preview">
+                            {lastMessage.body
+                              .replace(/<[^>]*>/g, '')
+                              .replace(/&gt;/g, '>')
+                              .replace(/&lt;/g, '<')
+                              .replace(/&amp;/g, '&')
+                              .replace(/&quot;/g, '"')
+                              .replace(/&#39;/g, "'")
+                              .replace(/\s+/g, ' ')
+                              .trim()
+                              .substring(0, 100)}{lastMessage.body.length > 100 ? '...' : ''}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ))
             )}
-          </div>
-
-          <div className="mail-detail">
-            {selectedMail ? (
-              <>
-                <div className="mail-detail-header">
-                  <div className="mail-detail-top">
-                    <div className="mail-detail-avatar">{getInitials(selectedMail.fromEmail)}</div>
-                    <div className="mail-detail-info">
-                      <div className="mail-detail-sender">
-                        {extractSenderName(selectedMail.fromEmail)} &lt;{extractEmailAddress(selectedMail.fromEmail)}&gt;
+            </div>
+          ) : (
+            <div className="mail-detail mail-detail-fullwidth">
+              <button className="back-button" onClick={handleBackToList}>
+                ← Back to Inbox
+              </button>
+              <h3 className="mail-detail-subject" style={{ marginBottom: '24px', fontSize: '20px', fontWeight: '600' }}>{selectedThread.subject}</h3>
+              
+              {selectedThread.messages.map((message, index) => (
+                <div key={message.messageId} style={{ marginBottom: index < selectedThread.messages.length - 1 ? '24px' : '0', paddingBottom: index < selectedThread.messages.length - 1 ? '24px' : '0', borderBottom: index < selectedThread.messages.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
+                  <div className="mail-detail-header">
+                    <div className="mail-detail-top">
+                      <div className="mail-detail-avatar">{getInitials(message.fromEmail)}</div>
+                      <div className="mail-detail-info">
+                        <div className="mail-detail-sender">
+                          {extractSenderName(message.fromEmail)}
+                        </div>
+                        <div className="mail-detail-to">
+                          {extractEmailAddress(message.fromEmail)}
+                        </div>
                       </div>
-                      <div className="mail-detail-to">To: {selectedInboxId && inboxList.find(i => i.inboxId === selectedInboxId)?.emailAddress}</div>
+                      <div className="mail-detail-date">{new Date(message.date).toLocaleString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}</div>
                     </div>
-                    <div className="mail-detail-date">{new Date(selectedMail.date).toLocaleString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}</div>
                   </div>
-                  <h3 className="mail-detail-subject">{selectedMail.subject}</h3>
+                  <div className="mail-body" dangerouslySetInnerHTML={{ __html: formatEmailBody(message.body) }} style={{ maxWidth: '100%', overflowX: 'auto' }} />
                 </div>
-                <div className="mail-body" dangerouslySetInnerHTML={{ __html: formatEmailBody(selectedMail.body) }} />
-              </>
-            ) : (
-              <div className="no-mail-selected">
-                Select an email to view its content
+              ))}
+              
+              {/* Reply Section */}
+              <div className="reply-section" style={{
+                marginTop: '24px',
+                borderTop: '1px solid #e5e7eb',
+                paddingTop: '24px'
+              }}>
+                <textarea
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  placeholder="Write your reply..."
+                  disabled={isSending}
+                  style={{
+                    width: '100%',
+                    minHeight: '120px',
+                    padding: '12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    resize: 'vertical',
+                    boxSizing: 'border-box'
+                  }}
+                />
+                <button
+                  onClick={handleSendReply}
+                  disabled={!replyText.trim() || isSending}
+                  style={{
+                    marginTop: '12px',
+                    padding: '10px 24px',
+                    background: (!replyText.trim() || isSending) ? '#ccc' : '#ef4444',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: (!replyText.trim() || isSending) ? 'not-allowed' : 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '500'
+                  }}
+                >
+                  {isSending ? 'Sending...' : 'Send Reply'}
+                </button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       )}
     </div>
