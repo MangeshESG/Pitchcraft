@@ -502,7 +502,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
   return (
     <div className="data-campaigns-container">
       <div className="section-wrapper">
-        <h2 className="section-title" style={{ marginTop: "-43px" }}>Campaigns</h2>
+        <h2 className="section-title">Campaigns</h2>
         <p style={{ marginBottom: '10px' }}>Create and manage campaigns quickly and efficiently.</p>
 
         <div style={{ display: "flex", alignItems: "center", marginBottom: 16, gap: 16 }}>

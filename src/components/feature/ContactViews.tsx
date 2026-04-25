@@ -1933,7 +1933,7 @@ const handleDeleteContacts = async () => {
                                     <path
                                       d="M21 12C21 12 20 4 12 4C4 4 3 12 3 12"
                                       stroke="#3f9f42"
-                                      stroke-width="2"
+                                      strokeWidth="2"
                                     />
                                   </svg>
                                 </span>
@@ -1978,7 +1978,7 @@ const handleDeleteContacts = async () => {
                                             stroke="#3f9f42"
                                             stroke-linecap="round"
                                             stroke-linejoin="round"
-                                            stroke-width="2"
+                                            strokeWidth="2"
                                           />
                                           <g>
                                             <polyline
@@ -1989,14 +1989,14 @@ const handleDeleteContacts = async () => {
                                               stroke="#3f9f42"
                                               stroke-linecap="round"
                                               stroke-linejoin="round"
-                                              stroke-width="2"
+                                              strokeWidth="2"
                                             />
                                             <line
                                               fill="none"
                                               stroke="#3f9f42"
                                               stroke-linecap="round"
                                               stroke-linejoin="round"
-                                              stroke-width="2"
+                                              strokeWidth="2"
                                               x1="12"
                                               x2="12"
                                               y1="2.7"

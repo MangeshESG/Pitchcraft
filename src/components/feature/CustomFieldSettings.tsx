@@ -221,10 +221,12 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
   return (
     <div className="section-wrapper">
 
-      <div className="custom-fields-header">
-        <h3 className="custom-fields-title" style={{ marginTop: "-70px" }}>
-          Custom CRM fields
-        </h3>
+      <div className="custom-fields-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #ddd", paddingBottom: "16px", marginBottom: "16px" }}>
+
+
+         <h2 className="section-title !text-[#333] !text-left !border-b-[0] !pb-[0]" style={{ marginTop: 0, marginBottom: 0 }}>
+         Custom CRM fields
+        </h2>
 
         <button
           className="custom-field-btn"

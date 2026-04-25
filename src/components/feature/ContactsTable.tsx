@@ -221,12 +221,19 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
             transition: "margin-right 0.3s ease",
           }}
         >
-          <div className="contacts-table-wrapper">
+          <div
+            className="contacts-table-wrapper"
+            style={{
+              overflowX: "auto",
+              overflowY: "hidden",
+              borderRadius: "4px",
+            }}
+          >
             <table className="contacts-table">
               <thead>
                 <tr>
                   {colList.map((column) => (
-                    <th key={column.key} style={{ width: column.width }}>
+                    <th key={column.key} style={{ width: column.width, maxWidth: "275px", overflow: "hidden", wordBreak: "break-word", whiteSpace: "normal" }}>
                       {column.key === "checkbox" ? (
                         <input
                           type="checkbox"
@@ -272,7 +279,7 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
                       }
                     >
                       {colList.map((column) => (
-                        <td key={column.key}>
+                        <td key={column.key} style={{ maxWidth: "275px", overflow: "hidden", wordBreak: "break-word", whiteSpace: "normal" }}>
                           {column.key === "checkbox" ? (
                             <input
                               type="checkbox"

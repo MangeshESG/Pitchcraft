@@ -176,7 +176,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   }
 
   return (
-    <div className="dashboard-section" style={{ display: isVisible ? 'block' : 'none', marginTop: '-60px' }}>
+    <div className="dashboard-section" style={{ display: isVisible ? 'block' : 'none'}}>
+       <h2 className="section-title !text-[#333] !text-left" style={{ marginTop: 0 }}>
+          Inbox
+        </h2>
       {/* Description */}
       <p style={{ marginBottom: '20px' }}>
         View and manage your inbox emails with sender information and full message content.

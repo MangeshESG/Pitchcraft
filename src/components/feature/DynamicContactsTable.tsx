@@ -898,7 +898,7 @@ const displayData =
                 <tr>
                   {visibleColumns.map((column) => (
                     <th key={column.key}  onClick={() => column.key !== "checkbox" && handleSort(column.key)}
-    style={{ cursor: column.key !== "checkbox" ? "pointer" : "default", width: column.width }}>
+    style={{ cursor: column.key !== "checkbox" ? "pointer" : "default", width: column.width, maxWidth: "275px", overflow: "hidden", wordBreak: "break-word", whiteSpace: "normal" }}>
                       {column.key === "checkbox" ? (
                         <input
                           type="checkbox"
@@ -945,7 +945,7 @@ const displayData =
                       }
                     >
                       {visibleColumns.map((column) => (
-                        <td key={column.key}>
+                        <td key={column.key} style={{ maxWidth: "275px", overflow: "hidden", wordBreak: "break-word", whiteSpace: "normal" }}>
                           {getFormattedValue(item, column, index)}
                         </td>
                       ))}

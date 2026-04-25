@@ -1962,7 +1962,7 @@ const actionIconStyle = {
       {tab === "Configuration" && (
         <>
           {/* --- SUB TABS --- */}
-          <div className="config-tab-container" style={{ display: "flex", gap: "20px", marginBottom: "20px",marginTop:"-45px" }}>
+          <div className="config-tab-container" style={{ display: "flex", gap: "20px", marginBottom: "20px" }}>
             <button
               onClick={() => setConfigTab("mailboxes")}
               className={configTab === "mailboxes" ? "active-config-tab" : "config-tab"}
@@ -1987,14 +1987,14 @@ const actionIconStyle = {
               Domain authentication
             </button>
           </div>
-          <div className="data-campaigns-container" style={{ marginTop: "-61px" }}>
+          <div className="data-campaigns-container">
             {/* Mailboxes Section */}
             {configTab === "mailboxes" && (
               <div className="section-wrapper">
                 {/* <h2 style={{ color: "black", textAlign: "left" }} className="section-title">
                   Mailboxes
                 </h2> */}
-                <p style={{ marginBottom: "20px", marginTop: "80px" }}>
+                <p style={{ marginBottom: "20px"}}>
                   The Mailboxes section lets you add and manage email accounts for sending campaigns securely.
                 </p>
 
@@ -2362,7 +2362,7 @@ const actionIconStyle = {
                   handleSubmitSMTP={handleSubmitSMTP}
                   smtpLoading={smtpLoading}
                   setEditingId={setEditingId}
-                  effectiveUserId={effectiveUserId}
+                  effectiveUserId={effectiveUserId!!}
                   token={token}
                   onSuccess={(message) => {
                     setToastMessage(message);
@@ -2829,11 +2829,11 @@ const actionIconStyle = {
 
             {/* BCC Email Management Section */}
             {configTab === "bcc" && (
-              <div className="section-wrapper" style={{ marginTop: 40 }}>
+              <div className="section-wrapper">
                 {/* <h2 style={{ color: "black", textAlign: "left" }} className="section-title">
                   BCC email management
                 </h2> */}
-                <div style={{ marginBottom: "-40px", color: "#555", marginTop: "80px" }}>
+                <div style={{  color: "#555", }}>
                   Add BCC email addresses to receive copies of all sent emails.
                 </div>
 
@@ -2991,8 +2991,8 @@ const actionIconStyle = {
 
             {/* Domain Authentication Section */}
             {configTab === "domain" && (
-              <div className="section-wrapper" style={{ marginTop: 40 }}>
-                <div style={{ marginBottom: "20px", color: "#555", marginTop: "80px" }}>
+              <div className="section-wrapper">
+                <div style={{ marginBottom: "20px", color: "#555" }}>
                   Configure domain authentication settings for improved email deliverability.
                 </div>
 
@@ -3141,10 +3141,10 @@ const actionIconStyle = {
       {/* Schedule Tab */}
       {tab === "Schedule" && (
         <>
-          <div className="data-campaigns-container" style={{ marginTop: "-45px" }}>
+          <div className="data-campaigns-container">
             <div className="section-wrapper">
               <h2 className="section-title" style={{ color: "black", textAlign: "left" }}>Email schedules</h2>
-              <div style={{ marginBottom: 4, color: "#555" }}>
+              <div style={{ marginBottom: "10px", color: "#555" }}>
                 Create and manage email delivery schedules for your campaigns.
               </div>
 
@@ -3625,7 +3625,7 @@ const actionIconStyle = {
       {/* Inbox Tab */}
       {tab === "Inbox" && (
         <InboxView 
-          effectiveUserId={effectiveUserId} 
+          effectiveUserId={effectiveUserId!!} 
           token={token}
           isVisible={tab === "Inbox"}
         />
