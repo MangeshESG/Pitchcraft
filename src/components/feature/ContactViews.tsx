@@ -31,6 +31,7 @@ import {
 } from "../../utils/trackingFilterUtils";
 
 import { useAppModal } from "../../hooks/useAppModal";
+import { useAppData } from "../../contexts/AppDataContext";
 
 
 interface ContactFieldOption {
@@ -400,6 +401,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   const [isUnsubscribing, setIsUnsubscribing] = useState(false);
 
   const appModal = useAppModal(); // ✅ correct place
+  const { triggerRefresh } = useAppData();
   //------------------------------
   const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set());
   const handleSelectContact = (contactId: string) => {
@@ -1336,6 +1338,7 @@ const handleDeleteContacts = async () => {
           delete metaMap[String(view.id)];
           saveViewMetaMap(clientId, metaMap);
           setViews((prev) => prev.filter((item) => item.id !== view.id));
+          triggerRefresh();
           if (selectedView?.id === view.id) {
             setSelectedView(null);
             setViewMode("list");
@@ -1470,6 +1473,7 @@ const handleDeleteContacts = async () => {
       };
       saveViewMetaMap(clientId, metaMap);
 
+      triggerRefresh();
       onShowMessage?.("View updated successfully.", "success");
       setIsEditPanelOpen(false);
       setEditingView(null);
@@ -1506,6 +1510,43 @@ const handleDeleteContacts = async () => {
     </div>
   ) : (
   <>
+    {selectedView && (
+      <div style={{ marginBottom: 20 }}>
+        <FilterBuilder
+          key={`${selectedView.id}-${selectedView.filtersJson || ""}`}
+          data={baseViewContacts}
+          fields={normalizedFilterFields}
+          clientId={clientId}
+          initialFiltersJson={selectedView.filtersJson}
+          onFiltered={(filteredData) => {
+            setViewContacts(filteredData);
+            setViewCurrentPage(1);
+            setSelectedContacts(new Set());
+          }}
+          saveViewConfig={{
+            clientId,
+            dataFileIds: selectedView.useAllDataFiles
+              ? []
+              : selectedView.dataFileIds || [],
+            segmentIds: selectedView.segmentIds || [],
+            useAllDataFiles: !!selectedView.useAllDataFiles,
+            excludedDataFileIds: selectedView.excludedDataFileIds || [],
+            onSuccess: (savedView) => {
+              fetchViews();
+              triggerRefresh();
+              onShowMessage?.(
+                `New view "${savedView?.name || "Untitled view"}" created successfully.`,
+                "success"
+              );
+            },
+            onError: (message) => {
+              onShowMessage?.(message, "error");
+            },
+          }}
+        />
+      </div>
+    )}
+
     {/* ✅ BULK ACTION BAR */}
 {selectedContacts.size > 0 && (
   <div
@@ -2001,42 +2042,6 @@ const handleDeleteContacts = async () => {
           </>
         ) : (
           <>
-            {!viewMetaMissing && selectedView && (
-              <div style={{ marginBottom: 20 }}>
-                <FilterBuilder
-                  key={`${selectedView.id}-${selectedView.filtersJson || ""}`}
-                  data={baseViewContacts}
-                  fields={normalizedFilterFields}
-                  clientId={clientId}
-                  initialFiltersJson={selectedView.filtersJson}
-                  onFiltered={(filteredData) => {
-                    setViewContacts(filteredData);
-                    setViewCurrentPage(1);
-                    setSelectedContacts(new Set());
-                  }}
-                  saveViewConfig={{
-                    clientId,
-                    dataFileIds: selectedView.useAllDataFiles
-                      ? []
-                      : selectedView.dataFileIds || [],
-                    segmentIds: selectedView.segmentIds || [],
-                    useAllDataFiles: !!selectedView.useAllDataFiles,
-                    excludedDataFileIds: selectedView.excludedDataFileIds || [],
-                    onSuccess: (savedView) => {
-                      fetchViews();
-                      onShowMessage?.(
-                        `New view "${savedView?.name || "Untitled view"}" created successfully.`,
-                        "success"
-                      );
-                    },
-                    onError: (message) => {
-                      onShowMessage?.(message, "error");
-                    },
-                  }}
-                />
-              </div>
-            )}
-
             <DynamicContactsTable
               data={viewContacts}
               isLoading={isLoadingViewContacts}

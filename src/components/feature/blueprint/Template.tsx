@@ -79,6 +79,21 @@ interface CampaignTemplate {
 }
 
 // ✅ NEW: Template Definition interface
+const dedupeCampaignTemplatesById = (
+  templates: CampaignTemplate[],
+): CampaignTemplate[] => {
+  const seen = new Set<number>();
+
+  return templates.filter((template) => {
+    if (seen.has(template.id)) {
+      return false;
+    }
+
+    seen.add(template.id);
+    return true;
+  });
+};
+
 interface TemplateDefinition {
   id: number;
   templateName: string;
@@ -313,7 +328,9 @@ const Template: React.FC<TemplateProps> = ({
       }
 
       const data = await response.json();
-      setCampaignTemplates(data.templates || []);
+      setCampaignTemplates(
+        dedupeCampaignTemplatesById(data.templates || []),
+      );
     } catch (error) {
       console.error("Error fetching campaign templates:", error);
       setCampaignTemplates([]);
@@ -1805,6 +1822,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
             }}
           >
             <button
+              className="button save-button"
               onClick={async () => {
                 // ✅ Close UI first
                 setShowCampaignBuilder(false);
@@ -1827,13 +1845,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                 }, 300);
               }}
               style={{
-                background: "#eaeaea", // ✅ Match PitchKraft green
-                color: "#222",
-                border: "none",
                 borderRadius: "12px",
-                padding: "8px 16px",
-                cursor: "pointer",
-                fontSize: "14px",
                 fontWeight: "600",
               }}
             >
@@ -1880,3 +1892,4 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
 };
 
 export default Template;
+

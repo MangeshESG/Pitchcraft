@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 interface CommonSidePanelProps {
   isOpen: boolean;
@@ -35,7 +36,7 @@ const CommonSidePanel: React.FC<CommonSidePanelProps> = ({
 
   if (!shouldRender) return null;
 
-  return (
+  return createPortal(
     <div
       style={{
         position: "fixed",
@@ -51,6 +52,7 @@ const CommonSidePanel: React.FC<CommonSidePanelProps> = ({
         display: "flex",
         flexDirection: "column",
         borderTopLeftRadius: "30px",
+        overflow: "hidden",
       }}
     >
       {/* HEADER */}
@@ -61,7 +63,8 @@ const CommonSidePanel: React.FC<CommonSidePanelProps> = ({
           borderTopLeftRadius: "30px",
           display: "flex",
           alignItems: "center",
-          gap: "16px"
+          gap: "16px",
+          flexShrink: 0,
         }}
         className='border-[#cccccc] border-b'
       >
@@ -84,7 +87,7 @@ const CommonSidePanel: React.FC<CommonSidePanelProps> = ({
       </div>
 
       {/* BODY */}
-      <div style={{ padding: 20, flex: 1, overflowY: "auto" }}>
+      <div style={{ padding: 20, flex: "1 1 auto", minHeight: 0, overflowY: "auto" }}>
         {children}
       </div>
 
@@ -92,18 +95,26 @@ const CommonSidePanel: React.FC<CommonSidePanelProps> = ({
       {footerContent && (
         <div
           style={{
-            padding: 16,
+            padding: "16px 20px 50px",
             display: "flex",
             justifyContent: "space-between",
+            alignItems: "center",
+            gap: 12,
             borderTop: "1px solid #e5e7eb",
-            marginBottom: 50,
             position: "sticky",
+            bottom: 0,
+            background: "#fff",
+            zIndex: 1,
+            flexShrink: 0,
+            boxShadow: "0 -4px 12px rgba(0, 0, 0, 0.04)",
           }}
         >
           {footerContent}
         </div>
       )}
     </div>
+    ,
+    document.body
   );
 };
 

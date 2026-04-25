@@ -690,7 +690,22 @@ const displayData =
             }}
           >
             {onBack && (
-              <button className="button secondary" onClick={onBack} style={{ borderRadius:"12px" }}>
+              <button
+                className="button primary"
+                onClick={onBack}
+                style={{
+                  background: "#3f9f42",
+                  color: "#fff",
+                  border: "none",
+                  padding: "8px 16px",
+                  borderRadius: "12px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  fontWeight: 600,
+                }}
+              >
                 ← Back
               </button>
             )}

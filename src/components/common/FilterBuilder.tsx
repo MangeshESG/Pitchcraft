@@ -341,6 +341,7 @@ function FilterBuilder<T extends Record<string, any>>({
   saveViewConfig,
 }: Props<T>) {
   const [groups, setGroups] = useState<FilterGroup[]>([createGroup()]);
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const [showSavePanel, setShowSavePanel] = useState(false);
   const [viewName, setViewName] = useState("");
   const [viewDescription, setViewDescription] = useState("");
@@ -355,6 +356,7 @@ function FilterBuilder<T extends Record<string, any>>({
     useState<FieldCategoryKey>("system");
   const [campaignOptions, setCampaignOptions] = useState<CampaignOption[]>([]);
   const fieldPickerRef = useRef<HTMLDivElement | null>(null);
+  const rulesPanelId = useMemo(() => `filter-rules-${generateId()}`, []);
 
   const sortedFields = useMemo(() => sortByLabelAsc(fields), [fields]);
   const fieldCategories = useMemo(
@@ -459,6 +461,12 @@ function FilterBuilder<T extends Record<string, any>>({
       document.removeEventListener("mousedown", handlePointerDown);
     };
   }, [activeFieldPicker]);
+
+  useEffect(() => {
+    if (isCollapsed) {
+      setActiveFieldPicker(null);
+    }
+  }, [isCollapsed]);
 
   useEffect(() => {
     if (!hasCampaignAwareFields || !resolvedClientId) {
@@ -837,20 +845,50 @@ function FilterBuilder<T extends Record<string, any>>({
       >
         <div
           style={{
-            fontSize: 18,
-            fontWeight: 700,
-            color: "#16331a",
-            marginBottom: 4,
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            gap: 16,
           }}
         >
-          Build filter rules
-        </div>
-        <div style={{ fontSize: 13, color: "#527057" }}>
-          Mix AND and OR inside groups, then combine groups for advanced logic.
+          <div style={{ minWidth: 0 }}>
+            <div
+              style={{
+                fontSize: 18,
+                fontWeight: 700,
+                color: "#16331a",
+                marginBottom: 4,
+              }}
+            >
+              Build filter rules
+            </div>
+            <div style={{ fontSize: 13, color: "#527057" }}>
+              Mix AND and OR inside groups, then combine groups for advanced logic.
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsCollapsed((previous) => !previous)}
+            aria-expanded={!isCollapsed}
+            aria-controls={rulesPanelId}
+            style={{
+              ...actionButtonStyle,
+              minHeight: 36,
+              padding: "0 14px",
+              borderRadius: 8,
+              borderColor: "#b9d4bc",
+              background: "#ffffff",
+              color: "#24572b",
+              flexShrink: 0,
+            }}
+          >
+            {isCollapsed ? "+ Expand" : "- Collapse"}
+          </button>
         </div>
       </div>
 
-      <div style={{ padding: 20 }}>
+      <div id={rulesPanelId} hidden={isCollapsed} style={{ padding: 20 }}>
         {groups.map((group, groupIndex) => (
           <div
             key={group.id}

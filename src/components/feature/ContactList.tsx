@@ -14,6 +14,7 @@ import ContactViews from "./ContactViews";
 import BulkUpdatePanel from "./BulkUpdatePanel";
 
 import { useAppModal } from "../../hooks/useAppModal";
+import { useAppData } from "../../contexts/AppDataContext";
 import { useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
 import PaginationControls from "./PaginationControls";
@@ -316,6 +317,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   ]);
 
   const appModal = useAppModal();
+  const { triggerRefresh } = useAppData();
   // Existing states
   const [zohoClient, setZohoClient] = useState<ZohoClient[]>([]);
   const [selectedZohoViewForDeletion, setSelectedZohoViewForDeletion] =
@@ -2684,6 +2686,7 @@ const filterFields: any = useMemo(() => {
                               selectedDataFileForView?.id === -1 ? [] : undefined,
                             onSuccess: (view) => {
                               setViewRefreshToken((prev) => prev + 1);
+                              triggerRefresh();
                               appModal.showSuccess(
                                 `View "${view?.name || "Saved view"}" created successfully!`
                               );
@@ -3124,11 +3127,13 @@ const filterFields: any = useMemo(() => {
                     setEditingContact(null);
                   }}
                   style={{
-                    padding: "6px 12px",
-                    background: "#eaeaea",
-                    border: "1px solid #ddd",
+                    padding: "8px 16px",
+                    background: "#3f9f42",
+                    color: "#fff",
+                    border: "none",
                     borderRadius: "12px",
                     cursor: "pointer",
+                    fontWeight: 600,
                   }}
                 >
                   ← Back
@@ -4199,11 +4204,13 @@ const filterFields: any = useMemo(() => {
                     setEditingContact(null);
                   }}
                   style={{
-                    padding: "6px 12px",
-                    background: "#eaeaea",
-                    border: "1px solid #ddd",
-                    borderRadius: 4,
+                    padding: "8px 16px",
+                    background: "#3f9f42",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "12px",
                     cursor: "pointer",
+                    fontWeight: 600,
                   }}
                 >
                   ← Back
