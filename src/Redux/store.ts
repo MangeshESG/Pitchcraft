@@ -4,6 +4,7 @@ import storage from "redux-persist/lib/storage"; // Defaults to localStorage
 import { persistReducer, persistStore } from "redux-persist";
 import clientSettingsReducer from "../slices/clientSettingsSlice";
 import clientReducer from "../slices/clientSlice"; // adjust path
+import panelReducer from "../slices/panelSlice";
 
 const persistConfig = {
   key: "auth",
@@ -16,7 +17,7 @@ const store = configureStore({
   reducer: {
         clientSettings: clientSettingsReducer,
          client: clientReducer,
-
+         panel: panelReducer,
     auth: persistedAuthReducer, // Use persisted reducer
   },
   middleware: (getDefaultMiddleware) =>

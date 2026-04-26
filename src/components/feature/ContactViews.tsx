@@ -69,6 +69,7 @@ interface ContactViewsProps {
   onShowMessage?: (message: string, type: "success" | "error") => void;
   isActive?: boolean;
   refreshToken?: number;
+  currentTab?: string;
 }
 
 interface FilterBuilderFieldOption {
@@ -358,6 +359,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   onShowMessage,
   isActive = false,
   refreshToken = 0,
+  currentTab,
 }) => {
   const [views, setViews] = useState<ViewItem[]>([]);
   const [viewSearch, setViewSearch] = useState("");
@@ -2064,6 +2066,7 @@ const handleDeleteContacts = async () => {
                 "customFields",
               ]}
               onColumnsChange={onColumnsChange}
+              currentTab={currentTab}
               persistedColumnSelection={persistedColumnSelection}
               customFormatters={{
                 first_name: (value: any, row: any) => {

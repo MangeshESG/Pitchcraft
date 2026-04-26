@@ -1,6 +1,7 @@
 import { useRef, useCallback, useState, useEffect, useMemo } from "react";
 import React from "react";
 import PaginationControls from "./PaginationControls";
+import CommonSidePanel from "../common/CommonSidePanel";
 import "./DynamicContactsTable.css";
 
 interface DataFile {
@@ -66,6 +67,9 @@ interface DynamicContactsTableProps {
   // Column persistence
   persistedColumnSelection?: string[];
    onPageSizeChange?: (size: number) => void;
+  
+  // Tab tracking
+  currentTab?: string;
 }
 type SortDirection = "asc" | "desc";
 
@@ -154,11 +158,11 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   
   // Persistence props
   persistedColumnSelection = [],
+  currentTab,
 }) => {
   const [columns, setColumns] = useState<ColumnConfig[]>([]);
   const [showColumnPanel, setShowColumnPanel] = useState(false);
-  const columnPanelRef = useRef<HTMLDivElement>(null);
-   const [pageSize, setPageSize] = useState<PageSize>(10);
+  const [pageSize, setPageSize] = useState<PageSize>(10);
   const isInitializedRef = useRef(false); // ADD THIS LINE
   //const [currentPage, setCurrentPage] = useState(1);
 
@@ -476,6 +480,11 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
     }
   }, [persistedColumnSelection]);
 
+  // Close column panel when parent tab changes
+  useEffect(() => {
+    setShowColumnPanel(false);
+  }, [currentTab]);
+
 
 
   // Dynamic filtering
@@ -656,25 +665,7 @@ const displayData =
     });
   };
 
-  // Click outside handler for column panel
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        columnPanelRef.current &&
-        !columnPanelRef.current.contains(event.target as Node)
-      ) {
-        setShowColumnPanel(false);
-      }
-    };
 
-    if (showColumnPanel) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [showColumnPanel]);
 
   return (
     <>
@@ -1020,60 +1011,12 @@ const displayData =
         </div>
 
         {/* Column Settings Sidebar Panel */}
-        {showColumnPanel && (
-          <div
-            ref={columnPanelRef}
-            className="dynamic-contacts-column-panel"
-            style={{
-              position: "fixed",
-              top: 8,
-              right: 8,
-              bottom: 8,
-              width: "min(320px, calc(100vw - 16px))",
-              background: "#fff",
-              border: "1px solid #e0e0e0",
-              boxShadow: "-4px 0 12px rgba(0,0,0,0.15)",
-              padding: "20px",
-              zIndex: 1000,
-              overflowY: "auto",
-              boxSizing: "border-box",
-              borderRadius: "12px",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: "20px",
-                paddingBottom: "10px",
-                borderBottom: "1px solid #e0e0e0",
-              }}
-            >
-              <h3
-                style={{
-                  margin: 0,
-                  fontSize: "18px",
-                  fontWeight: "600",
-                  color: "#333",
-                }}
-              >
-                Show/hide columns
-              </h3>
-              <button
-                onClick={() => setShowColumnPanel(false)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  fontSize: "20px",
-                  cursor: "pointer",
-                  color: "#666",
-                }}
-              >
-                ×
-              </button>
-            </div>
-
+        <CommonSidePanel
+          isOpen={showColumnPanel}
+          onClose={() => setShowColumnPanel(false)}
+          title="Show/hide columns"
+          width={320}
+          children={
             <div
               className="justify-start"
               style={{ display: "flex", flexDirection: "column", gap: "12px" }}
@@ -1138,8 +1081,8 @@ const displayData =
                   </label>
                 ))}
             </div>
-
-            {/* Column Statistics */}
+          }
+          footerContent={
             <div
               style={{
                 padding: "12px",
@@ -1147,6 +1090,7 @@ const displayData =
                 borderRadius: "6px",
                 fontSize: "14px",
                 color: "#666",
+                width: "100%",
               }}
             >
               <div>
@@ -1168,25 +1112,9 @@ const displayData =
                 }
               </div>
             </div>
-          </div>
-        )}
-      </div>
-
-      {/* Overlay when panel is open */}
-      {showColumnPanel && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0,0,0,0.3)",
-            zIndex: 999,
-          }}
-          onClick={() => setShowColumnPanel(false)}
+          }
         />
-      )}
+      </div>
     </>
   );
 };

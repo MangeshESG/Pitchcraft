@@ -50,6 +50,7 @@ import { link } from "node:fs";
 import LoadingSpinner from "./common/LoadingSpinner";
 import CustomFieldSettings from "./feature/CustomFieldSettings";
 import ContactDetailView from "./feature/contacts/ContactDetailView";
+import { closePanel } from "../slices/panelSlice";
 
 interface Prompt {
   id: number;
@@ -3396,6 +3397,16 @@ try {
     useState<boolean>(false);
   const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
 
+  const handleSidebarNavigation = (
+  e: React.MouseEvent<HTMLDivElement>
+  ) => {
+    const target = e.target as HTMLElement;
+
+    if (target.closest(".side-menu-button, .submenu-button")) {
+      dispatch(closePanel());
+    }
+  };
+
   <Header onUpgradeClick={() => setTab("MyPlan")} connectTo={true} />;
 
   return (
@@ -3427,7 +3438,7 @@ try {
           <div className="overflow-y-auto h-full">
             <nav className="flex-1 py-4 space-y-2">
               {/* Side Menu */}
-              <div className="side-menu">
+              <div className="side-menu" onClick={handleSidebarNavigation}>
                 <div className="side-menu-inner">
                   <ul className="side-menu-list">
                     <li className={tab === "Dashboard" ? "active" : ""}>
