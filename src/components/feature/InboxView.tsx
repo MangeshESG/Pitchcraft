@@ -321,7 +321,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     return (
                       <div
                         key={thread.trackingId}
-                        className={`mail-item ${selectedThread?.trackingId === thread.trackingId ? 'selected' : ''} ${thread.hasUnread ? 'unread' : ''}`}
+                        className={`mail-item ${thread.hasUnread ? 'unread' : ''}`}
                         onClick={() => handleThreadClick(thread)}
                       >
                         <div className="mail-avatar">{getInitials(thread.contactEmail)}</div>

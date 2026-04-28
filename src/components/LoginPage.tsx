@@ -1004,6 +1004,19 @@ const OtpVerification: React.FC<ViewProps> = ({ setView }) => {
         {isExpired ? 'OTP Expired' : `Time Remaining: ${formatTime}`}
       </div>
 
+      <p
+        style={{
+          marginTop: "10px",
+          fontSize: "13px",
+          lineHeight: "1.5",
+          color: "#dc3545",
+          textAlign: "center",
+        }}
+      >
+        Email systems sometimes put OTPs into spam boxes. Please check yours if you
+        don't receive the OTP.
+      </p>
+
 
 
       {msg && <div className="success-message">{msg}</div>}

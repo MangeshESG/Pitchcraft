@@ -1650,7 +1650,7 @@ useEffect(() => {
         className="d-flex justify-between align-center mb-3">
         <div className="input-section edit-section w-[100%]">
         <h2 className="section-title !text-[#333] !text-left" style={{ marginTop: 0 }}>
-          Tracking settings
+          Kraft emails
         </h2>
           {/* Dropdowns Row */}
           <div className="flex items-start justify-between gap-4 w-full">
