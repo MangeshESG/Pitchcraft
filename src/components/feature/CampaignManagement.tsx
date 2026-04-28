@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import API_BASE_URL from "../../config";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
 import { useAppData } from "../../contexts/AppDataContext";
 import AppModal from "../common/AppModal";
@@ -12,6 +12,7 @@ import CommonSidePanel from "../common/CommonSidePanel";
 import deleteIcon from "../../assets/images/deleteiconn.png";
 import { faEdit,faTrashAlt,faCircleXmark ,faFileLines   } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { closePanel, openPanel } from "../../slices/panelSlice";
 
 interface CampaignManagementProps {
   selectedClient: string;
@@ -70,6 +71,7 @@ interface CampaignBlueprint {
 const CampaignManagement: React.FC<CampaignManagementProps> = ({
   selectedClient,
 }) => {
+  const dispatch = useDispatch();
   const [isLoading, setIsLoading] = useState(false);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [dataFiles, setDataFiles] = useState<DataFile[]>([]);
@@ -79,7 +81,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
   const [campaignBlueprints, setCampaignBlueprints] = useState<CampaignBlueprint[]>([]);
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
-  const [showCreateCampaignModal, setShowCreateCampaignModal] = useState(false);
+  // const [showCreateCampaignModal, setShowCreateCampaignModal] = useState(false);
   const [campaignSearch, setCampaignSearch] = useState("");
   const [campaignActionsAnchor, setCampaignActionsAnchor] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -88,6 +90,13 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [showErrorToast, setShowErrorToast] = useState(false);
+
+  const activePanel = useSelector(
+    (state: RootState) => state.panel.activePanel
+  );
+
+  const showCreateCampaignModal =
+    activePanel === "campaign-create";
 
 
   const appModal = useAppModal();
@@ -355,7 +364,8 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
       setShowSuccessToast(true);
       setTimeout(() => setShowSuccessToast(false), 6000);
 
-      setShowCreateCampaignModal(false);
+      //setShowCreateCampaignModal(false);
+      dispatch(closePanel());
       fetchCampaigns();
       triggerRefresh(); // Notify other components to refresh their campaign data
     } catch (err: any) {
@@ -391,7 +401,9 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
       setToastMessage("Campaign updated successfully");
       setShowSuccessToast(true);
       setTimeout(() => setShowSuccessToast(false), 6000);
-      setShowCreateCampaignModal(false);
+      //setShowCreateCampaignModal(false);
+      dispatch(closePanel());
+
       fetchCampaigns();
       triggerRefresh(); // Notify other components to refresh their campaign data
     } catch (err) {
@@ -502,7 +514,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
   return (
     <div className="data-campaigns-container">
       <div className="section-wrapper">
-        <h2 className="section-title" style={{ marginTop: "-43px" }}>Campaigns</h2>
+        <h2 className="section-title">Campaigns</h2>
         <p style={{ marginBottom: '10px' }}>Create and manage campaigns quickly and efficiently.</p>
 
         <div style={{ display: "flex", alignItems: "center", marginBottom: 16, gap: 16 }}>
@@ -519,7 +531,8 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
             style={{ marginLeft: "auto", borderRadius:"12px"}}
             onClick={() => {
               fetchViews();
-              setShowCreateCampaignModal(true);
+              //setShowCreateCampaignModal(true);
+              dispatch(openPanel("campaign-create"));
               setSelectedCampaign(null);
               setCampaignForm({
                 campaignName: "",
@@ -627,7 +640,8 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                         <button
                           onClick={() => {
                             handleCampaignSelect(c.id.toString());
-                            setShowCreateCampaignModal(true);
+                            //setShowCreateCampaignModal(true);
+                            dispatch(openPanel("campaign-create"));
                             setCampaignActionsAnchor(null);
                           }}
                           style={{ ...menuBtnStyle, fontSize: '15px', fontWeight: 600 }}
@@ -704,7 +718,8 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
       <CommonSidePanel
         isOpen={showCreateCampaignModal}
         onClose={() => {
-          setShowCreateCampaignModal(false);
+          //setShowCreateCampaignModal(false);
+          dispatch(closePanel());
           setSelectedCampaign(null);
           setCampaignForm({
             campaignName: "",
@@ -720,7 +735,13 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
         footerContent={
           <>
             <button
-              onClick={() => setShowCreateCampaignModal(false)}
+              onClick={() => 
+                {
+                  //setShowCreateCampaignModal(false)
+                  dispatch(closePanel());
+                }
+
+              }
               style={{
                 padding: "10px 32px",
                 border: "1px solid #ddd",

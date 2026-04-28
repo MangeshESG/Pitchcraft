@@ -1647,10 +1647,11 @@ useEffect(() => {
       {/* Add the selection dropdowns and subject line section */}
       {/* Add the selection dropdowns and subject line section */}
       <div
-        className="d-flex justify-between align-center mb-3"
-        style={{ marginTop: "-45px" }}
-      >
+        className="d-flex justify-between align-center mb-3">
         <div className="input-section edit-section w-[100%]">
+        <h2 className="section-title !text-[#333] !text-left" style={{ marginTop: 0 }}>
+          Tracking settings
+        </h2>
           {/* Dropdowns Row */}
           <div className="flex items-start justify-between gap-4 w-full">
             {/* Left side - Campaign dropdown and refresh button in a panel */}
@@ -2456,7 +2457,7 @@ useEffect(() => {
                           <span style={{ whiteSpace: "pre" }}> </span>
                           {/* <span className="inline-block relative top-[6px] mr-[3px]">
                 <svg width="20px" height="20px" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M14 7H16C18.7614 7 21 9.23858 21 12C21 14.7614 18.7614 17 16 17H14M10 7H8C5.23858 7 3 9.23858 3 12C3 14.7614 5.23858 17 8 17H10M8 12H16" stroke="#3f9f42" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M14 7H16C18.7614 7 21 9.23858 21 12C21 14.7614 18.7614 17 16 17H14M10 7H8C5.23858 7 3 9.23858 3 12C3 14.7614 5.23858 17 8 17H10M8 12H16" stroke="#3f9f42" strokeWidth="2" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
               </span> */}
                           <ReactTooltip
@@ -3133,7 +3134,7 @@ useEffect(() => {
                                             <path
                                               d="M11 18H13M9.2 21H14.8C15.9201 21 16.4802 21 16.908 20.782C17.2843 20.5903 17.5903 20.2843 17.782 19.908C18 19.4802 18 18.9201 18 17.8V6.2C18 5.0799 18 4.51984 17.782 4.09202C17.5903 3.71569 17.2843 3.40973 16.908 3.21799C16.4802 3 15.9201 3 14.8 3H9.2C8.0799 3 7.51984 3 7.09202 3.21799C6.71569 3.40973 6.40973 3.71569 6.21799 4.09202C6 4.51984 6 5.07989 6 6.2V17.8C6 18.9201 6 19.4802 6.21799 19.908C6.40973 20.2843 6.71569 20.5903 7.09202 20.782C7.51984 21 8.07989 21 9.2 21Z"
                                               stroke="#000000"
-                                              stroke-width="2"
+                                              strokeWidth="2"
                                               stroke-linecap="round"
                                               stroke-linejoin="round"
                                             ></path>
@@ -3275,7 +3276,7 @@ useEffect(() => {
                                               <path
                                                 d="M11 18H13M9.2 21H14.8C15.9201 21 16.4802 21 16.908 20.782C17.2843 20.5903 17.5903 20.2843 17.782 19.908C18 19.4802 18 18.9201 18 17.8V6.2C18 5.0799 18 4.51984 17.782 4.09202C17.5903 3.71569 17.2843 3.40973 16.908 3.21799C16.4802 3 15.9201 3 14.8 3H9.2C8.0799 3 7.51984 3 7.09202 3.21799C6.71569 3.40973 6.40973 3.71569 6.21799 4.09202C6 4.51984 6 5.07989 6 6.2V17.8C6 18.9201 6 19.4802 6.21799 19.908C6.40973 20.2843 6.71569 20.5903 7.09202 20.782C7.51984 21 8.07989 21 9.2 21Z"
                                                 stroke="#000000"
-                                                stroke-width="2"
+                                                strokeWidth="2"
                                                 stroke-linecap="round"
                                                 stroke-linejoin="round"
                                               ></path>

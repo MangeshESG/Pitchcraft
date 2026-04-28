@@ -1,5 +1,6 @@
 import { useRef, useCallback, useState, useEffect } from "react";
 import React from "react";
+import CommonSidePanel from "../common/CommonSidePanel";
 
 interface ContactsTableProps {
   contacts: any[];
@@ -28,6 +29,9 @@ interface ContactsTableProps {
   hideSearch?: boolean;
   customHeader?: React.ReactNode;
   onColumnsChange?: (columns: any[]) => void;
+  
+  // Tab tracking
+  currentTab?: string;
 }
 
 const ContactsTable: React.FC<ContactsTableProps> = ({
@@ -55,10 +59,10 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
   hideSearch = false,
   customHeader,
   onColumnsChange,
+  currentTab,
 }) => {
   const [showColumnPanel, setShowColumnPanel] = useState(false);
   const [localColumns, setLocalColumns] = useState(columns);
-  const columnPanelRef = useRef<HTMLDivElement>(null);
 
   const colList = localColumns.filter((col) =>
     showCheckboxes ? col.visible : col.key !== "checkbox" && col.visible
@@ -106,25 +110,10 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
   const [showColumnDropdown, setShowColumnDropdown] = useState(false);
   const columnDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Add this useEffect to handle clicking outside
+  // Close column panel when parent tab changes
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        columnPanelRef.current &&
-        !columnPanelRef.current.contains(event.target as Node)
-      ) {
-        setShowColumnPanel(false);
-      }
-    };
-
-    if (showColumnPanel) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [showColumnPanel]);
+    setShowColumnPanel(false);
+  }, [currentTab]);
 
   return (
     <>
@@ -221,12 +210,19 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
             transition: "margin-right 0.3s ease",
           }}
         >
-          <div className="contacts-table-wrapper">
+          <div
+            className="contacts-table-wrapper"
+            style={{
+              overflowX: "auto",
+              overflowY: "hidden",
+              borderRadius: "4px",
+            }}
+          >
             <table className="contacts-table">
               <thead>
                 <tr>
                   {colList.map((column) => (
-                    <th key={column.key} style={{ width: column.width }}>
+                    <th key={column.key} style={{ width: column.width, maxWidth: "275px", overflow: "hidden", wordBreak: "break-word", whiteSpace: "normal" }}>
                       {column.key === "checkbox" ? (
                         <input
                           type="checkbox"
@@ -272,7 +268,7 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
                       }
                     >
                       {colList.map((column) => (
-                        <td key={column.key}>
+                        <td key={column.key} style={{ maxWidth: "275px", overflow: "hidden", wordBreak: "break-word", whiteSpace: "normal" }}>
                           {column.key === "checkbox" ? (
                             <input
                               type="checkbox"
@@ -331,58 +327,12 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
         </div>
 
         {/* Column Settings Sidebar Panel */}
-        {showColumnPanel && (
-          <div
-            ref={columnPanelRef}
-            style={{
-              position: "fixed",
-              top: 0,
-              right: 0,
-              height: "100vh",
-              width: "300px",
-              background: "#fff",
-              border: "1px solid #e0e0e0",
-
-              boxShadow: "-4px 0 12px rgba(0,0,0,0.15)",
-              padding: "20px",
-              zIndex: 1000,
-              overflowY: "auto",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: "20px",
-                paddingBottom: "10px",
-                borderBottom: "1px solid #e0e0e0",
-              }}
-            >
-              <h3
-                style={{
-                  margin: 0,
-                  fontSize: "18px",
-                  fontWeight: "600",
-                  color: "#333",
-                }}
-              >
-                Show/Hide columns
-              </h3>
-              <button
-                onClick={() => setShowColumnPanel(false)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  fontSize: "20px",
-                  cursor: "pointer",
-                  color: "#666",
-                }}
-              >
-                ×
-              </button>
-            </div>
-
+        <CommonSidePanel
+          isOpen={showColumnPanel}
+          onClose={() => setShowColumnPanel(false)}
+          title="Show/hide columns"
+          width={320}
+          children={
             <div
               className="justify-start"
               style={{ display: "flex", flexDirection: "column", gap: "12px" }}
@@ -436,25 +386,9 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
                   </label>
                 ))}
             </div>
-          </div>
-        )}
-      </div>
-
-      {/* Overlay when panel is open */}
-      {showColumnPanel && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0,0,0,0.3)",
-            zIndex: 999,
-          }}
-          onClick={() => setShowColumnPanel(false)}
+          }
         />
-      )}
+      </div>
     </>
   );
 };

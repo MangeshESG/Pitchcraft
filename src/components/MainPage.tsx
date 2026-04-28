@@ -50,6 +50,7 @@ import { link } from "node:fs";
 import LoadingSpinner from "./common/LoadingSpinner";
 import CustomFieldSettings from "./feature/CustomFieldSettings";
 import ContactDetailView from "./feature/contacts/ContactDetailView";
+import { closePanel } from "../slices/panelSlice";
 
 interface Prompt {
   id: number;
@@ -3396,6 +3397,16 @@ try {
     useState<boolean>(false);
   const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
 
+  const handleSidebarNavigation = (
+  e: React.MouseEvent<HTMLDivElement>
+  ) => {
+    const target = e.target as HTMLElement;
+
+    if (target.closest(".side-menu-button, .submenu-button")) {
+      dispatch(closePanel());
+    }
+  };
+
   <Header onUpgradeClick={() => setTab("MyPlan")} connectTo={true} />;
 
   return (
@@ -3427,7 +3438,7 @@ try {
           <div className="overflow-y-auto h-full">
             <nav className="flex-1 py-4 space-y-2">
               {/* Side Menu */}
-              <div className="side-menu">
+              <div className="side-menu" onClick={handleSidebarNavigation}>
                 <div className="side-menu-inner">
                   <ul className="side-menu-list">
                     <li className={tab === "Dashboard" ? "active" : ""}>
@@ -3458,7 +3469,7 @@ try {
                               stroke={
                                 tab === "Dashboard" ? "#3f9f42" : "#111111"
                               }
-                              stroke-width="2"
+                              strokeWidth="2"
                               d="M4 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5ZM14 5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1V5ZM4 16a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3ZM14 13a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-6Z"
                             />
                           </svg>
@@ -3906,7 +3917,7 @@ try {
       )}
 
       {/* Content Area */}
-      <div className="flex flex-col flex-1 h-full">
+      <div className="flex flex-col flex-1 h-full w-[calc(100%-270px)]">
         {/* Header */}
         <header className="bg-white shadow-sm border-b p-2 px-4 flex justify-between items-center min-h-[77px]">
           {!isSidebarOpen && (
@@ -3935,7 +3946,7 @@ try {
           <div
             className={`
                rounded-md
-              ${!isContactDetailPage && tab !== "Dashboard" ? "bg-white p-4 shadow-md" : ""}
+              ${!isContactDetailPage && tab !== "Dashboard" ? "bg-white p-4 shadow-md min-h-[100%]" : ""}
             `}
           >
             {/* Main Content Area */}
@@ -3950,7 +3961,7 @@ try {
               </div>
             )}
 
-            <div className="tab-content"></div>
+            {/* <div className="tab-content"></div> */}
 
             {shouldRenderTab("DataCampaigns") && (
               <>

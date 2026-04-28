@@ -30,7 +30,7 @@ export const Dashboard: React.FC = () => {
   };
 const VIDEO_BASE = "https://app.pitchkraft.ai";
   return (
-    <div className="mx-auto" style={{marginLeft:"-30px",marginTop:"-30px"}}>
+    <div className="mx-auto">
       {/* Toggle */}
       <div className="flex justify-start items-center mb-2">
         <div className="flex border border-gray-200 rounded-lg overflow-hidden">
