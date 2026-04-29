@@ -19,148 +19,148 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     }
   }, [value]);
 
-    const exec = (command: string, commandValue?: string) => {
-        editorRef.current?.focus();
-        document.execCommand(command, false, commandValue);
-    };
-
-    const savedRangeRef = useRef<Range | null>(null);
-
-    const saveSelection = () => {
-        const selection = window.getSelection();
-        if (selection && selection.rangeCount > 0) {
-            savedRangeRef.current = selection.getRangeAt(0);
-        }
-    };
-
-    const restoreSelection = () => {
-        const selection = window.getSelection();
-        if (savedRangeRef.current && selection) {
-            selection.removeAllRanges();
-            selection.addRange(savedRangeRef.current);
-        }
-    };
-
-    const applyBlockStyle = (tag: string) => {
-        editorRef.current?.focus();
-        restoreSelection();
-
-        document.execCommand("formatBlock", false, tag);
-    };
-
-
+  const handleCommand = (command: string, value?: string) => {
+    document.execCommand(command, false, value);
+    if (editorRef.current) {
+      onChange(editorRef.current.innerHTML);
+    }
+  };
 
   return (
     <div className="w-full">
       {/* Toolbar */}
       <div className="flex flex-wrap gap-2 p-2 border border-gray-300 bg-gray-100 rounded-t">
         <select
-           onChange={(e) => applyBlockStyle(e.target.value)}
-            className="border px-2 py-1 rounded"
-            >
-            <option value="p">Normal</option>
-            <option value="h1">H1</option>
-            <option value="h2">H2</option>
-            <option value="h3">H3</option>
+          onChange={(e) => {
+            handleCommand("formatBlock", e.target.value);
+            e.target.value = "p";
+          }}
+          className="border px-2 py-1 rounded"
+          defaultValue="p"
+        >
+          <option value="p">Normal</option>
+          <option value="h1">H1</option>
+          <option value="h2">H2</option>
+          <option value="h3">H3</option>
         </select>
 
-
         <button
-            onMouseDown={(e) => {
+          type="button"
+          onMouseDown={(e) => {
             e.preventDefault();
-            exec("bold");
-            }}
-            className="px-2.5 py-1.5 border rounded bg-white"
+            handleCommand("bold");
+          }}
+          className="px-2.5 py-1.5 border rounded bg-white hover:bg-gray-200"
+          title="Bold (Ctrl+B)"
         >
-            <b>B</b>
+          <b>B</b>
         </button>
 
         <button
-            onMouseDown={(e) => {
+          type="button"
+          onMouseDown={(e) => {
             e.preventDefault();
-            exec("italic");
-            }}
-            className="px-2.5 py-1.5 border rounded bg-white"
+            handleCommand("italic");
+          }}
+          className="px-2.5 py-1.5 border rounded bg-white hover:bg-gray-200"
+          title="Italic (Ctrl+I)"
         >
-            <i>I</i>
+          <i>I</i>
         </button>
 
         <button
-            onMouseDown={(e) => {
+          type="button"
+          onMouseDown={(e) => {
             e.preventDefault();
-            exec("underline");
-            }}
-            className="px-2.5 py-1.5 border rounded bg-white"
+            handleCommand("underline");
+          }}
+          className="px-2.5 py-1.5 border rounded bg-white hover:bg-gray-200"
+          title="Underline (Ctrl+U)"
         >
-            <u>U</u>
+          <u>U</u>
         </button>
 
         <button
-            onMouseDown={(e) => {
+          type="button"
+          onMouseDown={(e) => {
             e.preventDefault();
-            exec("strikeThrough");
-            }}
-            className="px-2.5 py-1.5 border rounded bg-white"
+            handleCommand("strikeThrough");
+          }}
+          className="px-2.5 py-1.5 border rounded bg-white hover:bg-gray-200"
+          title="Strikethrough"
         >
-            <s>S</s>
+          <s>S</s>
         </button>
 
         <button
-            onMouseDown={(e) => {
+          type="button"
+          onMouseDown={(e) => {
             e.preventDefault();
-            exec("insertUnorderedList");
-            }}
-            className="px-2.5 py-1.5 border rounded bg-white"
+            handleCommand("insertUnorderedList");
+          }}
+          className="px-2.5 py-1.5 border rounded bg-white hover:bg-gray-200"
+          title="Bullet List"
         >
-            •
+          •
         </button>
 
         <button
-            onMouseDown={(e) => {
+          type="button"
+          onMouseDown={(e) => {
             e.preventDefault();
-            exec("insertOrderedList");
-            }}
-            className="px-2.5 py-1.5 border rounded bg-white"
+            handleCommand("insertOrderedList");
+          }}
+          className="px-2.5 py-1.5 border rounded bg-white hover:bg-gray-200"
+          title="Numbered List"
         >
-            1.
+          1.
         </button>
 
         <button
-            onMouseDown={(e) => {
+          type="button"
+          onMouseDown={(e) => {
             e.preventDefault();
             const url = prompt("Enter link URL");
-            if (url) exec("createLink", url);
-            }}
+            if (url) handleCommand("createLink", url);
+          }}
+          className="px-2.5 py-1.5 border rounded bg-white hover:bg-gray-200"
+          title="Insert Link"
         >
-            🔗
+          🔗
         </button>
 
         <button
-            onMouseDown={(e) => {
+          type="button"
+          onMouseDown={(e) => {
             e.preventDefault();
             const url = prompt("Enter image URL");
-            if (url) exec("insertImage", url);
-            }}
+            if (url) handleCommand("insertImage", url);
+          }}
+          className="px-2.5 py-1.5 border rounded bg-white hover:bg-gray-200"
+          title="Insert Image"
         >
-            🖼️
+          🖼️
         </button>
-    </div>
-
+      </div>
 
       {/* Editor */}
       <div className="rich-text-editor">
         <div
-            ref={editorRef}
-            contentEditable
-            className="border border-t-0 border-gray-300 p-3 outline-none overflow-auto rounded-b"
-            style={{
+          ref={editorRef}
+          contentEditable
+          className="border border-t-0 border-gray-300 p-3 outline-none overflow-auto rounded-b"
+          style={{
             height,
             overflowY: "auto",
-            }}  
-            onInput={(e) => onChange(e.currentTarget.innerHTML)}          
-            onBlur={(e) => onChange(e.currentTarget.innerHTML)}
-            onKeyUp={saveSelection}
-            onMouseUp={saveSelection}
+          }}
+          onInput={(e) => onChange(e.currentTarget.innerHTML)}
+          onBlur={(e) => onChange(e.currentTarget.innerHTML)}
+          onKeyDown={(e) => {
+            if (e.key === "Tab") {
+              e.preventDefault();
+              document.execCommand("insertHTML", false, "&nbsp;&nbsp;&nbsp;&nbsp;");
+            }
+          }}
         />
       </div>
     </div>
