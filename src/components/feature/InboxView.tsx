@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import API_BASE_URL from '../../config';
 import LoadingSpinner from '../common/LoadingSpinner';
+import RichTextEditor from '../common/RTEEditor';
 import './InboxView.css';
 
 interface InboxDropdownItem {
@@ -19,6 +20,7 @@ interface InboxMessage {
   toEmail: string;
   date: string;
   isRead: boolean;
+  contactId: number | null;
 }
 
 interface InboxThread {
@@ -28,6 +30,7 @@ interface InboxThread {
   totalMessages: number;
   lastMessageDate: string;
   hasUnread: boolean;
+  contactId: number | null;
   messages: InboxMessage[];
 }
 
@@ -117,8 +120,39 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setSelectedThread(null);
   };
 
-  const handleThreadClick = (thread: InboxThread) => {
+  const handleThreadClick = async (thread: InboxThread) => {
     setSelectedThread(thread);
+    
+    // Mark thread as read
+    if (thread.hasUnread) {
+      try {
+        // Mark all unread messages in the thread as read
+        const unreadMessages = thread.messages.filter(msg => !msg.isRead);
+        for (const message of unreadMessages) {
+          await axios.post(
+            `${API_BASE_URL}/api/Inbox/mark-read?id=${message.messageId}`,
+            {},
+            {
+              headers: {
+                accept: '*/*',
+                ...(token && { Authorization: `Bearer ${token}` }),
+              },
+            }
+          );
+        }
+        
+        // Update thread state to mark as read
+        setThreads(prevThreads => 
+          prevThreads.map(t => 
+            t.trackingId === thread.trackingId 
+              ? { ...t, hasUnread: false, messages: t.messages.map(m => ({ ...m, isRead: true })) }
+              : t
+          )
+        );
+      } catch (err) {
+        console.error('Error marking thread as read:', err);
+      }
+    }
   };
 
   const handleBackToList = () => {
@@ -361,13 +395,31 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
               </button>
               <h3 className="mail-detail-subject" style={{ marginBottom: '24px', fontSize: '20px', fontWeight: '600' }}>{selectedThread.subject}</h3>
               
-              {selectedThread.messages.map((message, index) => (
+              {selectedThread.messages.map((message, index) => {
+                const messageContactId = message.type === 'Reply' ? message.contactId : null;
+                console.log('Message type:', message.type, 'contactId:', messageContactId);
+                return (
                 <div key={message.messageId} style={{ marginBottom: index < selectedThread.messages.length - 1 ? '24px' : '0', paddingBottom: index < selectedThread.messages.length - 1 ? '24px' : '0', borderBottom: index < selectedThread.messages.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
                   <div className="mail-detail-header">
                     <div className="mail-detail-top">
                       <div className="mail-detail-avatar">{getInitials(message.fromEmail)}</div>
                       <div className="mail-detail-info">
-                        <div className="mail-detail-sender">
+                        <div 
+                          className="mail-detail-sender"
+                          style={{
+                            cursor: messageContactId ? 'pointer' : 'default',
+                            color: messageContactId ? '#3f9f42' : 'inherit',
+                            textDecoration: messageContactId ? 'underline' : 'none'
+                          }}
+                          onClick={(e) => {
+                            if (messageContactId) {
+                              e.stopPropagation();
+                              const clientId = sessionStorage.getItem('clientId') || '';
+                              const contactDetailsUrl = `/#/contact-details/${messageContactId}?tab=Output&clientId=${clientId}`;
+                              window.open(contactDetailsUrl, '_blank');
+                            }
+                          }}
+                        >
                           {extractSenderName(message.fromEmail)}
                         </div>
                         <div className="mail-detail-to">
@@ -379,7 +431,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   </div>
                   <div className="mail-body" dangerouslySetInnerHTML={{ __html: formatEmailBody(message.body) }} style={{ maxWidth: '100%', overflowX: 'auto' }} />
                 </div>
-              ))}
+              );})}
               
               {/* Reply Section */}
               <div className="reply-section" style={{
@@ -387,28 +439,21 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 borderTop: '1px solid #e5e7eb',
                 paddingTop: '24px'
               }}>
-                <textarea
-                  value={replyText}
-                  onChange={(e) => setReplyText(e.target.value)}
-                  placeholder="Write your reply..."
-                  disabled={isSending}
-                  style={{
-                    width: '100%',
-                    minHeight: '120px',
-                    padding: '12px',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    fontFamily: 'inherit',
-                    resize: 'vertical',
-                    boxSizing: 'border-box'
-                  }}
-                />
+                <style>
+                  {`
+                    .reply-section .rich-text-editor > div {
+                      min-height: 30px !important;
+                      max-height: 100px !important;
+                    }
+                  `}
+                </style>
+                <div style={{ marginBottom: '12px' }}>
+                  <RichTextEditor value={replyText} onChange={setReplyText} />
+                </div>
                 <button
                   onClick={handleSendReply}
                   disabled={!replyText.trim() || isSending}
                   style={{
-                    marginTop: '12px',
                     padding: '10px 24px',
                     background: (!replyText.trim() || isSending) ? '#ccc' : '#ef4444',
                     color: '#fff',

@@ -87,6 +87,7 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   const [emailTimeline, setEmailTimeline] = useState<any[]>([]);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [expandedEmailId, setExpandedEmailId] = useState<string | null>(null);
+  const [expandedReplies, setExpandedReplies] = useState<{ [key: string]: boolean }>({});
   const [detailContacts, setDetailContacts] = useState<Contact[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
@@ -410,6 +411,13 @@ useEffect(() => {
     setExpandedEmailId(prev =>
       prev === trackingId ? null : trackingId
     );
+  };
+
+  const toggleReplies = (trackingId: string) => {
+    setExpandedReplies(prev => ({
+      ...prev,
+      [trackingId]: !prev[trackingId]
+    }));
   };
   //IST Formatter
   // const formatDateTimeIST = (dateString?: string) => {
@@ -1805,6 +1813,55 @@ useEffect(() => {
                                     />
                                   )}
 
+                                  {/* Replies Section */}
+                                  {email.replies && email.replies.length > 0 && (
+                                    <>
+                                      <div
+                                        className={`email-preview-toggle ${expandedReplies[email.trackingId] ? "submenu-open" : ""}`}
+                                        onClick={() => toggleReplies(email.trackingId)}
+                                        style={{ marginTop: 15, cursor: "pointer" }}
+                                      >
+                                        <span>
+                                          {expandedReplies[email.trackingId] ? "Hide replies" : `Show replies (${email.replies.length})`}
+                                        </span>
+                                        <span className="submenu-arrow">
+                                          <FontAwesomeIcon icon={faAngleRight} />
+                                        </span>
+                                      </div>
+
+                                      {expandedReplies[email.trackingId] && (
+                                        <div style={{ marginTop: 16, marginLeft: 26, borderLeft: "2px solid #e5e7eb", paddingLeft: 16 }}>
+                                          {email.replies.map((reply: any, replyIndex: number) => (
+                                            <div key={reply.id || replyIndex} style={{ marginBottom: 16, background: "#f9fafb", padding: 12, borderRadius: 8 }}>
+                                              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
+                                                From: {reply.fromEmail}
+                                              </div>
+                                              <div style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>
+                                                {formatDateTimeIST(reply.date)}
+                                              </div>
+                                              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
+                                                Subject: {reply.subject}
+                                              </div>
+                                              <div
+                                                style={{
+                                                  fontSize: 13,
+                                                  color: "#374151",
+                                                  whiteSpace: "pre-wrap",
+                                                  wordWrap: "break-word",
+                                                  marginTop: 8,
+                                                  padding: 8,
+                                                  background: "#fff",
+                                                  borderRadius: 4,
+                                                }}
+                                                dangerouslySetInnerHTML={{ __html: reply.body || "<p>No reply content</p>" }}
+                                              />
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
+
                                 </div>
 
                               );
@@ -2282,6 +2339,55 @@ useEffect(() => {
                                 __html: email.body || "<p>No email body available</p>",
                               }}
                             />
+                          )}
+
+                          {/* Replies Section for Email Filter */}
+                          {email.replies && email.replies.length > 0 && (
+                            <>
+                              <div
+                                className={`email-preview-toggle ${expandedReplies[email.trackingId] ? "submenu-open" : ""}`}
+                                onClick={() => toggleReplies(email.trackingId)}
+                                style={{ marginTop: 15, cursor: "pointer" }}
+                              >
+                                <span>
+                                  {expandedReplies[email.trackingId] ? "Hide replies" : `Show replies (${email.replies.length})`}
+                                </span>
+                                <span className="submenu-arrow">
+                                  <FontAwesomeIcon icon={faAngleRight} />
+                                </span>
+                              </div>
+
+                              {expandedReplies[email.trackingId] && (
+                                <div style={{ marginTop: 16, marginLeft: 26, borderLeft: "2px solid #e5e7eb", paddingLeft: 16 }}>
+                                  {email.replies.map((reply: any, replyIndex: number) => (
+                                    <div key={reply.id || replyIndex} style={{ marginBottom: 16, background: "#f9fafb", padding: 12, borderRadius: 8 }}>
+                                      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
+                                        From: {reply.fromEmail}
+                                      </div>
+                                      <div style={{ fontSize: 12, color: "#666", marginBottom: 8 }}>
+                                        {formatDateTimeIST(reply.date)}
+                                      </div>
+                                      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
+                                        Subject: {reply.subject}
+                                      </div>
+                                      <div
+                                        style={{
+                                          fontSize: 13,
+                                          color: "#374151",
+                                          whiteSpace: "pre-wrap",
+                                          wordWrap: "break-word",
+                                          marginTop: 8,
+                                          padding: 8,
+                                          background: "#fff",
+                                          borderRadius: 4,
+                                        }}
+                                        dangerouslySetInnerHTML={{ __html: reply.body || "<p>No reply content</p>" }}
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </>
                           )}
 
                           </div>
