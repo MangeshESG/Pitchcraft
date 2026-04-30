@@ -862,6 +862,51 @@ const handleClientChange = async (
     .trim();
 };
 
+  const decodeHtmlEntities = (value?: string) => {
+    if (!value) return "";
+
+    return value
+      .replace(/&nbsp;/gi, " ")
+      .replace(/&amp;/gi, "&")
+      .replace(/&lt;/gi, "<")
+      .replace(/&gt;/gi, ">")
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'");
+  };
+
+  const normalizeEmailContextText = (value?: string) => {
+    if (!value) return "";
+
+    return cleanHtml(
+      decodeHtmlEntities(value)
+        .replace(/```html/gi, "")
+        .replace(/```/g, ""),
+    ).replace(/\n{3,}/g, "\n\n");
+  };
+
+  const formatPromptDate = (value?: string) => {
+    if (!value) return "";
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+
+    return parsed.toLocaleString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  };
+
+  const shouldInjectPlaceholder = (
+    placeholderKey: string,
+    ...sources: Array<string | undefined | null>
+  ): boolean => {
+    const token = `{${placeholderKey}}`;
+    return sources.some((source) => source?.includes(token));
+  };
+
   const getEmailTrailHtml = (emailBody?: string) => {
     if (!followupEnabled || !emailBody) return "";
 
@@ -892,7 +937,7 @@ const handleClientChange = async (
     currentDate: string,
     toneSettings: any,
     scrappedData?: string,
-  ) => {
+  ): Record<string, any> => {
     return {
       company_name: entry.company_name || entry.company || "",
       company_name_friendly: entry.company_name_friendly || entry.company || "",
@@ -903,6 +948,8 @@ const handleClientChange = async (
       website: entry.website || "",
       date: currentDate,
       notes: entry.notes || "",
+      use_email: entry.use_email || "",
+      use_emails: entry.use_emails || entry.use_email || "",
           // ✅ SANITIZED LINKEDIN
       linkedin_info: cleanHtml(
         entry.linkedIninformation || entry.linkedin_info
@@ -1494,6 +1541,81 @@ const fetchGenerationNotes = async (
   }
 };
 
+const fetchEmailConversationContext = async (
+  clientId: string | number,
+  contactId: string | number,
+) => {
+  try {
+    const response = await fetch(
+      `${API_BASE_URL}/api/Crm/email-conversation-context?clientId=${clientId}&contactId=${contactId}`,
+      { headers: { accept: "*/*" } },
+    );
+
+    if (!response.ok) return "";
+
+    const json = await response.json();
+    const promptContext =
+      typeof json?.promptContext === "string" ? json.promptContext.trim() : "";
+
+    if (promptContext) {
+      return promptContext;
+    }
+
+    const emails = Array.isArray(json?.emails) ? json.emails : [];
+
+    if (emails.length === 0) return "";
+
+    return emails
+      .map((email: any, emailIndex: number) => {
+        const emailBody = normalizeEmailContextText(email?.body);
+        const emailLines = [
+          `Conversation ${emailIndex + 1}`,
+          `Sent: ${formatPromptDate(email?.sentAt) || "Unknown"}`,
+          `From: ${email?.senderName || ""} ${email?.senderEmailId ? `<${email.senderEmailId}>` : ""}`.trim(),
+          `To: ${email?.recipientName || ""} ${email?.toEmail ? `<${email.toEmail}>` : ""}`.trim(),
+          `Subject: ${email?.subject || ""}`,
+          emailBody ? `Email Body:\n${emailBody}` : "",
+        ].filter(Boolean);
+
+        const replyLines = (email.replies || [])
+          .map((reply: any, replyIndex: number) => {
+            const replyBody = normalizeEmailContextText(
+              reply?.body || reply?.replyBody || reply?.message,
+            );
+            const replyFrom =
+              reply?.fromEmail ||
+              reply?.senderEmail ||
+              reply?.senderEmailId ||
+              reply?.email ||
+              "";
+            const replyName =
+              reply?.fromName || reply?.senderName || reply?.name || "";
+            const replyDate =
+              reply?.replyAt || reply?.date || reply?.sentAt || reply?.receivedAt;
+            const replySubject = reply?.subject || "";
+
+            return [
+              `Reply ${replyIndex + 1}`,
+              `Sent: ${formatPromptDate(replyDate) || "Unknown"}`,
+              `From: ${replyName || replyFrom ? `${replyName}${replyName && replyFrom ? " " : ""}${replyFrom ? `<${replyFrom}>` : ""}` : "Unknown"}`,
+              replySubject ? `Subject: ${replySubject}` : "",
+              replyBody ? `Reply Body:\n${replyBody}` : "",
+            ]
+              .filter(Boolean)
+              .join("\n");
+          })
+          .filter(Boolean)
+          .join("\n\n");
+
+        return [emailLines.join("\n"), replyLines].filter(Boolean).join("\n\n");
+      })
+      .join("\n\n--------------------\n\n");
+  } catch (err) {
+    console.error("Email context fetch failed:", err);
+    return "";
+  }
+};
+
 const resolvePromptSafely = async () => {
 
   // ✅ 1. Always prefer live React state
@@ -1756,9 +1878,25 @@ const resolvePromptSafely = async () => {
           effectiveUserId,
           entry.id,
         );
+        const emailConversationContext = (
+          shouldInjectPlaceholder(
+            "use_email",
+            systemInstructionsA,
+            safePrompt.text || "",
+          ) ||
+          shouldInjectPlaceholder(
+            "use_emails",
+            systemInstructionsA,
+            safePrompt.text || "",
+          )
+        )
+          ? await fetchEmailConversationContext(effectiveUserId, entry.id)
+          : "";
 
         let replacements = buildReplacements(entry, currentDate, {});
         replacements.notes = generationNotes;
+        replacements.use_email = emailConversationContext;
+        replacements.use_emails = emailConversationContext;
 
         const scrappedData = "";
 
@@ -2290,6 +2428,20 @@ const resolvePromptSafely = async () => {
             effectiveUserId,
             entry.id,
           );
+          const emailConversationContext = (
+            shouldInjectPlaceholder(
+              "use_email",
+              systemInstructionsA,
+              selectedPrompt?.text || "",
+            ) ||
+            shouldInjectPlaceholder(
+              "use_emails",
+              systemInstructionsA,
+              selectedPrompt?.text || "",
+            )
+          )
+            ? await fetchEmailConversationContext(effectiveUserId, entry.id)
+            : "";
 
           let replacements = buildReplacements(entry, currentDate, {
             urlParam,
@@ -2297,6 +2449,8 @@ const resolvePromptSafely = async () => {
 
           // ✅ Inject filtered notes into placeholder system
           replacements.notes = generationNotes;
+          replacements.use_email = emailConversationContext;
+          replacements.use_emails = emailConversationContext;
 
 
           const searchTermBody = replaceAllPlaceholders(
