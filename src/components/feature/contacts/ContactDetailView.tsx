@@ -34,6 +34,7 @@ import{formatDateTimeLocal, formatTimeLocal}from "../../common/dateFormatters";
 import { Pin, PinOff } from 'lucide-react';
 
 import CommonSidePanel from '../../common/CommonSidePanel';
+import ContactQA from "./ContactQA";
 
 
 interface Contact {
@@ -81,7 +82,7 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
       searchParams.get("dataField");
     const segmentId = searchParams.get("segmentId");
 
-  const [activeTab, setActiveTab] = useState<"profile" | "history" | "lists">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "history" | "lists" | "qa">("profile");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [emailTimeline, setEmailTimeline] = useState<any[]>([]);
@@ -1460,7 +1461,7 @@ useEffect(() => {
               >
                 {/* LEFT: PROFILE / HISTORY */}
                 <div style={{ display: "flex", gap: 24 }}>
-                  {["profile", "history", "lists"].map((tab) => (
+                  {["profile", "history", "lists", "qa"].map((tab) => (
                     <button
                       key={tab}
                       onClick={() => {
@@ -1494,7 +1495,13 @@ useEffect(() => {
                             : "2px solid transparent",
                       }}
                     >
-                      {tab === "profile" ? "Profile" : tab === "history" ? "Activity" : "Lists"}
+                      {tab === "profile"
+                        ? "Profile"
+                        : tab === "history"
+                          ? "Activity"
+                          : tab === "lists"
+                            ? "Lists"
+                            : "Q&A"}
 
                     </button>
                   ))}
@@ -2987,6 +2994,18 @@ useEffect(() => {
                     </div>
                   )}
                 </div>
+              )}
+
+              {activeTab === "qa" && (
+                <ContactQA
+                  key={`${effectiveUserId}-${contactId || "unknown"}`}
+                  clientId={effectiveUserId}
+                  contactId={contactId || ""}
+                  contact={editingContact || contact}
+                  notesHistory={notesHistory}
+                  emailTimeline={emailTimeline}
+                  loading={loading || isLoadingHistory}
+                />
               )}
 
             </div>
