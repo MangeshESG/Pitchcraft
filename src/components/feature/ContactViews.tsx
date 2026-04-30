@@ -2245,6 +2245,7 @@ const handleDeleteContacts = async () => {
           setEditExcludedDataFileIds([]);
         }}
         title="Edit view"
+        width={800}
         footerContent={
           <>
             <button
