@@ -6,6 +6,7 @@ import RichTextEditor from '../common/RTEEditor';
 import { Tooltip as ReactTooltip } from 'react-tooltip';
 import { copyToClipboard } from '../../utils/utils';
 import Modal from '../common/Modal';
+import ToastMessage from '../common/ToastMessage';
 import './InboxView.css';
 
 interface InboxDropdownItem {
@@ -35,6 +36,7 @@ interface InboxMessage {
   date: string;
   isRead: boolean;
   contactId: number | null;
+  contactName?: string;
 }
 
 interface InboxThread {
@@ -71,6 +73,11 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [openDeviceDropdown, setOpenDeviceDropdown] = useState(false);
   const [outputEmailWidth, setOutputEmailWidth] = useState<string>('');
   const [openModals, setOpenModals] = useState<{ [key: string]: boolean }>({});
+  const [expandedMessages, setExpandedMessages] = useState<{ [key: string]: boolean }>({});
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error' | 'info' | 'warning'>('success');
 
   useEffect(() => {
     const fetchInboxList = async () => {
@@ -177,7 +184,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         const unreadMessages = thread.messages.filter(msg => !msg.isRead);
         for (const message of unreadMessages) {
           await axios.post(
-            `${API_BASE_URL}/api/Inbox/mark-read?id=${message.messageId}`,
+            `${API_BASE_URL}/api/Inbox/mark-read?id=${encodeURIComponent(message.messageId)}`,
             {},
             {
               headers: {
@@ -354,8 +361,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     return order[groupA as keyof typeof order] - order[groupB as keyof typeof order];
   });
 
-  const getInitials = (email: string): string => {
-    const name = extractSenderName(email);
+  const getInitials = (email: string, contactName?: string): string => {
+    const name = contactName || extractSenderName(email);
     const parts = name.split(' ');
     if (parts.length >= 2) {
       return (parts[0][0] + parts[1][0]).toUpperCase();
@@ -403,12 +410,80 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setOpenModals((prev) => ({ ...prev, [id]: false }));
   };
 
+  const toggleMessageExpand = (messageId: string) => {
+    setExpandedMessages((prev) => ({ ...prev, [messageId]: !prev[messageId] }));
+  };
+
+  const formatFullDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-US', { 
+      month: 'long', 
+      day: 'numeric', 
+      year: 'numeric', 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: false 
+    });
+  };
+
+  const handleSaveDraft = async () => {
+    if (!replyText.trim() || !selectedThread) return;
+    
+    setIsSavingDraft(true);
+    setError('');
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/Crm/contacts/update-email`,
+        {
+          clientId: parseInt(effectiveUserId),
+          contactId: selectedThread.contactId,
+          gptGenerate: false,
+          emailSubject: null,
+          emailBody: replyText
+        },
+        {
+          headers: {
+            'accept': '*/*',
+            'Content-Type': 'application/json',
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      if (response.data.success) {
+        setToastMessage('Draft saved successfully!');
+        setToastType('success');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 6000);
+      } else {
+        setToastMessage('Failed to save draft');
+        setToastType('error');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 6000);
+      }
+    } catch (err: any) {
+      console.error('Error saving draft:', err);
+      setToastMessage(err.response?.data?.message || 'Failed to save draft');
+      setToastType('error');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 6000);
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
+
   if (!isVisible) {
     return null;
   }
 
   return (
     <div className="dashboard-section" style={{ display: isVisible ? 'block' : 'none', marginTop: '-60px' }}>
+      <ToastMessage
+        show={showToast}
+        message={toastMessage}
+        type={toastType}
+        onClose={() => setShowToast(false)}
+      />
       <p>
         View and manage your inbox emails with sender information and full message content.
       </p>
@@ -469,10 +544,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         className={`mail-item ${thread.hasUnread ? 'unread' : ''}`}
                         onClick={() => handleThreadClick(thread)}
                       >
-                        <div className="mail-avatar">{getInitials(thread.contactEmail)}</div>
+                        <div className="mail-avatar">{getInitials(thread.contactEmail, lastMessage.contactName)}</div>
                         <div className="mail-content">
                           <div className="mail-item-header">
-                            <span className="mail-sender">{extractSenderName(thread.contactEmail)}</span>
+                            <span className="mail-sender">{lastMessage.contactName || extractSenderName(thread.contactEmail)}</span>
                             <span className="mail-date">{formatDate(thread.lastMessageDate)}</span>
                           </div>
                           <div className="mail-subject">
@@ -513,29 +588,82 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 <div key={message.messageId} style={{ marginBottom: index < selectedThread.messages.length - 1 ? '24px' : '0', paddingBottom: index < selectedThread.messages.length - 1 ? '24px' : '0', borderBottom: index < selectedThread.messages.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
                   <div className="mail-detail-header">
                     <div className="mail-detail-top">
-                      <div className="mail-detail-avatar">{getInitials(message.fromEmail)}</div>
-                      <div className="mail-detail-info">
-                        <div 
-                          className="mail-detail-sender"
-                          style={{
-                            cursor: messageContactId ? 'pointer' : 'default',
-                            color: messageContactId ? '#3f9f42' : 'inherit',
-                            textDecoration: messageContactId ? 'underline' : 'none'
-                          }}
-                          onClick={(e) => {
-                            if (messageContactId) {
-                              e.stopPropagation();
-                              const clientId = sessionStorage.getItem('clientId') || '';
-                              const contactDetailsUrl = `/#/contact-details/${messageContactId}?tab=Output&clientId=${clientId}`;
-                              window.open(contactDetailsUrl, '_blank');
-                            }
-                          }}
-                        >
-                          {extractSenderName(message.fromEmail)}
+                      <div className="mail-detail-avatar">{getInitials(message.fromEmail, message.contactName)}</div>
+                      <div className="mail-detail-info" style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div 
+                            className="mail-detail-sender"
+                            style={{
+                              cursor: messageContactId ? 'pointer' : 'default',
+                              color: messageContactId ? '#3f9f42' : '#1f2937',
+                              textDecoration: messageContactId ? 'underline' : 'none',
+                              fontWeight: '500',
+                              fontSize: '14px'
+                            }}
+                            onClick={(e) => {
+                              if (messageContactId) {
+                                e.stopPropagation();
+                                const clientId = sessionStorage.getItem('clientId') || '';
+                                const contactDetailsUrl = `/#/contact-details/${messageContactId}?tab=Output&clientId=${clientId}`;
+                                window.open(contactDetailsUrl, '_blank');
+                              }
+                            }}
+                          >
+                            {message.contactName || extractSenderName(message.fromEmail)}
+                          </div>
+                          <span style={{ color: '#6b7280', fontSize: '13px' }}>
+                            &lt;{extractEmailAddress(message.fromEmail)}&gt;
+                          </span>
                         </div>
-                        <div className="mail-detail-to">
-                          {extractEmailAddress(message.fromEmail)}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                          <span style={{ color: '#6b7280', fontSize: '13px' }}>To:</span>
+                          <span style={{ color: '#2563eb', fontSize: '13px' }}>
+                            {extractEmailAddress(message.toEmail || selectedThread.contactEmail)}
+                          </span>
+                          <button
+                            onClick={() => toggleMessageExpand(message.messageId)}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              cursor: 'pointer',
+                              padding: '2px 4px',
+                              fontSize: '10px',
+                              color: '#6b7280',
+                              display: 'flex',
+                              alignItems: 'center',
+                              marginLeft: '4px'
+                            }}
+                          >
+                            <span style={{
+                              transform: expandedMessages[message.messageId] ? 'rotate(180deg)' : 'rotate(0deg)',
+                              transition: 'transform 0.2s',
+                              display: 'inline-block'
+                            }}>▼</span>
+                          </button>
                         </div>
+                        {expandedMessages[message.messageId] && (
+                          <div style={{
+                            marginTop: '8px',
+                            padding: '8px 0',
+                            fontSize: '13px',
+                            lineHeight: '1.8',
+                            color: '#6b7280',
+                            borderTop: '1px solid #e5e7eb'
+                          }}>
+                            <div>
+                              <strong style={{ color: '#374151' }}>From:</strong> {message.contactName || extractSenderName(message.fromEmail)} &lt;{extractEmailAddress(message.fromEmail)}&gt;
+                            </div>
+                            <div>
+                              <strong style={{ color: '#374151' }}>To:</strong> {extractEmailAddress(message.toEmail || selectedThread.contactEmail)}
+                            </div>
+                            <div>
+                              <strong style={{ color: '#374151' }}>Date:</strong> {formatFullDate(message.date)}
+                            </div>
+                            <div>
+                              <strong style={{ color: '#374151' }}>Subject:</strong> {message.subject}
+                            </div>
+                          </div>
+                        )}
                       </div>
                       <div className="mail-detail-date">{new Date(message.date).toLocaleString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}</div>
                     </div>
@@ -699,6 +827,24 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         <line x1="405.77" y1="106.2" x2="111.98" y2="400.02" fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="32"/>
                         <polyline points="208 416 96 416 96 304" fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="32"/>
                       </svg>
+                    </button>
+
+                    <button 
+                      className="button square-40 justify-center" 
+                      style={{ 
+                        background: isSavingDraft || !replyText.trim() ? '#ccc' : '#3f9f42', 
+                        color: '#fff',
+                        fontWeight: '500',
+                        fontSize: '13px',
+                        padding: '0 16px',
+                        width: 'auto',
+                        minWidth: '70px',
+                        cursor: isSavingDraft || !replyText.trim() ? 'not-allowed' : 'pointer'
+                      }}
+                      onClick={handleSaveDraft}
+                      disabled={isSavingDraft || !replyText.trim()}
+                    >
+                      {isSavingDraft ? 'Saving...' : 'Save'}
                     </button>
                   </div>
                 </div>

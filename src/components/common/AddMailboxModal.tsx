@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import CommonSidePanel from "./CommonSidePanel";
+import ToastMessage from "./ToastMessage";
 import API_BASE_URL from "../../config";
 
 interface SmtpForm {
@@ -59,6 +60,9 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
   const [outlookSenderName, setOutlookSenderName] = useState("");
   const [outlookLoading, setOutlookLoading] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<"gmail" | "outlook" | null>(null);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error' | 'info' | 'warning'>('success');
 
   const handleImapChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -102,7 +106,10 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
       );
       
       if (response.ok) {
-        onSuccess("IMAP configuration added successfully!");
+        setToastMessage("IMAP configuration added successfully!");
+        setToastType('success');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 6000);
         setImapForm({
           emailAddress: "",
           host: "",
@@ -114,11 +121,17 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
         handleClose();
       } else {
         const errorData = await response.text();
-        onError(errorData || "Failed to add IMAP configuration");
+        setToastMessage(errorData || "Failed to add IMAP configuration");
+        setToastType('error');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 6000);
       }
     } catch (error) {
       console.error('Error adding IMAP configuration:', error);
-      onError("Error adding IMAP configuration. Please check your connection.");
+      setToastMessage("Error adding IMAP configuration. Please check your connection.");
+      setToastType('error');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 6000);
     } finally {
       setImapLoading(false);
     }
@@ -126,7 +139,10 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
 
   const handleGmailConnect = () => {
     if (!gmailSenderName.trim()) {
-      onError("Please enter sender name for Gmail");
+      setToastMessage("Please enter sender name for Gmail");
+      setToastType('error');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 6000);
       return;
     }
 
@@ -146,7 +162,10 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
     
     // Check if popup was blocked
     if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-      onError('Popup was blocked. Please allow popups for this site.');
+      setToastMessage('Popup was blocked. Please allow popups for this site.');
+      setToastType('error');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 6000);
       setPop3Loading(false);
       return;
     }
@@ -161,7 +180,10 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
         }
         
         setPop3Loading(false);
-        onSuccess('Gmail connected successfully!');
+        setToastMessage('Gmail connected successfully!');
+        setToastType('success');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 6000);
         handleClose();
         
         // Clean up event listener
@@ -183,7 +205,10 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
 
   const handleOutlookConnect = () => {
     if (!outlookSenderName.trim()) {
-      onError("Please enter sender name for Outlook");
+      setToastMessage("Please enter sender name for Outlook");
+      setToastType('error');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 6000);
       return;
     }
 
@@ -203,7 +228,10 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
     
     // Check if popup was blocked
     if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-      onError('Popup was blocked. Please allow popups for this site.');
+      setToastMessage('Popup was blocked. Please allow popups for this site.');
+      setToastType('error');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 6000);
       setOutlookLoading(false);
       return;
     }
@@ -218,7 +246,10 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
         }
         
         setOutlookLoading(false);
-        onSuccess('Outlook connected successfully!');
+        setToastMessage('Outlook connected successfully!');
+        setToastType('success');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 6000);
         handleClose();
         
         // Clean up event listener
@@ -266,7 +297,14 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
   };
 
   return (
-    <CommonSidePanel
+    <>
+      <ToastMessage
+        show={showToast}
+        message={toastMessage}
+        type={toastType}
+        onClose={() => setShowToast(false)}
+      />
+      <CommonSidePanel
       isOpen={isOpen}
       onClose={handleClose}
       title={editingId ? "Edit mailbox" : "Add mailbox"}
@@ -826,6 +864,7 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
         </>
       )}
     </CommonSidePanel>
+    </>
   );
 };
 
