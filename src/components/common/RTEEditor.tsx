@@ -4,6 +4,14 @@ interface RichTextEditorProps {
   value: string;
   height?: number;
   onChange: (html: string) => void;
+  showActionButtons?: boolean;
+  outputEmailWidth?: string;
+  isCopyText?: boolean;
+  openDeviceDropdown?: boolean;
+  onDeviceDropdownToggle?: () => void;
+  onDeviceWidthChange?: (width: string) => void;
+  onCopyToClipboard?: () => void;
+  onExpandEditor?: () => void;
 }
 
 const RichTextEditor: React.FC<RichTextEditorProps> = ({

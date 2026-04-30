@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import CommonSidePanel from "./CommonSidePanel";
+import ToastMessage from "./ToastMessage";
 import API_BASE_URL from "../../config";
 
 interface SmtpForm {
@@ -49,7 +50,7 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
     emailAddress: "",
     host: "",
     port: "",
-    useSSL: true,
+    encryption: "Auto",
     username: "",
     password: ""
   });
@@ -59,9 +60,13 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
   const [outlookSenderName, setOutlookSenderName] = useState("");
   const [outlookLoading, setOutlookLoading] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<"gmail" | "outlook" | null>(null);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error' | 'info' | 'warning'>('success');
 
   const handleImapChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
+    console.log('Field changed:', name, 'New value:', value);
     setImapForm(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
@@ -79,11 +84,13 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
         protocol: "IMAP",
         host: imapForm.host,
         port: parseInt(imapForm.port) || 993,
-        useSSL: imapForm.useSSL,
+        encryption: imapForm.encryption,
         username: imapForm.username,
         password: imapForm.password,
         syncIntervalMinutes: 1
       };
+      
+      console.log('Sending payload:', payload);
       
       const response = await fetch(
         `${API_BASE_URL}/api/Inbox/Create-Inboxcredentials`,
@@ -99,23 +106,32 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
       );
       
       if (response.ok) {
-        onSuccess("IMAP configuration added successfully!");
+        setToastMessage("IMAP configuration added successfully!");
+        setToastType('success');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 6000);
         setImapForm({
           emailAddress: "",
           host: "",
           port: "",
-          useSSL: true,
+          encryption: "Auto",
           username: "",
           password: ""
         });
         handleClose();
       } else {
         const errorData = await response.text();
-        onError(errorData || "Failed to add IMAP configuration");
+        setToastMessage(errorData || "Failed to add IMAP configuration");
+        setToastType('error');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 6000);
       }
     } catch (error) {
       console.error('Error adding IMAP configuration:', error);
-      onError("Error adding IMAP configuration. Please check your connection.");
+      setToastMessage("Error adding IMAP configuration. Please check your connection.");
+      setToastType('error');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 6000);
     } finally {
       setImapLoading(false);
     }
@@ -123,7 +139,10 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
 
   const handleGmailConnect = () => {
     if (!gmailSenderName.trim()) {
-      onError("Please enter sender name for Gmail");
+      setToastMessage("Please enter sender name for Gmail");
+      setToastType('error');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 6000);
       return;
     }
 
@@ -143,7 +162,10 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
     
     // Check if popup was blocked
     if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-      onError('Popup was blocked. Please allow popups for this site.');
+      setToastMessage('Popup was blocked. Please allow popups for this site.');
+      setToastType('error');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 6000);
       setPop3Loading(false);
       return;
     }
@@ -158,7 +180,10 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
         }
         
         setPop3Loading(false);
-        onSuccess('Gmail connected successfully!');
+        setToastMessage('Gmail connected successfully!');
+        setToastType('success');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 6000);
         handleClose();
         
         // Clean up event listener
@@ -180,7 +205,10 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
 
   const handleOutlookConnect = () => {
     if (!outlookSenderName.trim()) {
-      onError("Please enter sender name for Outlook");
+      setToastMessage("Please enter sender name for Outlook");
+      setToastType('error');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 6000);
       return;
     }
 
@@ -200,7 +228,10 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
     
     // Check if popup was blocked
     if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-      onError('Popup was blocked. Please allow popups for this site.');
+      setToastMessage('Popup was blocked. Please allow popups for this site.');
+      setToastType('error');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 6000);
       setOutlookLoading(false);
       return;
     }
@@ -215,7 +246,10 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
         }
         
         setOutlookLoading(false);
-        onSuccess('Outlook connected successfully!');
+        setToastMessage('Outlook connected successfully!');
+        setToastType('success');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 6000);
         handleClose();
         
         // Clean up event listener
@@ -243,13 +277,13 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
       password: "",
       fromEmail: "",
       senderName: "",
-      usessl: "nossl",
+      usessl: "Auto",
     });
     setImapForm({
       emailAddress: "",
       host: "",
       port: "",
-      useSSL: true,
+      encryption: "Auto",
       username: "",
       password: ""
     });
@@ -263,7 +297,14 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
   };
 
   return (
-    <CommonSidePanel
+    <>
+      <ToastMessage
+        show={showToast}
+        message={toastMessage}
+        type={toastType}
+        onClose={() => setShowToast(false)}
+      />
+      <CommonSidePanel
       isOpen={isOpen}
       onClose={handleClose}
       title={editingId ? "Edit mailbox" : "Add mailbox"}
@@ -446,7 +487,7 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
           </div>
         </div>
         <div className="form-group">
-          <label>SSL Configuration</label>
+          <label>Encryption</label>
           <select
             name="usessl"
             value={form.usessl}
@@ -460,9 +501,10 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
               backgroundColor: "white",
             }}
           >
-            <option value="nossl">No SSL</option>
-            <option value="ssl">SSL</option>
-            <option value="ssl/tls">SSL/TLS</option>
+            <option value="None">None</option>
+            <option value="SSL/TLS">SSL/TLS</option>
+            <option value="STARTTLS">STARTTLS</option>
+            <option value="Auto">Auto</option>
           </select>
         </div>
       </form>
@@ -633,41 +675,25 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
                   />
                 </div>
                 <div className="form-group flex-1">
-                  {/* Empty div for layout balance */}
-                </div>
-              </div>
-              <div className="form-group">
-                <div style={{ 
-                  display: "flex", 
-                  alignItems: "center", 
-                  gap: "8px", 
-                  marginTop: "16px",
-                  marginBottom: "8px"
-                }}>
-                  <input
-                    name="useSSL"
-                    type="checkbox"
-                    id="useSSL"
-                    checked={imapForm.useSSL}
+                  <label>Encryption</label>
+                  <select
+                    name="encryption"
+                    value={imapForm.encryption}
                     onChange={handleImapChange}
-                    style={{ 
-                      margin: 0,
-                      width: "16px",
-                      height: "16px"
-                    }}
-                  />
-                  <label 
-                    htmlFor="useSSL" 
-                    style={{ 
-                      margin: 0, 
-                      cursor: "pointer", 
-                      fontSize: "14px", 
-                      fontWeight: "500",
-                      color: "#333"
+                    style={{
+                      width: "100%",
+                      padding: "8px 12px",
+                      border: "1px solid #ccc",
+                      borderRadius: "4px",
+                      fontSize: "14px",
+                      backgroundColor: "white",
                     }}
                   >
-                    Use SSL
-                  </label>
+                    <option value="None">None</option>
+                    <option value="SSL/TLS">SSL/TLS</option>
+                    <option value="STARTTLS">STARTTLS</option>
+                    <option value="Auto">Auto</option>
+                  </select>
                 </div>
               </div>
             </form>
@@ -838,6 +864,7 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
         </>
       )}
     </CommonSidePanel>
+    </>
   );
 };
 
