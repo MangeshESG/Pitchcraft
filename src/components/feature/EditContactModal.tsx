@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import API_BASE_URL from '../../config';
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../Redux/store';
 import axios from 'axios';
 import { useLocation } from 'react-router-dom';
@@ -35,6 +35,7 @@ import { Slash } from "lucide-react";
 import { Pin, PinOff } from 'lucide-react';
 import{formatDateTimeLocal, formatTimeLocal}from "../common/dateFormatters";
 import CommonSidePanel from '../common/CommonSidePanel';
+import { closePanel, openPanel } from '../../slices/panelSlice';
 
 interface Contact {
   id: number;
@@ -106,6 +107,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
   onNotesHistoryUpdate,
   onSavingLinkedInChange,
 }) => {
+  const dispatch = useDispatch();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -165,6 +167,13 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
    // 🔥 LinkedIn Summary Character Limit
   const LINKEDIN_SUMMARY_MAX_LENGTH = 10000;
   const LINKEDIN_TRUNCATE_LENGTH = 300;
+
+  const activePanel = useSelector(
+    (state: RootState) => state.panel.activePanel
+  );
+    
+  const showLinkedSummaryModal =
+    activePanel === "show-linkedin-summary-modal";
 
   const [customFieldDefs, setCustomFieldDefs] = useState<any[]>([]);
 const [customFieldValues, setCustomFieldValues] = useState<Record<string, any>>({});
@@ -927,7 +936,9 @@ case "boolean":
       setShowSuccessToast(true);
       setTimeout(() => setShowSuccessToast(false), 4000);
 
-      setShowLinkedInSummaryPopup(false);
+      //setShowLinkedInSummaryPopup(false);
+      dispatch(closePanel());
+
     } catch (error) {
       console.error("Failed to update LinkedIn summary", error);
       appModal.showError("Failed to update LinkedIn summary");
@@ -1499,7 +1510,8 @@ case "boolean":
                     {/* Edit Button */}
                     <button
                       onClick={() => {
-                        setShowLinkedInSummaryPopup(true);
+                        //setShowLinkedInSummaryPopup(true);
+                        dispatch(openPanel("show-linkedin-summary-modal"));
                         setLinkedInActionsAnchor(false);
                       }}
                       style={menuBtnStyle}
@@ -1685,14 +1697,21 @@ case "boolean":
           )
         }
         <CommonSidePanel
-          isOpen={showLinkedInSummaryPopup}
-          onClose={() => setShowLinkedInSummaryPopup(false)}
+          //isOpen={showLinkedInSummaryPopup}
+          isOpen={showLinkedSummaryModal}
+          onClose={() => 
+            //setShowLinkedInSummaryPopup(false)
+            dispatch(closePanel())
+          }
           title="LinkedIn Summary"
           footerContent={
             <>
               <div style={{ display: "flex", gap: 12 }}>
                 <button
-                  onClick={() => setShowLinkedInSummaryPopup(false)}
+                  onClick={() => {
+                    //setShowLinkedInSummaryPopup(false)
+                    dispatch(closePanel())
+                  }}
                   type="button"
                   className="px-5 py-2 border border-gray-300 rounded-full text-sm"
                 >

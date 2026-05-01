@@ -2,10 +2,11 @@ import React, { useEffect, useState } from "react";
 import API_BASE_URL from "../../config";
 import "./customFieldSettings.css";
 import CommonSidePanel from "../common/CommonSidePanel";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEdit, faTrashAlt } from "@fortawesome/free-regular-svg-icons";
+import { closePanel } from "../../slices/panelSlice";
 
 
 interface CustomField {
@@ -28,7 +29,7 @@ const actionIconStyle = {
   flexShrink: 0,
 };
 const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
-
+  const dispatch = useDispatch();
   const [fields, setFields] = useState<CustomField[]>([]);
   const [name, setName] = useState("");
   const [type, setType] = useState("text");
@@ -45,6 +46,13 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [fieldToDelete, setFieldToDelete] = useState<CustomField | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+
+  const activePanel = useSelector(
+  (state: RootState) => state.panel.activePanel
+  );
+
+  const showCustomCRMFieldModal =
+    activePanel === "custom-crm-field-modal";
 
   const storedSelectedClientId =
     localStorage.getItem("selectedClientId") ||
@@ -391,14 +399,22 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
       </table>
 
       <CommonSidePanel
-        isOpen={isPanelOpen}
-        onClose={() => setIsPanelOpen(false)}
+        //isOpen={isPanelOpen}
+        isOpen={showCustomCRMFieldModal}
+        onClose={() => 
+          //setIsPanelOpen(false)
+          dispatch(closePanel())
+
+        }
         title={isEditMode ? "Edit custom field" : "Create custom field"}
         footerContent={
           <>
             <button
               className="panel-cancel-btn"
-              onClick={() => setIsPanelOpen(false)}
+              onClick={() => 
+                //setIsPanelOpen(false)
+                dispatch(closePanel())
+              }
             >
               Cancel
             </button>

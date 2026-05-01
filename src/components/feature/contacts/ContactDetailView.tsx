@@ -5,7 +5,8 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import axios from "axios";
 import API_BASE_URL from "../../../config";
 import { RootState } from "../../../Redux/store";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
+import { openPanel, closePanel } from "../../../slices/panelSlice";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faAngleRight,
@@ -110,7 +111,11 @@ const ContactDetailView: React.FC<ContactDetailViewProps> = ({
     marginBottom: 6,
   };
   const navigate = useNavigate();
-  const [isNoteOpen, setIsNoteOpen] = useState(false);
+  // const [isNoteOpen, setIsNoteOpen] = useState(false);
+  const dispatch = useDispatch();
+  const activePanel = useSelector((state: RootState) => state.panel.activePanel);
+  const showNotePanel = activePanel === "note";
+  const showAttachmentPanel = activePanel === "attachment";
   const [isPinned, setIsPinned] = useState(false);
   const [noteText, setNoteText] = useState("");
   const noteEditorRef = useRef<HTMLDivElement | null>(null);
@@ -208,7 +213,7 @@ const menuItemStyle = {
    const [expandedNoteIds, setExpandedNoteIds] = useState<Set<number>>(new Set());
   const [isSavingLinkedIn, setIsSavingLinkedIn] = useState(false);
  const [showErrorToast, setShowErrorToast] = useState(false);
-  const [isAttachmentPanelOpen, setIsAttachmentPanelOpen] = useState(false);
+  // const [isAttachmentPanelOpen, setIsAttachmentPanelOpen] = useState(false);
   const [attachmentName, setAttachmentName] = useState("");
   const [attachmentDescription, setAttachmentDescription] = useState("");
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
@@ -252,7 +257,7 @@ if (isEditMode && editingNoteId) {
 const isSaveDisabled =
   plainTextLength === 0 || plainTextLength > NOTE_MAX_LENGTH  || projectedTotalLength > MAX_TOTAL_NOTES;
  useEffect(() => {
-    if (!isNoteOpen) return;
+    if (!showNotePanel) return;
     if (plainTextLength > NOTE_MAX_LENGTH) {
       setToastMessage("Single note cannot exceed 10,000 characters.");
       setShowErrorToast(true);
@@ -272,7 +277,7 @@ const isSaveDisabled =
 
       return () => clearTimeout(timer);
     }
-  }, [plainTextLength, projectedTotalLength, isEditMode, editingNoteId, notesHistory,isNoteOpen]);
+  }, [plainTextLength, projectedTotalLength, isEditMode, editingNoteId, notesHistory, showNotePanel]);
 // useEffect(() => {
 //   if (plainTextLength > NOTE_MAX_LENGTH) {
 //     setToastMessage("You have exceeded the 10,000 character limit.");
@@ -690,7 +695,7 @@ useEffect(() => {
     );
     setShowSuccessToast(true);
 
-    setIsNoteOpen(false);
+dispatch(closePanel());
     setNoteText("");
     setIsPinned(false);
     setIsEmailPersonalization(false);
@@ -849,7 +854,7 @@ useEffect(() => {
       setIsEmailPersonalization(!!data.isUseInGenration);
 
       // Open panel AFTER data is ready
-      setIsNoteOpen(true);
+      dispatch(openPanel("note"));
 
     } catch (error) {
       console.error("Failed to fetch note by id", error);
@@ -980,13 +985,13 @@ useEffect(() => {
   };
   // ✅ Sync noteText to contentEditable only when opening edit mode or when explicitly set
   useEffect(() => {
-    if (noteEditorRef.current && isNoteOpen) {
+    if (noteEditorRef.current && showNotePanel) {
       // Only update if the content has changed from outside (e.g., loading edit note)
       if (noteEditorRef.current.innerHTML !== noteText) {
         noteEditorRef.current.innerHTML = noteText;
       }
     }
-  }, [isEditMode, isNoteOpen]);
+  }, [isEditMode, showNotePanel]);
   const mergedHistory = React.useMemo(() => {
     const items: any[] = [];
 
@@ -1502,7 +1507,7 @@ useEffect(() => {
                       setNoteText("");
                       setIsPinned(false);
                       setIsEmailPersonalization(false);
-                      setIsNoteOpen(true)
+                      dispatch(openPanel("note"))
                     }}
                     style={{
                       display: "flex",
@@ -1522,7 +1527,7 @@ useEffect(() => {
                     Add note
                   </button>
                   <button
-                    onClick={() => setIsAttachmentPanelOpen(true)}
+                    onClick={() => dispatch(openPanel("attachment"))}
                     style={{
                       display: "flex",
                       flexDirection: "row",
@@ -2890,9 +2895,9 @@ useEffect(() => {
 
       {/* ATTACHMENT PANEL */}
       <CommonSidePanel
-        isOpen={isAttachmentPanelOpen}
+        isOpen={showAttachmentPanel}
         onClose={() => {
-          setIsAttachmentPanelOpen(false);
+          dispatch(closePanel());
           setAttachmentName("");
           setAttachmentDescription("");
           setAttachmentFile(null);
@@ -2903,7 +2908,7 @@ useEffect(() => {
             <div style={{ display: "flex", gap: 12 }}>
               <button
                 onClick={() => {
-                  setIsAttachmentPanelOpen(false);
+                  dispatch(closePanel());
                   setAttachmentName("");
                   setAttachmentDescription("");
                   setAttachmentFile(null);
@@ -2932,7 +2937,7 @@ useEffect(() => {
                   setToastMessage("Attachment uploaded successfully.");
                   setShowSuccessToast(true);
                   setTimeout(() => setShowSuccessToast(false), 3000);
-                  setIsAttachmentPanelOpen(false);
+                  dispatch(closePanel());
                   setAttachmentName("");
                   setAttachmentDescription("");
                   setAttachmentFile(null);
@@ -3047,14 +3052,14 @@ useEffect(() => {
       </CommonSidePanel>
       {/* NOTE PANEL */}
       <CommonSidePanel
-        isOpen={isNoteOpen}
-        onClose={() => setIsNoteOpen(false)}
+        isOpen={showNotePanel}
+        onClose={() => dispatch(closePanel())}
         title={isEditMode ? "Edit note" : "Add a note"}
         footerContent={
           <>
             <div style={{ display: "flex", gap: 12 }}>
               <button
-                onClick={() => setIsNoteOpen(false)}
+                onClick={() => dispatch(closePanel())}
                 type="button"
                 className="px-5 py-2 border border-gray-300 rounded-full text-sm"
               >

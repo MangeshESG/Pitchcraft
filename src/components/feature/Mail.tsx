@@ -14,7 +14,7 @@ import type { EventItem, EmailLog } from "../../contexts/AppDataContext";
 import AppModal from "../common/AppModal";
 import LoadingSpinner from "../common/LoadingSpinner";
 import { useAppModal } from "../../hooks/useAppModal";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
 import PaginationControls from "./PaginationControls";
 import ValidateRecordsModal from "./ValidateRecordsModal";
@@ -27,6 +27,7 @@ import deleteIcon from "../../assets/images/deleteiconn.png";
 import { faEdit,faTrashAlt,faCircleXmark ,faFileLines   } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import InboxView from "./InboxView";
+import { closePanel, openPanel } from "../../slices/panelSlice";
 type MailTabType = "Dashboard" | "Configuration" | "Schedule" | "Inbox";
 
 
@@ -241,6 +242,8 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   initialTab = "Dashboard",
   onTabChange,
 }) => {
+  const dispatch = useDispatch();
+
   const [segments, setSegments] = useState<Segment[]>([]);
   const [segmentsLoading, setSegmentsLoading] = useState(false);
   const [scheduleCampaigns, setScheduleCampaigns] = useState<any[]>([]);
@@ -252,6 +255,30 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [showErrorToast, setShowErrorToast] = useState(false);
+
+  const activePanel = useSelector(
+    (state: RootState) => state.panel.activePanel
+  );
+  
+  const showValidateModal =
+    activePanel === "validate-modal";
+
+  const showSMTPEditModal =
+    activePanel === "smtp-edit-modal";
+
+   const showIMAPEditModal =
+    activePanel === "imap-edit-modal";
+
+  const showBCCEmailModal =
+    activePanel === "bcc-email-modal";
+
+  const scheduleModal =
+    activePanel === "schedule-modal";
+
+  const showAddEditMailBoxModal = activePanel === "add-edit-mailbox-modal";
+  const showDomainValidation = activePanel === "domain-validation-modal";
+
+
 
   const handleModalOpen = (id: string) => {
     setOpenModals((prev) => ({ ...prev, [id]: true }));
@@ -443,7 +470,8 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       useSSL: item.useSSL,
     });
     setEditingImapId(item.id);
-    handleModalOpen("modal-edit-imap");
+    //handleModalOpen("modal-edit-imap");
+    dispatch(openPanel("imap-edit-modal"));
   };
 
   // Handle IMAP Update Submit
@@ -489,8 +517,8 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
         useSSL: false,
       });
       setEditingImapId(null);
-      handleModalClose("modal-edit-imap");
-      
+      //handleModalClose("modal-edit-imap");
+      dispatch(closePanel());
       // Refresh IMAP list
       fetchInboxCredentials();
     } catch (err: any) {
@@ -534,7 +562,8 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
 
       if (!editingId) {
         // For Add operation, close add modal first then show OTP modal
-        handleModalClose("modal-add-mailbox");
+        //handleModalClose("modal-add-mailbox");
+        dispatch(closePanel());
         setSmtpOtpEmail(form.fromEmail);
         setShowSmtpOtpModal(true);
       } else {
@@ -552,7 +581,8 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
           usessl: "nossl",
         });
         setEditingId(null);
-        handleModalClose("modal-edit-smtp");
+        //handleModalClose("modal-edit-smtp");
+        dispatch(closePanel());
         fetchSmtp(); // Refresh grid
       }
     } catch (err: any) {
@@ -639,7 +669,8 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       usessl: (item.SecurityType || item.securityType || "nossl").toLowerCase()
     });
     setEditingId(item.id);
-    handleModalOpen("modal-edit-smtp");
+    //handleModalOpen("modal-edit-smtp");
+    dispatch(openPanel("edit-smtp-modal"));
   };
 const handleDelete = (id: any) => {
   setSelectedDeleteId(id);
@@ -1277,7 +1308,8 @@ const confirmDeleteSmtp = async () => {
       setEditingId(null);
       setSelectedZohoviewId1("");
       setSelectedUser("");
-      setShowScheduleModal(false);
+      //setShowScheduleModal(false);
+      dispatch(closePanel());
       fetchSchedule();
     } catch (err) {
       console.error(err);
@@ -1330,7 +1362,8 @@ const confirmDeleteSmtp = async () => {
     }
 
     setSelectedUser(item.smtpID);
-    setShowScheduleModal(true);
+    //setShowScheduleModal(true);
+    dispatch(openPanel("schedule-modal"));
   };
 
   // Delete Handler (Assuming you create this API in backend)
@@ -1418,7 +1451,8 @@ const confirmDeleteSmtp = async () => {
   const handleSave = () => {
     handleAddBcc();
     setNewBccEmail("");
-    setShowPopup(false);
+    //setShowPopup(false);
+    dispatch(closePanel());
   };
   const handleAddBcc = async () => {
     if (!newBccEmail) return;
@@ -1504,7 +1538,7 @@ const confirmDeleteSmtp = async () => {
 
   useEffect(() => {
     const fetchScheduleDataForModal = async () => {
-      if (showScheduleModal && effectiveUserId && scheduleCampaigns.length === 0) {
+      if (scheduleModal && effectiveUserId && scheduleCampaigns.length === 0) {
         setScheduleDataLoading(true);
 
         try {
@@ -1529,7 +1563,7 @@ const confirmDeleteSmtp = async () => {
     };
 
     fetchScheduleDataForModal();
-  }, [showScheduleModal, effectiveUserId, token, scheduleCampaigns.length]);
+  }, [scheduleModal, effectiveUserId, token, scheduleCampaigns.length]);
 
   // Menu button style constant
   const menuBtnStyle = {
@@ -1852,7 +1886,8 @@ const actionIconStyle = {
   // Handle domain validation click
   const handleDomainValidateClick = (domain: any) => {
     setSelectedDomain(domain);
-    setShowDomainAuthModal(true);
+    //setShowDomainAuthModal(true);
+    dispatch(openPanel("domain-validation-modal"));
   };
 
   // Handle domain delete click
@@ -2047,7 +2082,11 @@ const actionIconStyle = {
                     <button
                       className="save-button button auto-width small d-flex justify-between align-center"
                       style={{ borderRadius: "12px" }}
-                      onClick={() => handleModalOpen("modal-add-mailbox")}
+                      onClick={() => {
+                        //handleModalOpen("modal-add-mailbox")
+                        dispatch(openPanel("add-edit-mailbox-modal"))
+                      }
+                      }
                     >
                       + Add mailbox
                     </button>
@@ -2350,9 +2389,11 @@ const actionIconStyle = {
                 )}
                 {/* Add/Edit Mailbox Modal */}
                 <AddMailboxModal
-                  isOpen={openModals["modal-add-mailbox"] || false}
+                  //isOpen={openModals}
+                  isOpen={showAddEditMailBoxModal}
                   onClose={() => {
-                    handleModalClose("modal-add-mailbox");
+                    //handleModalClose("modal-add-mailbox");
+                    dispatch(closePanel());
                     setEditingId(null);
                   }}
                   editingId={editingId}
@@ -2378,9 +2419,10 @@ const actionIconStyle = {
 
                 {/* SMTP Edit Modal */}
                 <CommonSidePanel
-                  isOpen={openModals["modal-edit-smtp"] || false}
+                  isOpen={showSMTPEditModal}
                   onClose={() => {
-                    handleModalClose("modal-edit-smtp");
+                    //handleModalClose("modal-edit-smtp");
+                    dispatch(closePanel());
                     setEditingId(null);
                     setForm({
                       server: "",
@@ -2398,7 +2440,8 @@ const actionIconStyle = {
                     <>
                       <button
                         onClick={() => {
-                          handleModalClose("modal-edit-smtp");
+                          //handleModalClose("modal-edit-smtp");
+                          dispatch(closePanel());
                           setEditingId(null);
                           setForm({
                             server: "",
@@ -2562,9 +2605,10 @@ const actionIconStyle = {
 
                 {/* IMAP Edit Modal */}
                 <CommonSidePanel
-                  isOpen={openModals["modal-edit-imap"] || false}
+                  isOpen={showIMAPEditModal}
                   onClose={() => {
-                    handleModalClose("modal-edit-imap");
+                    //handleModalClose("modal-edit-imap");
+                    dispatch(closePanel());
                     setEditingImapId(null);
                     setImapForm({
                       emailAddress: "",
@@ -2582,7 +2626,8 @@ const actionIconStyle = {
                     <>
                       <button
                         onClick={() => {
-                          handleModalClose("modal-edit-imap");
+                          //handleModalClose("modal-edit-imap");
+                          dispatch(closePanel());
                           setEditingImapId(null);
                           setImapForm({
                             emailAddress: "",
@@ -2803,7 +2848,8 @@ const actionIconStyle = {
                               senderName: "",
                               usessl: "nossl",
                             });
-                            handleModalClose("modal-add-mailbox");
+                            //handleModalClose("modal-add-mailbox");
+                            dispatch(closePanel());
                           }}
                         >
                           Cancel
@@ -2857,7 +2903,10 @@ const actionIconStyle = {
                     className="save-button button auto-width small d-flex justify-between align-center mt-10"
                     style={{ marginLeft: "auto", borderRadius: "12px" }}
                     // onClick={handleAddBcc}
-                    onClick={() => setShowPopup(true)}
+                    onClick={() => 
+                     // setShowPopup(true)
+                      dispatch(openPanel("bcc-email-modal"))
+                    }
                     //disabled={bccLoading || !newBccEmail}
                     disabled={bccLoading} // disable only during API call
                   >
@@ -2928,13 +2977,21 @@ const actionIconStyle = {
                 />
                 {/* Popup Modal */}
                 <CommonSidePanel
-                  isOpen={showPopup}
-                  onClose={() => setShowPopup(false)}
+                  isOpen={showBCCEmailModal}
+                  onClose={() => 
+                    //setShowPopup(false)
+                    dispatch(closePanel())
+
+                  }
                   title="Add BCC email"
                   footerContent={
                     <>
                       <button
-                        onClick={() => setShowPopup(false)}
+                        onClick={() => 
+                          //setShowPopup(false)
+                          dispatch(closePanel())
+
+                        }
                         style={{
                           padding: "10px 32px",
                           border: "1px solid #ddd",
@@ -3044,7 +3101,8 @@ const actionIconStyle = {
                                   }}
                                   onClick={() => {
                                     setSelectedDomain(domain);
-                                    setShowValidatePopup(true);
+                                    //setShowValidatePopup(true);
+                                    dispatch(openPanel("validate-modal"));
                                   }}
                                 >
                                   Validate Records
@@ -3119,8 +3177,12 @@ const actionIconStyle = {
 
                 {/* Validate Records Modal */}
                 <ValidateRecordsModal
-                  isOpen={showValidatePopup}
-                  onClose={() => setShowValidatePopup(false)}
+                  //isOpen={showValidatePopup}
+                  isOpen={showValidateModal}
+                  onClose={() => {
+                    //setShowValidatePopup(false);
+                    dispatch(closePanel());
+                  }}
                   selectedDomain={selectedDomain}
                   onValidate={(domain) => {
                     console.log('Validate Records for:', domain.emailDomain);
@@ -3168,7 +3230,8 @@ const actionIconStyle = {
                   <button
                     className="save-button button auto-width small d-flex justify-between align-center"
                     style={{ marginLeft: "auto", borderRadius: "12px" }}
-                    onClick={() => setShowScheduleModal(true)}
+                    //onClick={() => setShowScheduleModal(true)}
+                    onClick={() => dispatch(openPanel('schedule-modal'))}
                   >
                     + Create schedule
                   </button>
@@ -3268,7 +3331,8 @@ const actionIconStyle = {
                                         onClick={() => {
                                           handleEditSchedule(item);
                                           setScheduleActionsAnchor(null);
-                                          setShowScheduleModal(true);
+                                         // setShowScheduleModal(true);
+                                          dispatch(openPanel("schedule-modal"));
                                         }}
                                         style={menuBtnStyle}
                                         className="flex gap-2 items-center"
@@ -3395,9 +3459,11 @@ const actionIconStyle = {
 
           {/* Schedule Modal */}
           <CommonSidePanel
-            isOpen={showScheduleModal}
+            //isOpen={showScheduleModal}
+            isOpen={scheduleModal}
             onClose={() => {
-              setShowScheduleModal(false);
+              //setShowScheduleModal(false);
+              dispatch(closePanel());
               setEditingId(null);
               setFormData({
                 title: "",
@@ -3419,7 +3485,8 @@ const actionIconStyle = {
                 <button
                   type="button"
                   onClick={() => {
-                    setShowScheduleModal(false);
+                    //setShowScheduleModal(false);  
+                    dispatch(closePanel());
                     setEditingId(null);
                     setFormData({
                       title: "",
@@ -3649,8 +3716,13 @@ const actionIconStyle = {
 
       {/* Domain Validation Modals */}
       <DomainAuthModal
-        isOpen={showDomainAuthModal}
-        onClose={() => setShowDomainAuthModal(false)}
+        //isOpen={showDomainAuthModal}
+        isOpen={showDomainValidation}
+
+        onClose={() => 
+          //setShowDomainAuthModal(false)
+          dispatch(closePanel())
+        }
         selectedDomain={selectedDomain}
         onValidate={(domain) => {
           console.log('Validate Records for:', domain.emailDomain);
@@ -3663,8 +3735,12 @@ const actionIconStyle = {
       />
 
       <ValidateRecordsModal
-        isOpen={showValidatePopup}
-        onClose={() => setShowValidatePopup(false)}
+        //isOpen={showValidatePopup}
+        isOpen={showValidateModal}
+        onClose={() => {
+          //setShowValidatePopup(false);
+          dispatch(closePanel());
+        }}
         selectedDomain={selectedDomain}
         onValidate={(domain) => {
           console.log('Validate Records for:', domain.emailDomain);

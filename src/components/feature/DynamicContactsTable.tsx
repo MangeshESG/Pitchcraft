@@ -3,6 +3,9 @@ import React from "react";
 import PaginationControls from "./PaginationControls";
 import CommonSidePanel from "../common/CommonSidePanel";
 import "./DynamicContactsTable.css";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState } from "../../Redux/store";
+import { closePanel, openPanel } from "../../slices/panelSlice";
 
 interface DataFile {
   id: number;
@@ -160,6 +163,12 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   persistedColumnSelection = [],
   currentTab,
 }) => {
+  const dispatch = useDispatch();
+  const activePanel = useSelector(
+  (state: RootState) => state.panel.activePanel
+  );
+  const showSettingSidebarpanel =
+    activePanel === "setting-sidebar-panel";
   const [columns, setColumns] = useState<ColumnConfig[]>([]);
   const [showColumnPanel, setShowColumnPanel] = useState(false);
   const [pageSize, setPageSize] = useState<PageSize>(10);
@@ -725,7 +734,14 @@ const displayData =
               <button
                 className="button secondary"
                 style={{ borderRadius:"12px" }}
-                onClick={() => setShowColumnPanel(!showColumnPanel)}
+                onClick={() => 
+                  
+                  //setShowColumnPanel(!showColumnPanel)
+                  dispatch(activePanel === "setting-sidebar-panel"
+                ? closePanel()
+                : openPanel("setting-sidebar-panel"))
+
+                }
               >
                 Show/hide columns
               </button>
@@ -789,7 +805,12 @@ const displayData =
           {viewMode === "table" && (
             <button
               className="button secondary"
-              onClick={() => setShowColumnPanel(!showColumnPanel)}
+              onClick={() => 
+                //setShowColumnPanel(!showColumnPanel)
+                dispatch(activePanel === "setting-sidebar-panel"
+                ? closePanel()
+                : openPanel("setting-sidebar-panel"))
+              }
               style={{ marginLeft: "auto" }}
             >
               ⚙️ Columns
@@ -1012,8 +1033,13 @@ const displayData =
 
         {/* Column Settings Sidebar Panel */}
         <CommonSidePanel
-          isOpen={showColumnPanel}
-          onClose={() => setShowColumnPanel(false)}
+          //isOpen={showColumnPanel}
+          isOpen={showSettingSidebarpanel}
+          onClose={() => {
+            //setShowColumnPanel(false)}
+            dispatch(closePanel())
+          }
+        }
           title="Show/hide columns"
           width={320}
           children={

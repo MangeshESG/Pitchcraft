@@ -26,6 +26,9 @@ import API_BASE_URL from "../../config";
 import { useAppData } from "../../contexts/AppDataContext";
 import { Tooltip as ReactTooltip } from "react-tooltip";
 import ContactDetailView from "./contacts/ContactDetailView";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState } from "../../Redux/store";
+import { closePanel, openPanel } from "../../slices/panelSlice";
 
 // Interfaces
 interface DailyStats {
@@ -151,7 +154,7 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   } = useAppData();
 
   const FORM_STATE_KEY = "mail-dashboard";
-
+  const dispatch = useDispatch();
   // All useState hooks - Changed selectedView to selectedCampaign
   const [selectedCampaign, setSelectedCampaign] = useState<string>("");
   const [availableCampaigns, setAvailableCampaigns] = useState<Campaign[]>([]);
@@ -170,6 +173,17 @@ const MailDashboard: React.FC<MailDashboardProps> = ({
   const [viewMode, setViewMode] = useState<"table" | "detail">("table");
   const [selectedContact, setSelectedContact] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<"profile" | "history">("profile");
+
+   const activePanel = useSelector(
+    (state: RootState) => state.panel.activePanel
+    );
+  const showBulkUpdatePanelModal =
+    activePanel === "bulk-update-panel-modal";
+
+  const showSaveSegmentCommonModal =
+    activePanel === "save-segment-modal";
+
+
 
   const [totalStats, setTotalStats] = useState({
     sent: 0,
@@ -1776,7 +1790,10 @@ const fetchLogsByCampaign = async (campaignId: string) => {
           )}
           <button
             className="button primary"
-            onClick={() => setShowSaveSegmentModal(true)}
+            onClick={() => 
+              //setShowSaveSegmentModal(true)
+              dispatch(openPanel("save-segment-modal"))
+            }
             style={buttonStyles.segment}
             title="Create Segment"
           >
@@ -1785,7 +1802,11 @@ const fetchLogsByCampaign = async (campaignId: string) => {
           {type === 'engagement' && (
             <button
               className="button secondary"
-              onClick={() => setShowBulkUpdatePanel(true)}
+              onClick={() => 
+                //setShowBulkUpdatePanel(true)
+                dispatch(openPanel("bulk-update-panel-modal"))
+
+              }
               style={{
                 background: "none",
                 color: "#3f9f42",
@@ -2594,8 +2615,12 @@ const fetchLogsByCampaign = async (campaignId: string) => {
 
           {/* Segment Save Modal */}
           <SegmentModal
-            isOpen={showSaveSegmentModal}
-            onClose={() => setShowSaveSegmentModal(false)}
+            //isOpen={showSaveSegmentModal}
+            isOpen={showSaveSegmentCommonModal}
+            onClose={() => 
+              //setShowSaveSegmentModal(false)
+              dispatch(closePanel())
+            }
             selectedContactsCount={
               emailFilterType === "email-logs"
                 ? selectedEmailLogs.size
@@ -2614,8 +2639,14 @@ const fetchLogsByCampaign = async (campaignId: string) => {
 
           {/* Bulk Update Panel */}
           <BulkUpdatePanel
-            isOpen={showBulkUpdatePanel}
-            onClose={() => setShowBulkUpdatePanel(false)}
+            //isOpen={showBulkUpdatePanel}
+            isOpen={showBulkUpdatePanelModal}
+
+            onClose={() => 
+              //setShowBulkUpdatePanel(false)
+              dispatch(closePanel())
+
+            }
             selectedContactIds={getBulkUpdateContactIds().map(id => id.toString())} 
             clientId={effectiveUserId!}
             onUpdateComplete={() => {

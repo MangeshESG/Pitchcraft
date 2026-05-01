@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { openPanel, closePanel } from "../../../slices/panelSlice";
+import { RootState } from "../../../Redux/store";
 import { Tooltip as ReactTooltip, Tooltip } from "react-tooltip";
 import ReactQuill from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
@@ -133,10 +136,15 @@ const Template: React.FC<TemplateProps> = ({
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [showViewCampaignModal, setShowViewCampaignModal] = useState(false);
   const [showEditCampaignModal, setShowEditCampaignModal] = useState(false);
-  const [showRenameModal, setShowRenameModal] = useState(false);
+  // const [showRenameModal, setShowRenameModal] = useState(false);
+  const dispatch = useDispatch();
+  const activePanel = useSelector((state: RootState) => state.panel.activePanel);
+  const showRenameModal = activePanel === "rename-blueprint";
+  const showTemplateNameModal = activePanel === "template-name";
+  const showCloneNameModal = activePanel === "clone-blueprint";
   const [renameInput, setRenameInput] = useState("");
   const [showCloneConfirmModal, setShowCloneConfirmModal] = useState(false);
-  const [showCloneNameModal, setShowCloneNameModal] = useState(false);
+  // const [showCloneNameModal, setShowCloneNameModal] = useState(false);
   const [cloneNameInput, setCloneNameInput] = useState("");
 
   const [viewCampaignTab, setViewCampaignTab] = useState<
@@ -212,7 +220,7 @@ const Template: React.FC<TemplateProps> = ({
   );
 
   // ✅ NEW: Template name modal states
-  const [showTemplateNameModal, setShowTemplateNameModal] = useState(false);
+  // const [showTemplateNameModal, setShowTemplateNameModal] = useState(false);
   const [templateNameInput, setTemplateNameInput] = useState("");
   const [templateDefinitions, setTemplateDefinitions] = useState<
     TemplateDefinition[]
@@ -343,7 +351,7 @@ const Template: React.FC<TemplateProps> = ({
     }
 
     setIsPreparingCreateCampaign(true);
-    setShowTemplateNameModal(true);
+    dispatch(openPanel("template-name"));
     setTemplateNameInput("");
     setSelectedTemplateDefinitionId(null);
     setTemplateDefinitions([]);
@@ -424,7 +432,7 @@ const Template: React.FC<TemplateProps> = ({
 
         // ✅ Close modal and open builder
 
-        setShowTemplateNameModal(false);
+        dispatch(closePanel());
         setShowCampaignBuilder(true);
 
       } 
@@ -541,7 +549,7 @@ const Template: React.FC<TemplateProps> = ({
       }
 
       appModal.showSuccess("Campaign template renamed successfully!");
-      setShowRenameModal(false);
+      dispatch(closePanel());
       setSelectedCampaignTemplate(null);
       setRenameInput("");
       await fetchCampaignTemplates();
@@ -575,7 +583,7 @@ const Template: React.FC<TemplateProps> = ({
       }
 
       appModal.showSuccess("Campaign template cloned successfully!");
-      setShowCloneNameModal(false);
+      dispatch(closePanel());
       setSelectedCampaignTemplate(null);
       setCloneNameInput("");
       await fetchCampaignTemplates();
@@ -1116,7 +1124,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                                 onClick={() => {
                                   setSelectedCampaignTemplate(template);
                                   setRenameInput(template.templateName);
-                                  setShowRenameModal(true);
+                                  dispatch(openPanel("rename-blueprint"));
                                   setTemplateActionsAnchor(null);
                                 }}
                                 style={menuBtnStyle}
@@ -1154,7 +1162,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                                   setCloneNameInput(
                                     `${template.templateName} - copy`,
                                   );
-                                  setShowCloneNameModal(true);
+                                  dispatch(openPanel("clone-blueprint"));
                                   setTemplateActionsAnchor(null);
                                 }}
                                 style={menuBtnStyle}
@@ -1224,14 +1232,14 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
 
           <CommonSidePanel
             isOpen={showTemplateNameModal}
-            onClose={() => setShowTemplateNameModal(false)}
+            onClose={() => dispatch(closePanel())}
             title="📝 Create new campaign blueprint"
             width={440}
             footerContent={
               <>
                 <button
                   className="button secondary"
-                  onClick={() => setShowTemplateNameModal(false)}
+                  onClick={() => dispatch(closePanel())}
                   disabled={isCreatingCampaign}
                   style={{ 
                     padding: "10px 24px", 
@@ -1368,7 +1376,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
           <CommonSidePanel
             isOpen={showCloneNameModal && selectedCampaignTemplate !== null}
             onClose={() => {
-              setShowCloneNameModal(false);
+              dispatch(closePanel());
               setSelectedCampaignTemplate(null);
               setCloneNameInput("");
             }}
@@ -1378,7 +1386,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
               <>
                 <button
                   onClick={() => {
-                    setShowCloneNameModal(false);
+                    dispatch(closePanel());
                     setSelectedCampaignTemplate(null);
                     setCloneNameInput("");
                   }}
@@ -1459,7 +1467,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
           <CommonSidePanel
             isOpen={showRenameModal && selectedCampaignTemplate !== null}
             onClose={() => {
-              setShowRenameModal(false);
+              dispatch(closePanel());
               setSelectedCampaignTemplate(null);
               setRenameInput("");
             }}
@@ -1469,7 +1477,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
               <>
                 <button
                   onClick={() => {
-                    setShowRenameModal(false);
+                    dispatch(closePanel());
                     setSelectedCampaignTemplate(null);
                     setRenameInput("");
                   }}

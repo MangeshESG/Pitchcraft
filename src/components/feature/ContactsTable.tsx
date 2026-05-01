@@ -1,6 +1,9 @@
 import { useRef, useCallback, useState, useEffect } from "react";
 import React from "react";
 import CommonSidePanel from "../common/CommonSidePanel";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState } from "../../Redux/store";
+import { closePanel, openPanel } from "../../slices/panelSlice";
 
 interface ContactsTableProps {
   contacts: any[];
@@ -61,8 +64,18 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
   onColumnsChange,
   currentTab,
 }) => {
+  const dispatch = useDispatch();
+
+
   const [showColumnPanel, setShowColumnPanel] = useState(false);
   const [localColumns, setLocalColumns] = useState(columns);
+
+  const activePanel = useSelector(
+  (state: RootState) => state.panel.activePanel
+  );
+
+const showColumnSettingModal =
+    activePanel === "column-setting-modal";
 
   const colList = localColumns.filter((col) =>
     showCheckboxes ? col.visible : col.key !== "checkbox" && col.visible
@@ -112,7 +125,8 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
 
   // Close column panel when parent tab changes
   useEffect(() => {
-    setShowColumnPanel(false);
+    //setShowColumnPanel(false);
+    dispatch(closePanel());
   }, [currentTab]);
 
   return (
@@ -137,7 +151,13 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
             <div style={{ marginLeft: "auto", display: "flex", gap: 12 }}>
               <button
                 className="button secondary"
-                onClick={() => setShowColumnPanel(!showColumnPanel)}
+                onClick={() => 
+                  //setShowColumnPanel(!showColumnPanel)
+                  dispatch(activePanel === "column-setting-modal"
+                  ? closePanel()
+                  : openPanel("column-setting-modal"))
+
+                }
               >
                 Show/Hide Columns
               </button>
@@ -191,7 +211,12 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
           {viewMode === "table" && (
             <button
               className="button secondary"
-              onClick={() => setShowColumnPanel(!showColumnPanel)}
+              onClick={() => 
+                ///setShowColumnPanel(!showColumnPanel)
+                dispatch(activePanel === "column-setting-modal"
+                ? closePanel()
+                : openPanel("column-setting-modal"))
+              }
               style={{ marginLeft: "auto" }}
             >
               ⚙️ Columns
@@ -206,7 +231,7 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
         <div
           style={{
             width: "100%",
-            marginRight: showColumnPanel ? "300px" : "0",
+            marginRight: showColumnSettingModal ? "300px" : "0",
             transition: "margin-right 0.3s ease",
           }}
         >
@@ -328,8 +353,12 @@ const ContactsTable: React.FC<ContactsTableProps> = ({
 
         {/* Column Settings Sidebar Panel */}
         <CommonSidePanel
-          isOpen={showColumnPanel}
-          onClose={() => setShowColumnPanel(false)}
+          //isOpen={showColumnPanel}
+          isOpen={showColumnSettingModal}
+          onClose={() => 
+            //setShowColumnPanel(false)
+            dispatch(closePanel())
+          }
           title="Show/hide columns"
           width={320}
           children={
