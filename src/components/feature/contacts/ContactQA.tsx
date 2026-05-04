@@ -775,9 +775,7 @@ const ContactQA: React.FC<ContactQAProps> = ({
         <div>
           <h2 className="contact-qa-title">Q&amp;A</h2>
           <p className="contact-qa-subtitle">
-            Ask targeted questions about this contact and get answers grounded in
-            the profile, custom attributes, LinkedIn summary, notes, sent
-            emails, replies, and activity already stored in the CRM.
+            Interrogate the CRM to quickly find information about this contact from the contact profile, all note, all, email communications, stored LinkedIn summary and all activity stored in the CRM.
           </p>
           <div className="contact-qa-badges">
             <span className="contact-qa-badge">

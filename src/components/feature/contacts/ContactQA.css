@@ -39,19 +39,25 @@
 
 .contact-qa-badges {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+  flex-wrap: nowrap;
+  gap: 0;
   margin-top: 16px;
+  overflow-x: auto;
+  white-space: nowrap;
 }
 
 .contact-qa-badge {
-  background: #ffffff;
-  border: 1px solid #d1d5db;
-  border-radius: 999px;
   color: #374151;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 8px 12px;
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 0;
+}
+
+.contact-qa-badge + .contact-qa-badge::before {
+  color: #9ca3af;
+  content: "|";
+  margin: 0 12px;
 }
 
 .contact-qa-reset {
