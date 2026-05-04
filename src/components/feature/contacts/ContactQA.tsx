@@ -13,6 +13,28 @@ interface ContactQAMessage {
   createdAt: string;
 }
 
+interface ContactQAUsageSnapshot {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  cost: number;
+}
+
+interface ContactQAUsageState {
+  last: ContactQAUsageSnapshot;
+  total: ContactQAUsageSnapshot & {
+    questions: number;
+  };
+}
+
+interface ContactQANote {
+  id: string | number;
+  createdAt: string;
+  isPinned: boolean;
+  isUsedForGeneration: boolean;
+  content: string;
+}
+
 interface ContactQAEmailReply {
   from: string;
   subject: string;
@@ -54,6 +76,7 @@ interface ContactQAProps {
 }
 
 const CONTACT_QA_STORAGE_PREFIX = "contact_qa_messages";
+const CONTACT_QA_USAGE_STORAGE_PREFIX = "contact_qa_usage";
 
 const SUGGESTED_QUESTIONS = [
   "What questions has this contact already been asked in previous emails?",
@@ -164,6 +187,53 @@ const stringifyCustomFieldValue = (value: unknown): string => {
 const buildStorageKey = (clientId: number, contactId: number | string) =>
   `${CONTACT_QA_STORAGE_PREFIX}:${clientId}:${contactId}`;
 
+const buildUsageStorageKey = (clientId: number, contactId: number | string) =>
+  `${CONTACT_QA_USAGE_STORAGE_PREFIX}:${clientId}:${contactId}`;
+
+const createEmptyUsageState = (): ContactQAUsageState => ({
+  last: {
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+    cost: 0,
+  },
+  total: {
+    questions: 0,
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+    cost: 0,
+  },
+});
+
+const toIsoDate = (value?: string) => {
+  if (!value) return "";
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+
+  return parsed.toISOString();
+};
+
+const sortByDate = <T,>(items: T[], getDate: (item: T) => string) =>
+  [...items].sort((left, right) => {
+    const leftTime = new Date(getDate(left)).getTime();
+    const rightTime = new Date(getDate(right)).getTime();
+
+    if (Number.isNaN(leftTime) && Number.isNaN(rightTime)) return 0;
+    if (Number.isNaN(leftTime)) return 1;
+    if (Number.isNaN(rightTime)) return -1;
+
+    return leftTime - rightTime;
+  });
+
+const buildContextSummary = (contextPacket: unknown) =>
+  [
+    "CONTACT_QA_CONTEXT_V2",
+    "The JSON below is the canonical prospect context. Each note, email, reply, and activity item is a separate source record. A single answer may require combining facts from multiple records.",
+    JSON.stringify(contextPacket, null, 2),
+  ].join("\n\n");
+
 const readStoredMessages = (storageKey: string): ContactQAMessage[] => {
   try {
     const raw = sessionStorage.getItem(storageKey);
@@ -174,6 +244,33 @@ const readStoredMessages = (storageKey: string): ContactQAMessage[] => {
   } catch (error) {
     console.warn("Failed to restore contact Q&A chat:", error);
     return [];
+  }
+};
+
+const readStoredUsage = (storageKey: string): ContactQAUsageState => {
+  try {
+    const raw = sessionStorage.getItem(storageKey);
+    if (!raw) return createEmptyUsageState();
+
+    const parsed = JSON.parse(raw);
+    return {
+      last: {
+        promptTokens: Number(parsed?.last?.promptTokens ?? 0),
+        completionTokens: Number(parsed?.last?.completionTokens ?? 0),
+        totalTokens: Number(parsed?.last?.totalTokens ?? 0),
+        cost: Number(parsed?.last?.cost ?? 0),
+      },
+      total: {
+        questions: Number(parsed?.total?.questions ?? 0),
+        promptTokens: Number(parsed?.total?.promptTokens ?? 0),
+        completionTokens: Number(parsed?.total?.completionTokens ?? 0),
+        totalTokens: Number(parsed?.total?.totalTokens ?? 0),
+        cost: Number(parsed?.total?.cost ?? 0),
+      },
+    };
+  } catch (error) {
+    console.warn("Failed to restore contact Q&A usage:", error);
+    return createEmptyUsageState();
   }
 };
 
@@ -216,6 +313,61 @@ const extractAssistantReply = (payload: any): string => {
   return "";
 };
 
+const normalizeAssistantReply = (value: string) =>
+  value
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+const extractUsage = (payload: any): ContactQAUsageSnapshot => {
+  const promptTokens = Number(
+    payload?.promptTokens ??
+      payload?.PromptTokens ??
+      payload?.usage?.promptTokens ??
+      payload?.usage?.PromptTokens ??
+      payload?.usage?.input_tokens ??
+      payload?.usage?.inputTokens ??
+      0,
+  );
+
+  const completionTokens = Number(
+    payload?.completionTokens ??
+      payload?.CompletionTokens ??
+      payload?.usage?.completionTokens ??
+      payload?.usage?.CompletionTokens ??
+      payload?.usage?.output_tokens ??
+      payload?.usage?.outputTokens ??
+      0,
+  );
+
+  const totalTokens = Number(
+    payload?.totalTokens ??
+      payload?.TotalTokens ??
+      payload?.usage?.totalTokens ??
+      payload?.usage?.TotalTokens ??
+      promptTokens + completionTokens,
+  );
+
+  const cost = Number(
+    payload?.currentCost ??
+      payload?.CurrentCost ??
+      payload?.cost ??
+      payload?.Cost ??
+      payload?.usage?.cost ??
+      payload?.usage?.currentCost ??
+      payload?.usage?.CurrentCost ??
+      0,
+  );
+
+  return {
+    promptTokens,
+    completionTokens,
+    totalTokens,
+    cost,
+  };
+};
+
 const ContactQA: React.FC<ContactQAProps> = ({
   clientId,
   contactId,
@@ -228,16 +380,26 @@ const ContactQA: React.FC<ContactQAProps> = ({
     () => buildStorageKey(clientId, contactId),
     [clientId, contactId],
   );
+  const usageStorageKey = useMemo(
+    () => buildUsageStorageKey(clientId, contactId),
+    [clientId, contactId],
+  );
 
   const [messages, setMessages] = useState<ContactQAMessage[]>(() =>
     readStoredMessages(storageKey),
   );
+  const [usageState, setUsageState] = useState<ContactQAUsageState>(() =>
+    readStoredUsage(usageStorageKey),
+  );
+  const [userRole, setUserRole] = useState<string>("");
   const [question, setQuestion] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState("");
   const [showScrollTop, setShowScrollTop] = useState(false);
   const qaShellRef = useRef<HTMLDivElement | null>(null);
+  const latestAssistantMessageRef = useRef<HTMLDivElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const previousMessageCountRef = useRef(messages.length);
 
   const contactContext = useMemo(() => {
     const resolvedContact = contact || {};
@@ -248,38 +410,50 @@ const ContactQA: React.FC<ContactQAProps> = ({
         .join(" ")
         .trim();
 
-    const notes = (notesHistory || []).map((note: any) => ({
-      id: note.id,
-      createdAt: note.createdAt || note.date,
-      isPinned: Boolean(note.isPin),
-      isUsedForGeneration: Boolean(note.isUseInGenration),
-      content: htmlToText(note.note || note.content),
-    }));
+    const notes: ContactQANote[] = sortByDate(
+      (notesHistory || []).map((note: any) => ({
+        id: note.id,
+        createdAt: note.createdAt || note.date || "",
+        isPinned: Boolean(note.isPin),
+        isUsedForGeneration: Boolean(note.isUseInGenration),
+        content: htmlToText(note.note || note.content),
+      })),
+      (note) => note.createdAt,
+    );
 
-    const emails: ContactQAEmail[] = (emailTimeline || []).map((email: any) => ({
-      trackingId: email.trackingId,
-      source: email.source || "",
-      sentAt: email.sentAt || email.date,
-      from: email.senderEmailId || email.fromEmail || "",
-      to: email.toEmail || resolvedContact.email || "",
-      subject: email.subject || "",
-      body: htmlToText(email.body || email.email_body),
-      events: Array.isArray(email.events)
-        ? email.events.map((event: any) => ({
-            eventType: event.eventType,
-            eventAt: event.eventAt,
-            targetUrl: event.targetUrl || "",
-          }))
-        : [],
-      replies: Array.isArray(email.replies)
-        ? email.replies.map((reply: any) => ({
-            from: reply.fromEmail || reply.senderEmailId || "",
-            subject: reply.subject || "",
-            date: reply.date || reply.sentAt,
-            body: htmlToText(reply.body || reply.replyBody || reply.message),
-          }))
-        : [],
-    }));
+    const emails: ContactQAEmail[] = sortByDate(
+      (emailTimeline || []).map((email: any) => ({
+        trackingId: email.trackingId,
+        source: email.source || "",
+        sentAt: email.sentAt || email.date || "",
+        from: email.senderEmailId || email.fromEmail || "",
+        to: email.toEmail || resolvedContact.email || "",
+        subject: email.subject || "",
+        body: htmlToText(email.body || email.email_body),
+        events: sortByDate(
+          Array.isArray(email.events)
+            ? email.events.map((event: any) => ({
+                eventType: event.eventType,
+                eventAt: event.eventAt || "",
+                targetUrl: event.targetUrl || "",
+              }))
+            : [],
+          (event) => event.eventAt,
+        ),
+        replies: sortByDate(
+          Array.isArray(email.replies)
+            ? email.replies.map((reply: any) => ({
+                from: reply.fromEmail || reply.senderEmailId || "",
+                subject: reply.subject || "",
+                date: reply.date || reply.sentAt || "",
+                body: htmlToText(reply.body || reply.replyBody || reply.message),
+              }))
+            : [],
+          (reply) => reply.date,
+        ),
+      })),
+      (email) => email.sentAt,
+    );
 
     const customFields: ContactQACustomField[] = Object.entries(resolvedContact)
       .filter(([key, value]) => {
@@ -296,94 +470,107 @@ const ContactQA: React.FC<ContactQAProps> = ({
         value: stringifyCustomFieldValue(value),
       }));
 
-    const summaryLines = [
-      "CONTACT PROFILE",
-      `Full Name: ${fullName || "Unknown"}`,
-      `Email: ${resolvedContact.email || "Unknown"}`,
-      `Company: ${resolvedContact.company_name || "Unknown"}`,
-      `Job Title: ${resolvedContact.job_title || "Unknown"}`,
-      `Location: ${resolvedContact.country_or_address || "Unknown"}`,
-      `Website: ${resolvedContact.website || "Unknown"}`,
-      `LinkedIn URL: ${resolvedContact.linkedin_url || "Unknown"}`,
-      `Company Telephone: ${resolvedContact.companyTelephone || "Unknown"}`,
-      `Company Size: ${resolvedContact.companyEmployeeCount || "Unknown"}`,
-      `Industry: ${resolvedContact.companyIndustry || "Unknown"}`,
-      `Contact Created At: ${formatDateLabel(resolvedContact.contactCreatedAt || resolvedContact.created_at) || "Unknown"}`,
-      "",
-      "LINKEDIN SUMMARY",
-      htmlToText(resolvedContact.linkedIninformation || resolvedContact.linkedin_info) || "No LinkedIn summary available.",
-      "",
-      "CUSTOM FIELDS",
-      customFields.length > 0
-        ? customFields
-            .map(
-              (field, index) =>
-                `Field ${index + 1} - ${field.label}: ${field.value}`,
-            )
-            .join("\n")
-        : "No custom fields available.",
-      "",
-      "NOTES",
-      notes.length > 0
-        ? notes
-            .map(
-              (note, index) =>
-                `Note ${index + 1} (${formatDateLabel(note.createdAt) || "Unknown date"}${note.isPinned ? ", pinned" : ""}${note.isUsedForGeneration ? ", used for generation" : ""})\n${note.content || "No note content"}`,
-            )
-            .join("\n\n")
-        : "No notes available.",
-      "",
-      "EMAIL HISTORY",
-      emails.length > 0
-        ? emails
-            .map((email: ContactQAEmail, index: number) => {
-              const replyText =
-                email.replies.length > 0
-                  ? email.replies
-                      .map(
-                        (reply: ContactQAEmailReply, replyIndex: number) =>
-                          `Reply ${replyIndex + 1} (${formatDateLabel(reply.date) || "Unknown date"})\nFrom: ${reply.from || "Unknown"}\nSubject: ${reply.subject || "No subject"}\n${reply.body || "No reply body"}`,
-                      )
-                      .join("\n\n")
-                  : "No replies.";
+    const normalizedContact = {
+      id: resolvedContact.id || Number(contactId),
+      firstName: resolvedContact.first_name || "",
+      lastName: resolvedContact.last_name || "",
+      fullName,
+      email: resolvedContact.email || "",
+      companyName: resolvedContact.company_name || "",
+      jobTitle: resolvedContact.job_title || "",
+      location: resolvedContact.country_or_address || "",
+      website: resolvedContact.website || "",
+      linkedinUrl: resolvedContact.linkedin_url || "",
+      linkedinSummary:
+        htmlToText(
+          resolvedContact.linkedIninformation || resolvedContact.linkedin_info,
+        ) || "",
+      companyTelephone: resolvedContact.companyTelephone || "",
+      companyEmployeeCount: stringifyCustomFieldValue(
+        resolvedContact.companyEmployeeCount,
+      ),
+      companyIndustry: resolvedContact.companyIndustry || "",
+      createdAt: resolvedContact.contactCreatedAt || resolvedContact.created_at || "",
+      createdAtIso: toIsoDate(
+        resolvedContact.contactCreatedAt || resolvedContact.created_at,
+      ),
+      customFields,
+    };
 
-              const eventText =
-                email.events.length > 0
-                  ? email.events
-                      .map(
-                        (event: ContactQAEmailEvent, eventIndex: number) =>
-                          `Event ${eventIndex + 1}: ${event.eventType || "Unknown"} at ${formatDateLabel(event.eventAt) || "Unknown date"}${event.targetUrl ? ` (${event.targetUrl})` : ""}`,
-                      )
-                      .join("\n")
-                  : "No tracked events.";
-
-              return `Email ${index + 1} (${formatDateLabel(email.sentAt) || "Unknown date"})\nFrom: ${email.from || "Unknown"}\nTo: ${email.to || "Unknown"}\nSource: ${email.source || "Unknown"}\nSubject: ${email.subject || "No subject"}\nBody:\n${email.body || "No email body"}\n\nEvents:\n${eventText}\n\nReplies:\n${replyText}`;
-            })
-            .join("\n\n--------------------\n\n")
-        : "No email history available.",
-    ];
+    const contextPacket = {
+      schemaVersion: "contact_qa_v2",
+      entityType: "prospect",
+      answeringHints: [
+        "Use the JSON structure as the source of truth.",
+        "A single question may require evidence from multiple notes, emails, replies, or profile fields.",
+        "Treat every note, email, reply, and activity event as a separate source record.",
+        "When two records support the same answer, keep both records in mind together instead of choosing only one.",
+      ],
+      sourceCounts: {
+        notes: notes.length,
+        emails: emails.length,
+        replies: emails.reduce(
+          (total, email) => total + (email.replies?.length || 0),
+          0,
+        ),
+        customFields: customFields.length,
+      },
+      contact: normalizedContact,
+      linkedin: {
+        sourceType: "LinkedIn",
+        sourceId: "LINKEDIN-1",
+        url: resolvedContact.linkedin_url || "",
+        summary: normalizedContact.linkedinSummary,
+      },
+      notes: notes.map((note, index) => ({
+        sourceType: "Note",
+        sourceId: `NOTE-${index + 1}`,
+        noteId: note.id ?? "",
+        createdAt: note.createdAt || "",
+        createdAtIso: toIsoDate(note.createdAt),
+        flags: {
+          isPinned: note.isPinned,
+          isUsedForGeneration: note.isUsedForGeneration,
+        },
+        content: note.content || "",
+      })),
+      emails: emails.map((email, index) => ({
+        sourceType: "Email",
+        sourceId: `EMAIL-${index + 1}`,
+        trackingId: email.trackingId || "",
+        mailboxSource: email.source || "",
+        sentAt: email.sentAt || "",
+        sentAtIso: toIsoDate(email.sentAt),
+        from: email.from || "",
+        to: email.to || "",
+        subject: email.subject || "",
+        body: email.body || "",
+        replies: email.replies.map((reply: ContactQAEmailReply, replyIndex: number) => ({
+          sourceType: "Email",
+          sourceId: `EMAIL-${index + 1}-REPLY-${replyIndex + 1}`,
+          date: reply.date || "",
+          dateIso: toIsoDate(reply.date),
+          from: reply.from || "",
+          subject: reply.subject || "",
+          body: reply.body || "",
+        })),
+        events: email.events.map((event: ContactQAEmailEvent, eventIndex: number) => ({
+          sourceType: "Email",
+          sourceId: `EMAIL-${index + 1}-EVENT-${eventIndex + 1}`,
+          eventType: event.eventType || "",
+          eventAt: event.eventAt || "",
+          eventAtIso: toIsoDate(event.eventAt),
+          targetUrl: event.targetUrl || "",
+        })),
+      })),
+    };
 
     return {
-      contact: {
-        id: resolvedContact.id || Number(contactId),
-        fullName,
-        firstName: resolvedContact.first_name || "",
-        lastName: resolvedContact.last_name || "",
-        email: resolvedContact.email || "",
-        companyName: resolvedContact.company_name || "",
-        jobTitle: resolvedContact.job_title || "",
-        location: resolvedContact.country_or_address || "",
-        website: resolvedContact.website || "",
-        linkedinUrl: resolvedContact.linkedin_url || "",
-        linkedinSummary:
-          htmlToText(
-            resolvedContact.linkedIninformation || resolvedContact.linkedin_info,
-          ) || "",
-        customFields,
-      },
+      contact: normalizedContact,
       notes,
       emails,
-      contextSummary: summaryLines.join("\n"),
+      contextPacket,
+      contextSummary: buildContextSummary(contextPacket),
     };
   }, [contact, contactId, emailTimeline, notesHistory]);
 
@@ -402,13 +589,46 @@ const ContactQA: React.FC<ContactQAProps> = ({
     };
   }, [contactContext]);
 
+  const latestAssistantMessageId = useMemo(() => {
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      if (messages[index]?.role === "assistant") {
+        return messages[index].id;
+      }
+    }
+
+    return null;
+  }, [messages]);
+
   useEffect(() => {
     sessionStorage.setItem(storageKey, JSON.stringify(messages));
   }, [messages, storageKey]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isSending]);
+    sessionStorage.setItem(usageStorageKey, JSON.stringify(usageState));
+  }, [usageState, usageStorageKey]);
+
+  useEffect(() => {
+    const isAdminString = sessionStorage.getItem("isAdmin");
+    const isAdmin = isAdminString === "true";
+    setUserRole(isAdmin ? "ADMIN" : "USER");
+  }, []);
+
+  useEffect(() => {
+    const previousMessageCount = previousMessageCountRef.current;
+    const hasNewMessage = messages.length > previousMessageCount;
+    const lastMessage = messages[messages.length - 1];
+
+    if (hasNewMessage && lastMessage?.role === "assistant") {
+      latestAssistantMessageRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    } else if (hasNewMessage || isSending) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+
+    previousMessageCountRef.current = messages.length;
+  }, [isSending, messages]);
 
   useEffect(() => {
     const handleWindowScroll = () => {
@@ -440,9 +660,11 @@ const ContactQA: React.FC<ContactQAProps> = ({
 
   const handleReset = () => {
     setMessages([]);
+    setUsageState(createEmptyUsageState());
     setQuestion("");
     setError("");
     sessionStorage.removeItem(storageKey);
+    sessionStorage.removeItem(usageStorageKey);
   };
 
   const sendQuestion = async (overrideQuestion?: string) => {
@@ -476,7 +698,7 @@ const ContactQA: React.FC<ContactQAProps> = ({
           question: prompt,
           messages: messages.map(({ role, content }) => ({ role, content })),
 
-          context: contactContext,
+          context: contactContext.contextPacket,
           contextSummary: contactContext.contextSummary,
         }),
       });
@@ -497,15 +719,28 @@ const ContactQA: React.FC<ContactQAProps> = ({
         throw new Error("The contact Q&A endpoint returned an empty answer.");
       }
 
+      const usage = extractUsage(json);
+
       setMessages((prev) => [
         ...prev,
         {
           id: `${Date.now()}-assistant`,
           role: "assistant",
-          content: answer,
+          content: normalizeAssistantReply(answer),
           createdAt: new Date().toISOString(),
         },
       ]);
+
+      setUsageState((prev) => ({
+        last: usage,
+        total: {
+          questions: prev.total.questions + 1,
+          promptTokens: prev.total.promptTokens + usage.promptTokens,
+          completionTokens: prev.total.completionTokens + usage.completionTokens,
+          totalTokens: prev.total.totalTokens + usage.totalTokens,
+          cost: prev.total.cost + usage.cost,
+        },
+      }));
     } catch (requestError: any) {
       console.error("Contact Q&A request failed:", requestError);
       setError(
@@ -531,6 +766,8 @@ const ContactQA: React.FC<ContactQAProps> = ({
   const handleScrollToTop = () => {
     qaShellRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
+
+  const isAdmin = userRole === "ADMIN";
 
   return (
     <div ref={qaShellRef} className="contact-qa-shell">
@@ -567,14 +804,36 @@ const ContactQA: React.FC<ContactQAProps> = ({
           </div>
         </div>
 
-        <button
-          type="button"
-          className="contact-qa-reset"
-          onClick={handleReset}
-          disabled={isSending}
-        >
-          Reset chat
-        </button>
+        <div className="contact-qa-header-actions">
+          {isAdmin && (
+            <div className="contact-qa-usage-panel">
+              <div className="contact-qa-usage-row">
+                <strong>Last:</strong>
+                <span>In {usageState.last.promptTokens}</span>
+                <span>Out {usageState.last.completionTokens}</span>
+                <span>Tokens {usageState.last.totalTokens}</span>
+                <span>💲{usageState.last.cost.toFixed(6)}</span>
+              </div>
+              <div className="contact-qa-usage-row">
+                <strong>Total:</strong>
+                <span>Q {usageState.total.questions}</span>
+                <span>In {usageState.total.promptTokens}</span>
+                <span>Out {usageState.total.completionTokens}</span>
+                <span>Tokens {usageState.total.totalTokens}</span>
+                <span>💲{usageState.total.cost.toFixed(6)}</span>
+              </div>
+            </div>
+          )}
+
+          <button
+            type="button"
+            className="contact-qa-reset"
+            onClick={handleReset}
+            disabled={isSending}
+          >
+            Reset chat
+          </button>
+        </div>
       </div>
 
       <div className="contact-qa-board">
@@ -609,7 +868,16 @@ const ContactQA: React.FC<ContactQAProps> = ({
             </div>
           ) : (
             messages.map((message) => (
-              <div key={message.id} className={`contact-qa-row ${message.role}`}>
+              <div
+                key={message.id}
+                ref={
+                  message.role === "assistant" &&
+                  message.id === latestAssistantMessageId
+                    ? latestAssistantMessageRef
+                    : null
+                }
+                className={`contact-qa-row ${message.role}`}
+              >
                 <div className={`contact-qa-bubble ${message.role}`}>
                   {message.role === "assistant" ? (
                     <div className="contact-qa-markdown">

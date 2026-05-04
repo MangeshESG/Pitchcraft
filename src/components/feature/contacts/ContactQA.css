@@ -15,6 +15,13 @@
   margin-bottom: 18px;
 }
 
+.contact-qa-header-actions {
+  align-items: flex-end;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .contact-qa-title {
   font-size: 24px;
   font-weight: 700;
@@ -62,6 +69,27 @@
 .contact-qa-reset:hover {
   border-color: #3f9f42;
   color: #3f9f42;
+}
+
+.contact-qa-usage-panel {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  color: #334155;
+  font-size: 11px;
+  line-height: 1.35;
+  min-width: 320px;
+  padding: 8px 10px;
+}
+
+.contact-qa-usage-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.contact-qa-usage-row + .contact-qa-usage-row {
+  margin-top: 4px;
 }
 
 .contact-qa-board {
@@ -177,7 +205,7 @@
   max-width: min(78%, 760px);
   padding: 14px 16px;
   position: relative;
-  white-space: pre-wrap;
+  white-space: normal;
   word-break: break-word;
 }
 
@@ -186,6 +214,7 @@
   border-bottom-right-radius: 8px;
   box-shadow: 0 10px 22px rgba(63, 159, 66, 0.24);
   color: #ffffff;
+  white-space: pre-wrap;
 }
 
 .contact-qa-bubble.assistant {
@@ -194,6 +223,10 @@
   border-bottom-left-radius: 8px;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
   color: #1f2937;
+}
+
+.contact-qa-markdown {
+  white-space: normal;
 }
 
 .contact-qa-markdown > :first-child {
@@ -209,16 +242,26 @@
 .contact-qa-markdown ol,
 .contact-qa-markdown blockquote,
 .contact-qa-markdown pre {
-  margin: 0 0 12px;
+  margin: 0 0 8px;
 }
 
 .contact-qa-markdown ul,
 .contact-qa-markdown ol {
-  padding-left: 20px;
+  padding-left: 18px;
 }
 
 .contact-qa-markdown li + li {
-  margin-top: 6px;
+  margin-top: 4px;
+}
+
+.contact-qa-markdown h1,
+.contact-qa-markdown h2,
+.contact-qa-markdown h3,
+.contact-qa-markdown h4 {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+  margin: 0 0 8px;
 }
 
 .contact-qa-markdown blockquote {
@@ -389,8 +432,18 @@
     flex-direction: column;
   }
 
+  .contact-qa-header-actions {
+    align-items: stretch;
+    width: 100%;
+  }
+
   .contact-qa-bubble {
     max-width: 92%;
+  }
+
+  .contact-qa-usage-panel {
+    min-width: 0;
+    width: 100%;
   }
 
   .contact-qa-actions {
