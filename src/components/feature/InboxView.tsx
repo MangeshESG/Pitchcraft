@@ -78,6 +78,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error' | 'info' | 'warning'>('success');
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     const fetchInboxList = async () => {
@@ -472,6 +473,65 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     }
   };
 
+  const handleRefreshInbox = async () => {
+    if (!selectedInboxId || !selectedProvider) return;
+    
+    setIsRefreshing(true);
+    setLoading(true);
+    setError('');
+    
+    try {
+      // First call the refresh API
+      const response = await axios.post(
+        `${API_BASE_URL}/api/Inbox/RefreshInbox?inboxId=${selectedInboxId}&provider=${selectedProvider}`,
+        {},
+        {
+          headers: {
+            'accept': '*/*',
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      if (response.data.message) {
+        // Show success message
+        setToastMessage(response.data.message);
+        setToastType('success');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+        
+        // Clear current threads and selected thread
+        setThreads([]);
+        setSelectedThread(null);
+        
+        // Fetch updated inbox list
+        const refreshResponse = await axios.get(
+          `${API_BASE_URL}/api/Inbox/inbox?inboxId=${selectedInboxId}&Provider=${selectedProvider}`,
+          {
+            headers: {
+              accept: '*/*',
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+          }
+        );
+        
+        if (refreshResponse.data.success && refreshResponse.data.data) {
+          setThreads(refreshResponse.data.data);
+        }
+      }
+    } catch (err: any) {
+      console.error('Error refreshing inbox:', err);
+      setToastMessage(err.response?.data?.message || 'Failed to refresh inbox');
+      setToastType('error');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 6000);
+      setError('Failed to refresh inbox');
+    } finally {
+      setIsRefreshing(false);
+      setLoading(false);
+    }
+  };
+
   if (!isVisible) {
     return null;
   }
@@ -483,6 +543,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         message={toastMessage}
         type={toastType}
         onClose={() => setShowToast(false)}
+        position="bottom-center"
+        duration={3}
       />
       <p>
         View and manage your inbox emails with sender information and full message content.
@@ -494,19 +556,55 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           <label>
             Select Inbox <span style={{ color: 'red' }}>*</span>
           </label>
-          <select
-            value={selectedInboxId || ''}
-            onChange={handleInboxChange}
-            disabled={loading || inboxList.length === 0}
-            className={!selectedInboxId ? 'error' : ''}
-          >
-            <option value="">Choose an inbox</option>
-            {inboxList.map((inbox) => (
-              <option key={inbox.inboxId} value={inbox.inboxId}>
-                {inbox.emailAddress || `Inbox ${inbox.inboxId}`}
-              </option>
-            ))}
-          </select>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <select
+              value={selectedInboxId || ''}
+              onChange={handleInboxChange}
+              disabled={loading || inboxList.length === 0}
+              className={!selectedInboxId ? 'error' : ''}
+              style={{ flex: 1 }}
+            >
+              <option value="">Choose an inbox</option>
+              {inboxList.map((inbox) => (
+                <option key={inbox.inboxId} value={inbox.inboxId}>
+                  {inbox.emailAddress || `Inbox ${inbox.inboxId}`}
+                </option>
+              ))}
+            </select>
+            
+            {selectedInboxId && (
+              <button
+                onClick={handleRefreshInbox}
+                disabled={isRefreshing}
+                className="secondary-button"
+                style={{
+                  padding: '8px 12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  minWidth: 'auto',
+                  cursor: isRefreshing ? 'not-allowed' : 'pointer',
+                  opacity: isRefreshing ? 0.6 : 1
+                }}
+                title={isRefreshing ? 'Refreshing...' : 'Refresh inbox'}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="18px"
+                  height="18px"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  style={{
+                    animation: isRefreshing ? 'spin 1s linear infinite' : 'none'
+                  }}
+                >
+                  <g fill="#3f9f42">
+                    <path d="M8 1.5A6.5 6.5 0 001.5 8 .75.75 0 010 8a8 8 0 0113.5-5.81v-.94a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zM15.25 7.25A.75.75 0 0116 8a8 8 0 01-13.5 5.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z" />
+                  </g>
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -555,16 +653,44 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             {thread.subject}
                           </div>
                           <div className="mail-preview">
-                            {lastMessage.body
-                              .replace(/<[^>]*>/g, '')
-                              .replace(/&gt;/g, '>')
-                              .replace(/&lt;/g, '<')
-                              .replace(/&amp;/g, '&')
-                              .replace(/&quot;/g, '"')
-                              .replace(/&#39;/g, "'")
-                              .replace(/\s+/g, ' ')
-                              .trim()
-                              .substring(0, 100)}{lastMessage.body.length > 100 ? '...' : ''}
+                            {(() => {
+                              let cleanText = lastMessage.body;
+                              
+                              // First decode HTML entities
+                              const textarea = document.createElement('textarea');
+                              textarea.innerHTML = cleanText;
+                              cleanText = textarea.value;
+                              
+                              // Remove style and script tags with their content
+                              cleanText = cleanText
+                                .replace(/<style[^>]*>.*?<\/style>/gis, '')
+                                .replace(/<script[^>]*>.*?<\/script>/gis, '')
+                                .replace(/<!--.*?-->/gs, '') // Remove HTML comments
+                                .replace(/<head[^>]*>.*?<\/head>/gis, '') // Remove head section
+                                .replace(/<[^>]+>/g, '') // Remove all HTML tags
+                                .replace(/&nbsp;/gi, ' ')
+                                .replace(/&gt;/g, '>')
+                                .replace(/&lt;/g, '<')
+                                .replace(/&amp;/g, '&')
+                                .replace(/&quot;/g, '"')
+                                .replace(/&#39;/g, "'")
+                                .replace(/&#x[0-9A-Fa-f]+;/g, '') // Remove hex entities
+                                .replace(/&#[0-9]+;/g, '') // Remove numeric entities
+                                .replace(/\{[^}]*\}/g, '') // Remove anything in curly braces
+                                .replace(/v\\:\*|o\\:\*|w\\:\*/g, '') // Remove VML namespace declarations
+                                .replace(/behavior:url\([^)]*\)/g, '') // Remove behavior URLs
+                                .replace(/mso-[^;:]*:[^;]*/gi, '') // Remove MS Office styles
+                                .replace(/\s+/g, ' ') // Replace multiple spaces
+                                .trim();
+                              
+                              // If text is still gibberish, empty, or too short
+                              if (!cleanText || cleanText.length < 5 || /^[\W_\s]+$/.test(cleanText) || /^[v\\o\\w\\]/.test(cleanText)) {
+                                return 'No preview available';
+                              }
+                              
+                              // Return first 100 characters
+                              return cleanText.substring(0, 100) + (cleanText.length > 100 ? '...' : '');
+                            })()}
                           </div>
                         </div>
                       </div>
@@ -581,11 +707,14 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
               </button>
               <h3 className="mail-detail-subject" style={{ marginBottom: '24px', fontSize: '20px', fontWeight: '600' }}>{selectedThread.subject}</h3>
               
-              {selectedThread.messages.map((message, index) => {
+              {/* Sort messages by date - oldest first, latest last */}
+              {[...selectedThread.messages].sort((a, b) => 
+                new Date(a.date).getTime() - new Date(b.date).getTime()
+              ).map((message, index, sortedMessages) => {
                 const messageContactId = message.type === 'Reply' ? message.contactId : null;
                 console.log('Message type:', message.type, 'contactId:', messageContactId);
                 return (
-                <div key={message.messageId} style={{ marginBottom: index < selectedThread.messages.length - 1 ? '24px' : '0', paddingBottom: index < selectedThread.messages.length - 1 ? '24px' : '0', borderBottom: index < selectedThread.messages.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
+                <div key={message.messageId} style={{ marginBottom: index < sortedMessages.length - 1 ? '24px' : '0', paddingBottom: index < sortedMessages.length - 1 ? '24px' : '0', borderBottom: index < sortedMessages.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
                   <div className="mail-detail-header">
                     <div className="mail-detail-top">
                       <div className="mail-detail-avatar">{getInitials(message.fromEmail, message.contactName)}</div>
@@ -671,7 +800,6 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   <div className="mail-body" dangerouslySetInnerHTML={{ __html: formatEmailBody(message.body) }} style={{ maxWidth: '100%', overflowX: 'auto' }} />
                 </div>
               );})}
-              
               {/* Reply Section */}
               <div className="reply-section" style={{
                 marginTop: '24px',
