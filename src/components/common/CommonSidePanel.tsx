@@ -6,7 +6,7 @@ interface CommonSidePanelProps {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
-  width?: number;
+  width?: number | string;
   footerContent?: React.ReactNode;
   headerContent?: React.ReactNode;
 }

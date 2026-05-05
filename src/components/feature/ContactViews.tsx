@@ -154,6 +154,54 @@ const clearViewState = (clientId: string | number) => {
   }
 };
 
+const getFirstDefined = <T,>(...values: Array<T | undefined | null>): T | undefined =>
+  values.find((value) => value !== undefined && value !== null);
+
+const normalizeFiltersJson = (value: any): string => {
+  if (!value) {
+    return "";
+  }
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return "";
+  }
+};
+
+const normalizeIdArray = (value: any): number[] => {
+  if (Array.isArray(value)) {
+    return value.map(Number).filter((id) => Number.isFinite(id));
+  }
+
+  if (value == null || value === "") {
+    return [];
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      try {
+        return normalizeIdArray(JSON.parse(trimmed));
+      } catch {
+        return [];
+      }
+    }
+
+    return trimmed
+      .split(",")
+      .map((entry) => Number(entry.trim()))
+      .filter((id) => Number.isFinite(id));
+  }
+
+  const id = Number(value);
+  return Number.isFinite(id) ? [id] : [];
+};
+
 const normalizeFieldType = (value?: string): FieldType => {
   switch ((value || "").toLowerCase()) {
     case "number":
@@ -393,6 +441,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   const [editSegmentIds, setEditSegmentIds] = useState<number[]>([]);
   const [editFiltersJson, setEditFiltersJson] = useState("");
   const [editFiltersSeed, setEditFiltersSeed] = useState("");
+  const [isLoadingEditViewDetails, setIsLoadingEditViewDetails] = useState(false);
   const [viewActionsAnchor, setViewActionsAnchor] = useState<number | null>(null);
   const [viewContactCounts, setViewContactCounts] = useState<Record<number, number>>({});
   const [downloadingViewId, setDownloadingViewId] = useState<number | null>(null);
@@ -537,6 +586,13 @@ const handleDeleteContacts = async () => {
       })),
     [filterFields]
   );
+
+  const editHasCompleteFilters = useMemo(() => {
+    const parsedFilters = parseFiltersJson(editFiltersJson);
+    return (parsedFilters.groups || []).some((group) =>
+      (group.conditions || []).some((condition) => isCompleteCondition(condition))
+    );
+  }, [editFiltersJson]);
   const viewColumnNameMap = useMemo(
     () => ({
       ...(columnNameMap || {}),
@@ -707,6 +763,50 @@ const handleDeleteContacts = async () => {
     URL.revokeObjectURL(url);
   };
 
+  const normalizeViewFromApi = (view: any, meta?: ViewMeta): ViewItem => {
+    const serverFiltersJson = getFirstDefined(
+      view.filtersJson,
+      view.filters_json,
+      view.filterJson,
+      view.filter_json,
+      view.filters
+    );
+    const serverDataFileIds = getFirstDefined(
+      view.dataFileIds,
+      view.data_file_ids,
+      view.dataFileId,
+      view.data_file_id
+    );
+    const serverSegmentIds = getFirstDefined(
+      view.segmentIds,
+      view.segment_ids,
+      view.segmentId,
+      view.segment_id
+    );
+    const serverUseAll = getFirstDefined(
+      view.useAllDataFiles,
+      view.use_all_datafiles,
+      meta?.useAllDataFiles
+    );
+    const serverExcluded = getFirstDefined(
+      view.excludedDataFileIds,
+      view.excluded_datafile_ids,
+      meta?.excludedDataFileIds
+    );
+
+    return {
+      ...view,
+      ...meta,
+      filtersJson:
+        normalizeFiltersJson(meta?.filtersJson) ||
+        normalizeFiltersJson(serverFiltersJson),
+      dataFileIds: normalizeIdArray(meta?.dataFileIds || serverDataFileIds),
+      segmentIds: normalizeIdArray(meta?.segmentIds || serverSegmentIds),
+      useAllDataFiles: !!serverUseAll,
+      excludedDataFileIds: normalizeIdArray(serverExcluded),
+    };
+  };
+
   const fetchViews = async () => {
     if (!clientId) return;
     setIsLoadingViews(true);
@@ -719,22 +819,9 @@ const handleDeleteContacts = async () => {
       }
       const data: any[] = await response.json();
       const metaMap = loadViewMetaMap(clientId);
-      const merged = data.map((view) => {
-        const meta = metaMap[String(view.id)];
-        const serverUseAll =
-          view.useAllDataFiles ?? view.use_all_datafiles ?? meta?.useAllDataFiles;
-        const serverExcluded =
-          view.excludedDataFileIds ??
-          view.excluded_datafile_ids ??
-          meta?.excludedDataFileIds;
-
-        return {
-          ...view,
-          ...meta,
-          useAllDataFiles: serverUseAll,
-          excludedDataFileIds: serverExcluded,
-        };
-      });
+      const merged = data.map((view) =>
+        normalizeViewFromApi(view, metaMap[String(view.id)])
+      );
       setViews(merged);
     } catch (error) {
       console.error("Error fetching views:", error);
@@ -742,6 +829,41 @@ const handleDeleteContacts = async () => {
     } finally {
       setIsLoadingViews(false);
     }
+  };
+
+  const fetchViewForEdit = async (view: ViewItem): Promise<ViewItem> => {
+    const metaMap = loadViewMetaMap(clientId);
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/Crm/view-by-id?clientId=${clientId}&viewId=${view.id}`
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        return normalizeViewFromApi(data, metaMap[String(view.id)]);
+      }
+    } catch (error) {
+      console.warn("Could not fetch view details by id:", error);
+    }
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/Crm/views-by-client?clientId=${clientId}`
+      );
+
+      if (response.ok) {
+        const data: any[] = await response.json();
+        const matchedView = data.find((entry) => Number(entry.id) === Number(view.id));
+        if (matchedView) {
+          return normalizeViewFromApi(matchedView, metaMap[String(view.id)]);
+        }
+      }
+    } catch (error) {
+      console.warn("Could not refresh view details from list:", error);
+    }
+
+    return normalizeViewFromApi(view, metaMap[String(view.id)]);
   };
 
   useEffect(() => {
@@ -1373,7 +1495,7 @@ const handleDeleteContacts = async () => {
     setViewCurrentPage(1);
   };
 
-  const openEditPanel = (view: ViewItem) => {
+  const hydrateEditPanel = (view: ViewItem) => {
     setEditingView(view);
     setEditName(view.name || "");
     setEditDescription(view.description || "");
@@ -1392,7 +1514,26 @@ const handleDeleteContacts = async () => {
     setEditSegmentIds(view.segmentIds || []);
     setEditFiltersJson(view.filtersJson || "");
     setEditFiltersSeed(view.filtersJson || "");
+  };
+
+  const openEditPanel = async (view: ViewItem) => {
+    setViewActionsAnchor(null);
+    hydrateEditPanel(view);
     setIsEditPanelOpen(true);
+    setIsLoadingEditViewDetails(true);
+
+    try {
+      const freshView = await fetchViewForEdit(view);
+      hydrateEditPanel(freshView);
+      setViews((prev) =>
+        prev.map((item) => (item.id === freshView.id ? { ...item, ...freshView } : item))
+      );
+      if (selectedView?.id === freshView.id) {
+        setSelectedView(freshView);
+      }
+    } finally {
+      setIsLoadingEditViewDetails(false);
+    }
   };
 
   const toggleId = (
@@ -2240,17 +2381,19 @@ const handleDeleteContacts = async () => {
         isOpen={isEditPanelOpen}
         onClose={() => {
           setIsEditPanelOpen(false);
+          setIsLoadingEditViewDetails(false);
           setEditingView(null);
           setEditFiltersSeed("");
           setEditExcludedDataFileIds([]);
         }}
         title="Edit view"
-        width={800}
+        width="min(1120px, calc(100vw - 24px))"
         footerContent={
           <>
             <button
               onClick={() => {
                 setIsEditPanelOpen(false);
+                setIsLoadingEditViewDetails(false);
                 setEditingView(null);
                 setEditFiltersSeed("");
                 setEditExcludedDataFileIds([]);
@@ -2272,34 +2415,68 @@ const handleDeleteContacts = async () => {
             <button
               className="button primary"
               onClick={handleUpdateView}
-              disabled={isUpdatingView || !editName.trim() || !editFiltersJson}
+              disabled={
+                isLoadingEditViewDetails ||
+                isUpdatingView ||
+                !editName.trim() ||
+                !editHasCompleteFilters
+              }
               style={{
                 padding: "10px 32px",
                 background: "#fff",
                 color:
-                  editName.trim() && !isUpdatingView && editFiltersJson
+                  editName.trim() &&
+                  !isLoadingEditViewDetails &&
+                  !isUpdatingView &&
+                  editHasCompleteFilters
                     ? "#3f9f42"
                     : "#ccc",
                 border: `1px solid ${
-                  editName.trim() && !isUpdatingView && editFiltersJson
+                  editName.trim() &&
+                  !isLoadingEditViewDetails &&
+                  !isUpdatingView &&
+                  editHasCompleteFilters
                     ? "#3f9f42"
                     : "#ccc"
                 }`,
                 borderRadius: "24px",
                 cursor:
-                  editName.trim() && !isUpdatingView && editFiltersJson
+                  editName.trim() &&
+                  !isLoadingEditViewDetails &&
+                  !isUpdatingView &&
+                  editHasCompleteFilters
                     ? "pointer"
                     : "not-allowed",
                 fontSize: "14px",
                 fontWeight: "500",
               }}
             >
-              {isUpdatingView ? "Saving..." : "Save"}
+              {isLoadingEditViewDetails
+                ? "Loading..."
+                : isUpdatingView
+                ? "Saving..."
+                : "Save"}
             </button>
           </>
         }
       >
-        {!editFiltersJson && (
+        {isLoadingEditViewDetails && (
+          <div
+            style={{
+              marginBottom: 16,
+              padding: 12,
+              borderRadius: 8,
+              border: "1px solid #bfdbfe",
+              background: "#eff6ff",
+              color: "#1d4ed8",
+              fontSize: 13,
+            }}
+          >
+            Loading saved view filters...
+          </div>
+        )}
+
+        {!editFiltersSeed && (
           <div
             style={{
               marginBottom: 16,
@@ -2440,6 +2617,7 @@ const handleDeleteContacts = async () => {
             Filters
           </label>
           <FilterBuilder
+            key={`${editingView?.id || "new"}-${editFiltersSeed || "empty"}`}
             data={[]}
             fields={normalizedFilterFields}
             onFiltered={() => {}}
