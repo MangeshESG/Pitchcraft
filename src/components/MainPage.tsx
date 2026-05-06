@@ -39,6 +39,7 @@ import CampaignManagement from "./feature/CampaignManagement";
 import { useAppData } from "../contexts/AppDataContext";
 import { Dashboard } from "./feature/Dashboard";
 import EmailCampaignBuilder from "./feature/blueprint/EmailCampaignBuilder";
+import DeepSeekSearchGenerator from "./feature/blueprint/DeepSeekSearchGenerator";
 import Tracking from "./feature/Tracking";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { saveUserCredit } from "../slices/authSLice";
@@ -411,6 +412,8 @@ const MainPage: React.FC = () => {
           return "Blueprints - Create and manage email blueprints";
         case "Playground":
           return "Playground - Experiment with email generation";
+        case "DeepSeekSearch":
+          return "DeepSeek Search - Generate email with web search";
         case "DataCampaigns":
           if (contactsSubTab === "List") {
             return "Contact Lists - Create and manage contacts and segments";
@@ -484,6 +487,17 @@ const MainPage: React.FC = () => {
 
     setShowContactsSubmenu(initialTab === "DataCampaigns");
     setShowMailSubmenu(initialTab === "Mail");
+    setShowBlueprintSubmenu(
+      initialTab === "TestTemplate" ||
+        initialTab === "Playground" ||
+        initialTab === "DeepSeekSearch",
+    );
+    setBlueprintSubTab((prev) => {
+      if (initialTab === "Playground") return "Playground";
+      if (initialTab === "DeepSeekSearch") return "DeepSeekSearch";
+      if (initialTab === "TestTemplate") return "List";
+      return prev;
+    });
     if (initialTab !== "Settings") {
       setShowSettingsSubmenu(false);
     }
@@ -3548,8 +3562,16 @@ try {
     mountedTabs[tabName] || tab === tabName;
 
   const [showBlueprintSubmenu, setShowBlueprintSubmenu] =
-    useState<boolean>(false);
-  const [blueprintSubTab, setBlueprintSubTab] = useState<string>("List");
+    useState<boolean>(
+      initialTab === "TestTemplate" ||
+        initialTab === "Playground" ||
+        initialTab === "DeepSeekSearch",
+    );
+  const [blueprintSubTab, setBlueprintSubTab] = useState<string>(() => {
+    if (initialTab === "Playground") return "Playground";
+    if (initialTab === "DeepSeekSearch") return "DeepSeekSearch";
+    return "List";
+  });
 
   const handleSidebarNavigation = (
   e: React.MouseEvent<HTMLDivElement>
@@ -3633,7 +3655,13 @@ try {
                     </li>
 
                     <li
-                      className={`${tab === "TestTemplate" ? "active" : ""} ${
+                      className={`${
+                        tab === "TestTemplate" ||
+                        tab === "Playground" ||
+                        tab === "DeepSeekSearch"
+                          ? "active"
+                          : ""
+                      } ${
                         showBlueprintSubmenu
                           ? "has-submenu submenu-open"
                           : "has-submenu"
@@ -3702,22 +3730,44 @@ try {
 
                           {/* ADMIN only Playground */}
                           {userRole === "ADMIN" && (
-                            <li
-                              className={
-                                blueprintSubTab === "Playground" ? "active" : ""
-                              }
-                            >
-                              <button
-                                onClick={() => {
-                                  setBlueprintSubTab("Playground");
-                                  setTab("Playground");
-                                  navigate("/main?tab=Playground");
-                                }}
-                                className="submenu-button"
+                            <>
+                              <li
+                                className={
+                                  blueprintSubTab === "Playground"
+                                    ? "active"
+                                    : ""
+                                }
                               >
-                                Playground
-                              </button>
-                            </li>
+                                <button
+                                  onClick={() => {
+                                    setBlueprintSubTab("Playground");
+                                    setTab("Playground");
+                                    navigate("/main?tab=Playground");
+                                  }}
+                                  className="submenu-button"
+                                >
+                                  Playground
+                                </button>
+                              </li>
+                              <li
+                                className={
+                                  blueprintSubTab === "DeepSeekSearch"
+                                    ? "active"
+                                    : ""
+                                }
+                              >
+                                <button
+                                  onClick={() => {
+                                    setBlueprintSubTab("DeepSeekSearch");
+                                    setTab("DeepSeekSearch");
+                                    navigate("/main?tab=DeepSeekSearch");
+                                  }}
+                                  className="submenu-button"
+                                >
+                                  DeepSeek Search
+                                </button>
+                              </li>
+                            </>
                           )}
                         </ul>
                       )}
@@ -4283,6 +4333,11 @@ try {
             {shouldRenderTab("Playground") && userRole === "ADMIN" && (
               <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "Playground")}>
                 <EmailCampaignBuilder selectedClient={selectedClient} />
+              </div>
+            )}
+            {shouldRenderTab("DeepSeekSearch") && userRole === "ADMIN" && (
+              <div className="preserved-tab-panel" style={getTabPanelStyle(tab === "DeepSeekSearch")}>
+                <DeepSeekSearchGenerator />
               </div>
             )}
 
