@@ -79,6 +79,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error' | 'info' | 'warning'>('success');
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showReplySection, setShowReplySection] = useState(false);
+  const [collapsedEmails, setCollapsedEmails] = useState<{ [key: string]: boolean }>({});
 
   useEffect(() => {
     const fetchInboxList = async () => {
@@ -177,6 +179,14 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
   const handleThreadClick = async (thread: InboxThread) => {
     setSelectedThread(thread);
+    setShowReplySection(false);
+    
+    // Initialize all emails as collapsed with unique keys
+    const collapsed: { [key: string]: boolean } = {};
+    thread.messages.forEach((msg, idx) => {
+      collapsed[`${msg.messageId}-${idx}`] = true;
+    });
+    setCollapsedEmails(collapsed);
     
     // Mark thread as read
     if (thread.hasUnread) {
@@ -213,6 +223,15 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const handleBackToList = () => {
     setSelectedThread(null);
     setReplyText('');
+    setShowReplySection(false);
+    setCollapsedEmails({});
+  };
+
+  const toggleEmailCollapse = (messageId: string) => {
+    setCollapsedEmails(prev => ({
+      ...prev,
+      [messageId]: !prev[messageId]
+    }));
   };
 
   const handleKraftEmail = async () => {
@@ -712,9 +731,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 new Date(a.date).getTime() - new Date(b.date).getTime()
               ).map((message, index, sortedMessages) => {
                 const messageContactId = message.type === 'Reply' ? message.contactId : null;
+                const uniqueKey = `${message.messageId}-${index}`;
                 console.log('Message type:', message.type, 'contactId:', messageContactId);
                 return (
-                <div key={message.messageId} style={{ marginBottom: index < sortedMessages.length - 1 ? '24px' : '0', paddingBottom: index < sortedMessages.length - 1 ? '24px' : '0', borderBottom: index < sortedMessages.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
+                <div key={uniqueKey} style={{ marginBottom: index < sortedMessages.length - 1 ? '24px' : '0', paddingBottom: index < sortedMessages.length - 1 ? '24px' : '0', borderBottom: index < sortedMessages.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
                   <div className="mail-detail-header">
                     <div className="mail-detail-top">
                       <div className="mail-detail-avatar">{getInitials(message.fromEmail, message.contactName)}</div>
@@ -750,7 +770,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             {extractEmailAddress(message.toEmail || selectedThread.contactEmail)}
                           </span>
                           <button
-                            onClick={() => toggleMessageExpand(message.messageId)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleMessageExpand(message.messageId);
+                            }}
                             style={{
                               background: 'transparent',
                               border: 'none',
@@ -797,10 +820,99 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       <div className="mail-detail-date">{new Date(message.date).toLocaleString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}</div>
                     </div>
                   </div>
-                  <div className="mail-body" dangerouslySetInnerHTML={{ __html: formatEmailBody(message.body) }} style={{ maxWidth: '100%', overflowX: 'auto' }} />
+                  {collapsedEmails[uniqueKey] ? (
+                    <div 
+                      className="mail-body-preview" 
+                      onClick={() => toggleEmailCollapse(uniqueKey)}
+                      style={{ 
+                        padding: '16px 24px',
+                        cursor: 'pointer',
+                        color: '#6b7280',
+                        fontSize: '14px',
+                        borderLeft: '3px solid #e5e7eb',
+                        background: '#f9fafb',
+                        borderRadius: '4px',
+                        margin: '0 24px'
+                      }}
+                    >
+                      {(() => {
+                        let cleanText = message.body;
+                        const textarea = document.createElement('textarea');
+                        textarea.innerHTML = cleanText;
+                        cleanText = textarea.value;
+                        cleanText = cleanText
+                          .replace(/<style[^>]*>.*?<\/style>/gis, '')
+                          .replace(/<script[^>]*>.*?<\/script>/gis, '')
+                          .replace(/<!--.*?-->/gs, '')
+                          .replace(/<head[^>]*>.*?<\/head>/gis, '')
+                          .replace(/<[^>]+>/g, '')
+                          .replace(/&nbsp;/gi, ' ')
+                          .replace(/&gt;/g, '>')
+                          .replace(/&lt;/g, '<')
+                          .replace(/&amp;/g, '&')
+                          .replace(/&quot;/g, '"')
+                          .replace(/&#39;/g, "'")
+                          .replace(/&#x[0-9A-Fa-f]+;/g, '')
+                          .replace(/&#[0-9]+;/g, '')
+                          .replace(/\{[^}]*\}/g, '')
+                          .replace(/v\\:\*|o\\:\*|w\\:\*/g, '')
+                          .replace(/behavior:url\([^)]*\)/g, '')
+                          .replace(/mso-[^;:]*:[^;]*/gi, '')
+                          .replace(/\s+/g, ' ')
+                          .trim();
+                        
+                        // Get only the first line
+                        const lines = cleanText.split(/[\r\n]+/).filter(line => line.trim());
+                        const firstLine = lines[0] || cleanText.substring(0, 100);
+                        return firstLine.substring(0, 100) + (cleanText.length > 100 ? '...' : '');
+                      })()}
+                    </div>
+                  ) : (
+                    <div 
+                      onClick={() => toggleEmailCollapse(uniqueKey)} 
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div className="mail-body" dangerouslySetInnerHTML={{ __html: formatEmailBody(message.body) }} style={{ maxWidth: '100%', overflowX: 'auto' }} />
+                    </div>
+                  )}
                 </div>
               );})}
+              
+              {/* Reply Button */}
+              {!showReplySection && (
+                <div style={{ 
+                  marginTop: '24px',
+                  borderTop: '1px solid #e5e7eb',
+                  paddingTop: '24px',
+                  display: 'flex',
+                  justifyContent: 'center'
+                }}>
+                  <button
+                    onClick={() => setShowReplySection(true)}
+                    style={{
+                      padding: '10px 24px',
+                      background: '#3b82f6',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+                    </svg>
+                    Reply
+                  </button>
+                </div>
+              )}
+              
               {/* Reply Section */}
+              {showReplySection && (
               <div className="reply-section" style={{
                 marginTop: '24px',
                 borderTop: '1px solid #e5e7eb',
@@ -989,23 +1101,44 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     <RichTextEditor value={replyText} onChange={setReplyText} />
                   </div>
                 </Modal>
-                <button
-                  onClick={handleSendReply}
-                  disabled={!replyText.trim() || isSending}
-                  style={{
-                    padding: '10px 24px',
-                    background: (!replyText.trim() || isSending) ? '#ccc' : '#ef4444',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: (!replyText.trim() || isSending) ? 'not-allowed' : 'pointer',
-                    fontSize: '14px',
-                    fontWeight: '500'
-                  }}
-                >
-                  {isSending ? 'Sending...' : 'Send Reply'}
-                </button>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <button
+                    onClick={handleSendReply}
+                    disabled={!replyText.trim() || isSending}
+                    style={{
+                      padding: '10px 24px',
+                      background: (!replyText.trim() || isSending) ? '#ccc' : '#ef4444',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: (!replyText.trim() || isSending) ? 'not-allowed' : 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '500'
+                    }}
+                  >
+                    {isSending ? 'Sending...' : 'Send Reply'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowReplySection(false);
+                      setReplyText('');
+                    }}
+                    style={{
+                      padding: '10px 24px',
+                      background: '#6b7280',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '500'
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
+              )}
             </div>
           )}
         </div>

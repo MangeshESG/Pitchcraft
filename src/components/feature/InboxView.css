@@ -390,6 +390,14 @@
   margin: 0;
 }
 
+.mail-body-preview {
+  transition: background 0.2s;
+}
+
+.mail-body-preview:hover {
+  background: #f3f4f6 !important;
+}
+
 /* Scrollbar styling */
 .mail-list::-webkit-scrollbar,
 .mail-detail::-webkit-scrollbar {
