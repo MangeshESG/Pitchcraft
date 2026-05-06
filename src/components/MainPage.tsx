@@ -3948,6 +3948,21 @@ try {
                         <ul className="submenu">
                           <li
                             className={
+                              mailSubTab === "Inbox" ? "active" : ""
+                            }
+                          >
+                            <button
+                              onClick={() => {
+                                setMailSubTab("Inbox");
+                                setTab("Mail");
+                              }}
+                              className="submenu-button"
+                            >
+                              Inbox
+                            </button>
+                          </li>
+                          <li
+                            className={
                               mailSubTab === "Dashboard" ? "active" : ""
                             }
                           >
@@ -3989,21 +4004,6 @@ try {
                               className="submenu-button"
                             >
                               Schedules
-                            </button>
-                          </li>
-                          <li
-                            className={
-                              mailSubTab === "Inbox" ? "active" : ""
-                            }
-                          >
-                            <button
-                              onClick={() => {
-                                setMailSubTab("Inbox");
-                                setTab("Mail");
-                              }}
-                              className="submenu-button"
-                            >
-                              Inbox
                             </button>
                           </li>
                         </ul>
