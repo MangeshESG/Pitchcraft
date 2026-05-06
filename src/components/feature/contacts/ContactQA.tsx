@@ -841,13 +841,7 @@ const ContactQA: React.FC<ContactQAProps> = ({
           {messages.length === 0 ? (
             <div className="contact-qa-empty">
               <div className="contact-qa-empty-card">
-                <h3>Start a contact-specific conversation</h3>
-                <p>
-                  Use this space to ask what has already been asked, what the
-                  contact seems interested in, what has been promised, or what
-                  the best next question should be based on the full contact
-                  history.
-                </p>
+
 
                 <div className="contact-qa-suggestions">
                   {SUGGESTED_QUESTIONS.map((suggestion) => (
