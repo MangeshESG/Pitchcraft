@@ -7,6 +7,8 @@ import { Tooltip as ReactTooltip } from 'react-tooltip';
 import { copyToClipboard } from '../../utils/utils';
 import Modal from '../common/Modal';
 import ToastMessage from '../common/ToastMessage';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faTrashAlt } from '@fortawesome/free-regular-svg-icons';
 import './InboxView.css';
 
 interface InboxDropdownItem {
@@ -81,6 +83,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showReplySection, setShowReplySection] = useState(false);
   const [collapsedEmails, setCollapsedEmails] = useState<{ [key: string]: boolean }>({});
+  const [showDeleteDropdown, setShowDeleteDropdown] = useState(false);
 
   useEffect(() => {
     const fetchInboxList = async () => {
@@ -225,6 +228,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setReplyText('');
     setShowReplySection(false);
     setCollapsedEmails({});
+    setShowDeleteDropdown(false);
   };
 
   const toggleEmailCollapse = (messageId: string) => {
@@ -232,6 +236,62 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       ...prev,
       [messageId]: !prev[messageId]
     }));
+  };
+
+  const handleDeleteEmail = async (deleteMode: 'soft' | 'Permanent') => {
+    if (!selectedThread) return;
+    
+    // Show confirmation dialog
+    const confirmMessage = deleteMode === 'Permanent' 
+      ? 'Are you sure you want to permanently delete this email? This action cannot be undone.'
+      : 'Are you sure you want to delete this email from inbox?';
+    
+    if (!window.confirm(confirmMessage)) {
+      setShowDeleteDropdown(false);
+      return;
+    }
+    
+    setShowDeleteDropdown(false);
+    
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/Inbox/delete-conversation`,
+        {
+          trackingId: selectedThread.trackingId,
+          deleteMode: deleteMode,
+          clientid: parseInt(effectiveUserId)
+        },
+        {
+          headers: {
+            'accept': '*/*',
+            'Content-Type': 'application/json',
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      if (response.data.success) {
+        setToastMessage(deleteMode === 'Permanent' ? 'Email deleted permanently' : 'Email moved to trash');
+        setToastType('success');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+        
+        // Remove from list and close detail view
+        setThreads(threads.filter(t => t.trackingId !== selectedThread.trackingId));
+        setSelectedThread(null);
+      } else {
+        setToastMessage('Failed to delete email');
+        setToastType('error');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+      }
+    } catch (err: any) {
+      console.error('Error deleting email:', err);
+      setToastMessage(err.response?.data?.message || 'Failed to delete email');
+      setToastType('error');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    }
   };
 
   const handleKraftEmail = async () => {
@@ -569,64 +629,6 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         View and manage your inbox emails with sender information and full message content.
       </p>
 
-      {/* Inbox Selection */}
-      <div className="form-controls">
-        <div className="form-group">
-          <label>
-            Select Inbox <span style={{ color: 'red' }}>*</span>
-          </label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <select
-              value={selectedInboxId || ''}
-              onChange={handleInboxChange}
-              disabled={loading || inboxList.length === 0}
-              className={!selectedInboxId ? 'error' : ''}
-              style={{ flex: 1 }}
-            >
-              <option value="">Choose an inbox</option>
-              {inboxList.map((inbox) => (
-                <option key={inbox.inboxId} value={inbox.inboxId}>
-                  {inbox.emailAddress || `Inbox ${inbox.inboxId}`}
-                </option>
-              ))}
-            </select>
-            
-            {selectedInboxId && (
-              <button
-                onClick={handleRefreshInbox}
-                disabled={isRefreshing}
-                className="secondary-button"
-                style={{
-                  padding: '8px 12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  minWidth: 'auto',
-                  cursor: isRefreshing ? 'not-allowed' : 'pointer',
-                  opacity: isRefreshing ? 0.6 : 1
-                }}
-                title={isRefreshing ? 'Refreshing...' : 'Refresh inbox'}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="18px"
-                  height="18px"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  style={{
-                    animation: isRefreshing ? 'spin 1s linear infinite' : 'none'
-                  }}
-                >
-                  <g fill="#3f9f42">
-                    <path d="M8 1.5A6.5 6.5 0 001.5 8 .75.75 0 010 8a8 8 0 0113.5-5.81v-.94a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zM15.25 7.25A.75.75 0 0116 8a8 8 0 01-13.5 5.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z" />
-                  </g>
-                </svg>
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
       {loading && <LoadingSpinner message="Loading..." />}
 
       {error && (
@@ -643,11 +645,80 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       )}
 
       {/* Email Content */}
-      {selectedInboxId && !loading && !error && (
+      {!loading && !error && (
         <div className="inbox-content">
-          {!selectedThread ? (
-            <div className="mail-list mail-list-fullwidth">
-            {threads.length === 0 ? (
+          {/* Mail List - Always visible on left */}
+          <div className="mail-list">
+            {/* Inbox Selection - Inside mail list panel */}
+            <div style={{ 
+              padding: '12px 16px', 
+              background: '#fff', 
+              borderBottom: '1px solid #e5e7eb',
+              position: 'sticky',
+              top: 0,
+              zIndex: 10
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <select
+                  value={selectedInboxId || ''}
+                  onChange={handleInboxChange}
+                  disabled={loading || inboxList.length === 0}
+                  style={{ 
+                    flex: 1,
+                    padding: '8px 12px',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="">Choose an inbox</option>
+                  {inboxList.map((inbox) => (
+                    <option key={inbox.inboxId} value={inbox.inboxId}>
+                      {inbox.emailAddress || `Inbox ${inbox.inboxId}`}
+                    </option>
+                  ))}
+                </select>
+                
+                {selectedInboxId && (
+                  <button
+                    onClick={handleRefreshInbox}
+                    disabled={isRefreshing}
+                    style={{
+                      padding: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      background: '#f3f4f6',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '6px',
+                      cursor: isRefreshing ? 'not-allowed' : 'pointer',
+                      opacity: isRefreshing ? 0.6 : 1
+                    }}
+                    title={isRefreshing ? 'Refreshing...' : 'Refresh inbox'}
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16px"
+                      height="16px"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      style={{
+                        animation: isRefreshing ? 'spin 1s linear infinite' : 'none'
+                      }}
+                    >
+                      <g fill="#3f9f42">
+                        <path d="M8 1.5A6.5 6.5 0 001.5 8 .75.75 0 010 8a8 8 0 0113.5-5.81v-.94a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zM15.25 7.25A.75.75 0 0116 8a8 8 0 01-13.5 5.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z" />
+                      </g>
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+            
+            {/* Mail list items */}
+            {!selectedInboxId ? (
+              <div className="no-mails">Please select an inbox</div>
+            ) : threads.length === 0 ? (
               <div className="no-mails">No emails found</div>
             ) : (
               sortedGroups.map(([group, groupThreads]) => (
@@ -658,7 +729,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     return (
                       <div
                         key={thread.trackingId}
-                        className={`mail-item ${thread.hasUnread ? 'unread' : ''}`}
+                        className={`mail-item ${thread.hasUnread ? 'unread' : ''} ${selectedThread?.trackingId === thread.trackingId ? 'selected' : ''}`}
                         onClick={() => handleThreadClick(thread)}
                       >
                         <div className="mail-avatar">{getInitials(thread.contactEmail, lastMessage.contactName)}</div>
@@ -718,13 +789,98 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 </div>
               ))
             )}
-            </div>
-          ) : (
-            <div className="mail-detail mail-detail-fullwidth">
-              <button className="back-button" onClick={handleBackToList}>
-                ← Back to Inbox
-              </button>
-              <h3 className="mail-detail-subject" style={{ marginBottom: '24px', fontSize: '20px', fontWeight: '600' }}>{selectedThread.subject}</h3>
+          </div>
+          
+          {/* Mail Detail - Right side */}
+          {selectedThread ? (
+            <div className="mail-detail">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px 0', marginBottom: '24px' }}>
+                <h3 className="mail-detail-subject" style={{ fontSize: '20px', fontWeight: '600', margin: 0 }}>{selectedThread.subject}</h3>
+                <div style={{ position: 'relative' }}>
+                  <button
+                    onClick={() => setShowDeleteDropdown(!showDeleteDropdown)}
+                    style={{
+                      padding: '8px',
+                      background: 'transparent',
+                      color: '#3f9f42',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '40px',
+                      height: '40px',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = '#f3f4f6';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent';
+                    }}
+                  >
+                    <FontAwesomeIcon
+                      icon={faTrashAlt}
+                      style={{ fontSize: 20, color: '#3f9f42' }}
+                    />
+                  </button>
+                  
+                  {showDeleteDropdown && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
+                      right: 0,
+                      marginTop: '4px',
+                      background: '#fff',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '6px',
+                      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                      zIndex: 100,
+                      minWidth: '180px'
+                    }}>
+                      <button
+                        onClick={() => handleDeleteEmail('soft')}
+                        style={{
+                          width: '100%',
+                          padding: '10px 16px',
+                          background: 'transparent',
+                          border: 'none',
+                          textAlign: 'left',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          color: '#374151',
+                          borderBottom: '1px solid #e5e7eb',
+                          transition: 'background 0.2s'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                      >
+                        Delete from Inbox
+                      </button>
+                      <button
+                        onClick={() => handleDeleteEmail('Permanent')}
+                        style={{
+                          width: '100%',
+                          padding: '10px 16px',
+                          background: 'transparent',
+                          border: 'none',
+                          textAlign: 'left',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          color: '#ef4444',
+                          fontWeight: '500',
+                          transition: 'background 0.2s'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                      >
+                        Delete Permanently
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
               
               {/* Sort messages by date - oldest first, latest last */}
               {[...selectedThread.messages].sort((a, b) => 
@@ -880,13 +1036,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
               
               {/* Reply Button */}
               {!showReplySection && (
-                <div style={{ 
-                  marginTop: '24px',
-                  borderTop: '1px solid #e5e7eb',
-                  paddingTop: '24px',
-                  display: 'flex',
-                  justifyContent: 'center'
-                }}>
+                <div className="reply-button-sticky">
                   <button
                     onClick={() => setShowReplySection(true)}
                     style={{
@@ -1139,6 +1289,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 </div>
               </div>
               )}
+            </div>
+          ) : (
+            <div className="no-mail-selected">
+              Select an email to view
             </div>
           )}
         </div>
