@@ -3738,7 +3738,7 @@ try {
                                     : ""
                                 }
                               >
-                                <button
+                                {/* <button
                                   onClick={() => {
                                     setBlueprintSubTab("Playground");
                                     setTab("Playground");
@@ -3747,7 +3747,7 @@ try {
                                   className="submenu-button"
                                 >
                                   Playground
-                                </button>
+                                </button> */}
                               </li>
                               <li
                                 className={
@@ -3756,7 +3756,7 @@ try {
                                     : ""
                                 }
                               >
-                                <button
+                                {/* <button
                                   onClick={() => {
                                     setBlueprintSubTab("DeepSeekSearch");
                                     setTab("DeepSeekSearch");
@@ -3765,7 +3765,7 @@ try {
                                   className="submenu-button"
                                 >
                                   DeepSeek Search
-                                </button>
+                                </button> */}
                               </li>
                             </>
                           )}

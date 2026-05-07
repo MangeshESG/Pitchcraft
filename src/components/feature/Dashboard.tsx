@@ -32,7 +32,7 @@ const VIDEO_BASE = "https://app.pitchkraft.ai";
   return (
     <div className="mx-auto">
       {/* Toggle */}
-      <div className="flex justify-start items-center mb-2">
+      {/* <div className="flex justify-start items-center mb-2">
         <div className="flex border border-gray-200 rounded-lg overflow-hidden">
           <button
             onClick={() => setMode("new")}
@@ -49,7 +49,7 @@ const VIDEO_BASE = "https://app.pitchkraft.ai";
             Progress
           </button>
         </div>
-      </div>
+      </div> */}
 
       {/* ================= Get started ================= */}
       {mode === "new" && (

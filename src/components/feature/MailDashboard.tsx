@@ -1960,8 +1960,30 @@ const fetchLogsByCampaign = async (campaignId: string) => {
           </span>
         </div>
 
+        {(startDate || endDate) && (
+          <div className="form-group flex items-start">
+            <button
+              className="save-button button auto-width small d-flex justify-between align-center -ml-[20px]"
+              onClick={() => {
+                setStartDate("");
+                setEndDate("");
+                saveCurrentState();
+              }}
+              style={{ borderRadius: "12px" }}
+            >
+              Clear dates
+            </button>
+          </div>
+        )}
+
         <div className="form-group">
-          <label>Exclude bots:</label>
+          <ReactTooltip
+            anchorSelect="#mail-dashboard-only-guaranteed"
+            place="top"
+          >
+            Restrict to guaranteed opens and clicks by removing any chance of bot actions. This will deflate numbers pessimistically.
+          </ReactTooltip>
+          <label id="mail-dashboard-only-guaranteed">Only guaranteed:</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button
               onClick={() => setExcludeBots(!excludeBots)}
@@ -1980,22 +2002,6 @@ const fetchLogsByCampaign = async (campaignId: string) => {
             </span>
           </div>
         </div>
-
-        {(startDate || endDate) && (
-          <div className="form-group flex items-start">
-            <button
-              className="save-button button auto-width small d-flex justify-between align-center -ml-[20px]"
-              onClick={() => {
-                setStartDate("");
-                setEndDate("");
-                saveCurrentState();
-              }}
-              style={{ borderRadius: "12px" }}
-            >
-              Clear dates
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Stats Cards */}

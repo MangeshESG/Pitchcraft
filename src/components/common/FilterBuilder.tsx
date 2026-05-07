@@ -833,59 +833,54 @@ function FilterBuilder<T extends Record<string, any>>({
     }
   };
 
-  return (
-    <div style={cardStyle}>
-      <div
+  if (isCollapsed) {
+    return (
+      <button
+        type="button"
+        onClick={() => setIsCollapsed(false)}
+        aria-expanded={false}
+        aria-controls={rulesPanelId}
         style={{
-          padding: "18px 20px 14px",
-          borderBottom: "1px solid #e5efe5",
-          background:
-            "linear-gradient(135deg, rgba(239,248,240,1) 0%, rgba(248,252,248,1) 100%)",
+          ...actionButtonStyle,
+          minHeight: 36,
+          padding: "0 14px",
+          borderRadius: 8,
+          borderColor: "#b9d4bc",
+          background: "#ffffff",
+          color: "#24572b",
         }}
       >
-        <div
+        + Build view
+      </button>
+    );
+  }
+
+  return (
+    <div style={{ ...cardStyle, background: "#ffffff" }}>
+      <div
+        style={{
+          padding: "0 0 14px",
+          borderBottom: "1px solid #e5efe5",
+          background: "transparent",
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setIsCollapsed(true)}
+          aria-expanded
+          aria-controls={rulesPanelId}
           style={{
-            display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "space-between",
-            gap: 16,
+            ...actionButtonStyle,
+            minHeight: 36,
+            padding: "0 14px",
+            borderRadius: 8,
+            borderColor: "#b9d4bc",
+            background: "#ffffff",
+            color: "#24572b",
           }}
         >
-          <div style={{ minWidth: 0 }}>
-            <div
-              style={{
-                fontSize: 18,
-                fontWeight: 700,
-                color: "#16331a",
-                marginBottom: 4,
-              }}
-            >
-              Build filter rules
-            </div>
-            <div style={{ fontSize: 13, color: "#527057" }}>
-              Mix AND and OR inside groups, then combine groups for advanced logic.
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setIsCollapsed((previous) => !previous)}
-            aria-expanded={!isCollapsed}
-            aria-controls={rulesPanelId}
-            style={{
-              ...actionButtonStyle,
-              minHeight: 36,
-              padding: "0 14px",
-              borderRadius: 8,
-              borderColor: "#b9d4bc",
-              background: "#ffffff",
-              color: "#24572b",
-              flexShrink: 0,
-            }}
-          >
-            {isCollapsed ? "+ Expand" : "- Collapse"}
-          </button>
-        </div>
+          - Collapse
+        </button>
       </div>
 
       <div id={rulesPanelId} hidden={isCollapsed} style={{ padding: 20 }}>

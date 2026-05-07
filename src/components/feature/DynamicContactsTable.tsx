@@ -719,16 +719,9 @@ const displayData =
                   }}
                 >
                   <span style={{ fontSize: "18px" }}>+</span>
-                  Add Contact
+                  Add contact
                 </button>
               )}
-              <button
-                className="button secondary"
-                style={{ borderRadius:"12px" }}
-                onClick={() => setShowColumnPanel(!showColumnPanel)}
-              >
-                Show/hide columns
-              </button>
             </div>
           </div>
 
@@ -765,17 +758,31 @@ const displayData =
           {totalItems !== undefined && (
             <span style={{ fontWeight: 500,marginBottom:"-23px" }}>Total: {totalItems} items</span>
           )}
-          <div style={{marginLeft:"auto",display:"-moz-initial"}}>
-          <PaginationControls
-            currentPage={currentPage}
-            totalPages={totalPages}
-            pageSize={pageSize}
-            totalRecords={filteredData.length}
-            setCurrentPage={onPageChange}
-             setPageSize={setPageSize}
-             showPageSizeDropdown={true}
-             pageLabel="Page:"
-          />
+          <div
+            style={{
+              marginLeft: "auto",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+            }}
+          >
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalRecords={filteredData.length}
+              setCurrentPage={onPageChange}
+              setPageSize={setPageSize}
+              showPageSizeDropdown={true}
+              pageLabel="Page:"
+            />
+            <button
+              className="button secondary"
+              onClick={() => setShowColumnPanel(!showColumnPanel)}
+              style={{ transform: "translateY(13px)" }}
+            >
+              Columns
+            </button>
           </div>
           {showCheckboxes && selectedItems && selectedItems.size > 0 && (
             <span style={{ color: "#186bf3" }}>
@@ -785,15 +792,6 @@ const displayData =
                 ? `${filteredData.length} selected`
                 : `${selectedItems.size} selected`}
             </span>
-          )}
-          {viewMode === "table" && (
-            <button
-              className="button secondary"
-              onClick={() => setShowColumnPanel(!showColumnPanel)}
-              style={{ marginLeft: "auto" }}
-            >
-              ⚙️ Columns
-            </button>
           )}
           {/* Pagination */}
           {/* <div className="pagination-info ml-[124px] mt-[-13px]">
@@ -1014,7 +1012,7 @@ const displayData =
         <CommonSidePanel
           isOpen={showColumnPanel}
           onClose={() => setShowColumnPanel(false)}
-          title="Show/hide columns"
+          title="Columns"
           width={320}
           children={
             <div

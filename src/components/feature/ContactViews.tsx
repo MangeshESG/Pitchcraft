@@ -9,6 +9,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import duplicateIcon from "../../assets/images/icons/duplicate.png";
 import BulkUpdatePanel from "./BulkUpdatePanel";
 import SegmentModal from "../common/SegmentModal";
+import ToastMessage from "../common/ToastMessage";
 
 import {
   faEdit,
@@ -32,6 +33,7 @@ import {
 
 import { useAppModal } from "../../hooks/useAppModal";
 import { useAppData } from "../../contexts/AppDataContext";
+import { useToast } from "../../hooks/useToast";
 
 
 interface ContactFieldOption {
@@ -404,7 +406,6 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   columnNameMap,
   persistedColumnSelection = [],
   onColumnsChange,
-  onShowMessage,
   isActive = false,
   refreshToken = 0,
   currentTab,
@@ -452,7 +453,14 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   const [isUnsubscribing, setIsUnsubscribing] = useState(false);
 
   const appModal = useAppModal(); // ✅ correct place
+  const { toast, showToast, hideToast } = useToast();
   const { triggerRefresh } = useAppData();
+  const showContactMessage = (
+    message: string,
+    type: "success" | "error" | "info" | "warning"
+  ) => {
+    showToast(message, type, 3000);
+  };
   //------------------------------
   const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set());
   const handleSelectContact = (contactId: string) => {
@@ -672,7 +680,7 @@ const handleDeleteContacts = async () => {
 
   const downloadCSV = (data: any[], filename: string) => {
     if (!data || data.length === 0) {
-      onShowMessage?.("No contacts to download.", "error");
+      showContactMessage("No contacts to download.", "error");
       return;
     }
 
@@ -821,6 +829,10 @@ const handleDeleteContacts = async () => {
       const metaMap = loadViewMetaMap(clientId);
       const merged = data.map((view) =>
         normalizeViewFromApi(view, metaMap[String(view.id)])
+      ).sort((a, b) =>
+        (a.name || "").localeCompare(b.name || "", undefined, {
+          sensitivity: "base",
+        })
       );
       setViews(merged);
     } catch (error) {
@@ -1030,6 +1042,12 @@ const handleDeleteContacts = async () => {
           ? String(aVal).toLowerCase().localeCompare(String(bVal).toLowerCase())
           : String(bVal).toLowerCase().localeCompare(String(aVal).toLowerCase());
       });
+    } else {
+      filtered = [...filtered].sort((a, b) =>
+        (a.name || "").localeCompare(b.name || "", undefined, {
+          sensitivity: "base",
+        })
+      );
     }
     return filtered;
   }, [views, viewSearch, viewSortKey, viewSortDirection]);
@@ -1392,7 +1410,7 @@ const handleDeleteContacts = async () => {
       setBaseViewContacts([]);
       setViewContacts([]);
       setViewMetaMissing(false);
-      onShowMessage?.("Failed to load view contacts.", "error");
+      showContactMessage("Failed to load view contacts.", "error");
     } finally {
       setIsLoadingViewContacts(false);
     }
@@ -1404,7 +1422,7 @@ const handleDeleteContacts = async () => {
       const { contacts, metaMissing, contactCount } = await fetchViewContactsData(view);
 
       if (metaMissing) {
-        onShowMessage?.(
+        showContactMessage(
           "This view is missing saved filter metadata in this browser, so it cannot be downloaded yet.",
           "error"
         );
@@ -1412,7 +1430,7 @@ const handleDeleteContacts = async () => {
       }
 
       if (!contacts.length) {
-        onShowMessage?.("No contacts to download.", "error");
+        showContactMessage("No contacts to download.", "error");
         updateViewCountCache(view.id, 0);
         return;
       }
@@ -1424,7 +1442,7 @@ const handleDeleteContacts = async () => {
       downloadCSV(contacts, filename);
     } catch (error) {
       console.error("Error downloading view:", error);
-      onShowMessage?.("Failed to download view data.", "error");
+      showContactMessage("Failed to download view data.", "error");
     } finally {
       setDownloadingViewId(null);
       setViewActionsAnchor(null);
@@ -1471,10 +1489,10 @@ const handleDeleteContacts = async () => {
             setViewMetaMissing(false);
             clearViewState(clientId);
           }
-          onShowMessage?.("View deleted successfully.", "success");
+          showContactMessage("View deleted successfully.", "success");
         } catch (error) {
           console.error("Error deleting view:", error);
-          onShowMessage?.("Failed to delete view.", "error");
+          showContactMessage("Failed to delete view.", "error");
         }
       },
       "Delete view",
@@ -1551,7 +1569,7 @@ const handleDeleteContacts = async () => {
   const handleUpdateView = async () => {
     if (!editingView) return;
     if (!editName.trim()) {
-      onShowMessage?.("View name is required.", "error");
+      showContactMessage("View name is required.", "error");
       return;
     }
     const parsedFilters = parseFiltersJson(editFiltersJson);
@@ -1559,7 +1577,7 @@ const handleDeleteContacts = async () => {
       (group.conditions || []).filter((condition) => isCompleteCondition(condition))
     );
     if (completeConditions.length === 0) {
-      onShowMessage?.("Add at least one complete filter before saving.", "error");
+      showContactMessage("Add at least one complete filter before saving.", "error");
       return;
     }
 
@@ -1617,12 +1635,12 @@ const handleDeleteContacts = async () => {
       saveViewMetaMap(clientId, metaMap);
 
       triggerRefresh();
-      onShowMessage?.("View updated successfully.", "success");
+      showContactMessage("View updated successfully.", "success");
       setIsEditPanelOpen(false);
       setEditingView(null);
     } catch (error) {
       console.error("Error updating view:", error);
-      onShowMessage?.("Failed to update view.", "error");
+      showContactMessage("Failed to update view.", "error");
     } finally {
       setIsUpdatingView(false);
     }
@@ -1677,13 +1695,13 @@ const handleDeleteContacts = async () => {
             onSuccess: (savedView) => {
               fetchViews();
               triggerRefresh();
-              onShowMessage?.(
+              showContactMessage(
                 `New view "${savedView?.name || "Untitled view"}" created successfully.`,
                 "success"
               );
             },
             onError: (message) => {
-              onShowMessage?.(message, "error");
+              showContactMessage(message, "error");
             },
           }}
         />
@@ -2670,6 +2688,15 @@ effectiveUserId={String(clientId)}
   onContactsCleared={() => {
     setSelectedContacts(new Set());
   }}
+/>
+
+<ToastMessage
+  show={toast.show}
+  message={toast.message}
+  type={toast.type}
+  onClose={hideToast}
+  duration={3}
+  position="bottom-center"
 />
 
 <AppModal

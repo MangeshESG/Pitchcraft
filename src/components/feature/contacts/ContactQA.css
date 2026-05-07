@@ -134,14 +134,14 @@
 }
 
 .contact-qa-empty {
-  align-items: center;
+  align-items: flex-start;
   color: #4b5563;
   display: flex;
   flex: 1;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   margin: 10px 0;
-  text-align: center;
+  text-align: left;
 }
 
 .contact-qa-empty-card {
@@ -167,9 +167,10 @@
 
 .contact-qa-suggestions {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 10px;
-  justify-content: center;
+  justify-content: flex-start;
   margin-top: 20px;
 }
 
@@ -182,6 +183,7 @@
   font-size: 13px;
   font-weight: 600;
   padding: 10px 14px;
+  text-align: left;
   transition: all 0.2s ease;
 }
 

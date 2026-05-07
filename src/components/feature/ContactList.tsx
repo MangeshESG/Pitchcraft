@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import API_BASE_URL from "../../config";
 import "./ContactList.css";
 import DynamicContactsTable from "./DynamicContactsTable";
-import AppModal from "../common/AppModal";
+import ToastMessage from "../common/ToastMessage";
 import AddContactModal from "./AddContactModal";
 import EditContactModal from "./EditContactModal";
 import CreateListModal from "./CreateListModal";
@@ -13,8 +13,8 @@ import FilterBuilder from "../common/FilterBuilder";
 import ContactViews from "./ContactViews";
 import BulkUpdatePanel from "./BulkUpdatePanel";
 
-import { useAppModal } from "../../hooks/useAppModal";
 import { useAppData } from "../../contexts/AppDataContext";
+import { useToast } from "../../hooks/useToast";
 import { useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
 import PaginationControls from "./PaginationControls";
@@ -316,8 +316,14 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
     { key: "notes", label: "Notes Text", visible: false },
   ]);
 
-  const appModal = useAppModal();
+  const { toast, showToast, hideToast } = useToast();
   const { triggerRefresh } = useAppData();
+  const showContactMessage = (
+    message: string,
+    type: "success" | "error" | "info" | "warning"
+  ) => {
+    showToast(message, type, 3000);
+  };
   // Existing states
   const [zohoClient, setZohoClient] = useState<ZohoClient[]>([]);
   const [selectedZohoViewForDeletion, setSelectedZohoViewForDeletion] =
@@ -385,16 +391,11 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
         contactCount: superListCount
       };
       
-      // Find "All manually added contacts" if it exists
-      const manualContactsIndex = data.findIndex(file => file.name === "All manually added contacts");
-      let orderedData = [...data];
-      
-      if (manualContactsIndex !== -1) {
-        // Remove "All manually added contacts" from its current position
-        const manualContactsFile = orderedData.splice(manualContactsIndex, 1)[0];
-        // Insert it at the beginning of the remaining data
-        orderedData = [manualContactsFile, ...orderedData];
-      }
+      const orderedData = [...data].sort((a, b) =>
+        (a.name || "").localeCompare(b.name || "", undefined, {
+          sensitivity: "base",
+        })
+      );
       
       setDataFiles([superList, ...orderedData]);
        
@@ -827,7 +828,7 @@ const formatTimeIST = (dateString?: string) => {
         }
       }
 
-      appModal.showSuccess(`${contactsToDelete.length} contact(s) deleted successfully!`);
+      showContactMessage(`${contactsToDelete.length} contact(s) deleted successfully!`, "success");
 
       if (viewMode === "detail") {
         setDetailSelectedContacts(new Set());
@@ -843,7 +844,7 @@ const formatTimeIST = (dateString?: string) => {
 
     } catch (error) {
       console.error("Error deleting contacts:", error);
-      appModal.showError("Failed to delete contacts");
+      showContactMessage("Failed to delete contacts", "error");
     } finally {
       setIsDeletingContact(false);
     }
@@ -876,7 +877,7 @@ const formatTimeIST = (dateString?: string) => {
         }
       }
 
-      appModal.showSuccess(`${contactsToDelete.length} contact(s) deleted successfully!`);
+      showContactMessage(`${contactsToDelete.length} contact(s) deleted successfully!`, "success");
 
       if (segmentViewMode === "detail") {
         setDetailSelectedContacts(new Set());
@@ -890,7 +891,7 @@ const formatTimeIST = (dateString?: string) => {
 
     } catch (error) {
       console.error("Error deleting contacts:", error);
-      appModal.showError("Failed to delete contacts");
+      showContactMessage("Failed to delete contacts", "error");
     } finally {
       setIsDeletingContact(false);
     }
@@ -934,9 +935,9 @@ const formatTimeIST = (dateString?: string) => {
         if (response.ok) {
           const responseText = await response.text();
           if (responseText === "Unsubscribed Added Successfully") {
-            appModal.showSuccess(`${contact.email} has been unsubscribed successfully.`);
+            showContactMessage(`${contact.email} has been unsubscribed successfully.`, "success");
           } else if (responseText === "Already Unsubscribed") {
-            appModal.showInfo(`${contact.email} is already unsubscribed.`);
+            showContactMessage(`${contact.email} is already unsubscribed.`, "info");
           }
           successCount++;
         } else {
@@ -945,7 +946,7 @@ const formatTimeIST = (dateString?: string) => {
       }
 
       if (errorCount > 0) {
-        appModal.showError(`${errorCount} contact(s) failed to unsubscribe.`);
+        showContactMessage(`${errorCount} contact(s) failed to unsubscribe.`, "error");
       }
 
       // Clear selections
@@ -968,7 +969,7 @@ const formatTimeIST = (dateString?: string) => {
 
     } catch (error) {
       console.error("Error unsubscribing contacts:", error);
-      appModal.showError("Failed to unsubscribe contacts");
+      showContactMessage("Failed to unsubscribe contacts", "error");
     } finally {
       setIsUnsubscribing(false);
     }
@@ -1036,7 +1037,13 @@ const formatTimeIST = (dateString?: string) => {
       );
       if (!response.ok) throw new Error("Failed to fetch segments");
       const data = await response.json();
-      setSegments(data);
+      setSegments(
+        [...data].sort((a, b) =>
+          (a.name || "").localeCompare(b.name || "", undefined, {
+            sensitivity: "base",
+          })
+        )
+      );
       setSegmentCurrentPage(1)
     } catch (err) {
       setSegments([]);
@@ -1123,7 +1130,6 @@ const formatTimeIST = (dateString?: string) => {
   //     df.id.toString().includes(listSearch)
   // );
   const filteredDatafiles = useMemo(() => {
-    //const searchLower = listSearch.toLowerCase()
     let filtered = dataFiles.filter((file) => file.name.toLowerCase().includes(listSearch.toLowerCase()))
 
     // Apply sorting
@@ -1151,6 +1157,12 @@ const formatTimeIST = (dateString?: string) => {
           ? String(aVal).toLowerCase().localeCompare(String(bVal).toLowerCase())
           : String(bVal).toLowerCase().localeCompare(String(aVal).toLowerCase())
       })
+    } else {
+      filtered = [...filtered].sort((a, b) =>
+        (a.name || "").localeCompare(b.name || "", undefined, {
+          sensitivity: "base",
+        })
+      );
     }
 
     return filtered
@@ -1166,7 +1178,7 @@ const formatTimeIST = (dateString?: string) => {
       // Optionally show a toast: alert("List deleted successfully!");
       await fetchDataFiles(); // refresh the list
     } catch (err) {
-      appModal.showError("Failed to delete list");
+      showContactMessage("Failed to delete list", "error");
     } finally {
       setIsLoading(false);
       setEditingList(null);
@@ -1419,10 +1431,10 @@ const formatTimeIST = (dateString?: string) => {
       setRenamingListDescription("");
 
       // Show success message
-      appModal.showSuccess("List renamed successfully!");
+      showContactMessage("List renamed successfully!", "success");
     } catch (error) {
       console.error("Failed to rename list:", error);
-      appModal.showError("Failed to rename list. Please try again.");
+      showContactMessage("Failed to rename list. Please try again.", "error");
     } finally {
       setIsRenamingList(false);
     }
@@ -1531,10 +1543,10 @@ const formatTimeIST = (dateString?: string) => {
       setRenamingSegmentDescription("");
 
       // Show success message
-      appModal.showSuccess("Segment renamed successfully!");
+      showContactMessage("Segment renamed successfully!", "success");
     } catch (error) {
       console.error("Failed to rename segment:", error);
-      appModal.showError("Failed to rename segment. Please try again.");
+      showContactMessage("Failed to rename segment. Please try again.", "error");
     } finally {
       setIsRenamingSegment(false);
     }
@@ -1548,10 +1560,10 @@ const formatTimeIST = (dateString?: string) => {
       // Remove segment from local state
       setSegments((prev) => prev.filter((s) => s.id !== segment.id));
 
-      appModal.showSuccess("Segment deleted successfully!");
+      showContactMessage("Segment deleted successfully!", "success");
     } catch (error) {
       console.error("Failed to delete segment:", error);
-      appModal.showError("Failed to delete segment. Please try again.");
+      showContactMessage("Failed to delete segment. Please try again.", "error");
     } finally {
       setIsLoadingSegments(false);
       setEditingSegment(null);
@@ -1654,7 +1666,7 @@ const formatTimeIST = (dateString?: string) => {
   // Helper function to convert data to CSV
   const downloadCSV = (data: any[], filename: string) => {
     if (!data || data.length === 0) {
-      appModal.showWarning("No data to export");
+      showContactMessage("No data to export", "warning");
       return;
     }
     // Define all possible columns
@@ -1771,7 +1783,7 @@ const formatTimeIST = (dateString?: string) => {
       const contacts = data.contacts || [];
 
       if (contacts.length === 0) {
-        appModal.showWarning("No contacts to download");
+        showContactMessage("No contacts to download", "warning");
         return;
       }
 
@@ -1781,7 +1793,7 @@ const formatTimeIST = (dateString?: string) => {
       downloadCSV(contacts, filename);
     } catch (error) {
       console.error("Error downloading list:", error);
-      appModal.showError("Failed to download list data");
+      showContactMessage("Failed to download list data", "error");
     } finally {
       setIsLoading(false);
       setListActionsAnchor(null);
@@ -1804,7 +1816,7 @@ const formatTimeIST = (dateString?: string) => {
       const contacts = data.contacts || [];
 
       if (!contacts || contacts.length === 0) {
-        appModal.showWarning("No contacts to download");
+        showContactMessage("No contacts to download", "warning");
         return;
       }
 
@@ -1814,7 +1826,7 @@ const formatTimeIST = (dateString?: string) => {
       downloadCSV(contacts, filename);
     } catch (error) {
       console.error("Error downloading segment:", error);
-      appModal.showError("Failed to download segment data");
+      showContactMessage("Failed to download segment data", "error");
     } finally {
       setIsLoadingSegments(false);
       setSegmentActionsAnchor(null);
@@ -1870,6 +1882,12 @@ const formatTimeIST = (dateString?: string) => {
           ? String(aVal).toLowerCase().localeCompare(String(bVal).toLowerCase())
           : String(bVal).toLowerCase().localeCompare(String(aVal).toLowerCase())
       })
+    } else {
+      filtered = [...filtered].sort((a, b) =>
+        (a.name || "").localeCompare(b.name || "", undefined, {
+          sensitivity: "base",
+        })
+      );
     }
     const numericPageSizeSegments = getNumericPageSize(pageSize, filtered.length);
     const totalPages = Math.ceil(filtered.length / numericPageSizeSegments)
@@ -2124,6 +2142,21 @@ const filterFields: any = useMemo(() => {
                       </button>
                       <button
                         className="ml-10 save-button button auto-width small d-flex justify-between align-center"
+                        style={{
+                          borderRadius: "12px",
+                          padding: "0.5rem 0.8rem",
+                          fontSize: "15px",
+                          fontWeight: "600",
+                          height: "42px"
+                        }}
+                        onClick={() => {
+                          if (onAddContactClick) onAddContactClick();
+                        }}
+                      >
+                        Import list
+                      </button>
+                      <button
+                        className="ml-10 save-button button auto-width small d-flex justify-between align-center"
                         style={{ 
                           borderRadius: "12px",
                           padding: "0.5rem 0.8rem",
@@ -2150,24 +2183,6 @@ const filterFields: any = useMemo(() => {
                           zIndex: 101,
                           minWidth: 160
                         }}>
-                          <button
-                            onClick={() => {
-                              if (onAddContactClick) onAddContactClick();
-                              setShowCreateListOptions(false);
-                            }}
-                            style={{
-                              width: "100%",
-                              padding: "8px 18px",
-                              textAlign: "left",
-                              background: "none",
-                              border: "none",
-                              color: "#222",
-                              fontSize: "15px",
-                              cursor: "pointer"
-                            }}
-                          >
-                            📁 Upload file
-                          </button>
                           <button
                             onClick={() => {
                               setShowCreateListModal(true);
@@ -2687,11 +2702,12 @@ const filterFields: any = useMemo(() => {
                             onSuccess: (view) => {
                               setViewRefreshToken((prev) => prev + 1);
                               triggerRefresh();
-                              appModal.showSuccess(
-                                `View "${view?.name || "Saved view"}" created successfully!`
+                              showContactMessage(
+                                `View "${view?.name || "Saved view"}" created successfully!`,
+                                "success"
                               );
                             },
-                            onError: (message) => appModal.showError(message),
+                            onError: (message) => showContactMessage(message, "error"),
                           }}
                         />
                       </div>
@@ -2727,7 +2743,7 @@ const filterFields: any = useMemo(() => {
                                     );
                                     if (!response.ok)
                                       throw new Error("Failed to clone contact");
-                                    appModal.showSuccess("Contact cloned successfully!");
+                                    showContactMessage("Contact cloned successfully!", "success");
                                     if (selectedDataFileForView) {
                                       fetchDetailContacts(
                                         "list",
@@ -2736,7 +2752,7 @@ const filterFields: any = useMemo(() => {
                                     }
                                     setDetailSelectedContacts(new Set());
                                   } catch (error) {
-                                    appModal.showError("Failed to clone contact");
+                                    showContactMessage("Failed to clone contact", "error");
                                   } finally {
                                     setIsCloningContact(false);
                                   }
@@ -3102,9 +3118,7 @@ const filterFields: any = useMemo(() => {
                     setEditingContact(null);
                   }}
                   onShowMessage={(msg, type) => {
-                    type === 'success'
-                      ? appModal.showSuccess(msg)
-                      : appModal.showError(msg);
+                    showContactMessage(msg, type === "success" ? "success" : "error");
                   }}
                 />
               )}
@@ -3208,9 +3222,7 @@ const filterFields: any = useMemo(() => {
                      fetchContacts(); // optional, for list sync
                      }}
                     onShowMessage={(msg, type) => {
-                      type === "success"
-                        ? appModal.showSuccess(msg)
-                        : appModal.showError(msg);
+                      showContactMessage(msg, type === "success" ? "success" : "error");
                     }}
                   />
                 </>
@@ -3993,7 +4005,37 @@ const filterFields: any = useMemo(() => {
                     setSelectedSegmentForView(null);
                   }}
                   customHeader={
-                    detailSelectedContacts.size > 0 && (
+                    <>
+                      <div style={{ marginBottom: 16 }}>
+                        <FilterBuilder
+                          data={allDetailContacts}
+                          fields={filterFields}
+                          onFiltered={(data) => {
+                            setDetailContacts(data);
+                            setDetailTotalContacts(data.length);
+                            setDetailCurrentPage(1);
+                            setDetailSelectedContacts(new Set());
+                          }}
+                          clientId={effectiveUserId}
+                          saveViewConfig={{
+                            clientId: effectiveUserId,
+                            dataFileIds: [],
+                            segmentIds: selectedSegmentForView
+                              ? [selectedSegmentForView.id]
+                              : [],
+                            onSuccess: (view) => {
+                              setViewRefreshToken((prev) => prev + 1);
+                              triggerRefresh();
+                              showContactMessage(
+                                `View "${view?.name || "Saved view"}" created successfully!`,
+                                "success"
+                              );
+                            },
+                            onError: (message) => showContactMessage(message, "error"),
+                          }}
+                        />
+                      </div>
+                      {detailSelectedContacts.size > 0 && (
                       <div
                         style={{
                           marginBottom: 16,
@@ -4022,13 +4064,13 @@ const filterFields: any = useMemo(() => {
                                     { method: "POST", headers: { "accept": "*/*" } }
                                   );
                                   if (!response.ok) throw new Error("Failed to clone contact");
-                                  appModal.showSuccess("Contact cloned successfully!");
+                                  showContactMessage("Contact cloned successfully!", "success");
                                   if (selectedSegmentForView) {
                                     fetchDetailContacts("segment", selectedSegmentForView);
                                   }
                                   setDetailSelectedContacts(new Set());
                                 } catch (error) {
-                                  appModal.showError("Failed to clone contact");
+                                  showContactMessage("Failed to clone contact", "error");
                                 } finally {
                                   setIsCloningContact(false);
                                 }
@@ -4181,7 +4223,8 @@ const filterFields: any = useMemo(() => {
                           </button>
                         </div>
                       </div>
-                    )
+                      )}
+                    </>
                   }
                 />
               )}
@@ -4284,9 +4327,7 @@ const filterFields: any = useMemo(() => {
                      fetchContacts(); // optional, for list sync
                      }}
                     onShowMessage={(msg, type) => {
-                      type === "success"
-                        ? appModal.showSuccess(msg)
-                        : appModal.showError(msg);
+                      showContactMessage(msg, type === "success" ? "success" : "error");
                     }}
                   />
                 </>
@@ -4520,11 +4561,7 @@ const filterFields: any = useMemo(() => {
             saveSelectedColumns(visibleColumns);
           }}
           onShowMessage={(message, type) => {
-            if (type === "success") {
-              appModal.showSuccess(message);
-            } else {
-              appModal.showError(message);
-            }
+            showContactMessage(message, type === "success" ? "success" : "error");
           }}
         />
       </div>
@@ -4719,8 +4756,8 @@ const filterFields: any = useMemo(() => {
         effectiveUserId={effectiveUserId}
         token={sessionStorage.getItem("token")}
         dataFileId={getContactListDataFileId()}
-        onSuccess={(message) => appModal.showSuccess(message)}
-        onError={(message) => appModal.showError(message)}
+        onSuccess={(message) => showContactMessage(message, "success")}
+        onError={(message) => showContactMessage(message, "error")}
         onContactsCleared={clearContactListSelections}
         getContactIds={getContactListSegmentIds}
       />
@@ -4733,11 +4770,7 @@ const filterFields: any = useMemo(() => {
           fetchDataFiles();
         }}
         onShowMessage={(message, type) => {
-          if (type === 'success') {
-            appModal.showSuccess(message);
-          } else {
-            appModal.showError(message);
-          }
+          showContactMessage(message, type === "success" ? "success" : "error");
         }}
       />
       <AddContactModal
@@ -4757,11 +4790,7 @@ const filterFields: any = useMemo(() => {
           }
         }}
         onShowMessage={(message, type) => {
-          if (type === 'success') {
-            appModal.showSuccess(message);
-          } else {
-            appModal.showError(message);
-          }
+          showContactMessage(message, type === "success" ? "success" : "error");
         }}
       />
       <EditContactModal
@@ -4784,17 +4813,16 @@ const filterFields: any = useMemo(() => {
           setDetailSelectedContacts(new Set());
         }}
         onShowMessage={(message, type) => {
-          if (type === 'success') {
-            appModal.showSuccess(message);
-          } else {
-            appModal.showError(message);
-          }
+          showContactMessage(message, type === "success" ? "success" : "error");
         }}
       />
-      <AppModal
-        isOpen={appModal.isOpen}
-        onClose={appModal.hideModal}
-        {...appModal.config}
+      <ToastMessage
+        show={toast.show}
+        message={toast.message}
+        type={toast.type}
+        onClose={hideToast}
+        duration={3}
+        position="bottom-center"
       />
       <BulkUpdatePanel
         isOpen={showBulkUpdatePanel}
