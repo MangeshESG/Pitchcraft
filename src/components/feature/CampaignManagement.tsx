@@ -47,6 +47,9 @@ interface Campaign {
   promptId: number;
   clientId: number;
   description?: string;
+  createdAt?: string;
+  created_at?: string;
+  CreatedAt?: string;
   templateId?: number; // campaign blueprint ID
   segmentId?: number | null;
   zohoViewId?: string | null;
@@ -128,6 +131,21 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
     if (valueA > valueB) return direction === "asc" ? 1 : -1;
     return 0;
   };
+  const getCampaignCreatedAt = (campaign: Campaign) =>
+    campaign.createdAt || campaign.created_at || campaign.CreatedAt || "";
+
+  const formatDate = (dateString?: string | null) => {
+    if (!dateString) return "-";
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "-";
+
+    return date.toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
   const handleListSort = (key: string) => {
     if (listSortKey === key) {
       setListSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
@@ -151,7 +169,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
             const detail = await detailRes.json();
             return {
               ...c,
-              templateId: detail.templateId,
+              ...detail,
             };
           } catch {
             return c;
@@ -473,6 +491,15 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
         case "description":
           return compareStrings(a.description, b.description, listSortDirection);
 
+        case "createdAt":
+          const dateA = new Date(getCampaignCreatedAt(a)).getTime();
+          const dateB = new Date(getCampaignCreatedAt(b)).getTime();
+          const safeDateA = Number.isNaN(dateA) ? 0 : dateA;
+          const safeDateB = Number.isNaN(dateB) ? 0 : dateB;
+          return listSortDirection === "asc"
+            ? safeDateA - safeDateB
+            : safeDateB - safeDateA;
+
         default:
           return 0;
       }
@@ -567,14 +594,15 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
               <th onClick={() => handleListSort("templateName")} style={{ cursor: "pointer" }}>Blueprint{renderSortArrow("templateName", listSortKey, listSortDirection)}</th>
               <th onClick={() => handleListSort("description")} style={{ cursor: "pointer" }}>Data source</th>
               <th onClick={() => handleListSort("description")} style={{ cursor: "pointer" }}>Description{renderSortArrow("description", listSortKey, listSortDirection)}</th>
+              <th onClick={() => handleListSort("createdAt")} style={{ cursor: "pointer" }}>Creation date{renderSortArrow("createdAt", listSortKey, listSortDirection)}</th>
               <th onClick={() => handleListSort("name")} style={{ cursor: "pointer" }}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
-              <tr><td colSpan={5}>Loading...</td></tr>
+              <tr><td colSpan={6}>Loading...</td></tr>
             ) : paginatedCampaigns.length === 0 ? (
-              <tr><td colSpan={5}>No campaigns found.</td></tr>
+              <tr><td colSpan={6}>No campaigns found.</td></tr>
             ) : (
               paginatedCampaigns.map((c) => (
                 <tr key={c.id}>
@@ -602,6 +630,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                       : "-"}
                   </td>
                   <td>{c.description || "-"}</td>
+                  <td>{formatDate(getCampaignCreatedAt(c))}</td>
                   <td style={{ position: "relative" }}>
                     <button
                       onClick={() =>
