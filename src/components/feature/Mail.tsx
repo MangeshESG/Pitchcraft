@@ -353,7 +353,8 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     port: "",
     username: "",
     password: "",
-    useSSL: false,
+    encryption: "Auto",
+    fullInboxSync: false,
   });
   
   const [editingId, setEditingId] = useState(null);
@@ -435,12 +436,13 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   const handleEditInbox = (item: InboxCredential) => {
     setInboxForm({
       emailAddress: item.emailAddress,
-      protocol: item.protocol,
+      protocol: "IMAP",
       host: item.host,
       port: item.port.toString(),
       username: item.username,
       password: item.password,
-      useSSL: item.useSSL,
+      encryption: (item as any).encryption || "Auto",
+      fullInboxSync: (item as any).fullInboxSync || false,
     });
     setEditingInboxId(item.id);
     handleModalOpen("modal-edit-inbox");
@@ -455,12 +457,13 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       const payload = {
         clientId: effectiveUserId,
         emailAddress: inboxForm.emailAddress,
-        protocol: inboxForm.protocol,
+        protocol: "IMAP",
         host: inboxForm.host,
         port: parseInt(inboxForm.port),
-        useSSL: inboxForm.useSSL,
+        encryption: inboxForm.encryption,
         username: inboxForm.username,
         password: inboxForm.password,
+        fullInboxSync: inboxForm.fullInboxSync,
       };
 
       await axios.post(
@@ -486,7 +489,8 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
         port: "",
         username: "",
         password: "",
-        useSSL: false,
+        encryption: "Auto",
+        fullInboxSync: false,
       });
       setEditingInboxId(null);
       handleModalClose("modal-edit-inbox");
@@ -2698,7 +2702,8 @@ const actionIconStyle = {
                             port: "",
                             username: "",
                             password: "",
-                            useSSL: false,
+                            encryption: "Auto",
+                            fullInboxSync: false,
                           });
                         }}
                         style={{
@@ -2759,18 +2764,17 @@ const actionIconStyle = {
 
                       <div className="form-group">
                         <label>
-                          Protocol <span style={{ color: "red" }}>*</span>
+                          Username <span style={{ color: "red" }}>*</span>
                         </label>
-                        <select
-                          name="protocol"
-                          value={inboxForm.protocol}
+                        <input
+                          type="text"
+                          name="username"
+                          value={inboxForm.username}
                           onChange={handleChangeInbox}
                           required
                           style={{ width: "100%" }}
-                        >
-                          <option value="IMAP">IMAP</option>
-                          <option value="POP3">POP3</option>
-                        </select>
+                          placeholder="username"
+                        />
                       </div>
 
                       <div className="form-group">
@@ -2805,21 +2809,6 @@ const actionIconStyle = {
 
                       <div className="form-group">
                         <label>
-                          Username <span style={{ color: "red" }}>*</span>
-                        </label>
-                        <input
-                          type="text"
-                          name="username"
-                          value={inboxForm.username}
-                          onChange={handleChangeInbox}
-                          required
-                          style={{ width: "100%" }}
-                          placeholder="username"
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label>
                           Password <span style={{ color: "red" }}>*</span>
                         </label>
                         <input
@@ -2832,19 +2821,41 @@ const actionIconStyle = {
                           placeholder="••••••••"
                         />
                       </div>
+
+                      <div className="form-group">
+                        <label>Encryption</label>
+                        <select
+                          name="encryption"
+                          value={inboxForm.encryption}
+                          onChange={handleChangeInbox}
+                          style={{
+                            width: "100%",
+                            padding: "8px 12px",
+                            border: "1px solid #ccc",
+                            borderRadius: "4px",
+                            fontSize: "14px",
+                            backgroundColor: "white",
+                          }}
+                        >
+                          <option value="None">None</option>
+                          <option value="SSL/TLS">SSL/TLS</option>
+                          <option value="STARTTLS">STARTTLS</option>
+                          <option value="Auto">Auto</option>
+                        </select>
+                      </div>
                     </div>
 
                     <div style={{ display: "flex", alignItems: "center", marginTop: "16px" }}>
                       <input
                         type="checkbox"
-                        id="useSSL"
-                        name="useSSL"
-                        checked={inboxForm.useSSL}
+                        id="fullInboxSync"
+                        name="fullInboxSync"
+                        checked={inboxForm.fullInboxSync}
                         onChange={handleChangeInbox}
                         style={{ marginRight: "8px" }}
                       />
-                      <label htmlFor="useSSL" style={{ marginBottom: 0, cursor: "pointer" }}>
-                        Use SSL
+                      <label htmlFor="fullInboxSync" style={{ marginBottom: 0, cursor: "pointer" }}>
+                        Full inbox sync
                       </label>
                     </div>
                   </form>
