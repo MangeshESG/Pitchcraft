@@ -57,6 +57,18 @@ interface Campaign {
   description?: string;
 }
 
+const normalizeExternalUrl = (url?: string | null) => {
+  const trimmedUrl = url?.trim();
+
+  if (!trimmedUrl || trimmedUrl === "N/A" || trimmedUrl === "NA") {
+    return "";
+  }
+
+  return /^[a-z][a-z\d+.-]*:\/\//i.test(trimmedUrl)
+    ? trimmedUrl
+    : `https://${trimmedUrl}`;
+};
+
 interface OutputInterface {
   outputForm: {
     generatedContent: string;
@@ -2475,14 +2487,9 @@ useEffect(() => {
                            combinedResponses[currentIndex]?.website !== "N/A" && 
                            combinedResponses[currentIndex]?.website !== "NA" ? (
                             <a
-                              href={
-                                combinedResponses[currentIndex]?.website &&
-                                  !combinedResponses[currentIndex]?.website.startsWith(
-                                    "http",
-                                  )
-                                  ? `https://${combinedResponses[currentIndex]?.website}`
-                                  : combinedResponses[currentIndex]?.website
-                              }
+                              href={normalizeExternalUrl(
+                                combinedResponses[currentIndex]?.website,
+                              )}
                               target="_blank"
                               rel="noopener noreferrer"
                               id="website-icon-tooltip"
@@ -2546,7 +2553,9 @@ useEffect(() => {
                            combinedResponses[currentIndex]?.linkedin !== "N/A" && 
                            combinedResponses[currentIndex]?.linkedin !== "NA" ? (
                             <a
-                              href={combinedResponses[currentIndex]?.linkedin}
+                              href={normalizeExternalUrl(
+                                combinedResponses[currentIndex]?.linkedin,
+                              )}
                               target="_blank"
                               rel="noopener noreferrer"
                               style={{

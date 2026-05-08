@@ -1258,9 +1258,12 @@ const fetchLogsByCampaign = async (campaignId: string) => {
 
     // Make LinkedIn URL clickable
     if (key === "linkedin_URL" && contact.linkedin_URL) {
+      const cleanUrl = cleanLinkedInUrl(contact.linkedin_URL);
+      if (cleanUrl === "-") return "-";
+
       return (
         <a
-          href={contact.linkedin_URL}
+          href={cleanUrl}
           target="_blank"
           rel="noopener noreferrer"
           style={{ color: "#3f9f42", textDecoration: "underline" }}
@@ -1372,9 +1375,12 @@ const fetchLogsByCampaign = async (campaignId: string) => {
       case "linkedIn":
       case "linkedin_URL":
         if (log.linkedIn && log.linkedIn !== "-") {
+          const cleanUrl = cleanLinkedInUrl(log.linkedIn);
+          if (cleanUrl === "-") return "-";
+
           return (
             <a
-              href={log.linkedIn}
+              href={cleanUrl}
               target="_blank"
               rel="noopener noreferrer"
               style={{ color: "#3f9f42", textDecoration: "underline" }}
@@ -1385,9 +1391,12 @@ const fetchLogsByCampaign = async (campaignId: string) => {
           );
         }
         if (log.linkedin_URL && log.linkedin_URL !== "-") {
+          const cleanUrl = cleanLinkedInUrl(log.linkedin_URL);
+          if (cleanUrl === "-") return "-";
+
           return (
             <a
-              href={log.linkedin_URL}
+              href={cleanUrl}
               target="_blank"
               rel="noopener noreferrer"
               style={{ color: "#3f9f42", textDecoration: "underline" }}
@@ -1841,12 +1850,18 @@ const fetchLogsByCampaign = async (campaignId: string) => {
     if (!url || url === "-" || url === "N/A") return "-";
 
     // Remove various URL-encoded separators that might be appended
-    return url
+    const cleanUrl = url
       .replace(/%7C%7C$/, "") // Remove %7C%7C (||)
       .replace(/\|\|$/, "") // Remove ||
       .replace(/%7C$/, "") // Remove single %7C (|)
       .replace(/\|$/, "") // Remove single |
       .trim();
+
+    if (!cleanUrl || cleanUrl === "-" || cleanUrl === "N/A") return "-";
+
+    return /^[a-z][a-z\d+.-]*:\/\//i.test(cleanUrl)
+      ? cleanUrl
+      : `https://${cleanUrl}`;
   };
 
 

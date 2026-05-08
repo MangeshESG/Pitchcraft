@@ -33,6 +33,7 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
   const [name, setName] = useState("");
   const [type, setType] = useState("text");
   const [options, setOptions] = useState<string[]>([""]);
+  const [originalOptions, setOriginalOptions] = useState<string[]>([]);
 
   const [isPanelOpen, setIsPanelOpen] = useState(false);
 
@@ -93,9 +94,51 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
       return;
     }
 
+    const cleanedOptions = options
+      .map((o) => o.trim())
+      .filter(Boolean);
+
+    if (type === "dropdown" && cleanedOptions.length === 0) {
+      alert("Dropdown must have at least one option");
+      return;
+    }
+
+    const hasDuplicateOptions = cleanedOptions.some(
+      (option, index) =>
+        cleanedOptions.findIndex(
+          (existing) => existing.toLowerCase() === option.toLowerCase()
+        ) !== index
+    );
+
+    if (hasDuplicateOptions) {
+      alert("Dropdown options must be unique");
+      return;
+    }
+
+    const optionRenames =
+      isEditMode && editingField?.field_type === "dropdown" && type === "dropdown"
+        ? originalOptions.reduce<Record<string, string>>((renames, oldOption, index) => {
+            const oldValue = oldOption.trim();
+            const newValue = cleanedOptions[index]?.trim();
+
+            if (
+              oldValue &&
+              newValue &&
+              oldValue.toLowerCase() !== newValue.toLowerCase() &&
+              !originalOptions.some(
+                (option) => option.trim().toLowerCase() === newValue.toLowerCase()
+              )
+            ) {
+              renames[oldValue] = newValue;
+            }
+
+            return renames;
+          }, {})
+        : {};
+
     const optionsJson =
       type === "dropdown"
-        ? JSON.stringify(options.filter((o) => o.trim() !== ""))
+        ? JSON.stringify(cleanedOptions)
         : "[]";
 
     const body = isEditMode
@@ -104,6 +147,7 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
           fieldName: name,
           fieldType: type,
           optionsJson,
+          optionRenames,
         }
       : {
           clientId: effectiveUserId,
@@ -133,6 +177,7 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
     if (res.ok) {
       setName("");
       setOptions([""]);
+      setOriginalOptions([]);
       setIsEditMode(false);
       setEditingField(null);
       setIsPanelOpen(false);
@@ -181,6 +226,7 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
     setEditingField(null);
     setName("");
     setOptions([""]);
+    setOriginalOptions([]);
     setType("text");
     setIsPanelOpen(true);
   };
@@ -191,13 +237,18 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
     setEditingField(field);
     setName(field.field_name);
     setType(field.field_type);
+    setOptions([""]);
+    setOriginalOptions([]);
 
     if (field.field_type === "dropdown" && field.options_json) {
       try {
-        const opts = JSON.parse(field.options_json);
+        const parsedOptions = JSON.parse(field.options_json);
+        const opts = Array.isArray(parsedOptions) ? parsedOptions : [""];
         setOptions(opts);
+        setOriginalOptions(opts);
       } catch {
         setOptions([""]);
+        setOriginalOptions([]);
       }
     }
 

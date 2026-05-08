@@ -131,8 +131,8 @@ const fieldPickerPopoverStyle: React.CSSProperties = {
   top: "calc(100% + 8px)",
   left: 0,
   zIndex: 40,
-  width: "min(430px, calc(100vw - 64px))",
-  maxWidth: "100%",
+  width: "min(560px, calc(100vw - 96px))",
+  maxWidth: "calc(100vw - 96px)",
   maxHeight: 430,
   borderRadius: 20,
   border: "1px solid #d9e5db",
@@ -1168,7 +1168,7 @@ function FilterBuilder<T extends Record<string, any>>({
                             <div
                               style={{
                                 display: "grid",
-                                gridTemplateColumns: "170px minmax(0, 1fr)",
+                                gridTemplateColumns: "minmax(140px, 190px) minmax(0, 1fr)",
                                 height: 300,
                               }}
                             >
@@ -1193,6 +1193,7 @@ function FilterBuilder<T extends Record<string, any>>({
                                       display: "flex",
                                       alignItems: "center",
                                       justifyContent: "space-between",
+                                      gap: 10,
                                       padding: "12px 14px",
                                       borderRadius: 14,
                                       border: "none",
@@ -1211,7 +1212,16 @@ function FilterBuilder<T extends Record<string, any>>({
                                       textAlign: "left",
                                     }}
                                   >
-                                    <span>{category.label}</span>
+                                    <span
+                                      style={{
+                                        minWidth: 0,
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                        whiteSpace: "nowrap",
+                                      }}
+                                    >
+                                      {category.label}
+                                    </span>
                                     <span style={{ color: "#5f7664" }}>›</span>
                                   </button>
                                 ))}
@@ -1269,6 +1279,9 @@ function FilterBuilder<T extends Record<string, any>>({
                                               : 500,
                                           cursor: "pointer",
                                           textAlign: "left",
+                                          whiteSpace: "normal",
+                                          overflowWrap: "anywhere",
+                                          lineHeight: 1.35,
                                         }}
                                       >
                                         {fieldOption.label}

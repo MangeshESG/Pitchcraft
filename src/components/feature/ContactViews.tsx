@@ -1449,6 +1449,11 @@ const handleDeleteContacts = async () => {
     }
   };
 
+  const selectedViewDataFileKey = selectedView?.dataFileIds?.join(",") || "";
+  const selectedViewSegmentKey = selectedView?.segmentIds?.join(",") || "";
+  const selectedViewExcludedDataFileKey =
+    selectedView?.excludedDataFileIds?.join(",") || "";
+
   useEffect(() => {
     if (viewMode === "detail" && selectedView) {
       fetchContactsForView(selectedView);
@@ -1458,9 +1463,9 @@ const handleDeleteContacts = async () => {
     selectedView?.id,
     selectedView?.filtersJson,
     selectedView?.useAllDataFiles,
-    selectedView?.dataFileIds?.length,
-    selectedView?.segmentIds?.length,
-    selectedView?.excludedDataFileIds?.length,
+    selectedViewDataFileKey,
+    selectedViewSegmentKey,
+    selectedViewExcludedDataFileKey,
     availableDataFiles.length,
   ]);
 
@@ -1635,6 +1640,9 @@ const handleDeleteContacts = async () => {
       saveViewMetaMap(clientId, metaMap);
 
       triggerRefresh();
+      if (selectedView?.id === updatedView.id) {
+        await fetchContactsForView(updatedView);
+      }
       showContactMessage("View updated successfully.", "success");
       setIsEditPanelOpen(false);
       setEditingView(null);

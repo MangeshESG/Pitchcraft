@@ -124,6 +124,7 @@ const EditContactModal: React.FC<EditContactModalProps> = ({
     companyLinkedInURL: '',
     notes: ''
   });
+  const [isFullNameManuallyEdited, setIsFullNameManuallyEdited] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showEmailBodyPopup, setShowEmailBodyPopup] = useState(false);
   const [showNotesPopup, setShowNotesPopup] = useState(false);
@@ -315,6 +316,9 @@ const menuIconStyle = {
     return `${first.trim()} ${last.trim()}`.trim();
   };
 
+  const buildNameFromParts = (first: string, last: string) =>
+    `${first.trim()} ${last.trim()}`.trim();
+
   // Toggle expand/collapse for a note
   const toggleNoteExpand = (noteId: number) => {
     setExpandedNoteIds(prev => {
@@ -349,6 +353,7 @@ const menuIconStyle = {
   useEffect(() => {
     if (contact) {
       const { firstName, lastName, fullName } = getContactNameParts(contact);
+      setIsFullNameManuallyEdited(false);
       setFormData(prev => ({
         ...prev,
         firstName,
@@ -517,10 +522,34 @@ case "boolean":
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+
+    if (name === "fullName") {
+      setIsFullNameManuallyEdited(true);
+      setFormData(prev => ({
+        ...prev,
+        fullName: value
+      }));
+      return;
+    }
+
+    setFormData(prev => {
+      const nextFormData = {
+        ...prev,
+        [name]: value
+      };
+
+      if (
+        (name === "firstName" || name === "lastName") &&
+        !isFullNameManuallyEdited
+      ) {
+        nextFormData.fullName = buildNameFromParts(
+          name === "firstName" ? value : prev.firstName,
+          name === "lastName" ? value : prev.lastName
+        );
+      }
+
+      return nextFormData;
+    });
   };
   const stripHtml = (html: string): string => {
     const temp = document.createElement("div");

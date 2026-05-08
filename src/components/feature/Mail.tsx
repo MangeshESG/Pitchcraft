@@ -1,4 +1,4 @@
-import { useRef, useCallback, useState, useEffect } from "react";
+import { useRef, useCallback, useState, useEffect, type Dispatch, type SetStateAction } from "react";
 import Modal from "../common/Modal";
 import singleprvIcon from "../../assets/images/SinglePrv.png";
 import singlenextIcon from "../../assets/images/SingleNext.png";
@@ -1494,6 +1494,14 @@ const confirmDeleteSmtp = async () => {
   // Add these states for the new UI
   const [mailboxSearch, setMailboxSearch] = useState("");
   const [scheduleSearch, setScheduleSearch] = useState("");
+  const [smtpSortKey, setSmtpSortKey] = useState("server");
+  const [smtpSortDirection, setSmtpSortDirection] = useState<"asc" | "desc">("asc");
+  const [inboxSortKey, setInboxSortKey] = useState("host");
+  const [inboxSortDirection, setInboxSortDirection] = useState<"asc" | "desc">("asc");
+  const [bccSortKey, setBccSortKey] = useState("bccEmailAddress");
+  const [bccSortDirection, setBccSortDirection] = useState<"asc" | "desc">("asc");
+  const [domainSortKey, setDomainSortKey] = useState("domain");
+  const [domainSortDirection, setDomainSortDirection] = useState<"asc" | "desc">("asc");
   const [mailboxActionsAnchor, setMailboxActionsAnchor] = useState<
     string | null
   >(null);
@@ -1550,6 +1558,74 @@ const actionIconStyle = {
   justifyContent: "center",
   flexShrink: 0,
 };
+
+  const compareSortableValues = (
+    a: unknown,
+    b: unknown,
+    direction: "asc" | "desc"
+  ) => {
+    const normalize = (value: unknown) => {
+      if (typeof value === "boolean") return value ? 1 : 0;
+      if (typeof value === "number") return value;
+      if (value === null || value === undefined) return "";
+      return String(value).toLowerCase();
+    };
+
+    const valueA = normalize(a);
+    const valueB = normalize(b);
+    const comparison =
+      typeof valueA === "number" && typeof valueB === "number"
+        ? valueA - valueB
+        : String(valueA).localeCompare(String(valueB), undefined, {
+            numeric: true,
+            sensitivity: "base",
+          });
+
+    return direction === "asc" ? comparison : -comparison;
+  };
+
+  const renderSortArrow = (
+    columnKey: string,
+    currentSortKey: string,
+    direction: "asc" | "desc"
+  ) => {
+    if (columnKey !== currentSortKey) return "";
+    return direction === "asc" ? " ▲" : " ▼";
+  };
+
+  const toggleSort = (
+    key: string,
+    currentKey: string,
+    setKey: Dispatch<SetStateAction<string>>,
+    setDirection: Dispatch<SetStateAction<"asc" | "desc">>
+  ) => {
+    if (currentKey === key) {
+      setDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setKey(key);
+      setDirection("asc");
+    }
+  };
+
+  const getSmtpSortValue = (item: SmtpConfig, key: string) => {
+    if (key === "senderName") return (item as any).senderName;
+    if (key === "ssl") return (item as any).SecurityType || (item as any).securityType || item.usessl || item.useSsl;
+    return (item as any)[key];
+  };
+
+  const getInboxSortValue = (item: InboxCredential, key: string) => {
+    if (key === "ssl") return item.useSSL;
+    return (item as any)[key];
+  };
+
+  const getDomainSortValue = (domain: any, key: string) => {
+    if (key === "ownerAuth") return domain.domainverified;
+    if (key === "status") {
+      return domain.status || domain.domainStatus || domain.dkimStatus || domain.spfStatus || "";
+    }
+    return domain[key];
+  };
+
   // For Mail component - add these useEffects
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -1796,11 +1872,19 @@ const actionIconStyle = {
   const [currentPageMailbox, setCurrentPageMailbox] = useState(1);
 
   const safeSmtpList = asArray<SmtpConfig>(smtpList);
-  const filteredMailboxes = safeSmtpList.filter(
-    (item) =>
-      item.server?.toLowerCase().includes(mailboxSearch.toLowerCase()) ||
-      item.username?.toLowerCase().includes(mailboxSearch.toLowerCase())
-  );
+  const filteredMailboxes = safeSmtpList
+    .filter(
+      (item) =>
+        item.server?.toLowerCase().includes(mailboxSearch.toLowerCase()) ||
+        item.username?.toLowerCase().includes(mailboxSearch.toLowerCase())
+    )
+    .sort((a, b) =>
+      compareSortableValues(
+        getSmtpSortValue(a, smtpSortKey),
+        getSmtpSortValue(b, smtpSortKey),
+        smtpSortDirection
+      )
+    );
 
   const totalPagesMailbox = Math.ceil(filteredMailboxes.length / pageSize);
 
@@ -1813,12 +1897,20 @@ const actionIconStyle = {
   const [currentPageInbox, setCurrentPageInbox] = useState(1);
 
   const safeInboxList = asArray<InboxCredential>(inboxList);
-  const filteredInboxes = safeInboxList.filter(
-    (item) =>
-      item.host?.toLowerCase().includes(mailboxSearch.toLowerCase()) ||
-      item.username?.toLowerCase().includes(mailboxSearch.toLowerCase()) ||
-      item.emailAddress?.toLowerCase().includes(mailboxSearch.toLowerCase())
-  );
+  const filteredInboxes = safeInboxList
+    .filter(
+      (item) =>
+        item.host?.toLowerCase().includes(mailboxSearch.toLowerCase()) ||
+        item.username?.toLowerCase().includes(mailboxSearch.toLowerCase()) ||
+        item.emailAddress?.toLowerCase().includes(mailboxSearch.toLowerCase())
+    )
+    .sort((a, b) =>
+      compareSortableValues(
+        getInboxSortValue(a, inboxSortKey),
+        getInboxSortValue(b, inboxSortKey),
+        inboxSortDirection
+      )
+    );
 
   const totalPagesInbox = Math.ceil(filteredInboxes.length / pageSize);
 
@@ -1830,9 +1922,16 @@ const actionIconStyle = {
   const [bccPage, setBccPage] = useState(1);
   const bccPageSize = 10;
   const safeBccEmails = asArray<BccEmail>(bccEmails);
-  const totalPagesBCC = Math.ceil(safeBccEmails.length / bccPageSize);
+  const sortedBccEmails = [...safeBccEmails].sort((a, b) =>
+    compareSortableValues(
+      (a as any)[bccSortKey],
+      (b as any)[bccSortKey],
+      bccSortDirection
+    )
+  );
+  const totalPagesBCC = Math.ceil(sortedBccEmails.length / bccPageSize);
 
-  const paginatedBccEmails = safeBccEmails.slice(
+  const paginatedBccEmails = sortedBccEmails.slice(
     (bccPage - 1) * bccPageSize,
     bccPage * bccPageSize
   );
@@ -1848,6 +1947,13 @@ const actionIconStyle = {
   const [showDeleteDomainModal, setShowDeleteDomainModal] = useState(false);
   const [selectedDeleteDomain, setSelectedDeleteDomain] = useState<any>(null);
   const [deletingDomain, setDeletingDomain] = useState(false);
+  const sortedDomainData = [...domainData].sort((a, b) =>
+    compareSortableValues(
+      getDomainSortValue(a, domainSortKey),
+      getDomainSortValue(b, domainSortKey),
+      domainSortDirection
+    )
+  );
 
   // Handle domain validation click
   const handleDomainValidateClick = (domain: any) => {
@@ -2077,12 +2183,12 @@ const actionIconStyle = {
                     <table className="contacts-table" style={{ background: "#fff" }}>
                       <thead>
                         <tr>
-                          <th>Server</th>
-                          <th>Port</th>
-                          <th>Username</th>
-                          <th>From email</th>
-                          <th>Sender name</th>
-                          <th>SSL</th>
+                          <th onClick={() => toggleSort("server", smtpSortKey, setSmtpSortKey, setSmtpSortDirection)} style={{ cursor: "pointer" }}>Server{renderSortArrow("server", smtpSortKey, smtpSortDirection)}</th>
+                          <th onClick={() => toggleSort("port", smtpSortKey, setSmtpSortKey, setSmtpSortDirection)} style={{ cursor: "pointer" }}>Port{renderSortArrow("port", smtpSortKey, smtpSortDirection)}</th>
+                          <th onClick={() => toggleSort("username", smtpSortKey, setSmtpSortKey, setSmtpSortDirection)} style={{ cursor: "pointer" }}>Username{renderSortArrow("username", smtpSortKey, smtpSortDirection)}</th>
+                          <th onClick={() => toggleSort("fromEmail", smtpSortKey, setSmtpSortKey, setSmtpSortDirection)} style={{ cursor: "pointer" }}>From email{renderSortArrow("fromEmail", smtpSortKey, smtpSortDirection)}</th>
+                          <th onClick={() => toggleSort("senderName", smtpSortKey, setSmtpSortKey, setSmtpSortDirection)} style={{ cursor: "pointer" }}>Sender name{renderSortArrow("senderName", smtpSortKey, smtpSortDirection)}</th>
+                          <th onClick={() => toggleSort("ssl", smtpSortKey, setSmtpSortKey, setSmtpSortDirection)} style={{ cursor: "pointer" }}>SSL{renderSortArrow("ssl", smtpSortKey, smtpSortDirection)}</th>
                           <th>Actions</th>
                         </tr>
                       </thead>
@@ -2216,11 +2322,11 @@ const actionIconStyle = {
                     <table className="contacts-table" style={{ background: "#fff" }}>
                       <thead>
                         <tr>
-                          <th>Host</th>
-                          <th>Port</th>
-                          <th>Email Address</th>
-                          <th>Username</th>
-                          <th>SSL</th>
+                          <th onClick={() => toggleSort("host", inboxSortKey, setInboxSortKey, setInboxSortDirection)} style={{ cursor: "pointer" }}>Host{renderSortArrow("host", inboxSortKey, inboxSortDirection)}</th>
+                          <th onClick={() => toggleSort("port", inboxSortKey, setInboxSortKey, setInboxSortDirection)} style={{ cursor: "pointer" }}>Port{renderSortArrow("port", inboxSortKey, inboxSortDirection)}</th>
+                          <th onClick={() => toggleSort("emailAddress", inboxSortKey, setInboxSortKey, setInboxSortDirection)} style={{ cursor: "pointer" }}>Email Address{renderSortArrow("emailAddress", inboxSortKey, inboxSortDirection)}</th>
+                          <th onClick={() => toggleSort("username", inboxSortKey, setInboxSortKey, setInboxSortDirection)} style={{ cursor: "pointer" }}>Username{renderSortArrow("username", inboxSortKey, inboxSortDirection)}</th>
+                          <th onClick={() => toggleSort("ssl", inboxSortKey, setInboxSortKey, setInboxSortDirection)} style={{ cursor: "pointer" }}>SSL{renderSortArrow("ssl", inboxSortKey, inboxSortDirection)}</th>
                           <th>Actions</th>
                         </tr>
                       </thead>
@@ -2870,7 +2976,7 @@ const actionIconStyle = {
                 <table className="contacts-table" style={{ background: "#fff" }}>
                   <thead>
                     <tr>
-                      <th>BCC email address</th>
+                      <th onClick={() => toggleSort("bccEmailAddress", bccSortKey, setBccSortKey, setBccSortDirection)} style={{ cursor: "pointer" }}>BCC email address{renderSortArrow("bccEmailAddress", bccSortKey, bccSortDirection)}</th>
                       <th>Actions</th>
                     </tr>
                   </thead>
@@ -2919,7 +3025,7 @@ const actionIconStyle = {
                 <PaginationControls
                   currentPage={bccPage}
                   totalPages={totalPagesBCC}
-                  totalRecords={safeBccEmails.length}
+                  totalRecords={sortedBccEmails.length}
                   pageSize={pageSize}
                   setCurrentPage={setBccPage}
                    setPageSize={(size) => setPageSize(Number(size))}
@@ -3009,9 +3115,9 @@ const actionIconStyle = {
                 <table className="contacts-table" style={{ background: "#fff" }}>
                   <thead>
                     <tr>
-                      <th>Domain</th>
-                      <th>Domain owner authentication</th>
-                      <th>Domain status</th>
+                      <th onClick={() => toggleSort("domain", domainSortKey, setDomainSortKey, setDomainSortDirection)} style={{ cursor: "pointer" }}>Domain{renderSortArrow("domain", domainSortKey, domainSortDirection)}</th>
+                      <th onClick={() => toggleSort("ownerAuth", domainSortKey, setDomainSortKey, setDomainSortDirection)} style={{ cursor: "pointer" }}>Domain owner authentication{renderSortArrow("ownerAuth", domainSortKey, domainSortDirection)}</th>
+                      <th onClick={() => toggleSort("status", domainSortKey, setDomainSortKey, setDomainSortDirection)} style={{ cursor: "pointer" }}>Domain status{renderSortArrow("status", domainSortKey, domainSortDirection)}</th>
                       <th>Actions</th>
                     </tr>
                   </thead>
@@ -3022,8 +3128,8 @@ const actionIconStyle = {
                           Loading domain data...
                         </td>
                       </tr>
-                    ) : domainData.length > 0 ? (
-                      domainData.map((domain, index) => (
+                    ) : sortedDomainData.length > 0 ? (
+                      sortedDomainData.map((domain, index) => (
                         <tr key={domain.emailDomainId || index}>
                           <td>{domain.domain || "-"}</td>
                           <td>
