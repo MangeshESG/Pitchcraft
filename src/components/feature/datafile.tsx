@@ -83,7 +83,9 @@ const DataFile: React.FC<DataFileProps> = ({
   const [errors, setErrors] = useState<string[]>([]);
   const [validationErrors, setValidationErrors] = useState<Array<{row: number, field: string, value: string, message: string}>>([]);
   const [showValidationModal, setShowValidationModal] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [showErrorToast, setShowErrorToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
   const [processingStats, setProcessingStats] = useState({
     total: 0,
     valid: 0,
@@ -105,6 +107,28 @@ const DataFile: React.FC<DataFileProps> = ({
     name: string;
     description: string;
   }
+  const toastAnimation = `
+@keyframes toastProgress {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+`;
+
+  const showImportToast = (message: string, type: "success" | "error") => {
+    setToastMessage(message);
+
+    if (type === "success") {
+      setShowErrorToast(false);
+      setShowSuccessToast(true);
+      setTimeout(() => setShowSuccessToast(false), 6000);
+      return;
+    }
+
+    setShowSuccessToast(false);
+    setShowErrorToast(true);
+    setTimeout(() => setShowErrorToast(false), 6000);
+  };
+
   interface CustomField {
   id: number;
   field_name: string;
@@ -342,7 +366,7 @@ useEffect(() => {
   // Generate preview data
   const generatePreview = () => {
     const allValidData: ProcessedContact[] = [];
-    const preview: ProcessedContact[] = [];
+    const validPreview: ProcessedContact[] = [];
     const detailedErrors: Array<{row: number, field: string, value: string, message: string}> = [];
     let validCount = 0;
     let invalidCount = 0;
@@ -411,26 +435,24 @@ useEffect(() => {
       if (isValid) {
         validCount++;
         allValidData.push(mappedRow);
+        if (validPreview.length < 5) {
+          validPreview.push(mappedRow);
+        }
       } else {
         invalidCount++;
-      }
-
-      if (rowIndex < 5) {
-        preview.push(mappedRow);
       }
     });
 
     setValidationErrors(detailedErrors);
-    setPreviewData(preview);
+    setPreviewData(validPreview);
     setProcessingStats({
       total: totalRows,
       valid: validCount,
       invalid: invalidCount,
     });
     setValidatedData(allValidData);
-    
-    // Show validation modal if there are errors, otherwise proceed to step 3
-    if (detailedErrors.length > 0) {
+
+    if (validCount === 0 && detailedErrors.length > 0) {
       setShowValidationModal(true);
     } else {
       setCurrentStep(3);
@@ -444,9 +466,21 @@ useEffect(() => {
       return;
     }
 
+    const contactsToUpload = validatedData.filter(
+      (contact: any) => contact.email && isValidEmail(contact.email)
+    );
+
+    if (contactsToUpload.length === 0) {
+      setShowDataFileModal(false);
+      setErrors(["No valid contacts found. Please fix the invalid email rows before saving."]);
+      setCurrentStep(3);
+      return;
+    }
+
     setShowDataFileModal(false);
     setCurrentStep(4);
     setUploadProgress(0);
+    setErrors([]);
    // const clientId = sessionStorage.getItem("clientId"); 
 
     try {
@@ -456,7 +490,7 @@ useEffect(() => {
         name: dataFileInfo.name,
         dataFileName: uploadedFile?.name || "",
         description: dataFileInfo.description,
-          contacts: validatedData.map((contact: any) => {
+          contacts: contactsToUpload.map((contact: any) => {
             const firstName = contact.first_name?.trim() || "";
             const lastName = contact.last_name?.trim() || "";
             const fullName = (contact.full_name || contact.name || "").trim();
@@ -510,20 +544,22 @@ useEffect(() => {
 
       setProcessingStats({
         total: excelData.length,
-        valid: result.contactCount || validatedData.length,
+        valid: result.contactCount || contactsToUpload.length,
         invalid:
-          excelData.length - (result.contactCount || validatedData.length),
+          excelData.length - (result.contactCount || contactsToUpload.length),
       });
 
-      onDataProcessed(validatedData);
-      setShowSuccessModal(true);
+      onDataProcessed(contactsToUpload);
+      showImportToast(`${contactsToUpload.length} contacts imported successfully`, "success");
     } catch (error) {
       console.error("Error processing data:", error);
-      setErrors([
+      const errorMessage =
         error instanceof Error
           ? error.message
-          : "Failed to save data. Please try again.",
-      ]);
+          : "Failed to save data. Please try again.";
+
+      setErrors([errorMessage]);
+      showImportToast(errorMessage, "error");
       setCurrentStep(3);
     }
   };
@@ -863,6 +899,14 @@ useEffect(() => {
                 Please review the first 5 rows of your mapped data:
               </p>
 
+              {errors.length > 0 && (
+                <div className="alert alert-error mt-20 mb-20">
+                  {errors.map((error, index) => (
+                    <p key={index}>{error}</p>
+                  ))}
+                </div>
+              )}
+
               <div className="table-container">
                 <table className="preview-table">
                   <thead>
@@ -1014,37 +1058,145 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* Success Modal */}
-      <Modal
-        show={showSuccessModal}
-        closeModal={() => setShowSuccessModal(false)}
-        buttonLabel="Close"
-        size="auto-width"
-      >
-        <div className="text-center">
-          <svg
-            className="success-icon mb-20"
-            width="48"
-            height="48"
-            viewBox="0 0 24 24"
-            fill="none"
+      <style>{toastAnimation}</style>
+
+      {showSuccessToast && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 24,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "#E6F4EF",
+            color: "#2F3A34",
+            padding: "14px 22px",
+            borderRadius: 12,
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            boxShadow: "0 6px 18px rgba(0,0,0,0.06)",
+            zIndex: 99999,
+            minWidth: 420,
+            fontSize: 16,
+            fontWeight: 500,
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              height: 4,
+              width: "100%",
+              background: "#1F9D74",
+              animation: "toastProgress 3s linear forwards",
+            }}
+          />
+
+          <div
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: "50%",
+              background: "#1F9D74",
+              color: "#ffffff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 16,
+              fontWeight: 700,
+              flexShrink: 0,
+            }}
           >
-            <path
-              d="M20 6L9 17L4 12"
-              stroke="#4CAF50"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <circle cx="12" cy="12" r="10" stroke="#4CAF50" strokeWidth="2" />
-          </svg>
-          <h3>Success!</h3>
-          <p className="mt-10">Contacts have been imported successfully.</p>
-          <p className="text-large mt-10">
-            {processingStats.valid} contacts added
-          </p>
+            {"\u2713"}
+          </div>
+
+          <div style={{ flex: 1 }}>{toastMessage}</div>
+
+          <div
+            onClick={() => setShowSuccessToast(false)}
+            style={{
+              cursor: "pointer",
+              fontSize: 30,
+              fontWeight: 500,
+              color: "#6B7280",
+              lineHeight: 1,
+            }}
+          >
+            {"\u00d7"}
+          </div>
         </div>
-      </Modal>
+      )}
+
+      {showErrorToast && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 24,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "#FDECEC",
+            color: "#2F3A34",
+            padding: "14px 22px",
+            borderRadius: 12,
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            boxShadow: "0 6px 18px rgba(0,0,0,0.06)",
+            zIndex: 99999,
+            minWidth: 420,
+            fontSize: 16,
+            fontWeight: 500,
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              height: 4,
+              width: "100%",
+              background: "#DC2626",
+              animation: "toastProgress 3s linear forwards",
+            }}
+          />
+
+          <div
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: "50%",
+              background: "#DC2626",
+              color: "#ffffff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 16,
+              fontWeight: 700,
+              flexShrink: 0,
+            }}
+          >
+            !
+          </div>
+
+          <div style={{ flex: 1 }}>{toastMessage}</div>
+
+          <div
+            onClick={() => setShowErrorToast(false)}
+            style={{
+              cursor: "pointer",
+              fontSize: 30,
+              fontWeight: 500,
+              color: "#9CA3AF",
+              lineHeight: 1,
+            }}
+          >
+            {"\u00d7"}
+          </div>
+        </div>
+      )}
 
       {/* Data File Info Modal */}
       <Modal

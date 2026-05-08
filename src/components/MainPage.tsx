@@ -421,6 +421,9 @@ const MainPage: React.FC = () => {
           if (contactsSubTab === "View") {
             return "Contact Views - Create and manage views";
           }
+          if (contactsSubTab === "CustomFields") {
+            return "Custom attributes - Manage contact custom attributes";
+          }
           return "Contact Segments - Create and manage contacts and segments";
         case "Campaigns":
           return "Campaigns - Create and manage email campaigns";
@@ -3774,7 +3777,7 @@ try {
                     </li>
 
                     <li
-                      className={`${tab === "DataCampaigns" ? "active" : ""} ${
+                      className={`${tab === "DataCampaigns" || tab === "CustomFields" ? "active" : ""} ${
                         showContactsSubmenu
                           ? "has-submenu submenu-open"
                           : "has-submenu"
@@ -3860,6 +3863,24 @@ try {
                               className="submenu-button"
                             >
                               Segments
+                            </button>
+                          </li>
+                          <li
+                            className={
+                              contactsSubTab === "CustomFields" ? "active" : ""
+                            }
+                          >
+                            <button
+                              onClick={() => {
+                                setContactsSubTab("CustomFields");
+                                setTab("DataCampaigns");
+                                setShowMailSubmenu(false);
+                                setShowSettingsSubmenu(false);
+                                navigate("/main?tab=DataCampaigns&subtab=CustomFields");
+                              }}
+                              className="submenu-button"
+                            >
+                              Custom attributes
                             </button>
                           </li>
 
@@ -4062,18 +4083,6 @@ try {
                               Tracking
                             </button>
                           </li>
-                          <li className={contactsSubTab === "CustomFields" ? "active" : ""}>
-                          <button
-                            onClick={() => {
-                              setContactsSubTab("CustomFields");
-                              setTab("CustomFields");
-                              setShowMailSubmenu(false);
-                            }}
-                            className="submenu-button"
-                          >
-                            Custom attributes
-                          </button>
-                        </li>
                         </ul>
                       )}
                     </li>
@@ -4171,7 +4180,11 @@ try {
               <>
                 <div
                   className="preserved-tab-panel"
-                  style={getTabPanelStyle(tab === "DataCampaigns" && !showDataFileUpload)}
+                  style={getTabPanelStyle(
+                    tab === "DataCampaigns" &&
+                    contactsSubTab !== "CustomFields" &&
+                    !showDataFileUpload
+                  )}
                 >
                   <DataCampaigns
                     selectedClient={selectedClient}
@@ -4199,6 +4212,16 @@ try {
                     />
                   </div>
                 )}
+                <div
+                  className="preserved-tab-panel"
+                  style={getTabPanelStyle(
+                    tab === "DataCampaigns" && contactsSubTab === "CustomFields"
+                  )}
+                >
+                  <CustomFieldSettings
+                    selectedClient={selectedClient}
+                  />
+                </div>
               </>
             )}
             {shouldRenderTab("Campaigns") && (

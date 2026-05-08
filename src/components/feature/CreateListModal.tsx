@@ -8,7 +8,7 @@ interface CreateListModalProps {
   isOpen: boolean;
   onClose: () => void;
   selectedClient: string;
-  onListCreated: () => void;
+  onListCreated: () => void | Promise<void>;
   onShowMessage: (message: string, type: 'success' | 'error') => void;
 }
 
@@ -72,7 +72,7 @@ const CreateListModal: React.FC<CreateListModalProps> = ({
       }
 
       onShowMessage(`List "${listName}" created successfully!`, 'success');
-      onListCreated();
+      await onListCreated();
       handleClose();
     } catch (error: any) {
       console.error('Error creating list:', error);

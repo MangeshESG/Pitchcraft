@@ -317,7 +317,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   ]);
 
   const { toast, showToast, hideToast } = useToast();
-  const { triggerRefresh } = useAppData();
+  const { refreshTrigger, triggerRefresh } = useAppData();
   const showContactMessage = (
     message: string,
     type: "success" | "error" | "info" | "warning"
@@ -722,6 +722,12 @@ const formatTimeIST = (dateString?: string) => {
       fetchDataFiles();
     }
   }, [effectiveUserId]);
+
+  useEffect(() => {
+    if (refreshTrigger > 0 && effectiveUserId) {
+      fetchDataFiles();
+    }
+  }, [refreshTrigger, effectiveUserId]);
 
   // Load data when switching to List tab
   useEffect(() => {
@@ -4766,8 +4772,9 @@ const filterFields: any = useMemo(() => {
         isOpen={showCreateListModal}
         onClose={() => setShowCreateListModal(false)}
         selectedClient={selectedClient}
-        onListCreated={() => {
-          fetchDataFiles();
+        onListCreated={async () => {
+          await fetchDataFiles();
+          triggerRefresh();
         }}
         onShowMessage={(message, type) => {
           showContactMessage(message, type === "success" ? "success" : "error");
