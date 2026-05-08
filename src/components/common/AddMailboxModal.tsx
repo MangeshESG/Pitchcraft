@@ -52,12 +52,15 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
     port: "",
     encryption: "Auto",
     username: "",
-    password: ""
+    password: "",
+    fullInboxSync: false
   });
   const [imapLoading, setImapLoading] = useState(false);
   const [pop3Loading, setPop3Loading] = useState(false);
   const [gmailSenderName, setGmailSenderName] = useState("");
+  const [gmailFullInboxSync, setGmailFullInboxSync] = useState(false);
   const [outlookSenderName, setOutlookSenderName] = useState("");
+  const [outlookFullInboxSync, setOutlookFullInboxSync] = useState(false);
   const [outlookLoading, setOutlookLoading] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<"gmail" | "outlook" | null>(null);
   const [showToast, setShowToast] = useState(false);
@@ -87,7 +90,8 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
         encryption: imapForm.encryption,
         username: imapForm.username,
         password: imapForm.password,
-        syncIntervalMinutes: 1
+        syncIntervalMinutes: 1,
+        fullInboxSync: imapForm.fullInboxSync
       };
       
       console.log('Sending payload:', payload);
@@ -116,7 +120,8 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
           port: "",
           encryption: "Auto",
           username: "",
-          password: ""
+          password: "",
+          fullInboxSync: false
         });
         handleClose();
       } else {
@@ -155,7 +160,7 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
     const top = (window.screen.height - height) / 2;
     
     const popup = window.open(
-      `${API_BASE_URL}/api/OAuth/Gmail_login?clientId=${effectiveUserId}&SenderName=${encodeURIComponent(gmailSenderName)}`,
+      `${API_BASE_URL}/api/OAuth/Gmail_login?clientId=${effectiveUserId}&SenderName=${encodeURIComponent(gmailSenderName)}&FullInboxSync=${gmailFullInboxSync}`,
       'Gmail Authentication',
       `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
     );
@@ -221,7 +226,7 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
     const top = (window.screen.height - height) / 2;
     
     const popup = window.open(
-      `${API_BASE_URL}/api/OAuth/Outlook_login?clientId=${effectiveUserId}&SenderName=${encodeURIComponent(outlookSenderName)}`,
+      `${API_BASE_URL}/api/OAuth/Outlook_login?clientId=${effectiveUserId}&SenderName=${encodeURIComponent(outlookSenderName)}&FullInboxSync=${outlookFullInboxSync}`,
       'Outlook Authentication',
       `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
     );
@@ -285,10 +290,13 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
       port: "",
       encryption: "Auto",
       username: "",
-      password: ""
+      password: "",
+      fullInboxSync: false
     });
     setGmailSenderName("");
+    setGmailFullInboxSync(false);
     setOutlookSenderName("");
+    setOutlookFullInboxSync(false);
     setSelectedProvider(null);
     setEditingId(null);
     setMainTab("smtp");
@@ -696,6 +704,19 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
                   </select>
                 </div>
               </div>
+              <div style={{ display: "flex", alignItems: "center", marginTop: "16px" }}>
+                <input
+                  type="checkbox"
+                  id="fullInboxSync"
+                  name="fullInboxSync"
+                  checked={imapForm.fullInboxSync}
+                  onChange={handleImapChange}
+                  style={{ marginRight: "8px" }}
+                />
+                <label htmlFor="fullInboxSync" style={{ marginBottom: 0, cursor: "pointer" }}>
+                  Full inbox sync
+                </label>
+              </div>
             </form>
           )}
 
@@ -720,6 +741,18 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
                     boxSizing: "border-box",
                   }}
                 />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", marginTop: "16px" }}>
+                <input
+                  type="checkbox"
+                  id="gmailFullInboxSync"
+                  checked={gmailFullInboxSync}
+                  onChange={(e) => setGmailFullInboxSync(e.target.checked)}
+                  style={{ marginRight: "8px" }}
+                />
+                <label htmlFor="gmailFullInboxSync" style={{ marginBottom: 0, cursor: "pointer" }}>
+                  Full inbox sync
+                </label>
               </div>
               <div style={{ display: "flex", justifyContent: "center", marginTop: "16px" }}>
                 <button
@@ -774,6 +807,18 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
                     boxSizing: "border-box",
                   }}
                 />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", marginTop: "16px" }}>
+                <input
+                  type="checkbox"
+                  id="outlookFullInboxSync"
+                  checked={outlookFullInboxSync}
+                  onChange={(e) => setOutlookFullInboxSync(e.target.checked)}
+                  style={{ marginRight: "8px" }}
+                />
+                <label htmlFor="outlookFullInboxSync" style={{ marginBottom: 0, cursor: "pointer" }}>
+                  Full inbox sync
+                </label>
               </div>
               <div style={{ display: "flex", justifyContent: "center", marginTop: "16px" }}>
                 <button
@@ -832,6 +877,18 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
                     boxSizing: "border-box",
                   }}
                 />
+              </div>
+              <div style={{ display: "flex", alignItems: "center", marginTop: "16px" }}>
+                <input
+                  type="checkbox"
+                  id="office365FullInboxSync"
+                  checked={outlookFullInboxSync}
+                  onChange={(e) => setOutlookFullInboxSync(e.target.checked)}
+                  style={{ marginRight: "8px" }}
+                />
+                <label htmlFor="office365FullInboxSync" style={{ marginBottom: 0, cursor: "pointer" }}>
+                  Full inbox sync
+                </label>
               </div>
               <div style={{ display: "flex", justifyContent: "center", marginTop: "16px" }}>
                 <button
