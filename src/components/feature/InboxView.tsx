@@ -9,7 +9,21 @@ import Modal from '../common/Modal';
 import ToastMessage from '../common/ToastMessage';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrashAlt } from '@fortawesome/free-regular-svg-icons';
+import UnassignedTab from './UnassignedTab';
 import './InboxView.css';
+
+interface UnassignedEmail {
+  id: number;
+  messageId: string;
+  inReplyTo: string | null;
+  threadId: string;
+  fromEmail: string;
+  subject: string;
+  body: string;
+  date: string;
+  isRead: boolean;
+  provider: string;
+}
 
 interface InboxDropdownItem {
   inboxId: number;
@@ -84,6 +98,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [showReplySection, setShowReplySection] = useState(false);
   const [collapsedEmails, setCollapsedEmails] = useState<{ [key: string]: boolean }>({});
   const [showDeleteDropdown, setShowDeleteDropdown] = useState(false);
+  const [activeTab, setActiveTab] = useState<'inbox' | 'unassigned'>('inbox');
+  const [selectedUnassignedEmail, setSelectedUnassignedEmail] = useState<UnassignedEmail | null>(null);
 
   useEffect(() => {
     const fetchInboxList = async () => {
@@ -178,6 +194,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setSelectedInboxId(inboxId);
     setSelectedProvider(inbox?.provider || '');
     setSelectedThread(null);
+    setSelectedUnassignedEmail(null);
   };
 
   const handleThreadClick = async (thread: InboxThread) => {
@@ -713,15 +730,60 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   </button>
                 )}
               </div>
+              
+              {/* Tabs */}
+              <div style={{ display: 'flex', gap: '8px', marginTop: '12px', borderBottom: '2px solid #e5e7eb' }}>
+                <button
+                  onClick={() => {
+                    setActiveTab('inbox');
+                    setSelectedUnassignedEmail(null);
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    background: 'transparent',
+                    border: 'none',
+                    borderBottom: activeTab === 'inbox' ? '3px solid #3f9f42' : '3px solid transparent',
+                    color: activeTab === 'inbox' ? '#3f9f42' : '#6b7280',
+                    fontWeight: activeTab === 'inbox' ? '600' : '400',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    marginBottom: '-2px'
+                  }}
+                >
+                  Inbox
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab('unassigned');
+                    setSelectedThread(null);
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    background: 'transparent',
+                    border: 'none',
+                    borderBottom: activeTab === 'unassigned' ? '3px solid #3f9f42' : '3px solid transparent',
+                    color: activeTab === 'unassigned' ? '#3f9f42' : '#6b7280',
+                    fontWeight: activeTab === 'unassigned' ? '600' : '400',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    marginBottom: '-2px'
+                  }}
+                >
+                  Unassigned
+                </button>
+              </div>
             </div>
             
-            {/* Mail list items */}
-            {!selectedInboxId ? (
-              <div className="no-mails">Please select an inbox</div>
-            ) : threads.length === 0 ? (
-              <div className="no-mails">No emails found</div>
-            ) : (
-              sortedGroups.map(([group, groupThreads]) => (
+            {/* Mail list items - conditional based on active tab */}
+            {activeTab === 'inbox' ? (
+              !selectedInboxId ? (
+                <div className="no-mails">Please select an inbox</div>
+              ) : threads.length === 0 ? (
+                <div className="no-mails">No emails found</div>
+              ) : (
+                sortedGroups.map(([group, groupThreads]) => (
                 <div key={group}>
                   <div className="mail-group-header">{group}</div>
                   {groupThreads.map((thread) => {
@@ -788,11 +850,21 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   })}
                 </div>
               ))
+            )
+            ) : (
+              <UnassignedTab 
+                effectiveUserId={effectiveUserId} 
+                token={token} 
+                selectedInboxId={selectedInboxId}
+                onEmailSelect={setSelectedUnassignedEmail}
+                selectedEmail={selectedUnassignedEmail}
+              />
             )}
           </div>
           
-          {/* Mail Detail - Right side */}
-          {selectedThread ? (
+          {/* Mail Detail - Right side - conditional based on active tab */}
+          {activeTab === 'inbox' ? (
+            selectedThread ? (
             <div className="mail-detail">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px 0', marginBottom: '24px' }}>
                 <h3 className="mail-detail-subject" style={{ fontSize: '20px', fontWeight: '600', margin: 0 }}>{selectedThread.subject}</h3>
@@ -1294,6 +1366,50 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
             <div className="no-mail-selected">
               Select an email to view
             </div>
+          )
+          ) : (
+            selectedUnassignedEmail ? (
+              <div className="mail-detail">
+                <div style={{ padding: '20px 24px 0', marginBottom: '24px' }}>
+                  <h3 className="mail-detail-subject" style={{ fontSize: '20px', fontWeight: '600', margin: 0 }}>
+                    {selectedUnassignedEmail.subject}
+                  </h3>
+                </div>
+
+                <div style={{ paddingBottom: '24px' }}>
+                  <div className="mail-detail-header">
+                    <div className="mail-detail-top">
+                      <div className="mail-detail-avatar">{getInitials(selectedUnassignedEmail.fromEmail)}</div>
+                      <div className="mail-detail-info" style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div className="mail-detail-sender" style={{ fontWeight: '500', fontSize: '14px' }}>
+                            {extractSenderName(selectedUnassignedEmail.fromEmail)}
+                          </div>
+                          <span style={{ color: '#6b7280', fontSize: '13px' }}>
+                            &lt;{extractEmailAddress(selectedUnassignedEmail.fromEmail)}&gt;
+                          </span>
+                        </div>
+                      </div>
+                      <div className="mail-detail-date">
+                        {new Date(selectedUnassignedEmail.date).toLocaleString('en-US', { 
+                          weekday: 'short', 
+                          month: 'numeric', 
+                          day: 'numeric', 
+                          hour: 'numeric', 
+                          minute: '2-digit', 
+                          hour12: true 
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mail-body" dangerouslySetInnerHTML={{ __html: formatEmailBody(selectedUnassignedEmail.body) }} style={{ maxWidth: '100%', overflowX: 'auto' }} />
+                </div>
+              </div>
+            ) : (
+              <div className="no-mail-selected">
+                Select an email to view
+              </div>
+            )
           )}
         </div>
       )}

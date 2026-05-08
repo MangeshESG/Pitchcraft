@@ -342,7 +342,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     password: "",
     fromEmail: "",
     senderName: "",
-    usessl: "nossl",
+    usessl: "Auto",
   });
   
   // Inbox form state
@@ -549,7 +549,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
           password: "",
           fromEmail: "",
           senderName: "",
-          usessl: "nossl",
+          usessl: "Auto",
         });
         setEditingId(null);
         handleModalClose("modal-edit-smtp");
@@ -610,7 +610,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
           password: "",
           fromEmail: "",
           senderName: "",
-          usessl: "nossl",
+          usessl: "Auto",
         });
         setEditingId(null);
         // Refresh SMTP list instead of page reload
@@ -636,7 +636,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   const handleEdit = (item: any) => {
     setForm({
       ...item,
-      usessl: (item.SecurityType || item.securityType || "nossl").toLowerCase()
+      usessl: (item.SecurityType || item.securityType || "Auto")
     });
     setEditingId(item.id);
     handleModalOpen("modal-edit-smtp");
@@ -2495,7 +2495,7 @@ const actionIconStyle = {
                       password: "",
                       fromEmail: "",
                       senderName: "",
-                      usessl: "nossl",
+                      usessl: "Auto",
                     });
                   }}
                   title="Edit SMTP configuration"
@@ -2513,7 +2513,7 @@ const actionIconStyle = {
                             password: "",
                             fromEmail: "",
                             senderName: "",
-                            usessl: "nossl",
+                            usessl: "Auto",
                           });
                         }}
                         style={{
@@ -2649,7 +2649,7 @@ const actionIconStyle = {
 
                     <div className="form-group">
                       <label>
-                        Security Type <span style={{ color: "red" }}>*</span>
+                        Encryption <span style={{ color: "red" }}>*</span>
                       </label>
                       <select
                         name="usessl"
@@ -2658,9 +2658,10 @@ const actionIconStyle = {
                         required
                         style={{ width: "100%" }}
                       >
-                        <option value="nossl">No SSL</option>
-                        <option value="ssl">SSL</option>
-                        <option value="ssl/tls">SSL/TLS</option>
+                        <option value="None">None</option>
+                        <option value="SSL/TLS">SSL/TLS</option>
+                        <option value="STARTTLS">STARTTLS</option>
+                        <option value="Auto">Auto</option>
                       </select>
                     </div>
                   </form>
@@ -2907,7 +2908,7 @@ const actionIconStyle = {
                               password: "",
                               fromEmail: "",
                               senderName: "",
-                              usessl: "nossl",
+                              usessl: "Auto",
                             });
                             handleModalClose("modal-add-mailbox");
                           }}
