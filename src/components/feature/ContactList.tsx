@@ -15,7 +15,7 @@ import BulkUpdatePanel from "./BulkUpdatePanel";
 
 import { useAppData } from "../../contexts/AppDataContext";
 import { useToast } from "../../hooks/useToast";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
 import PaginationControls from "./PaginationControls";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -41,6 +41,7 @@ import {
 
 } from "@fortawesome/free-solid-svg-icons"
 import { faEdit,faTrashAlt,faCircleXmark ,faFileLines   } from "@fortawesome/free-regular-svg-icons";
+import { closePanel, openPanel } from "../../slices/panelSlice";
 
 // Persistent column selection utilities
 const CONTACTLIST_COLUMNS_KEY = 'contactlist_selected_columns';
@@ -222,6 +223,7 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   userRole,
   onAddContactClick, // Add this
 }) => {
+  const dispatch = useDispatch();
   const [activeSubTab, setActiveSubTab] = useState(initialTab);
   const [searchParams] = useSearchParams();
 
@@ -242,6 +244,28 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   const [selectedDataFile, setSelectedDataFile] = useState<string>("");
   const [selectedDataFileId, setSelectedDataFileId] = useState<number | null>(null);
 
+  const activePanel = useSelector(
+  (state: RootState) => state.panel.activePanel
+  );
+
+  const showCreateListCommonModal =
+      activePanel === "create-list-modal";
+
+  const showRenameContactListModal =
+      activePanel === "rename-contact-list-modal";
+
+  const showBulkUpdatePanelModal =
+  activePanel === "bulk-update-panel-modal";
+
+  const showAddContactCommonModal =
+  activePanel === "add-contact-modal";
+
+  
+  const showSaveSegmentCommonModal =
+  activePanel === "save-segment-modal";
+
+  const showRenameSegmentCommonModal =
+  activePanel === "rename-segment-modal";
 
   // Contact list states
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -1189,6 +1213,7 @@ const formatTimeIST = (dateString?: string) => {
       setIsLoading(false);
       setEditingList(null);
       setShowConfirmListDelete(false);
+      dispatch(closePanel());
     }
   };
 
@@ -1574,6 +1599,7 @@ const formatTimeIST = (dateString?: string) => {
       setIsLoadingSegments(false);
       setEditingSegment(null);
       setShowConfirmSegmentDelete(false);
+      dispatch(closePanel());
     }
   };
 
@@ -2142,7 +2168,10 @@ const filterFields: any = useMemo(() => {
                           fontWeight: "600",
                           height: "42px"
                         }}
-                        onClick={() => setShowAddContactModal(true)}
+                        onClick={() =>
+                          //setShowAddContactModal(true)
+                          dispatch(openPanel("add-contact-modal"))
+                        }
                       >
                         <span className="text-[20px] mr-1">+</span> Add contact
                       </button>
@@ -2322,6 +2351,8 @@ const filterFields: any = useMemo(() => {
                                   <button
                                     onClick={() => {
                                       setEditingList(file);
+                                      dispatch(openPanel("rename-contact-list-modal"));
+                                      dispatch(openPanel("save-segment-modal"));
                                       setRenamingListName(file.name);
                                       setRenamingListDescription(
                                         file.description || ""
@@ -2437,6 +2468,7 @@ const filterFields: any = useMemo(() => {
                                     onClick={() => {
                                       setEditingList(file);
                                       setShowConfirmListDelete(true);
+                                      dispatch(openPanel("rename-contact-list-modal"));
                                       setListActionsAnchor(null);
                                     }}
                                     style={{ ...menuBtnStyle }}
@@ -2679,7 +2711,11 @@ const filterFields: any = useMemo(() => {
                     setViewMode("list");
                     setSelectedDataFileForView(null);
                   }}
-                  onAddItem={() => setShowAddContactModal(true)}
+                  onAddItem={() => 
+                    //setShowAddContactModal(true)
+                    dispatch(openPanel("add-contact-modal"))
+
+                  }
                   columnNameMap={columnNameMap}
                   customHeader={
                     <>
@@ -2847,7 +2883,9 @@ const filterFields: any = useMemo(() => {
                             <button
                               className="button primary"
                               onClick={() => {
-                                setShowSaveSegmentModal(true);
+                                //setShowSaveSegmentModal(true);
+                                dispatch(openPanel("save-segment-modal"));
+
                                 if (segments.length === 0) {
                                   fetchSegments();
                                 }
@@ -2893,7 +2931,10 @@ const filterFields: any = useMemo(() => {
                             </button>
                             <button
                               className="button secondary"
-                              onClick={() => setShowBulkUpdatePanel(true)}
+                              onClick={() => 
+                                //setShowBulkUpdatePanel(true)
+                                dispatch(openPanel("bulk-update-panel-modal"))
+                              }
                               style={{
                                 background: "none",
                                 color: "#3f9f42",
@@ -2926,11 +2967,12 @@ const filterFields: any = useMemo(() => {
               )}
 
               <CommonSidePanel
-                isOpen={editingList !== null && !showConfirmListDelete}
+                isOpen={editingList !== null && !showConfirmListDelete && showRenameContactListModal}
                 onClose={() => {
                   setEditingList(null);
                   setRenamingListName("");
                   setRenamingListDescription("");
+                  dispatch(closePanel());
                 }}
                 title="Rename list"
                 footerContent={
@@ -3075,6 +3117,7 @@ const filterFields: any = useMemo(() => {
                       <button
                         onClick={() => {
                           setShowConfirmListDelete(false);
+                          dispatch(openPanel("rename-contact-list-modal"));
                           setEditingList(null);
                         }}
                         className="button secondary"
@@ -3604,6 +3647,7 @@ const filterFields: any = useMemo(() => {
                                               segment.description || ""
                                             );
                                             setSegmentActionsAnchor(null);
+                                            dispatch(openPanel("rename-segment-modal"));
                                           }}
                                           style={menuBtnStyle}
                                           className="flex gap-2 items-center"
@@ -3725,6 +3769,7 @@ const filterFields: any = useMemo(() => {
                                           onClick={() => {
                                             setEditingSegment(segment);
                                             setShowConfirmSegmentDelete(true);
+                                            dispatch(openPanel("rename-segment-modal"));
                                             setSegmentActionsAnchor(null);
                                           }}
                                           style={{ ...menuBtnStyle }}
@@ -4164,7 +4209,10 @@ const filterFields: any = useMemo(() => {
                           </button>
                           <button
                             className="button primary"
-                            onClick={() => setShowSaveSegmentModal(true)}
+                            onClick={() => 
+                              //setShowSaveSegmentModal(true)
+                              dispatch(openPanel("save-segment-modal"))
+                            }
                             style={{ 
                               backgroundColor: 'transparent',
                               borderColor: 'transparent',
@@ -4206,7 +4254,10 @@ const filterFields: any = useMemo(() => {
                           </button>
                           <button
                             className="button secondary"
-                            onClick={() => setShowBulkUpdatePanel(true)}
+                            onClick={() => 
+                              //setShowBulkUpdatePanel(true)
+                              dispatch(openPanel("bulk-update-panel-modal"))
+                            }
                             style={{
                               background: "none",
                               color: "#3f9f42",
@@ -4574,11 +4625,12 @@ const filterFields: any = useMemo(() => {
 
       {/* Rename Segment Modal */}
       <CommonSidePanel
-        isOpen={editingSegment !== null && !showConfirmSegmentDelete}
+        isOpen={editingSegment !== null && !showConfirmSegmentDelete && showRenameSegmentCommonModal}
         onClose={() => {
           setEditingSegment(null);
           setRenamingSegmentName("");
           setRenamingSegmentDescription("");
+          dispatch(closePanel());
         }}
         title="Rename segment"
         footerContent={
@@ -4717,6 +4769,7 @@ const filterFields: any = useMemo(() => {
               <button
                 onClick={() => {
                   setShowConfirmSegmentDelete(false);
+                  dispatch(closePanel());
                   setEditingSegment(null);
                 }}
                 className="button secondary"
@@ -4752,8 +4805,12 @@ const filterFields: any = useMemo(() => {
       )}
 
       <SegmentModal
-        isOpen={showSaveSegmentModal}
-        onClose={() => setShowSaveSegmentModal(false)}
+        //isOpen={showSaveSegmentModal}
+        isOpen={showSaveSegmentCommonModal}
+        onClose={() => 
+          //setShowSaveSegmentModal(false)
+          dispatch(closePanel())
+        }
         selectedContactsCount={
           viewMode === "detail" || segmentViewMode === "detail"
             ? detailSelectedContacts.size
@@ -4769,8 +4826,13 @@ const filterFields: any = useMemo(() => {
       />
 
       <CreateListModal
-        isOpen={showCreateListModal}
-        onClose={() => setShowCreateListModal(false)}
+        //isOpen={showCreateListModal}
+        isOpen={showCreateListCommonModal}
+        onClose={() => 
+          //setShowCreateListModal(false)
+          dispatch(closePanel())
+
+        }
         selectedClient={selectedClient}
         onListCreated={async () => {
           await fetchDataFiles();
@@ -4781,8 +4843,12 @@ const filterFields: any = useMemo(() => {
         }}
       />
       <AddContactModal
-        isOpen={showAddContactModal}
-        onClose={() => setShowAddContactModal(false)}
+        //isOpen={showAddContactModal}
+        isOpen={showAddContactCommonModal}
+        onClose={() => 
+          //setShowAddContactModal(false)
+          dispatch(closePanel())
+        }
         dataFileId={selectedDataFileForView?.id?.toString() || selectedDataFile}
         onContactAdded={() => {
           // Refresh the data files grid to update contact counts
@@ -4832,8 +4898,12 @@ const filterFields: any = useMemo(() => {
         position="bottom-center"
       />
       <BulkUpdatePanel
-        isOpen={showBulkUpdatePanel}
-        onClose={() => setShowBulkUpdatePanel(false)}
+        //isOpen={showBulkUpdatePanel}
+        isOpen={showBulkUpdatePanelModal}
+        onClose={() => 
+          //setShowBulkUpdatePanel(false)
+          dispatch(closePanel())
+        }
         selectedContactIds={
           viewMode === "detail" || segmentViewMode === "detail"
             ? Array.from(detailSelectedContacts)

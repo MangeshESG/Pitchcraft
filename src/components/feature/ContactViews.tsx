@@ -33,6 +33,9 @@ import {
 
 import { useAppModal } from "../../hooks/useAppModal";
 import { useAppData } from "../../contexts/AppDataContext";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState } from "../../Redux/store";
+import { closePanel, openPanel } from "../../slices/panelSlice";
 import { useToast } from "../../hooks/useToast";
 
 
@@ -410,6 +413,7 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   refreshToken = 0,
   currentTab,
 }) => {
+  const dispatch = useDispatch();
   const [views, setViews] = useState<ViewItem[]>([]);
   const [viewSearch, setViewSearch] = useState("");
   const [currentPageViews, setCurrentPageViews] = useState(1);
@@ -451,6 +455,19 @@ const ContactViews: React.FC<ContactViewsProps> = ({
   const [isDeletingContact, setIsDeletingContact] = useState(false);
   const [isCloningContact, setIsCloningContact] = useState(false);
   const [isUnsubscribing, setIsUnsubscribing] = useState(false);
+
+  const activePanel = useSelector(
+    (state: RootState) => state.panel.activePanel
+  );
+
+  const showContactViewEditModal =
+      activePanel === "contact-view-edit-modal";
+
+  const showBulkUpdatePanelModal =
+  activePanel === "bulk-update-panel-modal";
+
+  const showSaveSegmentCommonModal =
+  activePanel === "save-segment-modal";
 
   const appModal = useAppModal(); // ✅ correct place
   const { toast, showToast, hideToast } = useToast();
@@ -1542,7 +1559,7 @@ const handleDeleteContacts = async () => {
   const openEditPanel = async (view: ViewItem) => {
     setViewActionsAnchor(null);
     hydrateEditPanel(view);
-    setIsEditPanelOpen(true);
+    //setIsEditPanelOpen(true);
     setIsLoadingEditViewDetails(true);
 
     try {
@@ -1557,6 +1574,7 @@ const handleDeleteContacts = async () => {
     } finally {
       setIsLoadingEditViewDetails(false);
     }
+    dispatch(openPanel("contact-view-edit-modal"));
   };
 
   const toggleId = (
@@ -1644,7 +1662,8 @@ const handleDeleteContacts = async () => {
         await fetchContactsForView(updatedView);
       }
       showContactMessage("View updated successfully.", "success");
-      setIsEditPanelOpen(false);
+      //setIsEditPanelOpen(false);
+      dispatch(closePanel());
       setEditingView(null);
     } catch (error) {
       console.error("Error updating view:", error);
@@ -1826,7 +1845,11 @@ const handleDeleteContacts = async () => {
 
       <button
         className="button primary"
-        onClick={() => setShowSaveSegmentModal(true)}
+        onClick={() => 
+          //setShowSaveSegmentModal(true)
+          dispatch(openPanel("save-segment-modal"))
+
+        }
         style={{
           backgroundColor: "transparent",
           borderColor: "transparent",
@@ -1869,7 +1892,10 @@ const handleDeleteContacts = async () => {
 
       <button
         className="button secondary"
-        onClick={() => setShowBulkUpdatePanel(true)}
+        onClick={() => 
+          //setShowBulkUpdatePanel(true)
+          dispatch(openPanel("bulk-update-panel-modal"))
+        }
         style={{
           background: "none",
           color: "#3f9f42",
@@ -2404,7 +2430,8 @@ const handleDeleteContacts = async () => {
       </div>
 
       <CommonSidePanel
-        isOpen={isEditPanelOpen}
+        //isOpen={isEditPanelOpen}
+        isOpen={showContactViewEditModal}
         onClose={() => {
           setIsEditPanelOpen(false);
           setIsLoadingEditViewDetails(false);
@@ -2418,8 +2445,9 @@ const handleDeleteContacts = async () => {
           <>
             <button
               onClick={() => {
-                setIsEditPanelOpen(false);
+                //setIsEditPanelOpen(false);
                 setIsLoadingEditViewDetails(false);
+                dispatch(closePanel());
                 setEditingView(null);
                 setEditFiltersSeed("");
                 setEditExcludedDataFileIds([]);
@@ -2657,22 +2685,30 @@ const handleDeleteContacts = async () => {
           />
         </div>
       </CommonSidePanel>
-<BulkUpdatePanel
-  isOpen={showBulkUpdatePanel}
-  onClose={() => setShowBulkUpdatePanel(false)}
-  selectedContactIds={Array.from(selectedContacts)}
-  clientId={String(clientId)}
-  onUpdateComplete={() => {
-    setSelectedContacts(new Set());
-    if (selectedView) {
-      fetchContactsForView(selectedView);
-    }
-  }}
-/>
+      <BulkUpdatePanel
+        //isOpen={showBulkUpdatePanel}
+        isOpen={showBulkUpdatePanelModal}
+        onClose={() => 
+          //setShowBulkUpdatePanel(false)
+          dispatch(closePanel())
+        }
+        selectedContactIds={Array.from(selectedContacts)}
+        clientId={String(clientId)}
+        onUpdateComplete={() => {
+          setSelectedContacts(new Set());
+          if (selectedView) {
+            fetchContactsForView(selectedView);
+          }
+        }}
+      />
 
 <SegmentModal
-  isOpen={showSaveSegmentModal}
-  onClose={() => setShowSaveSegmentModal(false)}
+  //isOpen={showSaveSegmentModal}
+  isOpen={showSaveSegmentCommonModal}
+  onClose={() => 
+    //setShowSaveSegmentModal(false)
+    dispatch(closePanel())
+  }
 
   getContactIds={() =>
     Array.from(selectedContacts).map(id => Number(id))
@@ -2685,7 +2721,8 @@ effectiveUserId={String(clientId)}
   onSuccess={(message) => {
     appModal.showSuccess(message);
     setSelectedContacts(new Set());
-    setShowSaveSegmentModal(false);
+    //setShowSaveSegmentModal(false);
+    dispatch(closePanel());
   }}
 
   onError={(message: string) => {

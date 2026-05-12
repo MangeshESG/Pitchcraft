@@ -3,6 +3,9 @@ import React from "react";
 import PaginationControls from "./PaginationControls";
 import CommonSidePanel from "../common/CommonSidePanel";
 import "./DynamicContactsTable.css";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState } from "../../Redux/store";
+import { closePanel, openPanel } from "../../slices/panelSlice";
 
 interface DataFile {
   id: number;
@@ -160,6 +163,12 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   persistedColumnSelection = [],
   currentTab,
 }) => {
+  const dispatch = useDispatch();
+  const activePanel = useSelector(
+  (state: RootState) => state.panel.activePanel
+  );
+  const showSettingSidebarpanel =
+    activePanel === "setting-sidebar-panel";
   const [columns, setColumns] = useState<ColumnConfig[]>([]);
   const [showColumnPanel, setShowColumnPanel] = useState(false);
   const [pageSize, setPageSize] = useState<PageSize>(10);
