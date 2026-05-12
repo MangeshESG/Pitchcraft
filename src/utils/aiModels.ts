@@ -49,6 +49,16 @@ export const DEEPSEEK_MODELS = [
     name: "DeepSeek Reasoner",
     description: "DeepSeek reasoning model",
   },
+  {
+    id: "deepseek-v4-flash",
+    name: "DeepSeek V4 Flash",
+    description: "DeepSeek fast V4 model",
+  },
+  {
+    id: "deepseek-v4-pro",
+    name: "DeepSeek V4 Pro",
+    description: "DeepSeek higher-capability V4 model",
+  },
 ];
 
 export const AVAILABLE_AI_MODELS = [...OPENAI_MODELS, ...DEEPSEEK_MODELS];

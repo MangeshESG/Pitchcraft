@@ -158,10 +158,12 @@ const Template: React.FC<TemplateProps> = ({
   const showRenameModal = activePanel === "rename-blueprint";
   const showTemplateNameModal = activePanel === "template-name";
   const showCloneNameModal = activePanel === "clone-blueprint";
+  const showEditModelPanel = activePanel === "edit-blueprint-model";
   const [renameInput, setRenameInput] = useState("");
   const [showCloneConfirmModal, setShowCloneConfirmModal] = useState(false);
   // const [showCloneNameModal, setShowCloneNameModal] = useState(false);
   const [cloneNameInput, setCloneNameInput] = useState("");
+  const [modelInput, setModelInput] = useState("gpt-5.1");
 
   const [viewCampaignTab, setViewCampaignTab] = useState<
     "example" | "template"
@@ -607,6 +609,45 @@ const Template: React.FC<TemplateProps> = ({
       await fetchCampaignTemplates();
     } catch (error) {
       appModal.showError("Failed to clone campaign template");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleUpdateCampaignTemplateModel = async () => {
+    if (!selectedCampaignTemplate || !modelInput.trim()) {
+      appModal.showError("Please select a model");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/CampaignPrompt/template/update-model`,
+        {
+          method: "POST",
+          headers: {
+            accept: "*/*",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            templateId: selectedCampaignTemplate.id,
+            selectedModel: modelInput.trim(),
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to update model");
+      }
+
+      appModal.showSuccess("Model updated successfully!");
+      dispatch(closePanel());
+      setSelectedCampaignTemplate(null);
+      setModelInput("gpt-5.1");
+      await fetchCampaignTemplates();
+    } catch (error) {
+      appModal.showError("Failed to update model");
     } finally {
       setIsLoading(false);
     }
@@ -1141,6 +1182,25 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                               <button
                                 onClick={() => {
                                   setSelectedCampaignTemplate(template);
+                                  setModelInput(template.selectedModel || "gpt-5.1");
+                                  dispatch(openPanel("edit-blueprint-model"));
+                                  setTemplateActionsAnchor(null);
+                                }}
+                                style={menuBtnStyle}
+                                className="flex gap-2 items-center"
+                              >
+                                <span style={actionIconStyle}>
+                                  <FontAwesomeIcon
+                                    icon={faRobot}
+                                    style={{ color: "#3f9f42", fontSize: 20 }}
+                                  />
+                                </span>
+                                <span>Edit model</span>
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setSelectedCampaignTemplate(template);
                                   setRenameInput(template.templateName);
                                   dispatch(openPanel("rename-blueprint"));
                                   setTemplateActionsAnchor(null);
@@ -1477,6 +1537,97 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
               />
               <p style={{ marginTop: "8px", fontSize: "13px", color: "#6b7280" }}>
                 💡 Cloning from: <strong>{selectedCampaignTemplate?.templateName}</strong>
+              </p>
+            </div>
+          </CommonSidePanel>
+
+          {/* Edit Model Panel */}
+          <CommonSidePanel
+            isOpen={showEditModelPanel && selectedCampaignTemplate !== null}
+            onClose={() => {
+              dispatch(closePanel());
+              setSelectedCampaignTemplate(null);
+              setModelInput("gpt-5.1");
+            }}
+            title="Edit model"
+            width={440}
+            footerContent={
+              <>
+                <button
+                  onClick={() => {
+                    dispatch(closePanel());
+                    setSelectedCampaignTemplate(null);
+                    setModelInput("gpt-5.1");
+                  }}
+                  disabled={isLoading}
+                  style={{
+                    padding: "10px 24px",
+                    borderRadius: "24px",
+                    border: "2px solid #ddd",
+                    background: "#fff",
+                    color: "#666",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleUpdateCampaignTemplateModel}
+                  disabled={isLoading || !modelInput.trim()}
+                  style={{
+                    padding: "10px 24px",
+                    borderRadius: "24px",
+                    border: "2px solid #dc3545",
+                    background: "#fff",
+                    color: "#dc3545",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    cursor: modelInput.trim() ? "pointer" : "not-allowed",
+                    opacity: modelInput.trim() ? 1 : 0.5,
+                  }}
+                >
+                  {isLoading ? "Saving..." : "Save model"}
+                </button>
+              </>
+            }
+          >
+            <div className="form-group" style={{ marginBottom: "16px" }}>
+              <label
+                htmlFor="modelInput"
+                style={{
+                  display: "block",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  marginBottom: "8px",
+                  color: "#374151",
+                }}
+              >
+                AI model <span style={{ color: "#ef4444" }}>*</span>
+              </label>
+              <select
+                id="modelInput"
+                value={modelInput}
+                onChange={(e) => setModelInput(e.target.value)}
+                autoFocus
+                style={{
+                  width: "100%",
+                  padding: "12px 16px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "8px",
+                  fontSize: "14px",
+                  background: "#fff",
+                }}
+              >
+                {AVAILABLE_AI_MODELS.map((model) => (
+                  <option key={model.id} value={model.id}>
+                    {model.name}
+                  </option>
+                ))}
+              </select>
+              <p style={{ marginTop: "8px", fontSize: "13px", color: "#6b7280" }}>
+                Updating model for: <strong>{selectedCampaignTemplate?.templateName}</strong>
               </p>
             </div>
           </CommonSidePanel>
