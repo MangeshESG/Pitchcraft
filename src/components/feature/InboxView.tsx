@@ -10,6 +10,8 @@ import ToastMessage from '../common/ToastMessage';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrashAlt } from '@fortawesome/free-regular-svg-icons';
 import UnassignedTab from './UnassignedTab';
+import SentTab from './SentTab';
+import ContactInfoPanel from './ContactInfoPanel';
 import './InboxView.css';
 
 interface UnassignedEmail {
@@ -17,12 +19,15 @@ interface UnassignedEmail {
   messageId: string;
   inReplyTo: string | null;
   threadId: string;
+  trackingid?: string | null;
   fromEmail: string;
+  fromName: string | null;
   subject: string;
   body: string;
   date: string;
   isRead: boolean;
   provider: string;
+  contactId: number | null;
 }
 
 interface InboxDropdownItem {
@@ -98,8 +103,14 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [showReplySection, setShowReplySection] = useState(false);
   const [collapsedEmails, setCollapsedEmails] = useState<{ [key: string]: boolean }>({});
   const [showDeleteDropdown, setShowDeleteDropdown] = useState(false);
-  const [activeTab, setActiveTab] = useState<'inbox' | 'unassigned'>('inbox');
+  const [activeTab, setActiveTab] = useState<'inbox' | 'sent' | 'unassigned'>('inbox');
   const [selectedUnassignedEmail, setSelectedUnassignedEmail] = useState<UnassignedEmail | null>(null);
+  const [inboxCurrentPage, setInboxCurrentPage] = useState(1);
+  const [inboxTotalCount, setInboxTotalCount] = useState(0);
+  const [inboxTotalPages, setInboxTotalPages] = useState(0);
+  const inboxPageSize = 10;
+  const [selectedUnassignedThread, setSelectedUnassignedThread] = useState<InboxThread | null>(null);
+  const [selectedSentThread, setSelectedSentThread] = useState<InboxThread | null>(null);
 
   useEffect(() => {
     const fetchInboxList = async () => {
@@ -165,7 +176,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       setError('');
       try {
         const response = await axios.get(
-          `${API_BASE_URL}/api/Inbox/inbox?inboxId=${selectedInboxId}&Provider=${selectedProvider}`,
+          `${API_BASE_URL}/api/Inbox/inbox?inboxId=${selectedInboxId}&Provider=${selectedProvider}&pageNumber=${inboxCurrentPage}&pageSize=${inboxPageSize}`,
           {
             headers: {
               accept: '*/*',
@@ -175,7 +186,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         );
 
         if (response.data.success && response.data.data) {
-          setThreads(response.data.data);
+          setThreads(Array.isArray(response.data.data.data) ? response.data.data.data : []);
+          setInboxTotalCount(response.data.data.totalCount || 0);
+          setInboxTotalPages(response.data.data.totalPages || 0);
         }
       } catch (err) {
         console.error('Error fetching mails:', err);
@@ -186,7 +199,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     };
 
     fetchMails();
-  }, [selectedInboxId, selectedProvider, token, isVisible]);
+  }, [selectedInboxId, selectedProvider, token, isVisible, inboxCurrentPage]);
 
   const handleInboxChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const inboxId = parseInt(e.target.value);
@@ -195,11 +208,15 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setSelectedProvider(inbox?.provider || '');
     setSelectedThread(null);
     setSelectedUnassignedEmail(null);
+    setSelectedUnassignedThread(null);
   };
 
   const handleThreadClick = async (thread: InboxThread) => {
     setSelectedThread(thread);
     setShowReplySection(false);
+    setReplyText('');
+    setSelectedUnassignedEmail(null);
+    setSelectedUnassignedThread(null);
     
     // Initialize all emails as collapsed with unique keys
     const collapsed: { [key: string]: boolean } = {};
@@ -256,7 +273,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   };
 
   const handleDeleteEmail = async (deleteMode: 'soft' | 'Permanent') => {
-    if (!selectedThread) return;
+    const currentThread = activeTab === 'inbox' ? selectedThread : activeTab === 'sent' ? selectedSentThread : selectedUnassignedThread;
+    if (!currentThread) return;
     
     // Show confirmation dialog
     const confirmMessage = deleteMode === 'Permanent' 
@@ -274,7 +292,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       const response = await axios.post(
         `${API_BASE_URL}/api/Inbox/delete-conversation`,
         {
-          trackingId: selectedThread.trackingId,
+          trackingId: currentThread.trackingId,
           deleteMode: deleteMode,
           clientid: parseInt(effectiveUserId)
         },
@@ -293,9 +311,15 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         setShowToast(true);
         setTimeout(() => setShowToast(false), 3000);
         
-        // Remove from list and close detail view
-        setThreads(threads.filter(t => t.trackingId !== selectedThread.trackingId));
-        setSelectedThread(null);
+        // Remove from list and close detail view based on active tab
+        if (activeTab === 'inbox') {
+          setThreads(threads.filter(t => t.trackingId !== currentThread.trackingId));
+          setSelectedThread(null);
+        } else if (activeTab === 'sent') {
+          setSelectedSentThread(null);
+        } else {
+          setSelectedUnassignedThread(null);
+        }
       } else {
         setToastMessage('Failed to delete email');
         setToastType('error');
@@ -445,7 +469,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     return 'Older';
   };
 
-  const groupedThreads = threads.reduce((acc, thread) => {
+  const groupedThreads = (Array.isArray(threads) ? threads : []).reduce((acc, thread) => {
     const group = getTimeGroup(thread.lastMessageDate);
     if (!acc[group]) acc[group] = [];
     acc[group].push(thread);
@@ -524,7 +548,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   };
 
   const handleSaveDraft = async () => {
-    if (!replyText.trim() || !selectedThread) return;
+    const contactId = activeTab === 'inbox' ? selectedThread?.contactId : activeTab === 'sent' ? selectedSentThread?.contactId : selectedUnassignedThread?.contactId;
+    if (!replyText.trim() || !contactId) return;
     
     setIsSavingDraft(true);
     setError('');
@@ -533,7 +558,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         `${API_BASE_URL}/api/Crm/contacts/update-email`,
         {
           clientId: parseInt(effectiveUserId),
-          contactId: selectedThread.contactId,
+          contactId: contactId,
           gptGenerate: false,
           emailSubject: null,
           emailBody: replyText
@@ -573,7 +598,6 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     if (!selectedInboxId || !selectedProvider) return;
     
     setIsRefreshing(true);
-    setLoading(true);
     setError('');
     
     try {
@@ -596,13 +620,12 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         setShowToast(true);
         setTimeout(() => setShowToast(false), 3000);
         
-        // Clear current threads and selected thread
-        setThreads([]);
+        // Clear selected thread
         setSelectedThread(null);
         
         // Fetch updated inbox list
         const refreshResponse = await axios.get(
-          `${API_BASE_URL}/api/Inbox/inbox?inboxId=${selectedInboxId}&Provider=${selectedProvider}`,
+          `${API_BASE_URL}/api/Inbox/inbox?inboxId=${selectedInboxId}&Provider=${selectedProvider}&pageNumber=${inboxCurrentPage}&pageSize=${inboxPageSize}`,
           {
             headers: {
               accept: '*/*',
@@ -612,7 +635,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         );
         
         if (refreshResponse.data.success && refreshResponse.data.data) {
-          setThreads(refreshResponse.data.data);
+          setThreads(Array.isArray(refreshResponse.data.data.data) ? refreshResponse.data.data.data : []);
+          setInboxTotalCount(refreshResponse.data.data.totalCount || 0);
+          setInboxTotalPages(refreshResponse.data.data.totalPages || 0);
         }
       }
     } catch (err: any) {
@@ -624,7 +649,6 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       setError('Failed to refresh inbox');
     } finally {
       setIsRefreshing(false);
-      setLoading(false);
     }
   };
 
@@ -737,6 +761,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   onClick={() => {
                     setActiveTab('inbox');
                     setSelectedUnassignedEmail(null);
+                    setSelectedUnassignedThread(null);
+                    setSelectedSentThread(null);
+                    setShowReplySection(false);
+                    setReplyText('');
                   }}
                   style={{
                     padding: '8px 16px',
@@ -755,8 +783,36 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 </button>
                 <button
                   onClick={() => {
+                    setActiveTab('sent');
+                    setSelectedThread(null);
+                    setSelectedUnassignedEmail(null);
+                    setSelectedUnassignedThread(null);
+                    setSelectedSentThread(null);
+                    setShowReplySection(false);
+                    setReplyText('');
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    background: 'transparent',
+                    border: 'none',
+                    borderBottom: activeTab === 'sent' ? '3px solid #3f9f42' : '3px solid transparent',
+                    color: activeTab === 'sent' ? '#3f9f42' : '#6b7280',
+                    fontWeight: activeTab === 'sent' ? '600' : '400',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    marginBottom: '-2px'
+                  }}
+                >
+                  Sent
+                </button>
+                <button
+                  onClick={() => {
                     setActiveTab('unassigned');
                     setSelectedThread(null);
+                    setSelectedSentThread(null);
+                    setShowReplySection(false);
+                    setReplyText('');
                   }}
                   style={{
                     padding: '8px 16px',
@@ -777,13 +833,65 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
             </div>
             
             {/* Mail list items - conditional based on active tab */}
+            <div style={{ flex: 1, overflowY: 'auto' }}>
             {activeTab === 'inbox' ? (
               !selectedInboxId ? (
                 <div className="no-mails">Please select an inbox</div>
-              ) : threads.length === 0 ? (
-                <div className="no-mails">No emails found</div>
               ) : (
-                sortedGroups.map(([group, groupThreads]) => (
+                <>
+                  {/* Pagination Header */}
+                  <div style={{ 
+                    padding: '12px 16px', 
+                    borderBottom: '1px solid #e5e7eb',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    background: '#fff',
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 5
+                  }}>
+                    <span style={{ fontSize: '14px', color: '#6b7280' }}>
+                      Page {inboxCurrentPage} of {inboxTotalPages}
+                    </span>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <button
+                        onClick={() => setInboxCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={inboxCurrentPage === 1}
+                        style={{
+                          padding: '4px 8px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '4px',
+                          background: inboxCurrentPage === 1 ? '#f3f4f6' : '#fff',
+                          cursor: inboxCurrentPage === 1 ? 'not-allowed' : 'pointer',
+                          fontSize: '18px',
+                          color: inboxCurrentPage === 1 ? '#9ca3af' : '#374151'
+                        }}
+                      >
+                        ‹
+                      </button>
+                      <button
+                        onClick={() => setInboxCurrentPage(prev => Math.min(inboxTotalPages, prev + 1))}
+                        disabled={inboxCurrentPage === inboxTotalPages}
+                        style={{
+                          padding: '4px 8px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '4px',
+                          background: inboxCurrentPage === inboxTotalPages ? '#f3f4f6' : '#fff',
+                          cursor: inboxCurrentPage === inboxTotalPages ? 'not-allowed' : 'pointer',
+                          fontSize: '18px',
+                          color: inboxCurrentPage === inboxTotalPages ? '#9ca3af' : '#374151'
+                        }}
+                      >
+                        ›
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {threads.length === 0 ? (
+                    <div className="no-mails">No emails found</div>
+                  ) : (
+                    sortedGroups.map(([group, groupThreads]) => (
                 <div key={group}>
                   <div className="mail-group-header">{group}</div>
                   {groupThreads.map((thread) => {
@@ -849,17 +957,59 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     );
                   })}
                 </div>
-              ))
-            )
+                    ))
+                  )
+                }
+                </>
+              )
+            ) : activeTab === 'sent' ? (
+              <SentTab 
+                effectiveUserId={effectiveUserId} 
+                token={token} 
+                selectedInboxId={selectedInboxId}
+                selectedProvider={selectedProvider}
+                selectedThread={selectedSentThread}
+                onThreadSelect={(thread) => {
+                  setSelectedSentThread(thread);
+                  setShowReplySection(false);
+                  setReplyText('');
+                }}
+                onInitializeCollapsedEmails={(collapsed) => {
+                  setCollapsedEmails(collapsed);
+                }}
+                onReplyReset={() => {
+                  setShowReplySection(false);
+                  setReplyText('');
+                }}
+              />
             ) : (
               <UnassignedTab 
                 effectiveUserId={effectiveUserId} 
                 token={token} 
                 selectedInboxId={selectedInboxId}
-                onEmailSelect={setSelectedUnassignedEmail}
+                selectedProvider={selectedProvider}
+                onEmailSelect={(email) => {
+                  setSelectedUnassignedEmail(email);
+                  setShowReplySection(false);
+                  setReplyText('');
+                }}
                 selectedEmail={selectedUnassignedEmail}
+                selectedThread={selectedUnassignedThread}
+                onThreadSelect={(thread) => {
+                  setSelectedUnassignedThread(thread);
+                  setShowReplySection(false);
+                  setReplyText('');
+                }}
+                onInitializeCollapsedEmails={(collapsed) => {
+                  setCollapsedEmails(collapsed);
+                }}
+                onReplyReset={() => {
+                  setShowReplySection(false);
+                  setReplyText('');
+                }}
               />
             )}
+            </div>
           </div>
           
           {/* Mail Detail - Right side - conditional based on active tab */}
@@ -954,9 +1104,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 </div>
               </div>
               
-              {/* Sort messages by date - oldest first, latest last */}
+              {/* Sort messages by date - latest first, oldest last */}
               {[...selectedThread.messages].sort((a, b) => 
-                new Date(a.date).getTime() - new Date(b.date).getTime()
+                new Date(b.date).getTime() - new Date(a.date).getTime()
               ).map((message, index, sortedMessages) => {
                 const messageContactId = message.type === 'Reply' ? message.contactId : null;
                 const uniqueKey = `${message.messageId}-${index}`;
@@ -988,9 +1138,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           >
                             {message.contactName || extractSenderName(message.fromEmail)}
                           </div>
-                          <span style={{ color: '#6b7280', fontSize: '13px' }}>
-                            &lt;{extractEmailAddress(message.fromEmail)}&gt;
-                          </span>
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+                          {extractEmailAddress(message.fromEmail)}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
                           <span style={{ color: '#6b7280', fontSize: '13px' }}>To:</span>
@@ -1368,48 +1518,835 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
             </div>
           )
           ) : (
-            selectedUnassignedEmail ? (
+            selectedSentThread ? (
               <div className="mail-detail">
-                <div style={{ padding: '20px 24px 0', marginBottom: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px 0', marginBottom: '24px' }}>
                   <h3 className="mail-detail-subject" style={{ fontSize: '20px', fontWeight: '600', margin: 0 }}>
-                    {selectedUnassignedEmail.subject}
+                    {selectedSentThread.subject}
                   </h3>
+                  <div style={{ position: 'relative' }}>
+                    <button
+                      onClick={() => setShowDeleteDropdown(!showDeleteDropdown)}
+                      style={{
+                        padding: '8px',
+                        background: 'transparent',
+                        color: '#3f9f42',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '40px',
+                        height: '40px',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = '#f3f4f6';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'transparent';
+                      }}
+                    >
+                      <FontAwesomeIcon
+                        icon={faTrashAlt}
+                        style={{ fontSize: 20, color: '#3f9f42' }}
+                      />
+                    </button>
+                    
+                    {showDeleteDropdown && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '100%',
+                        right: 0,
+                        marginTop: '4px',
+                        background: '#fff',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '6px',
+                        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                        zIndex: 100,
+                        minWidth: '180px'
+                      }}>
+                        <button
+                          onClick={() => handleDeleteEmail('soft')}
+                          style={{
+                            width: '100%',
+                            padding: '10px 16px',
+                            background: 'transparent',
+                            border: 'none',
+                            textAlign: 'left',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            color: '#374151',
+                            borderBottom: '1px solid #e5e7eb',
+                            transition: 'background 0.2s'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        >
+                          Delete from Inbox
+                        </button>
+                        <button
+                          onClick={() => handleDeleteEmail('Permanent')}
+                          style={{
+                            width: '100%',
+                            padding: '10px 16px',
+                            background: 'transparent',
+                            border: 'none',
+                            textAlign: 'left',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            color: '#ef4444',
+                            fontWeight: '500',
+                            transition: 'background 0.2s'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        >
+                          Delete Permanently
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                <div style={{ paddingBottom: '24px' }}>
-                  <div className="mail-detail-header">
-                    <div className="mail-detail-top">
-                      <div className="mail-detail-avatar">{getInitials(selectedUnassignedEmail.fromEmail)}</div>
-                      <div className="mail-detail-info" style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <div className="mail-detail-sender" style={{ fontWeight: '500', fontSize: '14px' }}>
-                            {extractSenderName(selectedUnassignedEmail.fromEmail)}
+                {/* Sort messages by date - latest first, oldest last */}
+                {[...selectedSentThread.messages].sort((a, b) => 
+                  new Date(b.date).getTime() - new Date(a.date).getTime()
+                ).map((message, index, sortedMessages) => {
+                  const uniqueKey = `sent-${message.messageId}-${index}`;
+                  return (
+                  <div key={uniqueKey} style={{ marginBottom: index < sortedMessages.length - 1 ? '24px' : '0', paddingBottom: index < sortedMessages.length - 1 ? '24px' : '0', borderBottom: index < sortedMessages.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
+                    <div className="mail-detail-header">
+                      <div className="mail-detail-top">
+                        <div className="mail-detail-avatar">{getInitials(message.fromEmail, message.contactName)}</div>
+                        <div className="mail-detail-info" style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div 
+                              className="mail-detail-sender"
+                              style={{
+                                cursor: message.contactId ? 'pointer' : 'default',
+                                color: message.contactId ? '#3f9f42' : '#1f2937',
+                                textDecoration: message.contactId ? 'underline' : 'none',
+                                fontWeight: '500',
+                                fontSize: '14px'
+                              }}
+                              onClick={(e) => {
+                                if (message.contactId) {
+                                  e.stopPropagation();
+                                  const clientId = sessionStorage.getItem('clientId') || '';
+                                  const contactDetailsUrl = `/#/contact-details/${message.contactId}?tab=Output&clientId=${clientId}`;
+                                  window.open(contactDetailsUrl, '_blank');
+                                }
+                              }}
+                            >
+                              {message.contactName || extractSenderName(message.fromEmail)}
+                            </div>
                           </div>
-                          <span style={{ color: '#6b7280', fontSize: '13px' }}>
-                            &lt;{extractEmailAddress(selectedUnassignedEmail.fromEmail)}&gt;
-                          </span>
+                          <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+                            {extractEmailAddress(message.fromEmail)}
+                          </div>
                         </div>
-                      </div>
-                      <div className="mail-detail-date">
-                        {new Date(selectedUnassignedEmail.date).toLocaleString('en-US', { 
-                          weekday: 'short', 
-                          month: 'numeric', 
-                          day: 'numeric', 
-                          hour: 'numeric', 
-                          minute: '2-digit', 
-                          hour12: true 
-                        })}
+                        <div className="mail-detail-date">{new Date(message.date).toLocaleString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}</div>
                       </div>
                     </div>
+                    {collapsedEmails[uniqueKey] ? (
+                      <div 
+                        className="mail-body-preview" 
+                        onClick={() => toggleEmailCollapse(uniqueKey)}
+                        style={{ 
+                          padding: '16px 24px',
+                          cursor: 'pointer',
+                          color: '#6b7280',
+                          fontSize: '14px',
+                          borderLeft: '3px solid #e5e7eb',
+                          background: '#f9fafb',
+                          borderRadius: '4px',
+                          margin: '0 24px'
+                        }}
+                      >
+                        {(() => {
+                          let cleanText = message.body;
+                          const textarea = document.createElement('textarea');
+                          textarea.innerHTML = cleanText;
+                          cleanText = textarea.value;
+                          cleanText = cleanText
+                            .replace(/<style[^>]*>.*?<\/style>/gis, '')
+                            .replace(/<script[^>]*>.*?<\/script>/gis, '')
+                            .replace(/<!--.*?-->/gs, '')
+                            .replace(/<head[^>]*>.*?<\/head>/gis, '')
+                            .replace(/<[^>]+>/g, '')
+                            .replace(/&nbsp;/gi, ' ')
+                            .replace(/&gt;/g, '>')
+                            .replace(/&lt;/g, '<')
+                            .replace(/&amp;/g, '&')
+                            .replace(/&quot;/g, '"')
+                            .replace(/&#39;/g, "'")
+                            .replace(/&#x[0-9A-Fa-f]+;/g, '')
+                            .replace(/&#[0-9]+;/g, '')
+                            .replace(/\{[^}]*\}/g, '')
+                            .replace(/v\\:\*|o\\:\*|w\\:\*/g, '')
+                            .replace(/behavior:url\([^)]*\)/g, '')
+                            .replace(/mso-[^;:]*:[^;]*/gi, '')
+                            .replace(/\s+/g, ' ')
+                            .trim();
+                          
+                          const lines = cleanText.split(/[\r\n]+/).filter(line => line.trim());
+                          const firstLine = lines[0] || cleanText.substring(0, 100);
+                          return firstLine.substring(0, 100) + (cleanText.length > 100 ? '...' : '');
+                        })()}
+                      </div>
+                    ) : (
+                      <div 
+                        onClick={() => toggleEmailCollapse(uniqueKey)} 
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <div className="mail-body" dangerouslySetInnerHTML={{ __html: formatEmailBody(message.body) }} style={{ maxWidth: '100%', overflowX: 'auto' }} />
+                      </div>
+                    )}
                   </div>
-                  <div className="mail-body" dangerouslySetInnerHTML={{ __html: formatEmailBody(selectedUnassignedEmail.body) }} style={{ maxWidth: '100%', overflowX: 'auto' }} />
+                );})}
+              </div>
+            ) : selectedUnassignedThread ? (
+              <div className="mail-detail">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px 0', marginBottom: '24px' }}>
+                  <h3 className="mail-detail-subject" style={{ fontSize: '20px', fontWeight: '600', margin: 0 }}>
+                    {selectedUnassignedThread.subject}
+                  </h3>
+                  <div style={{ position: 'relative' }}>
+                    <button
+                      onClick={() => setShowDeleteDropdown(!showDeleteDropdown)}
+                      style={{
+                        padding: '8px',
+                        background: 'transparent',
+                        color: '#3f9f42',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '40px',
+                        height: '40px',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = '#f3f4f6';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'transparent';
+                      }}
+                    >
+                      <FontAwesomeIcon
+                        icon={faTrashAlt}
+                        style={{ fontSize: 20, color: '#3f9f42' }}
+                      />
+                    </button>
+                    
+                    {showDeleteDropdown && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '100%',
+                        right: 0,
+                        marginTop: '4px',
+                        background: '#fff',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '6px',
+                        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                        zIndex: 100,
+                        minWidth: '180px'
+                      }}>
+                        <button
+                          onClick={() => handleDeleteEmail('soft')}
+                          style={{
+                            width: '100%',
+                            padding: '10px 16px',
+                            background: 'transparent',
+                            border: 'none',
+                            textAlign: 'left',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            color: '#374151',
+                            borderBottom: '1px solid #e5e7eb',
+                            transition: 'background 0.2s'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        >
+                          Delete from Inbox
+                        </button>
+                        <button
+                          onClick={() => handleDeleteEmail('Permanent')}
+                          style={{
+                            width: '100%',
+                            padding: '10px 16px',
+                            background: 'transparent',
+                            border: 'none',
+                            textAlign: 'left',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            color: '#ef4444',
+                            fontWeight: '500',
+                            transition: 'background 0.2s'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        >
+                          Delete Permanently
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
+
+                {/* Sort messages by date - latest first, oldest last */}
+                {[...selectedUnassignedThread.messages].sort((a, b) => 
+                  new Date(b.date).getTime() - new Date(a.date).getTime()
+                ).map((message, index, sortedMessages) => {
+                  const uniqueKey = `unassigned-${message.messageId}-${index}`;
+                  return (
+                  <div key={uniqueKey} style={{ marginBottom: index < sortedMessages.length - 1 ? '24px' : '0', paddingBottom: index < sortedMessages.length - 1 ? '24px' : '0', borderBottom: index < sortedMessages.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
+                    <div className="mail-detail-header">
+                      <div className="mail-detail-top">
+                        <div className="mail-detail-avatar">{getInitials(message.fromEmail, message.contactName)}</div>
+                        <div className="mail-detail-info" style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div 
+                              className="mail-detail-sender"
+                              style={{
+                                cursor: message.contactId ? 'pointer' : 'default',
+                                color: message.contactId ? '#3f9f42' : '#1f2937',
+                                textDecoration: message.contactId ? 'underline' : 'none',
+                                fontWeight: '500',
+                                fontSize: '14px'
+                              }}
+                              onClick={(e) => {
+                                if (message.contactId) {
+                                  e.stopPropagation();
+                                  const clientId = sessionStorage.getItem('clientId') || '';
+                                  const contactDetailsUrl = `/#/contact-details/${message.contactId}?tab=Output&clientId=${clientId}`;
+                                  window.open(contactDetailsUrl, '_blank');
+                                }
+                              }}
+                            >
+                              {message.contactName || extractSenderName(message.fromEmail)}
+                            </div>
+                          </div>
+                          <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+                            {extractEmailAddress(message.fromEmail)}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                            <span style={{ color: '#6b7280', fontSize: '13px' }}>To:</span>
+                            <span style={{ color: '#2563eb', fontSize: '13px' }}>
+                              {extractEmailAddress(message.toEmail || selectedUnassignedThread.contactEmail)}
+                            </span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleMessageExpand(message.messageId);
+                              }}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                cursor: 'pointer',
+                                padding: '2px 4px',
+                                fontSize: '10px',
+                                color: '#6b7280',
+                                display: 'flex',
+                                alignItems: 'center',
+                                marginLeft: '4px'
+                              }}
+                            >
+                              <span style={{
+                                transform: expandedMessages[message.messageId] ? 'rotate(180deg)' : 'rotate(0deg)',
+                                transition: 'transform 0.2s',
+                                display: 'inline-block'
+                              }}>▼</span>
+                            </button>
+                          </div>
+                          {expandedMessages[message.messageId] && (
+                            <div style={{
+                              marginTop: '8px',
+                              padding: '8px 0',
+                              fontSize: '13px',
+                              lineHeight: '1.8',
+                              color: '#6b7280',
+                              borderTop: '1px solid #e5e7eb'
+                            }}>
+                              <div>
+                                <strong style={{ color: '#374151' }}>From:</strong> {message.contactName || extractSenderName(message.fromEmail)} &lt;{extractEmailAddress(message.fromEmail)}&gt;
+                              </div>
+                              <div>
+                                <strong style={{ color: '#374151' }}>To:</strong> {extractEmailAddress(message.toEmail || selectedUnassignedThread.contactEmail)}
+                              </div>
+                              <div>
+                                <strong style={{ color: '#374151' }}>Date:</strong> {formatFullDate(message.date)}
+                              </div>
+                              <div>
+                                <strong style={{ color: '#374151' }}>Subject:</strong> {message.subject}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <div className="mail-detail-date">{new Date(message.date).toLocaleString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}</div>
+                      </div>
+                    </div>
+                    {collapsedEmails[uniqueKey] ? (
+                      <div 
+                        className="mail-body-preview" 
+                        onClick={() => toggleEmailCollapse(uniqueKey)}
+                        style={{ 
+                          padding: '16px 24px',
+                          cursor: 'pointer',
+                          color: '#6b7280',
+                          fontSize: '14px',
+                          borderLeft: '3px solid #e5e7eb',
+                          background: '#f9fafb',
+                          borderRadius: '4px',
+                          margin: '0 24px'
+                        }}
+                      >
+                        {(() => {
+                          let cleanText = message.body;
+                          const textarea = document.createElement('textarea');
+                          textarea.innerHTML = cleanText;
+                          cleanText = textarea.value;
+                          cleanText = cleanText
+                            .replace(/<style[^>]*>.*?<\/style>/gis, '')
+                            .replace(/<script[^>]*>.*?<\/script>/gis, '')
+                            .replace(/<!--.*?-->/gs, '')
+                            .replace(/<head[^>]*>.*?<\/head>/gis, '')
+                            .replace(/<[^>]+>/g, '')
+                            .replace(/&nbsp;/gi, ' ')
+                            .replace(/&gt;/g, '>')
+                            .replace(/&lt;/g, '<')
+                            .replace(/&amp;/g, '&')
+                            .replace(/&quot;/g, '"')
+                            .replace(/&#39;/g, "'")
+                            .replace(/&#x[0-9A-Fa-f]+;/g, '')
+                            .replace(/&#[0-9]+;/g, '')
+                            .replace(/\{[^}]*\}/g, '')
+                            .replace(/v\\:\*|o\\:\*|w\\:\*/g, '')
+                            .replace(/behavior:url\([^)]*\)/g, '')
+                            .replace(/mso-[^;:]*:[^;]*/gi, '')
+                            .replace(/\s+/g, ' ')
+                            .trim();
+                          
+                          const lines = cleanText.split(/[\r\n]+/).filter(line => line.trim());
+                          const firstLine = lines[0] || cleanText.substring(0, 100);
+                          return firstLine.substring(0, 100) + (cleanText.length > 100 ? '...' : '');
+                        })()}
+                      </div>
+                    ) : (
+                      <div 
+                        onClick={() => toggleEmailCollapse(uniqueKey)} 
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <div className="mail-body" dangerouslySetInnerHTML={{ __html: formatEmailBody(message.body) }} style={{ maxWidth: '100%', overflowX: 'auto' }} />
+                      </div>
+                    )}
+                  </div>
+                );})}
+                
+                {/* Reply Button */}
+                {!showReplySection && (
+                  <div className="reply-button-sticky">
+                    <button
+                      onClick={() => setShowReplySection(true)}
+                      style={{
+                        padding: '10px 24px',
+                        background: '#3b82f6',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: '500',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+                      </svg>
+                      Reply
+                    </button>
+                  </div>
+                )}
+                
+                {/* Reply Section */}
+                {showReplySection && (
+                <div className="reply-section" style={{
+                  marginTop: '24px',
+                  borderTop: '1px solid #e5e7eb',
+                  paddingTop: '24px',
+                  padding: '24px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                    <label style={{ fontWeight: '500', fontSize: '14px', color: '#374151' }}>Write Reply</label>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <select
+                        value={selectedBlueprint || ''}
+                        onChange={(e) => setSelectedBlueprint(e.target.value ? parseInt(e.target.value) : null)}
+                        style={{
+                          padding: '6px 12px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '6px',
+                          fontSize: '13px',
+                          cursor: 'pointer',
+                          minWidth: '200px'
+                        }}
+                      >
+                        <option value="">Select Blueprint</option>
+                        {blueprints.map((blueprint) => (
+                          <option key={blueprint.id} value={blueprint.id}>
+                            {blueprint.templateName}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={async () => {
+                          if (!selectedBlueprint || !selectedUnassignedThread.contactId) return;
+                          
+                          setIsKrafting(true);
+                          setError('');
+                          try {
+                            const response = await axios.post(
+                              `${API_BASE_URL}/api/CampaignPrompt/campaign/generate-single-contact`,
+                              {
+                                blueprintId: selectedBlueprint,
+                                contactId: selectedUnassignedThread.contactId,
+                                clientId: effectiveUserId,
+                                overwriteExisting: true
+                              },
+                              {
+                                headers: {
+                                  'accept': '*/*',
+                                  'Content-Type': 'application/json',
+                                  ...(token && { Authorization: `Bearer ${token}` }),
+                                },
+                              }
+                            );
+
+                            if (response.data.success && response.data.emailBody) {
+                              setReplyText(response.data.emailBody);
+                            } else {
+                              setError('Failed to generate email');
+                            }
+                          } catch (err: any) {
+                            console.error('Error krafting email:', err);
+                            setError(err.response?.data?.message || 'Failed to generate email');
+                          } finally {
+                            setIsKrafting(false);
+                          }
+                        }}
+                        disabled={!selectedBlueprint || isKrafting || !selectedUnassignedThread.contactId}
+                        style={{
+                          padding: '6px 16px',
+                          background: (!selectedBlueprint || isKrafting || !selectedUnassignedThread.contactId) ? '#ccc' : '#3b82f6',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: '6px',
+                          cursor: (!selectedBlueprint || isKrafting || !selectedUnassignedEmail.contactId) ? 'not-allowed' : 'pointer',
+                          fontSize: '13px',
+                          fontWeight: '500',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        {isKrafting ? 'Krafting...' : 'Kraft'}
+                      </button>
+                    </div>
+                  </div>
+                  <style>
+                    {`
+                      .reply-section .rich-text-editor > div {
+                        min-height: 30px !important;
+                        max-height: 100px !important;
+                      }
+                    `}
+                  </style>
+                  <div style={{ marginBottom: '12px', position: 'relative' }}>
+                    <div style={{ 
+                      maxWidth: `${outputEmailWidth === 'Mobile' ? '480px' : outputEmailWidth === 'Tab' ? '768px' : '100%'}`,
+                      margin: '0 auto'
+                    }}>
+                      <RichTextEditor 
+                        value={replyText} 
+                        onChange={setReplyText}
+                        showActionButtons={false}
+                        outputEmailWidth={outputEmailWidth}
+                        isCopyText={isCopyText}
+                        openDeviceDropdown={openDeviceDropdown}
+                        onDeviceDropdownToggle={() => setOpenDeviceDropdown(!openDeviceDropdown)}
+                        onDeviceWidthChange={(width) => {
+                          setOutputEmailWidth(width);
+                          setOpenDeviceDropdown(false);
+                        }}
+                        onCopyToClipboard={copyToClipboardHandler}
+                        onExpandEditor={() => handleModalOpen('modal-reply-expand')}
+                      />
+                    </div>
+                    
+                    {/* Toolbar */}
+                    <div className="output-email-floated-icons d-flex bg-[#ffffff] rounded-md" style={{ position: 'absolute', right: '10px', top: '10px', zIndex: 10 }}>
+                      <div className="d-flex align-items-center justify-between flex-col-991">
+                        <div className="d-flex relative">
+                          <button
+                            onClick={() => setOpenDeviceDropdown(!openDeviceDropdown)}
+                            className="w-[55px] justify-center px-3 py-2 bg-gray-200 rounded-md flex items-center device-icon"
+                            style={{ appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none' }}
+                          >
+                            {outputEmailWidth === 'Mobile' && (
+                              <svg xmlns="http://www.w3.org/2000/svg" width="25px" viewBox="0 0 24 24" fill="none">
+                                <path d="M11 18H13M9.2 21H14.8C15.9201 21 16.4802 21 16.908 20.782C17.2843 20.5903 17.5903 20.2843 17.782 19.908C18 19.4802 18 18.9201 18 17.8V6.2C18 5.0799 18 4.51984 17.782 4.09202C17.5903 3.71569 17.2843 3.40973 16.908 3.21799C16.4802 3 15.9201 3 14.8 3H9.2C8.0799 3 7.51984 3 7.09202 3.21799C6.71569 3.40973 6.40973 3.71569 6.21799 4.09202C6 4.51984 6 5.07989 6 6.2V17.8C6 18.9201 6 19.4802 6.21799 19.908C6.40973 20.2843 6.71569 20.5903 7.09202 20.782C7.51984 21 8.07989 21 9.2 21Z" stroke="#000000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                            )}
+                            {outputEmailWidth === 'Tab' && (
+                              <svg xmlns="http://www.w3.org/2000/svg" width="25px" viewBox="0 0 24 24" fill="none">
+                                <rect x="4" y="3" width="16" height="18" rx="1" stroke="#200E32" strokeWidth="2" strokeLinecap="round"/>
+                                <circle cx="12" cy="18" r="1" fill="#200E32"/>
+                              </svg>
+                            )}
+                            {outputEmailWidth === '' && (
+                              <svg xmlns="http://www.w3.org/2000/svg" width="25px" viewBox="0 0 24 24" fill="none">
+                                <rect x="3" y="4" width="18" height="13" rx="2" stroke="#0C0310" strokeWidth="2" strokeLinecap="round" fill="none"/>
+                                <line x1="7.5" y1="21" x2="16.5" y2="21" stroke="#0C0310" strokeWidth="2" strokeLinecap="round"/>
+                                <line x1="12" y1="17" x2="12" y2="21" stroke="#0C0310" strokeWidth="2" strokeLinecap="round"/>
+                              </svg>
+                            )}
+                          </button>
+                          {openDeviceDropdown && (
+                            <div className="w-[55px] absolute right-0 mt-[35px] bg-[#eeeeee] pt-[5px] rounded-b-md rounded-t-none d-flex flex-col output-responsive-button-group justify-center-991 col-12-991">
+                              {outputEmailWidth !== 'Mobile' && (
+                                <button className="w-[55px] button pad-10 d-flex align-center align-self-center output-email-width-button-mobile justify-center" onClick={() => { setOutputEmailWidth('Mobile'); setOpenDeviceDropdown(false); }}>
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="25px" viewBox="0 0 24 24" fill="none">
+                                    <path d="M11 18H13M9.2 21H14.8C15.9201 21 16.4802 21 16.908 20.782C17.2843 20.5903 17.5903 20.2843 17.782 19.908C18 19.4802 18 18.9201 18 17.8V6.2C18 5.0799 18 4.51984 17.782 4.09202C17.5903 3.71569 17.2843 3.40973 16.908 3.21799C16.4802 3 15.9201 3 14.8 3H9.2C8.0799 3 7.51984 3 7.09202 3.21799C6.71569 3.40973 6.40973 3.71569 6.21799 4.09202C6 4.51984 6 5.07989 6 6.2V17.8C6 18.9201 6 19.4802 6.21799 19.908C6.40973 20.2843 6.71569 20.5903 7.09202 20.782C7.51984 21 8.07989 21 9.2 21Z" stroke="#000000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                  </svg>
+                                </button>
+                              )}
+                              {outputEmailWidth !== 'Tab' && (
+                                <button className="w-[55px] button pad-10 d-flex align-center align-self-center output-email-width-button-tab justify-center" onClick={() => { setOutputEmailWidth('Tab'); setOpenDeviceDropdown(false); }}>
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="25px" viewBox="0 0 24 24" fill="none">
+                                    <rect x="4" y="3" width="16" height="18" rx="1" stroke="#200E32" strokeWidth="2" strokeLinecap="round"/>
+                                    <circle cx="12" cy="18" r="1" fill="#200E32"/>
+                                  </svg>
+                                </button>
+                              )}
+                              {outputEmailWidth !== '' && (
+                                <button className="w-[55px] button pad-10 d-flex align-center align-self-center output-email-width-button-desktop justify-center" onClick={() => { setOutputEmailWidth(''); setOpenDeviceDropdown(false); }}>
+                                  <svg xmlns="http://www.w3.org/2000/svg" width="25px" viewBox="0 0 24 24" fill="none">
+                                    <rect x="3" y="4" width="18" height="13" rx="2" stroke="#0C0310" strokeWidth="2" strokeLinecap="round" fill="none"/>
+                                    <line x1="7.5" y1="21" x2="16.5" y2="21" stroke="#0C0310" strokeWidth="2" strokeLinecap="round"/>
+                                    <line x1="12" y1="17" x2="12" y2="21" stroke="#0C0310" strokeWidth="2" strokeLinecap="round"/>
+                                  </svg>
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <button className="button d-flex align-center square-40 justify-center" onClick={copyToClipboardHandler}>
+                        {isCopyText ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" viewBox="0 0 24 24" fill="none">
+                            <path d="M7.29417 12.9577L10.5048 16.1681L17.6729 9" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            <circle cx="12" cy="12" r="10" stroke="#ffffff" strokeWidth="2"/>
+                          </svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="#000000" width="24px" height="24px" viewBox="0 0 32 32">
+                            <path d="M26 4.75h-2c-0.69 0-1.25 0.56-1.25 1.25s0.56 1.25 1.25 1.25v0h0.75v21.5h-17.5v-21.5h0.75c0.69 0 1.25-0.56 1.25-1.25s-0.56-1.25-1.25-1.25v0h-2c-0.69 0-1.25 0.56-1.25 1.25v0 24c0 0.69 0.56 1.25 1.25 1.25h20c0.69-0.001 1.249-0.56 1.25-1.25v-24c-0-0.69-0.56-1.25-1.25-1.25h-0zM11 9.249h10c0.69 0 1.25-0.56 1.25-1.25s-0.56-1.25-1.25-1.25v0h-1.137c0.242-0.513 0.385-1.114 0.387-1.748v-0.001c0-2.347-1.903-4.25-4.25-4.25s-4.25 1.903-4.25 4.25v0c0.002 0.635 0.145 1.236 0.398 1.775l-0.011-0.026h-1.137c-0.69 0-1.25 0.56-1.25 1.25s0.56 1.25 1.25 1.25v0zM14.25 5c0-0 0-0.001 0-0.001 0-0.966 0.784-1.75 1.75-1.75s1.75 0.784 1.75 1.75c0 0.966-0.784 1.75-1.75 1.75v0c-0.966-0.001-1.748-0.783-1.75-1.749v-0zM19.957 13.156l-6.44 7.039-1.516-1.506c-0.226-0.223-0.536-0.361-0.878-0.361-0.69 0-1.25 0.56-1.25 1.25 0 0.345 0.14 0.658 0.366 0.884v0l2.44 2.424 0.022 0.015 0.015 0.021c0.074 0.061 0.159 0.114 0.25 0.156l0.007 0.003c0.037 0.026 0.079 0.053 0.123 0.077l0.007 0.003c0.135 0.056 0.292 0.089 0.457 0.089 0.175 0 0.341-0.037 0.491-0.103l-0.008 0.003c0.053-0.031 0.098-0.061 0.14-0.094l-0.003 0.002c0.102-0.050 0.189-0.11 0.268-0.179l-0.001 0.001 0.015-0.023 0.020-0.014 7.318-8c0.203-0.222 0.328-0.518 0.328-0.844 0-0.69-0.559-1.25-1.25-1.25-0.365 0-0.693 0.156-0.921 0.405l-0.001 0.001z"/>
+                          </svg>
+                        )}
+                      </button>
+                      
+                      <button className="button square-40 !bg-transparent justify-center" onClick={() => handleModalOpen('modal-reply-expand')}>
+                        <svg width="30px" height="30px" viewBox="0 0 512 512">
+                          <polyline points="304 96 416 96 416 208" fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="32"/>
+                          <line x1="405.77" y1="106.2" x2="111.98" y2="400.02" fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="32"/>
+                          <polyline points="208 416 96 416 96 304" fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="32"/>
+                        </svg>
+                      </button>
+
+                      <button 
+                        className="button square-40 justify-center" 
+                        style={{ 
+                          background: isSavingDraft || !replyText.trim() || !selectedUnassignedThread.contactId ? '#ccc' : '#3f9f42', 
+                          color: '#fff',
+                          fontWeight: '500',
+                          fontSize: '13px',
+                          padding: '0 16px',
+                          width: 'auto',
+                          minWidth: '70px',
+                          cursor: isSavingDraft || !replyText.trim() || !selectedUnassignedThread.contactId ? 'not-allowed' : 'pointer'
+                        }}
+                        onClick={handleSaveDraft}
+                        disabled={isSavingDraft || !replyText.trim() || !selectedUnassignedThread.contactId}
+                      >
+                        {isSavingDraft ? 'Saving...' : 'Save'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Expand Modal */}
+                  <Modal
+                    show={openModals['modal-reply-expand']}
+                    closeModal={() => handleModalClose('modal-reply-expand')}
+                    buttonLabel="Close"
+                    size="90%"
+                  >
+                    <div style={{ padding: '20px' }}>
+                      <label style={{ fontWeight: '500', fontSize: '16px', marginBottom: '12px', display: 'block' }}>Reply Editor</label>
+                      <RichTextEditor value={replyText} onChange={setReplyText} />
+                    </div>
+                  </Modal>
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <button
+                      onClick={async () => {
+                        if (!replyText.trim()) return;
+                        
+                        const emailTrackingId = selectedUnassignedThread.trackingId;
+                        
+                        if (!emailTrackingId) {
+                          setToastMessage('Cannot reply: No tracking ID available');
+                          setToastType('error');
+                          setShowToast(true);
+                          setTimeout(() => setShowToast(false), 3000);
+                          return;
+                        }
+                        
+                        setIsSending(true);
+                        setError('');
+                        try {
+                          const response = await axios.post(
+                            `${API_BASE_URL}/api/email/reply_email`,
+                            {
+                              trackingId: emailTrackingId,
+                              clientId: parseInt(effectiveUserId),
+                              replyBody: replyText,
+                              outboxId: selectedInboxId,
+                              bccEmail: '',
+                              Provider: selectedProvider
+                            },
+                            {
+                              headers: {
+                                'accept': '*/*',
+                                'Content-Type': 'application/json',
+                                ...(token && { Authorization: `Bearer ${token}` }),
+                              },
+                            }
+                          );
+
+                          if (response.data.success) {
+                            // Add the sent message to the thread immediately
+                            const sentMessage: InboxMessage = {
+                              type: 'Sent',
+                              messageId: `temp-${Date.now()}`,
+                              subject: `Re: ${selectedUnassignedThread.subject}`,
+                              body: replyText,
+                              fromEmail: inboxList.find(i => i.inboxId === selectedInboxId)?.emailAddress || '',
+                              toEmail: selectedUnassignedThread.contactEmail,
+                              date: new Date().toISOString(),
+                              isRead: true,
+                              contactId: selectedUnassignedThread.contactId,
+                              contactName: null
+                            };
+                            
+                            // Update the thread with the new message
+                            const updatedThread = {
+                              ...selectedUnassignedThread,
+                              messages: [...selectedUnassignedThread.messages, sentMessage],
+                              totalMessages: selectedUnassignedThread.totalMessages + 1,
+                              lastMessageDate: sentMessage.date
+                            };
+                            
+                            setSelectedUnassignedThread(updatedThread);
+                            setReplyText('');
+                            setShowReplySection(false);
+                            setToastMessage('Reply sent successfully!');
+                            setToastType('success');
+                            setShowToast(true);
+                            setTimeout(() => setShowToast(false), 3000);
+                          } else {
+                            setToastMessage('Failed to send reply');
+                            setToastType('error');
+                            setShowToast(true);
+                            setTimeout(() => setShowToast(false), 3000);
+                          }
+                        } catch (err: any) {
+                          console.error('Error sending reply:', err);
+                          setToastMessage(err.response?.data?.message || 'Failed to send reply');
+                          setToastType('error');
+                          setShowToast(true);
+                          setTimeout(() => setShowToast(false), 3000);
+                        } finally {
+                          setIsSending(false);
+                        }
+                      }}
+                      disabled={!replyText.trim() || isSending}
+                      style={{
+                        padding: '10px 24px',
+                        background: (!replyText.trim() || isSending) ? '#ccc' : '#ef4444',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: (!replyText.trim() || isSending) ? 'not-allowed' : 'pointer',
+                        fontSize: '14px',
+                        fontWeight: '500'
+                      }}
+                    >
+                      {isSending ? 'Sending...' : 'Send Reply'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowReplySection(false);
+                        setReplyText('');
+                      }}
+                      style={{
+                        padding: '10px 24px',
+                        background: '#6b7280',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: '500'
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+                )}
               </div>
             ) : (
               <div className="no-mail-selected">
                 Select an email to view
               </div>
             )
+          )}
+          
+          {/* Right Side Panel - Contact Info */}
+          {((activeTab === 'inbox' && selectedThread) || 
+            (activeTab === 'sent' && selectedSentThread) || 
+            (activeTab === 'unassigned' && selectedUnassignedThread)) && (
+            <div style={{
+              width: '350px',
+              borderLeft: '1px solid #e5e7eb',
+              background: '#fff',
+              overflowY: 'auto',
+              flexShrink: 0,
+              marginRight: '-35px',
+            }}>
+              <ContactInfoPanel 
+                contactId={
+                  activeTab === 'inbox' ? selectedThread?.contactId || null
+                  : activeTab === 'sent' ? selectedSentThread?.contactId || null
+                  : selectedUnassignedThread?.contactId || null
+                }
+                token={token}
+              />
+            </div>
           )}
         </div>
       )}

@@ -378,7 +378,27 @@ useEffect(() => {
           : prev
       );
 
-      setEmailTimeline(data.emails || []);
+      // ✅ Merge sent emails and inbox emails into single timeline
+      const sentEmails = (data.emails || []).map((email: any) => ({
+        ...email,
+        emailType: 'sent'
+      }));
+      
+      const inboxEmails = (data.inboxemails || []).map((email: any) => ({
+        ...email,
+        emailType: 'inbox',
+        sentAt: email.receiveAt, // Map receiveAt to sentAt for consistency
+        senderEmailId: email.fromEmail
+      }));
+      
+      // Combine and sort by date (newest first)
+      const allEmails = [...sentEmails, ...inboxEmails].sort((a, b) => {
+        const dateA = new Date(a.sentAt || a.receiveAt).getTime();
+        const dateB = new Date(b.sentAt || b.receiveAt).getTime();
+        return dateB - dateA;
+      });
+      
+      setEmailTimeline(allEmails);
       setNotesHistory(data.notes || []); // ✅ Set notes from timeline API
       setAttachmentsHistory(data.attachments || []); // ✅ Set attachments from timeline API
     } catch (err) {
@@ -1701,6 +1721,7 @@ useEffect(() => {
                             /* 🟢 EMAIL (REUSE YOUR EXISTING JSX) */
                             if (item.type === "email") {
                               const email = item.data;
+                              const isInboxEmail = email.emailType === 'inbox';
 
                               return (
                                 <div key={email.trackingId || index} style={{ marginBottom: 24 }}>
@@ -1738,15 +1759,21 @@ useEffect(() => {
                                     {/* Content */}
                                     <div style={{ flex: 1 }}>
                                       {/* Source */}
-                                      <div style={{ fontSize: 13, marginBottom: 6 }}>
-                                        <b>Source:</b>{" "}
-                                        <span style={{ color: "#666" }}>{email.source || "Unknown source"}</span>
-                                      </div>
+                                      {!isInboxEmail && (
+                                        <div style={{ fontSize: 13, marginBottom: 6 }}>
+                                          <b>Source:</b>{" "}
+                                          <span style={{ color: "#666" }}>{email.source || "Unknown source"}</span>
+                                        </div>
+                                      )}
 
-                                      {/* Email sent */}
-                                      <div style={{ fontWeight: 600 }}>Email sent</div>
+                                      {/* Email sent/received */}
+                                      <div style={{ fontWeight: 600 }}>
+                                        {isInboxEmail ? "Email received" : "Email sent"}
+                                      </div>
                                       <div style={{ fontSize: 13, color: "#666", marginBottom: 8 }}>
-                                        {formatDateTimeIST(email.sentAt)} from {email.senderEmailId}
+                                        {formatDateTimeIST(email.sentAt || email.receiveAt)}
+                                        {!isInboxEmail && ` from ${email.senderEmailId}`}
+                                        {isInboxEmail && ` from ${email.fromEmail}`}
                                       </div>
 
                                       {/* Events + Subject */}
@@ -2190,7 +2217,10 @@ useEffect(() => {
 
                       {/* 🔹 EMAIL TIMELINE */}
                       {(historyFilter === "emails") &&
-                        emailTimeline.map((email: any, index: number) => (
+                        emailTimeline.map((email: any, index: number) => {
+                          const isInboxEmail = email.emailType === 'inbox';
+                          
+                          return (
                           <div key={email.trackingId || index}>
                             <div
                               style={{
@@ -2224,16 +2254,20 @@ useEffect(() => {
 
                               {/* Content */}
                               <div style={{ flex: 1 }}>
-                                {/* 2️⃣ SOURCE */}
-                                <div style={{ fontSize: 13, marginBottom: 6 }}>
-                                  <b>Source:</b>{" "}
-                                  <span style={{ color: "#666" }}>
-                                    {email.source || "Unknown source"}
-                                  </span>
-                                </div>
+                                {/* 2️⃣ SOURCE - Only show for sent emails */}
+                                {!isInboxEmail && (
+                                  <div style={{ fontSize: 13, marginBottom: 6 }}>
+                                    <b>Source:</b>{" "}
+                                    <span style={{ color: "#666" }}>
+                                      {email.source || "Unknown source"}
+                                    </span>
+                                  </div>
+                                )}
 
-                                {/* 3️⃣ EMAIL SENT */}
-                                <div style={{ fontWeight: 600 }}>Email sent</div>
+                                {/* 3️⃣ EMAIL SENT/RECEIVED */}
+                                <div style={{ fontWeight: 600 }}>
+                                  {isInboxEmail ? "Email received" : "Email sent"}
+                                </div>
                                 <div
                                   style={{
                                     fontSize: 13,
@@ -2241,7 +2275,9 @@ useEffect(() => {
                                     marginBottom: 8,
                                   }}
                                 >
-                                  {formatDateTimeIST(email.sentAt)} from {email.senderEmailId}
+                                  {formatDateTimeIST(email.sentAt || email.receiveAt)}
+                                  {!isInboxEmail && ` from ${email.senderEmailId}`}
+                                  {isInboxEmail && ` from ${email.fromEmail}`}
                                 </div>
                                 {/* • */}
                                 <div
@@ -2398,7 +2434,8 @@ useEffect(() => {
                           )}
 
                           </div>
-                        ))}
+                        );}
+                        )}
                       {/* 🔹 ATTACHMENTS HISTORY */}
                       {(historyFilter === "attachments") && (
                         <>
