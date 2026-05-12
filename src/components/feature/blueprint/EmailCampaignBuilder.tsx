@@ -30,6 +30,7 @@ import toggleOff from "../../../assets/images/off-button.png";
 import RichTextEditor from "../../common/RTEEditor";
 import DOMPurify from "dompurify";
 import LoadingSpinner from "../../common/LoadingSpinner";
+import { AVAILABLE_AI_MODELS } from "../../../utils/aiModels";
 
 
 // --- Type Definitions ---
@@ -3018,45 +3019,7 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   // ====================================================================
   // AVAILABLE MODELS
   // ====================================================================
-  const availableModels: GPTModel[] = [
-    {
-      id: "gpt-4.1",
-      name: "GPT-4.1",
-      description: "Flagship model in the 4.1 family",
-    },
-    {
-      id: "gpt-4.1-mini",
-      name: "GPT-4.1 mini",
-      description: "Faster, lighter version of 4.1",
-    },
-    {
-      id: "gpt-4.1-nano",
-      name: "GPT-4.1 nano",
-      description: "Smallest, fastest, lowest-cost variant",
-    },
-    { id: "gpt-4o", name: "GPT-4o", description: "Standard GPT-4 Optimized" },
-    {
-      id: "gpt-4o-mini",
-      name: "GPT-4o Mini",
-      description: "Efficient GPT-4o model",
-    },
-    { id: "gpt-5", name: "GPT-5", description: "Standard flagship model" },
-    {
-      id: "gpt-5.1",
-      name: "GPT-5.1",
-      description: "Adaptive-reasoning flagship update to the GPT-5 series",
-    },
-    {
-      id: "gpt-5-mini",
-      name: "GPT-5 Mini",
-      description: "Lightweight, efficient, cost-effective",
-    },
-    {
-      id: "gpt-5-nano",
-      name: "GPT-5 Nano",
-      description: "Ultra-fast, minimal resource usage",
-    },
-  ];
+  const availableModels: GPTModel[] = AVAILABLE_AI_MODELS;
 
   // ====================================================================
   // EXTRACT PLACEHOLDERS
@@ -4542,7 +4505,7 @@ const parsePlaceholdersSafe = (block: string) => {
 
                   {/* Model Picker */}
                   <div className="model-select-box">
-                    <label className="section-label">Select GPT model</label>
+                    <label className="section-label">Select AI model</label>
                     <select
                       className="definition-select"
                       value={selectedModel}

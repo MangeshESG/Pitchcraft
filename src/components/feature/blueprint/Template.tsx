@@ -12,6 +12,7 @@ import duplicateIcon from "../../../assets/images/icons/duplicate.png";
 import CreditCheckModal from "../../common/CreditCheckModal";
 import deleteIcon from "../../../assets/images/deleteiconn.png";
 import CommonSidePanel from "../../common/CommonSidePanel";
+import { AVAILABLE_AI_MODELS } from "../../../utils/aiModels";
 import {
   faAngleRight,
   faBars,
@@ -1744,7 +1745,7 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                 </div>
 
                 <div className="form-group">
-                  <label>GPT model</label>
+                  <label>AI model</label>
                   <select
                     value={editCampaignForm.selectedModel}
                     onChange={(e) =>
@@ -1754,11 +1755,11 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                       })
                     }
                   >
-                    <option value="gpt-4.1">GPT-4.1</option>
-                    <option value="gpt-4.1-mini">GPT-4.1 mini</option>
-                    <option value="gpt-5">GPT-5</option>
-                    <option value="gpt-5-mini">GPT-5 mini</option>
-                    <option value="gpt-5-nano">GPT-5 nano</option>
+                    {AVAILABLE_AI_MODELS.map((model) => (
+                      <option key={model.id} value={model.id}>
+                        {model.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
                  <div className="form-group">

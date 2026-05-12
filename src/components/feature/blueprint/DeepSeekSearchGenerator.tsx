@@ -3,13 +3,10 @@ import axios from "axios";
 import DOMPurify from "dompurify";
 import API_BASE_URL from "../../../config";
 import { useModel } from "../../../ModelContext";
+import { DEEPSEEK_MODELS } from "../../../utils/aiModels";
 import "./DeepSeekSearchGenerator.css";
 
 const WEB_SEARCH_PLACEHOLDER = "{web_searched_data}";
-const DEEPSEEK_SUPPORTED_MODELS = [
-  { value: "deepseek-chat", label: "DeepSeek Chat" },
-  { value: "deepseek-reasoner", label: "DeepSeek Reasoner" },
-];
 
 interface UsageInfo {
   PromptTokens?: number;
@@ -51,8 +48,8 @@ Email requirements:
 
 const DeepSeekSearchGenerator: React.FC = () => {
   const { selectedModelName } = useModel();
-  const initialModelName = DEEPSEEK_SUPPORTED_MODELS.some(
-    (model) => model.value === selectedModelName,
+  const initialModelName = DEEPSEEK_MODELS.some(
+    (model) => model.id === selectedModelName,
   )
     ? selectedModelName
     : "deepseek-chat";
@@ -190,9 +187,9 @@ const DeepSeekSearchGenerator: React.FC = () => {
               value={modelName}
               onChange={(event) => setModelName(event.target.value)}
             >
-              {DEEPSEEK_SUPPORTED_MODELS.map((model) => (
-                <option key={model.value} value={model.value}>
-                  {model.label}
+              {DEEPSEEK_MODELS.map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.name}
                 </option>
               ))}
             </select>

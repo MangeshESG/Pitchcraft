@@ -28,14 +28,20 @@ interface ModelProviderProps {
 }
 
 export const ModelProvider: React.FC<ModelProviderProps> = ({ children }) => {
-const [selectedModelName, setSelectedModelName] = useState(() => localStorage.getItem("selectedModel") || "");
-    // State to manage selected Zoho view ID
-    const [selectedZohoviewId, setSelectedZohoviewId] = useState('');
+  const [selectedModelNameState, setSelectedModelNameState] = useState(
+    () => localStorage.getItem("selectedModel") || "",
+  );
+  // State to manage selected Zoho view ID
+  const [selectedZohoviewId, setSelectedZohoviewId] = useState('');
 
+  const setSelectedModelName = (name: string) => {
+    setSelectedModelNameState(name);
+    localStorage.setItem("selectedModel", name);
+  };
 
 
   return (
-    <ModelContext.Provider value={{ selectedModelName, setSelectedModelName ,selectedZohoviewId, setSelectedZohoviewId}}>
+    <ModelContext.Provider value={{ selectedModelName: selectedModelNameState, setSelectedModelName, selectedZohoviewId, setSelectedZohoviewId }}>
       {children}
     </ModelContext.Provider>
   );
