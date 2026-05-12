@@ -1,12 +1,13 @@
 import React, { useMemo, useState } from "react";
 import axios from "axios";
 import DOMPurify from "dompurify";
-import API_BASE_URL from "../../../config";
 import { useModel } from "../../../ModelContext";
 import { DEEPSEEK_MODELS } from "../../../utils/aiModels";
 import "./DeepSeekSearchGenerator.css";
 
 const WEB_SEARCH_PLACEHOLDER = "{web_searched_data}";
+const DEEPSEEK_SEARCH_API_URL =
+  "https://playground.esuk.co.uk/api/auth/deepseek/generate-with-search";
 
 interface UsageInfo {
   PromptTokens?: number;
@@ -104,7 +105,7 @@ const DeepSeekSearchGenerator: React.FC = () => {
     setIsGenerating(true);
     try {
       const response = await axios.post<GenerateWithSearchResponse>(
-        `${API_BASE_URL}/api/auth/deepseek/generate-with-search`,
+        DEEPSEEK_SEARCH_API_URL,
         {
           Prompt: prompt,
           ModelName: modelName,

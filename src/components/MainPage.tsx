@@ -3759,7 +3759,7 @@ try {
                                     : ""
                                 }
                               >
-                                {/* <button
+                                <button
                                   onClick={() => {
                                     setBlueprintSubTab("DeepSeekSearch");
                                     setTab("DeepSeekSearch");
@@ -3768,7 +3768,7 @@ try {
                                   className="submenu-button"
                                 >
                                   DeepSeek Search
-                                </button> */}
+                                </button>
                               </li>
                             </>
                           )}
