@@ -2726,7 +2726,8 @@ const actionIconStyle = {
                       port: "",
                       username: "",
                       password: "",
-                      useSSL: false,
+                      encryption: "Auto",
+                      fullInboxSync: false,
                     });
                   }}
                   title="Edit Inbox configuration"
