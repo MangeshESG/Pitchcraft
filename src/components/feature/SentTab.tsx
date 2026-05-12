@@ -36,6 +36,7 @@ interface SentTabProps {
   onThreadSelect: (thread: SentThread | null) => void;
   onInitializeCollapsedEmails: (collapsed: { [key: string]: boolean }) => void;
   onReplyReset?: () => void;
+  refreshTrigger?: number;
 }
 
 const SentTab: React.FC<SentTabProps> = ({ 
@@ -46,7 +47,8 @@ const SentTab: React.FC<SentTabProps> = ({
   selectedThread,
   onThreadSelect,
   onInitializeCollapsedEmails,
-  onReplyReset
+  onReplyReset,
+  refreshTrigger
 }) => {
   const [threads, setThreads] = useState<SentThread[]>([]);
   const [loading, setLoading] = useState(false);
@@ -87,7 +89,7 @@ const SentTab: React.FC<SentTabProps> = ({
     };
 
     fetchSentEmails();
-  }, [effectiveUserId, token, selectedInboxId, selectedProvider, currentPage]);
+  }, [effectiveUserId, token, selectedInboxId, selectedProvider, currentPage, refreshTrigger]);
 
   const handleThreadClick = async (thread: SentThread) => {
     if (onReplyReset) {

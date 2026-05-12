@@ -111,6 +111,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const inboxPageSize = 10;
   const [selectedUnassignedThread, setSelectedUnassignedThread] = useState<InboxThread | null>(null);
   const [selectedSentThread, setSelectedSentThread] = useState<InboxThread | null>(null);
+  const [refreshSentTab, setRefreshSentTab] = useState(0);
+  const [refreshUnassignedTab, setRefreshUnassignedTab] = useState(0);
 
   useEffect(() => {
     const fetchInboxList = async () => {
@@ -131,9 +133,12 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         if (response.data.success && response.data.data) {
           setInboxList(response.data.data);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error fetching inbox list:', err);
-        setError('Failed to load inbox list');
+        setToastMessage(err.response?.data?.message || 'Failed to load inbox dropdown');
+        setToastType('error');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 5000);
       } finally {
         setLoading(false);
       }
@@ -189,10 +194,20 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           setThreads(Array.isArray(response.data.data.data) ? response.data.data.data : []);
           setInboxTotalCount(response.data.data.totalCount || 0);
           setInboxTotalPages(response.data.data.totalPages || 0);
+        } else {
+          setThreads([]);
+          setToastMessage('No emails found in this inbox');
+          setToastType('info');
+          setShowToast(true);
+          setTimeout(() => setShowToast(false), 3000);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error fetching mails:', err);
-        setError('Failed to load emails');
+        setThreads([]);
+        setToastMessage(err.response?.data?.message || 'Failed to load emails. Please try again.');
+        setToastType('error');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 5000);
       } finally {
         setLoading(false);
       }
@@ -201,14 +216,19 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     fetchMails();
   }, [selectedInboxId, selectedProvider, token, isVisible, inboxCurrentPage]);
 
-  const handleInboxChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleInboxChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const inboxId = parseInt(e.target.value);
     const inbox = inboxList.find(i => i.inboxId === inboxId);
-    setSelectedInboxId(inboxId);
-    setSelectedProvider(inbox?.provider || '');
+    
     setSelectedThread(null);
     setSelectedUnassignedEmail(null);
     setSelectedUnassignedThread(null);
+    setLoading(true);
+    
+    await new Promise(resolve => setTimeout(resolve, 0));
+    
+    setSelectedInboxId(inboxId);
+    setSelectedProvider(inbox?.provider || '');
   };
 
   const handleThreadClick = async (thread: InboxThread) => {
@@ -317,8 +337,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           setSelectedThread(null);
         } else if (activeTab === 'sent') {
           setSelectedSentThread(null);
+          setRefreshSentTab(prev => prev + 1);
         } else {
           setSelectedUnassignedThread(null);
+          setRefreshUnassignedTab(prev => prev + 1);
         }
       } else {
         setToastMessage('Failed to delete email');
@@ -613,16 +635,19 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         }
       );
 
-      if (response.data.message) {
-        // Show success message
-        setToastMessage(response.data.message);
-        setToastType('success');
-        setShowToast(true);
-        setTimeout(() => setShowToast(false), 3000);
-        
-        // Clear selected thread
-        setSelectedThread(null);
-        
+      // Show success message
+      setToastMessage(response.data.message || 'Inbox refreshed successfully');
+      setToastType('success');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+      
+      // Clear selected threads
+      setSelectedThread(null);
+      setSelectedSentThread(null);
+      setSelectedUnassignedThread(null);
+      
+      // Refresh all tabs
+      if (activeTab === 'inbox') {
         // Fetch updated inbox list
         const refreshResponse = await axios.get(
           `${API_BASE_URL}/api/Inbox/inbox?inboxId=${selectedInboxId}&Provider=${selectedProvider}&pageNumber=${inboxCurrentPage}&pageSize=${inboxPageSize}`,
@@ -639,6 +664,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           setInboxTotalCount(refreshResponse.data.data.totalCount || 0);
           setInboxTotalPages(refreshResponse.data.data.totalPages || 0);
         }
+      } else if (activeTab === 'sent') {
+        setRefreshSentTab(prev => prev + 1);
+      } else {
+        setRefreshUnassignedTab(prev => prev + 1);
       }
     } catch (err: any) {
       console.error('Error refreshing inbox:', err);
@@ -646,7 +675,6 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       setToastType('error');
       setShowToast(true);
       setTimeout(() => setShowToast(false), 6000);
-      setError('Failed to refresh inbox');
     } finally {
       setIsRefreshing(false);
     }
@@ -666,27 +694,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         position="bottom-center"
         duration={3}
       />
-      <p>
-        View and manage your inbox emails with sender information and full message content.
-      </p>
-
       {loading && <LoadingSpinner message="Loading..." />}
 
-      {error && (
-        <div style={{
-          padding: '12px 16px',
-          background: '#f8d7da',
-          border: '1px solid #dc3545',
-          borderRadius: 6,
-          marginTop: 16,
-          color: '#721c24'
-        }}>
-          {error}
-        </div>
-      )}
-
       {/* Email Content */}
-      {!loading && !error && (
+      {!loading && (
         <div className="inbox-content">
           {/* Mail List - Always visible on left */}
           <div className="mail-list">
@@ -710,7 +721,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     border: '1px solid #d1d5db',
                     borderRadius: '6px',
                     fontSize: '13px',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
                   }}
                 >
                   <option value="">Choose an inbox</option>
@@ -981,6 +992,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   setShowReplySection(false);
                   setReplyText('');
                 }}
+                refreshTrigger={refreshSentTab}
               />
             ) : (
               <UnassignedTab 
@@ -1007,6 +1019,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   setShowReplySection(false);
                   setReplyText('');
                 }}
+                refreshTrigger={refreshUnassignedTab}
               />
             )}
             </div>
@@ -1097,7 +1110,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
                         onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                       >
-                        Delete Permanently
+                        Delete permanently
                       </button>
                     </div>
                   )}
@@ -1512,11 +1525,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
               </div>
               )}
             </div>
-          ) : (
-            <div className="no-mail-selected">
-              Select an email to view
-            </div>
-          )
+          ) : null
           ) : (
             selectedSentThread ? (
               <div className="mail-detail">
@@ -1603,7 +1612,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
                           onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                         >
-                          Delete Permanently
+                          Delete permanently
                         </button>
                       </div>
                     )}
@@ -1792,7 +1801,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
                           onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                         >
-                          Delete Permanently
+                          Delete permanently
                         </button>
                       </div>
                     )}
@@ -2319,11 +2328,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 </div>
                 )}
               </div>
-            ) : (
-              <div className="no-mail-selected">
-                Select an email to view
-              </div>
-            )
+            ) : null
           )}
           
           {/* Right Side Panel - Contact Info */}
@@ -2337,6 +2342,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
               overflowY: 'auto',
               flexShrink: 0,
               marginRight: '-35px',
+              marginTop: '24px'
             }}>
               <ContactInfoPanel 
                 contactId={

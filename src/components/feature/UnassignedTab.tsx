@@ -54,6 +54,7 @@ interface UnassignedTabProps {
   selectedThread: UnassignedThread | null;
   onThreadSelect: (thread: UnassignedThread | null) => void;
   onInitializeCollapsedEmails: (collapsed: { [key: string]: boolean }) => void;
+  refreshTrigger?: number;
 }
 
 const UnassignedTab: React.FC<UnassignedTabProps> = ({ 
@@ -66,7 +67,8 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
   selectedProvider,
   selectedThread,
   onThreadSelect,
-  onInitializeCollapsedEmails
+  onInitializeCollapsedEmails,
+  refreshTrigger
 }) => {
   const [threads, setThreads] = useState<UnassignedThread[]>([]);
   const [loading, setLoading] = useState(false);
@@ -107,7 +109,7 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
     };
 
     fetchUnassignedEmails();
-  }, [effectiveUserId, token, selectedInboxId, selectedProvider, currentPage]);
+  }, [effectiveUserId, token, selectedInboxId, selectedProvider, currentPage, refreshTrigger]);
 
   const handleThreadClick = async (thread: UnassignedThread) => {
     if (onReplyReset) {
