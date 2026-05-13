@@ -53,6 +53,8 @@ import CustomFieldSettings from "./feature/CustomFieldSettings";
 import ContactDetailView from "./feature/contacts/ContactDetailView";
 import { closePanel } from "../slices/panelSlice";
 
+const PITCH_GENERATION_API_BASE_URL = "https://playground.esuk.co.uk";
+
 interface Prompt {
   id: number;
   name: string;
@@ -1956,7 +1958,7 @@ const resolvePromptSafely = async () => {
         }));
 
         const pitchResponse = await fetch(
-          `${API_BASE_URL}/api/auth/generatepitch`,
+          `${PITCH_GENERATION_API_BASE_URL}/api/auth/generatepitch`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -2032,7 +2034,7 @@ const resolvePromptSafely = async () => {
               };
 
               const subjectResponse = await fetch(
-                `${API_BASE_URL}/api/auth/generatepitch`,
+                `${PITCH_GENERATION_API_BASE_URL}/api/auth/generatepitch`,
                 {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
@@ -2539,7 +2541,7 @@ const resolvePromptSafely = async () => {
             ModelName: selectedModelNameA,
           };
           const pitchResponse = await fetch(
-            `${API_BASE_URL}/api/auth/generatepitch`,
+            `${PITCH_GENERATION_API_BASE_URL}/api/auth/generatepitch`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -2658,7 +2660,7 @@ totalEmailCountRef.current += 1;
             };
 
             const subjectResponse = await fetch(
-              `${API_BASE_URL}/api/auth/generatepitch`,
+              `${PITCH_GENERATION_API_BASE_URL}/api/auth/generatepitch`,
               {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
