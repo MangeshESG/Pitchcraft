@@ -62,6 +62,9 @@ interface Prompt {
   userId?: number; // userId might not always be returned from the API
   createdAt?: string;
   template?: string;
+  model?: string;
+  webSearchInstructions?: string;
+  placeholderValues?: Record<string, any>;
 }
 
 const modules = {
@@ -1369,6 +1372,7 @@ const handleClientChange = async (
 
     let blueprint = "";
     let matchedTemplate: any = null;
+    let webSearchInstructions = "";
 
     // 🔹 1. Fetch blueprint + placeholderValues from template
     const bpResp = await fetch(
@@ -1404,9 +1408,12 @@ const handleClientChange = async (
         JSON.stringify(subjectConfig),
       );
 
+      webSearchInstructions =
+        bpJson.webSearchInstructions || bpJson.WebSearchInstructions || "";
+
       setSearchTermForm({
         searchTerm: pv.hook_search_terms || "",
-        instructions: pv.search_objective || "",
+        instructions: webSearchInstructions || pv.search_objective || "",
         searchCount: bpJson.searchURLCount?.toString() || "1",
         output: "",
       });
@@ -1423,6 +1430,7 @@ const handleClientChange = async (
       console.log("🎯 Loaded from DB:", {
         searchTerm: pv.hook_search_terms,
         instructions: pv.search_objective,
+        webSearchInstructions,
         searchCount: bpJson.searchURLCount,
         model: bpJson.selectedModel,
       });
@@ -1460,7 +1468,9 @@ const handleClientChange = async (
         campaignData.templateName ||
         `Template ${templateId}`,
       text: blueprint,
-      model: matchedTemplate?.selectedModel || "gpt-5",
+      model: bpJson.selectedModel || matchedTemplate?.selectedModel || "gpt-5",
+      webSearchInstructions,
+      placeholderValues: bpJson.placeholderValues || {},
     };
 
     // Save to React + sessionStorage
@@ -1704,9 +1714,14 @@ const resolvePromptSafely = async () => {
       }
     }
 
+    let promptForRun: Prompt | null = selectedPrompt;
+
     if (tab === "Output" && selectedCampaign) {
       try {
-        await loadCampaignBlueprint(selectedCampaign);
+        const loadedPrompt = await loadCampaignBlueprint(selectedCampaign);
+        if (loadedPrompt) {
+          promptForRun = loadedPrompt;
+        }
       } catch (error) {
         console.error("❌ Failed to load campaign blueprint:", error);
         return;
@@ -1762,15 +1777,82 @@ const resolvePromptSafely = async () => {
       return result;
     };
 
+    const isGptModel = (modelName?: string) =>
+      (modelName || "").trim().toLowerCase().startsWith("gpt");
+
+    const fillWebSearchDataForNonGpt = async (
+      promptText: string,
+      replacements: Record<string, any>,
+      promptConfig?: Prompt | null,
+    ) => {
+      if (isGptModel(selectedModelNameA)) {
+        return {
+          promptText,
+          webSearchData: "",
+          searchResults: [] as string[],
+        };
+      }
+
+      const instructionTemplate =
+        promptConfig?.webSearchInstructions || instructionsParamA || "";
+      const webSearchReplacements = {
+        ...(promptConfig?.placeholderValues || {}),
+        ...replacements,
+      };
+      const filledInstructions = replaceAllPlaceholders(
+        instructionTemplate,
+        webSearchReplacements,
+      );
+
+      if (!filledInstructions.trim()) {
+        return {
+          promptText: promptText.replace("{web_searched_data}", ""),
+          webSearchData: "",
+          searchResults: [] as string[],
+        };
+      }
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/auth/websearch`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            instructions: filledInstructions,
+          }),
+        },
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.message || data?.Message || "Web search failed");
+      }
+
+      const webSearchData =
+        data?.webSearchData || data?.WebSearchData || data?.summary || "";
+      const searchResults =
+        data?.searchResults || data?.SearchResults || [];
+
+      const promptWithSearchData = promptText.includes("{web_searched_data}")
+        ? promptText.replace("{web_searched_data}", webSearchData)
+        : `${promptText}\n\n${webSearchData}`;
+
+      return {
+        promptText: promptWithSearchData,
+        webSearchData,
+        searchResults,
+      };
+    };
+
     setTab(tab);
     // If already processing, show loader and prevent multiple starts
     if (isProcessing) {
       return;
     }
 
-    const selectedModelNameA = selectedModelName;
+    const selectedModelNameA = promptForRun?.model || selectedModelName;
     const searchterm = searchTermForm.searchTerm;
-    const searchCount = searchTermForm.searchCount;
     const instructionsParamA = searchTermForm.instructions;
     const systemInstructionsA = settingsForm.systemInstructions;
     const subject_instruction = settingsForm.subjectInstructions;
@@ -1833,9 +1915,9 @@ const resolvePromptSafely = async () => {
 
     try {
       // ======= REGENERATION BLOCK START =======
-        if (!selectedPrompt && !options?.regenerate) {
+        if (!promptForRun && !options?.regenerate) {
         const missingVars = [];
-        if (!selectedPrompt) missingVars.push("prompt template");
+        if (!promptForRun) missingVars.push("prompt template");
 
         const errorMessage = `<span style="color: red">[${formatDateTime(
           new Date(),
@@ -1874,7 +1956,7 @@ const resolvePromptSafely = async () => {
         }
 
         // ✅ CRITICAL FIX — ALWAYS RESOLVE PROMPT
-        const safePrompt = await resolvePromptSafely();
+        const safePrompt = promptForRun || await resolvePromptSafely();
 
         if (!safePrompt) {
           setOutputForm(prev => ({
@@ -1929,18 +2011,26 @@ const resolvePromptSafely = async () => {
           replacements,
         );
 
-        const replacedPromptText = replaceAllPlaceholders(
+        let replacedPromptText = replaceAllPlaceholders(
           safePrompt.text || "",
           replacements,
         );
+
+        const webSearchResult = await fillWebSearchDataForNonGpt(
+          replacedPromptText,
+          replacements,
+          safePrompt,
+        );
+        replacedPromptText = webSearchResult.promptText;
+        replacements.search_output_summary = webSearchResult.webSearchData || "";
 
         const promptToSend = `\n${systemPrompt}\n${replacedPromptText}`;
 
         setOutputForm(prev => ({
           ...prev,
           currentPrompt: promptToSend,
-          searchResults: [],
-          allScrapedData: "",
+          searchResults: webSearchResult.searchResults,
+          allScrapedData: webSearchResult.webSearchData,
         }));
 
         setallprompt(prev => {
@@ -2451,12 +2541,12 @@ const resolvePromptSafely = async () => {
             shouldInjectPlaceholder(
               "use_email",
               systemInstructionsA,
-              selectedPrompt?.text || "",
+              promptForRun?.text || "",
             ) ||
             shouldInjectPlaceholder(
               "use_emails",
               systemInstructionsA,
-              selectedPrompt?.text || "",
+              promptForRun?.text || "",
             )
           )
             ? await fetchEmailConversationContext(effectiveUserId, entry.id)
@@ -2496,9 +2586,17 @@ const resolvePromptSafely = async () => {
           );
 
           let replacedPromptText = replaceAllPlaceholders(
-            selectedPrompt?.text || "",
+            promptForRun?.text || "",
             replacements,
           );
+
+          const webSearchResult = await fillWebSearchDataForNonGpt(
+            replacedPromptText,
+            replacements,
+            promptForRun,
+          );
+          replacedPromptText = webSearchResult.promptText;
+          replacements.search_output_summary = webSearchResult.webSearchData || "";
 
           const promptToSend = `
           ${systemPrompt}
@@ -2522,6 +2620,8 @@ const resolvePromptSafely = async () => {
           setOutputForm((prevState) => ({
             ...prevState,
             currentPrompt: promptToSend,
+            searchResults: webSearchResult.searchResults,
+            allScrapedData: webSearchResult.webSearchData,
           }));
 
           setOutputForm((prevOutputForm) => ({

@@ -1362,6 +1362,7 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   // NEW
   const [searchURLCount, setSearchURLCount] = useState<number>(1);
   const [subjectInstructions, setSubjectInstructions] = useState<string>("");
+  const [webSearchInstructions, setWebSearchInstructions] = useState<string>("");
   const [formValues, setFormValues] = useState<Record<string, string>>({});
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -2184,13 +2185,16 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
           return;
         }
 
-        if (!conversationValues["search_objective"]?.trim()) {
+        const searchInstructionTemplate =
+          webSearchInstructions.trim() || conversationValues["search_objective"] || "";
+
+        if (!searchInstructionTemplate.trim()) {
           showModal("Error", "❌ Missing search_objective value.");
           return;
         }
 
         const processedInstructions = replacePlaceholdersInString(
-          conversationValues["search_objective"],
+          searchInstructionTemplate,
           mergedForSearch,
         );
 
@@ -2409,6 +2413,7 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
           createdBy: effectiveUserId,
           searchURLCount,
           subjectInstructions,
+          webSearchInstructions,
           selectedModel,
         },
       );
@@ -2507,6 +2512,7 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
           masterBlueprintUnpopulated: previewText,
           searchURLCount,
           subjectInstructions,
+          webSearchInstructions,
           selectedModel: selectedModel,
         },
       );
@@ -2545,6 +2551,7 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       setPreviewText(def.masterBlueprintUnpopulated || "");
       setSearchURLCount(def.searchURLCount || 1);
       setSubjectInstructions(def.subjectInstructions || "");
+      setWebSearchInstructions(def.webSearchInstructions || "");
       setSelectedModel(def.selectedModel);
 
       // ✅ REQUIRED!!!
@@ -2591,6 +2598,7 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
     sessionStorage.removeItem("campaign_preview_text");
     sessionStorage.removeItem("campaign_selected_model");
     sessionStorage.removeItem("campaign_template_name");
+    sessionStorage.removeItem("campaign_web_search_instructions");
   };
 
   const applyStoredChatMessages = (storedMessages?: StoredChatMessage[]) => {
@@ -2690,6 +2698,7 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       setSelectedTemplateDefinitionId(template.templateDefinitionId || null);
       setTemplateName(template.templateName || "");
       setSubjectInstructions(template.subjectInstructions || "");
+      setWebSearchInstructions(template.webSearchInstructions || "");
       setIsComplete(false);
 
       // --------------------------------------------
@@ -3783,6 +3792,8 @@ const parsePlaceholdersSafe = (block: string) => {
     setMasterPrompt("");
     setMasterPromptExtensive("");
     setPreviewText("");
+    setSubjectInstructions("");
+    setWebSearchInstructions("");
     setSelectedModel("gpt-5");
     setActiveMainTab("build");
     setActiveBuildTab("chat");
@@ -3805,6 +3816,7 @@ const parsePlaceholdersSafe = (block: string) => {
     | "placeholder_short"
     | "placeholders"
     | "ct"
+    | "web_search_instructions"
     | "subject_instructions" // ⭐ NEW
   >("ai_new");
 
@@ -3818,6 +3830,8 @@ const parsePlaceholdersSafe = (block: string) => {
     setMasterPrompt("");
     setMasterPromptExtensive("");
     setPreviewText("");
+    setSubjectInstructions("");
+    setWebSearchInstructions("");
 
     // Clear conversation-related saved session
     sessionStorage.removeItem("campaign_system_prompt");
@@ -3826,6 +3840,7 @@ const parsePlaceholdersSafe = (block: string) => {
     sessionStorage.removeItem("campaign_master_prompt_extensive");
     sessionStorage.removeItem("campaign_preview_text");
     sessionStorage.removeItem("campaign_template_name");
+    sessionStorage.removeItem("campaign_web_search_instructions");
 
     // Optional: Show toast
     console.log("✨ Starting new instruction from scratch");
@@ -4608,6 +4623,7 @@ const parsePlaceholdersSafe = (block: string) => {
                   ["placeholders", "Placeholder manager"],
                   ["ct", "UT "],
                   ["subject_instructions", "Email subject instructions"],
+                  ["web_search_instructions", "Web search instructions"],
                 ].map(([key, label]) => (
                   <button
                     key={key}
@@ -5160,6 +5176,16 @@ const parsePlaceholdersSafe = (block: string) => {
                       setSubjectInstructions(e.target.value)
                     }
                     placeholder="Enter instructions for generating email subject..."
+                  />
+                )}
+
+                {instructionSubTab === "web_search_instructions" && (
+                  <SimpleTextarea
+                    value={webSearchInstructions}
+                    onChange={(e: any) =>
+                      setWebSearchInstructions(e.target.value)
+                    }
+                    placeholder="Enter instructions for web search. You can use placeholders like {company_name}, {job_title}, or {hook_search_terms}..."
                   />
                 )}
               </div>
