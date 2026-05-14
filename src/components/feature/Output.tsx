@@ -1616,7 +1616,24 @@ const sleepWithCountdown = async (ms: number) => {
 const usageData = useMemo(() => {
   if (!outputForm?.usage) return null;
   try {
-    return JSON.parse(outputForm.usage);
+    const parsed = JSON.parse(outputForm.usage);
+    const toUsageNumber = (value: unknown) => {
+      const numericValue = Number(value);
+      return Number.isFinite(numericValue) ? numericValue : 0;
+    };
+
+    return {
+      last: {
+        tokens: toUsageNumber(parsed?.last?.tokens),
+        cost: toUsageNumber(parsed?.last?.cost),
+        emails: toUsageNumber(parsed?.last?.emails),
+      },
+      total: {
+        tokens: toUsageNumber(parsed?.total?.tokens),
+        cost: toUsageNumber(parsed?.total?.cost),
+        emails: toUsageNumber(parsed?.total?.emails),
+      },
+    };
   } catch {
     return null;
   }

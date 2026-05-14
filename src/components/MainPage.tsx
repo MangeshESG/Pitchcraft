@@ -53,7 +53,9 @@ import CustomFieldSettings from "./feature/CustomFieldSettings";
 import ContactDetailView from "./feature/contacts/ContactDetailView";
 import { closePanel } from "../slices/panelSlice";
 
-const PITCH_GENERATION_API_BASE_URL = "https://playground.esuk.co.uk";
+//const PITCH_GENERATION_API_BASE_URL = "https://playground.esuk.co.uk";
+const PITCH_GENERATION_API_BASE_URL = "https://localhost:7216";
+
 
 interface Prompt {
   id: number;
@@ -1780,6 +1782,34 @@ const resolvePromptSafely = async () => {
     const isGptModel = (modelName?: string) =>
       (modelName || "").trim().toLowerCase().startsWith("gpt");
 
+    const toUsageNumber = (value: unknown) => {
+      const numericValue = Number(value);
+      return Number.isFinite(numericValue) ? numericValue : 0;
+    };
+
+    const normalizeUsage = (payload: any) => {
+      const usage = payload?.usage || payload?.Usage || payload || {};
+      const generation = usage?.generation || usage?.Generation || {};
+      const webSearch = usage?.webSearch || usage?.WebSearch || {};
+      const totalCost =
+        usage?.totalCost ??
+        usage?.TotalCost ??
+        usage?.currentCost ??
+        usage?.CurrentCost ??
+        usage?.cost;
+      const totalTokens =
+        usage?.totalTokens ??
+        usage?.TotalTokens ??
+        usage?.tokens ??
+        (toUsageNumber(webSearch?.totalTokens ?? webSearch?.TotalTokens) +
+          toUsageNumber(generation?.totalTokens ?? generation?.TotalTokens));
+
+      return {
+        totalTokens: toUsageNumber(totalTokens),
+        currentCost: toUsageNumber(totalCost),
+      };
+    };
+
     const fillWebSearchDataForNonGpt = async (
       promptText: string,
       replacements: Record<string, any>,
@@ -1790,6 +1820,7 @@ const resolvePromptSafely = async () => {
           promptText,
           webSearchData: "",
           searchResults: [] as string[],
+          usage: { totalTokens: 0, currentCost: 0 },
         };
       }
 
@@ -1809,6 +1840,7 @@ const resolvePromptSafely = async () => {
           promptText: promptText.replace("{web_searched_data}", ""),
           webSearchData: "",
           searchResults: [] as string[],
+          usage: { totalTokens: 0, currentCost: 0 },
         };
       }
 
@@ -1842,6 +1874,7 @@ const resolvePromptSafely = async () => {
         promptText: promptWithSearchData,
         webSearchData,
         searchResults,
+        usage: normalizeUsage(data?.usage || data?.Usage),
       };
     };
 
@@ -2023,6 +2056,17 @@ const resolvePromptSafely = async () => {
         );
         replacedPromptText = webSearchResult.promptText;
         replacements.search_output_summary = webSearchResult.webSearchData || "";
+        const webSearchTokens = webSearchResult.usage.totalTokens;
+        const webSearchCost = webSearchResult.usage.currentCost;
+
+        lastEmailTokens += webSearchTokens;
+        lastEmailCost += webSearchCost;
+
+        totalEmailTokensRef.current += webSearchTokens;
+        totalEmailCostRef.current += webSearchCost;
+
+        cost += webSearchCost;
+        totaltokensused += webSearchTokens;
 
         const promptToSend = `\n${systemPrompt}\n${replacedPromptText}`;
 
@@ -2076,8 +2120,9 @@ const resolvePromptSafely = async () => {
           return;
         }
 
-        const bodyTokens = Number(pitchData.response.totalTokens || 0);
-        const bodyCost = Number(pitchData.response.currentCost || 0);
+        const bodyUsage = normalizeUsage(pitchData.response);
+        const bodyTokens = bodyUsage.totalTokens;
+        const bodyCost = bodyUsage.currentCost;
 
         lastEmailTokens += bodyTokens;
         lastEmailCost += bodyCost;
@@ -2137,8 +2182,9 @@ const resolvePromptSafely = async () => {
 
                 subjectLine = subjectData.response?.content || "";
 
-                const subjectTokens = Number(subjectData?.response?.totalTokens || 0);
-                const subjectCost = Number(subjectData?.response?.currentCost || 0);
+                const subjectUsage = normalizeUsage(subjectData?.response);
+                const subjectTokens = subjectUsage.totalTokens;
+                const subjectCost = subjectUsage.currentCost;
 
                 lastEmailTokens += subjectTokens;
                 lastEmailCost += subjectCost;
@@ -2597,6 +2643,17 @@ const resolvePromptSafely = async () => {
           );
           replacedPromptText = webSearchResult.promptText;
           replacements.search_output_summary = webSearchResult.webSearchData || "";
+          const webSearchTokens = webSearchResult.usage.totalTokens;
+          const webSearchCost = webSearchResult.usage.currentCost;
+
+          lastEmailTokens += webSearchTokens;
+          lastEmailCost += webSearchCost;
+
+          totalEmailTokensRef.current += webSearchTokens;
+          totalEmailCostRef.current += webSearchCost;
+
+          cost += webSearchCost;
+          totaltokensused += webSearchTokens;
 
           const promptToSend = `
           ${systemPrompt}
@@ -2677,8 +2734,9 @@ const resolvePromptSafely = async () => {
 
             successReq += 1;
 
-            const bodyTokens = Number(pitchData.response.totalTokens);
-            const bodyCost = Number(pitchData.response.currentCost);
+            const bodyUsage = normalizeUsage(pitchData.response);
+            const bodyTokens = bodyUsage.totalTokens;
+            const bodyCost = bodyUsage.currentCost;
 
             // LAST
 // LAST
@@ -2773,8 +2831,9 @@ totalEmailCountRef.current += 1;
 
             subjectLine = subjectData.response?.content || "";
 
-            const subjectTokens = Number(subjectData?.response?.totalTokens || 0);
-            const subjectCost = Number(subjectData?.response?.currentCost || 0);
+            const subjectUsage = normalizeUsage(subjectData?.response);
+            const subjectTokens = subjectUsage.totalTokens;
+            const subjectCost = subjectUsage.currentCost;
 
             // LAST (same email)
 // LAST (same email)

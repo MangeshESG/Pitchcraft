@@ -14,10 +14,16 @@ interface UsageInfo {
   CompletionTokens?: number;
   TotalTokens?: number;
   CurrentCost?: number;
+  TotalCost?: number;
   promptTokens?: number;
   completionTokens?: number;
   totalTokens?: number;
   currentCost?: number;
+  totalCost?: number;
+  WebSearch?: UsageInfo;
+  Generation?: UsageInfo;
+  webSearch?: UsageInfo;
+  generation?: UsageInfo;
 }
 
 interface GenerateWithSearchResponse {
@@ -68,11 +74,42 @@ const DeepSeekSearchGenerator: React.FC = () => {
     [generatedEmail],
   );
   const webSearchData = result?.WebSearchData ?? result?.webSearchData ?? "";
-  const promptTokens = usage?.PromptTokens ?? usage?.promptTokens ?? 0;
+  const toUsageNumber = (value: unknown) => {
+    const numericValue = Number(value);
+    return Number.isFinite(numericValue) ? numericValue : 0;
+  };
+  const webSearchUsage = usage?.WebSearch ?? usage?.webSearch;
+  const generationUsage = usage?.Generation ?? usage?.generation;
+  const promptTokens = toUsageNumber(
+    usage?.PromptTokens ??
+      usage?.promptTokens ??
+      (toUsageNumber(webSearchUsage?.PromptTokens ?? webSearchUsage?.promptTokens) +
+        toUsageNumber(generationUsage?.PromptTokens ?? generationUsage?.promptTokens)),
+  );
   const completionTokens =
-    usage?.CompletionTokens ?? usage?.completionTokens ?? 0;
-  const totalTokens = usage?.TotalTokens ?? usage?.totalTokens ?? 0;
-  const currentCost = usage?.CurrentCost ?? usage?.currentCost ?? 0;
+    toUsageNumber(
+      usage?.CompletionTokens ??
+        usage?.completionTokens ??
+        (toUsageNumber(
+          webSearchUsage?.CompletionTokens ?? webSearchUsage?.completionTokens,
+        ) +
+          toUsageNumber(
+            generationUsage?.CompletionTokens ??
+              generationUsage?.completionTokens,
+          )),
+    );
+  const totalTokens = toUsageNumber(
+    usage?.TotalTokens ??
+      usage?.totalTokens ??
+      (toUsageNumber(webSearchUsage?.TotalTokens ?? webSearchUsage?.totalTokens) +
+        toUsageNumber(generationUsage?.TotalTokens ?? generationUsage?.totalTokens)),
+  );
+  const currentCost = toUsageNumber(
+    usage?.TotalCost ??
+      usage?.totalCost ??
+      usage?.CurrentCost ??
+      usage?.currentCost,
+  );
 
   const canSubmit = useMemo(
     () =>

@@ -1326,7 +1326,7 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   );
   const [selectedModel, setSelectedModel] = useSessionState<string>(
     "campaign_selected_model",
-    "gpt-5",
+    "gpt-5.1",
   );
   const [masterPromptExtensive, setMasterPromptExtensive] =
     useSessionState<string>("campaign_master_prompt_extensive", "");
