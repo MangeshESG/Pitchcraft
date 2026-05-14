@@ -53,8 +53,8 @@ import CustomFieldSettings from "./feature/CustomFieldSettings";
 import ContactDetailView from "./feature/contacts/ContactDetailView";
 import { closePanel } from "../slices/panelSlice";
 
-//const PITCH_GENERATION_API_BASE_URL = "https://playground.esuk.co.uk";
-const PITCH_GENERATION_API_BASE_URL = "https://localhost:7216";
+const PITCH_GENERATION_API_BASE_URL = "https://playground.esuk.co.uk";
+//const PITCH_GENERATION_API_BASE_URL = "https://localhost:7216";
 
 
 interface Prompt {
