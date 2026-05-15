@@ -1613,11 +1613,14 @@ const handleBlueprintSwitch = async (blueprintId: number) => {
                 autoFocus
                 style={{
                   width: "100%",
-                  padding: "12px 16px",
+                  height: "48px",
+                  padding: "0 44px 0 16px",
                   border: "1px solid #d1d5db",
                   borderRadius: "8px",
                   fontSize: "14px",
+                  lineHeight: "48px",
                   background: "#fff",
+                  boxSizing: "border-box",
                 }}
               >
                 {AVAILABLE_AI_MODELS.map((model) => (

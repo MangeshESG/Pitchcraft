@@ -20,6 +20,7 @@ import { RootState } from "../../Redux/store";
 import SendEmailPanel from "./SendEmailPanel";
 import KraftEmailPanel from "./KraftEmailPanel";
 import { useSoundAlert } from "../common/useSoundAlert";
+import ReactMarkdown from "react-markdown";
 import toggleOn from "../../assets/images/on-button.png";
 import toggleOff from "../../assets/images/off-button.png";
 import DOMPurify from "dompurify";
@@ -211,10 +212,14 @@ const Output: React.FC<OutputInterface> = ({
   onClearOutput,
   allprompt,
   setallprompt,
+  allsearchResults,
   setallsearchResults,
+  everyscrapedData,
   seteveryscrapedData,
+  allSearchTermBodies,
   setallSearchTermBodies,
   onClearContent,
+  allsummery,
   setallsummery,
   existingResponse,
   setexistingResponse,
@@ -310,20 +315,266 @@ const Output: React.FC<OutputInterface> = ({
   };
 
   const [tab2, setTab2] = useState("Output");
+  const [tab3, setTab3] = useState("Stages");
   const tabHandler2 = (e: React.ChangeEvent<any>) => {
     const { innerText } = e.target;
     console.log(innerText, "innerText");
     setTab2(innerText);
+    if (innerText === "Insights") {
+      setTab3("Online research");
+    }
+    if (innerText === "Stages") {
+      setTab3("Stages");
+    }
   };
 
   const [emailLoading, setEmailLoading] = useState(false); // Loading state for fetching email data
 
-  const [tab3, setTab3] = useState("Stages");
   const tabHandler3 = (e: React.ChangeEvent<any>) => {
     const { innerText } = e.target;
     console.log(innerText, "innerText");
     setTab3(innerText);
   };
+
+  const getDisplayText = (value: any, fallback = "No information available.") => {
+    if (Array.isArray(value)) {
+      if (value.length === 0) return fallback;
+      return value
+        .map((item) =>
+          typeof item === "string" ? item : JSON.stringify(item, null, 2),
+        )
+        .join("\n\n");
+    }
+
+    if (value && typeof value === "object") {
+      return JSON.stringify(value, null, 2);
+    }
+
+    if (typeof value === "string" && value.trim() && value !== "NA") {
+      return value;
+    }
+
+    return fallback;
+  };
+
+  const getWebSearchDisplayText = (value: any) => {
+    const normalizedValue =
+      value?.webSearchData ||
+      value?.WebSearchData ||
+      value?.summary ||
+      value?.Summary ||
+      value;
+
+    return getDisplayText(
+      normalizedValue,
+      "No online research available.",
+    )
+      .replace(/\\n/g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .replace(/(^|\n)\s+\n/g, "\n")
+      .replace(/(#{1,6} .+)\n{2,}(?=(-|\d+\.|\*\*))/g, "$1\n")
+      .replace(/\n{2,}(?=(-|\d+\.|\*\*))/g, "\n")
+      .trim();
+  };
+
+  const compactEmailHtml = (html: string) => {
+    const sanitized = DOMPurify.sanitize(
+      (html || "No email context available.").replace(/\n/g, "<br/>"),
+    );
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(sanitized, "text/html");
+
+    const hasVisibleContent = (node: HTMLElement) => {
+      const text = node.textContent?.replace(/\s|\u00a0/g, "") || "";
+      const hasMedia = !!node.querySelector("img, table, a, hr");
+      const hasBackgroundImage = /background-image\s*:/i.test(
+        node.getAttribute("style") || "",
+      );
+
+      return Boolean(text || hasMedia || hasBackgroundImage);
+    };
+
+    doc.body
+      .querySelectorAll<HTMLElement>("p, div, span, tr, td, th")
+      .forEach((node) => {
+        if (!hasVisibleContent(node)) {
+          node.remove();
+        }
+      });
+
+    doc.body.querySelectorAll("br").forEach((br) => {
+      const previous = br.previousSibling;
+      const next = br.nextSibling;
+
+      if (
+        previous?.nodeName === "BR" ||
+        (!previous && next?.nodeName === "BR")
+      ) {
+        br.remove();
+      }
+    });
+
+    doc.body.querySelectorAll<HTMLElement>("tr, td, th").forEach((node) => {
+      if (!hasVisibleContent(node)) {
+        node.remove();
+      }
+    });
+
+    doc.body.querySelectorAll<HTMLElement>("*").forEach((node) => {
+      node.removeAttribute("height");
+      node.style.marginTop = "0";
+      node.style.marginBottom = "4px";
+      node.style.paddingTop = "0";
+      node.style.paddingBottom = "0";
+      node.style.height = "auto";
+      node.style.minHeight = "0";
+      node.style.lineHeight = node.style.lineHeight || "1.35";
+    });
+
+    return doc.body.innerHTML;
+  };
+
+  const renderInsightBody = (
+    text: string,
+    variant: "text" | "markdown" | "html",
+    isModal = false,
+  ) => {
+    const commonStyle: React.CSSProperties = {
+      width: "100%",
+      padding: "10px",
+      border: "1px solid #ccc",
+      borderRadius: "4px",
+      fontFamily: "inherit",
+      fontSize: "inherit",
+      whiteSpace: variant === "text" ? "pre-wrap" : "normal",
+      wordBreak: "break-word",
+      overflowWrap: "anywhere",
+      overflowX: "hidden",
+      overflowY: isModal ? "auto" : "visible",
+      height: isModal ? "800px" : "auto",
+      boxSizing: "border-box",
+      lineHeight: 1.45,
+    };
+
+    if (variant === "html") {
+      return (
+        <div
+          style={commonStyle}
+          dangerouslySetInnerHTML={{
+            __html: compactEmailHtml(text),
+          }}
+        />
+      );
+    }
+
+    if (variant === "markdown") {
+      return (
+        <div style={commonStyle}>
+          <ReactMarkdown
+            components={{
+              p: ({ children }) => (
+                <p style={{ margin: "0 0 8px", lineHeight: 1.45 }}>
+                  {children}
+                </p>
+              ),
+              h1: ({ children }) => (
+                <h1 style={{ margin: "0 0 6px", fontSize: "1.2em", lineHeight: 1.3 }}>
+                  {children}
+                </h1>
+              ),
+              h2: ({ children }) => (
+                <h2 style={{ margin: "0 0 6px", fontSize: "1.1em", lineHeight: 1.3 }}>
+                  {children}
+                </h2>
+              ),
+              h3: ({ children }) => (
+                <h3 style={{ margin: "0 0 6px", fontSize: "1em", lineHeight: 1.3 }}>
+                  {children}
+                </h3>
+              ),
+              ul: ({ children }) => (
+                <ul style={{ margin: "0 0 8px 18px", padding: 0 }}>
+                  {children}
+                </ul>
+              ),
+              ol: ({ children }) => (
+                <ol style={{ margin: "0 0 8px 18px", padding: 0 }}>
+                  {children}
+                </ol>
+              ),
+              li: ({ children }) => (
+                <li style={{ margin: "0 0 4px", lineHeight: 1.45 }}>
+                  {children}
+                </li>
+              ),
+            }}
+          >
+            {text}
+          </ReactMarkdown>
+        </div>
+      );
+    }
+
+    return <pre style={commonStyle}>{text}</pre>;
+  };
+
+  const renderInsightPre = (
+    text: string,
+    modalId: string,
+    title: string,
+    variant: "text" | "markdown" | "html" = "text",
+  ) => (
+    <div className="form-group">
+      <div className="d-flex mb-10"></div>
+      <span className="pos-relative d-flex justify-start">
+        {renderInsightBody(text, variant)}
+
+        <Modal
+          show={openModals[modalId]}
+          closeModal={() => handleModalClose(modalId)}
+          buttonLabel="Ok"
+          size="90%"
+        >
+          <label>{title}</label>
+          {renderInsightBody(text, variant, true)}
+        </Modal>
+        <button
+          className="full-view-icon d-flex align-center justify-center"
+          onClick={() => handleModalOpen(modalId)}
+        >
+          <svg width="40px" height="40px" viewBox="0 0 512 512">
+            <polyline
+              points="304 96 416 96 416 208"
+              fill="none"
+              stroke="#000000"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="32"
+            />
+            <line
+              x1="405.77"
+              y1="106.2"
+              x2="111.98"
+              y2="400.02"
+              fill="none"
+              stroke="#000000"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="32"
+            />
+            <polyline
+              points="208 416 96 416 96 304"
+              fill="none"
+              stroke="#000000"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="32"
+            />
+          </svg>
+        </button>
+      </span>
+    </div>
+  );
 
   const clearContent = () => {
     setOutputForm((prevOutputForm: any) => ({
@@ -386,6 +637,38 @@ const Output: React.FC<OutputInterface> = ({
   };
 
   const [combinedResponses, setCombinedResponses] = useState<any[]>([]);
+
+  const currentContact = combinedResponses[currentIndex] || {};
+  const currentInsights = allsearchResults[currentIndex];
+  const normalizedInsights =
+    currentInsights && !Array.isArray(currentInsights) && typeof currentInsights === "object"
+      ? currentInsights
+      : {};
+
+  const onlineResearchText = getWebSearchDisplayText(
+    normalizedInsights.webSearchData ||
+      normalizedInsights.webSearchResponse ||
+      normalizedInsights.searchResults ||
+      everyscrapedData[currentIndex] ||
+      currentInsights,
+  );
+  const notesUsedText = getDisplayText(
+    normalizedInsights.notes ||
+      allSearchTermBodies[currentIndex] ||
+      currentContact.notes,
+    "No notes were used for personalization.",
+  );
+  const emailInsightText = getDisplayText(
+    normalizedInsights.emailContext || currentContact.use_email,
+    "No email context available.",
+  );
+  const linkedinInsightText = getDisplayText(
+    normalizedInsights.linkedinInfo ||
+      allsummery[currentIndex] ||
+      currentContact.linkedin_info ||
+      currentContact.linkedIninformation,
+    "No LinkedIn information available.",
+  );
 
   // Update the useEffect that sets combinedResponses to also store the original
   // In the second useEffect that notifies parent of initial data
@@ -900,6 +1183,8 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
   interface SmtpUser {
     id: number;
     username: string;
+    type?: string;
+    smtpType?: string;
   }
 
   // Inside your Output component, add these state variables:
@@ -2413,6 +2698,16 @@ useEffect(() => {
                         </button>
                       </li>
                     )}
+                    {userRole === "ADMIN" && (
+                      <li>
+                        <button
+                          onClick={tabHandler2}
+                          className={`button ${tab2 === "Insights" ? "active" : ""}`}
+                        >
+                          Insights
+                        </button>
+                      </li>
+                    )}
                     <li></li>
                   </ul>
                   {/* {!isDemoAccount && (
@@ -3902,6 +4197,60 @@ useEffect(() => {
                     )}
 
 
+                  </>
+                )}
+                {tab2 === "Insights" && userRole === "ADMIN" && (
+                  <>
+                    <div className="tabs secondary d-flex align-center ">
+                      <ul className="d-flex full-width flex-wrap-991">
+                        {[
+                          "Online research",
+                          "Notes",
+                          "Emails",
+                          "LinkedIn information",
+                        ].map((insightTab) => (
+                          <li
+                            key={insightTab}
+                            className="flex-25percent-991 flex-full-640"
+                          >
+                            <button
+                              onClick={tabHandler3}
+                              className={`button full-width ${
+                                tab3 === insightTab ? "active" : ""
+                              }`}
+                            >
+                              {insightTab}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    {tab3 === "Online research" &&
+                      renderInsightPre(
+                        onlineResearchText,
+                        "modal-output-insights-research",
+                        "Online research",
+                        "markdown",
+                      )}
+                    {tab3 === "Notes" &&
+                      renderInsightPre(
+                        notesUsedText,
+                        "modal-output-insights-notes",
+                        "Notes used for personalization",
+                      )}
+                    {tab3 === "Emails" &&
+                      renderInsightPre(
+                        emailInsightText,
+                        "modal-output-insights-emails",
+                        "Emails",
+                        "html",
+                      )}
+                    {tab3 === "LinkedIn information" &&
+                      renderInsightPre(
+                        linkedinInsightText,
+                        "modal-output-insights-linkedin",
+                        "LinkedIn information",
+                      )}
                   </>
                 )}
                 {/* Add this after the Output tab and before the Stages tab */}

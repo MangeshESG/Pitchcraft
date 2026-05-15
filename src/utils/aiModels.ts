@@ -52,12 +52,22 @@ export const DEEPSEEK_MODELS = [
   {
     id: "deepseek-v4-flash",
     name: "DeepSeek V4 Flash",
-    description: "DeepSeek fast V4 model",
+    description: "DeepSeek fast V4 model with thinking disabled",
+  },
+  {
+    id: "deepseek-v4-flash-thinking",
+    name: "DeepSeek V4 Flash Thinking",
+    description: "DeepSeek fast V4 model with thinking enabled",
   },
   {
     id: "deepseek-v4-pro",
     name: "DeepSeek V4 Pro",
-    description: "DeepSeek higher-capability V4 model",
+    description: "DeepSeek higher-capability V4 model with thinking disabled",
+  },
+  {
+    id: "deepseek-v4-pro-thinking",
+    name: "DeepSeek V4 Pro Thinking",
+    description: "DeepSeek higher-capability V4 model with thinking enabled",
   },
 ];
 

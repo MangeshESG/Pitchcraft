@@ -1878,6 +1878,52 @@ const resolvePromptSafely = async () => {
       };
     };
 
+    const setContactInsights = (
+      targetIndex: number,
+      insight: {
+        webSearchData?: string;
+        searchResults?: any[];
+        notes?: string;
+        emailContext?: string;
+        linkedinInfo?: string;
+      },
+    ) => {
+      const webSearchResponse = {
+        webSearchData: insight.webSearchData || "",
+        searchResults: insight.searchResults || [],
+      };
+
+      setallsearchResults((prev) => {
+        const updated = [...prev];
+        updated[targetIndex] = {
+          ...webSearchResponse,
+          webSearchResponse,
+          notes: insight.notes || "",
+          emailContext: insight.emailContext || "",
+          linkedinInfo: insight.linkedinInfo || "",
+        };
+        return updated;
+      });
+
+      seteveryscrapedData((prev) => {
+        const updated = [...prev];
+        updated[targetIndex] = insight.webSearchData || "";
+        return updated;
+      });
+
+      setallSearchTermBodies((prev) => {
+        const updated = [...prev];
+        updated[targetIndex] = insight.notes || "";
+        return updated;
+      });
+
+      setallsummery((prev) => {
+        const updated = [...prev];
+        updated[targetIndex] = insight.linkedinInfo || "";
+        return updated;
+      });
+    };
+
     setTab(tab);
     // If already processing, show loader and prevent multiple starts
     if (isProcessing) {
@@ -2081,6 +2127,14 @@ const resolvePromptSafely = async () => {
           const updated = [...prev];
           updated[index] = promptToSend;
           return updated;
+        });
+
+        setContactInsights(index, {
+          webSearchData: webSearchResult.webSearchData,
+          searchResults: webSearchResult.searchResults,
+          notes: generationNotes,
+          emailContext: emailConversationContext,
+          linkedinInfo: replacements.linkedin_info,
         });
 
         setOutputForm(prev => ({
@@ -2468,6 +2522,8 @@ const resolvePromptSafely = async () => {
               subject: entry.email_subject || "N/A",
               lastemailupdateddate: entry.updated_at || "N/A",
               emailsentdate: entry.email_sent_at || "N/A",
+              notes: entry.notes || "",
+              linkedin_info: entry.linkedIninformation || entry.linkedin_info || "",
               dataFileId: entry.dataFileId || entry.DataFileId || entry.data_file_id, // Make sure this is preserved correctly
               segmentId: segmentId ? parseInt(segmentId) : null, // Also preserve segmentId
               viewId: viewId ? parseInt(viewId) : null,
@@ -2661,18 +2717,29 @@ const resolvePromptSafely = async () => {
           ${replacedPromptText}
           `;
 
+          const promptTargetIndex = shouldReplaceFromIndex
+            ? i
+            : allResponses.length + generatedPitches.length;
+
           setallprompt((prev) => {
           const updated = [...prev];
-          const targetIndex = shouldReplaceFromIndex ? i : prev.length;
 
-          if (targetIndex < updated.length) {
-            updated[targetIndex] = promptToSend;
+          if (promptTargetIndex < updated.length) {
+            updated[promptTargetIndex] = promptToSend;
           } else {
             updated.push(promptToSend);
           }
 
           return updated;
         });
+
+          setContactInsights(promptTargetIndex, {
+            webSearchData: webSearchResult.webSearchData,
+            searchResults: webSearchResult.searchResults,
+            notes: generationNotes,
+            emailContext: emailConversationContext,
+            linkedinInfo: replacements.linkedin_info,
+          });
 
           setOutputForm((prevState) => ({
             ...prevState,
@@ -2934,6 +3001,8 @@ totalEmailCostRef.current += subjectCost;
             generated: true,
             lastemailupdateddate: new Date().toISOString(),
             emailsentdate: entry.email_sent_at || "N/A",
+            notes: entry.notes || "",
+            linkedin_info: entry.linkedIninformation || entry.linkedin_info || "",
             dataFileId: entry.dataFileId || entry.data_file_id || parsedDataFileId || null, // ✅ Use parsedDataFileId if entry doesn't have it
             segmentId: entry.segmentId || (segmentId ? parseInt(segmentId) : null), // ✅ Use segmentId from scope if entry doesn't have it
           };
