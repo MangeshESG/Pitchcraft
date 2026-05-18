@@ -16,6 +16,13 @@ import BulkUpdatePanel from "./BulkUpdatePanel";
 import { useAppData } from "../../contexts/AppDataContext";
 import { useToast } from "../../hooks/useToast";
 import { useDispatch, useSelector } from "react-redux";
+import {
+  ContactsPageHeader,
+  ContactsEmptyState,
+  ContactsListsRows,
+  ContactsToolbar,
+} from "./ContactList.new";
+import "./ContactList.new.css";
 import { RootState } from "../../Redux/store";
 import PaginationControls from "./PaginationControls";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -290,7 +297,6 @@ const DataCampaigns: React.FC<DataCampaignsProps> = ({
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [activeContactTab, setActiveContactTab] = useState<"profile" | "history">("profile");
   const [showCreateListModal, setShowCreateListModal] = useState(false);
-  const [showCreateListOptions, setShowCreateListOptions] = useState(false);
   const [notesHistory, setNotesHistory] = useState<any[]>([]);
   const isDemoAccount = sessionStorage.getItem("isDemoAccount") === "true";
 
@@ -760,14 +766,6 @@ const formatTimeIST = (dateString?: string) => {
     }
   }, [activeSubTab, effectiveUserId]);
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = () => setShowCreateListOptions(false);
-    if (showCreateListOptions) {
-      document.addEventListener('click', handleClickOutside);
-      return () => document.removeEventListener('click', handleClickOutside);
-    }
-  }, [showCreateListOptions]);
 
   // Fetch contacts when data file changes
   useEffect(() => {
@@ -1219,6 +1217,7 @@ const formatTimeIST = (dateString?: string) => {
 
   // Add view mode states
   const [viewMode, setViewMode] = useState<"list" | "detail">("list");
+  const [viewsDetailMode, setViewsDetailMode] = useState(false);
   const [selectedDataFileForView, setSelectedDataFileForView] =
     useState<DataFileItem | null>(null);
   const [segmentViewMode, setSegmentViewMode] = useState<"list" | "detail">(
@@ -2089,44 +2088,42 @@ const filterFields: any = useMemo(() => {
 }, [customFieldOptions]);
 
 
+  const superListContactCount = dataFiles.find((f) => f.id === -1)?.contactCount || 0;
+  const totalDataFiles = dataFiles.filter((f) => f.id !== -1).length;
+
+  const activeTabKey =
+    activeSubTab === "List" ? "lists" :
+    activeSubTab === "View" ? "views" :
+    activeSubTab === "Segment" ? "segments" : "custom";
+
   return (
     <div className="data-campaigns-container">
-      {/* Sub-tabs Navigation */}
-      <div className="tabs secondary mb-20">
-        <ul className="d-flex">
-          <li>
-            <button
-              type="button"
-              onClick={() => handleTabChange("List")}
-              className={`button !pt-0 ${activeSubTab === "List" ? "active" : ""
-                }`}
-            >
-              Lists
-            </button>
-          </li>
-            <li>
-            <button
-              type="button"
-              onClick={() => handleTabChange("View")}
-              className={`button !pt-0 ${activeSubTab === "View" ? "active" : ""
-                }`}
-            >
-              Views
-            </button>
-          </li>
-          <li>
-            <button
-              type="button"
-              onClick={() => handleTabChange("Segment")}
-              className={`button !pt-0 ${activeSubTab === "Segment" ? "active" : ""
-                }`}
-            >
-              Segments
-            </button>
-          </li>
-
-        </ul>
-      </div>
+      <ContactsPageHeader
+        totalContacts={superListContactCount}
+        totalLists={totalDataFiles}
+        totalSegments={segments.length}
+        verifiedPct={94}
+        activeTab={activeTabKey}
+        showStats={
+          !showContactPage &&
+          !(activeSubTab === "List" && viewMode === "detail") &&
+          !(activeSubTab === "View" && viewsDetailMode) &&
+          !(activeSubTab === "Segment" && segmentViewMode === "detail")
+        }
+        onTabChange={(t) =>
+          handleTabChange(
+            t === "lists" ? "List" :
+            t === "views" ? "View" :
+            t === "segments" ? "Segment" : "List"
+          )
+        }
+        onAddContact={() => dispatch(openPanel("add-contact-modal"))}
+        onImportList={() => onAddContactClick?.()}
+        onCreateList={(e) => {
+          e.stopPropagation();
+          dispatch(openPanel("create-list-modal"));
+        }}
+      />
 
       {/* Tab Content */}
       {activeSubTab === "List" && (
@@ -2136,374 +2133,68 @@ const filterFields: any = useMemo(() => {
             <div className="section-wrapper">
               {viewMode === "list" ? (
                 <>
-                  <h2 className="section-title">
-                    Lists
-                  </h2>
-                  <p style={{ marginBottom: '16px', color: '#555' }}>
-                    This is where you organize your lists. Create, modify, and manage custom lists for targeted interactions, and keep them in folders for easy navigation.
-                  </p>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      marginBottom: -5,
-                      gap: 16,
-                    }}
-                  >
-                    <input
-                      type="text"
-                      className="search-input"
-                      style={{ width: 340 }}
-                      placeholder="Search a list name or ID"
-                      value={listSearch}
-                      onChange={(e) => setListSearch(e.target.value)}
+                  {totalDataFiles === 0 && !isLoading ? (
+                    <ContactsEmptyState
+                      onAddContact={() => dispatch(openPanel("add-contact-modal"))}
+                      onImportList={() => onAddContactClick?.()}
+                      onCreateList={() => setShowCreateListModal(true)}
                     />
-                    <div style={{ marginLeft: "auto", position: "relative", display: "flex", gap: "12px" }}>
-                      <button
-                        className="ml-10 save-button button auto-width small d-flex justify-between align-center"
-                        style={{ 
-                          borderRadius: "12px",
-                          padding: "0.5rem 0.8rem",
-                          fontSize: "15px",
-                          fontWeight: "600",
-                          height: "42px"
+                  ) : (
+                    <>
+                      <ContactsToolbar
+                        search={listSearch}
+                        onSearchChange={setListSearch}
+                        sortKey={listSortKey}
+                        sortDirection={listSortDirection as "asc" | "desc"}
+                        onSort={() => handleListSort("created_at")}
+                        currentPage={currentPageLists}
+                        totalPages={totalPages1}
+                        pageSize={pageSize}
+                        totalRecords={filteredDatafiles.length}
+                        onPageChange={setCurrentPageLists}
+                        onPageSizeChange={setPageSize}
+                        placeholder="Search a list name or ID"
+                      />
+                      <ContactsListsRows
+                        data={currentData}
+                        isLoading={isLoading}
+                        sortKey={listSortKey}
+                        sortDirection={listSortDirection as "asc" | "desc"}
+                        onSort={handleListSort}
+                        actionsAnchor={listActionsAnchor}
+                        setActionsAnchor={setListActionsAnchor}
+                        onRowClick={(file) => {
+                          setSelectedDataFileForView(file as DataFileItem);
+                          setViewMode("detail");
+                          setDetailCurrentPage(1);
+                          setDetailSearchQuery("");
+                          setDetailSelectedContacts(new Set());
                         }}
-                        onClick={() =>
-                          //setShowAddContactModal(true)
-                          dispatch(openPanel("add-contact-modal"))
-                        }
-                      >
-                        <span className="text-[20px] mr-1">+</span> Add contact
-                      </button>
-                      <button
-                        className="ml-10 save-button button auto-width small d-flex justify-between align-center"
-                        style={{
-                          borderRadius: "12px",
-                          padding: "0.5rem 0.8rem",
-                          fontSize: "15px",
-                          fontWeight: "600",
-                          height: "42px"
+                        onRename={(file) => {
+                          setEditingList(file as DataFileItem);
+                          dispatch(openPanel("rename-contact-list-modal"));
+                          setRenamingListName(file.name);
+                          setRenamingListDescription(file.description || "");
                         }}
-                        onClick={() => {
-                          if (onAddContactClick) onAddContactClick();
+                        onView={(file) => {
+                          setSelectedDataFileForView(file as DataFileItem);
+                          setViewMode("detail");
+                          setDetailCurrentPage(1);
+                          setDetailSearchQuery("");
+                          setDetailSelectedContacts(new Set());
                         }}
-                      >
-                        Import list
-                      </button>
-                      <button
-                        className="ml-10 save-button button auto-width small d-flex justify-between align-center"
-                        style={{ 
-                          borderRadius: "12px",
-                          padding: "0.5rem 0.8rem",
-                          fontSize: "15px",
-                          fontWeight: "600",
-                          height: "42px"
+                        onDownload={(file) => handleDownloadList(file as DataFileItem)}
+                        onDelete={(file) => {
+                          setEditingList(file as DataFileItem);
+                          setShowConfirmListDelete(true);
+                          dispatch(openPanel("rename-contact-list-modal"));
                         }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowCreateListOptions(!showCreateListOptions);
-                        }}
-                      >
-                        <span className="text-[20px] mr-1">+</span> Create a list
-                      </button>
-                      {showCreateListOptions && (
-                        <div style={{
-                          position: "absolute",
-                          right: 0,
-                          top: 40,
-                          background: "#fff",
-                          border: "1px solid #eee",
-                          borderRadius: 6,
-                          boxShadow: "0 2px 16px rgba(0,0,0,0.12)",
-                          zIndex: 101,
-                          minWidth: 160
-                        }}>
-                          <button
-                            onClick={() => {
-                              setShowCreateListModal(true);
-                              setShowCreateListOptions(false);
-                            }}
-                            style={{
-                              width: "100%",
-                              padding: "8px 18px",
-                              textAlign: "left",
-                              background: "none",
-                              border: "none",
-                              color: "#222",
-                              fontSize: "15px",
-                              cursor: "pointer",
-                            }}
-                          >
-                            ✏️ Add manually
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <PaginationControls
-                    currentPage={currentPageLists}
-                    totalPages={totalPages1}
-                    pageSize={pageSize}
-                    totalRecords={filteredDatafiles.length}
-                    setCurrentPage={setCurrentPageLists}
-                    setPageSize={setPageSize}
-                    showPageSizeDropdown={true}
-                    pageLabel="Page:"
-                  />
-                  <div style={{ marginBottom: "10px" }}></div>
-                  <table
-                    className="contacts-table"
-                    style={{ background: "#fff", width: "100%", tableLayout: "auto" }}
-                  >
-                    <thead>
-                      <tr>
-                        <th onClick={() => handleListSort("name")} style={{ cursor: "pointer" }}>Lists{renderSortArrow("name", listSortKey, listSortDirection)}</th>
-                        <th onClick={() => handleListSort("id")} style={{ cursor: "pointer" }}>ID{renderSortArrow("id", listSortKey, listSortDirection)}</th>
-                        <th onClick={() => handleListSort("folder")} style={{ cursor: "pointer" }}>Folder{renderSortArrow("folder", listSortKey, listSortDirection)}</th>
-                        <th onClick={() => handleListSort("contactCount")} style={{ cursor: "pointer" }}>Contacts{renderSortArrow("contactCount", listSortKey, listSortDirection)}</th>
-                        <th onClick={() => handleListSort("created_at")} style={{ cursor: "pointer" }}>Creation date{renderSortArrow("created_at", listSortKey, listSortDirection)}</th>
-                        <th onClick={() => handleListSort("description")} style={{ cursor: "pointer" }}>Description{renderSortArrow("description", listSortKey, listSortDirection)}</th>
-                        <th style={{ minWidth: 48 }}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {isLoading ? (
-                        <tr>
-                          <td colSpan={7} style={{ textAlign: "center", padding: "20px" }}>
-                            Loading lists...
-                          </td>
-                        </tr>
-                      ) : currentData.length === 0 ? (
-                        <tr>
-                          <td colSpan={7} style={{ textAlign: "center" }}>
-                            No lists found.
-                          </td>
-                        </tr>
-                      ) : (
-                        currentData.map((file) => (
-                          <tr key={file.id}>
-                          <td>
-                            <span
-                              className="list-link text-[#3f9f42]"
-                              style={{
-                                color: "#28a745",
-                                cursor: "pointer",
-                                textDecoration: "underline",
-                              }}
-                              onClick={() => {
-                                setSelectedDataFileForView(file);
-                                setViewMode("detail");
-                                setDetailCurrentPage(1);
-                                setDetailSearchQuery("");
-                                setDetailSelectedContacts(new Set());
-                              }}
-                            >
-                              {file.name}
-                            </span>
-                          </td>
-                          <td>#{file.id === -1 ? "ALL" : file.id}</td>
-                          <td>Your First Folder</td>
-                          <td>{file.contactCount || file.contacts?.length || 0}</td>
-                          <td>
-                            {file.created_at
-                              ? formatDate(file.created_at) // Use formatDate instead of toLocaleString
-                              : "-"}
-                          </td>
-                          <td>{file.description || "-"}</td>
-                          <td style={{ position: "relative" }}>
-                            {file.id !== -1 && (
-                            <button
-                              className="segment-actions-btn  font-[600]"
-                              style={{
-                                border: "none",
-                                background: "none",
-                                fontSize: 24,
-                                cursor: "pointer",
-                                padding: "2px 10px",
-                              }}
-                              onClick={() =>
-                                setListActionsAnchor(
-                                  file.id.toString() === listActionsAnchor
-                                    ? null
-                                    : file.id.toString()
-                                )
-                              }
-                            >
-                              ⋮
-                            </button>
-                            )}
-                            {listActionsAnchor === file.id.toString() && (
-                              <div
-                                className="segment-actions-menu  py-[10px]"
-                                style={{
-                                  position: "absolute",
-                                  right: 0,
-                                  top: 32,
-                                  background: "#fff",
-                                  border: "1px solid #eee",
-                                  borderRadius: 6,
-                                  boxShadow: "0 2px 16px rgba(0,0,0,0.12)",
-                                  zIndex: 101,
-                                  minWidth: 160,
-                                }}
-                              >
-                                {!isDemoAccount && (
-                                  <button
-                                    onClick={() => {
-                                      setEditingList(file);
-                                      dispatch(openPanel("rename-contact-list-modal"));
-                                      dispatch(openPanel("save-segment-modal"));
-                                      setRenamingListName(file.name);
-                                      setRenamingListDescription(
-                                        file.description || ""
-                                      ); // Populate existing description
-                                      setListActionsAnchor(null);
-                                    }}
-                                    style={menuBtnStyle}
-                                    className="flex gap-2 items-center"
-                                  >
-                                    <span style={actionIconStyle}>
-                                    <FontAwesomeIcon
-                                    icon={faFileLines    }
-                                    style={{ color: "#3f9f42", fontSize: 20 }}
-                                    />
-                                    </span>
-                                    <span className="font-[600]">Rename</span>
-                                  </button>
-                                )}
-                                <button
-                                  onClick={() => {
-                                    setSelectedDataFileForView(file);
-                                    setViewMode("detail");
-                                    setListActionsAnchor(null);
-                                    setDetailCurrentPage(1);
-                                    setDetailSearchQuery("");
-                                    setDetailSelectedContacts(new Set());
-                                  }}
-                                  style={menuBtnStyle}
-                                  className="flex gap-2 items-center"
-                                >
-                                  <span style={actionIconStyle}>
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      width="22px"
-                                      height="22px"
-                                      viewBox="0 0 24 20"
-                                      fill="none"
-                                    >
-                                      <circle
-                                        cx="12"
-                                        cy="12"
-                                        r="4"
-                                        fill="#3f9f42"
-                                      />
-                                      <path
-                                        d="M21 12C21 12 20 4 12 4C4 4 3 12 3 12"
-                                        stroke="#3f9f42"
-                                        strokeWidth="2"
-                                      />
-                                    </svg>
-                                  </span>
-                                  <span className="font-[600]">View</span>
-                                </button>
-                                <button
-                                  onClick={() => handleDownloadList(file)}
-                                  style={menuBtnStyle}
-                                  className="flex gap-2 items-center"
-                                >
-                                  <span className="ml-[2px]">
-                                    <svg
-                                      xmlns="http://www.w3.org/2000/svg"
-                                      width="22px"
-                                      height="22px"
-                                      viewBox="0 0 24 24"
-                                    >
-                                      <title />
-
-                                      <g id="Complete">
-                                        <g id="download">
-                                          <g>
-                                            <path
-                                              d="M3,12.3v7a2,2,0,0,0,2,2H19a2,2,0,0,0,2-2v-7"
-                                              fill="none"
-                                              stroke="#3f9f42"
-                                              stroke-linecap="round"
-                                              stroke-linejoin="round"
-                                              strokeWidth="2"
-                                            />
-
-                                            <g>
-                                              <polyline
-                                                data-name="Right"
-                                                fill="none"
-                                                id="Right-2"
-                                                points="7.9 12.3 12 16.3 16.1 12.3"
-                                                stroke="#3f9f42"
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                strokeWidth="2"
-                                              />
-
-                                              <line
-                                                fill="none"
-                                                stroke="#3f9f42"
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                                strokeWidth="2"
-                                                x1="12"
-                                                x2="12"
-                                                y1="2.7"
-                                                y2="14.2"
-                                              />
-                                            </g>
-                                          </g>
-                                        </g>
-                                      </g>
-                                    </svg>
-                                  </span>
-                                  <span className="font-[600]">Download</span>
-                                </button>
-                                {!isDemoAccount && (
-                                  <button
-                                    onClick={() => {
-                                      setEditingList(file);
-                                      setShowConfirmListDelete(true);
-                                      dispatch(openPanel("rename-contact-list-modal"));
-                                      setListActionsAnchor(null);
-                                    }}
-                                    style={{ ...menuBtnStyle }}
-                                    className="flex gap-2 items-center"
-                                  >
-                                    <span style={actionIconStyle}>
-                                    <FontAwesomeIcon
-                                     icon={faTrashAlt}
-                                    style={{ color: "#3f9f42", fontSize: 20 }}
-                                    />
-                                    </span>
-                                    <span className="font-[600]">Delete</span>
-                                  </button>
-                                )}
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                  <PaginationControls
-                    currentPage={currentPageLists}
-                    totalPages={totalPages1}
-                    pageSize={pageSize}
-                    totalRecords={filteredDatafiles.length}
-                    setCurrentPage={setCurrentPageLists}
-                    setPageSize={setPageSize}
-                    showPageSizeDropdown={true}
-                    pageLabel="Page:"
-                  />
-
+                        isDemoAccount={isDemoAccount}
+                        formatDate={formatDate}
+                      />
+                    </>
+                  )}
                 </>
-                
               ) : (
                   <>
                 <DynamicContactsTable
@@ -3497,359 +3188,53 @@ const filterFields: any = useMemo(() => {
             <div className="section-wrapper">
               {segmentViewMode === "list" ? (
                 <>
-                  <h2 className="section-title">Segments</h2>
-                  <div style={{ marginBottom: 4, color: "#555" }}>
-                    Create and manage segments to organize your contacts for
-                    targeted campaigns.
-                  </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      marginBottom: 16,
-                      gap: 16,
-                    }}
-                  >
-                    <input
-                      type="text"
-                      className="search-input"
-                      style={{ width: 340 }}
-                      placeholder="Search segments..."
-                      value={segmentSearchQuery}
-                      onChange={(e) => setSegmentSearchQuery(e.target.value)}
-                    />
-                  </div>
-                  {/* ✅ Pagination on top right */}
-                  <div style={{ marginBottom: "10px" }}>
-                    <PaginationControls
-                      currentPage={segmentCurrentPage}
-                      totalPages={segmentTotalPages}
-                      pageSize={pageSize}
-                      totalRecords={filteredSegments.length}
-                      setCurrentPage={setSegmentCurrentPage}
-                      setPageSize={setPageSize}
-                      showPageSizeDropdown={true}
-                      pageLabel="Page:"
-                    />
-                  </div>
-                  <table
-                    className="contacts-table"
-                    style={{ background: "#fff", width: "100%", tableLayout: "auto" }}
-                  >
-                    <thead>
-                      <tr>
-                        <th onClick={() => handleSegmentSort("name")} style={{ cursor: "pointer" }}>Segment name{renderSortArrow("name", segmentSortKey, segmentSortDirection)}</th>
-                        <th onClick={() => handleSegmentSort("contactCount")} style={{ cursor: "pointer" }}>Contacts{renderSortArrow("contactCount", segmentSortKey, segmentSortDirection)}</th>
-                        <th onClick={() => handleSegmentSort("createdAt")} style={{ cursor: "pointer" }}>Created date{renderSortArrow("createdAt", segmentSortKey, segmentSortDirection)}</th>
-                        <th onClick={() => handleSegmentSort("description")} style={{ cursor: "pointer" }}>Description{renderSortArrow("description", segmentSortKey, segmentSortDirection)}</th>
-                        <th style={{ minWidth: 48 }}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {isLoadingSegments ? (
-                        <tr>
-                          <td colSpan={5} style={{ textAlign: "center", padding: "20px" }}>
-                            Loading segments...
-                          </td>
-                        </tr>
-                      ) : paginatedSegments.length === 0 ? (
-                        <tr>
-                          <td colSpan={5} style={{ textAlign: "center" }}>
-                            No segments found.
-                          </td>
-                        </tr>
-                      ) : (
-                        paginatedSegments
-                          .filter(
-                            (seg) =>
-                              seg.name
-                                ?.toLowerCase()
-                                .includes(segmentSearchQuery.toLowerCase()) ||
-                              seg.description
-                                ?.toLowerCase()
-                                .includes(segmentSearchQuery.toLowerCase())
-                          )
-                          .map((segment) => (
-                            <tr key={segment.id}>
-                              <td>
-                                <span
-                                  className="list-link"
-                                  style={{
-                                    color: "#3f9f42",
-                                    cursor: "pointer",
-                                    textDecoration: "underline",
-                                  }}
-                                  onClick={() => {
-                                    setSelectedSegmentForView(segment);
-                                    setSegmentViewMode("detail");
-                                    setDetailCurrentPage(1);
-                                    setDetailSearchQuery("");
-                                    setDetailSelectedContacts(new Set());
-                                  }}
-                                >
-                                  {segment.name}
-                                </span>
-                              </td>
-                              <td>
-                                {segment.contactCount ||
-                                  segment.contacts?.length ||
-                                  0}
-                              </td>
-                              <td>
-                                {segment.createdAt
-                                  ? formatDate(segment.createdAt) // Use formatDate instead of toLocaleDateString
-                                  : "-"}
-                              </td>
-                              <td>{segment.description || "-"}</td>
-                              <td style={{ position: "relative" }}>
-                                <button
-                                  className="segment-actions-btn font-[600] font-600"
-                                  style={{
-                                    border: "none",
-                                    background: "none",
-                                    fontSize: 24,
-                                    cursor: "pointer",
-                                    padding: "2px 10px",
-                                  }}
-                                  onClick={() =>
-                                    setSegmentActionsAnchor(
-                                      segment.id.toString() ===
-                                        segmentActionsAnchor
-                                        ? null
-                                        : segment.id.toString()
-                                    )
-                                  }
-                                >
-                                  ⋮
-                                </button>
-                                {segmentActionsAnchor ===
-                                  segment.id.toString() && (
-                                    <div
-                                      className="segment-actions-menu py-[10px]"
-                                      style={{
-                                        position: "absolute",
-                                        right: 0,
-                                        top: 32,
-                                        background: "#fff",
-                                        border: "1px solid #eee",
-                                        borderRadius: 6,
-                                        boxShadow: "0 2px 16px rgba(0,0,0,0.12)",
-                                        zIndex: 101,
-                                        minWidth: 160,
-                                      }}
-                                    >
-                                      {!isDemoAccount && (
-                                        <button
-                                          onClick={() => {
-                                            setEditingSegment(segment);
-                                            setRenamingSegmentName(segment.name);
-                                            setRenamingSegmentDescription(
-                                              segment.description || ""
-                                            );
-                                            setSegmentActionsAnchor(null);
-                                            dispatch(openPanel("rename-segment-modal"));
-                                          }}
-                                          style={menuBtnStyle}
-                                          className="flex gap-2 items-center"
-                                        >
-                                          <span>
-                                            <svg
-                                              xmlns="http://www.w3.org/2000/svg"
-                                              width="24px"
-                                              height="24px"
-                                              viewBox="0 0 24 24"
-                                              fill="none"
-                                            >
-                                              <path
-                                                d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
-                                                stroke="#3f9f42"
-                                                strokeWidth="2"
-                                                stroke-linecap="round"
-                                                stroke-linejoin="round"
-                                              ></path>
-                                            </svg>
-                                          </span>
-                                          <span className="font-[600]">Rename</span>
-                                        </button>
-                                      )}
-                                      <button
-                                        onClick={() => {
-                                          setSelectedSegmentForView(segment);
-                                          setSegmentViewMode("detail");
-                                          setSegmentActionsAnchor(null);
-                                          setDetailCurrentPage(1);
-                                          setDetailSearchQuery("");
-                                          setDetailSelectedContacts(new Set());
-                                        }}
-                                        style={menuBtnStyle}
-                                        className="flex gap-2 items-center"
-                                      >
-                                        <span>
-                                          <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            width="24px"
-                                            height="24px"
-                                            viewBox="0 0 24 20"
-                                            fill="none"
-                                          >
-                                            <circle
-                                              cx="12"
-                                              cy="12"
-                                              r="4"
-                                              fill="#3f9f42"
-                                            />
-                                            <path
-                                              d="M21 12C21 12 20 4 12 4C4 4 3 12 3 12"
-                                              stroke="#3f9f42"
-                                              strokeWidth="2"
-                                            />
-                                          </svg>
-                                        </span>
-                                        <span className="font-[600]">View</span>
-                                      </button>
-                                      <button
-                                        onClick={() => handleDownloadSegment(segment)}
-                                        style={menuBtnStyle}
-                                        className="flex gap-2 items-center"
-                                      >
-                                        <span className="ml-[2px]">
-                                          <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            width="22px"
-                                            height="22px"
-                                            viewBox="0 0 24 24"
-                                          >
-                                            <title />
-
-                                            <g id="Complete">
-                                              <g id="download">
-                                                <g>
-                                                  <path
-                                                    d="M3,12.3v7a2,2,0,0,0,2,2H19a2,2,0,0,0,2-2v-7"
-                                                    fill="none"
-                                                    stroke="#3f9f42"
-                                                    stroke-linecap="round"
-                                                    stroke-linejoin="round"
-                                                    strokeWidth="2"
-                                                  />
-
-                                                  <g>
-                                                    <polyline
-                                                      data-name="Right"
-                                                      fill="none"
-                                                      id="Right-2"
-                                                      points="7.9 12.3 12 16.3 16.1 12.3"
-                                                      stroke="#3f9f42"
-                                                      stroke-linecap="round"
-                                                      stroke-linejoin="round"
-                                                      strokeWidth="2"
-                                                    />
-
-                                                    <line
-                                                      fill="none"
-                                                      stroke="#3f9f42"
-                                                      stroke-linecap="round"
-                                                      stroke-linejoin="round"
-                                                      strokeWidth="2"
-                                                      x1="12"
-                                                      x2="12"
-                                                      y1="2.7"
-                                                      y2="14.2"
-                                                    />
-                                                  </g>
-                                                </g>
-                                              </g>
-                                            </g>
-                                          </svg>
-                                        </span>
-                                        <span className="font-[600]">Download</span>
-                                      </button>
-                                      {!isDemoAccount && (
-                                        <button
-                                          onClick={() => {
-                                            setEditingSegment(segment);
-                                            setShowConfirmSegmentDelete(true);
-                                            dispatch(openPanel("rename-segment-modal"));
-                                            setSegmentActionsAnchor(null);
-                                          }}
-                                          style={{ ...menuBtnStyle }}
-                                          className="flex gap-2 items-center"
-                                        >
-                                          <span className="ml-[2px]">
-                                             <img
-                                             src={deleteIcon}
-                                             alt="Delete"
-                                             className="w-[24px] h-[24px] font-normal"
-                                           />
-                                          </span>
-                                          <span className="font-[600]">Delete</span>
-                                        </button>
-                                      )}
-                                    </div>
-                                  )}
-                              </td>
-                            </tr>
-                          ))
-                      )}
-                    </tbody>
-                  </table>
-                  {/* Pagination controls */}
-                  {/* <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginTop: "12px",
-                  }}
-                >
-                  <div>
-                    Showing {startIndex + 1} to{" "}
-                    {Math.min(startIndex + pageSize, filteredDatafiles.length)} of{" "}
-                    {filteredDatafiles.length} items
-                  </div>
-
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <button
-                      disabled={currentPage === 1}
-                      onClick={() => setCurrentPage((prev) => prev - 1)}
-                      style={{
-                        padding: "5px 10px",
-                        cursor: currentPage === 1 ? "not-allowed" : "pointer",
-                        border: "1px solid #ddd",
-                        borderRadius: "4px",
-                      }}
-                    >
-                      Prev
-                    </button>
-
-                    <span>
-                      Page {currentPage} of {totalPages}
-                    </span>
-
-                    <button
-                      disabled={currentPage === totalPages}
-                      onClick={() => setCurrentPage((prev) => prev + 1)}
-                      style={{
-                        padding: "5px 10px",
-                        cursor: currentPage === totalPages ? "not-allowed" : "pointer",
-                        border: "1px solid #ddd",
-                        borderRadius: "4px",
-                      }}
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div> */}
-                  {/* ✅ Pagination on top right */}
-                  <PaginationControls
+                  <ContactsToolbar
+                    search={segmentSearchQuery}
+                    onSearchChange={setSegmentSearchQuery}
+                    sortKey={segmentSortKey}
+                    sortDirection={segmentSortDirection as "asc" | "desc"}
+                    onSort={() => handleSegmentSort("createdAt")}
                     currentPage={segmentCurrentPage}
                     totalPages={segmentTotalPages}
                     pageSize={pageSize}
                     totalRecords={filteredSegments.length}
-                    setCurrentPage={setSegmentCurrentPage}
-                    setPageSize={setPageSize}
-                    showPageSizeDropdown={true}
-                    pageLabel="Page:"
+                    onPageChange={setSegmentCurrentPage}
+                    onPageSizeChange={setPageSize}
+                    placeholder="Search segments..."
+                  />
+                  <ContactsListsRows
+                    data={paginatedSegments.map((seg) => ({
+                      id: seg.id,
+                      name: seg.name,
+                      description: seg.description,
+                      created_at: seg.createdAt,
+                      contactCount: seg.contactCount ?? (seg.contacts?.length ?? 0),
+                    })) as any[]}
+                    isLoading={isLoadingSegments}
+                    sortKey={segmentSortKey}
+                    sortDirection={segmentSortDirection as "asc" | "desc"}
+                    onSort={handleSegmentSort}
+                    actionsAnchor={segmentActionsAnchor}
+                    setActionsAnchor={setSegmentActionsAnchor}
+                    onRowClick={(file) => {
+                      const seg = segments.find((s) => s.id === file.id);
+                      if (seg) { setSelectedSegmentForView(seg); setSegmentViewMode("detail"); setDetailCurrentPage(1); setDetailSearchQuery(""); setDetailSelectedContacts(new Set()); }
+                    }}
+                    onRename={(file) => {
+                      const seg = segments.find((s) => s.id === file.id);
+                      if (seg && !isDemoAccount) { setEditingSegment(seg); setRenamingSegmentName(seg.name); setRenamingSegmentDescription(seg.description || ""); dispatch(openPanel("rename-segment-modal")); }
+                    }}
+                    onView={(file) => {
+                      const seg = segments.find((s) => s.id === file.id);
+                      if (seg) { setSelectedSegmentForView(seg); setSegmentViewMode("detail"); setDetailCurrentPage(1); setDetailSearchQuery(""); setDetailSelectedContacts(new Set()); }
+                    }}
+                    onDownload={(file) => { const seg = segments.find((s) => s.id === file.id); if (seg) handleDownloadSegment(seg); }}
+                    onDelete={(file) => {
+                      const seg = segments.find((s) => s.id === file.id);
+                      if (seg && !isDemoAccount) { setEditingSegment(seg); setShowConfirmSegmentDelete(true); dispatch(openPanel("rename-segment-modal")); }
+                    }}
+                    isDemoAccount={isDemoAccount}
+                    formatDate={formatDate}
                   />
 
                 </>
@@ -4620,6 +4005,7 @@ const filterFields: any = useMemo(() => {
           onShowMessage={(message, type) => {
             showContactMessage(message, type === "success" ? "success" : "error");
           }}
+          onViewModeChange={(mode) => setViewsDetailMode(mode === "detail")}
         />
       </div>
 
