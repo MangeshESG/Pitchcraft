@@ -1,8 +1,5 @@
 import React from "react";
-import singleprvIcon from "../../assets/images/SinglePrv.png";
-import previousIcon from "../../assets/images/previous.png";
-import singlenextIcon from "../../assets/images/SingleNext.png";
-import nextIcon from "../../assets/images/Next.png";
+import "./PaginationControls.css";
 
 type PageSize = number | "All";
 
@@ -14,10 +11,44 @@ interface PaginationControlsProps {
   setCurrentPage: (page: number) => void;
   setPageSize: (size: PageSize) => void;
   showPageSizeDropdown?: boolean;
- pageLabel?: string;
+  pageLabel?: string;
 
-  //setCurrentPage: React.Dispatch<React.SetStateAction<number>>;
+  /** 'compact' renders a minimal < 1/25 > pill — useful in tight toolbars */
+  variant?: "full" | "compact";
+  /** Hide the "Showing X to Y of Z items" line when the count is shown elsewhere */
+  showInfo?: boolean;
+  pageSizeOptions?: Array<number | "All">;
 }
+
+const DEFAULT_PAGE_SIZES: Array<number | "All"> = [10, 20, 30, 40, 50, 100, 200, "All"];
+
+const Icon = {
+  chevsL: () => (
+    <svg viewBox="0 0 24 24" width="14" height="14">
+      <path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="m11 6-6 6 6 6M18 6l-6 6 6 6" />
+    </svg>
+  ),
+  chevsR: () => (
+    <svg viewBox="0 0 24 24" width="14" height="14">
+      <path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="m13 6 6 6-6 6M6 6l6 6-6 6" />
+    </svg>
+  ),
+  chevL: () => (
+    <svg viewBox="0 0 24 24" width="14" height="14">
+      <path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M15 6l-6 6 6 6" />
+    </svg>
+  ),
+  chevR: () => (
+    <svg viewBox="0 0 24 24" width="14" height="14">
+      <path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M9 6l6 6-6 6" />
+    </svg>
+  ),
+  chevDown: () => (
+    <svg viewBox="0 0 24 24" width="12" height="12">
+      <path fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
+    </svg>
+  ),
+};
 
 const PaginationControls: React.FC<PaginationControlsProps> = ({
   currentPage,
@@ -26,172 +57,131 @@ const PaginationControls: React.FC<PaginationControlsProps> = ({
   pageSize,
   setCurrentPage,
   setPageSize,
-  showPageSizeDropdown,
-  pageLabel,
+  showPageSizeDropdown = true,
+  pageLabel = "Page:",
+  variant = "full",
+  showInfo = true,
+  pageSizeOptions = DEFAULT_PAGE_SIZES,
 }) => {
   const isAll = pageSize === "All";
   const effectiveTotalPages = isAll ? 1 : totalPages;
-  const handlePrevPage = () => {
-    if (currentPage > 1) setCurrentPage(currentPage - 1);
+
+  const goTo = (p: number) => {
+    if (p >= 1 && p <= effectiveTotalPages) setCurrentPage(p);
   };
 
-  const handleNextPage = () => {
-    if (currentPage < effectiveTotalPages) setCurrentPage(currentPage + 1);
-  };
+  const prevDisabled = currentPage === 1 || isAll;
+  const nextDisabled = currentPage >= effectiveTotalPages || isAll;
 
-  const handlePageChange = (page: number) => {
-    if (page >= 1 && page <= effectiveTotalPages) setCurrentPage(page);
-  };
-   const startRecord = totalRecords === 0 ? 0 :isAll?1: (currentPage - 1) * pageSize + 1
-  const endRecord = totalRecords === 0
-  ? 0
-  : isAll
-  ? totalRecords
-  : Math.min(currentPage * pageSize, totalRecords);
+  const startRecord =
+    totalRecords === 0 ? 0 : isAll ? 1 : (currentPage - 1) * (pageSize as number) + 1;
+  const endRecord =
+    totalRecords === 0
+      ? 0
+      : isAll
+      ? totalRecords
+      : Math.min(currentPage * (pageSize as number), totalRecords);
+
+  if (variant === "compact") {
+    return (
+      <div className="pc-compact">
+        <div className="pc-nav-pill">
+          <button onClick={() => goTo(currentPage - 1)} disabled={prevDisabled} title="Previous">
+            <Icon.chevL />
+          </button>
+          <div className="pc-nav-page">
+            {currentPage} <span className="pc-nav-page__slash">/</span> {Math.max(effectiveTotalPages, 1)}
+          </div>
+          <button onClick={() => goTo(currentPage + 1)} disabled={nextDisabled} title="Next">
+            <Icon.chevR />
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div
-      className="d-flex justify-between align-center"
-      style={{
-        // marginTop: "16px",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-      }}
-    >
-      <div className="pagination-info" style={{ marginTop: "27px",marginRight:"20px" }}>
-        Showing {startRecord} to {endRecord} of {totalRecords} items
-      </div>
+    <div className="pc-wrap">
+      {showInfo ? (
+        <div className="pc-info">
+          {totalRecords === 0 ? (
+            <span className="pc-info__muted">No items</span>
+          ) : (
+            <>
+              Showing <strong>{startRecord.toLocaleString()}</strong>
+              {" to "}
+              <strong>{endRecord.toLocaleString()}</strong>
+              {" of "}
+              <strong>{totalRecords.toLocaleString()}</strong> items
+            </>
+          )}
+        </div>
+      ) : (
+        <div />
+      )}
 
-      {/* <div
-        className="pagination-controls"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "6px",
-        }}
-      > */}
-      <div className="d-flex align-items-center gap mt-[26px] gap-3">
-        {/* Navigation buttons */}
-        <div className="d-flex align-items-center gap-1">
-
-          {/* FIRST PAGE BUTTON */}
-          <button
-            onClick={() => handlePageChange(1)}
-            disabled={currentPage === 1|| isAll}
-            title="Click to go to the first page"
-            className="secondary-button h-[35px] w-[38px] !px-[5px] !py-[10px] flex justify-center items-center"
-          >
-            <img
-              src={previousIcon}
-              alt="First"
-              style={{ width: "20px", height: "20px", objectFit: "contain" }}
-            />
+      <div className="pc-right">
+        {/* Navigation pill */}
+        <div className="pc-nav-pill">
+          <button onClick={() => goTo(1)} disabled={prevDisabled} title="First page" className="pc-icon-only">
+            <Icon.chevsL />
           </button>
-
-          {/* PREVIOUS PAGE BUTTON */}
-          <button
-            onClick={handlePrevPage}
-            disabled={currentPage === 1 || isAll}
-            className="secondary-button flex justify-center items-center !px-[10px] h-[35px]"
-            title="Click to go to the previous page"
-          >
-            <img
-              src={singleprvIcon}
-              alt="Previous"
-              style={{
-                width: "20px",
-                height: "20px",
-                objectFit: "contain",
-                marginRight: "2px",
-                marginLeft: "-7px",
-              }}
-            />
-            <span>Prev</span>
+          <button onClick={() => goTo(currentPage - 1)} disabled={prevDisabled} title="Previous page">
+            <Icon.chevL />
+            <span className="pc-btn-label">Prev</span>
           </button>
-
-          {/* NEXT PAGE BUTTON */}
-          <button
-            className="secondary-button !h-[35px] !py-[10px] !px-[10px] flex justify-center items-center"
-            disabled={currentPage >= effectiveTotalPages || isAll}
-            onClick={handleNextPage}
-            title="Click to go to the next page"
-          >
-            <span>Next</span>
-            <img
-              src={singlenextIcon}
-              alt="Next"
-              style={{
-                width: "20px",
-                height: "20px",
-                objectFit: "contain",
-                marginLeft: "2px",
-                marginRight: "-7px",
-              }}
-            />
+          <div className="pc-nav-page">
+            {currentPage} <span className="pc-nav-page__slash">/</span> {Math.max(effectiveTotalPages, 1)}
+          </div>
+          <button onClick={() => goTo(currentPage + 1)} disabled={nextDisabled} title="Next page">
+            <span className="pc-btn-label">Next</span>
+            <Icon.chevR />
           </button>
-       
-          {/* LAST PAGE BUTTON */}
-          <button
-            onClick={() => handlePageChange(effectiveTotalPages)}
-            disabled={currentPage >= effectiveTotalPages||isAll}
-            className="secondary-button h-[35px] w-[38px] !px-[5px] !py-[10px] flex justify-center items-center"
-            title="Click to go to the last page"
-          >
-            <img
-              src={nextIcon}
-              alt="Last"
-              style={{
-                width: "20px",
-                height: "20px",
-                objectFit: "contain",
-                marginLeft: "2px",
-              }}
-            />
+          <button onClick={() => goTo(effectiveTotalPages)} disabled={nextDisabled} title="Last page" className="pc-icon-only">
+            <Icon.chevsR />
           </button>
         </div>
-        {showPageSizeDropdown && (
-           <select
-  value={pageSize}
-  onChange={(e) => {
-    const value  = e.target.value;
-    setPageSize(value === "All" ? "All" : Number(value));
-    setCurrentPage(1); // reset to first page
-  }}
-  className="form-control ml-2 h-[35px]"
-  style={{ width: "80px", padding: "5px",border:"1px solid #ddd" }}
->
-  {[10, 20, 30, 40, 50,100,200,"All"].map((size) => (
-    <option key={size} value={size}>
-      {size}
-    </option>
-  ))}
-</select>
-        )}
-        {/* Page Input Field */}
-        <div className="d-flex align-items-center font-size-medium h-[35px]">
-          <strong className="flex items-center">{pageLabel ?? "Page:"}</strong>
 
+        {/* Page size */}
+        {showPageSizeDropdown && (
+          <div className="pc-select">
+            <select
+              value={pageSize as any}
+              onChange={(e) => {
+                const v = e.target.value;
+                setPageSize(v === "All" ? "All" : Number(v));
+                setCurrentPage(1);
+              }}
+            >
+              {pageSizeOptions.map((s) => (
+                <option key={String(s)} value={s as any}>
+                  {s} / page
+                </option>
+              ))}
+            </select>
+            <span className="pc-select__caret">
+              <Icon.chevDown />
+            </span>
+          </div>
+        )}
+
+        {/* Page jump */}
+        <div className="pc-jump">
+          <span className="pc-jump__label">{pageLabel}</span>
           <input
             type="number"
+            min={1}
+            max={effectiveTotalPages}
             value={currentPage}
             onChange={(e) => {
-              const page = parseInt(e.target.value);
-              if (page >= 1 && page <= totalPages) handlePageChange(page);
+              const p = parseInt(e.target.value, 10);
+              if (!Number.isNaN(p) && p >= 1 && p <= effectiveTotalPages) setCurrentPage(p);
             }}
-            className="form-control text-center !mx-2"
-            style={{
-              width: "70px",
-              padding: "8px",
-              border: "1px solid #ddd",
-              borderRadius: "4px",
-            }}
+            disabled={isAll}
           />
-
-          <span className="flex items-center">of {totalPages}</span>
+          <span className="pc-jump__of">of {Math.max(effectiveTotalPages, 1)}</span>
         </div>
       </div>
-
     </div>
   );
 };
