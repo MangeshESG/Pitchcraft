@@ -4385,11 +4385,11 @@ try {
         </header>
 
         {/* Inner Main Content */}
-        <main className="flex-1 overflow-y-auto h-[calc(100%-87px)] p-[20px] bg-[#eeeeee]">
+        <main className={`flex-1 overflow-y-auto h-[calc(100%-87px)] bg-[#eeeeee] ${tab === "TestTemplate" ? "p-0" : "p-[20px]"}`}>
           <div
             className={`
                rounded-md
-              ${!isContactDetailPage && tab !== "Dashboard" ? "bg-white p-4 shadow-md min-h-[100%]" : ""}
+              ${!isContactDetailPage && tab !== "Dashboard" && tab !== "TestTemplate" ? "bg-white p-4 shadow-md min-h-[100%]" : ""}
             `}
           >
             {/* Main Content Area */}
@@ -4400,7 +4400,7 @@ try {
 
             {shouldRenderTab("Dashboard") && (
               <div className="tab-content preserved-tab-panel" style={getTabPanelStyle(tab === "Dashboard")}>
-                <Dashboard />
+                <Dashboard firstName={firstName ?? undefined} clientId={effectiveUserId ?? undefined} />
               </div>
             )}
 
