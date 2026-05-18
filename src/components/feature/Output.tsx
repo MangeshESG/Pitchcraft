@@ -370,10 +370,17 @@ const Output: React.FC<OutputInterface> = ({
       "No online research available.",
     )
       .replace(/\\n/g, "\n")
+      .replace(
+        /\((?!\[|https?:\/\/)([a-z0-9.-]+\.[a-z]{2,}(?:\/[^\s)]*)?)\)/gi,
+        (_match, url) => {
+          const href = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+          return `([${url}](${href}))`;
+        },
+      )
+      .replace(/([^\n])\s+(\*\*[A-Z][^*]{2,80}\*\*:?\s*)/g, "$1\n\n$2")
       .replace(/\n{3,}/g, "\n\n")
       .replace(/(^|\n)\s+\n/g, "\n")
       .replace(/(#{1,6} .+)\n{2,}(?=(-|\d+\.|\*\*))/g, "$1\n")
-      .replace(/\n{2,}(?=(-|\d+\.|\*\*))/g, "\n")
       .trim();
   };
 
@@ -506,6 +513,16 @@ const Output: React.FC<OutputInterface> = ({
                 <li style={{ margin: "0 0 4px", lineHeight: 1.45 }}>
                   {children}
                 </li>
+              ),
+              a: ({ children, href }) => (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: "#2563eb", textDecoration: "underline" }}
+                >
+                  {children}
+                </a>
               ),
             }}
           >
