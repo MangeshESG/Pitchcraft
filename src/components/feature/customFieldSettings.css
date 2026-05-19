@@ -1,79 +1,10 @@
-/* Container */
-.custom-fields-container {
-  padding: 0;
-  margin: 0;
-  background: #ffffff;
-  border-radius: 8px;
-}
-
-/* Header */
-.custom-fields-header {
-  display: flex;
-  justify-content: space-between; /* pushes button to right */
-  align-items: center;
-  width: 100%;
-  margin-bottom: 16px;
-}
-
-.custom-fields-title {
-  font-size: 20px;
-  font-weight: 600;
-  margin: 0;
-}
-
-/* Add field button */
-.custom-field-btn {
-  background-color: #3f9f42;
-  color: #fff;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 12px;
-  cursor: pointer;
-  font-weight: 500;
-  font-size: 14px;
-  transition: background 0.2s ease;
-}
-
-.custom-field-btn:hover {
-  background-color: #2e7d32;
-}
-
-/* Table */
-.custom-fields-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-  background: #fff;
-}
-
-.custom-fields-table th {
-  background: #f7f7f7;
-  text-align: left;
-  padding: 12px;
-  border-bottom: 2px solid #e5e7eb;
-  font-weight: 600;
-}
-
-.custom-fields-table td {
-  padding: 12px;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-/* Empty state */
-.custom-fields-empty {
-  text-align: center;
-  padding: 24px;
-  color: #888;
-}
-
-/* Form inside side panel */
+/* ── Panel form ───────────────────────────────────────────── */
 .panel-form {
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
 
-/* Input fields */
 .custom-field-input,
 .custom-field-select {
   padding: 8px 10px;
@@ -81,15 +12,16 @@
   border-radius: 6px;
   font-size: 14px;
   width: 100%;
+  box-sizing: border-box;
 }
 
 .custom-field-input:focus,
 .custom-field-select:focus {
   outline: none;
   border-color: #3f9f42;
+  box-shadow: 0 0 0 2px rgba(63, 159, 66, 0.15);
 }
 
-/* Cancel button */
 .panel-cancel-btn {
   background: #fff;
   border: 1px solid #ccc;
@@ -99,7 +31,6 @@
   font-size: 14px;
 }
 
-/* Create button */
 .panel-create-btn {
   background: #3f9f42;
   color: #fff;
@@ -108,42 +39,14 @@
   border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
+  font-weight: 500;
 }
 
 .panel-create-btn:hover {
   background: #2e7d32;
 }
 
-.dropdown-options {
-  font-size: 12px;
-  color: #666;
-  margin-top: 4px;
-}
-.option-badge{
-background:#f3f4f6;
-padding:3px 8px;
-border-radius:6px;
-font-size:12px;
-margin-right:6px;
-display:inline-block;
-}
-.action-btn {
-  margin-right: 6px;
-  padding: 4px 10px;
-  border-radius: 6px;
-  border: none;
-  cursor: pointer;
-}
-
-.action-btn.edit {
-  background: #3f9f42;
-  color: white;
-}
-
-.action-btn.delete {
-  background: #e53935;
-  color: white;
-}
+/* ── Dropdown option editor ──────────────────────────────── */
 .dropdown-options-container {
   display: flex;
   flex-direction: column;
@@ -163,12 +66,13 @@ display:inline-block;
   padding: 6px 10px;
   border-radius: 6px;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .add-option-btn {
   background: #f3f4f6;
   border: 1px dashed #ccc;
-  padding: 6px;
+  padding: 6px 12px;
   border-radius: 6px;
   cursor: pointer;
   font-size: 13px;
@@ -177,4 +81,38 @@ display:inline-block;
 
 .add-option-btn:hover {
   background: #e5e7eb;
+}
+
+/* ── Row badges ──────────────────────────────────────────── */
+.option-badge {
+  background: #f3f4f6;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  margin-right: 4px;
+  display: inline-block;
+  color: #374151;
+}
+
+.cf-type-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: #f3f4f6;
+  font-size: 12px;
+  font-weight: 500;
+  color: #374151;
+}
+
+/* ── Page-level layout override ──────────────────────────── */
+.bp-list-wrap .bp-row__link {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  font-family: inherit;
+}
+
+.bp-list-wrap .bp-row__actions {
+  overflow: visible;
 }

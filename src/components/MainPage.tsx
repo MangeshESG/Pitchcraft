@@ -4385,7 +4385,13 @@ try {
         </header>
 
         {/* Inner Main Content */}
-        <main className={`flex-1 overflow-y-auto h-[calc(100%-87px)] ${tab === "Dashboard" ? "bg-white" : "bg-[#eeeeee]"} ${tab === "Dashboard" || tab === "TestTemplate" || tab === "DataCampaigns" || tab === "Campaigns" ? "p-0" : "p-[20px]"}`}>
+        <main className={`flex-1 overflow-y-auto h-[calc(100%-87px)] ${
+          tab === "Dashboard"
+            ? "bg-white"
+            : tab === "TestTemplate" || tab === "DataCampaigns" || tab === "Campaigns"
+              ? "bg-[#fafbfc]"
+              : "bg-[#eeeeee]"
+        } ${tab === "Dashboard" || tab === "TestTemplate" || tab === "DataCampaigns" || tab === "Campaigns" ? "p-0" : "p-[20px]"}`}>
           <div
             className={`
                rounded-md

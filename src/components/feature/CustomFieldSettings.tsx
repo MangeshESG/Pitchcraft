@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from "react";
 import API_BASE_URL from "../../config";
 import "./customFieldSettings.css";
+import "./blueprint/Template.new.css";
 import CommonSidePanel from "../common/CommonSidePanel";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEdit, faTrashAlt } from "@fortawesome/free-regular-svg-icons";
-import { closePanel } from "../../slices/panelSlice";
-
+import { closePanel, openPanel } from "../../slices/panelSlice";
+import { MoreVertical, Pencil, Plus, Search, Settings2, Trash2 } from "lucide-react";
 
 interface CustomField {
   id: number;
@@ -20,14 +19,7 @@ interface CustomField {
 interface Props {
   selectedClient: string;
 }
-const actionIconStyle = {
-  width: 24,
-  height: 24,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  flexShrink: 0,
-};
+
 const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
   const dispatch = useDispatch();
   const [fields, setFields] = useState<CustomField[]>([]);
@@ -35,25 +27,17 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
   const [type, setType] = useState("text");
   const [options, setOptions] = useState<string[]>([""]);
   const [originalOptions, setOriginalOptions] = useState<string[]>([]);
-
-  const [isPanelOpen, setIsPanelOpen] = useState(false);
-
   const [editingField, setEditingField] = useState<CustomField | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
-
-  const reduxUserId = useSelector((state: RootState) => state.auth.userId);
   const [fieldActionsAnchor, setFieldActionsAnchor] = useState<number | null>(null);
-
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [fieldToDelete, setFieldToDelete] = useState<CustomField | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [fieldSearch, setFieldSearch] = useState("");
 
-  const activePanel = useSelector(
-  (state: RootState) => state.panel.activePanel
-  );
-
-  const showCustomCRMFieldModal =
-    activePanel === "custom-crm-field-modal";
+  const reduxUserId = useSelector((state: RootState) => state.auth.userId);
+  const activePanel = useSelector((state: RootState) => state.panel.activePanel);
+  const showCustomCRMFieldModal = activePanel === "custom-crm-field-modal";
 
   const storedSelectedClientId =
     localStorage.getItem("selectedClientId") ||
@@ -64,8 +48,8 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
     selectedClient !== ""
       ? selectedClient
       : storedSelectedClientId !== ""
-        ? storedSelectedClientId
-        : reduxUserId
+      ? storedSelectedClientId
+      : reduxUserId
   );
 
   const loadFields = async () => {
@@ -73,9 +57,7 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
       const res = await fetch(
         `${API_BASE_URL}/api/crm/custom-fields?clientId=${effectiveUserId}`
       );
-
       if (!res.ok) return;
-
       const data = await res.json();
       setFields(data || []);
     } catch (error) {
@@ -88,7 +70,6 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
   }, [effectiveUserId]);
 
   const saveField = async () => {
-
     if (!name.trim()) return;
 
     const exists = fields.some(
@@ -96,16 +77,9 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
         f.field_name.toLowerCase() === name.toLowerCase() &&
         (!isEditMode || f.id !== editingField?.id)
     );
+    if (exists) { alert("Field already exists"); return; }
 
-    if (exists) {
-      alert("Field already exists");
-      return;
-    }
-
-    const cleanedOptions = options
-      .map((o) => o.trim())
-      .filter(Boolean);
-
+    const cleanedOptions = options.map((o) => o.trim()).filter(Boolean);
     if (type === "dropdown" && cleanedOptions.length === 0) {
       alert("Dropdown must have at least one option");
       return;
@@ -117,18 +91,13 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
           (existing) => existing.toLowerCase() === option.toLowerCase()
         ) !== index
     );
-
-    if (hasDuplicateOptions) {
-      alert("Dropdown options must be unique");
-      return;
-    }
+    if (hasDuplicateOptions) { alert("Dropdown options must be unique"); return; }
 
     const optionRenames =
       isEditMode && editingField?.field_type === "dropdown" && type === "dropdown"
         ? originalOptions.reduce<Record<string, string>>((renames, oldOption, index) => {
             const oldValue = oldOption.trim();
             const newValue = cleanedOptions[index]?.trim();
-
             if (
               oldValue &&
               newValue &&
@@ -139,24 +108,14 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
             ) {
               renames[oldValue] = newValue;
             }
-
             return renames;
           }, {})
         : {};
 
-    const optionsJson =
-      type === "dropdown"
-        ? JSON.stringify(cleanedOptions)
-        : "[]";
+    const optionsJson = type === "dropdown" ? JSON.stringify(cleanedOptions) : "[]";
 
     const body = isEditMode
-      ? {
-          id: editingField?.id,
-          fieldName: name,
-          fieldType: type,
-          optionsJson,
-          optionRenames,
-        }
+      ? { id: editingField?.id, fieldName: name, fieldType: type, optionsJson, optionRenames }
       : {
           clientId: effectiveUserId,
           fieldName: name,
@@ -172,13 +131,9 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
       ? `${API_BASE_URL}/api/crm/custom-field-rename`
       : `${API_BASE_URL}/api/crm/custom-field`;
 
-    const method = "POST";
-
     const res = await fetch(url, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-      },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
 
@@ -188,42 +143,32 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
       setOriginalOptions([]);
       setIsEditMode(false);
       setEditingField(null);
-      setIsPanelOpen(false);
+      dispatch(closePanel());
       loadFields();
     } else {
       try {
         const errorData = await res.json();
         if (errorData?.usedOptions?.length) {
           alert(
-            `${errorData.message || "Cannot remove options"}: ${errorData.usedOptions.join(
-              ", "
-            )}`
+            `${errorData.message || "Cannot remove options"}: ${errorData.usedOptions.join(", ")}`
           );
           return;
         }
-        if (errorData?.message) {
-          alert(errorData.message);
-          return;
-        }
+        if (errorData?.message) { alert(errorData.message); return; }
       } catch {
-        // ignore parse errors and fall through to generic alert
+        // ignore parse errors
       }
       alert("Failed to save custom field");
     }
   };
 
   const confirmDeleteField = async () => {
-  if (!fieldToDelete) return;
-
+    if (!fieldToDelete) return;
     const res = await fetch(
       `${API_BASE_URL}/api/crm/custom-field-delete/${fieldToDelete.id}`,
       { method: "POST" }
     );
-
-    if (res.ok) {
-      loadFields();
-    }
-
+    if (res.ok) loadFields();
     setShowDeleteModal(false);
     setFieldToDelete(null);
     setDeleteConfirmText("");
@@ -236,22 +181,20 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
     setOptions([""]);
     setOriginalOptions([]);
     setType("text");
-    setIsPanelOpen(true);
+    dispatch(openPanel("custom-crm-field-modal"));
   };
 
   const openEditPanel = (field: CustomField) => {
-
     setIsEditMode(true);
     setEditingField(field);
     setName(field.field_name);
     setType(field.field_type);
     setOptions([""]);
     setOriginalOptions([]);
-
     if (field.field_type === "dropdown" && field.options_json) {
       try {
-        const parsedOptions = JSON.parse(field.options_json);
-        const opts = Array.isArray(parsedOptions) ? parsedOptions : [""];
+        const parsed = JSON.parse(field.options_json);
+        const opts = Array.isArray(parsed) ? parsed : [""];
         setOptions(opts);
         setOriginalOptions(opts);
       } catch {
@@ -259,228 +202,226 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
         setOriginalOptions([]);
       }
     }
-
-    setIsPanelOpen(true);
+    dispatch(openPanel("custom-crm-field-modal"));
   };
 
-    const addOption = () => {
-      setOptions([...options, ""]);
-    };
+  const addOption = () => setOptions([...options, ""]);
+  const updateOption = (value: string, index: number) => {
+    const updated = [...options];
+    updated[index] = value;
+    setOptions(updated);
+  };
+  const removeOption = (index: number) => {
+    const updated = options.filter((_, i) => i !== index);
+    setOptions(updated.length ? updated : [""]);
+  };
 
-    const updateOption = (value: string, index: number) => {
-      const updated = [...options];
-      updated[index] = value;
-      setOptions(updated);
-    };
+  const filteredFields = fields.filter((f) =>
+    f.field_name.toLowerCase().includes(fieldSearch.toLowerCase())
+  );
 
-    const removeOption = (index: number) => {
-      const updated = options.filter((_, i) => i !== index);
-      setOptions(updated.length ? updated : [""]);
-    };
   return (
-    <div className="section-wrapper">
-
-      <div className="custom-fields-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #ddd", paddingBottom: "16px", marginBottom: "16px" }}>
-
-
-         <h2 className="section-title !text-[#333] !text-left !border-b-[0] !pb-[0]" style={{ marginTop: 0, marginBottom: 0 }}>
-         Custom CRM fields
-        </h2>
-
-        <button
-          className="custom-field-btn"
-          onClick={openCreatePanel}
-        >
-          + Add field
-        </button>
+    <div className="bp-list-wrap">
+      <div className="bp-page-header">
+        <div className="bp-page-header__inner">
+          <div>
+            <div className="bp-eyebrow">CRM Settings</div>
+            <h1 className="bp-page-title">
+              Custom fields
+              <span className="bp-count-pill">{fields.length}</span>
+            </h1>
+            <p className="bp-page-sub">
+              Define custom attributes to capture unique contact and company data beyond standard fields.
+            </p>
+          </div>
+          <div className="bp-header-actions">
+            <button type="button" className="bp-btn-primary-dark" onClick={openCreatePanel}>
+              <Plus className="h-4 w-4" />
+              Add field
+            </button>
+          </div>
+        </div>
       </div>
 
-      <table className="contacts-table">
-        <thead>
-        <tr>
-          <th>Field name</th>
-          <th>Field type</th>
-          <th>Actions</th>
-        </tr>
-        </thead>
+      {fields.length === 0 ? (
+        <div className="bp-empty-body">
+          <div className="bp-empty-hero">
+            <div className="bp-empty-hero__bg" />
+            <div className="bp-empty-hero__content">
+              <div className="bp-empty-hero__copy">
+                <span className="bp-start-pill">Start here</span>
+                <h2 className="bp-empty-headline">Create your first custom field.</h2>
+                <p className="bp-empty-body-text">
+                  Custom fields let you store any extra information about contacts — industry, deal size, lead source, or anything your team tracks.
+                </p>
+                <div className="bp-empty-actions">
+                  <button className="bp-btn-primary" onClick={openCreatePanel}>
+                    <Plus className="h-4 w-4" />
+                    Add your first field
+                  </button>
+                </div>
+                <div className="bp-empty-meta">
+                  Fields appear on every contact record and can be used in segments.
+                </div>
+              </div>
+              <div className="bp-empty-hero__art">
+                <Settings2 style={{ width: 160, height: 160, color: "#3f9f42" }} />
+              </div>
+            </div>
+          </div>
+          <div className="bp-how-it-works">
+            <div className="bp-eyebrow" style={{ marginBottom: 16 }}>How custom fields fit in</div>
+            <div className="bp-steps">
+              {[
+                ["STEP 01", "Add contacts", false],
+                ["STEP 02", "Define fields", true],
+                ["STEP 03", "Fill data", false],
+                ["STEP 04", "Build segments", false],
+                ["STEP 05", "Run campaigns", false],
+              ].map(([step, label, active]) => (
+                <div key={String(step)} className={`bp-step ${active ? "is-active" : ""}`}>
+                  <div className="bp-step__head">
+                    <span className="bp-step__num">{step}</span>
+                    <span className="bp-step__icon">-</span>
+                  </div>
+                  <div className="bp-step__label">{label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="bp-list-body">
+          <div className="bp-toolbar">
+            <div className="bp-toolbar__left">
+              <div className="bp-search">
+                <Search className="bp-search__icon h-4 w-4" />
+                <input
+                  type="text"
+                  placeholder="Search fields"
+                  value={fieldSearch}
+                  onChange={(e) => setFieldSearch(e.target.value)}
+                />
+              </div>
+            </div>
+            <span style={{ fontSize: "12.5px", color: "var(--bp-ink-faint)" }}>
+              {filteredFields.length} field{filteredFields.length !== 1 ? "s" : ""}
+            </span>
+          </div>
 
-        <tbody>
-          {fields.length === 0 ? (
-            <tr>
-              <td colSpan={3} className="custom-fields-empty">
-                No custom fields created yet
-              </td>
-            </tr>
-          ) : (
-            fields.map((f) => {
-              let options: string[] = [];
+          <div className="bp-rows">
+            <div
+              className="bp-rows__head"
+              style={{ gridTemplateColumns: "14px 1.5fr 1fr 60px" }}
+            >
+              <div />
+              <div>Field name</div>
+              <div>Type</div>
+              <div />
+            </div>
 
-              if (f.field_type === "dropdown" && f.options_json) {
-                try {
-                  options = JSON.parse(f.options_json);
-                } catch {
-                  options = [];
+            {filteredFields.length === 0 ? (
+              <div className="bp-rows__msg">No fields match your search.</div>
+            ) : (
+              filteredFields.map((f) => {
+                let parsedOptions: string[] = [];
+                if (f.field_type === "dropdown" && f.options_json) {
+                  try { parsedOptions = JSON.parse(f.options_json); } catch { parsedOptions = []; }
                 }
-              }
+                return (
+                  <div
+                    key={f.id}
+                    className="bp-row"
+                    style={{ gridTemplateColumns: "14px 1.5fr 1fr 60px" }}
+                  >
+                    <div className="bp-row__rail" />
+                    <div className="bp-row__name">
+                      <button
+                        type="button"
+                        className="bp-row__link"
+                        onClick={() => openEditPanel(f)}
+                      >
+                        {f.field_name}
+                      </button>
+                    </div>
+                    <div className="bp-row__id">
+                      <span className="cf-type-badge">{f.field_type}</span>
+                      {parsedOptions.length > 0 && (
+                        <div style={{ marginTop: 6 }}>
+                          {parsedOptions.slice(0, 5).map((opt) => (
+                            <span key={opt} className="option-badge">{opt}</span>
+                          ))}
+                          {parsedOptions.length > 5 && (
+                            <span className="option-badge">+{parsedOptions.length - 5} more</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div className="bp-row__actions">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFieldActionsAnchor(fieldActionsAnchor === f.id ? null : f.id)
+                        }
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#6b7280] hover:bg-[#eef0f3]"
+                        aria-label={`Open actions for ${f.field_name}`}
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </button>
+                      {fieldActionsAnchor === f.id && (
+                        <div className="bp-row__menu">
+                          <button
+                            type="button"
+                            onClick={() => { openEditPanel(f); setFieldActionsAnchor(null); }}
+                          >
+                            <Pencil className="h-4 w-4" /> Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="is-danger"
+                            onClick={() => {
+                              setFieldToDelete(f);
+                              setShowDeleteModal(true);
+                              setDeleteConfirmText("");
+                              setFieldActionsAnchor(null);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" /> Delete
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
 
-              return (
-<tr key={f.id}>
-  <td>{f.field_name}</td>
-
-  <td>
-    {f.field_type}
-
-    {f.field_type === "dropdown" && options.length > 0 && (
-      <div>
-        {options.map(opt => (
-          <span className="option-badge">{opt}</span>
-        ))}
-      </div>
-    )}
-  </td>
-
-  <td style={{ position: "relative" }}>
-
-    <button
-      onClick={() =>
-        setFieldActionsAnchor(
-          fieldActionsAnchor === f.id ? null : f.id
-        )
-      }
-      style={{
-        padding: "4px 10px",
-        borderRadius: "5px",
-        fontSize: "20px",
-        fontWeight: "600",
-        cursor: "pointer",
-      }}
-    >
-      ⋮
-    </button>
-
-    {fieldActionsAnchor === f.id && (
-      <div
-        style={{
-          position: "absolute",
-          top: "30px",
-          right: 0,
-          background: "#fff",
-          border: "1px solid #eee",
-          borderRadius: "6px",
-          boxShadow: "0px 4px 12px rgba(0,0,0,0.15)",
-          zIndex: 100,
-          padding: "8px 0",
-          width: "120px",
-        }}
-      >
-
-        {/* EDIT */}
-<button
-  onClick={() => {
-    openEditPanel(f);
-    setFieldActionsAnchor(null);
-  }}
-  style={{
-    width: "100%",
-    padding: "8px 18px",
-    textAlign: "left",
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    fontWeight: 600,
-    display: "flex",
-    gap: "8px",
-    alignItems: "center",
-  }}
->
-
-  <span style={actionIconStyle}>
-    <FontAwesomeIcon
-      icon={faEdit}
-      style={{ color: "#3f9f42", fontSize: 20 }}
-    />
-  </span>
-
-  <span>Edit</span>
-
-</button>
-
-        {/* DELETE */}
-<button
-  onClick={() => {
-    setFieldToDelete(f);
-    setShowDeleteModal(true);
-    setDeleteConfirmText("");
-    setFieldActionsAnchor(null);
-  }}
-  style={{
-    width: "100%",
-    padding: "8px 18px",
-    textAlign: "left",
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    fontWeight: 600,
-    display: "flex",
-    gap: "8px",
-    alignItems: "center",
-  }}
->
-
-  <span style={actionIconStyle}>
-    <FontAwesomeIcon
-      icon={faTrashAlt}
-      style={{ color: "#3f9f42", fontSize: 20 }}
-    />
-  </span>
-
-  <span>Delete</span>
-
-</button>
-
-      </div>
-    )}
-
-  </td>
-</tr>
-              );
-            })
-          )}
-        </tbody>
-      </table>
+          <div className="bp-tip">
+            Showing {filteredFields.length} of {fields.length} field{fields.length !== 1 ? "s" : ""}.
+          </div>
+        </div>
+      )}
 
       <CommonSidePanel
-        //isOpen={isPanelOpen}
         isOpen={showCustomCRMFieldModal}
-        onClose={() => 
-          //setIsPanelOpen(false)
-          dispatch(closePanel())
-
-        }
+        onClose={() => dispatch(closePanel())}
         title={isEditMode ? "Edit custom field" : "Create custom field"}
         footerContent={
           <>
             <button
               className="panel-cancel-btn"
-              onClick={() => 
-                //setIsPanelOpen(false)
-                dispatch(closePanel())
-              }
+              onClick={() => dispatch(closePanel())}
             >
               Cancel
             </button>
-
-            <button
-              className="panel-create-btn"
-              onClick={saveField}
-            >
+            <button className="panel-create-btn" onClick={saveField}>
               {isEditMode ? "Update" : "Create"}
             </button>
           </>
         }
       >
         <div className="panel-form">
-
           <label>Field name</label>
           <input
             className="custom-field-input"
@@ -488,7 +429,6 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
-
           <label>Field type</label>
           <select
             className="custom-field-select"
@@ -503,114 +443,91 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
             <option value="datetime">Date & Time</option>
             <option value="dropdown">Pick List</option>
           </select>
-
           {type === "dropdown" && (
             <>
               <label>Dropdown Options</label>
-<div className="dropdown-options-container">
-
-  {options.map((opt, index) => (
-    <div key={index} className="dropdown-option-row">
-
-      <input
-        className="custom-field-input"
-        placeholder={`Option ${index + 1}`}
-        value={opt}
-        onChange={(e) => updateOption(e.target.value, index)}
-      />
-
-      <button
-        type="button"
-        className="remove-option-btn"
-        onClick={() => removeOption(index)}
-      >
-        ✕
-      </button>
-
-    </div>
-  ))}
-
-  <button
-    type="button"
-    className="add-option-btn"
-    onClick={addOption}
-  >
-    + Add option
-  </button>
-
-</div>
+              <div className="dropdown-options-container">
+                {options.map((opt, index) => (
+                  <div key={index} className="dropdown-option-row">
+                    <input
+                      className="custom-field-input"
+                      placeholder={`Option ${index + 1}`}
+                      value={opt}
+                      onChange={(e) => updateOption(e.target.value, index)}
+                    />
+                    <button
+                      type="button"
+                      className="remove-option-btn"
+                      onClick={() => removeOption(index)}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                <button type="button" className="add-option-btn" onClick={addOption}>
+                  + Add option
+                </button>
+              </div>
             </>
           )}
-
         </div>
       </CommonSidePanel>
 
-{showDeleteModal && (
-  <div
-    className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999]"
-    onClick={() => setShowDeleteModal(false)}
-  >
-    <div
-      className="bg-white rounded-xl p-6 w-[520px] relative"
-      onClick={(e) => e.stopPropagation()}
-    >
-      {/* Title */}
-      <h3 className="text-lg font-semibold mb-3 text-gray-900">
-        Delete custom field
-      </h3>
-
-      {/* Message */}
-      <p className="text-sm text-gray-600 mb-3">
-        This action will permanently delete the field
-        <strong> "{fieldToDelete?.field_name}" </strong>
-        and all associated data.
-      </p>
-
-      <p className="text-sm text-gray-600 mb-4">
-        Please type <strong>DELETE</strong> to confirm.
-      </p>
-
-      {/* Input */}
-      <input
-        type="text"
-        value={deleteConfirmText}
-        onChange={(e) => setDeleteConfirmText(e.target.value)}
-        placeholder="Type DELETE"
-        className="w-full border border-gray-300 rounded-md px-3 py-2 mb-6 focus:outline-none focus:ring-2 focus:ring-red-500"
-      />
-
-      {/* Buttons */}
-      <div className="flex justify-end gap-3">
-        <button
+      {showDeleteModal && (
+        <div
+          className="fixed inset-0 bg-black/40 flex items-center justify-center z-[9999]"
           onClick={() => setShowDeleteModal(false)}
-          className="px-5 py-2 rounded-full bg-black text-white"
         >
-          Cancel
-        </button>
-
-        <button
-          onClick={confirmDeleteField}
-          disabled={deleteConfirmText !== "DELETE"}
-          className={`px-5 py-2 rounded-full text-white ${
-            deleteConfirmText === "DELETE"
-              ? "bg-red-600 hover:bg-red-700"
-              : "bg-gray-400 cursor-not-allowed"
-          }`}
-        >
-          Delete
-        </button>
-      </div>
-
-      {/* Close button */}
-      <button
-        onClick={() => setShowDeleteModal(false)}
-        className="absolute top-4 right-4 text-xl"
-      >
-        ✕
-      </button>
-    </div>
-  </div>
-)}
+          <div
+            className="bg-white rounded-xl p-6 w-[520px] relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold mb-3 text-gray-900">
+              Delete custom field
+            </h3>
+            <p className="text-sm text-gray-600 mb-3">
+              This action will permanently delete the field
+              <strong> "{fieldToDelete?.field_name}" </strong>
+              and all associated data.
+            </p>
+            <p className="text-sm text-gray-600 mb-4">
+              Please type <strong>DELETE</strong> to confirm.
+            </p>
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="Type DELETE"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 mb-6 focus:outline-none focus:ring-2 focus:ring-red-500"
+            />
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="px-5 py-2 rounded-full bg-black text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteField}
+                disabled={deleteConfirmText !== "DELETE"}
+                className={`px-5 py-2 rounded-full text-white ${
+                  deleteConfirmText === "DELETE"
+                    ? "bg-red-600 hover:bg-red-700"
+                    : "bg-gray-400 cursor-not-allowed"
+                }`}
+              >
+                Delete
+              </button>
+            </div>
+            <button
+              onClick={() => setShowDeleteModal(false)}
+              className="absolute top-4 right-4 text-xl"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

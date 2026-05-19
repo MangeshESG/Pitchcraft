@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import API_BASE_URL from "../../config";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "../../Redux/store";
@@ -10,11 +10,12 @@ import "react-toastify/dist/ReactToastify.css";
 import CommonSidePanel from "../common/CommonSidePanel";
 import { closePanel, openPanel } from "../../slices/panelSlice";
 import "./blueprint/Template.new.css";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faPlay } from "@fortawesome/free-solid-svg-icons";
 import {
   FileText,
   MoreVertical,
   Pencil,
-  PlayCircle,
   Plus,
   Rocket,
   Search,
@@ -85,6 +86,9 @@ interface CampaignBlueprint {
   selectedModel?: string;
 }
 
+const VIDEO_BASE = "https://app.pitchkraft.ai";
+const CAMPAIGN_VIDEO = `${VIDEO_BASE}/video/Campaigns.mp4`;
+
 const CampaignManagement: React.FC<CampaignManagementProps> = ({
   selectedClient,
 }) => {
@@ -107,6 +111,8 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [showErrorToast, setShowErrorToast] = useState(false);
+  const [showCampaignVideo, setShowCampaignVideo] = useState(false);
+  const campaignVideoRef = useRef<HTMLVideoElement>(null);
 
   const activePanel = useSelector(
     (state: RootState) => state.panel.activePanel
@@ -636,8 +642,13 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
     setCurrentPage(Math.min(Math.max(page, 1), totalPages || 1));
   };
 
+  const closeCampaignVideo = () => {
+    campaignVideoRef.current?.pause();
+    setShowCampaignVideo(false);
+  };
+
   return (
-    <div className="bp-list-wrap campaign-bp-page" style={{ minHeight: "auto" }}>
+    <div className="bp-list-wrap campaign-bp-page">
         <div className="bp-page-header">
           <div className="bp-page-header__inner">
             <div>
@@ -679,8 +690,12 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                       <Plus className="h-4 w-4" />
                       Create your first campaign
                     </button>
-                    <button className="bp-btn-secondary" type="button">
-                      <PlayCircle className="h-4 w-4" style={{ color: "#3f9f42" }} />
+                    <button
+                      className="bp-btn-secondary"
+                      type="button"
+                      onClick={() => setShowCampaignVideo(true)}
+                    >
+                      <FontAwesomeIcon icon={faPlay} style={{ color: "#3f9f42" }} />
                       Watch demo
                     </button>
                   </div>
@@ -733,8 +748,12 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
                         <Plus className="h-4 w-4" />
                         Create campaign
                       </button>
-                      <button className="bp-btn-banner-ghost" type="button">
-                        <PlayCircle className="h-4 w-4" />
+                      <button
+                        className="bp-btn-banner-ghost"
+                        type="button"
+                        onClick={() => setShowCampaignVideo(true)}
+                      >
+                        <FontAwesomeIcon icon={faPlay} />
                         Explore best practices
                       </button>
                     </div>
@@ -876,6 +895,34 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
             </div>
           </>
         )}
+      {showCampaignVideo && (
+        <div
+          className="bp-video-backdrop"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              closeCampaignVideo();
+            }
+          }}
+        >
+          <div className="bp-video-modal">
+            <button
+              type="button"
+              className="bp-video-close"
+              onClick={closeCampaignVideo}
+              aria-label="Close video"
+            >
+              x
+            </button>
+            <video
+              ref={campaignVideoRef}
+              src={CAMPAIGN_VIDEO}
+              controls
+              autoPlay
+              className="bp-video-player"
+            />
+          </div>
+        </div>
+      )}
       <ToastContainer />
       <style>{`
         .campaign-bp-page {
