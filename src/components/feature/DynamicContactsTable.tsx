@@ -156,7 +156,6 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
   const [columns, setColumns]           = useState<ColumnConfig[]>([]);
   const [showColumnPanel, setShowColumnPanel] = useState(false);
   const [pageSize, setPageSize]         = useState<PageSize>(10);
-  const [density, setDensity]           = useState<"compact" | "comfy">("comfy");
   const [sortConfig, setSortConfig]     = useState<SortConfig>({ key: null, direction: "asc" });
   const isInitializedRef                = useRef(false);
 
@@ -428,7 +427,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
         <div className="dt-avatar" style={{ background: bg, color: fg }}>{ini}</div>
         <div className="dt-name__text">
           <div className="dt-name__primary">{name}</div>
-          {density === "comfy" && item.job_title && (
+          {item.job_title && (
             <div className="dt-name__secondary">{item.job_title}</div>
           )}
         </div>
@@ -563,30 +562,6 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
           </div>
 
           <div className="dt-toolbar__right">
-            {/* Density toggle */}
-            <div className="dt-density">
-              <button
-                className={density === "compact" ? "is-active" : ""}
-                onClick={() => setDensity("compact")}
-                title="Compact"
-              >
-                <svg viewBox="0 0 24 24" width="14" height="14">
-                  <path fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" d="M4 7h16M4 12h16M4 17h16"/>
-                </svg>
-                Compact
-              </button>
-              <button
-                className={density === "comfy" ? "is-active" : ""}
-                onClick={() => setDensity("comfy")}
-                title="Comfy"
-              >
-                <svg viewBox="0 0 24 24" width="14" height="14">
-                  <path fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" d="M4 6h16M4 12h16M4 18h16"/>
-                </svg>
-                Comfy
-              </button>
-            </div>
-
             {/* Columns button */}
             <button className="dt-btn-tertiary" onClick={() => setShowColumnPanel(true)}>
               <svg viewBox="0 0 24 24" width="14" height="14">
@@ -620,7 +595,7 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
       {/* Table card */}
       <div className="dt-card">
         <div className="dt-scroll">
-          <table className={`dt-table dt-density-${density}`}>
+          <table className="dt-table">
             <thead>
               <tr>
                 {visibleColumns.map((column) => {

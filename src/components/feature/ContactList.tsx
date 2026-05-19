@@ -2197,7 +2197,7 @@ const filterFields: any = useMemo(() => {
                   )}
                 </>
               ) : (
-                  <>
+                  <div style={{ padding: "20px 32px 24px" }}>
                 <DynamicContactsTable
                   data={filteredDetailContacts}
                   isLoading={isLoadingDetail}
@@ -2654,7 +2654,7 @@ const filterFields: any = useMemo(() => {
                   }
                 // customColumns={customColumns}
                 />
-              </>
+              </div>
 
               )}
 
