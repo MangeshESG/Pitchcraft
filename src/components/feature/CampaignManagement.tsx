@@ -5,14 +5,28 @@ import { RootState } from "../../Redux/store";
 import { useAppData } from "../../contexts/AppDataContext";
 import AppModal from "../common/AppModal";
 import { useAppModal } from "../../hooks/useAppModal";
-import PaginationControls from "./PaginationControls";
-import { ToastContainer, toast } from "react-toastify";
+import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import CommonSidePanel from "../common/CommonSidePanel";
-import deleteIcon from "../../assets/images/deleteiconn.png";
-import { faEdit,faTrashAlt,faCircleXmark ,faFileLines   } from "@fortawesome/free-regular-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { closePanel, openPanel } from "../../slices/panelSlice";
+import "./blueprint/Template.new.css";
+import {
+  FileText,
+  MoreVertical,
+  Pencil,
+  PlayCircle,
+  Plus,
+  Rocket,
+  Search,
+  Sparkles,
+  Trash2,
+  Users,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
 
 interface CampaignManagementProps {
   selectedClient: string;
@@ -116,12 +130,6 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
     description: "",
     templateId: "", // campaign blueprint id
   });
- const toastAnimation = `
-@keyframes toastProgress {
-  from { width: 100%; }
-  to { width: 0%; }
-}
-`;
   // ================== FETCH FUNCTIONS ==================
   const compareStrings = (a?: string, b?: string, direction: "asc" | "desc" = "asc") => {
     const valueA = (a || "").toLowerCase();
@@ -144,6 +152,48 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
       month: "short",
       year: "numeric",
     });
+  };
+
+  const getBlueprintName = (campaign: Campaign) =>
+    campaign.templateId
+      ? campaignBlueprints.find((bp) => bp.id === campaign.templateId)?.templateName || "-"
+      : "-";
+
+  const getDataSourceName = (campaign: Campaign) => {
+    if (typeof campaign.zohoViewId === "string" && campaign.zohoViewId.startsWith("view_")) {
+      return (
+        views.find(
+          (view) =>
+            view.id.toString() ===
+            (campaign.zohoViewId as string).replace("view_", "")
+        )?.name || "View"
+      );
+    }
+
+    if (campaign.dataSource === "Segment" && campaign.segmentName) return campaign.segmentName;
+    if (campaign.dataSource === "DataFile" && campaign.dataFileName) return campaign.dataFileName;
+    if (campaign.zohoViewId) return "List";
+    if (campaign.segmentId) return "Segment";
+    return "-";
+  };
+
+  const resetCampaignForm = () => {
+    setSelectedCampaign(null);
+    setCampaignForm({
+      campaignName: "",
+      promptId: "",
+      zohoViewId: "",
+      segmentId: "",
+      description: "",
+      templateId: "",
+    });
+    setSelectedPrompt(null);
+  };
+
+  const openCreateCampaignPanel = () => {
+    fetchViews();
+    dispatch(openPanel("campaign-create"));
+    resetCampaignForm();
   };
 
   const handleListSort = (key: string) => {
@@ -295,7 +345,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
       templateId: campaign.templateId?.toString() || "",
     });
 
-    // ✅ Load blueprint data for the selected campaign
+    //  Load blueprint data for the selected campaign
     if (campaign.templateId) {
       try {
         const res = await fetch(`${API_BASE_URL}/api/CampaignPrompt/campaign/${campaign.templateId}`);
@@ -316,7 +366,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
   };
 
 
-  // ✅ Helper: Save campaign blueprint to sessionStorage and context
+  //  Helper: Save campaign blueprint to sessionStorage and context
   const saveCampaignBlueprint = (blueprintData: any) => {
     if (!blueprintData) return;
 
@@ -327,11 +377,11 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
       model: blueprintData.selectedModel || "gpt-5",
     };
 
-    // ✅ Store in sessionStorage for MainPage.tsx
+    //  Store in sessionStorage for MainPage.tsx
     sessionStorage.setItem("selectedPrompt", JSON.stringify(promptPayload));
     sessionStorage.setItem("selectedCampaignId", blueprintData.id);
 
-    // ✅ Optional: update context/local state
+    //  Optional: update context/local state
     setSelectedPrompt(promptPayload);
   };
 
@@ -363,10 +413,9 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
       });
 
       const resBody = await res.json();
-      console.log("resBody", resBody);
       if (!res.ok) throw new Error(resBody.message || JSON.stringify(resBody));
 
-      // ✅ Store the blueprint (prompt) returned by backend
+      //  Store the blueprint (prompt) returned by backend
       if (resBody.campaignBlueprint) {
         saveCampaignBlueprint({
           id: resBody.templateId,
@@ -455,7 +504,6 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
       try {
         const response = await fetch(`${API_BASE_URL}/api/auth/campaigns/client/${effectiveUserId}`);
         const data = await response.json();
-        console.log("Alltemplateid", data)
         setCampaigns(data);
         // setCampaigns(data.campaigns || []);
       } catch (err) {
@@ -514,473 +562,469 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
       (currentPage - 1) * pageSize,
       currentPage * pageSize
     );
-  const menuBtnStyle = {
-    width: "100%",
-    padding: "8px 18px",
-    textAlign: "left",
-    background: "none",
-    border: "none",
-    color: "#222",
-    fontSize: "15px",
-    cursor: "pointer",
-  } as React.CSSProperties;
-  const actionIconStyle = {
-  width: 24,
-  height: 24,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  flexShrink: 0,
-};
-  const renderSortArrow = (columnKey: string, currentSortKey: string, sortDirection: string) => {
-    if (columnKey === currentSortKey) {
-      return sortDirection === "asc" ? " ▲" : " ▼"
-    }
-    return ""
-  }
-  return (
-    <div className="data-campaigns-container">
-      <div className="section-wrapper">
-        <h2 className="section-title">Campaigns</h2>
-        <p style={{ marginBottom: '10px' }}>Create and manage campaigns quickly and efficiently.</p>
+  const isCreateDisabled =
+    isLoading ||
+    !campaignForm.campaignName ||
+    !campaignForm.templateId ||
+    (!campaignForm.zohoViewId && !campaignForm.segmentId);
 
-        <div style={{ display: "flex", alignItems: "center", marginBottom: 16, gap: 16 }}>
-          <input
-            type="text"
-            placeholder="Search campaigns..."
-            value={campaignSearch}
-            onChange={(e) => setCampaignSearch(e.target.value)}
-            className="search-input"
-            style={{ width: 340 }}
-          />
-          <button
-            className="save-button button small"
-            style={{ marginLeft: "auto", borderRadius:"12px"}}
-            onClick={() => {
-              fetchViews();
-              //setShowCreateCampaignModal(true);
-              dispatch(openPanel("campaign-create"));
-              setSelectedCampaign(null);
-              setCampaignForm({
-                campaignName: "",
-                promptId: "",
-                zohoViewId: "",
-                segmentId: "",
-                description: "",
-                templateId: "",
-              });
-            }}
-          >
-            + Create campaign
+  const campaignStats = [
+    { label: "Campaigns", value: campaigns.length.toString(), Icon: Rocket },
+    {
+      label: "With blueprint",
+      value: campaigns.filter((campaign) => campaign.templateId).length.toString(),
+      Icon: FileText,
+    },
+    {
+      label: "Data sources",
+      value: campaigns
+        .filter((campaign) => getDataSourceName(campaign) !== "-")
+        .length.toString(),
+      Icon: Users,
+    },
+  ];
+
+  const renderSortIcon = (columnKey: string) => {
+    if (columnKey !== listSortKey) return <ArrowUpDown className="h-3 w-3 text-[#cdd2da]" />;
+    return listSortDirection === "asc" ? (
+      <ArrowUp className="h-3 w-3 text-[#3f9f42]" />
+    ) : (
+      <ArrowDown className="h-3 w-3 text-[#3f9f42]" />
+    );
+  };
+  const renderCampaignActions = (campaign: Campaign) => (
+    <>
+      <button
+        type="button"
+        onClick={() =>
+          setCampaignActionsAnchor(
+            campaignActionsAnchor === campaign.id ? null : campaign.id
+          )
+        }
+        className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#6b7280] hover:bg-[#eef0f3]"
+        aria-label={"Open actions for " + campaign.campaignName}
+      >
+        <MoreVertical className="h-4 w-4" />
+      </button>
+
+      {campaignActionsAnchor === campaign.id && (
+        <div className="absolute right-2 top-10 z-30 w-[140px] rounded-lg border border-[#e8eaee] bg-white py-1.5 text-left shadow-[0_8px_24px_rgba(15,23,42,0.12)]">
+          <button type="button" onClick={() => { handleCampaignSelect(campaign.id.toString()); dispatch(openPanel("campaign-create")); setCampaignActionsAnchor(null); }} className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] text-[#374151] hover:bg-[#f5f6f8]">
+            <Pencil className="h-4 w-4 text-[#3f9f42]" /> Edit
+          </button>
+          <div className="my-1 h-px bg-[#eef0f3]" />
+          <button type="button" onClick={() => { deleteCampaign(campaign); setCampaignActionsAnchor(null); }} className="flex w-full items-center gap-2.5 px-3 py-2 text-[13px] text-[#b91c1c] hover:bg-[#fef2f2]">
+            <Trash2 className="h-4 w-4" /> Delete
           </button>
         </div>
-        <div style={{ marginBottom: "10px" }}>
-          <PaginationControls
-            currentPage={currentPage}
-            totalPages={totalPages}
-            pageSize={pageSize}
-            totalRecords={filteredCampaigns.length}
-            setCurrentPage={setCurrentPage}
-            setPageSize={setPageSize}
-            showPageSizeDropdown={true}
-            pageLabel="Page:"
-          />
+      )}
+    </>
+  );
+
+  const pageStart =
+    filteredCampaigns.length === 0
+      ? 0
+      : pageSize === "All"
+      ? 1
+      : (currentPage - 1) * pageSize + 1;
+  const pageEnd =
+    pageSize === "All"
+      ? filteredCampaigns.length
+      : Math.min(currentPage * pageSize, filteredCampaigns.length);
+
+  const goToPage = (page: number) => {
+    setCurrentPage(Math.min(Math.max(page, 1), totalPages || 1));
+  };
+
+  return (
+    <div className="bp-list-wrap campaign-bp-page" style={{ minHeight: "auto" }}>
+        <div className="bp-page-header">
+          <div className="bp-page-header__inner">
+            <div>
+              <div className="bp-eyebrow">Outreach</div>
+              <h1 className="bp-page-title">
+                Campaigns
+                <span className="bp-count-pill">{campaigns.length}</span>
+              </h1>
+              <p className="bp-page-sub">
+                Connect a blueprint to a list, segment, or CRM view and manage every campaign from one library.
+              </p>
+            </div>
+            <div className="bp-header-actions">
+              <button type="button" className="bp-btn-primary-dark" onClick={openCreateCampaignPanel}>
+                <Plus className="h-4 w-4" />
+                New campaign
+              </button>
+            </div>
+          </div>
         </div>
 
-        <table className="contacts-table" style={{ background: "#fff" }}>
-          <thead>
-            <tr>
-              <th onClick={() => handleListSort("campaignName")} style={{ cursor: "pointer" }}>Campaign name{renderSortArrow("campaignName", listSortKey, listSortDirection)}</th>
-              <th onClick={() => handleListSort("templateName")} style={{ cursor: "pointer" }}>Blueprint{renderSortArrow("templateName", listSortKey, listSortDirection)}</th>
-              <th onClick={() => handleListSort("description")} style={{ cursor: "pointer" }}>Data source</th>
-              <th onClick={() => handleListSort("description")} style={{ cursor: "pointer" }}>Description{renderSortArrow("description", listSortKey, listSortDirection)}</th>
-              <th onClick={() => handleListSort("createdAt")} style={{ cursor: "pointer" }}>Creation date{renderSortArrow("createdAt", listSortKey, listSortDirection)}</th>
-              <th onClick={() => handleListSort("name")} style={{ cursor: "pointer" }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              <tr><td colSpan={6}>Loading...</td></tr>
-            ) : paginatedCampaigns.length === 0 ? (
-              <tr><td colSpan={6}>No campaigns found.</td></tr>
-            ) : (
-              paginatedCampaigns.map((c) => (
-                <tr key={c.id}>
-                  <td>{c.campaignName}</td>
-                  <td>
-                    {c.templateId
-                      ? campaignBlueprints.find(bp => bp.id === c.templateId)?.templateName || "-"
-                      : "-"}
-                  </td>
-
-                  <td>
-                    {typeof c.zohoViewId === "string" &&
-                    c.zohoViewId.startsWith("view_")
-                      ? views.find(
-                          (v) => v.id.toString() === (c.zohoViewId as string).replace("view_", "")
-                        )?.name || "View"
-                      : c.dataSource === "Segment" && c.segmentName
-                      ? c.segmentName
-                      : c.dataSource === "DataFile" && c.dataFileName
-                      ? c.dataFileName
-                      : c.zohoViewId
-                      ? "List"
-                      : c.segmentId
-                      ? "Segment"
-                      : "-"}
-                  </td>
-                  <td>{c.description || "-"}</td>
-                  <td>{formatDate(getCampaignCreatedAt(c))}</td>
-                  <td style={{ position: "relative" }}>
-                    <button
-                      onClick={() =>
-                        setCampaignActionsAnchor(
-                          campaignActionsAnchor === c.id ? null : c.id
-                        )
-                      }
-                      style={{
-                        padding: "4px 10px",
-                        borderRadius: "5px",
-                        fontSize: "20px",
-                        fontWeight: "600",
-                        cursor: "pointer",
-                      }}
-                    >
-                      ⋮
+        {isLoading ? (
+          <div className="bp-list-body">
+            <div className="bp-rows__msg">Loading campaigns...</div>
+          </div>
+        ) : campaigns.length === 0 ? (
+          <div className="bp-empty-body">
+            <div className="bp-empty-hero">
+              <div className="bp-empty-hero__bg" />
+              <div className="bp-empty-hero__content">
+                <div className="bp-empty-hero__copy">
+                  <span className="bp-start-pill">Start here</span>
+                  <h2 className="bp-empty-headline">Create your first campaign.</h2>
+                  <p className="bp-empty-body-text">
+                    Choose a blueprint, connect a contact source, and PitchKraft will be ready to kraft personalized outreach.
+                  </p>
+                  <div className="bp-empty-actions">
+                    <button className="bp-btn-primary" onClick={openCreateCampaignPanel}>
+                      <Plus className="h-4 w-4" />
+                      Create your first campaign
                     </button>
+                    <button className="bp-btn-secondary" type="button">
+                      <PlayCircle className="h-4 w-4" style={{ color: "#3f9f42" }} />
+                      Watch demo
+                    </button>
+                  </div>
+                  <div className="bp-empty-meta">
+                    Takes about 4 minutes. You can edit the campaign later.
+                  </div>
+                </div>
+                <div className="bp-empty-hero__art">
+                  <Rocket style={{ width: 160, height: 160, color: "#3f9f42" }} />
+                </div>
+              </div>
+            </div>
+            <div className="bp-how-it-works">
+              <div className="bp-eyebrow" style={{ marginBottom: 16 }}>How campaigns fit in</div>
+              <div className="bp-steps">
+                {[
+                  ["STEP 01", "Add contacts", false],
+                  ["STEP 02", "Create blueprint", false],
+                  ["STEP 03", "Create campaign", true],
+                  ["STEP 04", "Kraft emails", false],
+                  ["STEP 05", "View analytics", false],
+                ].map(([step, label, active]) => (
+                  <div key={String(step)} className={`bp-step ${active ? "is-active" : ""}`}>
+                    <div className="bp-step__head">
+                      <span className="bp-step__num">{step}</span>
+                      <span className="bp-step__icon">-</span>
+                    </div>
+                    <div className="bp-step__label">{label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="bp-list-body">
+              <div className="bp-banner">
+                <div className="bp-banner__left">
+                  <div className="bp-banner__art">
+                    <Sparkles style={{ width: 90, height: 90, color: "#3f9f42" }} />
+                  </div>
+                  <div className="bp-banner__copy">
+                    <div className="bp-banner__title">Your campaigns are organized and ready to scale.</div>
+                    <div className="bp-banner__sub">
+                      You have created <strong>{campaigns.length}</strong> campaign{campaigns.length !== 1 ? "s" : ""}.
+                      Keep refining sources and blueprints to improve every outbound run.
+                    </div>
+                    <div className="bp-banner__actions">
+                      <button className="bp-btn-banner-primary" onClick={openCreateCampaignPanel}>
+                        <Plus className="h-4 w-4" />
+                        Create campaign
+                      </button>
+                      <button className="bp-btn-banner-ghost" type="button">
+                        <PlayCircle className="h-4 w-4" />
+                        Explore best practices
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="bp-banner__features">
+                  {campaignStats.map(({ label, value, Icon }) => (
+                    <div key={label} className="bp-banner__feature">
+                      <span className="bp-banner__feature-icon">
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <div>
+                        <div className="bp-banner__feature-title">{label}</div>
+                        <div className="bp-banner__feature-desc">{value}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
 
-                    {campaignActionsAnchor === c.id && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: "30px",
-                          right: 0,
-                           background: "#fff",
-                          border: "1px solid #eee",
-                          borderRadius: "6px",
-                          boxShadow: "0px 4px 12px rgba(0,0,0,0.15)",
-                          zIndex: 100,
-                          padding: "8px 0",
-                          width: "120px",
-                        }}
-                      >
+            <div className="bp-list-body">
+              <div className="bp-toolbar">
+                <div className="bp-toolbar__left">
+                  <div className="bp-search">
+                    <Search className="bp-search__icon h-4 w-4" />
+                    <input
+                      type="text"
+                      placeholder="Search by campaign name"
+                      value={campaignSearch}
+                      onChange={(e) => {
+                        setCampaignSearch(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                    />
+                  </div>
+                  <button className="bp-btn-tertiary" onClick={() => handleListSort("createdAt")}>
+                    {listSortKey === "createdAt" && listSortDirection === "asc"
+                      ? "Oldest first"
+                      : "Newest first"}
+                    <ChevronDown className="h-3 w-3" />
+                  </button>
+                </div>
 
+                <div className="bp-pagination">
+                  <span>
+                    Showing <strong>{paginatedCampaigns.length}</strong> of {filteredCampaigns.length}
+                  </span>
+                  <div className="bp-pagination__nav">
+                    <button onClick={() => goToPage(1)} disabled={currentPage === 1}>{"<<"}</button>
+                    <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1}>{"<"}</button>
+                    <span className="bp-pagination__page">{currentPage} / {totalPages || 1}</span>
+                    <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages}>{">"}</button>
+                    <button onClick={() => goToPage(totalPages)} disabled={currentPage === totalPages}>{">>"}</button>
+                  </div>
+                </div>
+              </div>
 
+              <div className="bp-rows">
+                <div
+                  className="bp-rows__head"
+                  style={{ gridTemplateColumns: "14px 1.2fr 1fr 1fr 1.2fr 130px 110px" }}
+                >
+                  <div />
+                  <div className="bp-th" onClick={() => handleListSort("campaignName")}>
+                    Campaign {renderSortIcon("campaignName")}
+                  </div>
+                  <div className="bp-th" onClick={() => handleListSort("templateName")}>
+                    Blueprint {renderSortIcon("templateName")}
+                  </div>
+                  <div>Data source</div>
+                  <div className="bp-th" onClick={() => handleListSort("description")}>
+                    Description {renderSortIcon("description")}
+                  </div>
+                  <div className="bp-th" onClick={() => handleListSort("createdAt")}>
+                    Creation date {renderSortIcon("createdAt")}
+                  </div>
+                  <div />
+                </div>
+
+                {paginatedCampaigns.length === 0 ? (
+                  <div className="bp-rows__msg">No campaign found.</div>
+                ) : (
+                  paginatedCampaigns.map((campaign) => (
+                    <div
+                      key={campaign.id}
+                      className="bp-row"
+                      style={{ gridTemplateColumns: "14px 1.2fr 1fr 1fr 1.2fr 130px 110px" }}
+                    >
+                      <div className="bp-row__rail" />
+                      <div className="bp-row__name">
                         <button
+                          type="button"
+                          className="bp-row__link"
                           onClick={() => {
-                            handleCampaignSelect(c.id.toString());
-                            //setShowCreateCampaignModal(true);
+                            handleCampaignSelect(campaign.id.toString());
                             dispatch(openPanel("campaign-create"));
-                            setCampaignActionsAnchor(null);
                           }}
-                          style={{ ...menuBtnStyle, fontSize: '15px', fontWeight: 600 }}
-                          className="flex gap-2 items-center"
                         >
-                          {/* <span>
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              width="28px"
-                              height="28px"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                            >
-                              <path
-                                d="M12 3.99997H6C4.89543 3.99997 4 4.8954 4 5.99997V18C4 19.1045 4.89543 20 6 20H18C19.1046 20 20 19.1045 20 18V12M18.4142 8.41417L19.5 7.32842C20.281 6.54737 20.281 5.28104 19.5 4.5C18.7189 3.71895 17.4526 3.71895 16.6715 4.50001L15.5858 5.58575M18.4142 8.41417L12.3779 14.4505C12.0987 14.7297 11.7431 14.9201 11.356 14.9975L8.41422 15.5858L9.00257 12.6441C9.08001 12.2569 9.27032 11.9013 9.54951 11.6221L15.5858 5.58575M18.4142 8.41417L15.5858 5.58575"
-                                stroke="#3f9f42"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                              ></path>
-                            </svg>
-                          </span> Edit */}
-                          <span style={actionIconStyle}>
-                            <FontAwesomeIcon
-                            icon={faEdit}
-                            style={{ color: "#3f9f42", fontSize: 20 }}
-                            />
-                          </span>
-                           <span> Edit</span>
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            deleteCampaign(c);
-                            setCampaignActionsAnchor(null);
-                          }}
-                          style={{ ...menuBtnStyle, fontSize: '15px', fontWeight: 600 }}
-                          className="flex gap-2 items-center"
-                        >
-                          <span style={actionIconStyle}>
-                           <FontAwesomeIcon
-                            icon={faTrashAlt}
-                            style={{ color: "#3f9f42", fontSize: 20 }}
-                            />
-                            </span>
-                            <span> Delete</span> 
+                          {campaign.campaignName}
                         </button>
                       </div>
-                    )}
-                  </td>
+                      <div className="bp-row__id">{getBlueprintName(campaign)}</div>
+                      <div className="bp-row__id" title={getDataSourceName(campaign)}>
+                        {getDataSourceName(campaign)}
+                      </div>
+                      <div className="bp-row__id">{campaign.description || "-"}</div>
+                      <div className="bp-row__date">{formatDate(getCampaignCreatedAt(campaign))}</div>
+                      <div className="bp-row__actions">{renderCampaignActions(campaign)}</div>
+                    </div>
+                  ))
+                )}
+              </div>
 
-                  {/* <td>
-                    <button onClick={() => handleCampaignSelect(c.id.toString())}>Edit</button>
-                    <button onClick={() => deleteCampaign(c)}>Delete</button>
-                  </td> */}
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-
-        <PaginationControls
-          currentPage={currentPage}
-          totalPages={totalPages}
-          pageSize={pageSize}
-          totalRecords={filteredCampaigns.length}
-          setCurrentPage={setCurrentPage}
-          setPageSize={setPageSize}
-          showPageSizeDropdown={true}
-          pageLabel="Page:"
-        />
-      </div>
+              <div className="bp-tip">
+                Showing {pageStart} to {pageEnd} of {filteredCampaigns.length} campaigns.
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    const value = e.target.value === "All" ? "All" : Number(e.target.value);
+                    setPageSize(value);
+                    setCurrentPage(1);
+                  }}
+                  style={{
+                    marginLeft: 12,
+                    border: "1px solid #dadde2",
+                    borderRadius: 8,
+                    padding: "6px 10px",
+                    background: "#fff",
+                    color: "#374151",
+                  }}
+                >
+                  {[10, 25, 50].map((size) => (
+                    <option key={size} value={size}>{size} / page</option>
+                  ))}
+                  <option value="All">All</option>
+                </select>
+              </div>
+            </div>
+          </>
+        )}
       <ToastContainer />
+      <style>{`
+        .campaign-bp-page {
+          margin: 0;
+          width: 100%;
+          background: var(--bp-bg);
+        }
+        .campaign-bp-page .bp-page-header {
+          margin: 0;
+          border-radius: 0;
+          box-shadow: none;
+        }
+        .campaign-bp-page .bp-list-body {
+          max-width: none;
+        }
+        .campaign-bp-page .bp-row,
+        .campaign-bp-page .bp-rows__head {
+          grid-template-columns: 14px 1.2fr 1fr 1fr 1.2fr 130px 110px;
+        }
+        .campaign-bp-page .bp-row__link {
+          border: 0;
+          background: transparent;
+          padding: 0;
+          text-align: left;
+          font-family: inherit;
+        }
+        .campaign-bp-page .bp-row__actions {
+          overflow: visible;
+        }
+        @media (max-width: 768px) {
+          .campaign-bp-page .bp-row {
+            grid-template-columns: 6px 1fr 28px !important;
+          }
+        }
+        @keyframes toastProgress {
+          from { width: 100%; }
+          to { width: 0%; }
+        }
+      `}</style>
       <CommonSidePanel
         isOpen={showCreateCampaignModal}
         onClose={() => {
-          //setShowCreateCampaignModal(false);
           dispatch(closePanel());
-          setSelectedCampaign(null);
-          setCampaignForm({
-            campaignName: "",
-            promptId: "",
-            zohoViewId: "",
-            segmentId: "",
-            description: "",
-            templateId: "",
-          });
-          setSelectedPrompt(null);
+          resetCampaignForm();
         }}
         title={selectedCampaign ? "Edit campaign" : "Create campaign"}
         footerContent={
           <>
             <button
-              onClick={() => 
-                {
-                  //setShowCreateCampaignModal(false)
-                  dispatch(closePanel());
-                }
-
-              }
-              style={{
-                padding: "10px 32px",
-                border: "1px solid #ddd",
-                background: "#fff",
-                borderRadius: "24px",
-                cursor: "pointer",
-                fontSize: "14px",
-                fontWeight: "500",
-                color: "#333",
+              type="button"
+              onClick={() => {
+                dispatch(closePanel());
+                resetCampaignForm();
               }}
+              className="h-10 rounded-lg border border-[#dadde2] px-5 text-[13.5px] font-semibold text-[#374151] hover:bg-[#f5f6f8]"
             >
               Cancel
             </button>
             <button
+              type="button"
               onClick={selectedCampaign ? updateCampaign : createCampaign}
-              disabled={
-                isLoading ||
-                !campaignForm.campaignName ||
-                !campaignForm.templateId ||
-                (!campaignForm.zohoViewId && !campaignForm.segmentId)
-              }
-              style={{
-                padding: "10px 32px",
-                background: "#fff",
-                color:
-                  !isLoading &&
-                  campaignForm.campaignName &&
-                  campaignForm.templateId &&
-                  (campaignForm.zohoViewId || campaignForm.segmentId)
-                    ? "#ef4444"
-                    : "#ccc",
-                border: `1px solid ${
-                  !isLoading &&
-                  campaignForm.campaignName &&
-                  campaignForm.templateId &&
-                  (campaignForm.zohoViewId || campaignForm.segmentId)
-                    ? "#ef4444"
-                    : "#ccc"
-                }`,
-                borderRadius: "24px",
-                cursor:
-                  !isLoading &&
-                  campaignForm.campaignName &&
-                  campaignForm.templateId &&
-                  (campaignForm.zohoViewId || campaignForm.segmentId)
-                    ? "pointer"
-                    : "not-allowed",
-                fontSize: "14px",
-                fontWeight: "500",
-              }}
+              disabled={isCreateDisabled}
+              className={`inline-flex h-10 items-center gap-2 rounded-lg px-5 text-[13.5px] font-semibold shadow-[0_4px_12px_rgba(63,159,66,0.18)] ${
+                isCreateDisabled
+                  ? "cursor-not-allowed bg-[#eef0f3] text-[#9ca3af] shadow-none"
+                  : "bg-[#3f9f42] text-white hover:bg-[#368a39]"
+              }`}
             >
               {isLoading
                 ? selectedCampaign
                   ? "Updating..."
                   : "Creating..."
                 : selectedCampaign
-                  ? "Update"
-                  : "Create"}
+                  ? "Save changes"
+                  : "Create campaign"}
+              {!selectedCampaign && !isLoading && <ChevronRight className="h-4 w-4" />}
             </button>
           </>
         }
       >
-        {/* Campaign Name */}
-        <div style={{ marginBottom: "16px" }}>
-          <label style={{ fontWeight: 500, display: "block", marginBottom: "4px" }}>
-            Campaign name <span style={{ color: "red" }}>*</span>
-          </label>
-          <input
-            type="text"
-            name="campaignName"
-            value={campaignForm.campaignName}
-            onChange={handleCampaignFormChange}
-            placeholder="Enter campaign name"
-            style={{
-              width: "100%",
-              padding: "8px 12px",
-              borderRadius: "4px",
-              border: "1px solid #ddd",
-              fontSize: "14px",
-            }}
-          />
-        </div>
+        <div className="flex flex-col gap-4">
+          <div>
+            <label className="mb-1.5 block text-[12.5px] font-semibold text-[#374151]">Campaign name <span className="text-[#dc2626]">*</span></label>
+            <input type="text" name="campaignName" value={campaignForm.campaignName} onChange={handleCampaignFormChange} placeholder="Enter campaign name" className="h-10 w-full rounded-lg border border-[#dadde2] px-3 text-[13.5px] outline-none placeholder:text-[#9ca3af] focus:border-[#3f9f42] focus:ring-2 focus:ring-[#3f9f42]/15" />
+          </div>
 
-        {/* Blueprint Dropdown */}
-        <div style={{ marginBottom: "16px" }}>
-          <label style={{ fontWeight: 500, display: "block", marginBottom: "4px" }}>
-            Blueprint <span style={{ color: "red" }}>*</span>
-          </label>
-          <select
-            value={campaignForm.templateId}
-            onChange={(e) =>
-              setCampaignForm((prev) => ({
-                ...prev,
-                templateId: e.target.value,
-              }))
-            }
-            style={{
-              width: "100%",
-              padding: "8px 12px",
-              borderRadius: "4px",
-              border: "1px solid #ddd",
-              fontSize: "14px",
-            }}
-          >
-            <option value="">Select Blueprint</option>
-            {[...campaignBlueprints]
-              .sort((a, b) => a.templateName.toLowerCase().localeCompare(b.templateName.toLowerCase()))
-              .map((bp) => (
-                <option key={bp.id} value={bp.id}>
-                  {bp.templateName}
-                </option>
-              ))}
-          </select>
-        </div>
+          <div>
+            <label className="mb-1.5 block text-[12.5px] font-semibold text-[#374151]">Blueprint <span className="text-[#dc2626]">*</span></label>
+            <div className="relative">
+              <select value={campaignForm.templateId} onChange={(e) => setCampaignForm((prev) => ({ ...prev, templateId: e.target.value }))} className="h-10 w-full appearance-none rounded-lg border border-[#dadde2] bg-white pl-3 pr-10 text-[13.5px] text-[#374151] outline-none focus:border-[#3f9f42] focus:ring-2 focus:ring-[#3f9f42]/15">
+                <option value="">Select blueprint</option>
+                {[...campaignBlueprints].sort((a, b) => a.templateName.toLowerCase().localeCompare(b.templateName.toLowerCase())).map((bp) => (<option key={bp.id} value={bp.id}>{bp.templateName}</option>))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6b7280]" />
+            </div>
+            <p className="mt-1.5 text-[11.5px] text-[#6b7280]">The blueprint defines how each email is personalized.</p>
+          </div>
 
-        {/* List/Segment/View */}
-        <div style={{ marginBottom: "16px" }}>
-          <label style={{ fontWeight: 500, display: "block", marginBottom: "4px" }}>
-            List/segment/view <span style={{ color: "red" }}>*</span>
-          </label>
-          <select
-            onChange={(e) => {
-              const value = e.target.value;
-              if (value.startsWith("list-")) {
-                handleDataSourceChange("datafile", value.replace("list-", ""));
-              } else if (value.startsWith("segment-")) {
-                handleDataSourceChange("segment", value.replace("segment-", ""));
-              } else if (value.startsWith("view-")) {
-                handleDataSourceChange("view", value.replace("view-", ""));
-              } else {
-                setCampaignForm((prev) => ({
-                  ...prev,
-                  zohoViewId: "",
-                  segmentId: "",
-                }));
-              }
-            }}
-            value={
-              campaignForm.segmentId
-                ? `segment-${campaignForm.segmentId}`
-                : campaignForm.zohoViewId?.startsWith("view_")
-                ? `view-${campaignForm.zohoViewId.replace("view_", "")}`
-                : campaignForm.zohoViewId
-                ? `list-${campaignForm.zohoViewId}`
-                : ""
-            }
-            disabled={
-              isLoading ||
-              (dataFiles.length === 0 &&
-                segments.length === 0 &&
-                views.length === 0)
-            }
-            style={{
-              width: "100%",
-              padding: "8px 12px",
-              borderRadius: "4px",
-              border: "1px solid #ddd",
-              fontSize: "14px",
-            }}
-          >
-            <option value="">Select list, segment, or view</option>
-            {dataFiles.length > 0 && (
-              <optgroup label="Lists">
-                {dataFiles.map((file) => (
-                  <option key={`list-${file.id}`} value={`list-${file.id}`}>
-                    {file.name}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-            {segments.length > 0 && (
-              <optgroup label="Segments">
-                {segments.map((segment) => (
-                  <option key={`segment-${segment.id}`} value={`segment-${segment.id}`}>
-                    {segment.name}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-            {views.length > 0 && (
-              <optgroup label="Views">
-                {views.map((view) => (
-                  <option key={`view-${view.id}`} value={`view-${view.id}`}>
-                    {view.name}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-          </select>
-        </div>
+          <div>
+            <label className="mb-1.5 block text-[12.5px] font-semibold text-[#374151]">List / segment / view <span className="text-[#dc2626]">*</span></label>
+            <div className="relative">
+              <select
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (value.startsWith("list-")) {
+                    handleDataSourceChange("datafile", value.replace("list-", ""));
+                  } else if (value.startsWith("segment-")) {
+                    handleDataSourceChange("segment", value.replace("segment-", ""));
+                  } else if (value.startsWith("view-")) {
+                    handleDataSourceChange("view", value.replace("view-", ""));
+                  } else {
+                    setCampaignForm((prev) => ({ ...prev, zohoViewId: "", segmentId: "" }));
+                  }
+                }}
+                value={
+                  campaignForm.segmentId
+                    ? "segment-" + campaignForm.segmentId
+                    : campaignForm.zohoViewId?.startsWith("view_")
+                    ? "view-" + campaignForm.zohoViewId.replace("view_", "")
+                    : campaignForm.zohoViewId
+                    ? "list-" + campaignForm.zohoViewId
+                    : ""
+                }
+                disabled={isLoading || (dataFiles.length === 0 && segments.length === 0 && views.length === 0)}
+                className="h-10 w-full appearance-none rounded-lg border border-[#dadde2] bg-white pl-3 pr-10 text-[13.5px] text-[#374151] outline-none focus:border-[#3f9f42] focus:ring-2 focus:ring-[#3f9f42]/15 disabled:bg-[#f5f6f8] disabled:text-[#9ca3af]"
+              >
+                <option value="">Select list, segment, or view</option>
+                {dataFiles.length > 0 && (<optgroup label="Lists">{dataFiles.map((file) => (<option key={"list-" + file.id} value={"list-" + file.id}>{file.name}</option>))}</optgroup>)}
+                {segments.length > 0 && (<optgroup label="Segments">{segments.map((segment) => (<option key={"segment-" + segment.id} value={"segment-" + segment.id}>{segment.name}</option>))}</optgroup>)}
+                {views.length > 0 && (<optgroup label="Views">{views.map((view) => (<option key={"view-" + view.id} value={"view-" + view.id}>{view.name}</option>))}</optgroup>)}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6b7280]" />
+            </div>
+          </div>
 
-        {/* Description */}
-        <div style={{ marginBottom: "20px" }}>
-          <label style={{ fontWeight: 500, display: "block", marginBottom: "4px" }}>Description</label>
-          <textarea
-            name="description"
-            value={campaignForm.description}
-            onChange={handleCampaignFormChange}
-            placeholder="Enter campaign description"
-            style={{
-              width: "100%",
-              padding: "8px 12px",
-              borderRadius: "4px",
-              border: "1px solid #ddd",
-              fontSize: "14px",
-              minHeight: "80px",
-              resize: "vertical",
-            }}
-            rows={3}
-          />
+          <div>
+            <label className="mb-1.5 block text-[12.5px] font-semibold text-[#374151]">Description</label>
+            <textarea name="description" value={campaignForm.description} onChange={handleCampaignFormChange} placeholder="What is this campaign about?" className="min-h-[96px] w-full resize-y rounded-lg border border-[#dadde2] px-3 py-2.5 text-[13.5px] outline-none placeholder:text-[#9ca3af] focus:border-[#3f9f42] focus:ring-2 focus:ring-[#3f9f42]/15" rows={4} />
+            <div className="mt-1 flex items-center justify-between"><p className="text-[11.5px] text-[#6b7280]">Optional. Shown in the campaigns list.</p><span className="text-[11.5px] text-[#9ca3af]">{campaignForm.description.length} / 240</span></div>
+          </div>
+
+          <div className="mt-2 rounded-xl border border-[#eef0f3] bg-[#fafbfc] p-3.5">
+            <div className="text-[11.5px] font-semibold uppercase tracking-wide text-[#6b7280]">Summary</div>
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              <div className="min-w-0 rounded-lg border border-[#eef0f3] bg-white p-2.5"><div className="flex items-center gap-1.5 text-[11px] text-[#6b7280]"><Users className="h-3.5 w-3.5 text-[#3f9f42]" />Source</div><div className="mt-1 truncate text-[13px] font-semibold text-[#111827]">{campaignForm.zohoViewId || campaignForm.segmentId ? "Selected" : "-"}</div></div>
+              <div className="min-w-0 rounded-lg border border-[#eef0f3] bg-white p-2.5"><div className="flex items-center gap-1.5 text-[11px] text-[#6b7280]"><FileText className="h-3.5 w-3.5 text-[#3f9f42]" />Blueprint</div><div className="mt-1 truncate text-[13px] font-semibold text-[#111827]">{campaignForm.templateId ? "Selected" : "-"}</div></div>
+              <div className="min-w-0 rounded-lg border border-[#eef0f3] bg-white p-2.5"><div className="flex items-center gap-1.5 text-[11px] text-[#6b7280]"><Rocket className="h-3.5 w-3.5 text-[#3f9f42]" />Status</div><div className="mt-1 truncate text-[13px] font-semibold text-[#111827]">{selectedCampaign ? "Active" : "Draft"}</div></div>
+            </div>
+          </div>
         </div>
       </CommonSidePanel>
       {showSuccessToast && (
@@ -1034,7 +1078,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
               flexShrink: 0,
             }}
           >
-            ✓
+            OK
           </div>
 
           {/* Message */}
@@ -1053,7 +1097,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
               lineHeight: 1,
             }}
           >
-            ×
+            x
           </div>
         </div>
       )}
@@ -1127,7 +1171,7 @@ const CampaignManagement: React.FC<CampaignManagementProps> = ({
               lineHeight: 1,
             }}
           >
-            ×
+            x
           </div>
         </div>
       )}

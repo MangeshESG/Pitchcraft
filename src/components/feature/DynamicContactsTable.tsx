@@ -510,10 +510,17 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
               Back
             </button>
           )}
-          {detailTitle && <h2 className="dt-detail-title">{detailTitle}</h2>}
-          {typeof totalItems === "number" && (
-            <span className="dt-count-pill">{totalItems.toLocaleString()} contacts</span>
-          )}
+          <div className="dt-detail-header__info">
+            <div className="dt-detail-header__top">
+              {detailTitle && <h2 className="dt-detail-title">{detailTitle}</h2>}
+              {typeof totalItems === "number" && (
+                <span className="dt-count-pill">{totalItems.toLocaleString()} contacts</span>
+              )}
+            </div>
+            {detailDescription && (
+              <p className="dt-detail-desc">{detailDescription}</p>
+            )}
+          </div>
           <div className="dt-detail-actions">
             {onAddItem && (
               <button className="dt-btn-primary" onClick={onAddItem}>
@@ -527,7 +534,6 @@ const DynamicContactsTable: React.FC<DynamicContactsTableProps> = ({
         </div>
       )}
 
-      {detailDescription && <div className="dt-detail-desc">{detailDescription}</div>}
       {customHeader}
 
       {/* Toolbar */}

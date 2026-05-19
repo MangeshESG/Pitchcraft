@@ -2098,32 +2098,33 @@ const filterFields: any = useMemo(() => {
 
   return (
     <div className="data-campaigns-container">
-      <ContactsPageHeader
-        totalContacts={superListContactCount}
-        totalLists={totalDataFiles}
-        totalSegments={segments.length}
-        verifiedPct={94}
-        activeTab={activeTabKey}
-        showStats={
-          !showContactPage &&
-          !(activeSubTab === "List" && viewMode === "detail") &&
-          !(activeSubTab === "View" && viewsDetailMode) &&
-          !(activeSubTab === "Segment" && segmentViewMode === "detail")
-        }
-        onTabChange={(t) =>
-          handleTabChange(
-            t === "lists" ? "List" :
-            t === "views" ? "View" :
-            t === "segments" ? "Segment" : "List"
-          )
-        }
-        onAddContact={() => dispatch(openPanel("add-contact-modal"))}
-        onImportList={() => onAddContactClick?.()}
-        onCreateList={(e) => {
-          e.stopPropagation();
-          dispatch(openPanel("create-list-modal"));
-        }}
-      />
+      {!(showContactPage ||
+        (activeSubTab === "List" && viewMode === "detail") ||
+        (activeSubTab === "View" && viewsDetailMode) ||
+        (activeSubTab === "Segment" && segmentViewMode === "detail")
+      ) && (
+        <ContactsPageHeader
+          totalContacts={superListContactCount}
+          totalLists={totalDataFiles}
+          totalSegments={segments.length}
+          verifiedPct={94}
+          activeTab={activeTabKey}
+          showStats={true}
+          onTabChange={(t) =>
+            handleTabChange(
+              t === "lists" ? "List" :
+              t === "views" ? "View" :
+              t === "segments" ? "Segment" : "List"
+            )
+          }
+          onAddContact={() => dispatch(openPanel("add-contact-modal"))}
+          onImportList={() => onAddContactClick?.()}
+          onCreateList={(e) => {
+            e.stopPropagation();
+            dispatch(openPanel("create-list-modal"));
+          }}
+        />
+      )}
 
       {/* Tab Content */}
       {activeSubTab === "List" && (

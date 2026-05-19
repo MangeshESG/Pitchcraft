@@ -2208,10 +2208,9 @@ const handleDeleteContacts = async () => {
       </div>
 
       <CommonSidePanel
-        //isOpen={isEditPanelOpen}
         isOpen={showContactViewEditModal}
         onClose={() => {
-          setIsEditPanelOpen(false);
+          dispatch(closePanel());
           setIsLoadingEditViewDetails(false);
           setEditingView(null);
           setEditFiltersSeed("");
@@ -2223,9 +2222,8 @@ const handleDeleteContacts = async () => {
           <>
             <button
               onClick={() => {
-                //setIsEditPanelOpen(false);
-                setIsLoadingEditViewDetails(false);
                 dispatch(closePanel());
+                setIsLoadingEditViewDetails(false);
                 setEditingView(null);
                 setEditFiltersSeed("");
                 setEditExcludedDataFileIds([]);

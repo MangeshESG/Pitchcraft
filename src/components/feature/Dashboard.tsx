@@ -958,18 +958,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   if (checking && !stepStatus) {
     return (
-      <div className="mx-auto max-w-[1200px] flex items-center justify-center py-20">
+      <div className="w-full min-h-full flex items-center justify-center py-20">
         <div className="text-gray-400 text-sm">Loading your workspace…</div>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-[1200px]">
+    <div className="w-full min-h-full bg-white">
       {derivedComplete ? (
-        <PostOnboardingView firstName={name} kpis={kpis ?? {}} />
+        <div className="p-6">
+          <PostOnboardingView firstName={name} kpis={kpis ?? {}} />
+        </div>
       ) : (
-        <OnboardingView firstName={name} stepStatus={stepStatus} />
+        <div className="p-6">
+          <OnboardingView firstName={name} stepStatus={stepStatus} />
+        </div>
       )}
     </div>
   );

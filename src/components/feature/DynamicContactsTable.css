@@ -25,22 +25,61 @@
 
 /* ============ DETAIL HEADER ============ */
 .dt-detail-header {
-  display: flex; align-items: center; gap: 12px;
-  margin-bottom: 20px;
+  display: flex; align-items: center; gap: 16px;
+  background: #fff;
+  border: 1px solid var(--dt-line);
+  border-radius: 12px;
+  padding: 16px 24px;
+  margin-bottom: 12px;
+}
+.dt-detail-header__info {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.dt-detail-header__top {
+  display: flex; align-items: center; gap: 10px;
 }
 .dt-detail-title {
   margin: 0;
-  font-size: 20px; font-weight: 700;
+  font-size: 17px; font-weight: 700;
   color: var(--dt-ink); letter-spacing: -0.02em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .dt-count-pill {
-  font-size: 12.5px; color: var(--dt-ink-faint);
+  flex-shrink: 0;
+  font-size: 12px; font-weight: 500;
+  color: var(--dt-ink-faint);
   background: var(--dt-bg-2); padding: 3px 10px; border-radius: 999px;
   font-variant-numeric: tabular-nums;
 }
-.dt-detail-actions { margin-left: auto; display: flex; gap: 8px; }
 .dt-detail-desc {
-  margin-bottom: 16px; color: var(--dt-ink-faint); font-size: 13.5px;
+  margin: 0;
+  font-size: 12.5px; color: var(--dt-ink-faint);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.dt-detail-actions { flex-shrink: 0; display: flex; gap: 8px; }
+/* Back button in detail header */
+.dt-detail-header .dt-btn-secondary {
+  flex-shrink: 0;
+  padding: 0 12px;
+  height: 32px;
+  font-size: 12.5px;
+  font-weight: 500;
+  background: transparent;
+  border-color: transparent;
+  color: var(--dt-ink-faint);
+}
+.dt-detail-header .dt-btn-secondary:hover {
+  background: var(--dt-bg-2);
+  border-color: var(--dt-line);
+  color: var(--dt-ink-soft);
+}
+.dt-detail-header .dt-btn-secondary::after {
+  content: "";
+  display: inline-block;
+  width: 1px; height: 16px;
+  background: var(--dt-line);
+  margin-left: 16px;
 }
 
 /* ============ BUTTONS ============ */
@@ -52,14 +91,14 @@
   transition: background 0.15s, border-color 0.15s;
 }
 .dt-btn-primary {
-  background: var(--dt-ink); color: #fff;
+  background: var(--dt-brand); color: #fff;
 }
-.dt-btn-primary:hover { background: #000; }
+.dt-btn-primary:hover { background: var(--dt-brand-d); }
 .dt-btn-secondary {
-  background: #fff; color: var(--dt-ink-soft);
-  border: 1px solid #dadde2;
+  background: var(--dt-bg-2); color: var(--dt-ink-soft);
+  border: 1px solid #e5e7eb;
 }
-.dt-btn-secondary:hover { background: var(--dt-bg-2); }
+.dt-btn-secondary:hover { background: #eaecef; }
 .dt-btn-tertiary {
   background: #fff; color: var(--dt-ink-soft);
   border: 1px solid #dadde2;

@@ -26,6 +26,14 @@
   min-height: 100vh;
 }
 
+/* Strip the white card styling from section-wrapper inside the new design */
+.list-content .section-wrapper {
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
 /* ------------------------ PAGE HEADER ------------------------ */
 .ct-page-header {
   background: #fff;

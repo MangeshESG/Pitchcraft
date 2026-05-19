@@ -4385,11 +4385,11 @@ try {
         </header>
 
         {/* Inner Main Content */}
-        <main className={`flex-1 overflow-y-auto h-[calc(100%-87px)] bg-[#eeeeee] ${tab === "TestTemplate" || tab === "DataCampaigns" ? "p-0" : "p-[20px]"}`}>
+        <main className={`flex-1 overflow-y-auto h-[calc(100%-87px)] ${tab === "Dashboard" ? "bg-white" : "bg-[#eeeeee]"} ${tab === "Dashboard" || tab === "TestTemplate" || tab === "DataCampaigns" || tab === "Campaigns" ? "p-0" : "p-[20px]"}`}>
           <div
             className={`
                rounded-md
-              ${!isContactDetailPage && tab !== "Dashboard" && tab !== "TestTemplate" && tab !== "DataCampaigns" ? "bg-white p-4 shadow-md min-h-[100%]" : ""}
+              ${!isContactDetailPage && tab !== "Dashboard" && tab !== "TestTemplate" && tab !== "DataCampaigns" && tab !== "Campaigns" ? "bg-white p-4 shadow-md min-h-[100%]" : ""}
             `}
           >
             {/* Main Content Area */}

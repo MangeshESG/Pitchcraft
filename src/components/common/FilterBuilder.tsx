@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import "./FilterBuilder.css";
 import API_BASE_URL from "../../config";
 import type {
   FieldType,
@@ -94,52 +95,6 @@ const operatorsByType: Record<FieldType, { value: string; label: string }[]> = {
 const isValueOptionalOperator = (operator?: string) =>
   operator === "isEmpty" || operator === "isNotEmpty";
 
-const cardStyle: React.CSSProperties = {
-  border: "1px solid #d8e6d9",
-  borderRadius: 16,
-  background:
-    "linear-gradient(180deg, rgba(248,252,248,1) 0%, rgba(255,255,255,1) 100%)",
-  boxShadow: "0 10px 30px rgba(35, 79, 38, 0.08)",
-  overflow: "visible",
-};
-
-const controlStyle: React.CSSProperties = {
-  width: "100%",
-  minHeight: 44,
-  padding: "10px 14px",
-  border: "1px solid #cfe1d1",
-  borderRadius: 12,
-  background: "#fff",
-  color: "#1f2937",
-  fontSize: 14,
-  outline: "none",
-};
-
-const actionButtonStyle: React.CSSProperties = {
-  minHeight: 42,
-  padding: "0 16px",
-  borderRadius: 12,
-  border: "1px solid #d4d4d8",
-  background: "#fff",
-  color: "#1f2937",
-  fontWeight: 600,
-  cursor: "pointer",
-};
-
-const fieldPickerPopoverStyle: React.CSSProperties = {
-  position: "absolute",
-  top: "calc(100% + 8px)",
-  left: 0,
-  zIndex: 40,
-  width: "min(560px, calc(100vw - 96px))",
-  maxWidth: "calc(100vw - 96px)",
-  maxHeight: 430,
-  borderRadius: 20,
-  border: "1px solid #d9e5db",
-  background: "#fff",
-  boxShadow: "0 20px 40px rgba(15, 23, 42, 0.14)",
-  overflow: "hidden",
-};
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
 const viewMetaKey = (clientId: string | number) =>
@@ -840,15 +795,7 @@ function FilterBuilder<T extends Record<string, any>>({
         onClick={() => setIsCollapsed(false)}
         aria-expanded={false}
         aria-controls={rulesPanelId}
-        style={{
-          ...actionButtonStyle,
-          minHeight: 36,
-          padding: "0 14px",
-          borderRadius: 8,
-          borderColor: "#b9d4bc",
-          background: "#ffffff",
-          color: "#24572b",
-        }}
+        className="fb-trigger"
       >
         + Build view
       </button>
@@ -856,127 +803,57 @@ function FilterBuilder<T extends Record<string, any>>({
   }
 
   return (
-    <div style={{ ...cardStyle, background: "#ffffff" }}>
-      <div
-        style={{
-          padding: "0 0 14px",
-          borderBottom: "1px solid #e5efe5",
-          background: "transparent",
-        }}
-      >
+    <div className="fb-card">
+      {/* Header */}
+      <div className="fb-header">
+        <div className="fb-header__title">
+          <span className="fb-header__dot" />
+          Filter rules
+        </div>
         <button
           type="button"
           onClick={() => setIsCollapsed(true)}
           aria-expanded
           aria-controls={rulesPanelId}
-          style={{
-            ...actionButtonStyle,
-            minHeight: 36,
-            padding: "0 14px",
-            borderRadius: 8,
-            borderColor: "#b9d4bc",
-            background: "#ffffff",
-            color: "#24572b",
-          }}
+          className="fb-collapse-btn"
         >
-          - Collapse
+          Collapse
         </button>
       </div>
 
-      <div id={rulesPanelId} hidden={isCollapsed} style={{ padding: 20 }}>
+      {/* Body */}
+      <div id={rulesPanelId} hidden={isCollapsed} className="fb-body">
         {groups.map((group, groupIndex) => (
-          <div
-            key={group.id}
-            style={{ marginBottom: groupIndex === groups.length - 1 ? 0 : 24 }}
-          >
+          <div key={group.id} style={{ marginBottom: groupIndex === groups.length - 1 ? 0 : 12 }}>
+            {/* Group-level AND/OR join */}
             {groupIndex > 0 && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  margin: "0 0 12px 0",
-                }}
-              >
-                <div style={{ flex: 1, height: 1, background: "#d8e6d9" }} />
-                <div
-                  style={{
-                    display: "inline-flex",
-                    padding: 4,
-                    borderRadius: 999,
-                    background: "#eef6ef",
-                    border: "1px solid #d5e7d7",
-                    gap: 4,
-                  }}
-                >
+              <div className="fb-join" style={{ margin: "10px 0" }}>
+                <div className="fb-join__line" />
+                <div className="fb-join__toggle">
                   {(["AND", "OR"] as JoinOperator[]).map((joinOperator) => (
                     <button
                       key={`${group.id}-${joinOperator}`}
                       type="button"
                       onClick={() => updateGroupJoin(group.id, joinOperator)}
-                      style={{
-                        minWidth: 54,
-                        height: 32,
-                        borderRadius: 999,
-                        border: "none",
-                        background:
-                          (group.joinWithPrevious || "AND") === joinOperator
-                            ? "#3f9f42"
-                            : "transparent",
-                        color:
-                          (group.joinWithPrevious || "AND") === joinOperator
-                            ? "#fff"
-                            : "#2f4a33",
-                        fontWeight: 700,
-                        cursor: "pointer",
-                      }}
+                      className={`fb-join__btn${(group.joinWithPrevious || "AND") === joinOperator ? " is-active" : ""}`}
                     >
                       {joinOperator}
                     </button>
                   ))}
                 </div>
-                <div style={{ flex: 1, height: 1, background: "#d8e6d9" }} />
+                <div className="fb-join__line" />
               </div>
             )}
 
-            <div
-              style={{
-                border: "1px solid #e0ece1",
-                borderRadius: 16,
-                padding: 16,
-                background: "#ffffff",
-              }}
-            >
+            {/* Group box */}
+            <div className="fb-group">
               {groups.length > 1 && (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    marginBottom: 12,
-                  }}
-                >
-                  <div
-                    style={{
-                      fontWeight: 700,
-                      color: "#24572b",
-                      fontSize: 14,
-                    }}
-                  >
-                    Group {groupIndex + 1}
-                  </div>
+                <div className="fb-group__header">
+                  <span className="fb-group__label">Group {groupIndex + 1}</span>
                   <button
                     type="button"
                     onClick={() => removeGroup(group.id)}
-                    style={{
-                      border: "1px solid #f1d5d8",
-                      background: "#fff5f5",
-                      color: "#b42318",
-                      borderRadius: 999,
-                      padding: "6px 12px",
-                      fontSize: 12,
-                      cursor: "pointer",
-                    }}
+                    className="fb-remove-group-btn"
                   >
                     Remove group
                   </button>
@@ -990,121 +867,52 @@ function FilterBuilder<T extends Record<string, any>>({
                 const isFieldPickerOpen =
                   activeFieldPicker?.groupId === group.id &&
                   activeFieldPicker?.conditionId === condition.id;
-                const operators = field
-                  ? operatorsByType[normalizedFieldType]
-                  : operatorsByType.text;
+                const operators = field ? operatorsByType[normalizedFieldType] : operatorsByType.text;
                 const sortedOperators = sortByLabelAsc(operators);
                 const dropdownOptions = field?.options
                   ? sortedFieldOptions.get(field.key) || sortStringsAsc(field.options)
                   : [];
-                const isValueOptional = isValueOptionalOperator(
-                  condition.operator
-                );
+                const isValueOptional = isValueOptionalOperator(condition.operator);
                 const visibleFieldCategories = filteredFieldCategories;
                 const selectedFieldCategory =
-                  visibleFieldCategories.find(
-                    (category) => category.key === activeFieldCategory
-                  ) || visibleFieldCategories[0];
+                  visibleFieldCategories.find((c) => c.key === activeFieldCategory) ||
+                  visibleFieldCategories[0];
 
                 return (
                   <div
                     key={condition.id}
                     style={{
-                      marginBottom:
-                        index === group.conditions.length - 1
-                          ? isFieldPickerOpen
-                            ? 440
-                            : 0
-                          : isFieldPickerOpen
-                          ? 456
-                          : 16,
+                      marginBottom: index === group.conditions.length - 1
+                        ? isFieldPickerOpen ? 390 : 0
+                        : isFieldPickerOpen ? 406 : 8,
                       position: "relative",
                       zIndex: isFieldPickerOpen ? 5 : 1,
                     }}
                   >
+                    {/* Condition-level AND/OR join */}
                     {index > 0 && (
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 12,
-                          margin: "0 0 12px 0",
-                        }}
-                      >
-                        <div
-                          style={{ flex: 1, height: 1, background: "#d8e6d9" }}
-                        />
-                        <div
-                          style={{
-                            display: "inline-flex",
-                            padding: 4,
-                            borderRadius: 999,
-                            background: "#eef6ef",
-                            border: "1px solid #d5e7d7",
-                            gap: 4,
-                          }}
-                        >
-                          {(["AND", "OR"] as JoinOperator[]).map(
-                            (joinOperator) => (
-                              <button
-                                key={`${condition.id}-${joinOperator}`}
-                                type="button"
-                                onClick={() =>
-                                  updateCondition(
-                                    group.id,
-                                    condition.id,
-                                    "joinWithPrevious",
-                                    joinOperator
-                                  )
-                                }
-                                style={{
-                                  minWidth: 54,
-                                  height: 32,
-                                  borderRadius: 999,
-                                  border: "none",
-                                  background:
-                                    (condition.joinWithPrevious || "AND") ===
-                                    joinOperator
-                                      ? "#3f9f42"
-                                      : "transparent",
-                                  color:
-                                    (condition.joinWithPrevious || "AND") ===
-                                    joinOperator
-                                      ? "#fff"
-                                      : "#2f4a33",
-                                  fontWeight: 700,
-                                  cursor: "pointer",
-                                }}
-                              >
-                                {joinOperator}
-                              </button>
-                            )
-                          )}
+                      <div className="fb-join" style={{ margin: "8px 0" }}>
+                        <div className="fb-join__line" />
+                        <div className="fb-join__toggle">
+                          {(["AND", "OR"] as JoinOperator[]).map((joinOperator) => (
+                            <button
+                              key={`${condition.id}-${joinOperator}`}
+                              type="button"
+                              onClick={() => updateCondition(group.id, condition.id, "joinWithPrevious", joinOperator)}
+                              className={`fb-join__btn${(condition.joinWithPrevious || "AND") === joinOperator ? " is-active" : ""}`}
+                            >
+                              {joinOperator}
+                            </button>
+                          ))}
                         </div>
-                        <div
-                          style={{ flex: 1, height: 1, background: "#d8e6d9" }}
-                        />
+                        <div className="fb-join__line" />
                       </div>
                     )}
 
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: requiresCampaign
-                          ? "1.2fr 1fr 1fr 1fr auto"
-                          : "1.3fr 1fr 1fr auto",
-                        gap: 12,
-                        padding: 16,
-                        borderRadius: 16,
-                        border: "1px solid #e0ece1",
-                        background: "#ffffff",
-                        overflow: "visible",
-                      }}
-                    >
-                      <div
-                        style={{ position: "relative", minWidth: 0 }}
-                        ref={isFieldPickerOpen ? fieldPickerRef : null}
-                      >
+                    {/* Condition grid */}
+                    <div className={`fb-condition${requiresCampaign ? " fb-condition--5col" : " fb-condition--4col"}`}>
+                      {/* Field picker */}
+                      <div style={{ position: "relative", minWidth: 0 }} ref={isFieldPickerOpen ? fieldPickerRef : null}>
                         <button
                           type="button"
                           onClick={() =>
@@ -1112,141 +920,44 @@ function FilterBuilder<T extends Record<string, any>>({
                               ? setActiveFieldPicker(null)
                               : openFieldPicker(group.id, condition.id, condition.field)
                           }
-                          style={{
-                            ...controlStyle,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            textAlign: "left",
-                            cursor: "pointer",
-                          }}
+                          className="fb-control fb-control--field"
                         >
-                          <span
-                            style={{
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                              color: condition.field ? "#1f2937" : "#6b7280",
-                            }}
-                          >
+                          <span className={`fb-control__label${condition.field ? "" : " fb-control__label--placeholder"}`}>
                             {field?.label || "Choose field"}
                           </span>
-                          <span
-                            style={{
-                              marginLeft: 10,
-                              color: "#5b6f5f",
-                              fontSize: 12,
-                            }}
-                          >
-                            {isFieldPickerOpen ? "▲" : "▼"}
-                          </span>
+                          <span className="fb-control__arrow">{isFieldPickerOpen ? "▲" : "▼"}</span>
                         </button>
 
                         {isFieldPickerOpen && (
-                          <div style={fieldPickerPopoverStyle}>
-                            <div
-                              style={{
-                                padding: 14,
-                                borderBottom: "1px solid #e7efe8",
-                              }}
-                            >
+                          <div className="fb-field-picker">
+                            <div className="fb-field-picker__search">
                               <input
                                 value={fieldSearchTerm}
-                                onChange={(event) =>
-                                  setFieldSearchTerm(event.target.value)
-                                }
-                                placeholder="Search fields"
+                                onChange={(e) => setFieldSearchTerm(e.target.value)}
+                                placeholder="Search fields…"
                                 autoFocus
-                                style={{
-                                  ...controlStyle,
-                                  minHeight: 42,
-                                  borderRadius: 14,
-                                }}
                               />
                             </div>
-
-                            <div
-                              style={{
-                                display: "grid",
-                                gridTemplateColumns: "minmax(140px, 190px) minmax(0, 1fr)",
-                                height: 300,
-                              }}
-                            >
-                              <div
-                                style={{
-                                  borderRight: "1px solid #e7efe8",
-                                  background: "#fbfdfb",
-                                  overflowY: "auto",
-                                  padding: 10,
-                                  minHeight: 0,
-                                }}
-                              >
+                            <div className="fb-field-picker__layout">
+                              <div className="fb-field-picker__cats">
                                 {visibleFieldCategories.map((category) => (
                                   <button
                                     key={category.key}
                                     type="button"
-                                    onClick={() =>
-                                      setActiveFieldCategory(category.key)
-                                    }
-                                    style={{
-                                      width: "100%",
-                                      display: "flex",
-                                      alignItems: "center",
-                                      justifyContent: "space-between",
-                                      gap: 10,
-                                      padding: "12px 14px",
-                                      borderRadius: 14,
-                                      border: "none",
-                                      background:
-                                        category.key ===
-                                        (selectedFieldCategory?.key || activeFieldCategory)
-                                          ? "#edf7ee"
-                                          : "transparent",
-                                      color: "#1f2937",
-                                      fontWeight:
-                                        category.key ===
-                                        (selectedFieldCategory?.key || activeFieldCategory)
-                                          ? 700
-                                          : 600,
-                                      cursor: "pointer",
-                                      textAlign: "left",
-                                    }}
+                                    onClick={() => setActiveFieldCategory(category.key)}
+                                    className={`fb-field-picker__cat-btn${category.key === (selectedFieldCategory?.key || activeFieldCategory) ? " is-active" : ""}`}
                                   >
-                                    <span
-                                      style={{
-                                        minWidth: 0,
-                                        overflow: "hidden",
-                                        textOverflow: "ellipsis",
-                                        whiteSpace: "nowrap",
-                                      }}
-                                    >
+                                    <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                                       {category.label}
                                     </span>
-                                    <span style={{ color: "#5f7664" }}>›</span>
+                                    <span>›</span>
                                   </button>
                                 ))}
                               </div>
-
-                              <div
-                                style={{
-                                  overflowY: "auto",
-                                  padding: 10,
-                                  background: "#fff",
-                                  minHeight: 0,
-                                }}
-                              >
+                              <div className="fb-field-picker__fields">
                                 {selectedFieldCategory ? (
                                   <>
-                                    <div
-                                      style={{
-                                        padding: "8px 12px 10px",
-                                        fontSize: 12,
-                                        fontWeight: 700,
-                                        letterSpacing: 0.3,
-                                        textTransform: "uppercase",
-                                        color: "#5f7664",
-                                      }}
-                                    >
+                                    <div className="fb-field-picker__section-label">
                                       {selectedFieldCategory.label}
                                     </div>
                                     {selectedFieldCategory.fields.map((fieldOption) => (
@@ -1254,49 +965,19 @@ function FilterBuilder<T extends Record<string, any>>({
                                         key={fieldOption.key}
                                         type="button"
                                         onClick={() => {
-                                          updateCondition(
-                                            group.id,
-                                            condition.id,
-                                            "field",
-                                            fieldOption.key
-                                          );
+                                          updateCondition(group.id, condition.id, "field", fieldOption.key);
                                           setActiveFieldPicker(null);
                                           setFieldSearchTerm("");
                                         }}
-                                        style={{
-                                          width: "100%",
-                                          padding: "12px 14px",
-                                          borderRadius: 14,
-                                          border: "none",
-                                          background:
-                                            condition.field === fieldOption.key
-                                              ? "#f2fbf2"
-                                              : "transparent",
-                                          color: "#1f2937",
-                                          fontWeight:
-                                            condition.field === fieldOption.key
-                                              ? 700
-                                              : 500,
-                                          cursor: "pointer",
-                                          textAlign: "left",
-                                          whiteSpace: "normal",
-                                          overflowWrap: "anywhere",
-                                          lineHeight: 1.35,
-                                        }}
+                                        className={`fb-field-picker__field-btn${condition.field === fieldOption.key ? " is-active" : ""}`}
                                       >
                                         {fieldOption.label}
                                       </button>
                                     ))}
-                                    <div style={{ height: 12 }} />
+                                    <div style={{ height: 8 }} />
                                   </>
                                 ) : (
-                                  <div
-                                    style={{
-                                      padding: "16px 14px",
-                                      color: "#6b7280",
-                                      fontSize: 14,
-                                    }}
-                                  >
+                                  <div style={{ padding: "14px 12px", color: "var(--dt-ink-faint, #6b7280)", fontSize: 13 }}>
                                     No matching fields found.
                                   </div>
                                 )}
@@ -1306,71 +987,43 @@ function FilterBuilder<T extends Record<string, any>>({
                         )}
                       </div>
 
+                      {/* Operator */}
                       <select
                         value={condition.operator}
-                        onChange={(event) =>
-                          updateCondition(
-                            group.id,
-                            condition.id,
-                            "operator",
-                            event.target.value
-                          )
-                        }
-                        style={controlStyle}
+                        onChange={(e) => updateCondition(group.id, condition.id, "operator", e.target.value)}
+                        className="fb-control"
                       >
                         <option value="">Operator</option>
-                        {sortedOperators.map((operator) => (
-                          <option key={operator.value} value={operator.value}>
-                            {operator.label}
-                          </option>
+                        {sortedOperators.map((op) => (
+                          <option key={op.value} value={op.value}>{op.label}</option>
                         ))}
                       </select>
 
+                      {/* Value */}
                       {isValueOptional ? (
                         <input
                           type="text"
                           value=""
                           disabled
                           placeholder="No value needed"
-                          style={{
-                            ...controlStyle,
-                            background: "#f8faf8",
-                            color: "#6b7280",
-                            cursor: "not-allowed",
-                          }}
+                          className="fb-control fb-control--disabled"
                         />
                       ) : normalizedFieldType === "dropdown" ? (
                         <select
                           value={condition.value}
-                          onChange={(event) =>
-                            updateCondition(
-                              group.id,
-                              condition.id,
-                              "value",
-                              event.target.value
-                            )
-                          }
-                          style={controlStyle}
+                          onChange={(e) => updateCondition(group.id, condition.id, "value", e.target.value)}
+                          className="fb-control"
                         >
                           <option value="">Select value</option>
-                          {dropdownOptions.map((option) => (
-                            <option key={option} value={option}>
-                              {option}
-                            </option>
+                          {dropdownOptions.map((opt) => (
+                            <option key={opt} value={opt}>{opt}</option>
                           ))}
                         </select>
                       ) : normalizedFieldType === "boolean" ? (
                         <select
                           value={condition.value}
-                          onChange={(event) =>
-                            updateCondition(
-                              group.id,
-                              condition.id,
-                              "value",
-                              event.target.value
-                            )
-                          }
-                          style={controlStyle}
+                          onChange={(e) => updateCondition(group.id, condition.id, "value", e.target.value)}
+                          className="fb-control"
                         >
                           <option value="">Select value</option>
                           <option value="false">False</option>
@@ -1378,234 +1031,120 @@ function FilterBuilder<T extends Record<string, any>>({
                         </select>
                       ) : (
                         <input
-                          type={
-                            normalizedFieldType === "number"
-                              ? "number"
-                              : normalizedFieldType === "date"
-                              ? "date"
-                              : "text"
-                          }
+                          type={normalizedFieldType === "number" ? "number" : normalizedFieldType === "date" ? "date" : "text"}
                           value={condition.value}
-                          onChange={(event) =>
-                            updateCondition(
-                              group.id,
-                              condition.id,
-                              "value",
-                              event.target.value
-                            )
-                          }
+                          onChange={(e) => updateCondition(group.id, condition.id, "value", e.target.value)}
                           placeholder="Enter value"
-                          style={controlStyle}
+                          className="fb-control"
                         />
                       )}
 
+                      {/* Campaign context */}
                       {requiresCampaign && (
                         <select
                           value={String(condition.context?.campaignId || "")}
-                          onChange={(event) => {
-                            const selectedCampaign = campaignOptions.find(
-                              (option) =>
-                                String(option.id) === event.target.value
-                            );
-
+                          onChange={(e) => {
+                            const selectedCampaign = campaignOptions.find((opt) => String(opt.id) === e.target.value);
                             updateCondition(group.id, condition.id, "context", {
-                              campaignId: event.target.value,
+                              campaignId: e.target.value,
                               campaignName: selectedCampaign?.name || "",
                             });
                           }}
-                          style={controlStyle}
+                          className="fb-control"
                         >
                           <option value="">Select campaign</option>
                           {campaignOptions.map((campaign) => (
                             <option key={campaign.id} value={campaign.id}>
-                              {campaign.id === ALL_CAMPAIGNS_ID
-                                ? "All campaigns"
-                                : campaign.name}
+                              {campaign.id === ALL_CAMPAIGNS_ID ? "All campaigns" : campaign.name}
                             </option>
                           ))}
                         </select>
                       )}
 
+                      {/* Remove condition */}
                       <button
                         type="button"
-                        onClick={() =>
-                          removeCondition(group.id, condition.id)
-                        }
+                        onClick={() => removeCondition(group.id, condition.id)}
                         aria-label="Remove condition"
-                        style={{
-                          width: 44,
-                          minWidth: 44,
-                          height: 44,
-                          borderRadius: 14,
-                          border: "1px solid #f1d5d8",
-                          background: "#fff5f5",
-                          color: "#b42318",
-                          fontSize: 22,
-                          lineHeight: 1,
-                          cursor: "pointer",
-                        }}
+                        className="fb-remove-btn"
                       >
-                        x
+                        ×
                       </button>
                     </div>
                   </div>
                 );
               })}
 
-              <div style={{ marginTop: 12 }}>
-                <button
-                  type="button"
-                  onClick={() => addCondition(group.id)}
-                  style={{
-                    ...actionButtonStyle,
-                    borderColor: "#b9d4bc",
-                    color: "#24572b",
-                    background: "#f4fbf4",
-                  }}
-                >
-                  + Add condition
-                </button>
-              </div>
+              <button type="button" onClick={() => addCondition(group.id)} className="fb-add-cond-btn">
+                + Add condition
+              </button>
             </div>
           </div>
         ))}
 
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            flexWrap: "wrap",
-            marginTop: 20,
-          }}
-        >
-          <button
-            type="button"
-            onClick={addGroup}
-            style={{
-              ...actionButtonStyle,
-              borderColor: "#b9d4bc",
-              color: "#24572b",
-              background: "#f4fbf4",
-            }}
-          >
+        {/* Footer actions */}
+        <div className="fb-footer">
+          <button type="button" onClick={addGroup} className="fb-btn">
             + Add group
           </button>
-
-          <button type="button" onClick={clearFilters} style={actionButtonStyle}>
+          <button type="button" onClick={clearFilters} className="fb-btn">
             Clear filters
           </button>
-
           {!hideApplyButton && (
             <button
               type="button"
               onClick={applyFilters}
               disabled={isApplyingFilters}
-              style={{
-                ...actionButtonStyle,
-                borderColor: "#3f9f42",
-                background: "#3f9f42",
-                color: "#fff",
-                opacity: isApplyingFilters ? 0.7 : 1,
-                cursor: isApplyingFilters ? "not-allowed" : "pointer",
-              }}
+              className="fb-btn fb-btn--primary"
             >
-              {isApplyingFilters ? "Applying..." : "Apply filters"}
+              {isApplyingFilters ? "Applying…" : "Apply filters"}
             </button>
           )}
-
           {saveViewConfig && (
             <button
               type="button"
-              onClick={() => setShowSavePanel((previous) => !previous)}
-              style={{
-                ...actionButtonStyle,
-                borderColor: "#c6d9f8",
-                background: "#f7faff",
-                color: "#2158a8",
-              }}
+              onClick={() => setShowSavePanel((prev) => !prev)}
+              className="fb-btn fb-btn--save"
             >
               {showSavePanel ? "Hide save panel" : "Save as view"}
             </button>
           )}
-
-          <div
-            style={{
-              marginLeft: "auto",
-              padding: "8px 12px",
-              borderRadius: 999,
-              background: "#f6faf6",
-              color: "#47624c",
-              fontSize: 13,
-              fontWeight: 600,
-            }}
-          >
-            {completeConditions.length} ready rule
-            {completeConditions.length === 1 ? "" : "s"}
-          </div>
+          <span className="fb-rules-count">
+            {completeConditions.length} rule{completeConditions.length === 1 ? "" : "s"}
+          </span>
         </div>
 
+        {/* Save view panel */}
         {saveViewConfig && showSavePanel && (
-          <div
-            style={{
-              marginTop: 18,
-              padding: 18,
-              borderRadius: 16,
-              border: "1px solid #d9e4f7",
-              background: "linear-gradient(180deg, #f8fbff 0%, #ffffff 100%)",
-            }}
-          >
-            <div style={{ fontWeight: 700, color: "#1f3d68", marginBottom: 12 }}>
-              Save this filter as a reusable view
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 12,
-              }}
-            >
+          <div className="fb-save-panel">
+            <div className="fb-save-panel__title">Save filter as a reusable view</div>
+            <div className="fb-save-panel__grid">
               <input
                 type="text"
                 placeholder="View name"
                 value={viewName}
-                onChange={(event) => setViewName(event.target.value)}
-                style={controlStyle}
+                onChange={(e) => setViewName(e.target.value)}
+                className="fb-control"
               />
-
               <input
                 type="text"
                 placeholder="Short description"
                 value={viewDescription}
-                onChange={(event) => setViewDescription(event.target.value)}
-                style={controlStyle}
+                onChange={(e) => setViewDescription(e.target.value)}
+                className="fb-control"
               />
             </div>
-
-            <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-              <button
-                type="button"
-                onClick={() => setShowSavePanel(false)}
-                style={actionButtonStyle}
-              >
+            <div className="fb-save-panel__actions">
+              <button type="button" onClick={() => setShowSavePanel(false)} className="fb-btn">
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleSaveView}
                 disabled={isSavingView || !viewName.trim()}
-                style={{
-                  ...actionButtonStyle,
-                  borderColor: "#3f9f42",
-                  background: "#3f9f42",
-                  color: "#fff",
-                  opacity: isSavingView || !viewName.trim() ? 0.7 : 1,
-                  cursor:
-                    isSavingView || !viewName.trim() ? "not-allowed" : "pointer",
-                }}
+                className="fb-btn fb-btn--primary"
               >
-                {isSavingView ? "Saving..." : "Save view"}
+                {isSavingView ? "Saving…" : "Save view"}
               </button>
             </div>
           </div>
