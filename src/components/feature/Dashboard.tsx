@@ -862,7 +862,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
           ),
         ]);
 
-        const blueprintDone = Array.isArray(templatesRes) && templatesRes.length > 0;
+        const templateList = Array.isArray(templatesRes?.templates)
+          ? templatesRes.templates
+          : Array.isArray(templatesRes)
+          ? templatesRes
+          : [];
+        const blueprintDone = templateList.length > 0;
         const realFiles = Array.isArray(dataFilesRes)
           ? dataFilesRes.filter((f: any) => f.id !== -1 && f.id !== "-1")
           : [];
