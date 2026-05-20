@@ -4388,14 +4388,14 @@ try {
         <main className={`flex-1 overflow-y-auto h-[calc(100%-87px)] ${
           tab === "Dashboard"
             ? "bg-white"
-            : tab === "TestTemplate" || tab === "DataCampaigns" || tab === "Campaigns"
+            : tab === "TestTemplate" || tab === "DataCampaigns" || tab === "Campaigns" || tab === "Settings"
               ? "bg-[#fafbfc]"
               : "bg-[#eeeeee]"
-        } ${tab === "Dashboard" || tab === "TestTemplate" || tab === "DataCampaigns" || tab === "Campaigns" ? "p-0" : "p-[20px]"}`}>
+        } ${tab === "Dashboard" || tab === "TestTemplate" || tab === "DataCampaigns" || tab === "Campaigns" || tab === "Settings" ? "p-0" : "p-[20px]"}`}>
           <div
             className={`
                rounded-md
-              ${!isContactDetailPage && tab !== "Dashboard" && tab !== "TestTemplate" && tab !== "DataCampaigns" && tab !== "Campaigns" ? "bg-white p-4 shadow-md min-h-[100%]" : ""}
+              ${!isContactDetailPage && tab !== "Dashboard" && tab !== "TestTemplate" && tab !== "DataCampaigns" && tab !== "Campaigns" && tab !== "Settings" ? "bg-white p-4 shadow-md min-h-[100%]" : ""}
             `}
           >
             {/* Main Content Area */}
