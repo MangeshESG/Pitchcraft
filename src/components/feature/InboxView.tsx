@@ -247,12 +247,17 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     const inboxId = parseInt(e.target.value);
     const inbox = inboxList.find(i => i.inboxId === inboxId);
     
+    // Immediately show loader
+    setLoading(true);
     setSelectedThread(null);
     setSelectedUnassignedEmail(null);
     setSelectedUnassignedThread(null);
-    setLoading(true);
+    setSelectedSentThread(null);
+    setSelectedAllMessagesThread(null);
+    setThreads([]);
     
-    await new Promise(resolve => setTimeout(resolve, 0));
+    // Small delay to ensure loader is visible
+    await new Promise(resolve => setTimeout(resolve, 100));
     
     setSelectedInboxId(inboxId);
     setSelectedProvider(inbox?.provider || '');
@@ -710,7 +715,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   }
 
   return (
-    <div className="dashboard-section" style={{ display: isVisible ? 'block' : 'none', marginTop: '-60px' }}>
+    <div className="dashboard-section" style={{ display: isVisible ? 'block' : 'none', marginTop: '-60px', position: 'relative' }}>
       <ToastMessage
         show={showToast}
         message={toastMessage}
@@ -722,8 +727,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       {loading && <LoadingSpinner message="Loading..." />}
 
       {/* Email Content */}
-      {!loading && (
-        <div className="inbox-content">
+      <div className="inbox-content" style={{ opacity: loading ? 0.5 : 1, pointerEvents: loading ? 'none' : 'auto' }}>
           {/* Mail List - Always visible on left */}
           <div className="mail-list">
             {/* Inbox Selection - Inside mail list panel */}
@@ -2536,7 +2540,6 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
             </div>
           )}
         </div>
-      )}
     </div>
   );
 };
