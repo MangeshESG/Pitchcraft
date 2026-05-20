@@ -460,6 +460,7 @@ const MainPage: React.FC = () => {
   );
   const [showSettingsSubmenu, setShowSettingsSubmenu] = useState(false);
   const [settingsSubTab, setSettingsSubTab] = useState<string>("Tracking");
+  const [inboxUnreadCount, setInboxUnreadCount] = useState<number>(0);
 
   useEffect(() => {
     // Safety reset for stuck loader after login
@@ -3615,6 +3616,34 @@ const lastPitch =
   }, [isDemoAccount]);
   //for output
 
+  // Fetch inbox unread count
+  useEffect(() => {
+    const fetchInboxUnreadCount = async () => {
+      if (!selectedClient && !clientID) return;
+      
+      const effectiveClientId = selectedClient || clientID;
+      
+      try {
+        const response = await fetch(
+          `https://localhost:7216/api/Inbox/unread-count?clientId=${effectiveClientId}`,
+          { headers: { accept: '*/*' } }
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          setInboxUnreadCount(data.grandTotalUnreadCount || 0);
+        }
+      } catch (error) {
+        console.error('Error fetching inbox unread count:', error);
+      }
+    };
+
+    fetchInboxUnreadCount();
+    // Refresh count every 30 seconds
+    const interval = setInterval(fetchInboxUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, [selectedClient, clientID]);
+
   // fetch campaigns in parent
   useEffect(() => {
     const fetchCampaigns = async () => {
@@ -4208,8 +4237,25 @@ try {
                                 setTab("Mail");
                               }}
                               className="submenu-button"
+                              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}
                             >
-                              Inbox
+                              <span>Inbox</span>
+                              {inboxUnreadCount > 0 && (
+                                <span
+                                  style={{
+                                    backgroundColor: '#3f9f42',
+                                    color: 'white',
+                                    borderRadius: '10px',
+                                    padding: '2px 8px',
+                                    fontSize: '12px',
+                                    fontWeight: 'bold',
+                                    minWidth: '20px',
+                                    textAlign: 'center'
+                                  }}
+                                >
+                                  {inboxUnreadCount}
+                                </span>
+                              )}
                             </button>
                           </li>
                           <li

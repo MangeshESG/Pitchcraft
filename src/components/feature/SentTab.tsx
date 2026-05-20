@@ -222,10 +222,12 @@ const SentTab: React.FC<SentTabProps> = ({
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {threads.map((thread) => {
           const lastMessage = thread.messages[thread.messages.length - 1];
+          // Check if any message in thread is unread
+          const hasUnreadMessages = thread.messages.some(msg => !msg.isRead);
           return (
             <div
               key={thread.trackingId}
-              className={`mail-item ${thread.hasUnread ? 'unread' : ''} ${selectedThread?.trackingId === thread.trackingId ? 'selected' : ''}`}
+              className={`mail-item ${hasUnreadMessages ? 'unread' : ''} ${selectedThread?.trackingId === thread.trackingId ? 'selected' : ''}`}
               onClick={() => handleThreadClick(thread)}
             >
               <div className="mail-avatar">{getInitials(thread.contactEmail, lastMessage.contactName)}</div>

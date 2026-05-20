@@ -144,23 +144,24 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
     
     onEmailSelect(unassignedEmail);
     
-    if (thread.hasUnread) {
+    // Check if thread has any unread messages
+    const hasAnyUnread = thread.messages.some(msg => !msg.isRead);
+    
+    if (hasAnyUnread) {
       try {
-        const unreadMessages = thread.messages.filter(msg => !msg.isRead);
-        for (const message of unreadMessages) {
-          // Use trackingId for unassigned emails
-          await axios.post(
-            `${API_BASE_URL}/api/Inbox/mark-unassigned-read?id=${encodeURIComponent(thread.trackingId)}`,
-            {},
-            {
-              headers: {
-                accept: '*/*',
-                ...(token && { Authorization: `Bearer ${token}` }),
-              },
-            }
-          );
-        }
+        // Mark thread as read using the correct API endpoint
+        await axios.post(
+          `${API_BASE_URL}/api/Inbox/mark-unassigned-read?id=${encodeURIComponent(thread.trackingId)}`,
+          {},
+          {
+            headers: {
+              accept: '*/*',
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+          }
+        );
         
+        // Update local state to mark all messages as read
         setThreads(prevThreads => 
           prevThreads.map(t => 
             t.trackingId === thread.trackingId 
@@ -304,10 +305,12 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {threads.map((thread) => {
           const lastMessage = thread.messages[thread.messages.length - 1];
+          // Check if any message in thread is unread
+          const hasUnreadMessages = thread.messages.some(msg => !msg.isRead);
           return (
           <div
             key={thread.trackingId}
-            className={`mail-item ${thread.hasUnread ? 'unread' : ''} ${selectedThread?.trackingId === thread.trackingId ? 'selected' : ''}`}
+            className={`mail-item ${hasUnreadMessages ? 'unread' : ''} ${selectedThread?.trackingId === thread.trackingId ? 'selected' : ''}`}
             onClick={() => handleThreadClick(thread)}
           >
             <div className="mail-avatar">{getInitials(thread.contactEmail, lastMessage.contactName)}</div>
