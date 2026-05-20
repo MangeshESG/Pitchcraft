@@ -79,9 +79,11 @@ interface InboxViewProps {
   effectiveUserId: string;
   token: string | null;
   isVisible: boolean;
+  initialTab?: string;
+  onTabChange?: (tab: string) => void;
 }
 
-const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible }) => {
+const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible, initialTab = 'Inbox', onTabChange }) => {
   const [inboxList, setInboxList] = useState<InboxDropdownItem[]>([]);
   const [selectedInboxId, setSelectedInboxId] = useState<number | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<string>('');
@@ -107,7 +109,25 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [showReplySection, setShowReplySection] = useState(false);
   const [collapsedEmails, setCollapsedEmails] = useState<{ [key: string]: boolean }>({});
   const [showDeleteDropdown, setShowDeleteDropdown] = useState(false);
-  const [activeTab, setActiveTab] = useState<'inbox' | 'sent' | 'unassigned' | 'all'>('inbox');
+  const [activeTab, setActiveTab] = useState<'inbox' | 'sent' | 'unassigned' | 'all'>(initialTab.toLowerCase() as 'inbox' | 'sent' | 'unassigned' | 'all');
+  
+  useEffect(() => {
+    setActiveTab(initialTab.toLowerCase() as 'inbox' | 'sent' | 'unassigned' | 'all');
+  }, [initialTab]);
+  
+  const handleTabChange = (tab: 'inbox' | 'sent' | 'unassigned' | 'all') => {
+    setActiveTab(tab);
+    if (onTabChange) {
+      // Convert to proper case for parent
+      const tabMap = {
+        'inbox': 'Inbox',
+        'sent': 'Sent',
+        'unassigned': 'Unassigned',
+        'all': 'AllMessages'
+      };
+      onTabChange(tabMap[tab]);
+    }
+  };
   const [selectedUnassignedEmail, setSelectedUnassignedEmail] = useState<UnassignedEmail | null>(null);
   const [inboxCurrentPage, setInboxCurrentPage] = useState(1);
   const [inboxTotalCount, setInboxTotalCount] = useState(0);
@@ -796,11 +816,11 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 )}
               </div>
               
-              {/* Tabs */}
-              <div style={{ display: 'flex', gap: '8px', marginTop: '12px', borderBottom: '2px solid #e5e7eb' }}>
+              {/* Tabs - Remove from here since they're now in sidebar */}
+              {/* <div style={{ display: 'flex', gap: '8px', marginTop: '12px', borderBottom: '2px solid #e5e7eb' }}>
                 <button
                   onClick={() => {
-                    setActiveTab('inbox');
+                    handleTabChange('inbox');
                     setSelectedUnassignedEmail(null);
                     setSelectedUnassignedThread(null);
                     setSelectedSentThread(null);
@@ -824,7 +844,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 </button>
                 <button
                   onClick={() => {
-                    setActiveTab('sent');
+                    handleTabChange('sent');
                     setSelectedThread(null);
                     setSelectedUnassignedEmail(null);
                     setSelectedUnassignedThread(null);
@@ -849,7 +869,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 </button>
                 <button
                   onClick={() => {
-                    setActiveTab('unassigned');
+                    handleTabChange('unassigned');
                     setSelectedThread(null);
                     setSelectedSentThread(null);
                     setShowReplySection(false);
@@ -872,7 +892,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 </button>
                 <button
                   onClick={() => {
-                    setActiveTab('all');
+                    handleTabChange('all');
                     setSelectedThread(null);
                     setSelectedSentThread(null);
                     setSelectedUnassignedThread(null);
@@ -895,7 +915,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 >
                   All Messages
                 </button>
-              </div>
+              </div> */}
             </div>
             
             {/* Mail list items - conditional based on active tab */}

@@ -461,6 +461,15 @@ const MainPage: React.FC = () => {
   const [showSettingsSubmenu, setShowSettingsSubmenu] = useState(false);
   const [settingsSubTab, setSettingsSubTab] = useState<string>("Tracking");
   const [inboxUnreadCount, setInboxUnreadCount] = useState<number>(0);
+  const [showInboxSubmenu, setShowInboxSubmenu] = useState(initialTab === "Mail" && initialMailSubTab === "Inbox");
+  const [inboxSubTab, setInboxSubTab] = useState<string>(() => {
+    // Only set from URL if we're actually on the Mail/Inbox tab
+    if (initialTab === "Mail" && initialMailSubTab === "Inbox") {
+      const params = new URLSearchParams(location.search);
+      return params.get("inboxSubTab") || "Inbox";
+    }
+    return "Inbox";
+  });
 
   useEffect(() => {
     // Safety reset for stuck loader after login
@@ -4227,36 +4236,113 @@ try {
                       {showMailSubmenu && (
                         <ul className="submenu">
                           <li
-                            className={
-                              mailSubTab === "Inbox" ? "active" : ""
-                            }
+                            className={`${
+                              tab === "Mail" && mailSubTab === "Inbox" ? "active" : ""
+                            } ${
+                              showInboxSubmenu
+                                ? "has-submenu submenu-open"
+                                : "has-submenu"
+                            }`}
                           >
                             <button
                               onClick={() => {
-                                setMailSubTab("Inbox");
-                                setTab("Mail");
+                                if (mailSubTab !== "Inbox") {
+                                  setMailSubTab("Inbox");
+                                  setTab("Mail");
+                                  setShowInboxSubmenu(true);
+                                } else {
+                                  setShowInboxSubmenu((prev) => !prev);
+                                }
                               }}
                               className="submenu-button"
                               style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}
                             >
-                              <span>Inbox</span>
-                              {inboxUnreadCount > 0 && (
-                                <span
-                                  style={{
-                                    backgroundColor: '#3f9f42',
-                                    color: 'white',
-                                    borderRadius: '10px',
-                                    padding: '2px 8px',
-                                    fontSize: '12px',
-                                    fontWeight: 'bold',
-                                    minWidth: '20px',
-                                    textAlign: 'center'
-                                  }}
-                                >
-                                  {inboxUnreadCount}
-                                </span>
-                              )}
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span>Inbox</span>
+                                {inboxUnreadCount > 0 && (
+                                  <span
+                                    style={{
+                                      backgroundColor: '#3f9f42',
+                                      color: 'white',
+                                      borderRadius: '10px',
+                                      padding: '2px 8px',
+                                      fontSize: '12px',
+                                      fontWeight: 'bold',
+                                      minWidth: '20px',
+                                      textAlign: 'center'
+                                    }}
+                                  >
+                                    {inboxUnreadCount}
+                                  </span>
+                                )}
+                              </span>
+                              <span className="submenu-arrow" style={{ marginLeft: 'auto' }}>
+                                <FontAwesomeIcon
+                                  icon={faAngleRight}
+                                  className=" text-[#333333] text-lg"
+                                />
+                              </span>
                             </button>
+                            {showInboxSubmenu && (
+                              <ul className="submenu">
+                                <li className={tab === "Mail" && mailSubTab === "Inbox" && inboxSubTab === "Inbox" ? "active" : ""}>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setInboxSubTab("Inbox");
+                                      setMailSubTab("Inbox");
+                                      setTab("Mail");
+                                      navigate("/main?tab=Mail&mailSubTab=Inbox&inboxSubTab=Inbox");
+                                    }}
+                                    className="submenu-button"
+                                  >
+                                    My Messages
+                                  </button>
+                                </li>
+                                <li className={tab === "Mail" && mailSubTab === "Inbox" && inboxSubTab === "Unassigned" ? "active" : ""}>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setInboxSubTab("Unassigned");
+                                      setMailSubTab("Inbox");
+                                      setTab("Mail");
+                                      navigate("/main?tab=Mail&mailSubTab=Inbox&inboxSubTab=Unassigned");
+                                    }}
+                                    className="submenu-button"
+                                  >
+                                    Unassigned
+                                  </button>
+                                </li>
+                                <li className={tab === "Mail" && mailSubTab === "Inbox" && inboxSubTab === "Sent" ? "active" : ""}>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setInboxSubTab("Sent");
+                                      setMailSubTab("Inbox");
+                                      setTab("Mail");
+                                      navigate("/main?tab=Mail&mailSubTab=Inbox&inboxSubTab=Sent");
+                                    }}
+                                    className="submenu-button"
+                                  >
+                                    Sent
+                                  </button>
+                                </li>
+                                <li className={tab === "Mail" && mailSubTab === "Inbox" && inboxSubTab === "AllMessages" ? "active" : ""}>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setInboxSubTab("AllMessages");
+                                      setMailSubTab("Inbox");
+                                      setTab("Mail");
+                                      navigate("/main?tab=Mail&mailSubTab=Inbox&inboxSubTab=AllMessages");
+                                    }}
+                                    className="submenu-button"
+                                  >
+                                    All Messages
+                                  </button>
+                                </li>
+                              </ul>
+                            )}
                           </li>
                           <li
                             className={
@@ -4626,6 +4712,8 @@ try {
                   zohoClient={zohoClient}
                   initialTab={mailSubTab}
                   onTabChange={setMailSubTab}
+                  inboxSubTab={inboxSubTab}
+                  onInboxSubTabChange={setInboxSubTab}
                 />
               </div>
             )}

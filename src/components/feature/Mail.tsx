@@ -106,6 +106,8 @@ interface SettingsProps {
 interface MailProps {
   initialTab?: string;
   onTabChange?: (tab: string) => void;
+  inboxSubTab?: string;
+  onInboxSubTabChange?: (subTab: string) => void;
 }
 
 interface ColumnConfig {
@@ -241,6 +243,8 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   selectedClient,
   initialTab = "Dashboard",
   onTabChange,
+  inboxSubTab = "Inbox",
+  onInboxSubTabChange,
 }) => {
   const dispatch = useDispatch();
 
@@ -2301,13 +2305,13 @@ const actionIconStyle = {
                                   }}
                                   onClick={() =>
                                     setMailboxActionsAnchor(
-                                      item.id?.toString() === mailboxActionsAnchor ? null : (item.id?.toString() ?? null), // Convert undefined to null
+                                      `smtp-${item.id}` === mailboxActionsAnchor ? null : `smtp-${item.id}`
                                     )
                                   }
                                 >
                                   ⋮
                                 </button>
-                                {mailboxActionsAnchor === item.id?.toString() && (
+                                {mailboxActionsAnchor === `smtp-${item.id}` && (
                                   <div
                                     className="segment-actions-menu py-[10px]"
                                     style={{
@@ -3862,6 +3866,8 @@ const actionIconStyle = {
           effectiveUserId={effectiveUserId!!} 
           token={token}
           isVisible={tab === "Inbox"}
+          initialTab={inboxSubTab}
+          onTabChange={onInboxSubTabChange}
         />
       )}
 

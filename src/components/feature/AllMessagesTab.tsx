@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import API_BASE_URL from '../../config';
+import LoadingSpinner from '../common/LoadingSpinner';
 
 interface InboxMessage {
   type: string;
@@ -184,12 +185,12 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
     return order[groupA as keyof typeof order] - order[groupB as keyof typeof order];
   });
 
-  if (!selectedInboxId) {
-    return <div className="no-mails">Please select an inbox</div>;
+  if (loading) {
+    return <LoadingSpinner message="Loading all messages..." />;
   }
 
-  if (loading) {
-    return <div className="no-mails">Loading...</div>;
+  if (!selectedInboxId) {
+    return <div className="no-mails">Please select an inbox</div>;
   }
 
   return (
