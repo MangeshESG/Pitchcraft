@@ -4820,6 +4820,7 @@ const parsePlaceholdersSafe = (block: string) => {
                                 <option value="subject line">SUBJECT LINE</option>
                                 <option value="your company">YOUR COMPANY</option>
                                 <option value="smart conditions">SMART CONDITIONS</option>
+                                <option value="images">IMAGES</option>
 
 
 
