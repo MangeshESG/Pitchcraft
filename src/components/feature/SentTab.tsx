@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import API_BASE_URL from '../../config';
 import LoadingSpinner from '../common/LoadingSpinner';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faTrashAlt } from '@fortawesome/free-regular-svg-icons';
 
 interface SentMessage {
   type: string;
@@ -57,6 +59,8 @@ const SentTab: React.FC<SentTabProps> = ({
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const pageSize = 10;
+  const [selectedThreadIds, setSelectedThreadIds] = useState<string[]>([]);
+  const [hoveredThreadId, setHoveredThreadId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchSentEmails = async () => {
@@ -104,6 +108,54 @@ const SentTab: React.FC<SentTabProps> = ({
       collapsed[`sent-${msg.messageId}-${idx}`] = true;
     });
     onInitializeCollapsedEmails(collapsed);
+  };
+
+  const toggleThreadSelection = (trackingId: string) => {
+    setSelectedThreadIds(prev => 
+      prev.includes(trackingId) 
+        ? prev.filter(id => id !== trackingId)
+        : [...prev, trackingId]
+    );
+  };
+
+  const handleBulkDelete = async (deleteMode: 'soft' | 'Permanent') => {
+    if (selectedThreadIds.length === 0) return;
+    
+    const confirmMessage = deleteMode === 'Permanent' 
+      ? `Are you sure you want to permanently delete ${selectedThreadIds.length} email(s)? This action cannot be undone.`
+      : `Are you sure you want to delete ${selectedThreadIds.length} email(s) from inbox?`;
+    
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/Inbox/delete-conversation`,
+        {
+          TrackingIds: selectedThreadIds,
+          deleteMode: deleteMode,
+          clientid: parseInt(effectiveUserId)
+        },
+        {
+          headers: {
+            'accept': '*/*',
+            'Content-Type': 'application/json',
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      if (response.data.success) {
+        setThreads(threads.filter(t => !selectedThreadIds.includes(t.trackingId)));
+        setSelectedThreadIds([]);
+      }
+    } catch (err: any) {
+      console.error('Error deleting emails:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const extractEmailAddress = (emailString: string): string => {
@@ -183,9 +235,42 @@ const SentTab: React.FC<SentTabProps> = ({
         background: '#fff',
         flexShrink: 0
       }}>
-        <span style={{ fontSize: '14px', color: '#6b7280' }}>
-          Page {currentPage} of {totalPages}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {selectedThreadIds.length > 0 && (
+            <button
+              onClick={() => handleBulkDelete('soft')}
+              style={{
+                padding: '8px',
+                background: 'transparent',
+                color: '#3f9f42',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '40px',
+                height: '40px',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = '#f3f4f6';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+              }}
+              title={`Delete ${selectedThreadIds.length} email(s)`}
+            >
+              <FontAwesomeIcon
+                icon={faTrashAlt}
+                style={{ fontSize: 20, color: '#3f9f42' }}
+              />
+            </button>
+          )}
+          <span style={{ fontSize: '14px', color: '#6b7280' }}>
+            Page {currentPage} of {totalPages}
+          </span>
+        </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <button
             onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
@@ -224,13 +309,40 @@ const SentTab: React.FC<SentTabProps> = ({
           const lastMessage = thread.messages[thread.messages.length - 1];
           // Check if any message in thread is unread
           const hasUnreadMessages = thread.messages.some(msg => !msg.isRead);
+          const isSelected = selectedThreadIds.includes(thread.trackingId);
           return (
             <div
               key={thread.trackingId}
-              className={`mail-item ${hasUnreadMessages ? 'unread' : ''} ${selectedThread?.trackingId === thread.trackingId ? 'selected' : ''}`}
-              onClick={() => handleThreadClick(thread)}
+              className={`mail-item ${hasUnreadMessages ? 'unread' : ''} ${selectedThread?.trackingId === thread.trackingId ? 'selected' : ''} ${isSelected ? 'selected' : ''}`}
+              onClick={() => {
+                if (selectedThreadIds.length > 0) {
+                  toggleThreadSelection(thread.trackingId);
+                } else {
+                  handleThreadClick(thread);
+                }
+              }}
+              onMouseEnter={() => setHoveredThreadId(thread.trackingId)}
+              onMouseLeave={() => setHoveredThreadId(null)}
+              style={{ position: 'relative' }}
             >
-              <div className="mail-avatar">{getInitials(thread.contactEmail, lastMessage.contactName)}</div>
+              {(hoveredThreadId === thread.trackingId || selectedThreadIds.length > 0) && (
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() => toggleThreadSelection(thread.trackingId)}
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    position: 'absolute',
+                    left: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: '18px',
+                    height: '18px',
+                    cursor: 'pointer'
+                  }}
+                />
+              )}
+              <div className="mail-avatar" style={{ marginLeft: (hoveredThreadId === thread.trackingId || selectedThreadIds.length > 0) ? '30px' : '0' }}>{getInitials(thread.contactEmail, lastMessage.contactName)}</div>
               <div className="mail-content">
                 <div className="mail-item-header">
                   <span 

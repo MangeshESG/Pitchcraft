@@ -140,6 +140,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [refreshAllMessagesTab, setRefreshAllMessagesTab] = useState(0);
   const [selectedAllMessagesThread, setSelectedAllMessagesThread] = useState<InboxThread | null>(null);
   const [unreadCounts, setUnreadCounts] = useState<{ inboxReplies: number; unassigned: number }>({ inboxReplies: 0, unassigned: 0 });
+  const [selectedThreadIds, setSelectedThreadIds] = useState<string[]>([]);
+  const [hoveredThreadId, setHoveredThreadId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchUnreadCounts = async () => {
@@ -333,6 +335,75 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setShowDeleteDropdown(false);
   };
 
+  const toggleThreadSelection = (trackingId: string) => {
+    setSelectedThreadIds(prev => 
+      prev.includes(trackingId) 
+        ? prev.filter(id => id !== trackingId)
+        : [...prev, trackingId]
+    );
+  };
+
+  const handleBulkDelete = async (deleteMode: 'soft' | 'Permanent') => {
+    if (selectedThreadIds.length === 0) return;
+    
+    const confirmMessage = deleteMode === 'Permanent' 
+      ? `Are you sure you want to permanently delete ${selectedThreadIds.length} email(s)? This action cannot be undone.`
+      : `Are you sure you want to delete ${selectedThreadIds.length} email(s) from inbox?`;
+    
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/Inbox/delete-conversation`,
+        {
+          TrackingIds: selectedThreadIds,
+          deleteMode: deleteMode,
+          clientid: parseInt(effectiveUserId)
+        },
+        {
+          headers: {
+            'accept': '*/*',
+            'Content-Type': 'application/json',
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      if (response.data.success) {
+        setToastMessage(`${selectedThreadIds.length} email(s) ${deleteMode === 'Permanent' ? 'deleted permanently' : 'moved to trash'}`);
+        setToastType('success');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+        
+        if (activeTab === 'inbox') {
+          setThreads(threads.filter(t => !selectedThreadIds.includes(t.trackingId)));
+        } else if (activeTab === 'sent') {
+          setRefreshSentTab(prev => prev + 1);
+        } else if (activeTab === 'unassigned') {
+          setRefreshUnassignedTab(prev => prev + 1);
+        }
+        
+        setSelectedThreadIds([]);
+      } else {
+        setToastMessage('Failed to delete emails');
+        setToastType('error');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+      }
+    } catch (err: any) {
+      console.error('Error deleting emails:', err);
+      setToastMessage(err.response?.data?.message || 'Failed to delete emails');
+      setToastType('error');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const toggleEmailCollapse = (messageId: string) => {
     setCollapsedEmails(prev => ({
       ...prev,
@@ -360,7 +431,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
       const response = await axios.post(
         `${API_BASE_URL}/api/Inbox/delete-conversation`,
         {
-          trackingId: currentThread.trackingId,
+          TrackingIds: [currentThread.trackingId],
           deleteMode: deleteMode,
           clientid: parseInt(effectiveUserId)
         },
@@ -937,9 +1008,42 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     top: 0,
                     zIndex: 5
                   }}>
-                    <span style={{ fontSize: '14px', color: '#6b7280' }}>
-                      Page {inboxCurrentPage} of {inboxTotalPages}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      {selectedThreadIds.length > 0 && (
+                        <button
+                          onClick={() => handleBulkDelete('soft')}
+                          style={{
+                            padding: '8px',
+                            background: 'transparent',
+                            color: '#3f9f42',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '40px',
+                            height: '40px',
+                            transition: 'all 0.2s'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = '#f3f4f6';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'transparent';
+                          }}
+                          title={`Delete ${selectedThreadIds.length} email(s)`}
+                        >
+                          <FontAwesomeIcon
+                            icon={faTrashAlt}
+                            style={{ fontSize: 20, color: '#3f9f42' }}
+                          />
+                        </button>
+                      )}
+                      <span style={{ fontSize: '14px', color: '#6b7280' }}>
+                        Page {inboxCurrentPage} of {inboxTotalPages}
+                      </span>
+                    </div>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                       <button
                         onClick={() => setInboxCurrentPage(prev => Math.max(1, prev - 1))}
@@ -984,13 +1088,40 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     const lastMessage = thread.messages[thread.messages.length - 1];
                     // Check if any message in thread is unread
                     const hasUnreadMessages = thread.messages.some(msg => !msg.isRead);
+                    const isSelected = selectedThreadIds.includes(thread.trackingId);
                     return (
                       <div
                         key={thread.trackingId}
-                        className={`mail-item ${hasUnreadMessages ? 'unread' : ''} ${selectedThread?.trackingId === thread.trackingId ? 'selected' : ''}`}
-                        onClick={() => handleThreadClick(thread)}
+                        className={`mail-item ${hasUnreadMessages ? 'unread' : ''} ${selectedThread?.trackingId === thread.trackingId ? 'selected' : ''} ${isSelected ? 'selected' : ''}`}
+                        onClick={() => {
+                          if (selectedThreadIds.length > 0) {
+                            toggleThreadSelection(thread.trackingId);
+                          } else {
+                            handleThreadClick(thread);
+                          }
+                        }}
+                        onMouseEnter={() => setHoveredThreadId(thread.trackingId)}
+                        onMouseLeave={() => setHoveredThreadId(null)}
+                        style={{ position: 'relative' }}
                       >
-                        <div className="mail-avatar">{getInitials(thread.contactEmail, lastMessage.contactName)}</div>
+                        {(hoveredThreadId === thread.trackingId || selectedThreadIds.length > 0) && (
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleThreadSelection(thread.trackingId)}
+                            onClick={(e) => e.stopPropagation()}
+                            style={{
+                              position: 'absolute',
+                              left: '12px',
+                              top: '50%',
+                              transform: 'translateY(-50%)',
+                              width: '18px',
+                              height: '18px',
+                              cursor: 'pointer'
+                            }}
+                          />
+                        )}
+                        <div className="mail-avatar" style={{ marginLeft: (hoveredThreadId === thread.trackingId || selectedThreadIds.length > 0) ? '30px' : '0' }}>{getInitials(thread.contactEmail, lastMessage.contactName)}</div>
                         <div className="mail-content">
                           <div className="mail-item-header">
                             <span className="mail-sender">{lastMessage.contactName || extractSenderName(thread.contactEmail)}</span>
