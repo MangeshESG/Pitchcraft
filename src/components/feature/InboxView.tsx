@@ -1104,24 +1104,23 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         onMouseLeave={() => setHoveredThreadId(null)}
                         style={{ position: 'relative' }}
                       >
-                        {(hoveredThreadId === thread.trackingId || selectedThreadIds.length > 0) && (
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => toggleThreadSelection(thread.trackingId)}
-                            onClick={(e) => e.stopPropagation()}
-                            style={{
-                              position: 'absolute',
-                              left: '12px',
-                              top: '50%',
-                              transform: 'translateY(-50%)',
-                              width: '18px',
-                              height: '18px',
-                              cursor: 'pointer'
-                            }}
-                          />
+                        {(hoveredThreadId === thread.trackingId || selectedThreadIds.length > 0) ? (
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '40px', height: '40px', marginLeft: 0 }}>
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleThreadSelection(thread.trackingId)}
+                              onClick={(e) => e.stopPropagation()}
+                              style={{
+                                width: '18px',
+                                height: '18px',
+                                cursor: 'pointer'
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <div className="mail-avatar">{getInitials(thread.contactEmail, lastMessage.contactName)}</div>
                         )}
-                        <div className="mail-avatar" style={{ marginLeft: (hoveredThreadId === thread.trackingId || selectedThreadIds.length > 0) ? '30px' : '0' }}>{getInitials(thread.contactEmail, lastMessage.contactName)}</div>
                         <div className="mail-content">
                           <div className="mail-item-header">
                             <span className="mail-sender">{lastMessage.contactName || extractSenderName(thread.contactEmail)}</span>
