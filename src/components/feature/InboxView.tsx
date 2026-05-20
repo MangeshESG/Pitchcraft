@@ -113,10 +113,27 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   
   useEffect(() => {
     setActiveTab(initialTab.toLowerCase() as 'inbox' | 'sent' | 'unassigned' | 'all');
+    // Clear all selections when tab changes
+    setSelectedThread(null);
+    setSelectedSentThread(null);
+    setSelectedUnassignedThread(null);
+    setSelectedAllMessagesThread(null);
+    setShowReplySection(false);
+    setReplyText('');
+    setCollapsedEmails({});
   }, [initialTab]);
   
   const handleTabChange = (tab: 'inbox' | 'sent' | 'unassigned' | 'all') => {
     setActiveTab(tab);
+    // Clear all selected threads when switching tabs
+    setSelectedThread(null);
+    setSelectedSentThread(null);
+    setSelectedUnassignedThread(null);
+    setSelectedAllMessagesThread(null);
+    setShowReplySection(false);
+    setReplyText('');
+    setCollapsedEmails({});
+    
     if (onTabChange) {
       // Convert to proper case for parent
       const tabMap = {
@@ -142,6 +159,9 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [unreadCounts, setUnreadCounts] = useState<{ inboxReplies: number; unassigned: number }>({ inboxReplies: 0, unassigned: 0 });
   const [selectedThreadIds, setSelectedThreadIds] = useState<string[]>([]);
   const [hoveredThreadId, setHoveredThreadId] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteModalType, setDeleteModalType] = useState<'single' | 'bulk'>('single');
+  const [pendingDeleteMode, setPendingDeleteMode] = useState<'soft' | 'Permanent'>('soft');
 
   useEffect(() => {
     const fetchUnreadCounts = async () => {
@@ -181,6 +201,12 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
 
         if (response.data.success && response.data.data) {
           setInboxList(response.data.data);
+          // Auto-select first inbox if none is selected
+          if (response.data.data.length > 0 && !selectedInboxId) {
+            const firstInbox = response.data.data[0];
+            setSelectedInboxId(firstInbox.inboxId);
+            setSelectedProvider(firstInbox.provider || '');
+          }
         }
       } catch (err: any) {
         console.error('Error fetching inbox list:', err);
@@ -346,14 +372,6 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const handleBulkDelete = async (deleteMode: 'soft' | 'Permanent') => {
     if (selectedThreadIds.length === 0) return;
     
-    const confirmMessage = deleteMode === 'Permanent' 
-      ? `Are you sure you want to permanently delete ${selectedThreadIds.length} email(s)? This action cannot be undone.`
-      : `Are you sure you want to delete ${selectedThreadIds.length} email(s) from inbox?`;
-    
-    if (!window.confirm(confirmMessage)) {
-      return;
-    }
-    
     setLoading(true);
     try {
       const response = await axios.post(
@@ -414,16 +432,6 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const handleDeleteEmail = async (deleteMode: 'soft' | 'Permanent') => {
     const currentThread = activeTab === 'inbox' ? selectedThread : activeTab === 'sent' ? selectedSentThread : selectedUnassignedThread;
     if (!currentThread) return;
-    
-    // Show confirmation dialog
-    const confirmMessage = deleteMode === 'Permanent' 
-      ? 'Are you sure you want to permanently delete this email? This action cannot be undone.'
-      : 'Are you sure you want to delete this email from inbox?';
-    
-    if (!window.confirm(confirmMessage)) {
-      setShowDeleteDropdown(false);
-      return;
-    }
     
     setShowDeleteDropdown(false);
     
@@ -1010,35 +1018,101 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       {selectedThreadIds.length > 0 && (
-                        <button
-                          onClick={() => handleBulkDelete('soft')}
-                          style={{
-                            padding: '8px',
-                            background: 'transparent',
-                            color: '#3f9f42',
-                            border: 'none',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            width: '40px',
-                            height: '40px',
-                            transition: 'all 0.2s'
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.background = '#f3f4f6';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'transparent';
-                          }}
-                          title={`Delete ${selectedThreadIds.length} email(s)`}
-                        >
-                          <FontAwesomeIcon
-                            icon={faTrashAlt}
-                            style={{ fontSize: 20, color: '#3f9f42' }}
-                          />
-                        </button>
+                        <div style={{ position: 'relative' }}>
+                          <button
+                            onClick={() => setShowDeleteDropdown(!showDeleteDropdown)}
+                            style={{
+                              padding: '8px',
+                              background: 'transparent',
+                              color: '#3f9f42',
+                              border: 'none',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: '40px',
+                              height: '40px',
+                              transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.background = '#f3f4f6';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.background = 'transparent';
+                            }}
+                            title={`Delete ${selectedThreadIds.length} email(s)`}
+                          >
+                            <FontAwesomeIcon
+                              icon={faTrashAlt}
+                              style={{ fontSize: 20, color: '#3f9f42' }}
+                            />
+                          </button>
+                          
+                          {showDeleteDropdown && (
+                            <div style={{
+                              position: 'absolute',
+                              top: '100%',
+                              left: 0,
+                              marginTop: '4px',
+                              background: '#fff',
+                              border: '1px solid #e5e7eb',
+                              borderRadius: '6px',
+                              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                              zIndex: 100,
+                              minWidth: '180px'
+                            }}>
+                              <button
+                                onClick={() => {
+                                  setDeleteModalType('bulk');
+                                  setPendingDeleteMode('soft');
+                                  setShowDeleteModal(true);
+                                  setShowDeleteDropdown(false);
+                                }}
+                                style={{
+                                  width: '100%',
+                                  padding: '10px 16px',
+                                  background: 'transparent',
+                                  border: 'none',
+                                  textAlign: 'left',
+                                  cursor: 'pointer',
+                                  fontSize: '14px',
+                                  color: '#374151',
+                                  borderBottom: '1px solid #e5e7eb',
+                                  transition: 'background 0.2s'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                              >
+                                Delete from Inbox
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setDeleteModalType('bulk');
+                                  setPendingDeleteMode('Permanent');
+                                  setShowDeleteModal(true);
+                                  setShowDeleteDropdown(false);
+                                }}
+                                style={{
+                                  width: '100%',
+                                  padding: '10px 16px',
+                                  background: 'transparent',
+                                  border: 'none',
+                                  textAlign: 'left',
+                                  cursor: 'pointer',
+                                  fontSize: '14px',
+                                  color: '#ef4444',
+                                  fontWeight: '500',
+                                  transition: 'background 0.2s'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
+                                onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                              >
+                                Delete permanently
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       )}
                       <span style={{ fontSize: '14px', color: '#6b7280' }}>
                         Page {inboxCurrentPage} of {inboxTotalPages}
@@ -1303,7 +1377,11 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       minWidth: '180px'
                     }}>
                       <button
-                        onClick={() => handleDeleteEmail('soft')}
+                        onClick={() => {
+                          setDeleteModalType('single');
+                          setPendingDeleteMode('soft');
+                          setShowDeleteModal(true);
+                        }}
                         style={{
                           width: '100%',
                           padding: '10px 16px',
@@ -1322,7 +1400,11 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         Delete from Inbox
                       </button>
                       <button
-                        onClick={() => handleDeleteEmail('Permanent')}
+                        onClick={() => {
+                          setDeleteModalType('single');
+                          setPendingDeleteMode('Permanent');
+                          setShowDeleteModal(true);
+                        }}
                         style={{
                           width: '100%',
                           padding: '10px 16px',
@@ -1805,7 +1887,11 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         minWidth: '180px'
                       }}>
                         <button
-                          onClick={() => handleDeleteEmail('soft')}
+                          onClick={() => {
+                            setDeleteModalType('single');
+                            setPendingDeleteMode('soft');
+                            setShowDeleteModal(true);
+                          }}
                           style={{
                             width: '100%',
                             padding: '10px 16px',
@@ -1824,7 +1910,11 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           Delete from Inbox
                         </button>
                         <button
-                          onClick={() => handleDeleteEmail('Permanent')}
+                          onClick={() => {
+                            setDeleteModalType('single');
+                            setPendingDeleteMode('Permanent');
+                            setShowDeleteModal(true);
+                          }}
                           style={{
                             width: '100%',
                             padding: '10px 16px',
@@ -1994,7 +2084,11 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         minWidth: '180px'
                       }}>
                         <button
-                          onClick={() => handleDeleteEmail('soft')}
+                          onClick={() => {
+                            setDeleteModalType('single');
+                            setPendingDeleteMode('soft');
+                            setShowDeleteModal(true);
+                          }}
                           style={{
                             width: '100%',
                             padding: '10px 16px',
@@ -2013,7 +2107,11 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           Delete from Inbox
                         </button>
                         <button
-                          onClick={() => handleDeleteEmail('Permanent')}
+                          onClick={() => {
+                            setDeleteModalType('single');
+                            setPendingDeleteMode('Permanent');
+                            setShowDeleteModal(true);
+                          }}
                           style={{
                             width: '100%',
                             padding: '10px 16px',
@@ -2690,6 +2788,226 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
             </div>
           )}
         </div>
+
+      {/* Custom Delete Modal - App Based Popup */}
+      {showDeleteModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 99999,
+            backdropFilter: 'blur(4px)'
+          }}
+          onClick={() => {
+            setShowDeleteModal(false);
+            setShowDeleteDropdown(false);
+          }}
+        >
+          <div
+            style={{
+              background: '#fff',
+              borderRadius: '16px',
+              padding: '0',
+              width: '90%',
+              maxWidth: '520px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              animation: 'slideIn 0.2s ease-out',
+              overflow: 'hidden'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{
+              padding: '24px 24px 20px',
+              borderBottom: '1px solid #e5e7eb',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  background: pendingDeleteMode === 'Permanent' ? '#fee2e2' : '#fef3c7',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={pendingDeleteMode === 'Permanent' ? '#ef4444' : '#f59e0b'} strokeWidth="2">
+                    <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6"/>
+                  </svg>
+                </div>
+                <h3 style={{ 
+                  fontSize: '20px', 
+                  fontWeight: '600', 
+                  margin: 0,
+                  color: '#111827'
+                }}>
+                  {pendingDeleteMode === 'Permanent' ? 'Delete Permanently?' : 'Delete Email?'}
+                </h3>
+              </div>
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setShowDeleteDropdown(false);
+                }}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: '6px',
+                  color: '#9ca3af',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#f3f4f6';
+                  e.currentTarget.style.color = '#374151';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = '#9ca3af';
+                }}
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 6L6 18M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: '24px' }}>
+              <p style={{ 
+                fontSize: '15px', 
+                color: '#4b5563', 
+                marginBottom: '20px',
+                lineHeight: '1.6'
+              }}>
+                {deleteModalType === 'bulk' 
+                  ? `You are about to delete ${selectedThreadIds.length} email${selectedThreadIds.length > 1 ? 's' : ''} from your inbox.`
+                  : 'You are about to delete 1 email from your inbox.'
+                }
+              </p>
+
+              {pendingDeleteMode === 'Permanent' && (
+                <div style={{
+                  padding: '12px 16px',
+                  background: '#fef2f2',
+                  borderLeft: '4px solid #ef4444',
+                  borderRadius: '6px',
+                  marginBottom: '20px'
+                }}>
+                  <p style={{
+                    fontSize: '13px',
+                    color: '#991b1b',
+                    margin: 0,
+                    fontWeight: '500'
+                  }}>
+                    ⚠️ Warning: This action is irreversible!
+                  </p>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setShowDeleteDropdown(false);
+                  }}
+                  style={{
+                    padding: '12px 24px',
+                    background: '#f9fafb',
+                    color: '#374151',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    transition: 'all 0.2s',
+                    flex: 1
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#f3f4f6';
+                    e.currentTarget.style.borderColor = '#d1d5db';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = '#f9fafb';
+                    e.currentTarget.style.borderColor = '#e5e7eb';
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setShowDeleteDropdown(false);
+                    if (deleteModalType === 'bulk') {
+                      handleBulkDelete(pendingDeleteMode);
+                    } else {
+                      handleDeleteEmail(pendingDeleteMode);
+                    }
+                  }}
+                  style={{
+                    padding: '12px 24px',
+                    background: pendingDeleteMode === 'Permanent' ? '#ef4444' : '#f59e0b',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    transition: 'all 0.2s',
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = pendingDeleteMode === 'Permanent' ? '#dc2626' : '#d97706';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = pendingDeleteMode === 'Permanent' ? '#ef4444' : '#f59e0b';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                  </svg>
+                  {pendingDeleteMode === 'Permanent' ? 'Delete Permanently' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>
+        {`
+          @keyframes slideIn {
+            from {
+              opacity: 0;
+              transform: translateY(-20px) scale(0.95);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0) scale(1);
+            }
+          }
+        `}
+      </style>
     </div>
   );
 };

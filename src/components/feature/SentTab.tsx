@@ -61,6 +61,7 @@ const SentTab: React.FC<SentTabProps> = ({
   const pageSize = 10;
   const [selectedThreadIds, setSelectedThreadIds] = useState<string[]>([]);
   const [hoveredThreadId, setHoveredThreadId] = useState<string | null>(null);
+  const [showDeleteDropdown, setShowDeleteDropdown] = useState(false);
 
   useEffect(() => {
     const fetchSentEmails = async () => {
@@ -237,35 +238,97 @@ const SentTab: React.FC<SentTabProps> = ({
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {selectedThreadIds.length > 0 && (
-            <button
-              onClick={() => handleBulkDelete('soft')}
-              style={{
-                padding: '8px',
-                background: 'transparent',
-                color: '#3f9f42',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '40px',
-                height: '40px',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = '#f3f4f6';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent';
-              }}
-              title={`Delete ${selectedThreadIds.length} email(s)`}
-            >
-              <FontAwesomeIcon
-                icon={faTrashAlt}
-                style={{ fontSize: 20, color: '#3f9f42' }}
-              />
-            </button>
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setShowDeleteDropdown(!showDeleteDropdown)}
+                style={{
+                  padding: '8px',
+                  background: 'transparent',
+                  color: '#3f9f42',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '40px',
+                  height: '40px',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#f3f4f6';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                }}
+                title={`Delete ${selectedThreadIds.length} email(s)`}
+              >
+                <FontAwesomeIcon
+                  icon={faTrashAlt}
+                  style={{ fontSize: 20, color: '#3f9f42' }}
+                />
+              </button>
+              
+              {showDeleteDropdown && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  marginTop: '4px',
+                  background: '#fff',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '6px',
+                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                  zIndex: 100,
+                  minWidth: '180px'
+                }}>
+                  <button
+                    onClick={() => {
+                      handleBulkDelete('soft');
+                      setShowDeleteDropdown(false);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 16px',
+                      background: 'transparent',
+                      border: 'none',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      color: '#374151',
+                      borderBottom: '1px solid #e5e7eb',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  >
+                    Delete from Inbox
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleBulkDelete('Permanent');
+                      setShowDeleteDropdown(false);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 16px',
+                      background: 'transparent',
+                      border: 'none',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      color: '#ef4444',
+                      fontWeight: '500',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  >
+                    Delete permanently
+                  </button>
+                </div>
+              )}
+            </div>
           )}
           <span style={{ fontSize: '14px', color: '#6b7280' }}>
             Page {currentPage} of {totalPages}
