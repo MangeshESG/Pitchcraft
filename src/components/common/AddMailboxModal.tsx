@@ -11,6 +11,10 @@ interface SmtpForm {
   fromEmail: string;
   senderName: string;
   usessl: string;
+  incomingServer: string;
+  incomingPort: string;
+  fullInboxSync: boolean;
+  incomingSecurityType: string;
 }
 
 interface AddMailboxModalProps {
@@ -45,17 +49,8 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
   onError,
 }) => {
   const [mainTab, setMainTab] = useState<"smtp" | "inbox">("smtp");
-  const [inboxSubTab, setInboxSubTab] = useState<"imap" | "gmail" | "outlook" | "office365">("imap");
-  const [imapForm, setImapForm] = useState({
-    emailAddress: "",
-    host: "",
-    port: "",
-    encryption: "Auto",
-    username: "",
-    password: "",
-    fullInboxSync: false
-  });
-  const [imapLoading, setImapLoading] = useState(false);
+  const [inboxSubTab, setInboxSubTab] = useState<"gmail" | "outlook" | "office365">("gmail");
+
   const [pop3Loading, setPop3Loading] = useState(false);
   const [gmailSenderName, setGmailSenderName] = useState("");
   const [gmailFullInboxSync, setGmailFullInboxSync] = useState(false);
@@ -67,80 +62,7 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error' | 'info' | 'warning'>('success');
 
-  const handleImapChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    console.log('Field changed:', name, 'New value:', value);
-    setImapForm(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
-    }));
-  };
 
-  const handleImapSubmit = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    setImapLoading(true);
-    
-    try {
-      const payload = {
-        clientId: parseInt(effectiveUserId) || 0,
-        emailAddress: imapForm.emailAddress,
-        protocol: "IMAP",
-        host: imapForm.host,
-        port: parseInt(imapForm.port) || 993,
-        encryption: imapForm.encryption,
-        username: imapForm.username,
-        password: imapForm.password,
-        syncIntervalMinutes: 1,
-        fullInboxSync: imapForm.fullInboxSync
-      };
-      
-      console.log('Sending payload:', payload);
-      
-      const response = await fetch(
-        `${API_BASE_URL}/api/Inbox/Create-Inboxcredentials`,
-        {
-          method: 'POST',
-          headers: {
-            'accept': '*/*',
-            'Content-Type': 'application/json',
-            ...(token && { Authorization: `Bearer ${token}` })
-          },
-          body: JSON.stringify(payload)
-        }
-      );
-      
-      if (response.ok) {
-        setToastMessage("IMAP configuration added successfully!");
-        setToastType('success');
-        setShowToast(true);
-        setTimeout(() => setShowToast(false), 6000);
-        setImapForm({
-          emailAddress: "",
-          host: "",
-          port: "",
-          encryption: "Auto",
-          username: "",
-          password: "",
-          fullInboxSync: false
-        });
-        handleClose();
-      } else {
-        const errorData = await response.text();
-        setToastMessage(errorData || "Failed to add IMAP configuration");
-        setToastType('error');
-        setShowToast(true);
-        setTimeout(() => setShowToast(false), 6000);
-      }
-    } catch (error) {
-      console.error('Error adding IMAP configuration:', error);
-      setToastMessage("Error adding IMAP configuration. Please check your connection.");
-      setToastType('error');
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 6000);
-    } finally {
-      setImapLoading(false);
-    }
-  };
 
   const handleGmailConnect = () => {
     if (!gmailSenderName.trim()) {
@@ -283,15 +205,10 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
       fromEmail: "",
       senderName: "",
       usessl: "Auto",
-    });
-    setImapForm({
-      emailAddress: "",
-      host: "",
-      port: "",
-      encryption: "Auto",
-      username: "",
-      password: "",
-      fullInboxSync: false
+      incomingServer: "",
+      incomingPort: "",
+      fullInboxSync: false,
+      incomingSecurityType: "Auto",
     });
     setGmailSenderName("");
     setGmailFullInboxSync(false);
@@ -300,7 +217,7 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
     setSelectedProvider(null);
     setEditingId(null);
     setMainTab("smtp");
-    setInboxSubTab("imap");
+    setInboxSubTab("gmail");
     onClose();
   };
 
@@ -334,25 +251,22 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
           >
             Cancel
           </button>
-          {(mainTab === "smtp" || (mainTab === "inbox" && inboxSubTab === "imap")) && (
+          {mainTab === "smtp" && (
             <button
-              onClick={mainTab === "smtp" ? handleSubmitSMTP : handleImapSubmit}
-              disabled={mainTab === "smtp" ? smtpLoading : imapLoading}
+              onClick={handleSubmitSMTP}
+              disabled={smtpLoading}
               style={{
                 padding: "10px 32px",
                 background: "#fff",
-                color: (mainTab === "smtp" ? smtpLoading : imapLoading) ? "#ccc" : "#ef4444",
-                border: `1px solid ${(mainTab === "smtp" ? smtpLoading : imapLoading) ? "#ccc" : "#ef4444"}`,
+                color: smtpLoading ? "#ccc" : "#ef4444",
+                border: `1px solid ${smtpLoading ? "#ccc" : "#ef4444"}`,
                 borderRadius: "24px",
-                cursor: (mainTab === "smtp" ? smtpLoading : imapLoading) ? "not-allowed" : "pointer",
+                cursor: smtpLoading ? "not-allowed" : "pointer",
                 fontSize: "14px",
                 fontWeight: "500",
               }}
             >
-              {mainTab === "smtp" 
-                ? (smtpLoading ? "Testing..." : editingId ? "Update" : "Add")
-                : (imapLoading ? "Adding..." : "Add")
-              }
+              {smtpLoading ? "Testing..." : editingId ? "Update" : "Add"}
             </button>
           )}
         </>
@@ -415,7 +329,7 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
         <div className="flex gap-4">
           <div className="form-group flex-1">
             <label>
-              Host <span style={{ color: "red" }}>*</span>
+              Outgoing Server (SMTP) <span style={{ color: "red" }}>*</span>
             </label>
             <input
               name="server"
@@ -427,7 +341,7 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
           </div>
           <div className="form-group flex-1">
             <label>
-              Port <span style={{ color: "red" }}>*</span>
+              Outgoing Port <span style={{ color: "red" }}>*</span>
             </label>
             <input
               name="port"
@@ -495,7 +409,7 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
           </div>
         </div>
         <div className="form-group">
-          <label>Encryption</label>
+          <label>Outgoing Encryption</label>
           <select
             name="usessl"
             value={form.usessl}
@@ -515,6 +429,77 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
             <option value="Auto">Auto</option>
           </select>
         </div>
+
+        <div style={{ borderTop: "1px solid #e5e7eb", marginTop: "20px", paddingTop: "20px" }}>
+          <h3 style={{ fontSize: "16px", fontWeight: "600", marginBottom: "16px", color: "#333" }}>Inbox Configuration</h3>
+          
+          <div className="flex gap-4">
+            <div className="form-group flex-1">
+              <label>
+                Incoming Server (IMAP) <span style={{ color: "red" }}>*</span>
+              </label>
+              <input
+                name="incomingServer"
+                placeholder="imap.example.com"
+                value={form.incomingServer}
+                onChange={handleChangeSMTP}
+                required
+              />
+            </div>
+            <div className="form-group flex-1">
+              <label>
+                Incoming Port <span style={{ color: "red" }}>*</span>
+              </label>
+              <input
+                name="incomingPort"
+                type="number"
+                placeholder="993"
+                value={form.incomingPort}
+                onChange={handleChangeSMTP}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="form-group">
+            <label>Incoming Encryption</label>
+            <select
+              name="incomingSecurityType"
+              value={form.incomingSecurityType}
+              onChange={handleChangeSMTP}
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                border: "1px solid #ccc",
+                borderRadius: "4px",
+                fontSize: "14px",
+                backgroundColor: "white",
+              }}
+            >
+              <option value="None">None</option>
+              <option value="SSL/TLS">SSL/TLS</option>
+              <option value="STARTTLS">STARTTLS</option>
+              <option value="Auto">Auto</option>
+            </select>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", marginTop: "16px" }}>
+            <input
+              type="checkbox"
+              id="fullInboxSync"
+              name="fullInboxSync"
+              checked={form.fullInboxSync}
+              onChange={(e) => {
+                const { name, checked } = e.target;
+                setForm(prev => ({ ...prev, [name]: checked }));
+              }}
+              style={{ marginRight: "8px" }}
+            />
+            <label htmlFor="fullInboxSync" style={{ marginBottom: 0, cursor: "pointer" }}>
+              Full inbox sync
+            </label>
+          </div>
+        </div>
       </form>
       )}
 
@@ -529,26 +514,6 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
               marginBottom: 16,
             }}
           >
-            <button
-              onClick={() => setInboxSubTab("imap")}
-              style={{
-                padding: "6px 14px",
-                borderRadius: 999,
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: "pointer",
-                background:
-                  inboxSubTab === "imap" ? "#eef2ff" : "#ffffff",
-                color:
-                  inboxSubTab === "imap" ? "#3f9f42" : "#374151",
-                border:
-                  inboxSubTab === "imap"
-                    ? "1px solid #3f9f42"
-                    : "1px solid #d1d5db",
-              }}
-            >
-              IMAP
-            </button>
             <button
               onClick={() => setInboxSubTab("gmail")}
               style={{
@@ -610,115 +575,6 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
               Office 365
             </button>
           </div>
-
-          {/* IMAP Content */}
-          {inboxSubTab === "imap" && (
-            <form onSubmit={(e) => e.preventDefault()}>
-              <div className="flex gap-4">
-                <div className="form-group flex-1">
-                  <label>
-                    Email Address <span style={{ color: "red" }}>*</span>
-                  </label>
-                  <input
-                    name="emailAddress"
-                    type="email"
-                    placeholder="user@example.com"
-                    value={imapForm.emailAddress}
-                    onChange={handleImapChange}
-                    required
-                  />
-                </div>
-                <div className="form-group flex-1">
-                  <label>
-                    Username <span style={{ color: "red" }}>*</span>
-                  </label>
-                  <input
-                    name="username"
-                    placeholder="username"
-                    value={imapForm.username}
-                    onChange={handleImapChange}
-                    required
-                  />
-                </div>
-              </div>
-              <div className="flex gap-4">
-                <div className="form-group flex-1">
-                  <label>
-                    Host <span style={{ color: "red" }}>*</span>
-                  </label>
-                  <input
-                    name="host"
-                    placeholder="imap.example.com"
-                    value={imapForm.host}
-                    onChange={handleImapChange}
-                    required
-                  />
-                </div>
-                <div className="form-group flex-1">
-                  <label>
-                    Port <span style={{ color: "red" }}>*</span>
-                  </label>
-                  <input
-                    name="port"
-                    type="number"
-                    placeholder="993"
-                    value={imapForm.port}
-                    onChange={handleImapChange}
-                    required
-                  />
-                </div>
-              </div>
-              <div className="flex gap-4">
-                <div className="form-group flex-1">
-                  <label>
-                    Password <span style={{ color: "red" }}>*</span>
-                  </label>
-                  <input
-                    name="password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={imapForm.password}
-                    onChange={handleImapChange}
-                    required
-                  />
-                </div>
-                <div className="form-group flex-1">
-                  <label>Encryption</label>
-                  <select
-                    name="encryption"
-                    value={imapForm.encryption}
-                    onChange={handleImapChange}
-                    style={{
-                      width: "100%",
-                      padding: "8px 12px",
-                      border: "1px solid #ccc",
-                      borderRadius: "4px",
-                      fontSize: "14px",
-                      backgroundColor: "white",
-                    }}
-                  >
-                    <option value="None">None</option>
-                    <option value="SSL/TLS">SSL/TLS</option>
-                    <option value="STARTTLS">STARTTLS</option>
-                    <option value="Auto">Auto</option>
-                  </select>
-                </div>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", marginTop: "16px" }}>
-                <input
-                  type="checkbox"
-                  id="fullInboxSync"
-                  name="fullInboxSync"
-                  checked={imapForm.fullInboxSync}
-                  onChange={handleImapChange}
-                  style={{ marginRight: "8px" }}
-                />
-                <label htmlFor="fullInboxSync" style={{ marginBottom: 0, cursor: "pointer" }}>
-                  Full inbox sync
-                </label>
-              </div>
-            </form>
-          )}
 
           {/* Gmail Content */}
           {inboxSubTab === "gmail" && (
