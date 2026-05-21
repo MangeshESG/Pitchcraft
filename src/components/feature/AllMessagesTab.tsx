@@ -39,6 +39,7 @@ interface AllMessagesTabProps {
   onInitializeCollapsedEmails: (collapsed: { [key: string]: boolean }) => void;
   onReplyReset: () => void;
   refreshTrigger: number;
+  onShowReplySection?: (show: boolean) => void;
 }
 
 const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
@@ -99,10 +100,10 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
     onThreadSelect(thread);
     onReplyReset();
     
-    // Initialize all emails as collapsed
+    // Initialize all emails as collapsed with unique keys
     const collapsed: { [key: string]: boolean } = {};
     thread.messages.forEach((msg, idx) => {
-      collapsed[`${msg.messageId}-${idx}`] = true;
+      collapsed[`all-${msg.messageId}-${idx}`] = true;
     });
     onInitializeCollapsedEmails(collapsed);
     

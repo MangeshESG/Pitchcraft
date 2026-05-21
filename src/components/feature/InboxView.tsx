@@ -109,10 +109,11 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [showReplySection, setShowReplySection] = useState(false);
   const [collapsedEmails, setCollapsedEmails] = useState<{ [key: string]: boolean }>({});
   const [showDeleteDropdown, setShowDeleteDropdown] = useState(false);
-  const [activeTab, setActiveTab] = useState<'inbox' | 'sent' | 'unassigned' | 'all'>(initialTab.toLowerCase() as 'inbox' | 'sent' | 'unassigned' | 'all');
+  const [showBulkDeleteDropdown, setShowBulkDeleteDropdown] = useState(false);
+  const [activeTab, setActiveTab] = useState<'inbox' | 'sent' | 'unassigned' | 'all' | 'allmessages'>(initialTab.toLowerCase() as 'inbox' | 'sent' | 'unassigned' | 'all' | 'allmessages');
   
   useEffect(() => {
-    setActiveTab(initialTab.toLowerCase() as 'inbox' | 'sent' | 'unassigned' | 'all');
+    setActiveTab(initialTab.toLowerCase() as 'inbox' | 'sent' | 'unassigned' | 'all' | 'allmessages');
     // Clear all selections when tab changes
     setSelectedThread(null);
     setSelectedSentThread(null);
@@ -123,7 +124,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setCollapsedEmails({});
   }, [initialTab]);
   
-  const handleTabChange = (tab: 'inbox' | 'sent' | 'unassigned' | 'all') => {
+  const handleTabChange = (tab: 'inbox' | 'sent' | 'unassigned' | 'all' | 'allmessages') => {
     setActiveTab(tab);
     // Clear all selected threads when switching tabs
     setSelectedThread(null);
@@ -140,7 +141,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         'inbox': 'Inbox',
         'sent': 'Sent',
         'unassigned': 'Unassigned',
-        'all': 'AllMessages'
+        'all': 'AllMessages',
+        'allmessages': 'AllMessages'
       };
       onTabChange(tabMap[tab]);
     }
@@ -699,7 +701,13 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   };
 
   const handleSaveDraft = async () => {
-    const contactId = activeTab === 'inbox' ? selectedThread?.contactId : activeTab === 'sent' ? selectedSentThread?.contactId : selectedUnassignedThread?.contactId;
+    const contactId = activeTab === 'inbox'
+      ? selectedThread?.contactId
+      : activeTab === 'sent'
+        ? selectedSentThread?.contactId
+        : activeTab === 'unassigned'
+          ? selectedUnassignedThread?.contactId
+          : selectedAllMessagesThread?.contactId;
     if (!replyText.trim() || !contactId) return;
     
     setIsSavingDraft(true);
@@ -1020,7 +1028,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       {selectedThreadIds.length > 0 && (
                         <div style={{ position: 'relative' }}>
                           <button
-                            onClick={() => setShowDeleteDropdown(!showDeleteDropdown)}
+                            onClick={() => setShowBulkDeleteDropdown(!showBulkDeleteDropdown)}
                             style={{
                               padding: '8px',
                               background: 'transparent',
@@ -1049,7 +1057,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             />
                           </button>
                           
-                          {showDeleteDropdown && (
+                          {showBulkDeleteDropdown && (
                             <div style={{
                               position: 'absolute',
                               top: '100%',
@@ -1067,7 +1075,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                                   setDeleteModalType('bulk');
                                   setPendingDeleteMode('soft');
                                   setShowDeleteModal(true);
-                                  setShowDeleteDropdown(false);
+                                  setShowBulkDeleteDropdown(false);
                                 }}
                                 style={{
                                   width: '100%',
@@ -1091,7 +1099,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                                   setDeleteModalType('bulk');
                                   setPendingDeleteMode('Permanent');
                                   setShowDeleteModal(true);
-                                  setShowDeleteDropdown(false);
+                                  setShowBulkDeleteDropdown(false);
                                 }}
                                 style={{
                                   width: '100%',
@@ -1310,6 +1318,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 selectedProvider={selectedProvider}
                 selectedThread={selectedAllMessagesThread}
                 onThreadSelect={(thread) => {
+                  console.log('All Messages Thread Selected:', thread);
+                  console.log('Contact ID:', thread?.contactId);
                   setSelectedAllMessagesThread(thread);
                   setShowReplySection(false);
                   setReplyText('');
@@ -2660,6 +2670,98 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   <h3 className="mail-detail-subject" style={{ fontSize: '20px', fontWeight: '600', margin: 0 }}>
                     {selectedAllMessagesThread.subject}
                   </h3>
+                  <div style={{ position: 'relative' }}>
+                    <button
+                      onClick={() => setShowDeleteDropdown(!showDeleteDropdown)}
+                      style={{
+                        padding: '8px',
+                        background: 'transparent',
+                        color: '#3f9f42',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '40px',
+                        height: '40px',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = '#f3f4f6';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'transparent';
+                      }}
+                    >
+                      <FontAwesomeIcon
+                        icon={faTrashAlt}
+                        style={{ fontSize: 20, color: '#3f9f42' }}
+                      />
+                    </button>
+                    
+                    {showDeleteDropdown && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '100%',
+                        right: 0,
+                        marginTop: '4px',
+                        background: '#fff',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '6px',
+                        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                        zIndex: 100,
+                        minWidth: '180px'
+                      }}>
+                        <button
+                          onClick={() => {
+                            setDeleteModalType('single');
+                            setPendingDeleteMode('soft');
+                            setShowDeleteModal(true);
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '10px 16px',
+                            background: 'transparent',
+                            border: 'none',
+                            textAlign: 'left',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            color: '#374151',
+                            borderBottom: '1px solid #e5e7eb',
+                            transition: 'background 0.2s'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        >
+                          Delete from Inbox
+                        </button>
+                        <button
+                          onClick={() => {
+                            setDeleteModalType('single');
+                            setPendingDeleteMode('Permanent');
+                            setShowDeleteModal(true);
+                          }}
+                          style={{
+                            width: '100%',
+                            padding: '10px 16px',
+                            background: 'transparent',
+                            border: 'none',
+                            textAlign: 'left',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            color: '#ef4444',
+                            fontWeight: '500',
+                            transition: 'background 0.2s'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
+                          onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        >
+                          Delete permanently
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Sort messages by date - latest first, oldest last */}
@@ -2702,7 +2804,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         <div className="mail-detail-date">{new Date(message.date).toLocaleString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}</div>
                       </div>
                     </div>
-                    {collapsedEmails[uniqueKey] ? (
+                    {collapsedEmails[uniqueKey] !== false ? (
                       <div 
                         className="mail-body-preview" 
                         onClick={() => toggleEmailCollapse(uniqueKey)}
@@ -2758,35 +2860,364 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     )}
                   </div>
                 );})}
+
+                {/* Reply Button */}
+                {!showReplySection && (
+                  <div className="reply-button-sticky">
+                    <button
+                      onClick={() => setShowReplySection(true)}
+                      style={{
+                        padding: '10px 24px',
+                        background: '#3b82f6',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: '500',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+                      </svg>
+                      Reply
+                    </button>
+                  </div>
+                )}
+
+                {/* Reply Section */}
+                {showReplySection && (
+                <div className="reply-section" style={{
+                  marginTop: '24px',
+                  borderTop: '1px solid #e5e7eb',
+                  paddingTop: '24px',
+                  padding: '24px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                    <label style={{ fontWeight: '500', fontSize: '14px', color: '#374151' }}>Write Reply</label>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <select
+                        value={selectedBlueprint || ''}
+                        onChange={(e) => setSelectedBlueprint(e.target.value ? parseInt(e.target.value) : null)}
+                        style={{
+                          padding: '6px 12px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '6px',
+                          fontSize: '13px',
+                          cursor: 'pointer',
+                          minWidth: '200px'
+                        }}
+                      >
+                        <option value="">Select Blueprint</option>
+                        {blueprints.map((blueprint) => (
+                          <option key={blueprint.id} value={blueprint.id}>
+                            {blueprint.templateName}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={async () => {
+                          if (!selectedBlueprint || !selectedAllMessagesThread.contactId) return;
+
+                          setIsKrafting(true);
+                          setError('');
+                          try {
+                            const response = await axios.post(
+                              `${API_BASE_URL}/api/CampaignPrompt/campaign/generate-single-contact`,
+                              {
+                                blueprintId: selectedBlueprint,
+                                contactId: selectedAllMessagesThread.contactId,
+                                clientId: effectiveUserId,
+                                overwriteExisting: true
+                              },
+                              {
+                                headers: {
+                                  'accept': '*/*',
+                                  'Content-Type': 'application/json',
+                                  ...(token && { Authorization: `Bearer ${token}` }),
+                                },
+                              }
+                            );
+
+                            if (response.data.success && response.data.emailBody) {
+                              setReplyText(response.data.emailBody);
+                            } else {
+                              setError('Failed to generate email');
+                            }
+                          } catch (err: any) {
+                            console.error('Error krafting email:', err);
+                            setError(err.response?.data?.message || 'Failed to generate email');
+                          } finally {
+                            setIsKrafting(false);
+                          }
+                        }}
+                        disabled={!selectedBlueprint || isKrafting || !selectedAllMessagesThread.contactId}
+                        style={{
+                          padding: '6px 16px',
+                          background: (!selectedBlueprint || isKrafting || !selectedAllMessagesThread.contactId) ? '#ccc' : '#3b82f6',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: '6px',
+                          cursor: (!selectedBlueprint || isKrafting || !selectedAllMessagesThread.contactId) ? 'not-allowed' : 'pointer',
+                          fontSize: '13px',
+                          fontWeight: '500',
+                          whiteSpace: 'nowrap'
+                        }}
+                      >
+                        {isKrafting ? 'Krafting...' : 'Kraft'}
+                      </button>
+                    </div>
+                  </div>
+                  <style>
+                    {`
+                      .reply-section .rich-text-editor > div {
+                        min-height: 30px !important;
+                        max-height: 100px !important;
+                      }
+                    `}
+                  </style>
+                  <div style={{ marginBottom: '12px', position: 'relative' }}>
+                    <div style={{
+                      maxWidth: `${outputEmailWidth === 'Mobile' ? '480px' : outputEmailWidth === 'Tab' ? '768px' : '100%'}`,
+                      margin: '0 auto'
+                    }}>
+                      <RichTextEditor
+                        value={replyText}
+                        onChange={setReplyText}
+                        showActionButtons={false}
+                        outputEmailWidth={outputEmailWidth}
+                        isCopyText={isCopyText}
+                        openDeviceDropdown={openDeviceDropdown}
+                        onDeviceDropdownToggle={() => setOpenDeviceDropdown(!openDeviceDropdown)}
+                        onDeviceWidthChange={(width) => {
+                          setOutputEmailWidth(width);
+                          setOpenDeviceDropdown(false);
+                        }}
+                        onCopyToClipboard={copyToClipboardHandler}
+                        onExpandEditor={() => handleModalOpen('modal-reply-expand')}
+                      />
+                    </div>
+
+                    {/* Toolbar */}
+                    <div className="output-email-floated-icons d-flex bg-[#ffffff] rounded-md" style={{ position: 'absolute', right: '10px', top: '10px', zIndex: 10 }}>
+                      <button className="button d-flex align-center square-40 justify-center" onClick={copyToClipboardHandler}>
+                        {isCopyText ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24px" height="24px" viewBox="0 0 24 24" fill="none">
+                            <path d="M7.29417 12.9577L10.5048 16.1681L17.6729 9" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                            <circle cx="12" cy="12" r="10" stroke="#ffffff" strokeWidth="2"/>
+                          </svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="#000000" width="24px" height="24px" viewBox="0 0 32 32">
+                            <path d="M26 4.75h-2c-0.69 0-1.25 0.56-1.25 1.25s0.56 1.25 1.25 1.25v0h0.75v21.5h-17.5v-21.5h0.75c0.69 0 1.25-0.56 1.25-1.25s-0.56-1.25-1.25-1.25v0h-2c-0.69 0-1.25 0.56-1.25 1.25v0 24c0 0.69 0.56 1.25 1.25 1.25h20c0.69-0.001 1.249-0.56 1.25-1.25v-24c-0-0.69-0.56-1.25-1.25-1.25h-0zM11 9.249h10c0.69 0 1.25-0.56 1.25-1.25s-0.56-1.25-1.25-1.25v0h-1.137c0.242-0.513 0.385-1.114 0.387-1.748v-0.001c0-2.347-1.903-4.25-4.25-4.25s-4.25 1.903-4.25 4.25v0c0.002 0.635 0.145 1.236 0.398 1.775l-0.011-0.026h-1.137c-0.69 0-1.25 0.56-1.25 1.25s0.56 1.25 1.25 1.25v0zM14.25 5c0-0 0-0.001 0-0.001 0-0.966 0.784-1.75 1.75-1.75s1.75 0.784 1.75 1.75c0 0.966-0.784 1.75-1.75 1.75v0c-0.966-0.001-1.748-0.783-1.75-1.749v-0zM19.957 13.156l-6.44 7.039-1.516-1.506c-0.226-0.223-0.536-0.361-0.878-0.361-0.69 0-1.25 0.56-1.25 1.25 0 0.345 0.14 0.658 0.366 0.884v0l2.44 2.424 0.022 0.015 0.015 0.021c0.074 0.061 0.159 0.114 0.25 0.156l0.007 0.003c0.037 0.026 0.079 0.053 0.123 0.077l0.007 0.003c0.135 0.056 0.292 0.089 0.457 0.089 0.175 0 0.341-0.037 0.491-0.103l-0.008 0.003c0.053-0.031 0.098-0.061 0.14-0.094l-0.003 0.002c0.102-0.050 0.189-0.11 0.268-0.179l-0.001 0.001 0.015-0.023 0.020-0.014 7.318-8c0.203-0.222 0.328-0.518 0.328-0.844 0-0.69-0.559-1.25-1.25-1.25-0.365 0-0.693 0.156-0.921 0.405l-0.001 0.001z"/>
+                          </svg>
+                        )}
+                      </button>
+
+                      <button className="button square-40 !bg-transparent justify-center" onClick={() => handleModalOpen('modal-reply-expand')}>
+                        <svg width="30px" height="30px" viewBox="0 0 512 512">
+                          <polyline points="304 96 416 96 416 208" fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="32"/>
+                          <line x1="405.77" y1="106.2" x2="111.98" y2="400.02" fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="32"/>
+                          <polyline points="208 416 96 416 96 304" fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="32"/>
+                        </svg>
+                      </button>
+
+                      <button
+                        className="button square-40 justify-center"
+                        style={{
+                          background: isSavingDraft || !replyText.trim() || !selectedAllMessagesThread.contactId ? '#ccc' : '#3f9f42',
+                          color: '#fff',
+                          fontWeight: '500',
+                          fontSize: '13px',
+                          padding: '0 16px',
+                          width: 'auto',
+                          minWidth: '70px',
+                          cursor: isSavingDraft || !replyText.trim() || !selectedAllMessagesThread.contactId ? 'not-allowed' : 'pointer'
+                        }}
+                        onClick={handleSaveDraft}
+                        disabled={isSavingDraft || !replyText.trim() || !selectedAllMessagesThread.contactId}
+                      >
+                        {isSavingDraft ? 'Saving...' : 'Save'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Expand Modal */}
+                  <Modal
+                    show={openModals['modal-reply-expand']}
+                    closeModal={() => handleModalClose('modal-reply-expand')}
+                    buttonLabel="Close"
+                    size="90%"
+                  >
+                    <div style={{ padding: '20px' }}>
+                      <label style={{ fontWeight: '500', fontSize: '16px', marginBottom: '12px', display: 'block' }}>Reply Editor</label>
+                      <RichTextEditor value={replyText} onChange={setReplyText} />
+                    </div>
+                  </Modal>
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <button
+                      onClick={async () => {
+                        if (!replyText.trim()) return;
+
+                        const emailTrackingId = selectedAllMessagesThread.trackingId;
+
+                        if (!emailTrackingId) {
+                          setToastMessage('Cannot reply: No tracking ID available');
+                          setToastType('error');
+                          setShowToast(true);
+                          setTimeout(() => setShowToast(false), 3000);
+                          return;
+                        }
+
+                        setIsSending(true);
+                        setError('');
+                        try {
+                          const response = await axios.post(
+                            `${API_BASE_URL}/api/email/reply_email`,
+                            {
+                              trackingId: emailTrackingId,
+                              clientId: parseInt(effectiveUserId),
+                              replyBody: replyText,
+                              outboxId: selectedInboxId,
+                              bccEmail: '',
+                              Provider: selectedProvider
+                            },
+                            {
+                              headers: {
+                                'accept': '*/*',
+                                'Content-Type': 'application/json',
+                                ...(token && { Authorization: `Bearer ${token}` }),
+                              },
+                            }
+                          );
+
+                          if (response.data.success) {
+                            const sentMessage: InboxMessage = {
+                              type: 'Sent',
+                              messageId: `temp-${Date.now()}`,
+                              subject: `Re: ${selectedAllMessagesThread.subject}`,
+                              body: replyText,
+                              fromEmail: inboxList.find(i => i.inboxId === selectedInboxId)?.emailAddress || '',
+                              toEmail: selectedAllMessagesThread.contactEmail,
+                              date: new Date().toISOString(),
+                              isRead: true,
+                              contactId: selectedAllMessagesThread.contactId,
+                              contactName: null
+                            };
+
+                            const updatedThread = {
+                              ...selectedAllMessagesThread,
+                              messages: [...selectedAllMessagesThread.messages, sentMessage],
+                              totalMessages: selectedAllMessagesThread.totalMessages + 1,
+                              lastMessageDate: sentMessage.date
+                            };
+
+                            setSelectedAllMessagesThread(updatedThread);
+                            setRefreshAllMessagesTab(prev => prev + 1);
+                            setReplyText('');
+                            setShowReplySection(false);
+                            setToastMessage('Reply sent successfully!');
+                            setToastType('success');
+                            setShowToast(true);
+                            setTimeout(() => setShowToast(false), 3000);
+                          } else {
+                            setToastMessage('Failed to send reply');
+                            setToastType('error');
+                            setShowToast(true);
+                            setTimeout(() => setShowToast(false), 3000);
+                          }
+                        } catch (err: any) {
+                          console.error('Error sending reply:', err);
+                          setToastMessage(err.response?.data?.message || 'Failed to send reply');
+                          setToastType('error');
+                          setShowToast(true);
+                          setTimeout(() => setShowToast(false), 3000);
+                        } finally {
+                          setIsSending(false);
+                        }
+                      }}
+                      disabled={!replyText.trim() || isSending}
+                      style={{
+                        padding: '10px 24px',
+                        background: (!replyText.trim() || isSending) ? '#ccc' : '#ef4444',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: (!replyText.trim() || isSending) ? 'not-allowed' : 'pointer',
+                        fontSize: '14px',
+                        fontWeight: '500'
+                      }}
+                    >
+                      {isSending ? 'Sending...' : 'Send Reply'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowReplySection(false);
+                        setReplyText('');
+                      }}
+                      style={{
+                        padding: '10px 24px',
+                        background: '#6b7280',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: '500'
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+                )}
               </div>
             ) : null
           )}
           
           {/* Right Side Panel - Contact Info */}
-          {((activeTab === 'inbox' && selectedThread) || 
-            (activeTab === 'sent' && selectedSentThread) || 
-            (activeTab === 'unassigned' && selectedUnassignedThread) ||
-            (activeTab === 'all' && selectedAllMessagesThread)) && (
-            <div style={{
-              width: '350px',
-              borderLeft: '1px solid #e5e7eb',
-              background: '#fff',
-              overflowY: 'auto',
-              flexShrink: 0,
-              marginRight: '-35px',
-              marginTop: '24px'
-            }}>
-              <ContactInfoPanel 
-                contactId={
-                  activeTab === 'inbox' ? selectedThread?.contactId || null
-                  : activeTab === 'sent' ? selectedSentThread?.contactId || null
-                  : activeTab === 'unassigned' ? selectedUnassignedThread?.contactId || null
-                  : selectedAllMessagesThread?.contactId || null
-                }
-                token={token}
-              />
-            </div>
-          )}
+          {(() => {
+            const showPanel = (
+              (activeTab === 'inbox' && selectedThread?.contactId) || 
+              (activeTab === 'sent' && selectedSentThread?.contactId) || 
+              (activeTab === 'unassigned' && selectedUnassignedThread?.contactId) ||
+              (activeTab === 'all' && selectedAllMessagesThread?.contactId) ||
+              (activeTab === 'allmessages' && selectedAllMessagesThread?.contactId)
+            );
+            
+            console.log('Contact Panel Check:', {
+              activeTab,
+              showPanel,
+              inboxContactId: selectedThread?.contactId,
+              sentContactId: selectedSentThread?.contactId,
+              unassignedContactId: selectedUnassignedThread?.contactId,
+              allMessagesContactId: selectedAllMessagesThread?.contactId
+            });
+            
+            return showPanel ? (
+              <div style={{
+                width: '350px',
+                borderLeft: '1px solid #e5e7eb',
+                background: '#fff',
+                overflowY: 'auto',
+                flexShrink: 0,
+                marginRight: '-35px',
+                marginTop: '24px'
+              }}>
+                <ContactInfoPanel 
+                  contactId={
+                    activeTab === 'inbox' ? selectedThread?.contactId || null
+                    : activeTab === 'sent' ? selectedSentThread?.contactId || null
+                    : activeTab === 'unassigned' ? selectedUnassignedThread?.contactId || null
+                    : selectedAllMessagesThread?.contactId || null
+                  }
+                  token={token}
+                />
+              </div>
+            ) : null;
+          })()}
         </div>
 
       {/* Custom Delete Modal - App Based Popup */}
@@ -2805,6 +3236,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
           onClick={() => {
             setShowDeleteModal(false);
             setShowDeleteDropdown(false);
+            setShowBulkDeleteDropdown(false);
           }}
         >
           <div
@@ -2922,6 +3354,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   onClick={() => {
                     setShowDeleteModal(false);
                     setShowDeleteDropdown(false);
+                    setShowBulkDeleteDropdown(false);
                   }}
                   style={{
                     padding: '12px 24px',
@@ -2950,6 +3383,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   onClick={() => {
                     setShowDeleteModal(false);
                     setShowDeleteDropdown(false);
+                    setShowBulkDeleteDropdown(false);
                     if (deleteModalType === 'bulk') {
                       handleBulkDelete(pendingDeleteMode);
                     } else {
