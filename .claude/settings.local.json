@@ -12,7 +12,11 @@
       "PowerShell($content = Get-Content \"C:\\\\Users\\\\Radhika\\\\AppData\\\\Local\\\\Temp\\\\design_output.html\" -Raw; $idx = $content.IndexOf\\(\"<html\"\\); Write-Host \"First <html at: $idx\"; $allMatches = [regex]::Matches\\($content, \"<html\"\\); Write-Host \"Total html tags: $\\($allMatches.Count\\)\"; foreach \\($m in $allMatches\\) { Write-Host \"  Position: $\\($m.Index\\)\" })",
       "PowerShell($content = Get-Content \"C:\\\\Users\\\\Radhika\\\\AppData\\\\Local\\\\Temp\\\\design_output.html\" -Raw; Write-Host $content.Substring\\(25700, 500\\))",
       "PowerShell($content = Get-Content \"C:\\\\Users\\\\Radhika\\\\AppData\\\\Local\\\\Temp\\\\design_output.html\" -Raw; $allMatches = [regex]::Matches\\($content, \"\\(?i\\)DynamicContactsTable\"\\); Write-Host \"All mentions of DynamicContactsTable:\"; foreach \\($m in $allMatches\\) { $start = [Math]::Max\\(0, $m.Index - 100\\); Write-Host \"  Pos $\\($m.Index\\): $\\($content.Substring\\($start, 250\\)\\)\" })",
-      "PowerShell($content = Get-Content \"C:\\\\Users\\\\Radhika\\\\AppData\\\\Local\\\\Temp\\\\design_output.html\" -Raw; $tsxStart = 180812; $tsxEnd = $content.IndexOf\\(\"export default DynamicContactsTable;\", $tsxStart\\); Write-Host \"TSX section: $tsxStart to $\\($tsxEnd + 40\\)\"; $tsxContent = $content.Substring\\($tsxStart, $tsxEnd - $tsxStart + 40\\); Write-Host \"TSX length: $\\($tsxContent.Length\\)\"; $tsxContent | Out-File \"C:\\\\Users\\\\Radhika\\\\AppData\\\\Local\\\\Temp\\\\dt_new.tsx\" -Encoding utf8)"
+      "PowerShell($content = Get-Content \"C:\\\\Users\\\\Radhika\\\\AppData\\\\Local\\\\Temp\\\\design_output.html\" -Raw; $tsxStart = 180812; $tsxEnd = $content.IndexOf\\(\"export default DynamicContactsTable;\", $tsxStart\\); Write-Host \"TSX section: $tsxStart to $\\($tsxEnd + 40\\)\"; $tsxContent = $content.Substring\\($tsxStart, $tsxEnd - $tsxStart + 40\\); Write-Host \"TSX length: $\\($tsxContent.Length\\)\"; $tsxContent | Out-File \"C:\\\\Users\\\\Radhika\\\\AppData\\\\Local\\\\Temp\\\\dt_new.tsx\" -Encoding utf8)",
+      "Bash(python -c ' *)",
+      "Bash(npx vite *)",
+      "Bash(node_modules\\\\.bin\\\\vite build *)",
+      "Bash(npm run *)"
     ]
   }
 }

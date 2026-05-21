@@ -497,11 +497,42 @@
 
 /* Conversation Tab */
 .email-campaign-builder .conversation-container {
-  height: 90%;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* Prevent layout breaking */
-      border-radius: 0 5px 5px;
+  overflow: hidden;
+  border-radius: 0 5px 5px;
+}
+
+/* Wizard phase containers */
+.email-campaign-builder .conversation-container > div[style*="flex: 1"] {
+  min-height: 0;
+}
+
+/* Method cards hover (Phase 1) */
+.email-campaign-builder .wizard-method-card:hover {
+  border-color: #86efac !important;
+  background: #f9fffe !important;
+  box-shadow: 0 2px 8px rgba(63, 159, 66, 0.12);
+}
+
+/* Refinement chip hover */
+.email-campaign-builder .wizard-chip:hover {
+  border-color: #3f9f42 !important;
+  background: #f0fdf4 !important;
+  color: #3f9f42 !important;
+}
+
+/* Step indicator */
+.email-campaign-builder .wizard-step-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 20px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #fff;
+  gap: 0;
+  flex-shrink: 0;
 }
 
 .email-campaign-builder .messages-area {
