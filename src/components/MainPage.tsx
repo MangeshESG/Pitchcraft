@@ -4296,7 +4296,7 @@ try {
                                     }}
                                     className="submenu-button"
                                   >
-                                    My Messages
+                                    Associated
                                   </button>
                                 </li>
                                 <li className={tab === "Mail" && mailSubTab === "Inbox" && inboxSubTab === "Unassigned" ? "active" : ""}>
@@ -4310,7 +4310,7 @@ try {
                                     }}
                                     className="submenu-button"
                                   >
-                                    Unassigned
+                                    External
                                   </button>
                                 </li>
                                 <li className={tab === "Mail" && mailSubTab === "Inbox" && inboxSubTab === "Sent" ? "active" : ""}>
@@ -4338,7 +4338,7 @@ try {
                                     }}
                                     className="submenu-button"
                                   >
-                                    All Messages
+                                    All messages
                                   </button>
                                 </li>
                               </ul>

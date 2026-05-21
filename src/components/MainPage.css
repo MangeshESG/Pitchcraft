@@ -2312,6 +2312,20 @@ textarea {
   font-weight: 400;
 }
 
+/* Additional indentation for nested submenu items (like inbox submenu) */
+.submenu .submenu {
+  border-left: 2px solid #e0e0e0;
+  margin-left: 20px;
+}
+
+.submenu .submenu .submenu-button {
+  padding-left: 70px;
+}
+
+.submenu .submenu li.active .submenu-button {
+  padding-left: 67px;
+}
+
 /* Hover state for submenu buttons */
 .submenu-button:hover {
   background-color: #f5f5f5 !important;
