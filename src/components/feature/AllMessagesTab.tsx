@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import API_BASE_URL from '../../config';
 import LoadingSpinner from '../common/LoadingSpinner';
+import DeleteConfirmationModal from '../common/DeleteConfirmationModal';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrashAlt } from '@fortawesome/free-regular-svg-icons';
 
@@ -61,6 +62,9 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
   const pageSize = 10;
   const [selectedThreadIds, setSelectedThreadIds] = useState<string[]>([]);
   const [hoveredThreadId, setHoveredThreadId] = useState<string | null>(null);
+  const [showDeleteDropdown, setShowDeleteDropdown] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [pendingDeleteMode, setPendingDeleteMode] = useState<'soft' | 'Permanent'>('soft');
 
   useEffect(() => {
     const fetchAllMessages = async () => {
@@ -146,14 +150,6 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
   const handleBulkDelete = async (deleteMode: 'soft' | 'Permanent') => {
     if (selectedThreadIds.length === 0) return;
     
-    const confirmMessage = deleteMode === 'Permanent' 
-      ? `Are you sure you want to permanently delete ${selectedThreadIds.length} email(s)? This action cannot be undone.`
-      : `Are you sure you want to delete ${selectedThreadIds.length} email(s) from inbox?`;
-    
-    if (!window.confirm(confirmMessage)) {
-      return;
-    }
-    
     setLoading(true);
     try {
       const response = await axios.post(
@@ -175,6 +171,7 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
       if (response.data.success) {
         setThreads(threads.filter(t => !selectedThreadIds.includes(t.trackingId)));
         setSelectedThreadIds([]);
+        setShowDeleteDropdown(false);
       }
     } catch (err: any) {
       console.error('Error deleting emails:', err);
@@ -262,35 +259,99 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {selectedThreadIds.length > 0 && (
-            <button
-              onClick={() => handleBulkDelete('soft')}
-              style={{
-                padding: '8px',
-                background: 'transparent',
-                color: '#3f9f42',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '40px',
-                height: '40px',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = '#f3f4f6';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent';
-              }}
-              title={`Delete ${selectedThreadIds.length} email(s)`}
-            >
-              <FontAwesomeIcon
-                icon={faTrashAlt}
-                style={{ fontSize: 20, color: '#3f9f42' }}
-              />
-            </button>
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setShowDeleteDropdown(!showDeleteDropdown)}
+                style={{
+                  padding: '8px',
+                  background: 'transparent',
+                  color: '#3f9f42',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '40px',
+                  height: '40px',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#f3f4f6';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                }}
+                title={`Delete ${selectedThreadIds.length} email(s)`}
+              >
+                <FontAwesomeIcon
+                  icon={faTrashAlt}
+                  style={{ fontSize: 20, color: '#3f9f42' }}
+                />
+              </button>
+
+              {showDeleteDropdown && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  marginTop: '4px',
+                  background: '#fff',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '6px',
+                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                  zIndex: 100,
+                  minWidth: '180px'
+                }}>
+                  <button
+                    onClick={() => {
+                      setPendingDeleteMode('soft');
+                      setShowDeleteModal(true);
+                      setShowDeleteDropdown(false);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 16px',
+                      background: 'transparent',
+                      border: 'none',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      color: '#374151',
+                      borderBottom: '1px solid #e5e7eb',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  >
+                    Delete from Inbox
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPendingDeleteMode('Permanent');
+                      setShowDeleteModal(true);
+                      setShowDeleteDropdown(false);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 16px',
+                      background: 'transparent',
+                      border: 'none',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      color: '#ef4444',
+                      fontWeight: '500',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  >
+                    Delete permanently
+                  </button>
+                </div>
+              )}
+            </div>
           )}
           <span style={{ fontSize: '14px', color: '#6b7280' }}>
             Page {currentPage} of {totalPages} ({totalCount} total)
@@ -421,6 +482,17 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
           </div>
         ))
       )}
+
+      <DeleteConfirmationModal
+        isOpen={showDeleteModal}
+        deleteMode={pendingDeleteMode}
+        count={selectedThreadIds.length}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={() => {
+          setShowDeleteModal(false);
+          handleBulkDelete(pendingDeleteMode);
+        }}
+      />
     </>
   );
 };

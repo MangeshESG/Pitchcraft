@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import API_BASE_URL from '../../config';
 import LoadingSpinner from '../common/LoadingSpinner';
+import DeleteConfirmationModal from '../common/DeleteConfirmationModal';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrashAlt } from '@fortawesome/free-regular-svg-icons';
 
@@ -62,6 +63,8 @@ const SentTab: React.FC<SentTabProps> = ({
   const [selectedThreadIds, setSelectedThreadIds] = useState<string[]>([]);
   const [hoveredThreadId, setHoveredThreadId] = useState<string | null>(null);
   const [showDeleteDropdown, setShowDeleteDropdown] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [pendingDeleteMode, setPendingDeleteMode] = useState<'soft' | 'Permanent'>('soft');
 
   useEffect(() => {
     const fetchSentEmails = async () => {
@@ -122,14 +125,6 @@ const SentTab: React.FC<SentTabProps> = ({
   const handleBulkDelete = async (deleteMode: 'soft' | 'Permanent') => {
     if (selectedThreadIds.length === 0) return;
     
-    const confirmMessage = deleteMode === 'Permanent' 
-      ? `Are you sure you want to permanently delete ${selectedThreadIds.length} email(s)? This action cannot be undone.`
-      : `Are you sure you want to delete ${selectedThreadIds.length} email(s) from inbox?`;
-    
-    if (!window.confirm(confirmMessage)) {
-      return;
-    }
-    
     setLoading(true);
     try {
       const response = await axios.post(
@@ -151,6 +146,7 @@ const SentTab: React.FC<SentTabProps> = ({
       if (response.data.success) {
         setThreads(threads.filter(t => !selectedThreadIds.includes(t.trackingId)));
         setSelectedThreadIds([]);
+        setShowDeleteDropdown(false);
       }
     } catch (err: any) {
       console.error('Error deleting emails:', err);
@@ -284,7 +280,8 @@ const SentTab: React.FC<SentTabProps> = ({
                 }}>
                   <button
                     onClick={() => {
-                      handleBulkDelete('soft');
+                      setPendingDeleteMode('soft');
+                      setShowDeleteModal(true);
                       setShowDeleteDropdown(false);
                     }}
                     style={{
@@ -306,7 +303,8 @@ const SentTab: React.FC<SentTabProps> = ({
                   </button>
                   <button
                     onClick={() => {
-                      handleBulkDelete('Permanent');
+                      setPendingDeleteMode('Permanent');
+                      setShowDeleteModal(true);
                       setShowDeleteDropdown(false);
                     }}
                     style={{
@@ -470,6 +468,17 @@ const SentTab: React.FC<SentTabProps> = ({
           );
         })}
       </div>
+
+      <DeleteConfirmationModal
+        isOpen={showDeleteModal}
+        deleteMode={pendingDeleteMode}
+        count={selectedThreadIds.length}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={() => {
+          setShowDeleteModal(false);
+          handleBulkDelete(pendingDeleteMode);
+        }}
+      />
     </div>
   );
 };
