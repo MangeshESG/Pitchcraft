@@ -133,6 +133,7 @@ interface EmailCampaignBuilderProps {
 
 interface ConversationTabProps {
   // --- Core fields ---
+  isTemplateLoading?: boolean;
   conversationStarted: boolean;
   messages: Message[];
   isTyping: boolean;
@@ -401,6 +402,7 @@ const INITIAL_BLUEPRINT_WELCOME_MESSAGE = `
 `.trim();
 
 export const ConversationTab: React.FC<ConversationTabProps> = ({
+  isTemplateLoading = false,
   conversationStarted,
   messages,
 
@@ -454,6 +456,7 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
   const [referenceEmailDraft, setReferenceEmailDraft] = useState("");
   const [referenceEmailSubmitted, setReferenceEmailSubmitted] = useState(false);
   const [blueprintApproved, setBlueprintApproved] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
 
   // Track the message index when Phase 4 starts, so we only show refinement messages
   const phase4StartIndexRef = useRef<number | null>(null);
@@ -634,10 +637,105 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
     .slice(0, 8);
 
   return (
-    <div className="conversation-container shadow-[3px_3px_10px_rgba(0,0,0,0.2)]" style={{ display: "flex", flexDirection: "column" }}>
+    <div className="conversation-container" style={{ display: "flex", flexDirection: "row" }}>
 
-      {/* ===== STEP INDICATOR (non-edit mode only) ===== */}
-      {!isEditMode && <StepIndicator />}
+      {/* ---- SIDEBAR: wizard mode only ---- */}
+      {!isEditMode && (
+        <div style={{ width: 240, flexShrink: 0, borderRight: "1px solid #e5e7eb", padding: "28px 20px", background: "#fff" }}>
+          <p style={{ fontSize: 12, fontWeight: 600, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 20 }}>
+            Build your blueprint in 5 easy steps
+          </p>
+          {[
+            { num: 1, label: "Choose method", desc: "Select how you'd like to start." },
+            { num: 2, label: "Provide input", desc: "Share details about your offer and target." },
+            { num: 3, label: "Review blueprint", desc: "See AI's draft of your blueprint." },
+            { num: 4, label: "Example email", desc: "View a sample email for inspiration." },
+            { num: 5, label: "Edit & preview", desc: "Make changes and preview your final email." },
+          ].map((step) => {
+            const done = wizardPhase > step.num;
+            const active = wizardPhase === step.num;
+            return (
+              <div key={step.num} style={{ display: "flex", gap: 12, marginBottom: 20, alignItems: "flex-start" }}>
+                <div style={{ width: 28, height: 28, borderRadius: "50%", background: done ? "#3f9f42" : active ? "#3f9f42" : "#e5e7eb", color: done || active ? "#fff" : "#9ca3af", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, flexShrink: 0 }}>
+                  {done ? "✓" : step.num}
+                </div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: active ? 700 : 500, color: active ? "#111827" : done ? "#374151" : "#6b7280" }}>{step.label}</div>
+                  <div style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.4, marginTop: 2 }}>{step.desc}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ---- RIGHT PANEL: all phase + edit mode content ---- */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+
+      {/* ===== PHASE 1: CHOOSE METHOD ===== */}
+      {!isEditMode && wizardPhase === 1 && (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 32px", gap: 28, background: "#fafafa" }}>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>✨</div>
+            <h2 style={{ fontSize: 24, fontWeight: 700, color: "#111827", marginBottom: 10 }}>Let's build your blueprint</h2>
+            <p style={{ color: "#6b7280", fontSize: 14, maxWidth: 420, lineHeight: 1.6 }}>
+              Choose how you'd like to start. We'll derive the placeholders and let you fine-tune before sending.
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: 16, width: "100%", maxWidth: 560 }}>
+            {[
+              { id: "reference" as const, icon: "📧", title: "Use a reference email", desc: "Paste an email you've already sent or like the style of. We'll derive your blueprint from it." },
+              { id: "description" as const, icon: "✏️", title: "Start from a description", desc: "No reference yet? Describe your company and what your outbound should do." },
+            ].map((opt) => {
+              const selected = localSelectedMethod === opt.id;
+              return (
+                <div key={opt.id} onClick={() => setLocalSelectedMethod(opt.id)}
+                  style={{ flex: 1, padding: 20, border: `2px solid ${selected ? "#3f9f42" : "#e5e7eb"}`, borderRadius: 14, cursor: "pointer", background: "#fff", position: "relative", transition: "all 0.2s" }}>
+                  <div style={{ position: "absolute", top: 14, right: 14, width: 18, height: 18, borderRadius: "50%", border: `2px solid ${selected ? "#3f9f42" : "#d1d5db"}`, background: selected ? "#3f9f42" : "#fff", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {selected && <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#fff" }} />}
+                  </div>
+                  <div style={{ width: 44, height: 44, background: "#f3f4f6", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14, fontSize: 22 }}>
+                    {opt.icon}
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: "#111827", marginBottom: 6 }}>{opt.title}</div>
+                  <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.5 }}>{opt.desc}</div>
+                </div>
+              );
+            })}
+          </div>
+          {(() => {
+            const busy = isTemplateLoading || isStarting;
+            return (
+              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                <button onClick={resetAll} disabled={busy} style={{ padding: "10px 24px", border: "1px solid #e5e7eb", borderRadius: 8, background: "#fff", color: "#374151", fontSize: 14, cursor: busy ? "not-allowed" : "pointer", fontWeight: 500, opacity: busy ? 0.5 : 1 }}>
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    if (!localSelectedMethod || busy) return;
+                    setIsStarting(true);
+                    const msg = localSelectedMethod === "reference"
+                      ? "I'll start from a reference email."
+                      : "I'll start from a description.";
+                    onStartConversation?.(localSelectedMethod, msg);
+                  }}
+                  disabled={!localSelectedMethod || busy}
+                  style={{ padding: "10px 28px", borderRadius: 8, background: localSelectedMethod && !busy ? "#3f9f42" : "#e5e7eb", color: localSelectedMethod && !busy ? "#fff" : "#9ca3af", fontSize: 14, fontWeight: 600, cursor: localSelectedMethod && !busy ? "pointer" : "not-allowed", display: "flex", alignItems: "center", gap: 8, minWidth: 140, justifyContent: "center" }}>
+                  {busy ? (
+                    <>
+                      <Loader2 size={16} style={{ animation: "campaign-builder-spin 1s linear infinite" }} />
+                      Setting up…
+                    </>
+                  ) : "Continue →"}
+                </button>
+              </div>
+            );
+          })()}
+          <p style={{ fontSize: 12, color: "#9ca3af", textAlign: "center", display: "flex", alignItems: "center", gap: 5 }}>
+            🛡️ Don't worry — you can switch methods anytime before approving the blueprint.
+          </p>
+        </div>
+      )}
 
       {/* ===== EDIT MODE: placeholder dropdown ===== */}
       {isEditMode && (
@@ -674,67 +772,6 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
         </div>
       )}
 
-      {/* ===== PHASE 1: CHOOSE METHOD ===== */}
-      {!isEditMode && wizardPhase === 1 && (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "32px 24px", gap: 28, background: "#fafafa" }}>
-          {/* Icon + heading */}
-          <div style={{ textAlign: "center" }}>
-            <div style={{ width: 56, height: 56, background: "#f0fdf4", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px", fontSize: 26 }}>
-              ⚙️
-            </div>
-            <h2 style={{ fontSize: 22, fontWeight: 700, color: "#111827", marginBottom: 8 }}>Let's build your blueprint</h2>
-            <p style={{ color: "#6b7280", fontSize: 14, maxWidth: 400, lineHeight: 1.5 }}>
-              Choose how you'd like to start. We'll derive the placeholders and let you fine-tune before sending.
-            </p>
-          </div>
-
-          {/* Method cards */}
-          <div style={{ display: "flex", gap: 16, width: "100%", maxWidth: 520 }}>
-            {[
-              { id: "reference" as const, icon: "✉️", title: "Use a reference email", desc: "Paste an email you've already sent or like the style of. We'll derive your blueprint from it." },
-              { id: "description" as const, icon: "✏️", title: "Start from a description", desc: "No reference yet? Describe your company and what your outbound should do." },
-            ].map((opt) => {
-              const selected = localSelectedMethod === opt.id;
-              return (
-                <div key={opt.id} onClick={() => setLocalSelectedMethod(opt.id)}
-                  style={{ flex: 1, padding: 20, border: `2px solid ${selected ? "#3f9f42" : "#e5e7eb"}`, borderRadius: 12, cursor: "pointer", background: selected ? "#f0fdf4" : "#fff", position: "relative", transition: "all 0.2s" }}>
-                  {selected && (
-                    <div style={{ position: "absolute", top: 10, right: 10, width: 20, height: 20, background: "#3f9f42", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11, fontWeight: 700 }}>✓</div>
-                  )}
-                  <div style={{ width: 40, height: 40, background: selected ? "#3f9f42" : "#f3f4f6", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12, fontSize: 20, transition: "background 0.2s" }}>
-                    {opt.icon}
-                  </div>
-                  <div style={{ fontWeight: 700, fontSize: 15, color: "#111827", marginBottom: 6 }}>{opt.title}</div>
-                  <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.5 }}>{opt.desc}</div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Actions */}
-          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-            <button onClick={resetAll} style={{ padding: "9px 20px", border: "1px solid #e5e7eb", borderRadius: 8, background: "#fff", color: "#374151", fontSize: 14, cursor: "pointer" }}>
-              Cancel
-            </button>
-            <button
-              onClick={() => {
-                if (!localSelectedMethod) return;
-                const msg = localSelectedMethod === "reference"
-                  ? "I'll start from a reference email."
-                  : "I'll start from a description.";
-                onStartConversation?.(localSelectedMethod, msg);
-              }}
-              disabled={!localSelectedMethod}
-              style={{ padding: "9px 24px", borderRadius: 8, background: localSelectedMethod ? "#3f9f42" : "#e5e7eb", color: localSelectedMethod ? "#fff" : "#9ca3af", fontSize: 14, fontWeight: 600, cursor: localSelectedMethod ? "pointer" : "not-allowed", display: "flex", alignItems: "center", gap: 8 }}>
-              Continue →
-            </button>
-          </div>
-          <p style={{ fontSize: 12, color: "#9ca3af", textAlign: "center" }}>
-            ⓘ Don't worry — you can switch methods anytime before approving the blueprint.
-          </p>
-        </div>
-      )}
-
       {/* ===== PHASE 2: PROVIDE INPUT (CHAT) ===== */}
       {(isEditMode || wizardPhase === 2) && (
         <div style={{ display: "flex", flexDirection: "column" }}>
@@ -756,9 +793,16 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
                   </div>
                 ))}
                 {isTyping && (
-                  <div className="typing-indicator flex items-center gap-[5px]">
-                    <Loader2 className="typing-spinner" />
-                    <span>Blueprint builder is thinking…</span>
+                  <div className="typing-indicator">
+                    <div className="typing-dots-row">
+                      <div className="typing-avatar">🤖</div>
+                      <div className="typing-dots-bubble">
+                        <div className="typing-dot" />
+                        <div className="typing-dot" />
+                        <div className="typing-dot" />
+                      </div>
+                    </div>
+                    <span className="typing-label">Blueprint builder is thinking…</span>
                   </div>
                 )}
               </div>
@@ -889,19 +933,36 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
               </div>
             </div>
 
-            {/* Refinement chips */}
-            <div style={{ marginBottom: 12 }}>
-              <p style={{ fontSize: 11, color: "#9ca3af", textAlign: "center", marginBottom: 10, letterSpacing: "0.05em", fontWeight: 600 }}>NEED TO REFINE?</p>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
-                {["Less formal", "Fix the offer", "Tighten the hook", "Add stronger CTA"].map((chip) => (
-                  <button key={chip}
-                    onClick={() => handleSendMessage(chip)}
-                    style={{ padding: "6px 14px", border: "1px solid #d1d5db", borderRadius: 20, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151", display: "flex", alignItems: "center", gap: 5 }}>
-                    <span style={{ color: "#3f9f42" }}>⚡</span> {chip}
-                  </button>
-                ))}
+            {/* Typing indicator for Phase 3 */}
+            {isTyping && (
+              <div className="typing-indicator" style={{ padding: "0 16px 8px" }}>
+                <div className="typing-dots-row">
+                  <div className="typing-avatar">🤖</div>
+                  <div className="typing-dots-bubble">
+                    <div className="typing-dot" />
+                    <div className="typing-dot" />
+                    <div className="typing-dot" />
+                  </div>
+                </div>
+                <span className="typing-label">Updating blueprint…</span>
               </div>
-            </div>
+            )}
+
+            {/* Refinement chips */}
+            {!isTyping && (
+              <div style={{ marginBottom: 12 }}>
+                <p style={{ fontSize: 11, color: "#9ca3af", textAlign: "center", marginBottom: 10, letterSpacing: "0.05em", fontWeight: 600 }}>NEED TO REFINE?</p>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+                  {["Less formal", "Fix the offer", "Tighten the hook", "Add stronger CTA"].map((chip) => (
+                    <button key={chip}
+                      onClick={() => handleSendMessage(chip)}
+                      style={{ padding: "6px 14px", border: "1px solid #d1d5db", borderRadius: 20, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151", display: "flex", alignItems: "center", gap: 5 }}>
+                      <span style={{ color: "#3f9f42" }}>⚡</span> {chip}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Refinement chat input */}
@@ -991,9 +1052,16 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
 
               {/* Typing indicator */}
               {isTyping && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, color: "#6b7280", fontSize: 13 }}>
-                  <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
-                  <span>Refining example email…</span>
+                <div className="typing-indicator" style={{ marginBottom: 12 }}>
+                  <div className="typing-dots-row">
+                    <div className="typing-avatar">🤖</div>
+                    <div className="typing-dots-bubble">
+                      <div className="typing-dot" />
+                      <div className="typing-dot" />
+                      <div className="typing-dot" />
+                    </div>
+                  </div>
+                  <span className="typing-label">Refining example email…</span>
                 </div>
               )}
 
@@ -1057,6 +1125,8 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
 
       {/* ===== MODAL ===== */}
       <PopupModal open={popupmodalInfo.open} title={popupmodalInfo.title} message={popupmodalInfo.message} onClose={closeModal} />
+
+      </div>{/* end right panel */}
     </div>
   );
 };
@@ -4094,6 +4164,7 @@ const parsePlaceholdersSafe = (block: string) => {
               setActiveBuildTab={setActiveBuildTab}
               onApprove={() => { setWizardCompleted(true); setActiveBuildTab("elements"); }}
               onStartConversation={(method, msg) => startConversation(msg)}
+              isTemplateLoading={isPreparingAutoStart}
               ConversationTabComponent={ConversationTab}
               ExampleOutputPanelComponent={ExampleOutputPanel}
               userRole={userRole}

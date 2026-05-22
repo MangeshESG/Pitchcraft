@@ -17,6 +17,7 @@ export interface BlueprintBuilderPanelProps {
   onShowInstructions?: () => void;
   onShowVT?: () => void;
 
+  isTemplateLoading?: boolean;
   conversationStarted: boolean;
   messages: any[];
   isTyping: boolean;
@@ -74,6 +75,7 @@ export interface BlueprintBuilderPanelProps {
 const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
   activeBuildTab,
   setActiveBuildTab: _setActiveBuildTab,
+  isTemplateLoading = false,
   conversationStarted,
   messages,
   isTyping,
@@ -132,7 +134,7 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
   const [chatPreviewOpen, setChatPreviewOpen] = useState(false);
 
   // Elements phase: preview panel open/collapse
-  const [previewPanelOpen, setPreviewPanelOpen] = useState(true);
+  const [previewPanelOpen, setPreviewPanelOpen] = useState(false);
 
   // Elements phase: resizable split
   const [splitPct, setSplitPct] = useState(52); // left panel % width
@@ -231,12 +233,6 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
               {/* Action buttons */}
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 <button
-                  onClick={resetAll}
-                  style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151" }}
-                >
-                  🔄 Rebuild
-                </button>
-                <button
                   onClick={() => setChatPreviewOpen((v) => !v)}
                   style={{
                     display: "flex", alignItems: "center", gap: 5, padding: "7px 14px",
@@ -249,12 +245,6 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
                   }}
                 >
                   <span style={{ fontSize: 14 }}>👁️</span> Preview email
-                </button>
-                <button
-                  onClick={() => onApprove?.()}
-                  style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151" }}
-                >
-                  ⚙️ Tune all
                 </button>
                 {isAdmin && onShowInstructions && (
                   <button
@@ -305,24 +295,23 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
           {/* ---- CONTENT AREA (chat + optional preview) ---- */}
           <div style={{ display: "flex", gap: 12 }}>
 
-            {/* Chat — centered when preview closed, fills space when open */}
+            {/* Chat — fills full panel width */}
             <div
               style={{
                 flex: 1,
                 display: "flex",
                 flexDirection: "column",
-                alignItems: "center",
               }}
             >
               <div
                 style={{
                   width: "100%",
-                  maxWidth: chatPreviewOpen ? "100%" : 820,
                   display: "flex",
                   flexDirection: "column",
                 }}
               >
                 <ConversationTabComponent
+                  isTemplateLoading={isTemplateLoading}
                   conversationStarted={conversationStarted}
                   messages={messages}
                   isTyping={isTyping}
@@ -406,7 +395,7 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
                       disabled={isPreviewLoading || !selectedContactId}
                       style={{ padding: "5px 12px", borderRadius: 6, border: "1px solid #d1d5db", background: "#fff", fontSize: 13, cursor: selectedContactId ? "pointer" : "not-allowed", color: "#374151", display: "flex", alignItems: "center", gap: 5 }}
                     >
-                      🔄 Refresh
+                      ⚡ Generate
                     </button>
                     <button
                       onClick={() => setChatPreviewOpen(false)}
@@ -495,7 +484,7 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
 
   return (
     <>
-      <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 200px)", marginTop: 10 }}>
+      <div style={{ display: "flex", flexDirection: "column", marginTop: 10 }}>
 
         {/* ---- ACTION HEADER (matches chat phase) ---- */}
         <div style={{ flexShrink: 0 }}>
@@ -505,12 +494,6 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
               <span style={{ fontSize: 15, fontWeight: 700, color: "#111827" }}>Blueprint builder</span>
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <button
-                onClick={resetAll}
-                style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151" }}
-              >
-                🔄 Rebuild
-              </button>
               <button
                 onClick={() => setPreviewPanelOpen((v) => !v)}
                 style={{
@@ -524,12 +507,6 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
                 }}
               >
                 <span style={{ fontSize: 14 }}>👁️</span> Preview email
-              </button>
-              <button
-                onClick={() => onApprove?.()}
-                style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151" }}
-              >
-                ⚙️ Tune all
               </button>
               {isAdmin && onShowInstructions && (
                 <button
@@ -596,10 +573,10 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
         {/* ---- CONTENT: elements (+ preview panel when open) ---- */}
         <div
           ref={containerRef}
-          style={{ flex: 1, display: "flex", overflow: "hidden", borderRadius: 10, border: "1px solid #e5e7eb", position: "relative" }}
+          style={{ display: "flex", borderRadius: 10, border: "1px solid #e5e7eb", position: "relative" }}
         >
           {/* LEFT: Elements accordion — full width or split */}
-          <div style={{ width: previewPanelOpen ? `${splitPct}%` : "100%", flexShrink: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <div style={{ width: previewPanelOpen ? `${splitPct}%` : "100%", flexShrink: 0, display: "flex", flexDirection: "column" }}>
             <ElementsTab
               groupedPlaceholders={groupedPlaceholders}
               formValues={formValues}
@@ -639,7 +616,7 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
 
           {/* RIGHT: Preview panel (only when open) */}
           {previewPanelOpen && (
-            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden", borderLeft: "1px solid #e5e7eb" }}>
+            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", borderLeft: "1px solid #e5e7eb" }}>
               <ExampleOutputPanelComponent
                 dataFiles={dataFiles}
                 contacts={contacts}

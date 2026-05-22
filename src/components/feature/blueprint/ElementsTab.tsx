@@ -76,7 +76,6 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
     <div
       style={{
         padding: "24px 20px 20px",
-        height: "calc(100% - 0px)",
         display: "flex",
         flexDirection: "column",
         background: "#fafafa",
@@ -110,8 +109,8 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
         </button>
       </div>
 
-      {/* SCROLLABLE CATEGORY ACCORDIONS */}
-      <div style={{ flex: 1, overflowY: "auto", paddingRight: 4 }}>
+      {/* CATEGORY ACCORDIONS */}
+      <div style={{ paddingRight: 4 }}>
         {Object.entries(groupedPlaceholders).map(([category, placeholders]) => {
           const filledCount = countFilledFields(placeholders);
           const empty = isCategoryEmpty(placeholders);
@@ -175,8 +174,6 @@ const ElementsTab: React.FC<ElementsTabProps> = ({
                   gap: 16,
                   padding: "16px 16px 20px",
                   borderTop: "1px solid #f3f4f6",
-                  maxHeight: "60vh",
-                  overflowY: "auto",
                 }}
               >
                 {placeholders.map((p) => (

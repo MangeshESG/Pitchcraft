@@ -521,9 +521,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 14px 20px;
-  border-bottom: 1px solid #e5e7eb;
-  background: #fff;
+  padding: 14px 20px 10px;
+  background: transparent;
   gap: 0;
   flex-shrink: 0;
 }
@@ -639,18 +638,15 @@
 }
 
 .email-campaign-builder .message-bubble.user {
-  background: linear-gradient(135deg, #3f9f42 0%, #3f9f42 100%);
+  background: #3f9f42;
   color: white;
   border-radius: 1.25rem 1.25rem 0.25rem 1.25rem;
-  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.3), 0 2px 4px -1px rgba(37, 99, 235, 0.2);
 }
 
 .email-campaign-builder .message-bubble.bot {
-  background-color: white;
+  background-color: #f3f4f6;
   color: #1e293b;
   border-radius: 1.25rem 1.25rem 1.25rem 0.25rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  border: 1px solid #e2e8f0;
 }
 
 /* Message Content */
@@ -690,9 +686,61 @@
 /* Typing Indicator */
 .email-campaign-builder .typing-indicator {
   display: flex;
-  justify-content: flex-start;
-  margin-bottom: 1rem;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-bottom: 1.25rem;
+  gap: 6px;
   animation: messageSlideIn 0.3s ease-out;
+}
+
+.email-campaign-builder .typing-dots-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.email-campaign-builder .typing-avatar {
+  width: 32px;
+  height: 32px;
+  background: #f0fdf4;
+  border: 1.5px solid #86efac;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.email-campaign-builder .typing-dots-bubble {
+  background: #f3f4f6;
+  border-radius: 1.25rem 1.25rem 1.25rem 0.25rem;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.email-campaign-builder .typing-dot {
+  width: 8px;
+  height: 8px;
+  background: #9ca3af;
+  border-radius: 50%;
+  animation: typingBounce 1.2s ease-in-out infinite;
+}
+.email-campaign-builder .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.email-campaign-builder .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typingBounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+  30% { transform: translateY(-7px); opacity: 1; }
+}
+
+.email-campaign-builder .typing-label {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-left: 42px;
+  font-style: italic;
 }
 
 .email-campaign-builder .typing-bubble {
