@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import API_BASE_URL from '../../config';
 import LoadingSpinner from '../common/LoadingSpinner';
@@ -39,6 +39,7 @@ interface AllMessagesTabProps {
   onThreadSelect: (thread: InboxThread) => void;
   onInitializeCollapsedEmails: (collapsed: { [key: string]: boolean }) => void;
   onReplyReset: () => void;
+  onUnreadCountsRefresh?: () => Promise<void> | void;
   refreshTrigger: number;
   onShowReplySection?: (show: boolean) => void;
 }
@@ -52,6 +53,7 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
   onThreadSelect,
   onInitializeCollapsedEmails,
   onReplyReset,
+  onUnreadCountsRefresh,
   refreshTrigger
 }) => {
   const [threads, setThreads] = useState<InboxThread[]>([]);
@@ -66,39 +68,62 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [pendingDeleteMode, setPendingDeleteMode] = useState<'soft' | 'Permanent'>('soft');
 
-  useEffect(() => {
-    const fetchAllMessages = async () => {
-      if (!selectedInboxId || !selectedProvider) return;
+  const fetchAllMessages = useCallback(async (showLoader = true) => {
+    if (!selectedInboxId || !selectedProvider) return;
 
+    if (showLoader) {
       setLoading(true);
-      try {
-        const response = await axios.get(
-          `${API_BASE_URL}/api/Inbox/get_combined_inbox_threads?clientId=${effectiveUserId}&inboxId=${selectedInboxId}&provider=${selectedProvider}&pageNumber=${currentPage}&pageSize=${pageSize}`,
-          {
-            headers: {
-              accept: '*/*',
-              ...(token && { Authorization: `Bearer ${token}` }),
-            },
-          }
-        );
-
-        if (response.data.success && response.data.data) {
-          setThreads(Array.isArray(response.data.data.data) ? response.data.data.data : []);
-          setTotalCount(response.data.data.totalCount || 0);
-          setTotalPages(response.data.data.totalPages || 0);
-        } else {
-          setThreads([]);
+    }
+    try {
+      const fetchPage = (pageNumber: number) => axios.get(
+        `${API_BASE_URL}/api/Inbox/get_combined_inbox_threads?clientId=${effectiveUserId}&inboxId=${selectedInboxId}&provider=${selectedProvider}&pageNumber=${pageNumber}&pageSize=${pageSize}&_=${Date.now()}`,
+        {
+          headers: {
+            accept: '*/*',
+            'Cache-Control': 'no-cache',
+            Pragma: 'no-cache',
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
         }
-      } catch (err: any) {
-        console.error('Error fetching all messages:', err);
+      );
+
+      const response = await fetchPage(currentPage);
+
+      if (response.data.success && response.data.data) {
+        let pageThreads = Array.isArray(response.data.data.data) ? response.data.data.data : [];
+        const nextTotalCount = response.data.data.totalCount || 0;
+        const nextTotalPages = response.data.data.totalPages || 0;
+        let nextPage = currentPage + 1;
+
+        while (pageThreads.length < pageSize && nextPage <= nextTotalPages && pageThreads.length < nextTotalCount) {
+          const nextResponse = await fetchPage(nextPage);
+          const nextThreads = nextResponse.data.success && nextResponse.data.data && Array.isArray(nextResponse.data.data.data)
+            ? nextResponse.data.data.data
+            : [];
+          if (nextThreads.length === 0) break;
+          pageThreads = [...pageThreads, ...nextThreads].slice(0, pageSize);
+          nextPage += 1;
+        }
+
+        setThreads(pageThreads);
+        setTotalCount(nextTotalCount);
+        setTotalPages(nextTotalPages);
+      } else {
         setThreads([]);
-      } finally {
+      }
+    } catch (err: any) {
+      console.error('Error fetching all messages:', err);
+      setThreads([]);
+    } finally {
+      if (showLoader) {
         setLoading(false);
       }
-    };
+    }
+  }, [selectedInboxId, selectedProvider, effectiveUserId, token, currentPage, pageSize]);
 
+  useEffect(() => {
     fetchAllMessages();
-  }, [selectedInboxId, selectedProvider, effectiveUserId, token, currentPage, refreshTrigger]);
+  }, [fetchAllMessages, refreshTrigger]);
 
   const handleThreadClick = async (thread: InboxThread) => {
     onThreadSelect(thread);
@@ -133,6 +158,7 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
               : t
           )
         );
+        await onUnreadCountsRefresh?.();
       } catch (err) {
         console.error('Error marking thread as read:', err);
       }
@@ -169,9 +195,9 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
       );
 
       if (response.data.success) {
-        setThreads(threads.filter(t => !selectedThreadIds.includes(t.trackingId)));
         setSelectedThreadIds([]);
         setShowDeleteDropdown(false);
+        await fetchAllMessages(false);
       }
     } catch (err: any) {
       console.error('Error deleting emails:', err);

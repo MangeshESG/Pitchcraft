@@ -108,6 +108,11 @@ interface MailProps {
   onTabChange?: (tab: string) => void;
   inboxSubTab?: string;
   onInboxSubTabChange?: (subTab: string) => void;
+  onSelectedInboxUnreadCountsChange?: (counts: {
+    associated: number;
+    external: number;
+    allMessages: number;
+  }) => void;
 }
 
 interface ColumnConfig {
@@ -245,6 +250,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   onTabChange,
   inboxSubTab = "Inbox",
   onInboxSubTabChange,
+  onSelectedInboxUnreadCountsChange,
 }) => {
   const dispatch = useDispatch();
 
@@ -2561,6 +2567,8 @@ const actionIconStyle = {
                     setToastMessage(message);
                     setShowSuccessToast(true);
                     setTimeout(() => setShowSuccessToast(false), 6000);
+                    fetchSmtp();
+                    fetchInboxCredentials();
                   }}
                   onError={(message) => {
                     setToastMessage(message);
@@ -3868,6 +3876,7 @@ const actionIconStyle = {
           isVisible={tab === "Inbox"}
           initialTab={inboxSubTab}
           onTabChange={onInboxSubTabChange}
+          onSelectedInboxUnreadCountsChange={onSelectedInboxUnreadCountsChange}
         />
       )}
 

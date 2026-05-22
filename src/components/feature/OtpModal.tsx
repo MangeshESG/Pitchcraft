@@ -66,10 +66,10 @@ const OtpModal: React.FC<OtpModalProps> = ({
           boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
         }}
       >
-        <h3 style={{ marginTop: 0, marginBottom: 24, fontSize: "20px", fontWeight: "600", color: "#333" }}>Verify Domain</h3>
+        <h3 style={{ marginTop: 0, marginBottom: 24, fontSize: "20px", fontWeight: "600", color: "#333" }}>Verify account</h3>
         
         <p style={{ marginBottom: 24, color: "#666", fontSize: "14px", lineHeight: 1.5 }}>
-          To verify <strong>{emailDomain?.split('@')[1] || 'domain'}</strong>, enter the verification code received by <strong>{emailDomain}</strong>
+          To verify account  enter the verification code received by <strong>{emailDomain}</strong>
         </p>
 
         <div style={{ marginBottom: 24 }}>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import API_BASE_URL from '../../config';
 import LoadingSpinner from '../common/LoadingSpinner';
@@ -66,38 +66,61 @@ const SentTab: React.FC<SentTabProps> = ({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [pendingDeleteMode, setPendingDeleteMode] = useState<'soft' | 'Permanent'>('soft');
 
-  useEffect(() => {
-    const fetchSentEmails = async () => {
-      if (!effectiveUserId || !selectedInboxId || !selectedProvider) return;
+  const fetchSentEmails = useCallback(async (showLoader = true) => {
+    if (!effectiveUserId || !selectedInboxId || !selectedProvider) return;
 
+    if (showLoader) {
       setLoading(true);
-      setError('');
-      try {
-        const response = await axios.get(
-          `${API_BASE_URL}/api/Inbox/get_sent_only?inboxId=${selectedInboxId}&Provider=${selectedProvider}&pageNumber=${currentPage}&pageSize=${pageSize}`,
-          {
-            headers: {
-              accept: '*/*',
-              ...(token && { Authorization: `Bearer ${token}` }),
-            },
-          }
-        );
-
-        if (response.data.success && response.data.data) {
-          setThreads(response.data.data.data || []);
-          setTotalCount(response.data.data.totalCount || 0);
-          setTotalPages(response.data.data.totalPages || 0);
+    }
+    setError('');
+    try {
+      const fetchPage = (pageNumber: number) => axios.get(
+        `${API_BASE_URL}/api/Inbox/get_sent_only?inboxId=${selectedInboxId}&Provider=${selectedProvider}&pageNumber=${pageNumber}&pageSize=${pageSize}&_=${Date.now()}`,
+        {
+          headers: {
+            accept: '*/*',
+            'Cache-Control': 'no-cache',
+            Pragma: 'no-cache',
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
         }
-      } catch (err) {
-        console.error('Error fetching sent emails:', err);
-        setError('Failed to load sent emails');
-      } finally {
+      );
+
+      const response = await fetchPage(currentPage);
+
+      if (response.data.success && response.data.data) {
+        let pageThreads = response.data.data.data || [];
+        const nextTotalCount = response.data.data.totalCount || 0;
+        const nextTotalPages = response.data.data.totalPages || 0;
+        let nextPage = currentPage + 1;
+
+        while (pageThreads.length < pageSize && nextPage <= nextTotalPages && pageThreads.length < nextTotalCount) {
+          const nextResponse = await fetchPage(nextPage);
+          const nextThreads = nextResponse.data.success && nextResponse.data.data
+            ? nextResponse.data.data.data || []
+            : [];
+          if (nextThreads.length === 0) break;
+          pageThreads = [...pageThreads, ...nextThreads].slice(0, pageSize);
+          nextPage += 1;
+        }
+
+        setThreads(pageThreads);
+        setTotalCount(nextTotalCount);
+        setTotalPages(nextTotalPages);
+      }
+    } catch (err) {
+      console.error('Error fetching sent emails:', err);
+      setError('Failed to load sent emails');
+    } finally {
+      if (showLoader) {
         setLoading(false);
       }
-    };
+    }
+  }, [effectiveUserId, token, selectedInboxId, selectedProvider, currentPage, pageSize]);
 
+  useEffect(() => {
     fetchSentEmails();
-  }, [effectiveUserId, token, selectedInboxId, selectedProvider, currentPage, refreshTrigger]);
+  }, [fetchSentEmails, refreshTrigger]);
 
   const handleThreadClick = async (thread: SentThread) => {
     if (onReplyReset) {
@@ -144,9 +167,9 @@ const SentTab: React.FC<SentTabProps> = ({
       );
 
       if (response.data.success) {
-        setThreads(threads.filter(t => !selectedThreadIds.includes(t.trackingId)));
         setSelectedThreadIds([]);
         setShowDeleteDropdown(false);
+        await fetchSentEmails(false);
       }
     } catch (err: any) {
       console.error('Error deleting emails:', err);
