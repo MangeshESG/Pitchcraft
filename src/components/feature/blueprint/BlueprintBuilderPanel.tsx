@@ -1,20 +1,22 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import RichTextEditor from "../../common/RTEEditor";
 import ElementsTab from "./ElementsTab";
 import type { PlaceholderDefinitionUI } from "./EmailCampaignBuilder";
 
-type BuildSubTab = "chat" | "elements";
-
 export interface BlueprintBuilderPanelProps {
-  // Controlled build sub-tab (owned by parent)
   activeBuildTab: "chat" | "elements";
   setActiveBuildTab: (v: "chat" | "elements") => void;
 
-  // Phase-wizard callbacks (new)
   onApprove?: () => void;
   onStartConversation?: (method: "reference" | "description", initialMessage: string) => void;
 
-  // Chat / conversation state
+  // Admin-only extras
+  userRole?: string;
+  usageInfo?: { promptTokens: number; completionTokens: number; cost: number } | null;
+  totalUsage?: { totalInput: number; totalOutput: number; totalCost: number };
+  onShowInstructions?: () => void;
+  onShowVT?: () => void;
+
   conversationStarted: boolean;
   messages: any[];
   isTyping: boolean;
@@ -29,7 +31,6 @@ export interface BlueprintBuilderPanelProps {
   onPlaceholderSelect: (key: string) => void;
   setIsTyping: (v: boolean) => void;
 
-  // Placeholder / element state
   placeholderValues: Record<string, string>;
   groupedPlaceholders: Record<string, PlaceholderDefinitionUI[]>;
   formValues: Record<string, string>;
@@ -37,7 +38,6 @@ export interface BlueprintBuilderPanelProps {
   renderPlaceholderInput: (p: PlaceholderDefinitionUI) => React.ReactNode;
   saveAllPlaceholders: () => Promise<void>;
 
-  // Example output / email preview
   exampleOutput: string;
   editableExampleOutput: string;
   setEditableExampleOutput: React.Dispatch<React.SetStateAction<string>>;
@@ -47,7 +47,6 @@ export interface BlueprintBuilderPanelProps {
   saveExampleEmail: () => Promise<void>;
   isPreviewAllowed: boolean;
 
-  // Data files / contacts
   dataFiles: any[];
   contacts: any[];
   selectedDataFileId: number | null;
@@ -56,29 +55,25 @@ export interface BlueprintBuilderPanelProps {
   setSelectedContactId: React.Dispatch<React.SetStateAction<number | null>>;
   applyContactPlaceholders: (contact: any) => Promise<void>;
 
-  // Stages data (for preview panel)
   searchResults: string[];
   allSourcedData: string;
   sourcedSummary: string;
 
-  // Edit mode context
   editTemplateId: number | null;
   initialExampleEmail: string;
   selectedElement: string | null;
 
-  // Image upload
   attachedImages: string[];
   setAttachedImages: React.Dispatch<React.SetStateAction<string[]>>;
   handleImageUpload: (file: File) => Promise<void>;
 
-  // Sub-components passed as props to avoid circular module imports
   ConversationTabComponent: React.ComponentType<any>;
   ExampleOutputPanelComponent: React.ComponentType<any>;
 }
 
 const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
   activeBuildTab,
-  setActiveBuildTab,
+  setActiveBuildTab: _setActiveBuildTab,
   conversationStarted,
   messages,
   isTyping,
@@ -126,22 +121,39 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
   ExampleOutputPanelComponent,
   onApprove,
   onStartConversation,
+  userRole,
+  usageInfo,
+  totalUsage,
+  onShowInstructions,
+  onShowVT,
 }) => {
-  const [isSectionOpen, setIsSectionOpen] = useState(true);
+  const isAdmin = userRole === "ADMIN";
+  // Chat phase: preview panel toggle
+  const [chatPreviewOpen, setChatPreviewOpen] = useState(false);
+
+  // Elements phase: preview panel open/collapse
+  const [previewPanelOpen, setPreviewPanelOpen] = useState(true);
+
+  // Elements phase: resizable split
+  const [splitPct, setSplitPct] = useState(52); // left panel % width
+  const isDragging = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Elements phase: preview sub-tabs
   const [previewTab, setPreviewTab] = useState<"output" | "pt" | "stages">("output");
   const [previewSubTab, setPreviewSubTab] = useState<"search" | "data" | "summary">("summary");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [expandedPlaceholder, setExpandedPlaceholder] = useState<{
-    key: string;
-    friendlyName: string;
-  } | null>(null);
-  const [expandedDraft, setExpandedDraft] = useState("");
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 1;
   const totalPages = Math.max(1, Math.ceil((contacts.length || 1) / rowsPerPage));
   const setPageSize = () => {};
 
-  // Reset pagination when a different contact file is selected
+  // Expanded placeholder modal (elements tab)
+  const [expandedPlaceholder, setExpandedPlaceholder] = useState<{ key: string; friendlyName: string } | null>(null);
+  const [expandedDraft, setExpandedDraft] = useState("");
+
+  // Reset pagination when data file changes
   useEffect(() => {
     if (!selectedDataFileId) return;
     setCurrentPage(1);
@@ -156,74 +168,438 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
     applyContactPlaceholders(contact);
   }, [currentPage, contacts]);
 
-  return (
-    <>
-      <div className="flex gap-4 h-[calc(100vh-200px)] mt-[10px]">
-        {/* ================= LEFT PANEL ================= */}
+  // Drag-to-resize handlers (elements phase)
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDragging.current = true;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }, []);
+
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isDragging.current || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const pct = ((e.clientX - rect.left) / rect.width) * 100;
+      setSplitPct(Math.min(75, Math.max(25, pct)));
+    };
+    const onMouseUp = () => {
+      if (!isDragging.current) return;
+      isDragging.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, []);
+
+  // ============================================================
+  // CHAT PHASE (Phases 1–3): centered layout with action header
+  // ============================================================
+  if (activeBuildTab === "chat") {
+    return (
+      <>
         <div
           style={{
-            flex: 1,
-            width: isSectionOpen ? "50%" : "100%",
-            transition: "all 0.25s ease",
+            display: "flex",
+            flexDirection: "column",
+            marginTop: 10,
           }}
         >
-          {/* Build sub-tab header */}
-          <div className="build-subtabs-row !pb-[0]">
-            <div className="build-subtabs !gap-[0]">
-              {(["chat", "elements"] as BuildSubTab[]).map((t) => (
+          {/* ---- ACTION HEADER ---- */}
+          <div style={{ flexShrink: 0 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "8px 0 12px",
+              }}
+            >
+              {/* Title */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 32, height: 32, background: "#f0fdf4", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⚙️</div>
+                <div>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: "#111827" }}>Blueprint builder</span>
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 <button
-                  key={t}
-                  className={activeBuildTab === t ? "active" : ""}
-                  onClick={() => setActiveBuildTab(t)}
+                  onClick={resetAll}
+                  style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151" }}
                 >
-                  {t === "chat" ? "Chat" : "Elements"}
+                  🔄 Rebuild
                 </button>
-              ))}
+                <button
+                  onClick={() => setChatPreviewOpen((v) => !v)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 5, padding: "7px 14px",
+                    border: chatPreviewOpen ? "2px solid #3f9f42" : "1px solid #d1d5db",
+                    borderRadius: 8,
+                    background: chatPreviewOpen ? "#f0fdf4" : "#fff",
+                    fontSize: 13, cursor: "pointer",
+                    color: chatPreviewOpen ? "#3f9f42" : "#374151",
+                    fontWeight: chatPreviewOpen ? 600 : 400,
+                  }}
+                >
+                  <span style={{ fontSize: 14 }}>👁️</span> Preview email
+                </button>
+                <button
+                  onClick={() => onApprove?.()}
+                  style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151" }}
+                >
+                  ⚙️ Tune all
+                </button>
+                {isAdmin && onShowInstructions && (
+                  <button
+                    onClick={onShowInstructions}
+                    style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151" }}
+                  >
+                    📋 Instructions set
+                  </button>
+                )}
+                {isAdmin && onShowVT && (
+                  <button
+                    onClick={onShowVT}
+                    style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151" }}
+                  >
+                    VT
+                  </button>
+                )}
+                <button
+                  onClick={saveAllPlaceholders}
+                  style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 16px", borderRadius: 8, background: "#3f9f42", border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+                >
+                  💾 Save
+                </button>
+              </div>
+            </div>
+
+            {/* Admin token stats row */}
+            {isAdmin && usageInfo && (
+              <div style={{ display: "flex", gap: 16, padding: "4px 0 8px", fontSize: 11, color: "#6b7280", flexWrap: "wrap" }}>
+                <span style={{ background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 5, padding: "3px 8px", display: "flex", gap: 8 }}>
+                  <strong style={{ color: "#374151" }}>Last:</strong>
+                  <span>In {usageInfo.promptTokens ?? 0}</span>
+                  <span>Out {usageInfo.completionTokens ?? 0}</span>
+                  <span>💲{(usageInfo.cost ?? 0).toFixed(6)}</span>
+                </span>
+                {totalUsage && totalUsage.totalCost > 0 && (
+                  <span style={{ background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 5, padding: "3px 8px", display: "flex", gap: 8 }}>
+                    <strong style={{ color: "#374151" }}>Total:</strong>
+                    <span>In {totalUsage.totalInput}</span>
+                    <span>Out {totalUsage.totalOutput}</span>
+                    <span>💲{totalUsage.totalCost.toFixed(6)}</span>
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* ---- CONTENT AREA (chat + optional preview) ---- */}
+          <div style={{ display: "flex", gap: 12 }}>
+
+            {/* Chat — centered when preview closed, fills space when open */}
+            <div
+              style={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+              }}
+            >
+              <div
+                style={{
+                  width: "100%",
+                  maxWidth: chatPreviewOpen ? "100%" : 820,
+                  display: "flex",
+                  flexDirection: "column",
+                }}
+              >
+                <ConversationTabComponent
+                  conversationStarted={conversationStarted}
+                  messages={messages}
+                  isTyping={isTyping}
+                  isComplete={isComplete}
+                  currentAnswer={currentAnswer}
+                  setCurrentAnswer={setCurrentAnswer}
+                  handleSendMessage={handleSendMessage}
+                  handleKeyPress={handleKeyPress}
+                  resetAll={resetAll}
+                  isEditMode={isEditMode}
+                  placeholderValues={placeholderValues}
+                  onPlaceholderSelect={onPlaceholderSelect}
+                  selectedPlaceholder={selectedPlaceholder}
+                  setIsTyping={setIsTyping}
+                  exampleOutput={exampleOutput}
+                  regenerateExampleOutput={regenerateExampleOutput}
+                  dataFiles={dataFiles}
+                  contacts={contacts}
+                  selectedDataFileId={selectedDataFileId}
+                  selectedContactId={selectedContactId}
+                  handleSelectDataFile={handleSelectDataFile}
+                  setSelectedContactId={setSelectedContactId}
+                  applyContactPlaceholders={applyContactPlaceholders}
+                  searchResults={searchResults}
+                  allSourcedData={allSourcedData}
+                  sourcedSummary={sourcedSummary}
+                  filledTemplate={filledTemplate}
+                  editTemplateId={editTemplateId}
+                  groupedPlaceholders={groupedPlaceholders}
+                  initialExampleEmail={initialExampleEmail}
+                  selectedElement={selectedElement}
+                  attachedImages={attachedImages}
+                  setAttachedImages={setAttachedImages}
+                  handleImageUpload={handleImageUpload}
+                  onApprove={onApprove}
+                  onStartConversation={onStartConversation}
+                  isPreviewLoading={isPreviewLoading}
+                />
+              </div>
+            </div>
+
+            {/* ---- PREVIEW PANEL (slide-in on the right) ---- */}
+            {chatPreviewOpen && (
+              <div
+                style={{
+                  width: "42%",
+                  flexShrink: 0,
+                  display: "flex",
+                  flexDirection: "column",
+                  borderRadius: 10,
+                  overflow: "hidden",
+                  border: "1px solid #e5e7eb",
+                  boxShadow: "2px 2px 12px rgba(0,0,0,0.08)",
+                }}
+              >
+                {/* Preview header */}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "10px 14px",
+                    background: "#fff",
+                    borderBottom: "1px solid #e5e7eb",
+                    flexShrink: 0,
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 16 }}>👁️</span>
+                    <span style={{ fontWeight: 700, fontSize: 15, color: "#111827" }}>Live preview</span>
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      onClick={async () => {
+                        const contact = contacts.find((c) => c.id === selectedContactId);
+                        if (contact) {
+                          await applyContactPlaceholders(contact);
+                          await regenerateExampleOutput();
+                        }
+                      }}
+                      disabled={isPreviewLoading || !selectedContactId}
+                      style={{ padding: "5px 12px", borderRadius: 6, border: "1px solid #d1d5db", background: "#fff", fontSize: 13, cursor: selectedContactId ? "pointer" : "not-allowed", color: "#374151", display: "flex", alignItems: "center", gap: 5 }}
+                    >
+                      🔄 Refresh
+                    </button>
+                    <button
+                      onClick={() => setChatPreviewOpen(false)}
+                      style={{ padding: "5px 10px", borderRadius: 6, border: "1px solid #d1d5db", background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151" }}
+                      title="Close preview"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+
+                <ExampleOutputPanelComponent
+                  dataFiles={dataFiles}
+                  contacts={contacts}
+                  selectedDataFileId={selectedDataFileId}
+                  selectedContactId={selectedContactId}
+                  handleSelectDataFile={handleSelectDataFile}
+                  setSelectedContactId={setSelectedContactId}
+                  applyContactPlaceholders={applyContactPlaceholders}
+                  exampleOutput={exampleOutput}
+                  editableExampleOutput={editableExampleOutput}
+                  setEditableExampleOutput={setEditableExampleOutput}
+                  saveExampleEmail={saveExampleEmail}
+                  isGenerating={isPreviewLoading}
+                  regenerateExampleOutput={regenerateExampleOutput}
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  rowsPerPage={rowsPerPage}
+                  setCurrentPage={setCurrentPage}
+                  setPageSize={setPageSize}
+                  activeMainTab={previewTab}
+                  setActiveMainTab={setPreviewTab}
+                  activeSubStageTab={previewSubTab}
+                  setActiveSubStageTab={setPreviewSubTab}
+                  filledTemplate={filledTemplate}
+                  searchResults={searchResults}
+                  allSourcedData={allSourcedData}
+                  sourcedSummary={sourcedSummary}
+                  isPreviewAllowed={isPreviewAllowed}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ===== EXPANDED PLACEHOLDER MODAL ===== */}
+        {expandedPlaceholder && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.35)",
+              zIndex: 9999,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <div style={{ width: "80%", maxWidth: 900, background: "#fff", borderRadius: 10, padding: 20, boxShadow: "0 20px 40px rgba(0,0,0,0.25)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <h3 style={{ fontSize: 18, fontWeight: 600 }}>{expandedPlaceholder.friendlyName}</h3>
+                <button onClick={() => setExpandedPlaceholder(null)} style={{ border: "none", background: "transparent", fontSize: 20, cursor: "pointer" }}>✕</button>
+              </div>
+              <RichTextEditor value={expandedDraft} height={320} onChange={setExpandedDraft} />
+              <div style={{ textAlign: "right", marginTop: 12 }}>
+                <button onClick={() => { setFormValues((prev) => ({ ...prev, [expandedPlaceholder.key]: expandedDraft })); setExpandedPlaceholder(null); }}>Done</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
+  // ============================================================
+  // ELEMENTS PHASE (Phase 5): action header + toggled preview
+  // ============================================================
+
+  const elemSteps = [
+    { num: 1, label: "Choose method" },
+    { num: 2, label: "Provide input" },
+    { num: 3, label: "Review blueprint" },
+    { num: 4, label: "Example email" },
+    { num: 5, label: "Edit & preview" },
+  ];
+
+  return (
+    <>
+      <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 200px)", marginTop: 10 }}>
+
+        {/* ---- ACTION HEADER (matches chat phase) ---- */}
+        <div style={{ flexShrink: 0 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0 12px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 32, height: 32, background: "#f0fdf4", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>⚙️</div>
+              <span style={{ fontSize: 15, fontWeight: 700, color: "#111827" }}>Blueprint builder</span>
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <button
+                onClick={resetAll}
+                style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151" }}
+              >
+                🔄 Rebuild
+              </button>
+              <button
+                onClick={() => setPreviewPanelOpen((v) => !v)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 5, padding: "7px 14px",
+                  border: previewPanelOpen ? "2px solid #3f9f42" : "1px solid #d1d5db",
+                  borderRadius: 8,
+                  background: previewPanelOpen ? "#f0fdf4" : "#fff",
+                  fontSize: 13, cursor: "pointer",
+                  color: previewPanelOpen ? "#3f9f42" : "#374151",
+                  fontWeight: previewPanelOpen ? 600 : 400,
+                }}
+              >
+                <span style={{ fontSize: 14 }}>👁️</span> Preview email
+              </button>
+              <button
+                onClick={() => onApprove?.()}
+                style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151" }}
+              >
+                ⚙️ Tune all
+              </button>
+              {isAdmin && onShowInstructions && (
+                <button
+                  onClick={onShowInstructions}
+                  style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 14px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151" }}
+                >
+                  📋 Instructions set
+                </button>
+              )}
+              {isAdmin && onShowVT && (
+                <button
+                  onClick={onShowVT}
+                  style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151" }}
+                >
+                  VT
+                </button>
+              )}
+              <button
+                onClick={saveAllPlaceholders}
+                style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 16px", borderRadius: 8, background: "#3f9f42", border: "none", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+              >
+                💾 Save
+              </button>
             </div>
           </div>
 
-          {activeBuildTab === "chat" && (
-            <ConversationTabComponent
-              conversationStarted={conversationStarted}
-              messages={messages}
-              isTyping={isTyping}
-              isComplete={isComplete}
-              currentAnswer={currentAnswer}
-              setCurrentAnswer={setCurrentAnswer}
-              handleSendMessage={handleSendMessage}
-              handleKeyPress={handleKeyPress}
-              resetAll={resetAll}
-              isEditMode={isEditMode}
-              placeholderValues={placeholderValues}
-              onPlaceholderSelect={onPlaceholderSelect}
-              selectedPlaceholder={selectedPlaceholder}
-              setIsTyping={setIsTyping}
-              exampleOutput={exampleOutput}
-              regenerateExampleOutput={regenerateExampleOutput}
-              dataFiles={dataFiles}
-              contacts={contacts}
-              selectedDataFileId={selectedDataFileId}
-              selectedContactId={selectedContactId}
-              handleSelectDataFile={handleSelectDataFile}
-              setSelectedContactId={setSelectedContactId}
-              applyContactPlaceholders={applyContactPlaceholders}
-              searchResults={searchResults}
-              allSourcedData={allSourcedData}
-              sourcedSummary={sourcedSummary}
-              filledTemplate={filledTemplate}
-              editTemplateId={editTemplateId}
-              groupedPlaceholders={groupedPlaceholders}
-              initialExampleEmail={initialExampleEmail}
-              selectedElement={selectedElement}
-              attachedImages={attachedImages}
-              setAttachedImages={setAttachedImages}
-              handleImageUpload={handleImageUpload}
-              onApprove={onApprove}
-              onStartConversation={onStartConversation}
-            />
+          {/* Admin token stats row */}
+          {isAdmin && usageInfo && (
+            <div style={{ display: "flex", gap: 16, padding: "0 0 8px", fontSize: 11, color: "#6b7280", flexWrap: "wrap" }}>
+              <span style={{ background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 5, padding: "3px 8px", display: "flex", gap: 8 }}>
+                <strong style={{ color: "#374151" }}>Last:</strong>
+                <span>In {usageInfo.promptTokens ?? 0}</span>
+                <span>Out {usageInfo.completionTokens ?? 0}</span>
+                <span>💲{(usageInfo.cost ?? 0).toFixed(6)}</span>
+              </span>
+              {totalUsage && totalUsage.totalCost > 0 && (
+                <span style={{ background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 5, padding: "3px 8px", display: "flex", gap: 8 }}>
+                  <strong style={{ color: "#374151" }}>Total:</strong>
+                  <span>In {totalUsage.totalInput}</span>
+                  <span>Out {totalUsage.totalOutput}</span>
+                  <span>💲{totalUsage.totalCost.toFixed(6)}</span>
+                </span>
+              )}
+            </div>
           )}
+        </div>
 
-          {activeBuildTab === "elements" && (
+        {/* ---- STEP PILLS ---- */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 0 12px", flexShrink: 0, flexWrap: "wrap" }}>
+          {elemSteps.map((step) => {
+            const done = step.num < 5;
+            const active = step.num === 5;
+            return (
+              <div key={step.num} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 12px 4px 5px", borderRadius: 20, background: done ? "#dcfce7" : active ? "#f0fdf4" : "#f3f4f6", border: `1px solid ${done ? "#86efac" : active ? "#3f9f42" : "#e5e7eb"}`, color: done ? "#16a34a" : active ? "#3f9f42" : "#9ca3af", fontSize: 13, fontWeight: done || active ? 600 : 400 }}>
+                <span style={{ width: 20, height: 20, background: done ? "#3f9f42" : active ? "#3f9f42" : "#e5e7eb", borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", color: done || active ? "#fff" : "#9ca3af", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
+                  {done ? "✓" : step.num}
+                </span>
+                {step.label}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ---- CONTENT: elements (+ preview panel when open) ---- */}
+        <div
+          ref={containerRef}
+          style={{ flex: 1, display: "flex", overflow: "hidden", borderRadius: 10, border: "1px solid #e5e7eb", position: "relative" }}
+        >
+          {/* LEFT: Elements accordion — full width or split */}
+          <div style={{ width: previewPanelOpen ? `${splitPct}%` : "100%", flexShrink: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
             <ElementsTab
               groupedPlaceholders={groupedPlaceholders}
               formValues={formValues}
@@ -242,144 +618,74 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
               applyContactPlaceholders={applyContactPlaceholders}
               renderPlaceholderInput={renderPlaceholderInput}
             />
+          </div>
+
+          {/* DRAG HANDLE (only when preview open) */}
+          {previewPanelOpen && (
+            <div
+              onMouseDown={onMouseDown}
+              style={{ width: 6, flexShrink: 0, background: "#e5e7eb", cursor: "col-resize", display: "flex", alignItems: "center", justifyContent: "center", transition: "background 0.15s", zIndex: 10 }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = "#3f9f42"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = "#e5e7eb"; }}
+              title="Drag to resize"
+            >
+              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} style={{ width: 3, height: 3, borderRadius: "50%", background: "#9ca3af" }} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* RIGHT: Preview panel (only when open) */}
+          {previewPanelOpen && (
+            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden", borderLeft: "1px solid #e5e7eb" }}>
+              <ExampleOutputPanelComponent
+                dataFiles={dataFiles}
+                contacts={contacts}
+                selectedDataFileId={selectedDataFileId}
+                selectedContactId={selectedContactId}
+                handleSelectDataFile={handleSelectDataFile}
+                setSelectedContactId={setSelectedContactId}
+                applyContactPlaceholders={applyContactPlaceholders}
+                exampleOutput={exampleOutput}
+                editableExampleOutput={editableExampleOutput}
+                setEditableExampleOutput={setEditableExampleOutput}
+                saveExampleEmail={saveExampleEmail}
+                isGenerating={isPreviewLoading}
+                regenerateExampleOutput={regenerateExampleOutput}
+                currentPage={currentPage}
+                totalPages={totalPages}
+                rowsPerPage={rowsPerPage}
+                setCurrentPage={setCurrentPage}
+                setPageSize={setPageSize}
+                activeMainTab={previewTab}
+                setActiveMainTab={setPreviewTab}
+                activeSubStageTab={previewSubTab}
+                setActiveSubStageTab={setPreviewSubTab}
+                filledTemplate={filledTemplate}
+                searchResults={searchResults}
+                allSourcedData={allSourcedData}
+                sourcedSummary={sourcedSummary}
+                isPreviewAllowed={isPreviewAllowed}
+                onCollapse={() => setPreviewPanelOpen(false)}
+              />
+            </div>
           )}
         </div>
-
-        {/* ================= RIGHT PANEL (Live Preview) ================= */}
-        {isSectionOpen && (
-          <div style={{ flex: 1, width: "50%", paddingLeft: 12, position: "relative", display: "flex", flexDirection: "column" }}>
-            {/* Panel header */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", background: "#fff", border: "1px solid #e5e7eb", borderBottom: "none", borderRadius: "10px 10px 0 0" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 16 }}>👁️</span>
-                <span style={{ fontWeight: 700, fontSize: 15, color: "#111827" }}>Live preview</span>
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  onClick={async () => {
-                    const contact = contacts.find((c) => c.id === selectedContactId);
-                    if (contact && regenerateExampleOutput) {
-                      await applyContactPlaceholders(contact);
-                      await regenerateExampleOutput();
-                    }
-                  }}
-                  disabled={isPreviewLoading || !selectedContactId}
-                  style={{ padding: "5px 12px", borderRadius: 6, border: "1px solid #d1d5db", background: "#fff", fontSize: 13, cursor: selectedContactId ? "pointer" : "not-allowed", color: "#374151", display: "flex", alignItems: "center", gap: 5 }}
-                >
-                  🔄 Refresh
-                </button>
-                <button
-                  onClick={() => setIsSectionOpen(false)}
-                  style={{ padding: "5px 10px", borderRadius: 6, border: "1px solid #d1d5db", background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151" }}
-                  title="Hide preview"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-
-            <ExampleOutputPanelComponent
-              dataFiles={dataFiles}
-              contacts={contacts}
-              selectedDataFileId={selectedDataFileId}
-              selectedContactId={selectedContactId}
-              handleSelectDataFile={handleSelectDataFile}
-              setSelectedContactId={setSelectedContactId}
-              applyContactPlaceholders={applyContactPlaceholders}
-              exampleOutput={exampleOutput}
-              editableExampleOutput={editableExampleOutput}
-              setEditableExampleOutput={setEditableExampleOutput}
-              saveExampleEmail={saveExampleEmail}
-              isGenerating={isPreviewLoading}
-              regenerateExampleOutput={regenerateExampleOutput}
-              currentPage={currentPage}
-              totalPages={totalPages}
-              rowsPerPage={rowsPerPage}
-              setCurrentPage={setCurrentPage}
-              setPageSize={setPageSize}
-              activeMainTab={previewTab}
-              setActiveMainTab={setPreviewTab}
-              activeSubStageTab={previewSubTab}
-              setActiveSubStageTab={setPreviewSubTab}
-              filledTemplate={filledTemplate}
-              searchResults={searchResults}
-              allSourcedData={allSourcedData}
-              sourcedSummary={sourcedSummary}
-              isPreviewAllowed={isPreviewAllowed}
-            />
-          </div>
-        )}
-
-        {/* Show preview button when panel is hidden */}
-        {!isSectionOpen && (
-          <div className="flex">
-            <button
-              onClick={() => setIsSectionOpen(true)}
-              style={{ writingMode: "vertical-rl", textOrientation: "mixed", padding: "16px 10px", borderRadius: "0 8px 8px 0", background: "#f0fdf4", border: "1px solid #d1fae5", color: "#3f9f42", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
-            >
-              <span>Live preview</span>
-              <span style={{ fontSize: 16 }}>👁️</span>
-            </button>
-          </div>
-        )}
       </div>
 
-      {/* ================= EXPANDED PLACEHOLDER MODAL ================= */}
+      {/* ===== EXPANDED PLACEHOLDER MODAL ===== */}
       {expandedPlaceholder && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.35)",
-            zIndex: 9999,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <div
-            style={{
-              width: "80%",
-              maxWidth: "900px",
-              background: "#fff",
-              borderRadius: "10px",
-              padding: "20px",
-              boxShadow: "0 20px 40px rgba(0,0,0,0.25)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "12px",
-              }}
-            >
-              <h3 style={{ fontSize: "18px", fontWeight: 600 }}>
-                {expandedPlaceholder.friendlyName}
-              </h3>
-              <button
-                onClick={() => setExpandedPlaceholder(null)}
-                style={{ border: "none", background: "transparent", fontSize: "20px", cursor: "pointer" }}
-              >
-                ✕
-              </button>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ width: "80%", maxWidth: 900, background: "#fff", borderRadius: 10, padding: 20, boxShadow: "0 20px 40px rgba(0,0,0,0.25)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <h3 style={{ fontSize: 18, fontWeight: 600 }}>{expandedPlaceholder.friendlyName}</h3>
+              <button onClick={() => setExpandedPlaceholder(null)} style={{ border: "none", background: "transparent", fontSize: 20, cursor: "pointer" }}>✕</button>
             </div>
-
             <RichTextEditor value={expandedDraft} height={320} onChange={setExpandedDraft} />
-
-            <div style={{ textAlign: "right", marginTop: "12px" }}>
-              <button
-                onClick={() => {
-                  setFormValues((prev) => ({
-                    ...prev,
-                    [expandedPlaceholder.key]: expandedDraft,
-                  }));
-                  setExpandedPlaceholder(null);
-                }}
-              >
-                Done
-              </button>
+            <div style={{ textAlign: "right", marginTop: 12 }}>
+              <button onClick={() => { setFormValues((prev) => ({ ...prev, [expandedPlaceholder.key]: expandedDraft })); setExpandedPlaceholder(null); }}>Done</button>
             </div>
           </div>
         </div>

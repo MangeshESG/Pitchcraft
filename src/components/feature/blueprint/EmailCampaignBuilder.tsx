@@ -184,8 +184,7 @@ interface ConversationTabProps {
   attachedImages: string[];
   setAttachedImages: React.Dispatch<React.SetStateAction<string[]>>;
   handleImageUpload: (file: File) => Promise<void>;
-
-
+  isPreviewLoading?: boolean;
 }
 
 // ✅ Add interface for EditInstructionsModal
@@ -444,6 +443,7 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
   handleImageUpload,
   onStartConversation,
   onApprove,
+  isPreviewLoading = false,
 }) => {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -453,6 +453,26 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
   const [localSelectedMethod, setLocalSelectedMethod] = useState<"reference" | "description" | null>(null);
   const [referenceEmailDraft, setReferenceEmailDraft] = useState("");
   const [referenceEmailSubmitted, setReferenceEmailSubmitted] = useState(false);
+  const [blueprintApproved, setBlueprintApproved] = useState(false);
+
+  // Track the message index when Phase 4 starts, so we only show refinement messages
+  const phase4StartIndexRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (blueprintApproved && phase4StartIndexRef.current === null) {
+      phase4StartIndexRef.current = messages.length;
+    } else if (!blueprintApproved) {
+      phase4StartIndexRef.current = null;
+    }
+  }, [blueprintApproved]);
+
+  // Auto-resize the input textarea as the user types
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+    el.style.overflowY = el.scrollHeight > 160 ? "auto" : "hidden";
+  }, [currentAnswer]);
   // ========================================
   // IMAGE ATTACHMENT STATE
 
@@ -468,27 +488,16 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
     if (!container || !messages.length) return;
 
     const messageElements = container.querySelectorAll(".message-wrapper");
-
     if (!messageElements.length) return;
 
-    const lastMessage = messageElements[
-      messageElements.length - 1
-    ] as HTMLElement;
-
+    const lastMessage = messageElements[messageElements.length - 1] as HTMLElement;
     const lastMessageType = messages[messages.length - 1]?.type;
 
     if (lastMessageType === "user") {
-      // user message → bottom
-      container.scrollTop = container.scrollHeight;
+      lastMessage.scrollIntoView({ block: "end", behavior: "auto" });
     } else {
-      // bot message → start of response
-      lastMessage.scrollIntoView({
-        block: "start",
-        behavior: "auto",
-      });
-
-      // subtle spacing (ChatGPT feel)
-      container.scrollTop -= 16;
+      lastMessage.scrollIntoView({ block: "start", behavior: "auto" });
+      window.scrollBy(0, -16);
     }
   }, [messages]);
 
@@ -559,39 +568,62 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
   // ===============================
 
   // Derive current wizard phase (only applies to non-edit mode)
-  const wizardPhase: 1 | 2 | 3 = !conversationStarted ? 1 : !isComplete ? 2 : 3;
+  const wizardPhase: 1 | 2 | 3 | 4 = !conversationStarted ? 1 : !isComplete ? 2 : !blueprintApproved ? 3 : 4;
 
-  // Step indicator component
+  // Step indicator component — compact pill style
   const StepIndicator = () => {
     const steps = [
       { num: 1, label: "Choose method" },
       { num: 2, label: "Provide input" },
       { num: 3, label: "Review blueprint" },
-      { num: 4, label: "Edit & preview" },
+      { num: 4, label: "Example email" },
+      { num: 5, label: "Edit & preview" },
     ];
     const activeStep = wizardPhase;
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "14px 20px", borderBottom: "1px solid #e5e7eb", background: "#fff", gap: 0 }}>
-        {steps.map((step, i) => (
-          <React.Fragment key={step.num}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-              <div style={{
-                width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
-                background: activeStep > step.num ? "#3f9f42" : activeStep === step.num ? "#3f9f42" : "#e5e7eb",
-                color: activeStep >= step.num ? "#fff" : "#9ca3af",
-                fontSize: 12, fontWeight: 700,
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "12px 20px",
+        borderBottom: "1px solid #e5e7eb",
+        background: "#fff",
+        flexWrap: "wrap",
+      }}>
+        {steps.map((step) => {
+          const done = activeStep > step.num;
+          const active = activeStep === step.num;
+          return (
+            <div
+              key={step.num}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "4px 12px 4px 5px",
+                borderRadius: 20,
+                background: done ? "#dcfce7" : active ? "#f0fdf4" : "#f3f4f6",
+                border: `1px solid ${done ? "#86efac" : active ? "#3f9f42" : "#e5e7eb"}`,
+                color: done ? "#16a34a" : active ? "#3f9f42" : "#9ca3af",
+                fontSize: 13,
+                fontWeight: done || active ? 600 : 400,
+                transition: "all 0.2s",
+              }}
+            >
+              <span style={{
+                width: 20, height: 20,
+                background: done ? "#3f9f42" : active ? "#3f9f42" : "#e5e7eb",
+                borderRadius: "50%",
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                color: done || active ? "#fff" : "#9ca3af",
+                fontSize: 10, fontWeight: 700, flexShrink: 0,
               }}>
-                {activeStep > step.num ? "✓" : step.num}
-              </div>
-              <span style={{ fontSize: 10, color: activeStep >= step.num ? "#111827" : "#9ca3af", fontWeight: activeStep === step.num ? 600 : 400, whiteSpace: "nowrap" }}>
-                {step.label}
+                {done ? "✓" : step.num}
               </span>
+              {step.label}
             </div>
-            {i < steps.length - 1 && (
-              <div style={{ flex: 1, height: 2, background: activeStep > i + 1 ? "#3f9f42" : "#e5e7eb", margin: "0 6px", marginBottom: 18, minWidth: 16 }} />
-            )}
-          </React.Fragment>
-        ))}
+          );
+        })}
       </div>
     );
   };
@@ -602,7 +634,7 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
     .slice(0, 8);
 
   return (
-    <div className="conversation-container shadow-[3px_3px_10px_rgba(0,0,0,0.2)]" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+    <div className="conversation-container shadow-[3px_3px_10px_rgba(0,0,0,0.2)]" style={{ display: "flex", flexDirection: "column" }}>
 
       {/* ===== STEP INDICATOR (non-edit mode only) ===== */}
       {!isEditMode && <StepIndicator />}
@@ -644,7 +676,7 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
 
       {/* ===== PHASE 1: CHOOSE METHOD ===== */}
       {!isEditMode && wizardPhase === 1 && (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "32px 24px", gap: 28, overflowY: "auto", background: "#fafafa" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "32px 24px", gap: 28, background: "#fafafa" }}>
           {/* Icon + heading */}
           <div style={{ textAlign: "center" }}>
             <div style={{ width: 56, height: 56, background: "#f0fdf4", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px", fontSize: 26 }}>
@@ -705,9 +737,9 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
 
       {/* ===== PHASE 2: PROVIDE INPUT (CHAT) ===== */}
       {(isEditMode || wizardPhase === 2) && (
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ display: "flex", flexDirection: "column" }}>
           {/* Messages */}
-          <div className="messages-area" ref={messagesContainerRef} style={{ flex: "1 1 auto" }}>
+          <div className="messages-area" ref={messagesContainerRef}>
             {isEditMode && !conversationStarted && selectedPlaceholder && (
               <div className="empty-conversation"><p>Preparing conversation…</p></div>
             )}
@@ -748,15 +780,20 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
 
           {/* Input area */}
           {conversationStarted && (
-            <div className="input-area">
+            <div className="input-area" style={{ position: "sticky", bottom: 0, zIndex: 10, background: "#fff" }}>
               {/* Reference email big textarea (shown until submitted) */}
               {!isEditMode && localSelectedMethod === "reference" && !referenceEmailSubmitted && messages.length > 0 && !isTyping && (
                 <div style={{ padding: "12px 16px", borderTop: "1px solid #e5e7eb" }}>
                   <textarea
                     value={referenceEmailDraft}
-                    onChange={(e) => setReferenceEmailDraft(e.target.value)}
+                    onChange={(e) => {
+                      setReferenceEmailDraft(e.target.value);
+                      e.target.style.height = "auto";
+                      e.target.style.height = `${Math.min(e.target.scrollHeight, 320)}px`;
+                    }}
                     placeholder="Paste your reference email here…"
-                    style={{ width: "100%", minHeight: 140, padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 14, resize: "vertical", fontFamily: "inherit", color: "#111827" }}
+                    rows={2}
+                    style={{ width: "100%", minHeight: 44, height: 44, maxHeight: 320, padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 14, resize: "none", fontFamily: "inherit", color: "#111827", overflowY: "hidden" }}
                   />
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
                     <span style={{ fontSize: 12, color: "#9ca3af", display: "flex", alignItems: "center", gap: 4 }}>
@@ -795,7 +832,7 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
                     <span style={{ fontSize: 18 }}><FontAwesomeIcon icon={faAngleRight} className="text-[#ffffff] text-md" /></span>
                   </label>
                   <textarea ref={inputRef} value={currentAnswer} onChange={(e) => setCurrentAnswer(e.target.value)} onKeyPress={handleKeyPress}
-                    placeholder="Type your answer…" className="message-input" rows={2} disabled={isTyping} />
+                    placeholder="Type your answer…" className="message-input" rows={1} disabled={isTyping} />
                   <button onClick={() => handleSendMessage()} disabled={isTyping || (!currentAnswer.trim() && attachedImages.length === 0)} className="send-button" title="Send message">
                     <Send size={18} />
                   </button>
@@ -837,15 +874,16 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
               )}
 
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 16, paddingTop: 14, borderTop: "1px solid #f3f4f6" }}>
-                <span style={{ fontSize: 13, color: "#6b7280" }}>You'll be able to edit every field next.</span>
+                <span style={{ fontSize: 13, color: "#6b7280" }}>Next: we'll generate an example email for you to approve.</span>
                 <div style={{ display: "flex", gap: 8 }}>
                   <button onClick={() => { setReferenceEmailSubmitted(false); resetAll(); }}
                     style={{ padding: "8px 16px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", fontSize: 14, cursor: "pointer", color: "#374151" }}>
                     Rewrite
                   </button>
-                  <button onClick={onApprove}
+                  <button
+                    onClick={() => setBlueprintApproved(true)}
                     style={{ padding: "8px 20px", borderRadius: 8, background: "#3f9f42", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, border: "none" }}>
-                    Approve & edit →
+                    Approve →
                   </button>
                 </div>
               </div>
@@ -871,8 +909,8 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
             <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
               <textarea ref={inputRef} value={currentAnswer} onChange={(e) => setCurrentAnswer(e.target.value)} onKeyPress={handleKeyPress}
                 placeholder="Tell the AI what to change… e.g. 'the offer is outbound lead gen, not software'"
-                style={{ flex: 1, padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 14, resize: "none", fontFamily: "inherit", minHeight: 44 }}
-                rows={2} disabled={isTyping} />
+                style={{ flex: 1, padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 14, resize: "none", fontFamily: "inherit", minHeight: 44, maxHeight: 160, height: 44, overflowY: "hidden" }}
+                rows={1} disabled={isTyping} />
               <button onClick={() => handleSendMessage()} disabled={isTyping || !currentAnswer.trim()}
                 style={{ padding: "10px 14px", background: isTyping || !currentAnswer.trim() ? "#e5e7eb" : "#3f9f42", color: "#fff", borderRadius: 8, border: "none", cursor: isTyping || !currentAnswer.trim() ? "not-allowed" : "pointer", flexShrink: 0 }}>
                 <Send size={16} />
@@ -884,6 +922,138 @@ export const ConversationTab: React.FC<ConversationTabProps> = ({
           </div>
         </div>
       )}
+
+      {/* ===== PHASE 4: EXAMPLE EMAIL REVIEW ===== */}
+      {!isEditMode && wizardPhase === 4 && (() => {
+        const exampleEmailHtml = placeholderValues?.["example_output_email"] || "";
+        const hasEmail = exampleEmailHtml.trim().length > 0;
+        const phase4Messages = phase4StartIndexRef.current !== null
+          ? messages.slice(phase4StartIndexRef.current)
+          : [];
+        return (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            {/* Scrollable content */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "20px 20px 0" }}>
+              {/* Bot intro */}
+              <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 10, padding: "12px 16px", marginBottom: 16, fontSize: 14, color: "#374151", display: "flex", gap: 10, alignItems: "flex-start" }}>
+                <span style={{ fontSize: 18, flexShrink: 0 }}>🤖</span>
+                <span>Here's the example email I derived from your blueprint. Approve it to open the editor, or refine it below.</span>
+              </div>
+
+              {/* Email card */}
+              {hasEmail ? (
+                <div style={{ border: "1px solid #e5e7eb", borderRadius: 12, background: "#fff", overflow: "hidden", marginBottom: 16 }}>
+                  <div style={{ padding: "10px 16px", borderBottom: "1px solid #f3f4f6", background: "#f9fafb", display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, background: "#dcfce7", color: "#16a34a", padding: "2px 8px", borderRadius: 20, letterSpacing: "0.04em" }}>EXAMPLE OUTPUT</span>
+                    <span style={{ fontSize: 12, color: "#9ca3af" }}>AI-generated from your blueprint</span>
+                  </div>
+                  <div
+                    style={{ padding: "20px 24px", fontSize: 14, lineHeight: 1.7, color: "#111827" }}
+                    dangerouslySetInnerHTML={{ __html: exampleEmailHtml }}
+                  />
+                </div>
+              ) : (
+                <div style={{ border: "1px dashed #d1d5db", borderRadius: 10, padding: "40px 24px", background: "#f9fafb", textAlign: "center", marginBottom: 16 }}>
+                  <div style={{ fontSize: 24, marginBottom: 10 }}>📭</div>
+                  <p style={{ fontSize: 14, fontWeight: 600, color: "#374151", marginBottom: 4 }}>No example email found</p>
+                  <p style={{ fontSize: 13, color: "#9ca3af" }}>The AI didn't generate an example output yet. Go back and ask it to include one.</p>
+                </div>
+              )}
+
+              {/* Refinement messages (only messages sent/received during Phase 4) */}
+              {phase4Messages.length > 0 && (
+                <div style={{ marginBottom: 12 }}>
+                  {phase4Messages.map((msg, idx) => (
+                    <div key={idx} style={{
+                      display: "flex",
+                      justifyContent: msg.type === "user" ? "flex-end" : "flex-start",
+                      marginBottom: 10,
+                    }}>
+                      {msg.type === "bot" && (
+                        <span style={{ width: 28, height: 28, background: "#f0fdf4", border: "1px solid #86efac", borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0, marginRight: 8, marginTop: 2 }}>🤖</span>
+                      )}
+                      <div style={{
+                        maxWidth: "80%",
+                        padding: "10px 14px",
+                        borderRadius: msg.type === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
+                        background: msg.type === "user" ? "#3f9f42" : "#f9fafb",
+                        border: msg.type === "user" ? "none" : "1px solid #e5e7eb",
+                        color: msg.type === "user" ? "#fff" : "#111827",
+                        fontSize: 14,
+                        lineHeight: 1.55,
+                      }}>
+                        {renderMessageContent(msg.content)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Typing indicator */}
+              {isTyping && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, color: "#6b7280", fontSize: 13 }}>
+                  <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
+                  <span>Refining example email…</span>
+                </div>
+              )}
+
+              {/* Quick refinement chips */}
+              <div style={{ marginBottom: 16 }}>
+                <p style={{ fontSize: 11, color: "#9ca3af", marginBottom: 8, fontWeight: 600, letterSpacing: "0.05em" }}>QUICK REFINEMENTS</p>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {["Make it shorter", "Stronger opening", "More personalised", "Softer CTA", "More direct"].map((chip) => (
+                    <button key={chip}
+                      onClick={() => handleSendMessage(chip)}
+                      disabled={isTyping}
+                      style={{ padding: "6px 14px", border: "1px solid #d1d5db", borderRadius: 20, background: "#fff", fontSize: 13, cursor: isTyping ? "not-allowed" : "pointer", color: "#374151", display: "flex", alignItems: "center", gap: 5, opacity: isTyping ? 0.5 : 1 }}>
+                      <span style={{ color: "#3f9f42" }}>✦</span> {chip}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Chat input for refinements */}
+            <div style={{ borderTop: "1px solid #e5e7eb", padding: "12px 16px", background: "#fff", flexShrink: 0 }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "flex-end", marginBottom: 10 }}>
+                <textarea
+                  ref={inputRef}
+                  value={currentAnswer}
+                  onChange={(e) => setCurrentAnswer(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Suggest a refinement… e.g. 'open with the personalisation instead' or 'cut the last paragraph'"
+                  style={{ flex: 1, padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 14, resize: "none", fontFamily: "inherit", minHeight: 44, maxHeight: 160, height: 44, overflowY: "hidden", color: "#111827" }}
+                  rows={1}
+                  disabled={isTyping}
+                />
+                <button
+                  onClick={() => handleSendMessage()}
+                  disabled={isTyping || !currentAnswer.trim()}
+                  style={{ padding: "10px 14px", background: isTyping || !currentAnswer.trim() ? "#e5e7eb" : "#3f9f42", color: "#fff", borderRadius: 8, border: "none", cursor: isTyping || !currentAnswer.trim() ? "not-allowed" : "pointer", flexShrink: 0, display: "flex", alignItems: "center" }}
+                >
+                  <Send size={16} />
+                </button>
+              </div>
+
+              {/* Footer nav */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <button
+                  onClick={() => setBlueprintApproved(false)}
+                  style={{ padding: "7px 14px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151" }}
+                >
+                  ← Back to blueprint
+                </button>
+                <button
+                  onClick={onApprove}
+                  style={{ padding: "7px 20px", borderRadius: 8, background: "#3f9f42", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, border: "none" }}
+                >
+                  Approve & edit elements →
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ===== MODAL ===== */}
       <PopupModal open={popupmodalInfo.open} title={popupmodalInfo.title} message={popupmodalInfo.message} onClose={closeModal} />
@@ -936,7 +1106,8 @@ interface ExampleOutputPanelProps {
   allSourcedData: string;
   sourcedSummary: string;
 
-  isPreviewAllowed: boolean; // ✅ ADD
+  isPreviewAllowed: boolean;
+  onCollapse?: () => void;
 }
 
 export const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
@@ -959,281 +1130,177 @@ export const ExampleOutputPanel: React.FC<ExampleOutputPanelProps> = ({
   regenerateExampleOutput,
   activeMainTab,
   setActiveMainTab,
-  activeSubStageTab,
-  setActiveSubStageTab,
   filledTemplate,
-  searchResults,
-  allSourcedData,
-  sourcedSummary,
   exampleOutput,
   isPreviewAllowed,
+  onCollapse,
 }) => {
-  const safe = (v: any) => (v?.trim ? v.trim() : v) || "NA";
   const selectedContact = contacts.find((c) => c.id === selectedContactId);
-  const [userRole, setUserRole] = useState<string>(""); // Store user role
+  const [userRole, setUserRole] = useState<string>("");
 
   useEffect(() => {
-    const isAdminString = sessionStorage.getItem("isAdmin");
-    const isAdmin = isAdminString === "true"; // Correct comparison
-    setUserRole(isAdmin ? "ADMIN" : "USER");
+    setUserRole(sessionStorage.getItem("isAdmin") === "true" ? "ADMIN" : "USER");
   }, []);
 
-  return (
-    <div className="example-section !h-[calc(100%-60px)] shadow-[3px_3px_10px_rgba(0,0,0,0.2)] border-t-0">
-      {/* ===================== HEADER ===================== */}
-      <div className="example-header mb-[0]">
-        <div className="example-datafile-section">
-          <label className="text-[14px] font-[600]">Contact list</label>
+  const getInitials = (contact: any) => {
+    const parts = (contact?.full_name || "").trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    return parts[0]?.[0]?.toUpperCase() ?? "?";
+  };
 
-          <div
+  const handlePreview = async () => {
+    if (!selectedContact) return;
+    await applyContactPlaceholders(selectedContact);
+    if (regenerateExampleOutput) await regenerateExampleOutput();
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#fff" }}>
+
+      {/* ── HEADER ── */}
+      <div style={{ padding: "10px 14px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+          <span style={{ fontSize: 13 }}>👁️</span>
+          <span style={{ fontWeight: 700, fontSize: 14, color: "#111827" }}>Live preview</span>
+        </div>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <button
+            onClick={handlePreview}
+            disabled={isGenerating || !selectedContactId || !isPreviewAllowed}
+            title="Refresh preview for this contact"
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              marginTop: "-20px",
+              padding: "4px 10px", borderRadius: 6, border: "1px solid #d1d5db",
+              background: "#fff", fontSize: 12, cursor: (!selectedContactId || !isPreviewAllowed) ? "not-allowed" : "pointer",
+              color: "#374151", display: "flex", alignItems: "center", gap: 4,
+              opacity: (!selectedContactId || !isPreviewAllowed) ? 0.45 : 1,
             }}
           >
-            <select
-              className="datafile-dropdown"
-              value={selectedDataFileId || ""}
-              onChange={(e) => handleSelectDataFile(Number(e.target.value))}
-              style={{
-                width: "180px",
-                height: "35px",
-                fontSize: "14px",
-                padding: "6px 10px",
-                borderRadius: "6px",
-                border: "1px solid #ccc",
-                appearance: "none",
-              }}
-            >
-              <option value="">-- Select contact file --</option>
-              {[...dataFiles].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase())).map((df) => (
-                <option key={df.id} value={df.id}>
-                  {df.name}
-                </option>
-              ))}
-            </select>
-
-            <div
-              className="pagination-wrapper example-pagination"
-              style={{ marginTop: "-20px" }}
-            >
-              <PaginationControls
-                currentPage={currentPage}
-                totalPages={totalPages}
-                pageSize={rowsPerPage}
-                totalRecords={contacts.length}
-                setCurrentPage={setCurrentPage}
-                setPageSize={setPageSize}
-                pageLabel="Contact:"
-              />
-            </div>
-          </div>
+            {isGenerating
+              ? <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} />
+              : <RefreshCw size={11} />}
+            Refresh
+          </button>
+          {onCollapse && (
+            <button onClick={onCollapse} title="Collapse preview"
+              style={{ padding: "4px 7px", borderRadius: 6, border: "1px solid #e5e7eb", background: "#fff", cursor: "pointer", color: "#9ca3af", fontSize: 14, lineHeight: 1, display: "flex", alignItems: "center" }}>
+              ✕
+            </button>
+          )}
         </div>
       </div>
 
-      {/* ===================== CONTACT DETAILS ROW ===================== */}
-      {selectedContact && (
-        <div
-          className="contact-row-wrapper"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "12px",
-            marginTop: "-15px",
-            backgroundColor: " #f5f6fa",
-          }}
-        >
-          <div
-            className="contact-details"
+      {/* ── CONTACT LIST SELECTOR ── */}
+      <div style={{ padding: "8px 14px", borderBottom: "1px solid #f3f4f6", flexShrink: 0, background: "#fafafa" }}>
+        <div style={{ position: "relative" }}>
+          <select
+            value={selectedDataFileId || ""}
+            onChange={(e) => handleSelectDataFile(Number(e.target.value))}
             style={{
-              display: "flex",
-              gap: "8px",
-              flexWrap: "wrap",
-              border: "1px solid #d1d5db",
-              padding: "10px 10px",
-              borderRadius: "8px",
-              backgroundColor: "#f9fafb",
+              width: "100%", height: 30, fontSize: 12, padding: "0 26px 0 10px",
+              borderRadius: 6, border: "1px solid #d1d5db", background: "#fff",
+              appearance: "none", color: selectedDataFileId ? "#111827" : "#9ca3af", cursor: "pointer",
             }}
           >
-            <span>{safe(selectedContact.full_name)}</span> •
-            <span>{safe(selectedContact.job_title)}</span> •
-            <span>{safe(selectedContact.company_name)}</span> •
-            <span>{safe(selectedContact.country_or_address)}</span>
-          </div>
+            <option value="">— Select contact list —</option>
+            {[...dataFiles]
+              .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
+              .map((df) => <option key={df.id} value={df.id}>{df.name}</option>)}
+          </select>
+          <span style={{ position: "absolute", right: 9, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "#9ca3af", fontSize: 9 }}>▼</span>
+        </div>
+      </div>
 
-          {/* GENERATE BUTTON */}
-          <button
-            className="regenerate-btn"
-            disabled={isGenerating || !isPreviewAllowed}
-            onClick={async () => {
-              await applyContactPlaceholders(selectedContact);
-              if (regenerateExampleOutput) {
-                await regenerateExampleOutput();
-              }
-            }}
-            style={{
-              borderRadius: "12px",
-            }}
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 size={18} className="spinning" />
-                &nbsp; Preview email
-              </>
-            ) : (
-              "Preview email"
-            )}
-          </button>
+      {/* ── CONTACT CARD + COMPACT PAGINATION ── */}
+      {contacts.length > 0 && (
+        <div style={{ padding: "8px 14px", borderBottom: "1px solid #f3f4f6", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+          {selectedContact ? (
+            <>
+              <div style={{
+                width: 34, height: 34, borderRadius: "50%",
+                background: "linear-gradient(135deg, #3f9f42 0%, #16a34a 100%)",
+                color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 12, fontWeight: 700, flexShrink: 0, boxShadow: "0 1px 4px rgba(63,159,66,0.25)",
+              }}>
+                {getInitials(selectedContact)}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {selectedContact.full_name || "—"}
+                </div>
+                <div style={{ fontSize: 11, color: "#9ca3af", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {[selectedContact.job_title, selectedContact.company_name].filter(Boolean).join(" · ")}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div style={{ flex: 1, fontSize: 12, color: "#9ca3af" }}>No contact selected</div>
+          )}
+          <PaginationControls
+            variant="compact"
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={rowsPerPage}
+            totalRecords={contacts.length}
+            setCurrentPage={setCurrentPage}
+            setPageSize={setPageSize}
+            showPageSizeDropdown={false}
+            showInfo={false}
+          />
         </div>
       )}
 
-      {/* ===================== TABS HEADER ===================== */}
-      <div
-        className="example-tabs"
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginTop: "0px",
-        }}
-      >
-        <div style={{ display: "flex", gap: "12px" }}>
-          {["output", "pt"].map((t) => {
-            if (t === "pt" && userRole !== "ADMIN") return null;
-
-            return (
-              <button
-                key={t}
-                className={`stage-tab-btn ${activeMainTab === t ? "active" : ""}`}
-                onClick={() => setActiveMainTab(t as any)}
-              >
-                {t.toUpperCase()}
-              </button>
-            );
-          })}
+      {/* ── TABS ── */}
+      <div style={{ padding: "0 14px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+        <div style={{ display: "flex" }}>
+          {(["output", ...(userRole === "ADMIN" ? ["pt"] : [])] as Array<"output" | "pt">).map((t) => (
+            <button key={t} onClick={() => setActiveMainTab(t)}
+              style={{
+                padding: "9px 14px", fontSize: 12, fontWeight: 600, background: "none", border: "none",
+                borderBottom: activeMainTab === t ? "2px solid #3f9f42" : "2px solid transparent",
+                color: activeMainTab === t ? "#3f9f42" : "#9ca3af", cursor: "pointer",
+                letterSpacing: "0.04em", transition: "color 0.15s, border-color 0.15s",
+              }}>
+              {t.toUpperCase()}
+            </button>
+          ))}
         </div>
-
         {activeMainTab === "output" && editableExampleOutput && (
-          <button
-            onClick={saveExampleEmail}
-            title='If this preview looks good then save it as the new "Example output email"'
-            style={{
-              padding: "6px 14px",
-              background: "#3f9f42",
-              color: "white",
-              borderRadius: "6px",
-              fontSize: "14px",
-              fontWeight: 600,
-            }}
-          >
+          <button onClick={saveExampleEmail}
+            style={{ fontSize: 12, padding: "3px 12px", background: "#3f9f42", color: "#fff", border: "none", borderRadius: 6, cursor: "pointer", fontWeight: 600 }}>
             Save email
           </button>
         )}
       </div>
 
-      {/* ===================== OUTPUT TAB ===================== */}
-      {activeMainTab === "output" && (
-        <div className="example-body">
-          {editableExampleOutput || exampleOutput ? (
+      {/* ── CONTENT ── */}
+      <div style={{ flex: 1, overflow: "auto" }}>
+        {activeMainTab === "output" && (
+          editableExampleOutput || exampleOutput ? (
             <ExampleEmailEditor
               value={editableExampleOutput || exampleOutput || ""}
               onChange={setEditableExampleOutput}
             />
           ) : (
-            <div className="example-placeholder">
-              <div className="how-it-works-box">
-                <div className="how-it-works-title">
-                  <span className="icon">💡</span>
-                  <span>How this works</span>
-                </div>
-
-                <p>
-                  Once enough questions have been answered in the left conversation area, you can preview how your personalized email will look with real contact details.
-                  <br /><br />
-                  First, select from the <b>'Contact list'</b> above and then choose a contact. If you haven't added any contacts yet, then go over to the Contacts section and import or quickly add one or two.
-                  <br /><br />
-                  Now click the <b>'Preview email'</b> button, above right, to see how your email will look.
-                </p>
-
-
-                <br />
-
-                <div className="tip-text">
-                  <span className="icon">⭐</span>
-                  <span>
-                    Tip: You can change the blueprint elements and click <b>'Preview email'</b> again, and the email will update.
-                  </span>
-                </div>
+            <div style={{ padding: "40px 20px", textAlign: "center" }}>
+              <div style={{ fontSize: 28, marginBottom: 10 }}>✉️</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 6 }}>No preview yet</div>
+              <div style={{ fontSize: 12, color: "#9ca3af", lineHeight: 1.6, maxWidth: 200, margin: "0 auto" }}>
+                Select a contact list and a contact, then click <strong>Refresh</strong> to generate a preview.
               </div>
+              {!isPreviewAllowed && (
+                <div style={{ marginTop: 14, fontSize: 11, color: "#d97706", background: "#fef3c7", borderRadius: 6, padding: "6px 12px", display: "inline-block" }}>
+                  Complete the blueprint first
+                </div>
+              )}
             </div>
-
-          )}
-        </div>
-      )}
-
-      {/* ===================== PT TAB ===================== */}
-      {activeMainTab === "pt" && (
-        <div className="example-body">
-          {filledTemplate ? (
-            <pre className="filled-template-box">{filledTemplate}</pre>
-          ) : (
-            <p className="example-placeholder">
-              Filled Template will appear here
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* ===================== STAGES TAB ===================== */}
-      {/* {activeMainTab === "stages" && (
-        <div className="stages-container">
-          <div className="stage-tabs">
-            {["search", "data", "summary"].map((t) => (
-              <button
-                key={t}
-                className={`stage-tab ${activeSubStageTab === t ? "active" : ""}`}
-                onClick={() => setActiveSubStageTab(t as any)}
-              >
-                {t === "search"
-                  ? "Search Results"
-                  : t === "data"
-                  ? "All Sourced Data"
-                  : "Sourced Data Summary"}
-              </button>
-            ))}
-          </div>
-
-          <div className="stage-content">
-            {activeSubStageTab === "search" && (
-              <ul className="search-results-list">
-                {searchResults.length > 0 ? (
-                  searchResults.map((url, idx) => (
-                    <li key={idx}>
-                      <a href={url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                        {url}
-                      </a>
-                    </li>
-                  ))
-                ) : (
-                  <p>No search results available.</p>
-                )}
-              </ul>
-            )}
-
-            {activeSubStageTab === "data" && (
-              <pre className="all-sourced-data">{allSourcedData}</pre>
-            )}
-
-            {activeSubStageTab === "summary" && (
-              <div className="sourced-summary">
-                {sourcedSummary || "No summary available."}
-              </div>
-            )}
-          </div>
-        </div>
-      )} */}
+          )
+        )}
+        {activeMainTab === "pt" && (
+          filledTemplate
+            ? <pre style={{ padding: 16, fontSize: 12, whiteSpace: "pre-wrap", fontFamily: "monospace", color: "#374151", margin: 0 }}>{filledTemplate}</pre>
+            : <p style={{ padding: 20, color: "#9ca3af", fontSize: 13 }}>Filled template will appear here</p>
+        )}
+      </div>
     </div>
   );
 };
@@ -1381,16 +1448,19 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
   const [webSearchInstructions, setWebSearchInstructions] = useState<string>("");
   const [formValues, setFormValues] = useState<Record<string, string>>({});
   const [openedFromTemplateEdit, setOpenedFromTemplateEdit] = useState(false);
+  // true once the user has completed the full wizard or an existing blueprint is loaded
+  const [wizardCompleted, setWizardCompleted] = useState(false);
 
   const isPreviewAllowed = React.useMemo(() => {
     const emailHtml = placeholderValues?.example_output_email;
     return getPlainTextLength(emailHtml) >= 20;
   }, [placeholderValues?.example_output_email]);
 
-  const isEditMode = React.useMemo(() => {
-    const html = placeholderValues?.example_output_email;
-    return typeof html === "string" && getPlainTextLength(html) >= 20;
-  }, [placeholderValues?.example_output_email]);
+  // isEditMode is driven by explicit completion, NOT by example_output_email content.
+  // This prevents the wizard from jumping to edit mode mid-conversation when the AI
+  // generates example_output_email in the same message as status:complete.
+  const isEditMode = wizardCompleted;
+
 
   // ========================================
   // IMAGE UPLOAD STATE
@@ -1707,10 +1777,10 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
         // Set states (async)
         setSelectedTemplateDefinitionId(definitionId);
         setTemplateName(campaignName || "");
-        setIsTyping(true);
 
-        // Load template
+        // Load template — do not set isTyping here; Phase 1 shows after load
         await loadTemplateDefinitionById(definitionId);
+        setIsPreparingAutoStart(false);
 
         // ⛔ DO NOT remove autoStartConversation here
         // Let watcher handle it
@@ -1741,15 +1811,13 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
       masterPrompt.trim() !== "" &&
       selectedTemplateDefinitionId !== null
     ) {
-      console.log("⚡ All template data ready — starting conversation now!");
-
-      // Remove flags AFTER readiness is confirmed
+      // Template is ready — navigate to Build > Chat so Phase 1 (choose method) shows.
+      // Do NOT call startConversation() here; the user must pick a method first.
       sessionStorage.removeItem("autoStartConversation");
       sessionStorage.removeItem("openConversationTab");
 
       setActiveMainTab("build");
       setActiveBuildTab("chat");
-      startConversation();
     }
   }, [systemPrompt, masterPrompt, selectedTemplateDefinitionId]);
 
@@ -2043,6 +2111,7 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
     setSearchResults([]);
     setAllSourcedData("");
     setSourcedSummary("");
+    setWizardCompleted(false);
 
     if (options?.clearUiPlaceholders) {
       setUiPlaceholders([]);
@@ -2705,8 +2774,12 @@ const MasterPromptCampaignBuilder: React.FC<EmailCampaignBuilderProps> = ({
         setExampleOutput(template.exampleOutput);
       }
 
+      const loadedExampleEmail = template.placeholderValues?.example_output_email;
+      const hasExistingEmail = typeof loadedExampleEmail === "string" && getPlainTextLength(loadedExampleEmail) >= 20;
+
+      setWizardCompleted(hasExistingEmail);
       setActiveMainTab("build");
-      setActiveBuildTab("chat");
+      setActiveBuildTab(hasExistingEmail ? "elements" : "chat");
       setConversationStarted(loadedMessages.length > 0);
       setIsTyping(false);
       // setIsEditMode(true);
@@ -3708,8 +3781,6 @@ const parsePlaceholdersSafe = (block: string) => {
   // RESET ALL
   // ====================================================================
   const resetAll = () => {
-    if (isEditMode) return;
-
     if (effectiveUserId) {
       axios
         .post(
@@ -3958,103 +4029,6 @@ const parsePlaceholdersSafe = (block: string) => {
   // ====================================================================
   return (
     <div className="email-campaign-builder !p-[0]">
-      {/* ================= TOP TABS ================= */}
-
-      <div className="sticky-tabs">
-        <ul className="flex items-center gap-6">
-          {/* LEFT TABS */}
-
-          {/* ================= ADMIN USAGE PANEL ================= */}
-          {userRole === "ADMIN" && usageInfo && (
-            <div
-              style={{
-                marginTop: "4px",
-                padding: "6px 10px",
-                background: "#f1f5f9",
-                border: "1px solid #e2e8f0",
-                borderRadius: "6px",
-                fontSize: "11px",
-                lineHeight: "1.3",
-                display: "inline-block",
-              }}
-            >
-              {/* Last Call */}
-              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                <strong>Last:</strong>
-                <span>In {usageInfo.promptTokens ?? 0}</span>
-                <span>Out {usageInfo.completionTokens ?? 0}</span>
-                <span>💲{(usageInfo.cost ?? 0).toFixed(6)}</span>
-              </div>
-
-              {/* Total */}
-              {totalUsage.totalCost > 0 && (
-                <div
-                  style={{
-                    marginTop: "2px",
-                    display: "flex",
-                    gap: "10px",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <strong>Total:</strong>
-                  <span>In {totalUsage.totalInput}</span>
-                  <span>Out {totalUsage.totalOutput}</span>
-                  <span>💲{totalUsage.totalCost.toFixed(6)}</span>
-                </div>
-              )}
-            </div>
-          )}
-
-          {userRole === "ADMIN" && (
-            <div className="flex items-center gap-2">
-              {["build", "instructions"].map((t) => (
-                <li key={t}>
-                  <button
-                    className={activeMainTab === t ? "active" : ""}
-                    onClick={() => setActiveMainTab(t as any)}
-                  >
-                    {t === "build" ? "Build" : "Instructions set"}
-                  </button>
-                </li>
-              ))}
-
-              {/* VT TAB */}
-              <li>
-                <button
-                  className={activeMainTab === "ct" ? "active" : ""}
-                  onClick={() => setActiveMainTab("ct")}
-                >
-                  VT
-                </button>
-              </li>
-            </div>
-          )}
-          {/* RIGHT SIDE — Notifications */}
-          <li className="flex items-center gap-0 cursor-pointer ml-[12px]">
-            <span
-              style={{ color: "#3f9f42", fontWeight: 500 }}
-              className="text-[20px]"
-              title={soundEnabled ? "Notifications ON" : "Notifications OFF"}
-              onClick={toggleNotifications}
-            >
-              🔔
-            </span>
-
-            <img
-              src={soundEnabled ? toggleOn : toggleOff}
-              alt="Notifications Toggle"
-              className="ml-[5px] mt-[4px]"
-              style={{
-                height: "30px",
-                objectFit: "contain",
-                borderRadius: "12px",
-              }}
-              onClick={toggleNotifications}
-            />
-          </li>
-        </ul>
-      </div>
-
       {/* ================= LOADING OVERLAYS ================= */}
       {isLoadingTemplate && <LoadingSpinner message="Loading template for editing..." />}
       {isLoadingDefinitions && <LoadingSpinner message="Loading blueprint definitions..." />}
@@ -4118,14 +4092,29 @@ const parsePlaceholdersSafe = (block: string) => {
               handleImageUpload={uploadImage}
               activeBuildTab={activeBuildTab}
               setActiveBuildTab={setActiveBuildTab}
-              onApprove={() => setActiveBuildTab("elements")}
+              onApprove={() => { setWizardCompleted(true); setActiveBuildTab("elements"); }}
               onStartConversation={(method, msg) => startConversation(msg)}
               ConversationTabComponent={ConversationTab}
               ExampleOutputPanelComponent={ExampleOutputPanel}
+              userRole={userRole}
+              usageInfo={usageInfo}
+              totalUsage={totalUsage}
+              onShowInstructions={() => setActiveMainTab("instructions")}
+              onShowVT={() => setActiveMainTab("ct")}
             />
           )}
 
           {/* ================= INSTRUCTIONS TAB ================= */}
+          {activeMainTab === "instructions" && userRole === "ADMIN" && (
+            <div style={{ padding: "10px 0 0" }}>
+              <button
+                onClick={() => setActiveMainTab("build")}
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151", marginBottom: 12 }}
+              >
+                ← Back to Build
+              </button>
+            </div>
+          )}
           {activeMainTab === "instructions" && (
             <InstructionSetManager
               templateDefinitions={templateDefinitions}
@@ -4166,6 +4155,16 @@ const parsePlaceholdersSafe = (block: string) => {
           )}
 
           {/* ================= VT TAB ================= */}
+          {activeMainTab === "ct" && userRole === "ADMIN" && (
+            <div style={{ padding: "10px 0 0" }}>
+              <button
+                onClick={() => setActiveMainTab("build")}
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", border: "1px solid #d1d5db", borderRadius: 8, background: "#fff", fontSize: 13, cursor: "pointer", color: "#374151", marginBottom: 12 }}
+              >
+                ← Back to Build
+              </button>
+            </div>
+          )}
           {activeMainTab === "ct" && (
             <div className="ct-tab-container mt-[6px]">
               <h3>Live vendor blueprint (Auto updated)</h3>
