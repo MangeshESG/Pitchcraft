@@ -241,6 +241,12 @@ interface SettingsFormType {
   overwriteDatabase: boolean;
   // Add any other properties that your settingsForm has
 }
+
+interface SelectedInboxUnreadCounts {
+  associated: number;
+  external: number;
+  allMessages: number;
+}
 const MainPage: React.FC = () => {
   const unlockAudio = () => {
     const audio = new Audio(
@@ -461,6 +467,12 @@ const MainPage: React.FC = () => {
   const [showSettingsSubmenu, setShowSettingsSubmenu] = useState(false);
   const [settingsSubTab, setSettingsSubTab] = useState<string>("Tracking");
   const [inboxUnreadCount, setInboxUnreadCount] = useState<number>(0);
+  const [selectedInboxUnreadCounts, setSelectedInboxUnreadCounts] =
+    useState<SelectedInboxUnreadCounts>({
+      associated: 0,
+      external: 0,
+      allMessages: 0,
+    });
   const [showInboxSubmenu, setShowInboxSubmenu] = useState(initialTab === "Mail" && initialMailSubTab === "Inbox");
   const [inboxSubTab, setInboxSubTab] = useState<string>(() => {
     // Only set from URL if we're actually on the Mail/Inbox tab
@@ -3634,7 +3646,7 @@ const lastPitch =
       
       try {
         const response = await fetch(
-          `https://localhost:7216/api/Inbox/unread-count?clientId=${effectiveClientId}`,
+          `${API_BASE_URL}/api/Inbox/unread-count?clientId=${effectiveClientId}`,
           { headers: { accept: '*/*' } }
         );
         
@@ -3652,6 +3664,35 @@ const lastPitch =
     const interval = setInterval(fetchInboxUnreadCount, 30000);
     return () => clearInterval(interval);
   }, [selectedClient, clientID]);
+
+  const handleSelectedInboxUnreadCountsChange = useCallback(
+    (counts: SelectedInboxUnreadCounts) => {
+      setSelectedInboxUnreadCounts(counts);
+    },
+    [],
+  );
+
+  const renderInboxTabUnreadBadge = (count: number) => {
+    if (count <= 0) return null;
+
+    return (
+      <span
+        style={{
+          backgroundColor: '#3f9f42',
+          color: 'white',
+          borderRadius: '10px',
+          padding: '2px 8px',
+          fontSize: '12px',
+          fontWeight: 'bold',
+          minWidth: '20px',
+          textAlign: 'center',
+          lineHeight: 1.2,
+        }}
+      >
+        {count}
+      </span>
+    );
+  };
 
   // fetch campaigns in parent
   useEffect(() => {
@@ -4296,7 +4337,10 @@ try {
                                     }}
                                     className="submenu-button"
                                   >
-                                    Associated
+                                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '8px' }}>
+                                      <span>Associated</span>
+                                      {renderInboxTabUnreadBadge(selectedInboxUnreadCounts.associated)}
+                                    </span>
                                   </button>
                                 </li>
                                 <li className={tab === "Mail" && mailSubTab === "Inbox" && inboxSubTab === "Unassigned" ? "active" : ""}>
@@ -4310,7 +4354,10 @@ try {
                                     }}
                                     className="submenu-button"
                                   >
-                                    External
+                                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '8px' }}>
+                                      <span>External</span>
+                                      {renderInboxTabUnreadBadge(selectedInboxUnreadCounts.external)}
+                                    </span>
                                   </button>
                                 </li>
                                 <li className={tab === "Mail" && mailSubTab === "Inbox" && inboxSubTab === "Sent" ? "active" : ""}>
@@ -4338,7 +4385,10 @@ try {
                                     }}
                                     className="submenu-button"
                                   >
-                                    All messages
+                                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '8px' }}>
+                                      <span>All messages</span>
+                                      {renderInboxTabUnreadBadge(selectedInboxUnreadCounts.allMessages)}
+                                    </span>
                                   </button>
                                 </li>
                               </ul>
@@ -4714,6 +4764,7 @@ try {
                   onTabChange={setMailSubTab}
                   inboxSubTab={inboxSubTab}
                   onInboxSubTabChange={setInboxSubTab}
+                  onSelectedInboxUnreadCountsChange={handleSelectedInboxUnreadCountsChange}
                 />
               </div>
             )}

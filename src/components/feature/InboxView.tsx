@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import API_BASE_URL from '../../config';
 import LoadingSpinner from '../common/LoadingSpinner';
@@ -39,6 +39,12 @@ interface InboxDropdownItem {
   inboxEmailsUnreadCount?: number;
   emailRepliesUnreadCount?: number;
   totalUnreadCount?: number;
+}
+
+interface SelectedInboxUnreadCounts {
+  associated: number;
+  external: number;
+  allMessages: number;
 }
 
 interface BlueprintTemplate {
@@ -82,9 +88,10 @@ interface InboxViewProps {
   isVisible: boolean;
   initialTab?: string;
   onTabChange?: (tab: string) => void;
+  onSelectedInboxUnreadCountsChange?: (counts: SelectedInboxUnreadCounts) => void;
 }
 
-const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible, initialTab = 'Inbox', onTabChange }) => {
+const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible, initialTab = 'Inbox', onTabChange, onSelectedInboxUnreadCountsChange }) => {
   const [inboxList, setInboxList] = useState<InboxDropdownItem[]>([]);
   const [selectedInboxId, setSelectedInboxId] = useState<number | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<string>('');
@@ -165,6 +172,42 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteModalType, setDeleteModalType] = useState<'single' | 'bulk'>('single');
   const [pendingDeleteMode, setPendingDeleteMode] = useState<'soft' | 'Permanent'>('soft');
+
+  const refreshInboxDropdownCounts = useCallback(async () => {
+    if (!effectiveUserId || !isVisible) return;
+
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/api/Inbox/Inbox_dropdown?clientId=${effectiveUserId}`,
+        {
+          headers: {
+            accept: '*/*',
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      if (response.data.success && response.data.data) {
+        setInboxList(response.data.data);
+      }
+    } catch (err) {
+      console.error('Error refreshing inbox unread counts:', err);
+    }
+  }, [effectiveUserId, isVisible, token]);
+
+  useEffect(() => {
+    if (!onSelectedInboxUnreadCountsChange) return;
+
+    const selectedInbox = inboxList.find(
+      (inbox) => inbox.inboxId === selectedInboxId && inbox.provider === selectedProvider
+    ) || inboxList.find((inbox) => inbox.inboxId === selectedInboxId);
+
+    onSelectedInboxUnreadCountsChange({
+      associated: selectedInbox?.emailRepliesUnreadCount || 0,
+      external: selectedInbox?.inboxEmailsUnreadCount || 0,
+      allMessages: selectedInbox?.totalUnreadCount || 0,
+    });
+  }, [inboxList, selectedInboxId, selectedProvider, onSelectedInboxUnreadCountsChange]);
 
   useEffect(() => {
     const fetchUnreadCounts = async () => {
@@ -251,48 +294,71 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     fetchBlueprints();
   }, [effectiveUserId, token, isVisible]);
 
-  useEffect(() => {
-    const fetchMails = async () => {
-      if (!selectedInboxId || !isVisible) return;
+  const fetchMails = useCallback(async (showLoader = true) => {
+    if (!selectedInboxId || !isVisible) return;
 
+    if (showLoader) {
       setLoading(true);
-      setError('');
-      try {
-        const response = await axios.get(
-          `${API_BASE_URL}/api/Inbox/inbox?inboxId=${selectedInboxId}&Provider=${selectedProvider}&pageNumber=${inboxCurrentPage}&pageSize=${inboxPageSize}`,
-          {
-            headers: {
-              accept: '*/*',
-              ...(token && { Authorization: `Bearer ${token}` }),
-            },
-          }
-        );
-
-        if (response.data.success && response.data.data) {
-          setThreads(Array.isArray(response.data.data.data) ? response.data.data.data : []);
-          setInboxTotalCount(response.data.data.totalCount || 0);
-          setInboxTotalPages(response.data.data.totalPages || 0);
-        } else {
-          setThreads([]);
-          setToastMessage('No emails found in this inbox');
-          setToastType('info');
-          setShowToast(true);
-          setTimeout(() => setShowToast(false), 3000);
+    }
+    setError('');
+    try {
+      const fetchPage = (pageNumber: number) => axios.get(
+        `${API_BASE_URL}/api/Inbox/inbox?inboxId=${selectedInboxId}&Provider=${selectedProvider}&pageNumber=${pageNumber}&pageSize=${inboxPageSize}&_=${Date.now()}`,
+        {
+          headers: {
+            accept: '*/*',
+            'Cache-Control': 'no-cache',
+            Pragma: 'no-cache',
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
         }
-      } catch (err: any) {
-        console.error('Error fetching mails:', err);
+      );
+
+      const response = await fetchPage(inboxCurrentPage);
+
+      if (response.data.success && response.data.data) {
+        let pageThreads = Array.isArray(response.data.data.data) ? response.data.data.data : [];
+        const nextTotalCount = response.data.data.totalCount || 0;
+        const nextTotalPages = response.data.data.totalPages || 0;
+        let nextPage = inboxCurrentPage + 1;
+
+        while (pageThreads.length < inboxPageSize && nextPage <= nextTotalPages && pageThreads.length < nextTotalCount) {
+          const nextResponse = await fetchPage(nextPage);
+          const nextThreads = nextResponse.data.success && nextResponse.data.data && Array.isArray(nextResponse.data.data.data)
+            ? nextResponse.data.data.data
+            : [];
+          if (nextThreads.length === 0) break;
+          pageThreads = [...pageThreads, ...nextThreads].slice(0, inboxPageSize);
+          nextPage += 1;
+        }
+
+        setThreads(pageThreads);
+        setInboxTotalCount(nextTotalCount);
+        setInboxTotalPages(nextTotalPages);
+      } else {
         setThreads([]);
-        setToastMessage(err.response?.data?.message || 'Failed to load emails. Please try again.');
-        setToastType('error');
+        setToastMessage('No emails found in this inbox');
+        setToastType('info');
         setShowToast(true);
-        setTimeout(() => setShowToast(false), 5000);
-      } finally {
+        setTimeout(() => setShowToast(false), 3000);
+      }
+    } catch (err: any) {
+      console.error('Error fetching mails:', err);
+      setThreads([]);
+      setToastMessage(err.response?.data?.message || 'Failed to load emails. Please try again.');
+      setToastType('error');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 5000);
+    } finally {
+      if (showLoader) {
         setLoading(false);
       }
-    };
+    }
+  }, [selectedInboxId, selectedProvider, token, isVisible, inboxCurrentPage, inboxPageSize]);
 
+  useEffect(() => {
     fetchMails();
-  }, [selectedInboxId, selectedProvider, token, isVisible, inboxCurrentPage]);
+  }, [fetchMails]);
 
   const handleInboxChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const inboxId = parseInt(e.target.value);
@@ -350,6 +416,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
               : t
           )
         );
+        await refreshInboxDropdownCounts();
       } catch (err) {
         console.error('Error marking thread as read:', err);
       }
@@ -400,7 +467,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         setTimeout(() => setShowToast(false), 3000);
         
         if (activeTab === 'inbox') {
-          setThreads(threads.filter(t => !selectedThreadIds.includes(t.trackingId)));
+          await fetchMails(false);
         } else if (activeTab === 'sent') {
           setRefreshSentTab(prev => prev + 1);
         } else if (activeTab === 'unassigned') {
@@ -471,8 +538,8 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
         
         // Remove from list and close detail view based on active tab
         if (activeTab === 'inbox') {
-          setThreads(threads.filter(t => t.trackingId !== currentThread.trackingId));
           setSelectedThread(null);
+          await fetchMails(false);
         } else if (activeTab === 'sent') {
           setSelectedSentThread(null);
           setRefreshSentTab(prev => prev + 1);
@@ -1320,6 +1387,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   setShowReplySection(false);
                   setReplyText('');
                 }}
+                onUnreadCountsRefresh={refreshInboxDropdownCounts}
                 refreshTrigger={refreshUnassignedTab}
               />
             ) : (
@@ -1343,6 +1411,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   setShowReplySection(false);
                   setReplyText('');
                 }}
+                onUnreadCountsRefresh={refreshInboxDropdownCounts}
                 refreshTrigger={refreshAllMessagesTab}
               />
             )}
