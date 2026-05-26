@@ -17,7 +17,9 @@
       "Bash(npx vite *)",
       "Bash(node_modules\\\\.bin\\\\vite build *)",
       "Bash(npm run *)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(ls \"C:\\\\Users\\\\Radhika\\\\Downloads\\\\Pitchkraft-handoff.tar.gz\\\\pitchkraft\")",
+      "Read(//c/Users/Radhika/Downloads/Pitchkraft-handoff.tar.gz/**)"
     ]
   }
 }

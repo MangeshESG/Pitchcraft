@@ -1826,8 +1826,11 @@ const resolvePromptSafely = async () => {
 
       const instructionTemplate =
         promptConfig?.webSearchInstructions || instructionsParamA || "";
+      const pv = (promptConfig?.placeholderValues || {}) as Record<string, any>;
       const webSearchReplacements = {
-        ...(promptConfig?.placeholderValues || {}),
+        ...pv,
+        // alias: prompt templates may use {hook} while blueprints store hook_search_terms
+        hook: pv.hook || pv.hook_search_terms || "",
         ...replacements,
       };
       const filledInstructions = replaceAllPlaceholders(
@@ -4391,11 +4394,11 @@ try {
             : tab === "TestTemplate" || tab === "DataCampaigns" || tab === "Campaigns" || tab === "Settings"
               ? "bg-[#fafbfc]"
               : "bg-[#eeeeee]"
-        } ${tab === "Dashboard" || tab === "TestTemplate" || tab === "DataCampaigns" || tab === "Campaigns" || tab === "Settings" ? "p-0" : "p-[20px]"}`}>
+        } ${tab === "Dashboard" || tab === "TestTemplate" || tab === "DataCampaigns" || tab === "Campaigns" || tab === "Settings" || tab === "Output" ? "p-0" : "p-[20px]"}`}>
           <div
             className={`
                rounded-md
-              ${!isContactDetailPage && tab !== "Dashboard" && tab !== "TestTemplate" && tab !== "DataCampaigns" && tab !== "Campaigns" && tab !== "Settings" ? "bg-white p-4 shadow-md min-h-[100%]" : ""}
+              ${!isContactDetailPage && tab !== "Dashboard" && tab !== "TestTemplate" && tab !== "DataCampaigns" && tab !== "Campaigns" && tab !== "Settings" && tab !== "Output" ? "bg-white p-4 shadow-md min-h-[100%]" : ""}
             `}
           >
             {/* Main Content Area */}

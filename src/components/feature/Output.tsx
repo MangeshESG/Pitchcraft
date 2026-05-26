@@ -200,6 +200,280 @@ interface OutputInterface {
   setKraftedNotSentEnabled?: (value: boolean) => void;
 }
 
+const OutputLogBanner: React.FC<{
+  content: string;
+  formatOutput: (text: string) => string;
+  isExpanded: boolean;
+  onToggle: () => void;
+}> = ({ content, formatOutput, isExpanded, onToggle }) => {
+  const rawLines = content.split('\n').filter((l) => l.trim() !== '');
+  const lastRawLine = rawLines[rawLines.length - 1] || '';
+  // Strip HTML tags for preview so CSS ellipsis truncation works reliably
+  const lastLinePlain = lastRawLine.replace(/<[^>]*>/g, '');
+
+  return (
+    <>
+      <div
+        className="mx-6 mt-4 rounded-lg border cursor-pointer hover:bg-[#f5f6f8] transition-colors"
+        style={{ background: '#ffffff', borderColor: '#e8eaee' }}
+        onClick={onToggle}
+        title="Click to view full log"
+      >
+        <div className="flex items-center gap-2 px-3 py-2" style={{ minWidth: 0 }}>
+          <span
+            className="flex-shrink-0 w-2 h-2 rounded-full animate-pulse"
+            style={{ background: '#22c55e' }}
+          />
+          <span
+            style={{
+              flex: 1,
+              minWidth: 0,
+              overflow: 'hidden',
+              whiteSpace: 'nowrap',
+              textOverflow: 'ellipsis',
+              fontFamily: 'monospace',
+              fontSize: '12px',
+              color: '#374151',
+              lineHeight: '1.4',
+              display: 'block',
+            }}
+          >
+            {lastLinePlain}
+          </span>
+          <span
+            className="flex-shrink-0 text-[11px] font-medium px-2 py-0.5 rounded border ml-2"
+            style={{ color: '#374151', background: '#f5f6f8', borderColor: '#e8eaee', whiteSpace: 'nowrap' }}
+          >
+            View all ({rawLines.length})
+          </span>
+        </div>
+      </div>
+
+      {isExpanded && (
+        <div
+          style={{
+            position: 'fixed', inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+          onClick={onToggle}
+        >
+          <div
+            style={{
+              background: '#fff', borderRadius: '14px',
+              maxWidth: '1100px', width: '92vw', maxHeight: '80vh',
+              display: 'flex', flexDirection: 'column', overflow: 'hidden',
+              boxShadow: '0 24px 64px rgba(0,0,0,0.3)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '14px 20px', borderBottom: '1px solid #e8eaee', flexShrink: 0,
+              background: '#f8fafc',
+            }}>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full" style={{ background: '#22c55e', flexShrink: 0 }} />
+                <span style={{ fontWeight: 600, fontSize: '14px', color: '#111827' }}>
+                  Output Log
+                </span>
+                <span style={{ fontSize: '12px', color: '#6b7280', background: '#f1f5f9', padding: '1px 8px', borderRadius: '99px', border: '1px solid #e2e8f0' }}>
+                  {rawLines.length} {rawLines.length === 1 ? 'entry' : 'entries'}
+                </span>
+              </div>
+              <button
+                onClick={onToggle}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  fontSize: '18px', color: '#6b7280', lineHeight: 1, padding: '2px 6px',
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            <pre
+              style={{
+                overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word',
+                flex: 1, margin: 0, padding: '16px 20px',
+                fontFamily: 'monospace', fontSize: '12.5px', color: '#374151',
+                background: '#ffffff', lineHeight: 1.6,
+              }}
+              dangerouslySetInnerHTML={{ __html: formatOutput(content) }}
+            />
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
+interface WebResearchData {
+  company_overview?: {
+    description?: string;
+    founded?: string;
+    headquarters?: string;
+    employees?: string;
+    website?: string;
+  };
+  key_findings?: string[];
+  recent_news?: { date: string; headline: string }[];
+  event_insights?: {
+    event?: string;
+    date?: string;
+    location?: string;
+    focus?: string;
+    attendees?: string;
+  };
+  personalization_angle?: string;
+}
+
+const WebResearchCards: React.FC<{ content: string }> = ({ content }) => {
+  let data: WebResearchData | null = null;
+
+  try {
+    const clean = content
+      .replace(/^```json\s*/i, '')
+      .replace(/\s*```$/, '')
+      .trim();
+    data = JSON.parse(clean);
+  } catch {
+    // fallback to plain markdown
+    return (
+      <div style={{ padding: '10px', border: '1px solid #e8eaee', borderRadius: '8px', lineHeight: 1.6, fontSize: '13px' }}>
+        <ReactMarkdown>{content}</ReactMarkdown>
+      </div>
+    );
+  }
+
+  if (!data) return null;
+
+  const card: React.CSSProperties = {
+    background: '#fff',
+    borderRadius: '12px',
+    border: '1px solid #e8eaee',
+    padding: '16px 18px',
+  };
+
+  const cardTitle = (icon: string, title: string) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+      <span style={{ fontSize: '17px' }}>{icon}</span>
+      <span style={{ fontWeight: 600, fontSize: '13.5px', color: '#111827' }}>{title}</span>
+    </div>
+  );
+
+  const badge = (label: string, value: string) => (
+    <span style={{ fontSize: '11.5px', background: '#f1f5f9', padding: '3px 10px', borderRadius: '99px', border: '1px solid #e2e8f0', color: '#374151', whiteSpace: 'nowrap' }}>
+      <span style={{ color: '#6b7280' }}>{label}: </span>{value}
+    </span>
+  );
+
+  const eventIcons: Record<string, string> = {
+    event: '📅', date: '🗓', location: '📍', focus: '🎯', attendees: '👥',
+  };
+
+  return (
+    <div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+
+        {/* Company Overview */}
+        {data.company_overview && (
+          <div style={card}>
+            {cardTitle('🏢', 'Company overview')}
+            {data.company_overview.description && (
+              <p style={{ fontSize: '13px', color: '#374151', marginBottom: '12px', lineHeight: 1.55 }}>
+                {data.company_overview.description}
+              </p>
+            )}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+              {data.company_overview.founded && badge('Founded', data.company_overview.founded)}
+              {data.company_overview.headquarters && badge('Headquarters', data.company_overview.headquarters)}
+              {data.company_overview.employees && badge('Employees', data.company_overview.employees)}
+              {data.company_overview.website && (
+                <a
+                  href={`https://${data.company_overview.website.replace(/^https?:\/\//, '')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ fontSize: '11.5px', background: '#f0fdf4', padding: '3px 10px', borderRadius: '99px', border: '1px solid #bbf7d0', color: '#15803d', textDecoration: 'none', whiteSpace: 'nowrap' }}
+                >
+                  🔗 {data.company_overview.website}
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Key Findings */}
+        {data.key_findings && data.key_findings.length > 0 && (
+          <div style={card}>
+            {cardTitle('💡', 'Key findings')}
+            <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {data.key_findings.map((f, i) => (
+                <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '13px', color: '#374151', lineHeight: 1.5 }}>
+                  <span style={{ color: '#22c55e', flexShrink: 0, marginTop: '2px' }}>✔</span>
+                  {f}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Recent News */}
+        {data.recent_news && data.recent_news.length > 0 && (
+          <div style={card}>
+            {cardTitle('📰', 'Recent news & updates')}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {data.recent_news.map((n, i) => (
+                <div key={i} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: '11px', color: '#6b7280', whiteSpace: 'nowrap', marginTop: '2px', minWidth: '80px' }}>{n.date}</span>
+                  <span style={{ fontSize: '13px', color: '#374151', lineHeight: 1.5 }}>
+                    <span style={{ color: '#3f9f42', marginRight: '6px' }}>◆</span>{n.headline}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Event Insights */}
+        {data.event_insights && Object.values(data.event_insights).some(Boolean) && (
+          <div style={card}>
+            {cardTitle('🗓', 'Event insights')}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+              {(['event', 'date', 'location', 'focus', 'attendees'] as const).map((key) =>
+                data!.event_insights![key] ? (
+                  <div key={key} style={{ display: 'flex', gap: '8px', fontSize: '13px', alignItems: 'flex-start' }}>
+                    <span style={{ flexShrink: 0 }}>{eventIcons[key]}</span>
+                    <span style={{ color: '#374151', lineHeight: 1.5 }}>
+                      <span style={{ fontWeight: 500, textTransform: 'capitalize' }}>{key}: </span>
+                      {data!.event_insights![key]}
+                    </span>
+                  </div>
+                ) : null
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Personalization Angle — full width */}
+        {data.personalization_angle && (
+          <div style={{ ...card, gridColumn: '1 / -1', background: '#f8fafc', borderColor: '#e2e8f0' }}>
+            {cardTitle('✉️', 'Best personalization angle')}
+            <p style={{ margin: 0, fontSize: '13px', color: '#374151', lineHeight: 1.6 }}>
+              {data.personalization_angle}
+            </p>
+          </div>
+        )}
+
+      </div>
+
+      <div style={{ marginTop: '12px', padding: '8px 14px', background: '#f8fafc', borderRadius: '8px', fontSize: '11.5px', color: '#6b7280', textAlign: 'center', border: '1px solid #e8eaee' }}>
+        ✦ These insights are automatically gathered to help personalize and craft highly relevant emails.
+      </div>
+    </div>
+  );
+};
+
 const Output: React.FC<OutputInterface> = ({
   outputForm,
   outputFormHandler,
@@ -1006,6 +1280,7 @@ const [isSavingSubject, setIsSavingSubject] = useState(false);
     combinedResponses[currentIndex]?.pitch || "",
   );
   const [isEditing, setIsEditing] = useState(false);
+  const [isLogExpanded, setIsLogExpanded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const quillRef = useRef<any>(null);
 
@@ -1974,388 +2249,170 @@ useEffect(() => {
 
 
   return (
-    <div className="login-box gap-down">
-      {/* Add the selection dropdowns and subject line section */}
-      {/* Add the selection dropdowns and subject line section */}
-      <div
-        className="d-flex justify-between align-center mb-3">
-        <div className="input-section edit-section w-[100%]">
-        <h2 className="section-title !text-[#333] !text-left" style={{ marginTop: 0 }}>
-          Kraft emails
-        </h2>
-          {/* Dropdowns Row */}
-          <div className="flex items-start justify-between gap-4 w-full">
-            {/* Left side - Campaign dropdown and refresh button in a panel */}
-            <div className="flex items-start gap-4 flex-1">
-              <div>
-                <label>
-                  Campaign <span className="required">*</span>
-                </label>
-                <div 
-                  className="flex items-center gap-3 px-4 py-2" 
-                  style={{
-                    border: "1px solid #ddd",
-                    borderRadius: "8px",
-                    backgroundColor: "#fff",
-                    minHeight: "48px"
-                  }}
-                >
-                  <div className="form-group !mb-0">
-                    <select
-                      onChange={handleCampaignChange}
-                      value={selectedCampaign}
-                    >
-                      <option value="">Campaign</option>
-                      {Array.isArray(campaigns) && campaigns
-                        .slice()
-                        .sort((a, b) => a.campaignName.toLowerCase().localeCompare(b.campaignName.toLowerCase()))
-                        .map((campaign) => (
-                        <option key={campaign.id} value={campaign.id.toString()}>
-                          {campaign.campaignName}
-                        </option>
-                      ))}
-                    </select>
-                    {!selectedCampaign && (
-                      <small className="error-text">Select a campaign</small>
-                    )}
-                  </div>
-                  {selectedCampaign &&
-                    campaigns?.find((c) => c.id.toString() === selectedCampaign)
-                      ?.description && (
-                      <div className="campaign-description-container">
-                        <small className="campaign-description">
-                          {
-                            campaigns.find(
-                              (c) => c.id.toString() === selectedCampaign,
-                            )?.description
-                          }
-                        </small>
-                      </div>
-                    )}
-
-                  {/* Refresh Button - Only show when campaign is selected */}
-                  {selectedCampaign && (
-                    <div className="flex items-center gap-2">
-                      <ReactTooltip anchorSelect="#refresh-campaign-tooltip" place="top">
-                        Refresh campaign
-                      </ReactTooltip>
-                      <button
-                        id="refresh-campaign-tooltip"
-                        className="secondary-button flex items-center gap-2 h-[40px] px-3"
-                        onClick={async () => {
-                          const indexToPreserve = currentIndex;
-
-                          sessionStorage.setItem("refreshTargetIndex", indexToPreserve.toString());
-
-                          // ✅ FULL HARD RESET (important)
-                          sessionStorage.removeItem("selectedPrompt");
-                          sessionStorage.removeItem("campaignSubjectConfig");
-
-                          setJumpToNewLast(false);
-
-                          setCombinedResponses([]);
-                          setAllResponses([]);
-                          setexistingResponse([]);
-                          setSelectedPrompt?.(null);
-                          setCurrentIndex(0);
-
-                          // ✅ Re-trigger campaign change (fresh reload)
-                          handleCampaignChange?.({
-                            target: { value: selectedCampaign },
-                          } as React.ChangeEvent<HTMLSelectElement>);
-                        }}
-                        title="Refresh campaign"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="18px"
-                          height="18px"
-                          viewBox="0 0 16 16"
-                          fill="none"
-                        >
-                          <g fill="#3f9f42">
-                            <path d="M8 1.5A6.5 6.5 0 001.5 8 .75.75 0 010 8a8 8 0 0113.5-5.81v-.94a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zM15.25 7.25A.75.75 0 0116 8a8 8 0 01-13.5 5.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z" />
-                          </g>
-                        </svg>
-                      </button>
-
-                      {campaigns?.find((c) => c.id.toString() === selectedCampaign)?.templateId && (
-                        <>
-                          <ReactTooltip
-                            anchorSelect="#edit-blueprint-tooltip"
-                            place="top"
-                          >
-                            Edit this campaign's blueprint
-                          </ReactTooltip>
-                          <button
-                            id="edit-blueprint-tooltip"
-                            className="button d-flex align-center justify-center square-40"
-                            onClick={async () => {
-                              const campaign = campaigns.find((c) => c.id.toString() === selectedCampaign);
-                              if (campaign?.templateId) {
-                                try {
-                                  // ✅ Fetch full template details (same as Template.tsx line 665)
-                                  const response = await fetch(
-                                    `${API_BASE_URL}/api/CampaignPrompt/campaign/${campaign.templateId}`,
-                                  );
-                                  
-                                  if (response.ok) {
-                                    const fullTemplate = await response.json();
-                                    
-                                    // ✅ Extract example email
-                                    const example = fullTemplate?.placeholderValues?.example_output_email || "";
-                                    
-                                    // ✅ Store placeholderValues in session (CRITICAL - this was missing!)
-                                    if (fullTemplate.placeholderValues) {
-                                      sessionStorage.setItem(
-                                        "campaign_placeholder_values",
-                                        JSON.stringify(fullTemplate.placeholderValues)
-                                      );
-                                    }
-                                    
-                                    // ✅ Set all required session storage items (exactly like Template.tsx line 730-745)
-                                    sessionStorage.setItem("editTemplateId", campaign.templateId.toString());
-                                    sessionStorage.setItem("editTemplateMode", "true");
-                                    sessionStorage.setItem("newCampaignId", campaign.templateId.toString());
-                                    sessionStorage.setItem("newCampaignName", fullTemplate.templateName || campaign.campaignName);
-                                    sessionStorage.setItem("initialExampleEmail", example);
-                                    
-                                    if (fullTemplate.templateDefinitionId) {
-                                      sessionStorage.setItem(
-                                        "selectedTemplateDefinitionId",
-                                        fullTemplate.templateDefinitionId.toString(),
-                                      );
-                                    }
-                                    
-                                    // ✅ Dispatch event to switch to blueprint tab
-                                    window.dispatchEvent(new CustomEvent("switchToBlueprint", { 
-                                      detail: { templateId: campaign.templateId } 
-                                    }));
-                                  }
-                                } catch (error) {
-                                  console.error("Error loading blueprint:", error);
-                                }
-                              }
-                            }}
-                            title="Edit this campaign's blueprint"
-                          >
-                              <FontAwesomeIcon
-                              icon={faEdit}
-                              style={{ color: "#3f9f42", fontSize: 20 }}
-                              />
-                          </button>
-                        </>
-                      )}
-
-
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Middle section - Buttons and checkbox */}
-              {/* <div className="flex items-center gap-4 mt-[26px]">
-                <div 
-                  className="flex items-center gap-3 px-4 py-2" 
-                  style={{
-                    border: "1px solid #ddd",
-                    borderRadius: "8px",
-                    backgroundColor: "#fff",
-                    minHeight: "48px"
-                  }}
-                >
-                  {isResetEnabled ? (
-                    <button
-                      className="primary-button bg-[#3f9f42]"
-                      onClick={() => setKraftEmailControls(true)}
-                      disabled={
-                        (!selectedPrompt?.name || !selectedZohoviewId) &&
-                        !selectedCampaign
-                      }
-                      title={`Click to generate hyper-personalized emails starting from contact ${
-                        currentIndex + 1
-                      }`}
-                    >
-                      Kraft emails
-                    </button>
-                  ) : (
-                    <button
-                      className="primary-button bg-[#3f9f42]"
-                      onClick={handleStop}
-                      disabled={isStopRequested}
-                      title="Click to stop the generation of emails"
-                    >
-                      Stop
-                    </button>
-                  )}
-                </div>
-
-                <button
-                  className="green rounded-md py-[5px] px-[15px] border border-[#3f9f42]"
-                  onClick={() => setSendEmailControls(!sendEmailControls)}
-                >
-                  Send emails
-                </button>
-              </div> */}
+    <div className="min-h-screen" style={{ background: '#f3f4f6' }}>
+      {/* PAGE HEADER */}
+      <div className="flex items-start justify-between pt-4 pb-4 px-6">
+        <div>
+          <h1 className="text-[26px] font-bold text-[#111827] leading-tight">Kraft emails</h1>
+          <p className="text-[13.5px] mt-1" style={{ color: '#6b7280' }}>Design and personalize impactful emails for each contact</p>
+        </div>
+        <div className="flex items-center gap-3">
+          {userRole === "ADMIN" && usageData && (
+            <div style={{ padding: "6px 10px", background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: "11px", lineHeight: "1.3", whiteSpace: "nowrap", position: "relative" }}>
+              <button onClick={clearUsage} title="Clear usage" style={{ position: "absolute", top: "4px", right: "6px", border: "none", background: "transparent", cursor: "pointer", fontSize: "12px", color: "#64748b" }}>✕</button>
+              <div style={{ display: "flex", gap: "10px" }}><strong>Last:</strong><span>Tokens {usageData.last.tokens}</span><span>💲{usageData.last.cost.toFixed(6)}</span></div>
+              <div style={{ display: "flex", gap: "10px", marginTop: "2px" }}><strong>Total:</strong><span>Emails {usageData.total.emails}</span><span>Tokens {usageData.total.tokens}</span><span>💲{usageData.total.cost.toFixed(6)}</span></div>
             </div>
-
-            {/* Right side - Download button */}
-            {/* Right side - Usage + Download */}
-            <div className="flex items-center mt-[26px] gap-3">
-
-              {/* ================= ADMIN USAGE PANEL ================= */}
-              {userRole === "ADMIN" && usageData && (
-                <div
-                  style={{
-                    padding: "6px 10px",
-                    background: "#f1f5f9",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "6px",
-                    fontSize: "11px",
-                    lineHeight: "1.3",
-                    whiteSpace: "nowrap",
-                    position: "relative",
-                  }}
-                >
-                  {/* ❌ CLEAR BUTTON */}
-                  <button
-                    onClick={clearUsage}
-                    title="Clear usage"
-                    style={{
-                      position: "absolute",
-                      top: "4px",
-                      right: "6px",
-                      border: "none",
-                      background: "transparent",
-                      cursor: "pointer",
-                      fontSize: "12px",
-                      color: "#64748b",
-                    }}
-                  >
-                    ✕
-                  </button>
-
-                  {/* LAST EMAIL */}
-                  <div style={{ display: "flex", gap: "10px" }}>
-                    <strong>Last:</strong>
-                    <span>Tokens {usageData.last.tokens}</span>
-                    <span>💲{usageData.last.cost.toFixed(6)}</span>
-                  </div>
-
-                  {/* TOTAL */}
-                  <div style={{ display: "flex", gap: "10px", marginTop: "2px" }}>
-                    <strong>Total:</strong>
-                    <span>Emails {usageData.total.emails}</span>
-                    <span>Tokens {usageData.total.tokens}</span>
-                    <span>💲{usageData.total.cost.toFixed(6)}</span>
-                  </div>
-                </div>
-              )}
-
-
-
-              {/* Download button */}
-              <div className="flex items-center">
-                <ReactTooltip anchorSelect="#download-data-tooltip" place="top">
-                  Download all loaded emails to a spreadsheet
-                </ReactTooltip>
-
-                <a
-                  href="#"
-                  id="download-data-tooltip"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    if (!isExporting && combinedResponses.length > 0) {
-                      exportToExcel();
-                    }
-                  }}
-                  className="export-link green flex items-center"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="22px"
-                    height="22px"
-                    viewBox="0 0 24 24"
-                  >
-                    <g id="Complete">
-                      <g id="download">
-                        <g>
-                          <path
-                            d="M3,12.3v7a2,2,0,0,0,2,2H19a2,2,0,0,0,2-2v-7"
-                            fill="none"
-                            stroke="#3f9f42"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                          />
-                          <g>
-                            <polyline
-                              data-name="Right"
-                              fill="none"
-                              id="Right-2"
-                              points="7.9 12.3 12 16.3 16.1 12.3"
-                              stroke="#3f9f42"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                            />
-                            <line
-                              fill="none"
-                              stroke="#3f9f42"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              x1="12"
-                              x2="12"
-                              y1="2.7"
-                              y2="14.2"
-                            />
-                          </g>
-                        </g>
-                      </g>
-                    </g>
-                  </svg>
-                </a>
-              </div>
-
-              {/* Sound toggle */}
-              <div
-                className="flex items-center cursor-pointer"
-                title={isSoundEnabled ? "Sound ON" : "Sound OFF"}
-                onClick={() => setIsSoundEnabled((prev) => !prev)}
-              >
-                <h1 style={{ color: "#3f9f42", fontWeight: 500 }}>🔔</h1>
-                <img
-                  src={isSoundEnabled ? toggleOn : toggleOff}
-                  alt="Sound Toggle"
-                  style={{ height: "28px", width: "32px" }}
-                />
-              </div>
-            </div>
-
+          )}
+          <div className="flex items-center">
+            <ReactTooltip anchorSelect="#download-data-tooltip" place="top">Download all loaded emails to a spreadsheet</ReactTooltip>
+            <a href="#" id="download-data-tooltip" onClick={(e) => { e.preventDefault(); if (!isExporting && combinedResponses.length > 0) { exportToExcel(); } }} className="export-link green flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" width="22px" height="22px" viewBox="0 0 24 24">
+                <g id="Complete"><g id="download"><g>
+                  <path d="M3,12.3v7a2,2,0,0,0,2,2H19a2,2,0,0,0,2-2v-7" fill="none" stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/>
+                  <g><polyline data-name="Right" fill="none" id="Right-2" points="7.9 12.3 12 16.3 16.1 12.3" stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"/><line fill="none" stroke="#3f9f42" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" x1="12" x2="12" y1="2.7" y2="14.2"/></g>
+                </g></g></g>
+              </svg>
+            </a>
+          </div>
+          <div className="flex items-center cursor-pointer" title={isSoundEnabled ? "Sound ON" : "Sound OFF"} onClick={() => setIsSoundEnabled((prev) => !prev)}>
+            <span style={{ color: "#3f9f42", fontWeight: 500, fontSize: "20px" }}>🔔</span>
+            <img src={isSoundEnabled ? toggleOn : toggleOff} alt="Sound Toggle" style={{ height: "28px", width: "32px" }}/>
           </div>
         </div>
       </div>
 
-      {/* THIS MESSAGE MOVED HERE, ABOVE OUTPUT */}
-      {isStopRequested && !isResetEnabled && (
-        <div
-          style={{
-            color: "red",
-            marginBottom: "8px",
-            fontWeight: 500,
-          }}
-        >
-          Please wait, the last pitch generation is being completed...
-          <span className="animated-ellipsis"></span>
-        </div>
-      )}
+      <div className="px-6 pb-12">
+        <div className="grid gap-5 items-start" style={{ gridTemplateColumns: '380px 1fr' }}>
 
-      <div className="flex">
-        {/* Send Email Panel */}
-        <SendEmailPanel
-          key={`send-panel-${combinedResponses.length}-${currentIndex}`}
-          isOpen={sendEmailControls}
+          {/* LEFT CARD */}
+          <div className="bg-white rounded-2xl border p-5" style={{ borderColor: '#e8eaee' }}>
+            {/* Campaign section */}
+            <div className="mb-3">
+              <label className="text-[12px] font-semibold uppercase tracking-wider mb-1.5 block" style={{ color: '#6b7280' }}>
+                Campaign <span style={{ color: '#ef4444' }}>*</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <div className="form-group !mb-0 flex-1">
+                  <select
+                    onChange={handleCampaignChange}
+                    value={selectedCampaign}
+                    className="w-full"
+                  >
+                    <option value="">Campaign</option>
+                    {Array.isArray(campaigns) && campaigns
+                      .slice()
+                      .sort((a, b) => a.campaignName.toLowerCase().localeCompare(b.campaignName.toLowerCase()))
+                      .map((campaign) => (
+                      <option key={campaign.id} value={campaign.id.toString()}>
+                        {campaign.campaignName}
+                      </option>
+                    ))}
+                  </select>
+                  {!selectedCampaign && (
+                    <small className="error-text">Select a campaign</small>
+                  )}
+                </div>
+                {selectedCampaign && (
+                  <>
+                    <ReactTooltip anchorSelect="#refresh-campaign-tooltip" place="top">Refresh campaign</ReactTooltip>
+                    <button
+                      id="refresh-campaign-tooltip"
+                      className="w-11 h-11 rounded-lg border flex items-center justify-center hover:bg-[#f5f6f8] flex-shrink-0"
+                      style={{ borderColor: '#e8eaee' }}
+                      onClick={async () => {
+                        const indexToPreserve = currentIndex;
+                        sessionStorage.setItem("refreshTargetIndex", indexToPreserve.toString());
+                        sessionStorage.removeItem("selectedPrompt");
+                        sessionStorage.removeItem("campaignSubjectConfig");
+                        setJumpToNewLast(false);
+                        setCombinedResponses([]);
+                        setAllResponses([]);
+                        setexistingResponse([]);
+                        setSelectedPrompt?.(null);
+                        setCurrentIndex(0);
+                        handleCampaignChange?.({
+                          target: { value: selectedCampaign },
+                        } as React.ChangeEvent<HTMLSelectElement>);
+                      }}
+                      title="Refresh campaign"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18px" height="18px" viewBox="0 0 16 16" fill="none">
+                        <g fill="#3f9f42"><path d="M8 1.5A6.5 6.5 0 001.5 8 .75.75 0 010 8a8 8 0 0113.5-5.81v-.94a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zM15.25 7.25A.75.75 0 0116 8a8 8 0 01-13.5 5.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z"/></g>
+                      </svg>
+                    </button>
+                    {campaigns?.find((c) => c.id.toString() === selectedCampaign)?.templateId && (
+                      <>
+                        <ReactTooltip anchorSelect="#edit-blueprint-tooltip" place="top">Edit this campaign's blueprint</ReactTooltip>
+                        <button
+                          id="edit-blueprint-tooltip"
+                          className="w-11 h-11 rounded-lg border flex items-center justify-center hover:bg-[#f5f6f8] flex-shrink-0"
+                          style={{ borderColor: '#e8eaee' }}
+                          onClick={async () => {
+                            const campaign = campaigns.find((c) => c.id.toString() === selectedCampaign);
+                            if (campaign?.templateId) {
+                              try {
+                                const response = await fetch(`${API_BASE_URL}/api/CampaignPrompt/campaign/${campaign.templateId}`);
+                                if (response.ok) {
+                                  const fullTemplate = await response.json();
+                                  const example = fullTemplate?.placeholderValues?.example_output_email || "";
+                                  if (fullTemplate.placeholderValues) {
+                                    sessionStorage.setItem("campaign_placeholder_values", JSON.stringify(fullTemplate.placeholderValues));
+                                  }
+                                  sessionStorage.setItem("editTemplateId", campaign.templateId.toString());
+                                  sessionStorage.setItem("editTemplateMode", "true");
+                                  sessionStorage.setItem("newCampaignId", campaign.templateId.toString());
+                                  sessionStorage.setItem("newCampaignName", fullTemplate.templateName || campaign.campaignName);
+                                  sessionStorage.setItem("initialExampleEmail", example);
+                                  if (fullTemplate.templateDefinitionId) {
+                                    sessionStorage.setItem("selectedTemplateDefinitionId", fullTemplate.templateDefinitionId.toString());
+                                  }
+                                  window.dispatchEvent(new CustomEvent("switchToBlueprint", { detail: { templateId: campaign.templateId } }));
+                                }
+                              } catch (error) {
+                                console.error("Error loading blueprint:", error);
+                              }
+                            }
+                          }}
+                          title="Edit this campaign's blueprint"
+                        >
+                          <FontAwesomeIcon icon={faEdit} style={{ color: "#3f9f42", fontSize: 18 }}/>
+                        </button>
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
+              {selectedCampaign && campaigns?.find((c) => c.id.toString() === selectedCampaign)?.description && (
+                <small className="campaign-description mt-1 block text-[12px]" style={{ color: '#6b7280' }}>
+                  {campaigns.find((c) => c.id.toString() === selectedCampaign)?.description}
+                </small>
+              )}
+            </div>
+
+            {/* Campaign banner */}
+            {selectedCampaign ? (
+              <div className="flex items-center gap-2 rounded-lg px-3 py-2 mb-4 text-[13px] font-medium" style={{ background: '#e8f3e9', border: '1px solid #b3d9b4', color: '#2d7a30' }}>
+                ✓ Campaign loaded
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 rounded-lg px-3 py-2 mb-4 text-[13px]" style={{ background: '#eef6ff', border: '1px solid #cfe0ff', color: '#1e40af' }}>
+                ℹ Select a campaign to begin
+              </div>
+            )}
+
+            {/* Stop warning */}
+            {isStopRequested && !isResetEnabled && (
+              <div style={{ color: "red", marginBottom: "8px", fontWeight: 500 }}>
+                Please wait, the last pitch generation is being completed...
+                <span className="animated-ellipsis"></span>
+              </div>
+            )}
+
+            {/* Send Email Panel - always visible in left card */}
+            <SendEmailPanel
+              key={`send-panel-${combinedResponses.length}-${currentIndex}`}
+              isOpen={false}
           onClose={() => setSendEmailControls(!sendEmailControls)}
           bccOptions={bccOptions}
           emailFormData={emailFormData}
@@ -2472,102 +2529,23 @@ useEffect(() => {
         }}
         onStop={handleStop}
         isResetEnabled={isResetEnabled}
-        />
-         {sendEmailControls === true && 
-            <div className="flex" style={{height:tabPanelHeight}}>
-              <button
-                className="!rounded-[4px] bg-[#e4ffe5] text-[#3f9f42] font-[600] text-[20px] w-[50px] border-2 border-dashed border-[#b3c7b4] shadow-[rgba(50,50,93,0.25)_0px_13px_27px_-5px,rgba(0,0,0,0.3)_0px_8px_16px_-8px]"
-                onClick={() => setSendEmailControls(!sendEmailControls)}
-              >
-                <span className="flex items-center gap-[5px] rotate-90 pb-[3px] -mt-[46px]">
-                  
-                  <span className="nowrap">
-                    {sendEmailControls && "Show actions"}
-                  </span>
-                  <FontAwesomeIcon
-                    icon={sendEmailControls ? faCircleRight : faAngleLeft}
-                    className="text-[#3f9f42] text-md -rotate-90 pr-[2px]"
-                  />
-                </span>
-              </button>
-            </div>
-            }
-        <div ref={editableArea} className={`${sendEmailControls ? "flex-1" : "flex-4"} ml-[20px] w-[calc(100%-340px)] flex-4 bg-[#ffffff] rounded-[10px] shadow border border-[#cccccc]  shadow-[rgba(50,50,93,0.25)_0px_13px_27px_-5px,rgba(0,0,0,0.3)_0px_8px_16px_-8px]`}>
-          <div className="p-[20px]">
-            <span className="pos-relative">
-              <pre
-                style={{
-                  overflow: "hidden", // hides scrollbars
-                  whiteSpace: "pre-wrap", // wraps text nicely
-                  wordBreak: "break-word", // prevents long words from overflowing
-                  maxHeight: "70vh", // optional, keeps height reasonable
-                }}
-                className="w-full p-3 py-[5px] border border-gray-300 rounded-lg overflow-y-auto h-[30px] min-h-[30px] break-words whitespace-pre-wrap text-[13px]"
-                dangerouslySetInnerHTML={{
-                  __html: formatOutput(outputForm.generatedContent),
-                }}
-              ></pre>
+            />
+          </div>
 
-              <Modal
-                show={openModals["modal-output-1"]}
-                closeModal={() => handleModalClose("modal-output-1")}
-                buttonLabel="Ok"
-                size="100%"
-              >
-                <div
-                  style={{
-                    backgroundColor: "white",
-                    padding: "20px",
-                    borderRadius: "10px",
-                    boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
-                  }}
-                >
-                  <label>Output</label>
-                  <pre
-                    className="height-full--25 w-full p-3 border border-gray-300 rounded-lg overflow-y-auto textarea-height-600"
-                    dangerouslySetInnerHTML={{
-                      __html: formatOutput(outputForm.generatedContent),
-                    }}
-                  ></pre>
-                </div>
-              </Modal>
+          {/* RIGHT PANEL */}
+          <div ref={editableArea} className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: '#e8eaee' }}>
+            {/* Output log - one-liner with expand toggle */}
+            {outputForm.generatedContent && (
+              <OutputLogBanner
+                content={outputForm.generatedContent}
+                formatOutput={formatOutput}
+                isExpanded={isLogExpanded}
+                onToggle={() => setIsLogExpanded(p => !p)}
+              />
+            )}
 
-              {/* Add the full-view-icon button here */}
-              <button
-                className="full-view-icon d-flex align-center justify-center !top-0 !right-0"
-                onClick={() => handleModalOpen("modal-output-1")}
-              >
-                <svg width="30px" height="30px" viewBox="0 0 512 512">
-                  <polyline
-                    points="304 96 416 96 416 208"
-                    fill="none"
-                    stroke="#000000"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="32"
-                  />
-                  <line
-                    x1="405.77"
-                    y1="106.2"
-                    x2="111.98"
-                    y2="400.02"
-                    fill="none"
-                    stroke="#000000"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="32"
-                  />
-                  <polyline
-                    points="208 416 96 416 96 304"
-                    fill="none"
-                    stroke="#000000"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="32"
-                  />
-                </svg>
-              </button>
-            </span>
+            {/* Pager navigation + tab bar */}
+            <div className="px-6 pt-5">
             {/* Wrapper for navigation + contact index */}
             <div className="d-flex align-items-center gap mt-[26px] gap-3">
               {/* Navigation buttons */}
@@ -4242,13 +4220,37 @@ useEffect(() => {
                         ))}
                       </ul>
                     </div>
-                    {tab3 === "Online research" &&
-                      renderInsightPre(
-                        onlineResearchText,
-                        "modal-output-insights-research",
-                        "Online research",
-                        "markdown",
-                      )}
+                    {tab3 === "Online research" && (
+                      <div className="form-group">
+                        <div className="d-flex mb-10"></div>
+                        <span className="pos-relative d-flex justify-start">
+                          <div style={{ width: '100%' }}>
+                            <WebResearchCards content={onlineResearchText} />
+                          </div>
+                          <Modal
+                            show={openModals["modal-output-insights-research"]}
+                            closeModal={() => handleModalClose("modal-output-insights-research")}
+                            buttonLabel="Ok"
+                            size="90%"
+                          >
+                            <label>Online research</label>
+                            <div style={{ overflowY: 'auto', maxHeight: '80vh', padding: '8px 0' }}>
+                              <WebResearchCards content={onlineResearchText} />
+                            </div>
+                          </Modal>
+                          <button
+                            className="full-view-icon d-flex align-center justify-center"
+                            onClick={() => handleModalOpen("modal-output-insights-research")}
+                          >
+                            <svg width="40px" height="40px" viewBox="0 0 512 512">
+                              <polyline points="304 96 416 96 416 208" fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="32"/>
+                              <line x1="405.77" y1="106.2" x2="111.98" y2="400.02" fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="32"/>
+                              <polyline points="208 416 96 416 96 304" fill="none" stroke="#000000" strokeLinecap="round" strokeLinejoin="round" strokeWidth="32"/>
+                            </svg>
+                          </button>
+                        </span>
+                      </div>
+                    )}
                     {tab3 === "Notes" &&
                       renderInsightPre(
                         notesUsedText,
@@ -4275,9 +4277,9 @@ useEffect(() => {
 
               </>
             )}
+            </div>
           </div>
         </div>
-
       </div>
       <AppModal
         isOpen={appModal.isOpen}
