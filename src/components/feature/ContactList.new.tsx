@@ -219,7 +219,7 @@ export const ContactsPageHeader: React.FC<PageHeaderProps> = ({
       <div className="ct-page-header__inner">
         <div className="ct-page-header__top">
           <div>
-            <div className="ct-eyebrow">CRM</div>
+            
             <h1 className="ct-page-title">
               Contacts
               {totalContacts > 0 && (

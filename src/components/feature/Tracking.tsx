@@ -172,7 +172,7 @@ const Tracking: React.FC<TrackingProps> = ({ selectedClient }) => {
       <div className="bp-page-header">
         <div className="bp-page-header__inner">
           <div>
-            <div className="bp-eyebrow">CRM Settings</div>
+           
             <h1 className="bp-page-title">Tracking</h1>
             <p className="bp-page-sub">
               Configure email tracking to monitor opens and clicks across your campaigns.

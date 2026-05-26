@@ -19,7 +19,9 @@
       "Bash(npm run *)",
       "Bash(node -e ' *)",
       "Bash(ls \"C:\\\\Users\\\\Radhika\\\\Downloads\\\\Pitchkraft-handoff.tar.gz\\\\pitchkraft\")",
-      "Read(//c/Users/Radhika/Downloads/Pitchkraft-handoff.tar.gz/**)"
+      "Read(//c/Users/Radhika/Downloads/Pitchkraft-handoff.tar.gz/**)",
+      "Bash(powershell -Command \"Get-Content 'Mail Schedule - Redesign _standalone_.html' -TotalCount 10000 | Select-String -Pattern 'class=|className=' | Select-Object -First 100\")",
+      "PowerShell($content = Get-Content 'C:\\\\Users\\\\Radhika\\\\Downloads\\\\Mail Schedule - Redesign _standalone_.html' -Raw; Write-Output $content.Length)"
     ]
   }
 }

@@ -225,7 +225,7 @@ const CustomFieldSettings: React.FC<Props> = ({ selectedClient }) => {
       <div className="bp-page-header">
         <div className="bp-page-header__inner">
           <div>
-            <div className="bp-eyebrow">CRM Settings</div>
+            
             <h1 className="bp-page-title">
               Custom fields
               <span className="bp-count-pill">{fields.length}</span>

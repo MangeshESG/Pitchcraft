@@ -129,7 +129,7 @@ export const BlueprintsEmptyState: React.FC<{ onCreate: () => void }> = ({
     <div className="bp-page-header">
       <div className="bp-page-header__inner">
         <div>
-          <div className="bp-eyebrow">Library</div>
+         
           <h1 className="bp-page-title">Blueprints</h1>
           <p className="bp-page-sub">
             The recipes behind every campaign email. Build one once, reuse it forever.
@@ -319,7 +319,7 @@ export const BlueprintsList: React.FC<ListProps> = (p) => {
       <div className="bp-page-header">
         <div className="bp-page-header__inner">
           <div>
-            <div className="bp-eyebrow">Library</div>
+            
             <h1 className="bp-page-title">
               Blueprints
               <span className="bp-count-pill">{p.totalCount}</span>

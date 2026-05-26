@@ -4150,7 +4150,6 @@ try {
                           setShowContactsSubmenu(false);
                           setShowSettingsSubmenu(false);
                           navigate("/main?tab=Output");
-                          navigate("/main?tab=Output");
                         }}
                         className="side-menu-button"
                         title="Generate hyper-personalized emails"
@@ -4323,41 +4322,6 @@ try {
                 </div>
               </div>
             </nav>
-            {/* Rest of Output component content */}
-              <div className="pb-2 d-flex align-center justify-end p-4 w-[100%] border-t-[3px] border-t-[#eeeeee]">
-                <div className="form-group w-[100%]">
-                 
-                  <span className="pos-relative full-width flex flex-col">
-
-
-                    <div
-                      ref={popupRef}
-                      className="absolute left-0 top-full mt-2 bg-white border border-gray-300 rounded-md shadow-lg p-3 w-50"
-                    >
-                      <h4 className="font-semibold mb-2 text-sm text-gray-800">
-                        Need support?
-                      </h4>
-                      <div className="text-sm text-gray-700 space-y-1">
-                        <p>
-                          <strong>London:</strong> +44 (0) 207 660 4243
-                        </p>
-                        <p>
-                          <strong>New York:</strong> +1 (0) 315 400 2402
-                        </p>
-                        <p>
-                          <a
-                            href="mailto:support@pitchkraft.co"
-                            className="text-blue-600 hover:underline"
-                          >
-                            support@pitchkraft.ai
-                          </a>
-                        </p>
-                      </div>
-                    </div>
-                  </span>
-                </div>
-              </div>
-            
           </div>
         </aside>
       )}
@@ -4391,14 +4355,14 @@ try {
         <main className={`flex-1 overflow-y-auto h-[calc(100%-87px)] ${
           tab === "Dashboard"
             ? "bg-white"
-            : tab === "TestTemplate" || tab === "DataCampaigns" || tab === "Campaigns" || tab === "Settings"
+            : tab === "TestTemplate" || tab === "DataCampaigns" || tab === "Campaigns" || tab === "Settings" || tab === "Mail"
               ? "bg-[#fafbfc]"
               : "bg-[#eeeeee]"
-        } ${tab === "Dashboard" || tab === "TestTemplate" || tab === "DataCampaigns" || tab === "Campaigns" || tab === "Settings" || tab === "Output" ? "p-0" : "p-[20px]"}`}>
+        } ${tab === "Dashboard" || tab === "TestTemplate" || tab === "DataCampaigns" || tab === "Campaigns" || tab === "Settings" || tab === "Output" || tab === "Mail" ? "p-0" : "p-[20px]"}`}>
           <div
             className={`
                rounded-md
-              ${!isContactDetailPage && tab !== "Dashboard" && tab !== "TestTemplate" && tab !== "DataCampaigns" && tab !== "Campaigns" && tab !== "Settings" && tab !== "Output" ? "bg-white p-4 shadow-md min-h-[100%]" : ""}
+              ${!isContactDetailPage && tab !== "Dashboard" && tab !== "TestTemplate" && tab !== "DataCampaigns" && tab !== "Campaigns" && tab !== "Settings" && tab !== "Output" && tab !== "Mail" ? "bg-white p-4 shadow-md min-h-[100%]" : ""}
             `}
           >
             {/* Main Content Area */}
