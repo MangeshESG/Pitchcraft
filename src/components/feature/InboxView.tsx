@@ -10,6 +10,7 @@ import Modal from '../common/Modal';
 import ToastMessage from '../common/ToastMessage';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrashAlt } from '@fortawesome/free-regular-svg-icons';
+import { faShare } from '@fortawesome/free-solid-svg-icons';
 import UnassignedTab from './UnassignedTab';
 import SentTab from './SentTab';
 import AllMessagesTab from './AllMessagesTab';
@@ -115,10 +116,17 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [toastType, setToastType] = useState<'success' | 'error' | 'info' | 'warning'>('success');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showReplySection, setShowReplySection] = useState(false);
+  const [showForwardSection, setShowForwardSection] = useState(false);
   const [collapsedEmails, setCollapsedEmails] = useState<{ [key: string]: boolean }>({});
   const [showDeleteDropdown, setShowDeleteDropdown] = useState(false);
   const [showBulkDeleteDropdown, setShowBulkDeleteDropdown] = useState(false);
   const [activeTab, setActiveTab] = useState<'inbox' | 'sent' | 'unassigned' | 'all' | 'allmessages'>(initialTab.toLowerCase() as 'inbox' | 'sent' | 'unassigned' | 'all' | 'allmessages');
+  const [forwardEmail, setForwardEmail] = useState('');
+  const [forwardBccEmail, setForwardBccEmail] = useState('');
+  const [forwardMessage, setForwardMessage] = useState('');
+  const [forwardTrackingId, setForwardTrackingId] = useState('');
+  const [isForwarding, setIsForwarding] = useState(false);
+  const [showForwardBcc, setShowForwardBcc] = useState(false);
   
   useEffect(() => {
     setActiveTab(initialTab.toLowerCase() as 'inbox' | 'sent' | 'unassigned' | 'all' | 'allmessages');
@@ -128,6 +136,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setSelectedUnassignedThread(null);
     setSelectedAllMessagesThread(null);
     setShowReplySection(false);
+    setShowForwardSection(false);
     setReplyText('');
     setCollapsedEmails({});
   }, [initialTab]);
@@ -140,6 +149,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setSelectedUnassignedThread(null);
     setSelectedAllMessagesThread(null);
     setShowReplySection(false);
+    setShowForwardSection(false);
     setReplyText('');
     setCollapsedEmails({});
     
@@ -172,6 +182,20 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteModalType, setDeleteModalType] = useState<'single' | 'bulk'>('single');
   const [pendingDeleteMode, setPendingDeleteMode] = useState<'soft' | 'Permanent'>('soft');
+
+  useEffect(() => {
+    setShowForwardSection(false);
+    setForwardEmail('');
+    setForwardBccEmail('');
+    setForwardMessage('');
+    setForwardTrackingId('');
+    setShowForwardBcc(false);
+  }, [
+    activeTab,
+    selectedThread?.trackingId,
+    selectedUnassignedThread?.trackingId,
+    selectedAllMessagesThread?.trackingId
+  ]);
 
   const refreshInboxDropdownCounts = useCallback(async () => {
     if (!effectiveUserId || !isVisible) return;
@@ -762,6 +786,196 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const handleModalClose = (id: string) => {
     setOpenModals((prev) => ({ ...prev, [id]: false }));
   };
+
+  const openForwardModal = (thread: InboxThread) => {
+    setForwardTrackingId(thread.trackingId);
+    setForwardEmail('');
+    setForwardBccEmail('');
+    setForwardMessage('');
+    setShowForwardBcc(false);
+    setShowReplySection(false);
+    setShowForwardSection(true);
+  };
+
+  const closeForwardModal = () => {
+    if (isForwarding) return;
+    setForwardEmail('');
+    setForwardBccEmail('');
+    setForwardMessage('');
+    setForwardTrackingId('');
+    setShowForwardBcc(false);
+    setShowForwardSection(false);
+  };
+
+  const handleForwardEmail = async () => {
+    if (!forwardTrackingId || !forwardEmail.trim() || !forwardMessage.trim()) return;
+
+    setIsForwarding(true);
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/Forward/forward-email`,
+        {
+          trackingId: forwardTrackingId,
+          clientId: parseInt(effectiveUserId),
+          forwardToEmail: forwardEmail.trim(),
+          forwardMessage,
+          outboxId: selectedInboxId || 0,
+          bccEmail: forwardBccEmail.trim(),
+          Provider: selectedProvider
+        },
+        {
+          headers: {
+            accept: '*/*',
+            'Content-Type': 'application/json',
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      if (response.data?.success === false) {
+        throw new Error(response.data?.message || 'Failed to forward email');
+      }
+
+      setToastMessage('Email forwarded successfully!');
+      setToastType('success');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+      setForwardEmail('');
+      setForwardBccEmail('');
+      setForwardMessage('');
+      setForwardTrackingId('');
+      setShowForwardBcc(false);
+      setShowForwardSection(false);
+    } catch (err: any) {
+      console.error('Error forwarding email:', err);
+      setToastMessage(err.response?.data?.message || err.message || 'Failed to forward email');
+      setToastType('error');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    } finally {
+      setIsForwarding(false);
+    }
+  };
+
+  const renderForwardSection = () => (
+    <form
+      className="reply-section"
+      onSubmit={(e) => {
+        e.preventDefault();
+        handleForwardEmail();
+      }}
+      style={{
+        marginTop: '24px',
+        borderTop: '1px solid #e5e7eb',
+        paddingTop: '24px',
+        padding: '24px'
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+        <label style={{ fontWeight: '500', fontSize: '14px', color: '#374151' }}>Forward</label>
+      </div>
+
+      <style>
+        {`
+          .reply-section .rich-text-editor > div {
+            min-height: 30px !important;
+            max-height: 100px !important;
+          }
+        `}
+      </style>
+
+      <div style={{ display: 'grid', gap: '12px', marginBottom: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <input
+            type="email"
+            value={forwardEmail}
+            onChange={(e) => setForwardEmail(e.target.value)}
+            placeholder="To"
+            required
+            style={{
+              flex: 1,
+              width: '100%',
+              padding: '10px 12px',
+              border: '1px solid #d1d5db',
+              borderRadius: '6px',
+              fontSize: '14px'
+            }}
+          />
+          {!showForwardBcc && (
+            <button
+              type="button"
+              onClick={() => setShowForwardBcc(true)}
+              style={{
+                padding: '10px 12px',
+                background: '#fff',
+                color: '#2563eb',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '500',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              BCC
+            </button>
+          )}
+        </div>
+        {showForwardBcc && (
+          <input
+            type="email"
+            value={forwardBccEmail}
+            onChange={(e) => setForwardBccEmail(e.target.value)}
+            placeholder="BCC"
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              border: '1px solid #d1d5db',
+              borderRadius: '6px',
+              fontSize: '14px'
+            }}
+          />
+        )}
+        <RichTextEditor value={forwardMessage} onChange={setForwardMessage} />
+      </div>
+
+      <div style={{ display: 'flex', gap: '12px' }}>
+        <button
+          type="submit"
+          disabled={isForwarding || !forwardEmail.trim() || !forwardMessage.trim()}
+          style={{
+            padding: '10px 24px',
+            background: isForwarding || !forwardEmail.trim() || !forwardMessage.trim() ? '#ccc' : '#ef4444',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: isForwarding || !forwardEmail.trim() || !forwardMessage.trim() ? 'not-allowed' : 'pointer',
+            fontSize: '14px',
+            fontWeight: '500'
+          }}
+        >
+          {isForwarding ? 'Forwarding...' : 'Forward'}
+        </button>
+        <button
+          type="button"
+          onClick={closeForwardModal}
+          disabled={isForwarding}
+          style={{
+            padding: '10px 24px',
+            background: '#6b7280',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: isForwarding ? 'not-allowed' : 'pointer',
+            fontSize: '14px',
+            fontWeight: '500'
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
 
   const toggleMessageExpand = (messageId: string) => {
     setExpandedMessages((prev) => ({ ...prev, [messageId]: !prev[messageId] }));
@@ -1609,7 +1823,34 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           </div>
                         )}
                       </div>
-                      <div className="mail-detail-date">{new Date(message.date).toLocaleString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <button
+                          type="button"
+                          title="Forward"
+                          aria-label="Forward email"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openForwardModal(selectedThread);
+                          }}
+                          style={{
+                            width: '34px',
+                            height: '34px',
+                            padding: 0,
+                            background: '#fff',
+                            color: '#3f9f42',
+                            border: '1px solid #3f9f42',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '13px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          <FontAwesomeIcon icon={faShare} />
+                        </button>
+                        <div className="mail-detail-date">{new Date(message.date).toLocaleString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}</div>
+                      </div>
                     </div>
                   </div>
                   {collapsedEmails[uniqueKey] ? (
@@ -1669,9 +1910,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                   )}
                 </div>
               );})}
-              
+              {showForwardSection && renderForwardSection()}
+
               {/* Reply Button */}
-              {!showReplySection && (
+              {!showReplySection && !showForwardSection && (
                 <div className="reply-button-sticky">
                   <button
                     onClick={() => setShowReplySection(true)}
@@ -2314,7 +2556,34 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             </div>
                           )}
                         </div>
-                        <div className="mail-detail-date">{new Date(message.date).toLocaleString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <button
+                            type="button"
+                            title="Forward"
+                            aria-label="Forward email"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openForwardModal(selectedUnassignedThread);
+                            }}
+                            style={{
+                              width: '34px',
+                              height: '34px',
+                              padding: 0,
+                              background: '#fff',
+                              color: '#3f9f42',
+                              border: '1px solid #3f9f42',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              fontSize: '13px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            <FontAwesomeIcon icon={faShare} />
+                          </button>
+                          <div className="mail-detail-date">{new Date(message.date).toLocaleString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}</div>
+                        </div>
                       </div>
                     </div>
                     {collapsedEmails[uniqueKey] ? (
@@ -2373,9 +2642,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     )}
                   </div>
                 );})}
-                
+                {showForwardSection && renderForwardSection()}
+
                 {/* Reply Button */}
-                {!showReplySection && (
+                {!showReplySection && !showForwardSection && (
                   <div className="reply-button-sticky">
                     <button
                       onClick={() => setShowReplySection(true)}
@@ -2882,7 +3152,34 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             {extractEmailAddress(message.fromEmail)}
                           </div>
                         </div>
-                        <div className="mail-detail-date">{new Date(message.date).toLocaleString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <button
+                            type="button"
+                            title="Forward"
+                            aria-label="Forward email"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openForwardModal(selectedAllMessagesThread);
+                            }}
+                            style={{
+                              width: '34px',
+                              height: '34px',
+                              padding: 0,
+                              background: '#fff',
+                              color: '#3f9f42',
+                              border: '1px solid #3f9f42',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              fontSize: '13px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                          >
+                            <FontAwesomeIcon icon={faShare} />
+                          </button>
+                          <div className="mail-detail-date">{new Date(message.date).toLocaleString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true })}</div>
+                        </div>
                       </div>
                     </div>
                     {collapsedEmails[uniqueKey] !== false ? (
@@ -2941,9 +3238,10 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     )}
                   </div>
                 );})}
+                {showForwardSection && renderForwardSection()}
 
                 {/* Reply Button */}
-                {!showReplySection && (
+                {!showReplySection && !showForwardSection && (
                   <div className="reply-button-sticky">
                     <button
                       onClick={() => setShowReplySection(true)}
