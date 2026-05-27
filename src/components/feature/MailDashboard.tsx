@@ -12,12 +12,11 @@ import { faTrashAlt } from "@fortawesome/free-regular-svg-icons";
 import { faEdit } from "@fortawesome/free-regular-svg-icons";
 
 import {
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
-  Legend,
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
@@ -139,6 +138,35 @@ const getDisplayNameFromContact = (contact: any) => {
   const combined = `${String(first).trim()} ${String(last).trim()}`.trim();
   return (String(full).trim() || combined || "-");
 };
+
+// ── Mini sparkline ──────────────────────────────────────────────────────────
+const MiniSparkline: React.FC<{ data: number[]; color: string }> = ({ data, color }) => {
+  if (!data || data.length < 2) return null;
+  const max = Math.max(...data);
+  const min = Math.min(...data);
+  const range = max - min || 1;
+  const W = 100, H = 32;
+  const pts = data.map((v, i) => ({
+    x: (i / (data.length - 1)) * W,
+    y: H - 2 - ((v - min) / range) * (H - 6),
+  }));
+  const line = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+  const area = `M0,${H} ${pts.map(p => `L${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ")} L${W},${H} Z`;
+  const gId = `sg${color.replace(/[^a-z0-9]/gi, "")}`;
+  return (
+    <svg width="100%" height="32" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: "block" }}>
+      <defs>
+        <linearGradient id={gId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill={`url(#${gId})`} />
+      <path d={line} stroke={color} strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+};
+// ─────────────────────────────────────────────────────────────────────────────
 
 const MailDashboard: React.FC<MailDashboardProps> = ({
   effectiveUserId,
@@ -1903,335 +1931,388 @@ const fetchLogsByCampaign = async (campaignId: string) => {
   };
 
   return (
-    <div
-      className="dashboard-section"
-      style={{ display: isVisible ? "block" : "none" }}
-    >
-      {/* Dashboard Sub-tabs */}
-      <div className="dashboard-tabs">
+    <div className="md-root" style={{ display: isVisible ? "block" : "none" }}>
+
+      {/* ── Tab Bar ── */}
+      <div className="md-tab-bar">
         <button
-          className={dashboardTab === "Overview" ? "active !pt-0" : "!pt-0"}
+          className={`md-tab${dashboardTab === "Overview" ? " md-tab--active" : ""}`}
           onClick={() => handleDashboardTabChange("Overview")}
         >
           Overview
         </button>
         <button
-          className={dashboardTab === "Details" ? "active !pt-0" : "!pt-0"}
+          className={`md-tab${dashboardTab === "Details" ? " md-tab--active" : ""}`}
           onClick={() => handleDashboardTabChange("Details")}
         >
           Details
         </button>
       </div>
-{/* Dynamic Description */}
-  <p style={{marginBottom:'20px'}}>
-    {dashboardTab === "Overview"
-      ? "The Overview section displays key email campaign metrics—sent, unique opens, and unique clicks—within a selected date range for performance analysis."
-      : "The Details section provides in-depth analytics, including recipient-level engagement data and comprehensive campaign performance insights."}
-  </p>
-      {/* Campaign Selection and Date Filters - Updated */}
-      <div className="form-controls">
-        <div className="form-group">
-          <label>
-            Campaign <span style={{ color: "red" }}>*</span>
-          </label>
+
+      {/* ── Controls Bar ── */}
+      <div className="md-controls-bar">
+        {/* Campaign — grows to fill available space */}
+        <div className="md-control-campaign">
+          <label className="md-label">Campaign <span className="md-required">*</span></label>
           <select
             value={selectedCampaign}
             onChange={handleCampaignChange}
-            className={!selectedCampaign ? "error" : ""}
+            className={`md-select${!selectedCampaign ? " md-select--error" : ""}`}
           >
-            <option value="">Campaign</option>
-            {availableCampaigns.map((campaign) => (
-              <option key={campaign.id} value={campaign.id}>
-                {campaign.campaignName}
-                {campaign.dataSource === "Segment" &&
-                  campaign.segmentName &&
-                  ` (Segment: ${campaign.segmentName})`}
+            <option value="">Select a campaign</option>
+            {availableCampaigns.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.campaignName}{c.dataSource === "Segment" && c.segmentName ? ` (${c.segmentName})` : ""}
               </option>
             ))}
           </select>
         </div>
 
-        <div className="form-group">
-          <label>Start date:</label>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => handleDateChange("start", e.target.value)}
-            max={endDate || undefined}
-          />
+        {/* Start date */}
+        <div className="md-control-group">
+          <label className="md-label">Start date</label>
+          <input type="date" value={startDate} onChange={(e) => handleDateChange("start", e.target.value)}
+            max={endDate || undefined} className="md-date-input" />
         </div>
 
-        <div className="form-group">
-          <label>End date:</label>
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => handleDateChange("end", e.target.value)}
-            min={startDate || undefined}
-          />
+        {/* End date */}
+        <div className="md-control-group">
+          <label className="md-label">End date</label>
+          <input type="date" value={endDate} onChange={(e) => handleDateChange("end", e.target.value)}
+            min={startDate || undefined} className="md-date-input" />
         </div>
-        <div className="form-group flex items-start">
-          <ReactTooltip
-            anchorSelect="#mail-dashboard-refresh-analytics"
-            place="top"
-          >
-            Refresh the dashboard analytics
-          </ReactTooltip>
-          <span
-            className="cursor-pointer -ml-[5px]"
-            id="mail-dashboard-refresh-analytics"
-            onClick={handleRefresh}  // Add this onClick handler
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="41px"
-              height="41px"
-              viewBox="0 0 30 30"
-              fill="none"
-            >
-              <g fill="#3f9f42" style={{ transform: "translateY(5px)" }}>
-                <path d="M8 1.5A6.5 6.5 0 001.5 8 .75.75 0 010 8a8 8 0 0113.5-5.81v-.94a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zM15.25 7.25A.75.75 0 0116 8a8 8 0 01-13.5 5.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z"></path>
-              </g>
+
+        {/* Refresh icon button */}
+        <div className="md-control-refresh">
+          <button className="md-icon-btn" onClick={handleRefresh}
+            disabled={isRefreshing || loading} title="Refresh analytics">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 1.5A6.5 6.5 0 001.5 8a.75.75 0 01-1.5 0A8 8 0 0113.5 2.19V1.25a.75.75 0 011.5 0v3a.75.75 0 01-.75.75h-3a.75.75 0 010-1.5h1.44A6.479 6.479 0 008 1.5zm7.25 5.75a.75.75 0 01.75.75A8 8 0 012.5 13.81v.94a.75.75 0 01-1.5 0v-3a.75.75 0 01.75-.75h3a.75.75 0 010 1.5H3.31A6.5 6.5 0 0014.5 8a.75.75 0 01.75-.75z"/>
             </svg>
-          </span>
+          </button>
         </div>
 
-        {(startDate || endDate) && (
-          <div className="form-group flex items-start">
-            <button
-              className="save-button button auto-width small d-flex justify-between align-center -ml-[20px]"
-              onClick={() => {
-                setStartDate("");
-                setEndDate("");
-                saveCurrentState();
-              }}
-              style={{ borderRadius: "12px" }}
-            >
-              Clear dates
+        {/* Only guaranteed toggle */}
+        <div className="md-control-group">
+          <ReactTooltip anchorSelect="#md-guaranteed-label" place="top">
+            Restrict to guaranteed opens and clicks by removing any chance of bot actions. This will deflate numbers pessimistically.
+          </ReactTooltip>
+          <label className="md-label" id="md-guaranteed-label" style={{ display: "flex", alignItems: "center", gap: 3 }}>
+            Only guaranteed
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ opacity: 0.45, flexShrink: 0 }}>
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+            </svg>
+          </label>
+          <div className="md-toggle-wrapper">
+            <button onClick={() => setExcludeBots(!excludeBots)}
+              className={`md-toggle${excludeBots ? " md-toggle--on" : ""}`}>
+              <span className={`md-toggle-thumb${excludeBots ? " md-toggle-thumb--on" : ""}`} />
+            </button>
+            <span className="md-toggle-label">{excludeBots ? "ON" : "OFF"}</span>
+          </div>
+        </div>
+
+        {/* Right-side actions (shown when campaign selected) */}
+        {selectedCampaign && (
+          <div className="md-control-actions">
+            {(startDate || endDate) && (
+              <button className="md-clear-btn"
+                onClick={() => { setStartDate(""); setEndDate(""); saveCurrentState(); }}>
+                Clear dates
+              </button>
+            )}
+            <button className="md-export-btn" title="Export Report">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              Export Report
             </button>
           </div>
         )}
+      </div>
 
-        <div className="form-group">
-          <ReactTooltip
-            anchorSelect="#mail-dashboard-only-guaranteed"
-            place="top"
-          >
-            Restrict to guaranteed opens and clicks by removing any chance of bot actions. This will deflate numbers pessimistically.
-          </ReactTooltip>
-          <label id="mail-dashboard-only-guaranteed">Only guaranteed:</label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button
-              onClick={() => setExcludeBots(!excludeBots)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
-                excludeBots ? 'bg-green-600' : 'bg-gray-200'
-              } cursor-pointer`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  excludeBots ? 'translate-x-6' : 'translate-x-1'
-                }`}
-              />
-            </button>
-            <span style={{ fontSize: '12px', color: '#666' }}>
-              {excludeBots ? 'ON' : 'OFF'}
-            </span>
+      {/* ── Stats Grid (v2 — icon+label row / value / sparkline) ── */}
+      <div className="md-stats-grid">
+        {([
+          {
+            id: "sent", label: "Sent", color: "#3f9f42", bg: "#f0fdf4",
+            value: loading ? null : !selectedCampaign ? null : requestCount,
+            sub: !loading && selectedCampaign ? "100%" : null,
+            spark: dailyStats.map(d => d.sent),
+            icon: <><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></>,
+          },
+          {
+            id: "opens", label: "Unique opens", color: "#f59e0b", bg: "#fffbeb",
+            value: loading ? null : !selectedCampaign ? null : totalStats.opens,
+            sub: !loading && selectedCampaign ? `${openRate}%` : null,
+            spark: dailyStats.map(d => d.opens),
+            icon: <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>,
+          },
+          {
+            id: "clicks", label: "Clicks", color: "#8b5cf6", bg: "#f5f3ff",
+            value: loading ? null : !selectedCampaign ? null : totalStats.totalClicks,
+            sub: null,
+            spark: dailyStats.map(d => d.clicks),
+            icon: <><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></>,
+          },
+          {
+            id: "uclicks", label: "Unique clicks", color: "#14b8a6", bg: "#f0fdfa",
+            value: loading ? null : !selectedCampaign ? null : totalStats.clicks,
+            sub: !loading && selectedCampaign ? `${clickRate}%` : null,
+            spark: dailyStats.map(d => d.clicks),
+            icon: <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>,
+          },
+          {
+            id: "errors", label: "Errors", color: "#ef4444", bg: "#fef2f2",
+            value: loading ? null : !selectedCampaign ? null : totalStats.errors,
+            sub: !loading && selectedCampaign
+              ? `${requestCount > 0 ? ((totalStats.errors / (requestCount + totalStats.errors)) * 100).toFixed(1) : "0.0"}%`
+              : null,
+            spark: [] as number[],
+            icon: <><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></>,
+          },
+        ]).map(card => (
+          <div key={card.id} className="md-stat-v2">
+            {/* Header row: icon + label */}
+            <div className="md-stat-v2-head">
+              <span className="md-stat-v2-icon" style={{ background: card.bg, color: card.color }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  {card.icon}
+                </svg>
+              </span>
+              <span className="md-stat-v2-label" style={{ color: card.color }}>{card.label}</span>
+            </div>
+            {/* Value */}
+            <div className="md-stat-v2-body">
+              <span className="md-stat-v2-value">
+                {card.value === null ? "—" : card.value.toLocaleString()}
+              </span>
+              {card.sub && <span className="md-stat-v2-sub">{card.sub}</span>}
+            </div>
+            {/* Sparkline (only when campaign loaded and data exists) */}
+            {selectedCampaign && card.spark.length > 1 && (
+              <div className="md-stat-v2-spark">
+                <MiniSparkline data={card.spark} color={card.color} />
+              </div>
+            )}
           </div>
-        </div>
+        ))}
       </div>
 
-      {/* Stats Cards */}
-      <div className="stats-cards">
-        <div className="stats-card">
-          <h3>Sent</h3>
-          {loading ? (
-            <p className="value">Loading...</p>
-          ) : !selectedCampaign ? (
-            <p className="value">-</p>
-          ) : (
-            <p className="value">{requestCount}</p>
-          )}
-        </div>
-
-        <div className="stats-card orange">
-          <h3>Unique opens</h3>
-          {loading ? (
-            <p className="value">Loading...</p>
-          ) : !selectedCampaign ? (
-            <p className="value">-</p>
-          ) : (
-            <>
-              <p className="value">{totalStats.opens}</p>
-              <p className="percentage">({openRate}%)</p>
-            </>
-          )}
-        </div>
-
-        <div className="stats-card purple">
-          <h3>Clicks</h3>
-          {loading ? (
-            <p className="value">Loading...</p>
-          ) : !selectedCampaign ? (
-            <p className="value">-</p>
-          ) : (
-            <p className="value">{totalStats.totalClicks}</p>
-          )}
-        </div>
-
-        <div className="stats-card blue">
-          <h3>Unique clicks</h3>
-          {loading ? (
-            <p className="value">Loading...</p>
-          ) : !selectedCampaign ? (
-            <p className="value">-</p>
-          ) : (
-            <>
-              <p className="value">{totalStats.clicks}</p>
-              <p className="percentage">({clickRate}%)</p>
-            </>
-          )}
-        </div>
-
-        <div className="stats-card red">
-          <h3>Errors</h3>
-          {loading ? (
-            <p className="value">Loading...</p>
-          ) : !selectedCampaign ? (
-            <p className="value">-</p>
-          ) : (
-            <>
-              <p className="value">{totalStats.errors}</p>
-              <p className="percentage">({requestCount > 0 ? ((totalStats.errors / (requestCount + totalStats.errors)) * 100).toFixed(1) : '0.0'}%)</p>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Overview Tab Content */}
+      {/* ── Overview Tab ── */}
       {dashboardTab === "Overview" && (
-        <div className="chart-container">
-          <h2>Statistics overview</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart
-              data={
-                filteredStats.length
-                  ? filteredStats
-                  : [{ date: "", sent: 0, opens: 0, clicks: 0 }]
-              }
-              margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              <Legend verticalAlign="top" height={36} />
-              <Line
-                type="monotone"
-                dataKey="sent"
-                stroke="#00C49F"
-                strokeWidth={2}
-                dot={{ r: 3 }}
-                activeDot={{ r: 6 }}
-              />
-              <Line
-                type="monotone"
-                dataKey="opens"
-                stroke="#FF8042"
-                strokeWidth={2}
-                dot={{ r: 3 }}
-                activeDot={{ r: 6 }}
-              />
-              <Line
-                type="monotone"
-                dataKey="clicks"
-                stroke="#8884d8"
-                strokeWidth={2}
-                dot={{ r: 3 }}
-                activeDot={{ r: 6 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        !selectedCampaign ? (
+          /* ─── Empty state ─── */
+          <>
+            <div className="md-empty-state">
+              {/* Illustration */}
+              <div className="md-empty-illus">
+                <svg width="210" height="165" viewBox="0 0 210 165" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  {/* browser window */}
+                  <rect x="15" y="8" width="165" height="118" rx="9" fill="#fff" stroke="#e2e8f0" strokeWidth="1.5"/>
+                  <rect x="15" y="8" width="165" height="22" rx="9" fill="#f8fafc"/>
+                  <rect x="15" y="22" width="165" height="6" fill="#f8fafc"/>
+                  {/* dots */}
+                  <circle cx="28" cy="19" r="3" fill="#fca5a5"/>
+                  <circle cx="38" cy="19" r="3" fill="#fde68a"/>
+                  <circle cx="48" cy="19" r="3" fill="#86efac"/>
+                  {/* area chart fill */}
+                  <path d="M25 110 C45 92 65 78 85 68 C105 58 125 63 145 52 C158 44 165 48 178 43 L178 110 Z" fill="#dcfce7"/>
+                  {/* area chart line */}
+                  <path d="M25 110 C45 92 65 78 85 68 C105 58 125 63 145 52 C158 44 165 48 178 43" stroke="#3f9f42" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+                  {/* donut chart */}
+                  <circle cx="163" cy="78" r="20" stroke="#e2e8f0" strokeWidth="7" fill="none"/>
+                  <circle cx="163" cy="78" r="20" stroke="#3f9f42" strokeWidth="7" fill="none" strokeDasharray="63 63" strokeLinecap="round" transform="rotate(-90 163 78)"/>
+                  <circle cx="163" cy="78" r="20" stroke="#f59e0b" strokeWidth="7" fill="none" strokeDasharray="31 95" strokeLinecap="round" transform="rotate(27 163 78)"/>
+                  {/* decorative plus signs */}
+                  <text x="5" y="75" fill="#3f9f42" fontSize="14" fontWeight="700" opacity="0.7">+</text>
+                  <text x="188" y="118" fill="#3f9f42" fontSize="10" fontWeight="700" opacity="0.6">+</text>
+                  {/* arrow */}
+                  <path d="M8 120 Q5 135 13 145" stroke="#3f9f42" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+                  <path d="M10 143 L13 145 L11 141" stroke="#3f9f42" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+              <h3 className="md-empty-title">Select a campaign to view analytics</h3>
+              <p className="md-empty-sub">Choose a campaign and date range above to see performance insights like<br/>sent, opens, clicks, and more.</p>
+              <button
+                className="md-empty-cta"
+                onClick={() => {
+                  const el = document.querySelector(".md-select") as HTMLSelectElement | null;
+                  if (el) el.focus();
+                }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                </svg>
+                Select a campaign
+              </button>
+            </div>
+
+            {/* Feature row */}
+            <div className="md-feature-row">
+              {([
+                { icon: "clock",    title: "Track performance",     desc: "Monitor key metrics and measure campaign success." },
+                { icon: "target",   title: "Optimize results",      desc: "Identify what works best and improve future campaigns." },
+                { icon: "users",    title: "Data-driven decisions",  desc: "Make informed decisions with real-time insights." },
+                { icon: "shield",   title: "Guaranteed accuracy",   desc: "Analytics reflect only guaranteed emails for reliable data." },
+              ] as const).map(f => (
+                <div key={f.title} className="md-feature-card">
+                  <div className="md-feature-icon">
+                    {f.icon === "clock"  && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
+                    {f.icon === "target" && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>}
+                    {f.icon === "users"  && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>}
+                    {f.icon === "shield" && <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>}
+                  </div>
+                  <div>
+                    <p className="md-feature-title">{f.title}</p>
+                    <p className="md-feature-desc">{f.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          /* ─── Populated state ─── */
+          <>
+            {/* Chart card with totals panel */}
+            <div className="md-chart-card">
+              <div className="md-chart-header">
+                <h2 className="md-chart-title">Statistics overview</h2>
+                <div className="md-chart-legend-tags">
+                  <span className="md-legend-tag" style={{ background: "#e0faf3", color: "#059669" }}>● Sent</span>
+                  <span className="md-legend-tag" style={{ background: "#fff4e5", color: "#d97706" }}>● Unique opens</span>
+                  <span className="md-legend-tag" style={{ background: "#f0eeff", color: "#7c3aed" }}>● Unique clicks</span>
+                </div>
+              </div>
+              <div className="md-chart-with-totals">
+                {/* Area chart */}
+                <div className="md-chart-main">
+                  <ResponsiveContainer width="100%" height={240}>
+                    <AreaChart
+                      data={filteredStats.length ? filteredStats : [{ date: "", sent: 0, opens: 0, clicks: 0 }]}
+                      margin={{ top: 6, right: 8, left: 0, bottom: 4 }}
+                    >
+                      <defs>
+                        <linearGradient id="gSent"   x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#00C49F" stopOpacity={0.22}/><stop offset="95%" stopColor="#00C49F" stopOpacity={0}/></linearGradient>
+                        <linearGradient id="gOpens"  x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#FF8042" stopOpacity={0.18}/><stop offset="95%" stopColor="#FF8042" stopOpacity={0}/></linearGradient>
+                        <linearGradient id="gClicks" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.16}/><stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/></linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f4f8" />
+                      <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                      <Tooltip contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", boxShadow: "0 4px 16px rgba(0,0,0,0.10)", fontSize: 12 }} />
+                      <Area type="monotone" dataKey="sent"   stroke="#00C49F" strokeWidth={2} fill="url(#gSent)"   dot={false} activeDot={{ r: 5 }} />
+                      <Area type="monotone" dataKey="opens"  stroke="#FF8042" strokeWidth={2} fill="url(#gOpens)"  dot={false} activeDot={{ r: 5 }} />
+                      <Area type="monotone" dataKey="clicks" stroke="#8b5cf6" strokeWidth={2} fill="url(#gClicks)" dot={false} activeDot={{ r: 5 }} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+                {/* Totals panel */}
+                <div className="md-chart-totals">
+                  <p className="md-totals-header">
+                    Total{startDate && endDate ? ` (${startDate} – ${endDate})` : ""}
+                  </p>
+                  <div className="md-totals-list">
+                    {[
+                      { label: "Sent",          val: requestCount,          color: "#00C49F" },
+                      { label: "Unique opens",  val: totalStats.opens,      color: "#FF8042" },
+                      { label: "Unique clicks", val: totalStats.clicks,     color: "#8b5cf6" },
+                      { label: "Errors",        val: totalStats.errors,     color: "#ef4444" },
+                    ].map(r => (
+                      <div key={r.label} className="md-totals-row">
+                        <span className="md-totals-dot" style={{ background: r.color }} />
+                        <span className="md-totals-label">{r.label}</span>
+                        <span className="md-totals-value" style={{ color: r.color }}>{r.val.toLocaleString()}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Performance insights */}
+            <div className="md-insights-section">
+              <h3 className="md-insights-title">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#3f9f42" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
+                </svg>
+                Performance insights
+              </h3>
+              <div className="md-insights-grid">
+                <div className="md-insight-card">
+                  <p className="md-insight-sub">Your unique open rate is</p>
+                  <p className="md-insight-val" style={{ color: "#f59e0b" }}>{openRate}%</p>
+                  <p className="md-insight-hint">of {requestCount.toLocaleString()} sent emails</p>
+                </div>
+                <div className="md-insight-card">
+                  <p className="md-insight-sub">Your unique click rate is</p>
+                  <p className="md-insight-val" style={{ color: "#8b5cf6" }}>{clickRate}%</p>
+                  <p className="md-insight-hint">of {requestCount.toLocaleString()} sent emails</p>
+                </div>
+                <div className="md-insight-card">
+                  <p className="md-insight-sub">Total clicks recorded</p>
+                  <p className="md-insight-val" style={{ color: "#14b8a6" }}>{totalStats.totalClicks.toLocaleString()}</p>
+                  <p className="md-insight-hint">{totalStats.clicks.toLocaleString()} unique recipients clicked</p>
+                </div>
+                <div className="md-insight-card md-insight-card--featured">
+                  <p className="md-insight-sub">Top performing day</p>
+                  {(() => {
+                    const best = [...filteredStats].sort((a, b) => b.opens - a.opens)[0];
+                    return best ? (
+                      <>
+                        <p className="md-insight-val" style={{ color: "#3f9f42" }}>{best.date}</p>
+                        <p className="md-insight-hint">Opens: {best.opens} · Clicks: {best.clicks}</p>
+                      </>
+                    ) : <p className="md-insight-val">—</p>;
+                  })()}
+                </div>
+              </div>
+            </div>
+          </>
+        )
       )}
 
-      {/* Details Tab Content */}
+      {/* ── Details Tab ── */}
       {dashboardTab === "Details" && (
         <>
-          <div className="event-buttons" style={{ marginBottom: 16 }}>
-            <button
-              onClick={() => handleEmailFilterTypeChange("opens")}
-              className={`btn-open ${emailFilterType === "opens" ? "active" : ""
-                }`}
-            >
-              Opens
-            </button>
-            <button
-              onClick={() => handleEmailFilterTypeChange("clicks")}
-              className={`btn-click ${emailFilterType === "clicks" ? "active" : ""
-                }`}
-            >
-              Clicks
-            </button>
-            <button
-              onClick={() => handleEmailFilterTypeChange("opens-no-clicks")}
-              className={`btn-filter ${emailFilterType === "opens-no-clicks" ? "active" : ""
-                }`}
-              style={{
-                background:
-                  emailFilterType === "opens-no-clicks" ? "#ff9800" : undefined,
-              }}
-            >
-              Opens not clicked
-            </button>
-            <button
-              onClick={() => handleEmailFilterTypeChange("all")}
-              className={`btn-filter ${emailFilterType === "all" ? "active" : ""
-                }`}
-            >
-              All
-            </button>
-            <button
-              onClick={() => handleEmailFilterTypeChange("email-logs")}
-              className={`btn-filter ${emailFilterType === "email-logs" ? "active" : ""
-                }`}
-              style={{
-                background:
-                  emailFilterType === "email-logs" ? "#28a745" : undefined,
-              }}
-            >
-              Sent
-            </button>
-            <button
-              onClick={() => handleEmailFilterTypeChange("missing-logs")}
-              className={`btn-filter ${emailFilterType === "missing-logs" ? "active" : ""}`}
-              style={{
-                background:
-                  emailFilterType === "missing-logs" ? "#dc3545" : undefined,
-              }}
-            >
-              Not Sent
-            </button>
-            {/* <button
-              onClick={handleRefresh}
-              className="btn-refresh"
-              disabled={isRefreshing}
-              style={{ marginLeft: "auto" }}
-            >
-              {isRefreshing ? "Refreshing..." : "Refresh"}
-            </button> */}
+          {/* Filter pills */}
+          <div className="md-filter-bar">
+            {([
+              { key: "opens",            label: "Opens",             color: "#3f9f42" },
+              { key: "clicks",           label: "Clicks",            color: "#2196f3" },
+              { key: "opens-no-clicks",  label: "Opens not clicked", color: "#f59e0b" },
+              { key: "opens-and-clicks", label: "Opens & clicks",    color: "#8b5cf6" },
+              { key: "all",              label: "All",               color: "#64748b" },
+              { key: "email-logs",       label: "Sent",              color: "#10b981" },
+              { key: "missing-logs",     label: "Not sent",          color: "#ef4444" },
+            ] as const).map(({ key, label, color }) => (
+              <button
+                key={key}
+                className={`md-filter-pill${emailFilterType === key ? " md-filter-pill--active" : ""}`}
+                style={
+                  emailFilterType === key
+                    ? { background: color, borderColor: color, color: "#fff" }
+                    : {}
+                }
+                onClick={() => handleEmailFilterTypeChange(key)}
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
-          {/* Missing Logs Date Warning */}
+          {/* Missing logs date warning */}
           {emailFilterType === "missing-logs" && (!startDate || !endDate) && (
-            <div style={{
-              padding: "12px 16px",
-              background: "#fff3e0",
-              border: "1px solid #ff9800",
-              borderRadius: 6,
-              marginBottom: 16,
-              color: "#e65100"
-            }}>
-              <strong>Date Range Required:</strong> Please select both start and end dates to view missing logs.
+            <div className="md-warning-banner">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+              <span>
+                <strong>Date range required:</strong> Please select both start and end dates to view contacts not sent.
+              </span>
             </div>
           )}
 
@@ -2604,32 +2685,24 @@ const fetchLogsByCampaign = async (campaignId: string) => {
                 : setEmailColumns
             }
           />
-          {/* Email Logs Summary */}
+          {/* ── Email Logs Summary ── */}
           {emailFilterType === "email-logs" && (
-            <div className="email-summary" style={{ marginTop: 20 }}>
-              <div className="stats-cards">
-                <div className="stats-card">
-                  <h3>Total emails</h3>
-                  <p className="value">{getFilteredEmailLogs().length}</p>
-                </div>
-                <div className="stats-card" style={{ background: "#d4edda" }}>
-                  <h3>Successfully sent</h3>
-                  <p className="value">
-                    {
-                      getFilteredEmailLogs().filter((log) => log.isSuccess)
-                        .length
-                    }
-                  </p>
-                </div>
-                <div className="stats-card" style={{ background: "#f8d7da" }}>
-                  <h3>Failed</h3>
-                  <p className="value">
-                    {
-                      getFilteredEmailLogs().filter((log) => !log.isSuccess)
-                        .length
-                    }
-                  </p>
-                </div>
+            <div className="md-summary-row">
+              <div className="md-summary-card">
+                <span className="md-summary-label">Total emails</span>
+                <span className="md-summary-value">{getFilteredEmailLogs().length.toLocaleString()}</span>
+              </div>
+              <div className="md-summary-card md-summary-card--success">
+                <span className="md-summary-label">Successfully sent</span>
+                <span className="md-summary-value">
+                  {getFilteredEmailLogs().filter((log) => log.isSuccess).length.toLocaleString()}
+                </span>
+              </div>
+              <div className="md-summary-card md-summary-card--error">
+                <span className="md-summary-label">Failed</span>
+                <span className="md-summary-value">
+                  {getFilteredEmailLogs().filter((log) => !log.isSuccess).length.toLocaleString()}
+                </span>
               </div>
             </div>
           )}
