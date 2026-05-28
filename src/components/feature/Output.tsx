@@ -308,37 +308,17 @@ const OutputLogBanner: React.FC<{
   );
 };
 
-interface WebResearchData {
-  company_overview?: {
-    description?: string;
-    founded?: string;
-    headquarters?: string;
-    employees?: string;
-    website?: string;
-  };
-  key_findings?: string[];
-  recent_news?: { date: string; headline: string }[];
-  event_insights?: {
-    event?: string;
-    date?: string;
-    location?: string;
-    focus?: string;
-    attendees?: string;
-  };
-  personalization_angle?: string;
-}
-
 const WebResearchCards: React.FC<{ content: string }> = ({ content }) => {
-  let data: WebResearchData | null = null;
+  let data: Record<string, any> | null = null;
 
   try {
     const clean = content
       .replace(/^```json\s*/i, '')
       .replace(/\s*```$/, '')
       .trim();
-    data = JSON.parse(clean);
+    const parsed = JSON.parse(clean);
+    data = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
   } catch {
-    // fallback to plain markdown
     return (
       <div style={{ padding: '10px', border: '1px solid #e8eaee', borderRadius: '8px', lineHeight: 1.6, fontSize: '13px' }}>
         <ReactMarkdown>{content}</ReactMarkdown>
@@ -348,128 +328,187 @@ const WebResearchCards: React.FC<{ content: string }> = ({ content }) => {
 
   if (!data) return null;
 
-  const card: React.CSSProperties = {
-    background: '#fff',
-    borderRadius: '12px',
-    border: '1px solid #e8eaee',
-    padding: '16px 18px',
+  const cardStyle: React.CSSProperties = {
+    background: '#fff', borderRadius: '12px', border: '1px solid #e8eaee', padding: '16px 18px',
   };
 
-  const cardTitle = (icon: string, title: string) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-      <span style={{ fontSize: '17px' }}>{icon}</span>
-      <span style={{ fontWeight: 600, fontSize: '13.5px', color: '#111827' }}>{title}</span>
-    </div>
-  );
-
-  const badge = (label: string, value: string) => (
-    <span style={{ fontSize: '11.5px', background: '#f1f5f9', padding: '3px 10px', borderRadius: '99px', border: '1px solid #e2e8f0', color: '#374151', whiteSpace: 'nowrap' }}>
-      <span style={{ color: '#6b7280' }}>{label}: </span>{value}
-    </span>
-  );
-
-  const eventIcons: Record<string, string> = {
-    event: '📅', date: '🗓', location: '📍', focus: '🎯', attendees: '👥',
+  const iconMap: Record<string, string> = {
+    company_overview: '🏢', overview: '🏢', company: '🏢',
+    key_findings: '💡', findings: '💡', insights: '🔍',
+    recent_news: '📰', news: '📰', updates: '📰',
+    event_insights: '🗓', events: '🗓', event: '📅',
+    personalization_angle: '✉️', personalization: '✉️',
+    summary: '📋', products: '📦', services: '🛠',
+    leadership: '👤', funding: '💰', competitors: '⚡',
+    pain_points: '🎯', opportunities: '🌱', technology: '💻',
+    social_media: '📱', contact: '📞',
   };
+
+  const getIcon = (key: string) =>
+    iconMap[key] || iconMap[Object.keys(iconMap).find(k => key.toLowerCase().includes(k)) || ''] || '📌';
+
+  const fmtKey = (key: string) =>
+    key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+  const renderValue = (value: any): React.ReactNode => {
+    if (value === null || value === undefined) return null;
+
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      return <p style={{ margin: 0, fontSize: '13px', color: '#374151', lineHeight: 1.6 }}>{String(value)}</p>;
+    }
+
+    if (Array.isArray(value)) {
+      if (value.length === 0) return null;
+
+      // Array of primitives → checkmark list
+      if (typeof value[0] !== 'object') {
+        return (
+          <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '7px' }}>
+            {value.map((item, i) => (
+              <li key={i} style={{ display: 'flex', gap: '8px', fontSize: '13px', color: '#374151', lineHeight: 1.5 }}>
+                <span style={{ color: '#22c55e', flexShrink: 0, marginTop: '1px' }}>✔</span>
+                {String(item)}
+              </li>
+            ))}
+          </ul>
+        );
+      }
+
+      // Array of objects → smart rows
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {value.map((item: Record<string, any>, i) => {
+            const entries = Object.entries(item).filter(([, v]) => v != null && String(v).trim() !== '');
+            if (entries.length === 0) return null;
+
+            // Detect a "date-like" field and treat the rest as the main content
+            const dateEntry = entries.find(([k]) => /^(date|time|published|when|at)$/i.test(k));
+            const contentEntries = entries.filter(([k]) => !/^(date|time|published|when|at)$/i.test(k));
+
+            if (dateEntry && contentEntries.length > 0) {
+              const mainText = contentEntries.map(([, v]) => String(v)).join(' — ');
+              return (
+                <div key={i} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: '11px', color: '#6b7280', whiteSpace: 'nowrap', marginTop: '2px', minWidth: '70px' }}>
+                    {String(dateEntry[1])}
+                  </span>
+                  <span style={{ fontSize: '13px', color: '#374151', lineHeight: 1.5 }}>
+                    <span style={{ color: '#3f9f42', marginRight: '6px' }}>◆</span>{mainText}
+                  </span>
+                </div>
+              );
+            }
+
+            // Generic object row
+            return (
+              <div key={i} style={{ padding: '8px 10px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                {entries.map(([k, v]) => (
+                  <div key={k} style={{ fontSize: '13px', color: '#374151', lineHeight: 1.5 }}>
+                    <span style={{ fontWeight: 500 }}>{fmtKey(k)}: </span>{String(v)}
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // Plain object → description-first, then badges (short values) or rows (long values)
+    if (typeof value === 'object') {
+      const entries = Object.entries(value).filter(([, v]) => v != null && String(v).trim() !== '');
+      if (entries.length === 0) return null;
+
+      const descEntry = entries.find(([k]) => /description|summary|overview|about/i.test(k));
+      const rest = entries.filter(([k]) => !/description|summary|overview|about/i.test(k));
+      // Use row layout when any value is longer than 35 chars (e.g. event_insights focus/attendees)
+      const useBadges = !rest.some(([, v]) => String(v).length > 35);
+
+      return (
+        <div>
+          {descEntry && (
+            <p style={{ fontSize: '13px', color: '#374151', marginBottom: '10px', lineHeight: 1.55, marginTop: 0 }}>
+              {String(descEntry[1])}
+            </p>
+          )}
+          {rest.length > 0 && (
+            useBadges ? (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {rest.map(([k, v]) => {
+                  const strVal = String(v);
+                  const isUrl = /^https?:\/\//i.test(strVal) || /website|url|link/i.test(k);
+                  if (isUrl) {
+                    const href = /^https?:\/\//i.test(strVal) ? strVal : `https://${strVal}`;
+                    return (
+                      <a key={k} href={href} target="_blank" rel="noopener noreferrer"
+                        style={{ fontSize: '11.5px', background: '#f0fdf4', padding: '3px 10px', borderRadius: '99px', border: '1px solid #bbf7d0', color: '#15803d', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                        🔗 {strVal}
+                      </a>
+                    );
+                  }
+                  return (
+                    <span key={k} style={{ fontSize: '11.5px', background: '#f1f5f9', padding: '3px 10px', borderRadius: '99px', border: '1px solid #e2e8f0', color: '#374151', whiteSpace: 'nowrap' }}>
+                      <span style={{ color: '#6b7280' }}>{fmtKey(k)}: </span>{strVal}
+                    </span>
+                  );
+                })}
+              </div>
+            ) : (
+              // Long values → labeled rows (e.g. event_insights)
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                {rest.map(([k, v]) => {
+                  const strVal = String(v);
+                  const isUrl = /^https?:\/\//i.test(strVal) || /website|url|link/i.test(k);
+                  return (
+                    <div key={k} style={{ display: 'flex', gap: '8px', fontSize: '13px', alignItems: 'flex-start' }}>
+                      <span style={{ fontWeight: 500, flexShrink: 0, color: '#6b7280', minWidth: '80px' }}>{fmtKey(k)}:</span>
+                      {isUrl ? (
+                        <a href={/^https?:\/\//i.test(strVal) ? strVal : `https://${strVal}`} target="_blank" rel="noopener noreferrer"
+                          style={{ color: '#15803d', textDecoration: 'none' }}>🔗 {strVal}</a>
+                      ) : (
+                        <span style={{ color: '#374151', lineHeight: 1.5 }}>{strVal}</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )
+          )}
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  const entries = Object.entries(data).filter(([, v]) => {
+    if (v === null || v === undefined) return false;
+    if (typeof v === 'string' && v.trim() === '') return false;
+    if (Array.isArray(v) && v.length === 0) return false;
+    return true;
+  });
 
   return (
     <div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-
-        {/* Company Overview */}
-        {data.company_overview && (
-          <div style={card}>
-            {cardTitle('🏢', 'Company overview')}
-            {data.company_overview.description && (
-              <p style={{ fontSize: '13px', color: '#374151', marginBottom: '12px', lineHeight: 1.55 }}>
-                {data.company_overview.description}
-              </p>
-            )}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-              {data.company_overview.founded && badge('Founded', data.company_overview.founded)}
-              {data.company_overview.headquarters && badge('Headquarters', data.company_overview.headquarters)}
-              {data.company_overview.employees && badge('Employees', data.company_overview.employees)}
-              {data.company_overview.website && (
-                <a
-                  href={`https://${data.company_overview.website.replace(/^https?:\/\//, '')}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ fontSize: '11.5px', background: '#f0fdf4', padding: '3px 10px', borderRadius: '99px', border: '1px solid #bbf7d0', color: '#15803d', textDecoration: 'none', whiteSpace: 'nowrap' }}
-                >
-                  🔗 {data.company_overview.website}
-                </a>
-              )}
+        {entries.map(([key, value]) => {
+          const isFullWidth = typeof value === 'string';
+          return (
+            <div key={key} style={{ ...cardStyle, ...(isFullWidth ? { gridColumn: '1 / -1', background: '#f8fafc', borderColor: '#e2e8f0' } : {}) }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                <span style={{ fontSize: '17px' }}>{getIcon(key)}</span>
+                <span style={{ fontWeight: 600, fontSize: '13.5px', color: '#111827' }}>{fmtKey(key)}</span>
+              </div>
+              {renderValue(value)}
             </div>
-          </div>
-        )}
-
-        {/* Key Findings */}
-        {data.key_findings && data.key_findings.length > 0 && (
-          <div style={card}>
-            {cardTitle('💡', 'Key findings')}
-            <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {data.key_findings.map((f, i) => (
-                <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', fontSize: '13px', color: '#374151', lineHeight: 1.5 }}>
-                  <span style={{ color: '#22c55e', flexShrink: 0, marginTop: '2px' }}>✔</span>
-                  {f}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* Recent News */}
-        {data.recent_news && data.recent_news.length > 0 && (
-          <div style={card}>
-            {cardTitle('📰', 'Recent news & updates')}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {data.recent_news.map((n, i) => (
-                <div key={i} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
-                  <span style={{ fontSize: '11px', color: '#6b7280', whiteSpace: 'nowrap', marginTop: '2px', minWidth: '80px' }}>{n.date}</span>
-                  <span style={{ fontSize: '13px', color: '#374151', lineHeight: 1.5 }}>
-                    <span style={{ color: '#3f9f42', marginRight: '6px' }}>◆</span>{n.headline}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Event Insights */}
-        {data.event_insights && Object.values(data.event_insights).some(Boolean) && (
-          <div style={card}>
-            {cardTitle('🗓', 'Event insights')}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
-              {(['event', 'date', 'location', 'focus', 'attendees'] as const).map((key) =>
-                data!.event_insights![key] ? (
-                  <div key={key} style={{ display: 'flex', gap: '8px', fontSize: '13px', alignItems: 'flex-start' }}>
-                    <span style={{ flexShrink: 0 }}>{eventIcons[key]}</span>
-                    <span style={{ color: '#374151', lineHeight: 1.5 }}>
-                      <span style={{ fontWeight: 500, textTransform: 'capitalize' }}>{key}: </span>
-                      {data!.event_insights![key]}
-                    </span>
-                  </div>
-                ) : null
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Personalization Angle — full width */}
-        {data.personalization_angle && (
-          <div style={{ ...card, gridColumn: '1 / -1', background: '#f8fafc', borderColor: '#e2e8f0' }}>
-            {cardTitle('✉️', 'Best personalization angle')}
-            <p style={{ margin: 0, fontSize: '13px', color: '#374151', lineHeight: 1.6 }}>
-              {data.personalization_angle}
-            </p>
-          </div>
-        )}
-
+          );
+        })}
       </div>
-
-      <div style={{ marginTop: '12px', padding: '8px 14px', background: '#f8fafc', borderRadius: '8px', fontSize: '11.5px', color: '#6b7280', textAlign: 'center', border: '1px solid #e8eaee' }}>
-        ✦ These insights are automatically gathered to help personalize and craft highly relevant emails.
-      </div>
+      {entries.length > 0 && (
+        <div style={{ marginTop: '12px', padding: '8px 14px', background: '#f8fafc', borderRadius: '8px', fontSize: '11.5px', color: '#6b7280', textAlign: 'center', border: '1px solid #e8eaee' }}>
+          ✦ These insights are automatically gathered to help personalize and craft highly relevant emails.
+        </div>
+      )}
     </div>
   );
 };

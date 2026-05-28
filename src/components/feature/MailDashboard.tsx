@@ -2036,28 +2036,28 @@ const fetchLogsByCampaign = async (campaignId: string) => {
       <div className="md-stats-grid">
         {([
           {
-            id: "sent", label: "Sent", color: "#3f9f42", bg: "#f0fdf4",
+            id: "sent", label: "Sent", color: "#00C49F", bg: "#e0faf3",
             value: loading ? null : !selectedCampaign ? null : requestCount,
             sub: !loading && selectedCampaign ? "100%" : null,
             spark: dailyStats.map(d => d.sent),
             icon: <><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></>,
           },
           {
-            id: "opens", label: "Unique opens", color: "#f59e0b", bg: "#fffbeb",
+            id: "opens", label: "Unique opens", color: "#FF8042", bg: "#fff4e5",
             value: loading ? null : !selectedCampaign ? null : totalStats.opens,
             sub: !loading && selectedCampaign ? `${openRate}%` : null,
             spark: dailyStats.map(d => d.opens),
             icon: <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></>,
           },
           {
-            id: "clicks", label: "Clicks", color: "#8b5cf6", bg: "#f5f3ff",
+            id: "clicks", label: "Clicks", color: "#8b5cf6", bg: "#f0eeff",
             value: loading ? null : !selectedCampaign ? null : totalStats.totalClicks,
             sub: null,
             spark: dailyStats.map(d => d.clicks),
             icon: <><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H14z"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></>,
           },
           {
-            id: "uclicks", label: "Unique clicks", color: "#14b8a6", bg: "#f0fdfa",
+            id: "uclicks", label: "Unique clicks", color: "#8b5cf6", bg: "#f0eeff",
             value: loading ? null : !selectedCampaign ? null : totalStats.clicks,
             sub: !loading && selectedCampaign ? `${clickRate}%` : null,
             spark: dailyStats.map(d => d.clicks),
@@ -2069,7 +2069,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
             sub: !loading && selectedCampaign
               ? `${requestCount > 0 ? ((totalStats.errors / (requestCount + totalStats.errors)) * 100).toFixed(1) : "0.0"}%`
               : null,
-            spark: [] as number[],
+            spark: dailyStats.map(d => d.sent).map((_, i) => totalStats.errors > 0 ? totalStats.errors : 0),
             icon: <><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></>,
           },
         ]).map(card => (
@@ -2181,9 +2181,9 @@ const fetchLogsByCampaign = async (campaignId: string) => {
               <div className="md-chart-header">
                 <h2 className="md-chart-title">Statistics overview</h2>
                 <div className="md-chart-legend-tags">
-                  <span className="md-legend-tag" style={{ background: "#e0faf3", color: "#059669" }}>● Sent</span>
-                  <span className="md-legend-tag" style={{ background: "#fff4e5", color: "#d97706" }}>● Unique opens</span>
-                  <span className="md-legend-tag" style={{ background: "#f0eeff", color: "#7c3aed" }}>● Unique clicks</span>
+                  <span className="md-legend-tag" style={{ background: "#e0faf3", color: "#00C49F" }}>● Sent</span>
+                  <span className="md-legend-tag" style={{ background: "#fff4e5", color: "#FF8042" }}>● Unique opens</span>
+                  <span className="md-legend-tag" style={{ background: "#f0eeff", color: "#8b5cf6" }}>● Unique clicks</span>
                 </div>
               </div>
               <div className="md-chart-with-totals">
@@ -2243,7 +2243,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
               <div className="md-insights-grid">
                 <div className="md-insight-card">
                   <p className="md-insight-sub">Your unique open rate is</p>
-                  <p className="md-insight-val" style={{ color: "#f59e0b" }}>{openRate}%</p>
+                  <p className="md-insight-val" style={{ color: "#FF8042" }}>{openRate}%</p>
                   <p className="md-insight-hint">of {requestCount.toLocaleString()} sent emails</p>
                 </div>
                 <div className="md-insight-card">
@@ -2253,7 +2253,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
                 </div>
                 <div className="md-insight-card">
                   <p className="md-insight-sub">Total clicks recorded</p>
-                  <p className="md-insight-val" style={{ color: "#14b8a6" }}>{totalStats.totalClicks.toLocaleString()}</p>
+                  <p className="md-insight-val" style={{ color: "#8b5cf6" }}>{totalStats.totalClicks.toLocaleString()}</p>
                   <p className="md-insight-hint">{totalStats.clicks.toLocaleString()} unique recipients clicked</p>
                 </div>
                 <div className="md-insight-card md-insight-card--featured">
@@ -2262,7 +2262,7 @@ const fetchLogsByCampaign = async (campaignId: string) => {
                     const best = [...filteredStats].sort((a, b) => b.opens - a.opens)[0];
                     return best ? (
                       <>
-                        <p className="md-insight-val" style={{ color: "#3f9f42" }}>{best.date}</p>
+                        <p className="md-insight-val" style={{ color: "#00C49F" }}>{best.date}</p>
                         <p className="md-insight-hint">Opens: {best.opens} · Clicks: {best.clicks}</p>
                       </>
                     ) : <p className="md-insight-val">—</p>;
