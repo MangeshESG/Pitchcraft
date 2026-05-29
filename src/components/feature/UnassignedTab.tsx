@@ -5,6 +5,17 @@ import LoadingSpinner from '../common/LoadingSpinner';
 import DeleteConfirmationModal from '../common/DeleteConfirmationModal';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrashAlt } from '@fortawesome/free-regular-svg-icons';
+import { faPaperclip } from '@fortawesome/free-solid-svg-icons';
+
+interface UnassignedAttachment {
+  id?: number;
+  messageId?: string;
+  fileName?: string;
+  originalFileName?: string;
+  contentType?: string;
+  filePath?: string;
+  fileSize?: number;
+}
 
 interface UnassignedMessage {
   type: string;
@@ -17,6 +28,7 @@ interface UnassignedMessage {
   isRead: boolean;
   contactId: number | null;
   contactName?: string;
+  attachments?: UnassignedAttachment[];
 }
 
 interface UnassignedThread {
@@ -44,6 +56,7 @@ interface UnassignedEmail {
   isRead: boolean;
   provider: string;
   contactId: number | null;
+  attachments?: UnassignedAttachment[];
 }
 
 interface UnassignedTabProps {
@@ -172,7 +185,8 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
       date: firstMessage.date,
       isRead: firstMessage.isRead,
       provider: selectedProvider,
-      contactId: thread.contactId
+      contactId: thread.contactId,
+      attachments: firstMessage.attachments
     };
     
     onEmailSelect(unassignedEmail);
@@ -285,6 +299,10 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
       return (parts[0][0] + parts[1][0]).toUpperCase();
     }
     return name.substring(0, 1).toUpperCase();
+  };
+
+  const getThreadAttachmentCount = (thread: UnassignedThread): number => {
+    return thread.messages.reduce((count, message) => count + (message.attachments?.length || 0), 0);
   };
 
   const formatEmailBody = (body: string): string => {
@@ -480,6 +498,7 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
           // Check if any message in thread is unread
           const hasUnreadMessages = thread.messages.some(msg => !msg.isRead);
           const isSelected = selectedThreadIds.includes(thread.trackingId);
+          const attachmentCount = getThreadAttachmentCount(thread);
           return (
           <div
             key={thread.trackingId}
@@ -536,6 +555,14 @@ const UnassignedTab: React.FC<UnassignedTabProps> = ({
               </div>
               <div className="mail-subject">
                 {thread.totalMessages > 1 && <span className="reply-icon">↩ {thread.totalMessages}</span>}
+                {attachmentCount > 0 && (
+                  <span
+                    title={`${attachmentCount} attachment${attachmentCount > 1 ? 's' : ''}`}
+                    style={{ display: 'inline-flex', alignItems: 'center', marginRight: '6px', color: '#6b7280' }}
+                  >
+                    <FontAwesomeIcon icon={faPaperclip} />
+                  </span>
+                )}
                 {thread.subject}
               </div>
               <div className="mail-preview">

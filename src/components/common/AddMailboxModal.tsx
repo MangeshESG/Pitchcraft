@@ -3,6 +3,7 @@ import CommonSidePanel from "./CommonSidePanel";
 import ToastMessage from "./ToastMessage";
 import OtpModal from "../feature/OtpModal";
 import API_BASE_URL from "../../config";
+import OtherMailboxWizard from "./OtherMailboxWizard";
 
 interface SmtpForm {
   server: string;
@@ -50,7 +51,6 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
   onError,
 }) => {
   const [selectedProvider, setSelectedProvider] = useState<"gmail" | "outlook" | "office365" | "others" | null>(null);
-  const [othersTab, setOthersTab] = useState<"outgoing" | "incoming">("outgoing");
 
   const [pop3Loading, setPop3Loading] = useState(false);
   const [gmailSenderName, setGmailSenderName] = useState("");
@@ -60,10 +60,41 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
   const [outlookLoading, setOutlookLoading] = useState(false);
   const [outgoingLoading, setOutgoingLoading] = useState(false);
   const [incomingLoading, setIncomingLoading] = useState(false);
+  const [includeImap, setIncludeImap] = useState(false);
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error' | 'info' | 'warning'>('success');
+
+  const showToastMessage = (message: string, type: 'success' | 'error' | 'info' | 'warning') => {
+    setToastMessage(message);
+    setToastType(type);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 6000);
+  };
+
+  const getApiMessage = async (response: Response, fallback: string) => {
+    const responseText = await response.text();
+
+    if (!responseText) return fallback;
+
+    try {
+      const data = JSON.parse(responseText);
+
+      if (typeof data === 'string') return data;
+      if (data.message) return data.message;
+      if (data.title) return data.title;
+      if (data.error) return data.error;
+      if (data.errors && typeof data.errors === 'object') {
+        const messages = Object.values(data.errors).flat().filter(Boolean);
+        if (messages.length > 0) return messages.join(', ');
+      }
+    } catch {
+      return responseText;
+    }
+
+    return fallback;
+  };
 
   const handleSubmitOutgoing = async (e: any) => {
     e.preventDefault();
@@ -211,6 +242,73 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
       setShowToast(true);
       setTimeout(() => setShowToast(false), 6000);
     } finally {
+      setIncomingLoading(false);
+    }
+  };
+
+  const handleSaveOtherMailbox = async () => {
+    setOutgoingLoading(true);
+    setIncomingLoading(includeImap);
+
+    try {
+      const payload = {
+        outgoingServer: form.server,
+        outgoingPort: parseInt(form.port),
+        domainId: 0,
+        username: form.username,
+        password: form.password,
+        fromEmail: form.fromEmail,
+        senderName: form.senderName,
+        outgoingSecurityType: form.usessl,
+        isUpdate: !!editingId,
+        inbox: includeImap
+          ? {
+              clientId: parseInt(effectiveUserId),
+              emailAddress: form.fromEmail,
+              host: form.incomingServer,
+              port: parseInt(form.incomingPort),
+              fullInboxSync: form.fullInboxSync,
+              username: form.username,
+              password: form.password,
+              encryption: form.incomingSecurityType
+            }
+          : null
+      };
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/email/configTestMail?ClientId=${effectiveUserId}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && { Authorization: `Bearer ${token}` })
+          },
+          body: JSON.stringify(payload)
+        }
+      );
+
+      if (!response.ok) {
+        let errorMessage = await getApiMessage(response, 'Failed to save mailbox configuration');
+
+        if (errorMessage.includes('Email credentials already exist')) {
+          errorMessage = 'Email credentials already exist for this user.';
+        } else if (errorMessage.includes('Please add outbox first')) {
+          errorMessage = 'Please add outbox first.';
+        } else if (errorMessage.includes('Invalid email credentials') || errorMessage.includes('unable to connect')) {
+          errorMessage = 'Invalid email credentials or unable to connect to server.';
+        }
+
+        showToastMessage(errorMessage, 'error');
+        return;
+      }
+
+      showToastMessage('Mailbox configuration saved. Please verify OTP.', 'success');
+      setShowOtpModal(true);
+      onClose();
+    } catch {
+      showToastMessage('Unexpected error occurred while saving mailbox configuration', 'error');
+    } finally {
+      setOutgoingLoading(false);
       setIncomingLoading(false);
     }
   };
@@ -366,7 +464,7 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
     setOutlookSenderName("");
     setOutlookFullInboxSync(false);
     setSelectedProvider(null);
-    setOthersTab("outgoing");
+    setIncludeImap(false);
     setEditingId(null);
     onClose();
   };
@@ -389,7 +487,8 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
       isOpen={isOpen}
       onClose={handleClose}
       title={editingId ? "Edit mailbox" : "Add mailbox"}
-      footerContent={
+      width={selectedProvider === "others" ? 820 : 454}
+      footerContent={selectedProvider === "others" ? undefined : (
         <>
           <button
             type="button"
@@ -407,44 +506,8 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
           >
             Cancel
           </button>
-          {selectedProvider === "others" && othersTab === "outgoing" && (
-            <button
-              onClick={handleSubmitOutgoing}
-              disabled={outgoingLoading}
-              style={{
-                padding: "10px 32px",
-                background: "#fff",
-                color: outgoingLoading ? "#ccc" : "#ef4444",
-                border: `1px solid ${outgoingLoading ? "#ccc" : "#ef4444"}`,
-                borderRadius: "24px",
-                cursor: outgoingLoading ? "not-allowed" : "pointer",
-                fontSize: "14px",
-                fontWeight: "500",
-              }}
-            >
-              {outgoingLoading ? "Saving..." : editingId ? "Update" : "Add"}
-            </button>
-          )}
-          {selectedProvider === "others" && othersTab === "incoming" && (
-            <button
-              onClick={handleSubmitIncoming}
-              disabled={incomingLoading}
-              style={{
-                padding: "10px 32px",
-                background: "#fff",
-                color: incomingLoading ? "#ccc" : "#ef4444",
-                border: `1px solid ${incomingLoading ? "#ccc" : "#ef4444"}`,
-                borderRadius: "24px",
-                cursor: incomingLoading ? "not-allowed" : "pointer",
-                fontSize: "14px",
-                fontWeight: "500",
-              }}
-            >
-              {incomingLoading ? "Saving..." : editingId ? "Update" : "Add"}
-            </button>
-          )}
         </>
-      }
+      )}
     >
       {/* Provider Selection */}
       {!selectedProvider && (
@@ -597,304 +660,19 @@ const AddMailboxModal: React.FC<AddMailboxModalProps> = ({
 
       {/* Manual SMTP Configuration */}
       {selectedProvider === "others" && (
-        <>
-          <button
-            onClick={() => setSelectedProvider(null)}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              padding: "8px 16px",
-              background: "transparent",
-              border: "none",
-              cursor: "pointer",
-              fontSize: "14px",
-              fontWeight: "500",
-              color: "#666",
-              marginBottom: "16px",
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M19 12H5M5 12L12 19M5 12L12 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            Back to providers
-          </button>
-
-          {/* Others Sub-tabs */}
-          <div
-            style={{
-              display: "flex",
-              gap: 12,
-              marginBottom: 16,
-            }}
-          >
-            <button
-              onClick={() => setOthersTab("outgoing")}
-              style={{
-                padding: "6px 14px",
-                borderRadius: 999,
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: "pointer",
-                background:
-                  othersTab === "outgoing" ? "#eef2ff" : "#ffffff",
-                color:
-                  othersTab === "outgoing" ? "#3f9f42" : "#374151",
-                border:
-                  othersTab === "outgoing"
-                    ? "1px solid #3f9f42"
-                    : "1px solid #d1d5db",
-              }}
-            >
-              Outgoing
-            </button>
-            <button
-              onClick={() => setOthersTab("incoming")}
-              style={{
-                padding: "6px 14px",
-                borderRadius: 999,
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: "pointer",
-                background:
-                  othersTab === "incoming" ? "#eef2ff" : "#ffffff",
-                color:
-                  othersTab === "incoming" ? "#3f9f42" : "#374151",
-                border:
-                  othersTab === "incoming"
-                    ? "1px solid #3f9f42"
-                    : "1px solid #d1d5db",
-              }}
-            >
-              Incoming
-            </button>
-          </div>
-
-          {/* Outgoing Tab */}
-          {othersTab === "outgoing" && (
-        <form onSubmit={(e) => e.preventDefault()}>
-        <div className="flex gap-4">
-          <div className="form-group flex-1">
-            <label>
-              Outgoing Server (SMTP) <span style={{ color: "red" }}>*</span>
-            </label>
-            <input
-              name="server"
-              placeholder="smtp.example.com"
-              value={form.server}
-              onChange={handleChangeSMTP}
-              required
-            />
-          </div>
-          <div className="form-group flex-1">
-            <label>
-              Outgoing Port <span style={{ color: "red" }}>*</span>
-            </label>
-            <input
-              name="port"
-              type="number"
-              placeholder="587"
-              value={form.port}
-              onChange={handleChangeSMTP}
-              required
-            />
-          </div>
-        </div>
-        <div className="flex gap-4">
-          <div className="form-group flex-1">
-            <label>
-              Username <span style={{ color: "red" }}>*</span>
-            </label>
-            <input
-              name="username"
-              placeholder="user@example.com"
-              value={form.username}
-              onChange={handleChangeSMTP}
-              required
-            />
-          </div>
-          <div className="form-group flex-1">
-            <label>
-              Password <span style={{ color: "red" }}>*</span>
-            </label>
-            <input
-              name="password"
-              type="password"
-              placeholder="••••••••"
-              value={form.password}
-              onChange={handleChangeSMTP}
-              required
-            />
-          </div>
-        </div>
-        <div className="flex gap-4">
-          <div className="form-group flex-1">
-            <label>
-              From email <span style={{ color: "red" }}>*</span>
-            </label>
-            <input
-              name="fromEmail"
-              type="email"
-              placeholder="sender@example.com"
-              value={form.fromEmail}
-              onChange={handleChangeSMTP}
-              required
-            />
-          </div>
-          <div className="form-group flex-1">
-            <label>
-              Sender name <span style={{ color: "red" }}>*</span>
-            </label>
-            <input
-              name="senderName"
-              type="text"
-              placeholder="John Doe"
-              value={form.senderName}
-              onChange={handleChangeSMTP}
-              required
-            />
-          </div>
-        </div>
-        <div className="form-group">
-          <label>Outgoing Encryption</label>
-          <select
-            name="usessl"
-            value={form.usessl}
-            onChange={handleChangeSMTP}
-            style={{
-              width: "100%",
-              padding: "8px 12px",
-              border: "1px solid #ccc",
-              borderRadius: "4px",
-              fontSize: "14px",
-              backgroundColor: "white",
-            }}
-          >
-            <option value="None">None</option>
-            <option value="SSL/TLS">SSL/TLS</option>
-            <option value="STARTTLS">STARTTLS</option>
-            <option value="Auto">Auto</option>
-          </select>
-        </div>
-      </form>
-          )}
-
-          {/* Incoming Tab */}
-          {othersTab === "incoming" && (
-        <form onSubmit={(e) => e.preventDefault()}>
-          <div className="flex gap-4">
-            <div className="form-group flex-1">
-              <label>
-                Email Address <span style={{ color: "red" }}>*</span>
-              </label>
-              <input
-                name="fromEmail"
-                type="email"
-                placeholder="user@example.com"
-                value={form.fromEmail}
-                onChange={handleChangeSMTP}
-                required
-              />
-            </div>
-            <div className="form-group flex-1">
-              <label>
-                Username <span style={{ color: "red" }}>*</span>
-              </label>
-              <input
-                name="username"
-                placeholder="user@example.com"
-                value={form.username}
-                onChange={handleChangeSMTP}
-                required
-              />
-            </div>
-          </div>
-          <div className="flex gap-4">
-            <div className="form-group flex-1">
-              <label>
-                Password <span style={{ color: "red" }}>*</span>
-              </label>
-              <input
-                name="password"
-                type="password"
-                placeholder="••••••••"
-                value={form.password}
-                onChange={handleChangeSMTP}
-                required
-              />
-            </div>
-          </div>
-          <div className="flex gap-4">
-            <div className="form-group flex-1">
-              <label>
-                Incoming Server (IMAP) <span style={{ color: "red" }}>*</span>
-              </label>
-              <input
-                name="incomingServer"
-                placeholder="imap.example.com"
-                value={form.incomingServer}
-                onChange={handleChangeSMTP}
-                required
-              />
-            </div>
-            <div className="form-group flex-1">
-              <label>
-                Incoming Port <span style={{ color: "red" }}>*</span>
-              </label>
-              <input
-                name="incomingPort"
-                type="number"
-                placeholder="993"
-                value={form.incomingPort}
-                onChange={handleChangeSMTP}
-                required
-              />
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label>Incoming Encryption</label>
-            <select
-              name="incomingSecurityType"
-              value={form.incomingSecurityType}
-              onChange={handleChangeSMTP}
-              style={{
-                width: "100%",
-                padding: "8px 12px",
-                border: "1px solid #ccc",
-                borderRadius: "4px",
-                fontSize: "14px",
-                backgroundColor: "white",
-              }}
-            >
-              <option value="None">None</option>
-              <option value="SSL/TLS">SSL/TLS</option>
-              <option value="STARTTLS">STARTTLS</option>
-              <option value="Auto">Auto</option>
-            </select>
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", marginTop: "16px" }}>
-            <input
-              type="checkbox"
-              id="fullInboxSync"
-              name="fullInboxSync"
-              checked={form.fullInboxSync}
-              onChange={(e) => {
-                const { name, checked } = e.target;
-                setForm(prev => ({ ...prev, [name]: checked }));
-              }}
-              style={{ marginRight: "8px" }}
-            />
-            <label htmlFor="fullInboxSync" style={{ marginBottom: 0, cursor: "pointer" }}>
-              Full inbox sync
-            </label>
-          </div>
-      </form>
-          )}
-        </>
+        <OtherMailboxWizard
+          form={form}
+          setForm={setForm}
+          handleChangeSMTP={handleChangeSMTP}
+          onSaveMailbox={handleSaveOtherMailbox}
+          outgoingLoading={outgoingLoading}
+          incomingLoading={incomingLoading}
+          includeImap={includeImap}
+          onIncludeImapChange={setIncludeImap}
+          onBackToProviders={() => setSelectedProvider(null)}
+          onCancel={handleClose}
+        />
       )}
-
       {/* Gmail Content */}
       {selectedProvider === "gmail" && (
         <>

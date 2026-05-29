@@ -432,6 +432,36 @@
   justify-content: flex-start;
 }
 
+.reply-pill-button {
+  min-width: 128px;
+  height: 48px;
+  padding: 0 22px;
+  background: #fff;
+  color: #4b4b4b;
+  border: 1px solid #6b6b6b;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  line-height: 1;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.reply-pill-button:hover {
+  background: #f8fafc;
+  border-color: #4b4b4b;
+  color: #333;
+}
+
+.reply-pill-icon {
+  font-size: 16px;
+  color: inherit;
+}
+
 /* Scrollbar styling */
 .mail-list::-webkit-scrollbar,
 .mail-detail::-webkit-scrollbar {

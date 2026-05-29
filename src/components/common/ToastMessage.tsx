@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 
 interface ToastMessageProps {
   show: boolean;
@@ -25,7 +26,7 @@ const ToastMessage: React.FC<ToastMessageProps> = ({
       background: '#E6F4EF',
       progressColor: '#1F9D74',
       iconBackground: '#1F9D74',
-      icon: '✓',
+      icon: '\u2713',
       textColor: '#2F3A34'
     },
     error: {
@@ -39,7 +40,7 @@ const ToastMessage: React.FC<ToastMessageProps> = ({
       background: '#FEF3C7',
       progressColor: '#F59E0B',
       iconBackground: '#F59E0B',
-      icon: '⚠',
+      icon: '!',
       textColor: '#2F3A34'
     },
     info: {
@@ -86,7 +87,7 @@ const ToastMessage: React.FC<ToastMessageProps> = ({
   const theme = themes[type];
   const positionStyle = positions[position];
 
-  return (
+  return createPortal(
     <>
       <div
         style={{
@@ -100,7 +101,7 @@ const ToastMessage: React.FC<ToastMessageProps> = ({
           alignItems: 'center',
           gap: 16,
           boxShadow: '0 6px 18px rgba(0,0,0,0.06)',
-          zIndex: 99999,
+          zIndex: 2147483647,
           minWidth: 420,
           fontSize: 16,
           fontWeight: 500,
@@ -155,7 +156,7 @@ const ToastMessage: React.FC<ToastMessageProps> = ({
             lineHeight: 1,
           }}
         >
-          ×
+          {"\u00d7"}
         </div>
       </div>
 
@@ -169,6 +170,8 @@ const ToastMessage: React.FC<ToastMessageProps> = ({
         `}
       </style>
     </>
+    ,
+    document.body
   );
 };
 
