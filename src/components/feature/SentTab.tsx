@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import API_BASE_URL from '../../config';
 import LoadingSpinner from '../common/LoadingSpinner';
+import DeleteConfirmationModal from '../common/DeleteConfirmationModal';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faTrashAlt } from '@fortawesome/free-regular-svg-icons';
 
 interface SentMessage {
   type: string;
@@ -57,39 +60,67 @@ const SentTab: React.FC<SentTabProps> = ({
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const pageSize = 10;
+  const [selectedThreadIds, setSelectedThreadIds] = useState<string[]>([]);
+  const [hoveredThreadId, setHoveredThreadId] = useState<string | null>(null);
+  const [showDeleteDropdown, setShowDeleteDropdown] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [pendingDeleteMode, setPendingDeleteMode] = useState<'soft' | 'Permanent'>('soft');
 
-  useEffect(() => {
-    const fetchSentEmails = async () => {
-      if (!effectiveUserId || !selectedInboxId || !selectedProvider) return;
+  const fetchSentEmails = useCallback(async (showLoader = true) => {
+    if (!effectiveUserId || !selectedInboxId || !selectedProvider) return;
 
+    if (showLoader) {
       setLoading(true);
-      setError('');
-      try {
-        const response = await axios.get(
-          `${API_BASE_URL}/api/Inbox/get_sent_only?inboxId=${selectedInboxId}&Provider=${selectedProvider}&pageNumber=${currentPage}&pageSize=${pageSize}`,
-          {
-            headers: {
-              accept: '*/*',
-              ...(token && { Authorization: `Bearer ${token}` }),
-            },
-          }
-        );
-
-        if (response.data.success && response.data.data) {
-          setThreads(response.data.data.data || []);
-          setTotalCount(response.data.data.totalCount || 0);
-          setTotalPages(response.data.data.totalPages || 0);
+    }
+    setError('');
+    try {
+      const fetchPage = (pageNumber: number) => axios.get(
+        `${API_BASE_URL}/api/Inbox/get_sent_only?inboxId=${selectedInboxId}&Provider=${selectedProvider}&pageNumber=${pageNumber}&pageSize=${pageSize}&_=${Date.now()}`,
+        {
+          headers: {
+            accept: '*/*',
+            'Cache-Control': 'no-cache',
+            Pragma: 'no-cache',
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
         }
-      } catch (err) {
-        console.error('Error fetching sent emails:', err);
-        setError('Failed to load sent emails');
-      } finally {
+      );
+
+      const response = await fetchPage(currentPage);
+
+      if (response.data.success && response.data.data) {
+        let pageThreads = response.data.data.data || [];
+        const nextTotalCount = response.data.data.totalCount || 0;
+        const nextTotalPages = response.data.data.totalPages || 0;
+        let nextPage = currentPage + 1;
+
+        while (pageThreads.length < pageSize && nextPage <= nextTotalPages && pageThreads.length < nextTotalCount) {
+          const nextResponse = await fetchPage(nextPage);
+          const nextThreads = nextResponse.data.success && nextResponse.data.data
+            ? nextResponse.data.data.data || []
+            : [];
+          if (nextThreads.length === 0) break;
+          pageThreads = [...pageThreads, ...nextThreads].slice(0, pageSize);
+          nextPage += 1;
+        }
+
+        setThreads(pageThreads);
+        setTotalCount(nextTotalCount);
+        setTotalPages(nextTotalPages);
+      }
+    } catch (err) {
+      console.error('Error fetching sent emails:', err);
+      setError('Failed to load sent emails');
+    } finally {
+      if (showLoader) {
         setLoading(false);
       }
-    };
+    }
+  }, [effectiveUserId, token, selectedInboxId, selectedProvider, currentPage, pageSize]);
 
+  useEffect(() => {
     fetchSentEmails();
-  }, [effectiveUserId, token, selectedInboxId, selectedProvider, currentPage, refreshTrigger]);
+  }, [fetchSentEmails, refreshTrigger]);
 
   const handleThreadClick = async (thread: SentThread) => {
     if (onReplyReset) {
@@ -104,6 +135,47 @@ const SentTab: React.FC<SentTabProps> = ({
       collapsed[`sent-${msg.messageId}-${idx}`] = true;
     });
     onInitializeCollapsedEmails(collapsed);
+  };
+
+  const toggleThreadSelection = (trackingId: string) => {
+    setSelectedThreadIds(prev => 
+      prev.includes(trackingId) 
+        ? prev.filter(id => id !== trackingId)
+        : [...prev, trackingId]
+    );
+  };
+
+  const handleBulkDelete = async (deleteMode: 'soft' | 'Permanent') => {
+    if (selectedThreadIds.length === 0) return;
+    
+    setLoading(true);
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/api/Inbox/delete-conversation`,
+        {
+          TrackingIds: selectedThreadIds,
+          deleteMode: deleteMode,
+          clientid: parseInt(effectiveUserId)
+        },
+        {
+          headers: {
+            'accept': '*/*',
+            'Content-Type': 'application/json',
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        }
+      );
+
+      if (response.data.success) {
+        setSelectedThreadIds([]);
+        setShowDeleteDropdown(false);
+        await fetchSentEmails(false);
+      }
+    } catch (err: any) {
+      console.error('Error deleting emails:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const extractEmailAddress = (emailString: string): string => {
@@ -183,9 +255,106 @@ const SentTab: React.FC<SentTabProps> = ({
         background: '#fff',
         flexShrink: 0
       }}>
-        <span style={{ fontSize: '14px', color: '#6b7280' }}>
-          Page {currentPage} of {totalPages}
-        </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {selectedThreadIds.length > 0 && (
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={() => setShowDeleteDropdown(!showDeleteDropdown)}
+                style={{
+                  padding: '8px',
+                  background: 'transparent',
+                  color: '#3f9f42',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '40px',
+                  height: '40px',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = '#f3f4f6';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                }}
+                title={`Delete ${selectedThreadIds.length} email(s)`}
+              >
+                <FontAwesomeIcon
+                  icon={faTrashAlt}
+                  style={{ fontSize: 20, color: '#3f9f42' }}
+                />
+              </button>
+              
+              {showDeleteDropdown && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  marginTop: '4px',
+                  background: '#fff',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '6px',
+                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                  zIndex: 100,
+                  minWidth: '180px'
+                }}>
+                  <button
+                    onClick={() => {
+                      setPendingDeleteMode('soft');
+                      setShowDeleteModal(true);
+                      setShowDeleteDropdown(false);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 16px',
+                      background: 'transparent',
+                      border: 'none',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      color: '#374151',
+                      borderBottom: '1px solid #e5e7eb',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#f3f4f6'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  >
+                    Delete from Inbox
+                  </button>
+                  <button
+                    onClick={() => {
+                      setPendingDeleteMode('Permanent');
+                      setShowDeleteModal(true);
+                      setShowDeleteDropdown(false);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '10px 16px',
+                      background: 'transparent',
+                      border: 'none',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      color: '#ef4444',
+                      fontWeight: '500',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                  >
+                    Delete permanently
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          <span style={{ fontSize: '14px', color: '#6b7280' }}>
+            Page {currentPage} of {totalPages}
+          </span>
+        </div>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <button
             onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
@@ -222,13 +391,41 @@ const SentTab: React.FC<SentTabProps> = ({
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {threads.map((thread) => {
           const lastMessage = thread.messages[thread.messages.length - 1];
+          // Check if any message in thread is unread
+          const hasUnreadMessages = thread.messages.some(msg => !msg.isRead);
+          const isSelected = selectedThreadIds.includes(thread.trackingId);
           return (
             <div
               key={thread.trackingId}
-              className={`mail-item ${thread.hasUnread ? 'unread' : ''} ${selectedThread?.trackingId === thread.trackingId ? 'selected' : ''}`}
-              onClick={() => handleThreadClick(thread)}
+              className={`mail-item ${hasUnreadMessages ? 'unread' : ''} ${selectedThread?.trackingId === thread.trackingId ? 'selected' : ''} ${isSelected ? 'selected' : ''}`}
+              onClick={() => {
+                if (selectedThreadIds.length > 0) {
+                  toggleThreadSelection(thread.trackingId);
+                } else {
+                  handleThreadClick(thread);
+                }
+              }}
+              onMouseEnter={() => setHoveredThreadId(thread.trackingId)}
+              onMouseLeave={() => setHoveredThreadId(null)}
+              style={{ position: 'relative' }}
             >
-              <div className="mail-avatar">{getInitials(thread.contactEmail, lastMessage.contactName)}</div>
+              {(hoveredThreadId === thread.trackingId || selectedThreadIds.length > 0) ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '40px', height: '40px', marginLeft: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleThreadSelection(thread.trackingId)}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      width: '18px',
+                      height: '18px',
+                      cursor: 'pointer'
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="mail-avatar">{getInitials(thread.contactEmail, lastMessage.contactName)}</div>
+              )}
               <div className="mail-content">
                 <div className="mail-item-header">
                   <span 
@@ -294,6 +491,17 @@ const SentTab: React.FC<SentTabProps> = ({
           );
         })}
       </div>
+
+      <DeleteConfirmationModal
+        isOpen={showDeleteModal}
+        deleteMode={pendingDeleteMode}
+        count={selectedThreadIds.length}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={() => {
+          setShowDeleteModal(false);
+          handleBulkDelete(pendingDeleteMode);
+        }}
+      />
     </div>
   );
 };

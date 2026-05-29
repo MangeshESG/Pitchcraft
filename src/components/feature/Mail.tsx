@@ -81,6 +81,13 @@ interface SettingsProps {
 interface MailProps {
   initialTab?: string;
   onTabChange?: (tab: string) => void;
+  inboxSubTab?: string;
+  onInboxSubTabChange?: (subTab: string) => void;
+  onSelectedInboxUnreadCountsChange?: (counts: {
+    associated: number;
+    external: number;
+    allMessages: number;
+  }) => void;
 }
 
 interface ColumnConfig {
@@ -216,6 +223,9 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   selectedClient,
   initialTab = "Dashboard",
   onTabChange,
+  inboxSubTab = "Inbox",
+  onInboxSubTabChange,
+  onSelectedInboxUnreadCountsChange,
 }) => {
   const dispatch = useDispatch();
 
@@ -339,6 +349,10 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     fromEmail: "",
     senderName: "",
     usessl: "Auto",
+    incomingServer: "",
+    incomingPort: "",
+    fullInboxSync: false,
+    incomingSecurityType: "Auto",
   });
   
   // Inbox form state
@@ -520,10 +534,26 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
     setSmtpLoading(true);
 
     try {
-      // Only send test email
+      // Send SMTP test email with inbox configuration
+      const payload = {
+        outgoingServer: form.server,
+        outgoingPort: parseInt(form.port),
+        domainId: 0,
+        username: form.username,
+        password: form.password,
+        fromEmail: form.fromEmail,
+        senderName: form.senderName,
+        outgoingSecurityType: form.usessl,
+        isUpdate: !!editingId,
+        incomingServer: form.incomingServer,
+        incomingPort: parseInt(form.incomingPort),
+        fullInboxSync: form.fullInboxSync,
+        incomingSecurityType: form.incomingSecurityType,
+      };
+
       await axios.post(
         `${API_BASE_URL}/api/email/configTestMail?ClientId=${effectiveUserId}`,
-        JSON.stringify({ ...form, usessl: form.usessl === "ssl" || form.usessl === "ssl/tls", SecurityType: form.usessl, IsUpdate: !!editingId }),
+        payload,
         {
           headers: {
             "Content-Type": "application/json",
@@ -551,11 +581,16 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
           fromEmail: "",
           senderName: "",
           usessl: "Auto",
+          incomingServer: "",
+          incomingPort: "",
+          fullInboxSync: false,
+          incomingSecurityType: "Auto",
         });
         setEditingId(null);
         //handleModalClose("modal-edit-smtp");
         dispatch(closePanel());
-        fetchSmtp(); // Refresh grid
+        fetchSmtp(); // Refresh SMTP grid
+        fetchInboxCredentials(); // Refresh Inbox grid
       }
     } catch (err: any) {
       console.error(err);
@@ -613,10 +648,15 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
           fromEmail: "",
           senderName: "",
           usessl: "Auto",
+          incomingServer: "",
+          incomingPort: "",
+          fullInboxSync: false,
+          incomingSecurityType: "Auto",
         });
         setEditingId(null);
-        // Refresh SMTP list instead of page reload
+        // Refresh SMTP list and Inbox list
         fetchSmtp();
+        fetchInboxCredentials();
       } else {
        // appModal.showError('Invalid OTP. Please try again.');
         setToastMessage("Invalid OTP. Please try again.");
@@ -637,8 +677,17 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   // Edit Handler
   const handleEdit = (item: any) => {
     setForm({
-      ...item,
-      usessl: (item.SecurityType || item.securityType || "Auto")
+      server: item.server,
+      port: item.port.toString(),
+      username: item.username,
+      password: item.password,
+      fromEmail: item.fromEmail,
+      senderName: item.senderName || "",
+      usessl: (item.SecurityType || item.securityType || "Auto"),
+      incomingServer: item.incomingServer || "",
+      incomingPort: item.incomingPort?.toString() || "",
+      fullInboxSync: item.fullInboxSync || false,
+      incomingSecurityType: item.incomingSecurityType || "Auto",
     });
     setEditingId(item.id);
     //handleModalOpen("modal-edit-smtp");
@@ -1364,13 +1413,13 @@ const actionIconStyle = {
                                   }}
                                   onClick={() =>
                                     setMailboxActionsAnchor(
-                                      item.id?.toString() === mailboxActionsAnchor ? null : (item.id?.toString() ?? null), // Convert undefined to null
+                                      `smtp-${item.id}` === mailboxActionsAnchor ? null : `smtp-${item.id}`
                                     )
                                   }
                                 >
                                   ⋮
                                 </button>
-                                {mailboxActionsAnchor === item.id?.toString() && (
+                                {mailboxActionsAnchor === `smtp-${item.id}` && (
                                   <div
                                     className="segment-actions-menu py-[10px]"
                                     style={{
@@ -1620,6 +1669,8 @@ const actionIconStyle = {
                     setToastMessage(message);
                     setShowSuccessToast(true);
                     setTimeout(() => setShowSuccessToast(false), 6000);
+                    fetchSmtp();
+                    fetchInboxCredentials();
                   }}
                   onError={(message) => {
                     setToastMessage(message);
@@ -1643,6 +1694,10 @@ const actionIconStyle = {
                       fromEmail: "",
                       senderName: "",
                       usessl: "Auto",
+                      incomingServer: "",
+                      incomingPort: "",
+                      fullInboxSync: false,
+                      incomingSecurityType: "Auto",
                     });
                   }}
                   title="Edit SMTP configuration"
@@ -1662,6 +1717,10 @@ const actionIconStyle = {
                             fromEmail: "",
                             senderName: "",
                             usessl: "Auto",
+                            incomingServer: "",
+                            incomingPort: "",
+                            fullInboxSync: false,
+                            incomingSecurityType: "Auto",
                           });
                         }}
                         style={{
@@ -2065,6 +2124,10 @@ const actionIconStyle = {
                               fromEmail: "",
                               senderName: "",
                               usessl: "Auto",
+                              incomingServer: "",
+                              incomingPort: "",
+                              fullInboxSync: false,
+                              incomingSecurityType: "Auto",
                             });
                             //handleModalClose("modal-add-mailbox");
                             dispatch(closePanel());
@@ -2434,6 +2497,9 @@ const actionIconStyle = {
           effectiveUserId={effectiveUserId!!} 
           token={token}
           isVisible={tab === "Inbox"}
+          initialTab={inboxSubTab}
+          onTabChange={onInboxSubTabChange}
+          onSelectedInboxUnreadCountsChange={onSelectedInboxUnreadCountsChange}
         />
       )}
 
