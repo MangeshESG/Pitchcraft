@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import ElementsTab from "./ElementsTab";
 import type { PlaceholderDefinitionUI } from "./EmailCampaignBuilder";
 import { Loader2 } from "lucide-react";
+import RichTextEditor from "../../common/RTEEditor";
 
 export interface BlueprintBuilderPanelProps {
   activeBuildTab: "chat" | "elements";
@@ -629,8 +631,8 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
         </div>
       </div>
 
-      {/* ===== ELEMENT SIDE PANEL DRAWER ===== */}
-      {sidePanelElement && (
+      {/* ===== ELEMENT SIDE PANEL DRAWER (portal → always relative to viewport) ===== */}
+      {sidePanelElement && createPortal(
         <>
           {/* Backdrop */}
           <div
@@ -644,7 +646,7 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
             top: 0,
             right: 0,
             bottom: 0,
-            width: 440,
+            width: "40vw",
             background: "#fff",
             boxShadow: "-4px 0 28px rgba(0,0,0,0.14)",
             zIndex: 1000,
@@ -714,32 +716,69 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
               ))}
             </div>
 
-            {/* Content Area */}
-            <div style={{ flex: 1, overflow: "auto", display: "flex", flexDirection: "column", minHeight: 0 }}>
+            {/* Content Area — position:relative so each tab can use absolute fill */}
+            <div style={{ flex: 1, minHeight: 0, position: "relative" }}>
 
               {/* ── MANUAL TAB ── */}
               {sidePanelTab === "manual" && (
-                <div style={{ padding: "20px" }}>
+                <div style={{ position: "absolute", inset: 0, overflowY: "auto", padding: "20px" }}>
                   <p style={{ fontSize: 12, color: "#9ca3af", marginBottom: 14, lineHeight: 1.5 }}>
                     Edit <strong style={{ color: "#374151" }}>{sidePanelElement.friendlyName}</strong> directly below. Changes are saved when you click "Save all" on the elements page.
                   </p>
-                  <div style={{ width: "100%" }}>
-                    {renderPlaceholderInput({
-                      ...sidePanelElement,
-                      uiSize: "xl",
-                      options: sidePanelElement.options || [],
-                    })}
-                  </div>
+
+                  {/* Select */}
+                  {sidePanelElement.inputType === "select" && (sidePanelElement.options?.length ?? 0) > 0 ? (
+                    <select
+                      value={formValues[sidePanelElement.placeholderKey] || ""}
+                      onChange={(e) => setFormValues((prev) => ({ ...prev, [sidePanelElement!.placeholderKey]: e.target.value }))}
+                      style={{ width: "100%", padding: "10px 12px", border: "1px solid #d1d5db", borderRadius: 8, fontSize: 14, color: "#111827", background: "#fff" }}
+                    >
+                      <option value="">Select…</option>
+                      {(sidePanelElement.options ?? []).map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                    </select>
+
+                  ) : sidePanelElement.isRichText || sidePanelElement.inputType === "richtext" ? (
+                    /* RichText */
+                    <RichTextEditor
+                      value={formValues[sidePanelElement.placeholderKey] || ""}
+                      height={300}
+                      onChange={(val) => setFormValues((prev) => ({ ...prev, [sidePanelElement!.placeholderKey]: val }))}
+                    />
+
+                  ) : (
+                    /* Plain text — always multiline in the panel */
+                    <textarea
+                      value={formValues[sidePanelElement.placeholderKey] || ""}
+                      onChange={(e) => setFormValues((prev) => ({ ...prev, [sidePanelElement!.placeholderKey]: e.target.value }))}
+                      placeholder={`Enter ${sidePanelElement.friendlyName}…`}
+                      rows={7}
+                      style={{
+                        width: "100%",
+                        minHeight: 140,
+                        padding: "10px 12px",
+                        border: "1px solid #d1d5db",
+                        borderRadius: 8,
+                        fontSize: 14,
+                        resize: "vertical",
+                        fontFamily: "inherit",
+                        lineHeight: 1.6,
+                        color: "#111827",
+                        outline: "none",
+                        boxSizing: "border-box",
+                      }}
+                    />
+                  )}
                 </div>
               )}
 
               {/* ── CHAT TAB ── */}
               {sidePanelTab === "chat" && (
-                <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, height: "100%" }}>
-
+                <>
                   {/* Pre-start state */}
-                  {chatStartedForKey !== sidePanelElement.placeholderKey ? (
-                    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "28px 24px", textAlign: "center", gap: 16 }}>
+                  {chatStartedForKey !== sidePanelElement.placeholderKey && (
+                    <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "28px 24px", textAlign: "center", gap: 16 }}>
                       <div style={{ width: 56, height: 56, background: "#f0fdf4", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26 }}>
                         💬
                       </div>
@@ -782,12 +821,13 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
                         )}
                       </button>
                     </div>
+                  )}
 
-                  ) : (
-                    /* Active chat */
-                    <>
-                      {/* Messages */}
-                      <div style={{ flex: 1, overflow: "auto", padding: "14px 16px" }}>
+                  {/* Active chat — CSS Grid: messages get 1fr, input gets auto height */}
+                  {chatStartedForKey === sidePanelElement.placeholderKey && (
+                    <div style={{ position: "absolute", inset: 0, display: "grid", gridTemplateRows: "1fr auto" }}>
+                      {/* Scrollable messages */}
+                      <div style={{ overflowY: "auto", padding: "14px 16px" }}>
                         {messages.map((msg: any, idx: number) => {
                           const raw: string = msg.content || "";
                           const content = raw
@@ -856,8 +896,8 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
                         )}
                       </div>
 
-                      {/* Chat Input */}
-                      <div style={{ borderTop: "1px solid #e5e7eb", padding: "12px 16px", flexShrink: 0, background: "#fff" }}>
+                      {/* Input — grid row "auto" pins it to the bottom */}
+                      <div style={{ borderTop: "1px solid #e5e7eb", padding: "12px 16px", background: "#fff" }}>
                         <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
                           <textarea
                             value={currentAnswer}
@@ -908,13 +948,14 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
                           The AI will update this element based on your conversation.
                         </p>
                       </div>
-                    </>
+                    </div>
                   )}
-                </div>
+                </>
               )}
             </div>
           </div>
-        </>
+        </>,
+        document.body
       )}
     </>
   );
