@@ -19,14 +19,14 @@ import { RootState } from "../../Redux/store";
 import PaginationControls from "./PaginationControls";
 import ValidateRecordsModal from "./ValidateRecordsModal";
 import OtpModal from "./OtpModal";
-import DomainAuthColumn from "./DomainAuthColumn";
 import DomainAuthModal from "./DomainAuthModal";
-import AddMailboxModal from "../common/AddMailboxModal";
 import CommonSidePanel from "../common/CommonSidePanel";
+import ToastMessage from "../common/ToastMessage";
 import deleteIcon from "../../assets/images/deleteiconn.png";
 import { faEdit,faTrashAlt,faCircleXmark ,faFileLines   } from "@fortawesome/free-regular-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import InboxView from "./InboxView";
+import MailConfiguration from "./MailConfiguration";
 import { closePanel, openPanel } from "../../slices/panelSlice";
 type MailTabType = "Dashboard" | "Configuration" | "Schedule" | "Inbox";
 
@@ -367,6 +367,46 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   }, [reduxUserId, effectiveUserId]);
 
   const token = sessionStorage.getItem("token");
+
+  const getBackendErrorMessage = (err: any, fallback: string) => {
+    const errorData = err?.response?.data;
+
+    if (!errorData) {
+      return err?.message || fallback;
+    }
+
+    if (typeof errorData === "string") {
+      return errorData;
+    }
+
+    if (errorData.message) {
+      return errorData.message;
+    }
+
+    if (errorData.error) {
+      return errorData.error;
+    }
+
+    if (errorData.title) {
+      return errorData.title;
+    }
+
+    if (errorData.detail) {
+      return errorData.detail;
+    }
+
+    if (errorData.errors && typeof errorData.errors === "object") {
+      const firstError = Object.values(errorData.errors)
+        .flat()
+        .find(Boolean);
+      if (firstError) {
+        return String(firstError);
+      }
+    }
+
+    return fallback;
+  };
+
   // SMTP View
   const [smtpList, setSmtpList] = useState<SmtpConfig[]>([]);
   // IMAP/POP3 View
@@ -486,7 +526,7 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       fullInboxSync: (item as any).fullInboxSync || false,
     });
     setEditingInboxId(item.id);
-    handleModalOpen("modal-edit-inbox");
+    dispatch(openPanel("imap-edit-modal"));
   };
 
   // Handle Inbox Update Submit
@@ -534,22 +574,16 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
         fullInboxSync: false,
       });
       setEditingInboxId(null);
-      handleModalClose("modal-edit-inbox");
+      dispatch(closePanel());
       
       // Refresh Inbox list
       fetchInboxCredentials();
     } catch (err: any) {
       console.error(err);
-      let errorMessage = "Failed to update Inbox configuration";
-      
-      if (err.response?.data) {
-        const errorData = err.response.data;
-        if (typeof errorData === 'string') {
-          errorMessage = errorData;
-        } else if (errorData.message) {
-          errorMessage = errorData.message;
-        }
-      }
+      const errorMessage = getBackendErrorMessage(
+        err,
+        "Failed to update Inbox configuration"
+      );
       
       setToastMessage(errorMessage);
       setShowErrorToast(true);
@@ -560,12 +594,13 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
   };
 
   // Handle Add/Update Submit
-  const handleSubmitSMTP = async (e: any) => {
-    e.preventDefault();
+  const handleSubmitSMTP = async (e?: any, includeInbox?: boolean) => {
+    e?.preventDefault?.();
     setSmtpLoading(true);
 
     try {
-      // Send SMTP test email with inbox configuration
+      const shouldIncludeInbox =
+        includeInbox ?? Boolean(form.incomingServer || form.incomingPort);
       const payload = {
         outgoingServer: form.server,
         outgoingPort: parseInt(form.port),
@@ -576,14 +611,26 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
         senderName: form.senderName,
         outgoingSecurityType: form.usessl,
         isUpdate: !!editingId,
-        incomingServer: form.incomingServer,
-        incomingPort: parseInt(form.incomingPort),
-        fullInboxSync: form.fullInboxSync,
-        incomingSecurityType: form.incomingSecurityType,
+        inbox: shouldIncludeInbox
+          ? {
+              clientId: parseInt(String(effectiveUserId)),
+              emailAddress: form.fromEmail,
+              host: form.incomingServer,
+              port: parseInt(form.incomingPort),
+              fullInboxSync: form.fullInboxSync,
+              username: form.username,
+              password: form.password,
+              encryption: form.incomingSecurityType,
+            }
+          : null,
       };
 
+      const smtpUrl = editingId
+        ? `${API_BASE_URL}/api/email/Update-smtp/${editingId}?ClientId=${effectiveUserId}`
+        : `${API_BASE_URL}/api/email/configTestMail?ClientId=${effectiveUserId}`;
+
       await axios.post(
-        `${API_BASE_URL}/api/email/configTestMail?ClientId=${effectiveUserId}`,
+        smtpUrl,
         payload,
         {
           headers: {
@@ -601,7 +648,8 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
         setShowSmtpOtpModal(true);
       } else {
         // For Edit operation, just show success
-        setToastMessage("SMTP configuration updated successfully");
+        setToastMessage("Mailbox configuration updated successfully");
+        setShowErrorToast(false);
         setShowSuccessToast(true);
         setTimeout(() => setShowSuccessToast(false), 6000);
         setForm({
@@ -625,24 +673,15 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
       }
     } catch (err: any) {
       console.error(err);
-      let errorMessage = "Failed to send test email. Please check the settings.";
-      
-      if (err.response?.data) {
-        const errorData = err.response.data;
-        if (typeof errorData === 'string') {
-          if (errorData.includes('SMTP configuration invalid')) {
-            errorMessage = errorData;
-          } else if (errorData.toLowerCase().includes('email already exists')) {
-            errorMessage = "Email already exists";
-          } else {
-            errorMessage = errorData;
-          }
-        } else if (errorData.message) {
-          errorMessage = "Somthing went wrong";
-        }
-      }
+      const errorMessage = getBackendErrorMessage(
+        err,
+        editingId
+          ? "Failed to update mailbox configuration"
+          : "Failed to send test email. Please check the settings."
+      );
       
       setToastMessage(errorMessage);
+      setShowSuccessToast(false);
       setShowErrorToast(true);
       setTimeout(() => setShowErrorToast(false), 6000);
     } finally {
@@ -707,22 +746,23 @@ const Mail: React.FC<OutputInterface & SettingsProps & MailProps> = ({
 
   // Edit Handler
   const handleEdit = (item: any) => {
+    const inbox = item.inbox || {};
     setForm({
       server: item.server,
-      port: item.port.toString(),
-      username: item.username,
-      password: item.password,
-      fromEmail: item.fromEmail,
+      port: item.port?.toString() || "",
+      username: item.username || inbox.username || "",
+      password: item.password || inbox.password || "",
+      fromEmail: item.fromEmail || inbox.emailAddress || "",
       senderName: item.senderName || "",
       usessl: (item.SecurityType || item.securityType || "Auto"),
-      incomingServer: item.incomingServer || "",
-      incomingPort: item.incomingPort?.toString() || "",
-      fullInboxSync: item.fullInboxSync || false,
-      incomingSecurityType: item.incomingSecurityType || "Auto",
+      incomingServer: inbox.host || item.incomingServer || "",
+      incomingPort: inbox.port?.toString() || item.incomingPort?.toString() || "",
+      fullInboxSync: inbox.fullInboxSync ?? item.fullInboxSync ?? false,
+      incomingSecurityType: inbox.encryption || item.incomingSecurityType || "Auto",
     });
     setEditingId(item.id);
     //handleModalOpen("modal-edit-smtp");
-    dispatch(openPanel("edit-smtp-modal"));
+    dispatch(openPanel("smtp-edit-modal"));
   };
 const handleDelete = (id: any) => {
   setSelectedDeleteId(id);
@@ -1959,11 +1999,25 @@ const actionIconStyle = {
 
   const safeSmtpList = asArray<SmtpConfig>(smtpList);
   const filteredMailboxes = safeSmtpList
-    .filter(
-      (item) =>
-        item.server?.toLowerCase().includes(mailboxSearch.toLowerCase()) ||
-        item.username?.toLowerCase().includes(mailboxSearch.toLowerCase())
-    )
+    .filter((item) => {
+      const search = mailboxSearch.toLowerCase();
+      const inbox = (item as any).inbox || {};
+      const searchableValues = [
+        item.server,
+        item.username,
+        item.fromEmail,
+        (item as any).senderName,
+        (item as any).securityType,
+        inbox.emailAddress,
+        inbox.host,
+        inbox.username,
+        inbox.encryption,
+      ];
+
+      return searchableValues.some((value) =>
+        String(value || "").toLowerCase().includes(search)
+      );
+    })
     .sort((a, b) =>
       compareSortableValues(
         getSmtpSortValue(a, smtpSortKey),
@@ -2153,1230 +2207,102 @@ const actionIconStyle = {
       )}
 
       {tab === "Configuration" && (
-        <>
-          {/* --- SUB TABS --- */}
-          <div className="config-tab-container" style={{ display: "flex", gap: "20px", marginBottom: "20px" }}>
-            <button
-              onClick={() => setConfigTab("mailboxes")}
-              className={configTab === "mailboxes" ? "active-config-tab" : "config-tab"}
-              style={{ borderRadius: "12px" }}
-            >
-              Mailboxes
-            </button>
-
-            <button
-              onClick={() => setConfigTab("bcc")}
-              className={configTab === "bcc" ? "active-config-tab" : "config-tab"}
-              style={{ borderRadius: "12px" }}
-            >
-              BCC email management
-            </button>
-
-            <button
-              onClick={() => setConfigTab("domain")}
-              className={configTab === "domain" ? "active-config-tab" : "config-tab"}
-              style={{ borderRadius: "12px" }}
-            >
-              Domain authentication
-            </button>
-          </div>
-          <div className="data-campaigns-container">
-            {/* Mailboxes Section */}
-            {configTab === "mailboxes" && (
-              <div className="section-wrapper">
-                {/* <h2 style={{ color: "black", textAlign: "left" }} className="section-title">
-                  Mailboxes
-                </h2> */}
-                <p style={{ marginBottom: "20px"}}>
-                  The Mailboxes section lets you add and manage email accounts for sending campaigns securely.
-                </p>
-
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    marginBottom: 16,
-                  }}
-                >
-                  {/* Mailbox Sub-tabs */}
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 12,
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    {[
-                      { key: "smtp", label: "SMTP List" },
-                      { key: "inbox", label: "Inbox List" },
-                    ].map(item => (
-                      <button
-                        key={item.key}
-                        onClick={() => setMailboxSubTab(item.key as any)}
-                        style={{
-                          padding: "6px 14px",
-                          borderRadius: 999,
-                          fontSize: 13,
-                          fontWeight: 600,
-                          cursor: "pointer",
-                          background:
-                            mailboxSubTab === item.key ? "#eef2ff" : "#ffffff",
-                          color:
-                            mailboxSubTab === item.key ? "#3f9f42" : "#374151",
-                          border:
-                            mailboxSubTab === item.key
-                              ? "1px solid #3f9f42"
-                              : "1px solid #d1d5db",
-                        }}
-                      >
-                        {item.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Add Mailbox Button */}
-                  {!isDemoAccount && (
-                    <button
-                      className="save-button button auto-width small d-flex justify-between align-center"
-                      style={{ borderRadius: "12px" }}
-                      onClick={() => {
-                        //handleModalOpen("modal-add-mailbox")
-                        dispatch(openPanel("add-edit-mailbox-modal"))
-                      }
-                      }
-                    >
-                      + Add mailbox
-                    </button>
-                  )}
-                </div>
-
-                {/* SMTP List Content */}
-                {mailboxSubTab === "smtp" && (
-                  <>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        marginBottom: 16,
-                        gap: 16,
-                      }}
-                    >
-                      <input
-                        type="text"
-                        className="search-input"
-                        style={{ width: 340 }}
-                        placeholder="Search SMTP by server or username"
-                        value={mailboxSearch}
-                        onChange={(e) => setMailboxSearch(e.target.value)}
-                      />
-                    </div>
-                    <table className="contacts-table" style={{ background: "#fff" }}>
-                      <thead>
-                        <tr>
-                          <th onClick={() => toggleSort("server", smtpSortKey, setSmtpSortKey, setSmtpSortDirection)} style={{ cursor: "pointer" }}>Server{renderSortArrow("server", smtpSortKey, smtpSortDirection)}</th>
-                          <th onClick={() => toggleSort("port", smtpSortKey, setSmtpSortKey, setSmtpSortDirection)} style={{ cursor: "pointer" }}>Port{renderSortArrow("port", smtpSortKey, smtpSortDirection)}</th>
-                          <th onClick={() => toggleSort("username", smtpSortKey, setSmtpSortKey, setSmtpSortDirection)} style={{ cursor: "pointer" }}>Username{renderSortArrow("username", smtpSortKey, smtpSortDirection)}</th>
-                          <th onClick={() => toggleSort("fromEmail", smtpSortKey, setSmtpSortKey, setSmtpSortDirection)} style={{ cursor: "pointer" }}>From email{renderSortArrow("fromEmail", smtpSortKey, smtpSortDirection)}</th>
-                          <th onClick={() => toggleSort("senderName", smtpSortKey, setSmtpSortKey, setSmtpSortDirection)} style={{ cursor: "pointer" }}>Sender name{renderSortArrow("senderName", smtpSortKey, smtpSortDirection)}</th>
-                          <th onClick={() => toggleSort("ssl", smtpSortKey, setSmtpSortKey, setSmtpSortDirection)} style={{ cursor: "pointer" }}>SSL{renderSortArrow("ssl", smtpSortKey, smtpSortDirection)}</th>
-                          <th>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {currentMailboxes.length === 0 ? (
-                          <tr>
-                            <td colSpan={7} style={{ textAlign: "center" }}>
-                              No SMTP configurations found.
-                            </td>
-                          </tr>
-                        ) : (
-                          currentMailboxes.map((item, index) => (
-                            <tr key={item.id || index}>
-                              <td>{item.server}</td>
-                              <td>{item.port}</td>
-                              <td>{item.username}</td>
-                              <td>{item.fromEmail}</td>
-                              <td>{(item as any).senderName || "-"}</td>
-                              <td>{((item as any).SecurityType || (item as any).securityType)?.toUpperCase()}</td>
-                              <td style={{ position: "relative" }}>
-                                <button
-                                  className="segment-actions-btn"
-                                  style={{
-                                    border: "none",
-                                    background: "none",
-                                    fontSize: 24,
-                                    cursor: "pointer",
-                                    padding: "2px 10px",
-                                  }}
-                                  onClick={() =>
-                                    setMailboxActionsAnchor(
-                                      `smtp-${item.id}` === mailboxActionsAnchor ? null : `smtp-${item.id}`
-                                    )
-                                  }
-                                >
-                                  ⋮
-                                </button>
-                                {mailboxActionsAnchor === `smtp-${item.id}` && (
-                                  <div
-                                    className="segment-actions-menu py-[10px]"
-                                    style={{
-                                      position: "absolute",
-                                      right: 0,
-                                      top: 32,
-                                      background: "#fff",
-                                      border: "1px solid #eee",
-                                      borderRadius: 6,
-                                      boxShadow: "0 2px 16px rgba(0,0,0,0.12)",
-                                      zIndex: 101,
-                                      minWidth: 160,
-                                    }}
-                                  >
-                                    {!isDemoAccount && (
-                                      <button
-                                        onClick={() => {
-                                          handleEdit(item)
-                                          setMailboxActionsAnchor(null)
-                                        }}
-                                        style={menuBtnStyle}
-                                        className="flex gap-2 items-center"
-                                      >
-                                        <span style={actionIconStyle}>
-                                        <FontAwesomeIcon
-                                        icon={faEdit}
-                                        style={{ color: "#3f9f42", fontSize: 20 }}
-                                         />
-                                        </span>
-                                        <span className="font-[600]">Edit</span>
-                                      </button>
-                                    )}
-                                    {!isDemoAccount && (
-                                      <button
-                                        onClick={() => {
-                                          handleDelete(item.id)
-                                          setMailboxActionsAnchor(null)
-                                        }}
-                                        style={{ ...menuBtnStyle }}
-                                        className="flex gap-2 items-center"
-                                      >
-                                        <span style={actionIconStyle}>
-                                        <FontAwesomeIcon
-                                        icon={faTrashAlt}
-                                        style={{ color: "#3f9f42", fontSize: 20 }}
-                                        />
-                                        </span>
-                                        <span className="font-[600]">Delete</span>
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                    <PaginationControls
-                      currentPage={currentPageMailbox}
-                      totalPages={totalPagesMailbox}
-                      totalRecords={filteredMailboxes.length} // Use filteredMailboxes for totalRecords if filtering is applied before pagination
-                      pageSize={pageSize}
-                      setCurrentPage={setCurrentPageMailbox}
-                      setPageSize={(size) => setPageSize(Number(size))}
-                       showPageSizeDropdown={true}
-                       pageLabel="Page:"
-                    />
-                  </>
-                )}
-
-                {/* Inbox List Content */}
-                {mailboxSubTab === "inbox" && (
-                  <>
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        marginBottom: 16,
-                        gap: 16,
-                      }}
-                    >
-                      <input
-                        type="text"
-                        className="search-input"
-                        style={{ width: 340 }}
-                        placeholder="Search Inbox by server or username"
-                        value={mailboxSearch}
-                        onChange={(e) => setMailboxSearch(e.target.value)}
-                      />
-                    </div>
-
-                    <table className="contacts-table" style={{ background: "#fff" }}>
-                      <thead>
-                        <tr>
-                          <th onClick={() => toggleSort("host", inboxSortKey, setInboxSortKey, setInboxSortDirection)} style={{ cursor: "pointer" }}>Host{renderSortArrow("host", inboxSortKey, inboxSortDirection)}</th>
-                          <th onClick={() => toggleSort("port", inboxSortKey, setInboxSortKey, setInboxSortDirection)} style={{ cursor: "pointer" }}>Port{renderSortArrow("port", inboxSortKey, inboxSortDirection)}</th>
-                          <th onClick={() => toggleSort("emailAddress", inboxSortKey, setInboxSortKey, setInboxSortDirection)} style={{ cursor: "pointer" }}>Email Address{renderSortArrow("emailAddress", inboxSortKey, inboxSortDirection)}</th>
-                          <th onClick={() => toggleSort("username", inboxSortKey, setInboxSortKey, setInboxSortDirection)} style={{ cursor: "pointer" }}>Username{renderSortArrow("username", inboxSortKey, inboxSortDirection)}</th>
-                          <th onClick={() => toggleSort("ssl", inboxSortKey, setInboxSortKey, setInboxSortDirection)} style={{ cursor: "pointer" }}>SSL{renderSortArrow("ssl", inboxSortKey, inboxSortDirection)}</th>
-                          <th>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {inboxLoading ? (
-                          <tr>
-                            <td colSpan={6} style={{ textAlign: "center" }}>
-                              Loading inbox credentials...
-                            </td>
-                          </tr>
-                        ) : currentInboxes.length === 0 ? (
-                          <tr>
-                            <td colSpan={6} style={{ textAlign: "center" }}>
-                              No Inbox configurations found.
-                            </td>
-                          </tr>
-                        ) : (
-                          currentInboxes.map((item, index) => (
-                            <tr key={item.id || index}>
-                              <td>{item.host}</td>
-                              <td>{item.port}</td>
-                              <td>{item.emailAddress}</td>
-                              <td>{item.username}</td>
-                              <td>
-                                <span
-                                  style={{
-                                    padding: "4px 8px",
-                                    borderRadius: "4px",
-                                    fontSize: "12px",
-                                    fontWeight: "600",
-                                    background: item.useSSL ? "#e8f5e8" : "#ffebee",
-                                    color: item.useSSL ? "#2e7d32" : "#c62828",
-                                  }}
-                                >
-                                  {item.useSSL ? "SSL" : "No SSL"}
-                                </span>
-                              </td>
-                              <td style={{ position: "relative" }}>
-                                <button
-                                  className="segment-actions-btn"
-                                  style={{
-                                    border: "none",
-                                    background: "none",
-                                    fontSize: 24,
-                                    cursor: "pointer",
-                                    padding: "2px 10px",
-                                  }}
-                                  onClick={() =>
-                                    setMailboxActionsAnchor(
-                                      `inbox-${item.id}` === mailboxActionsAnchor ? null : `inbox-${item.id}`
-                                    )
-                                  }
-                                >
-                                  ⋮
-                                </button>
-                                {mailboxActionsAnchor === `inbox-${item.id}` && (
-                                  <div
-                                    className="segment-actions-menu py-[10px]"
-                                    style={{
-                                      position: "absolute",
-                                      right: 0,
-                                      top: 32,
-                                      background: "#fff",
-                                      border: "1px solid #eee",
-                                      borderRadius: 6,
-                                      boxShadow: "0 2px 16px rgba(0,0,0,0.12)",
-                                      zIndex: 101,
-                                      minWidth: 160,
-                                    }}
-                                  >
-                                    {!isDemoAccount && (
-                                      <button
-                                        onClick={() => {
-                                          handleEditInbox(item);
-                                          setMailboxActionsAnchor(null);
-                                        }}
-                                        style={menuBtnStyle}
-                                        className="flex gap-2 items-center"
-                                      >
-                                        <span style={actionIconStyle}>
-                                        <FontAwesomeIcon
-                                        icon={faEdit}
-                                        style={{ color: "#3f9f42", fontSize: 20 }}
-                                         />
-                                        </span>
-                                        <span className="font-[600]">Edit</span>
-                                      </button>
-                                    )}
-                                    {!isDemoAccount && (
-                                      <button
-                                        onClick={() => {
-                                          handleDeleteInbox(item.id);
-                                          setMailboxActionsAnchor(null);
-                                        }}
-                                        style={{ ...menuBtnStyle }}
-                                        className="flex gap-2 items-center"
-                                      >
-                                        <span style={actionIconStyle}>
-                                        <FontAwesomeIcon
-                                        icon={faTrashAlt}
-                                        style={{ color: "#3f9f42", fontSize: 20 }}
-                                        />
-                                        </span>
-                                        <span className="font-[600]">Delete</span>
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-
-                    <PaginationControls
-                      currentPage={currentPageInbox}
-                      totalPages={totalPagesInbox}
-                      totalRecords={filteredInboxes.length}
-                      pageSize={pageSize}
-                      setCurrentPage={setCurrentPageInbox}
-                      setPageSize={(size) => setPageSize(Number(size))}
-                      showPageSizeDropdown={true}
-                      pageLabel="Page:"
-                    />
-                  </>
-                )}
-                {/* Add/Edit Mailbox Modal */}
-                <AddMailboxModal
-                  //isOpen={openModals}
-                  isOpen={showAddEditMailBoxModal}
-                  onClose={() => {
-                    //handleModalClose("modal-add-mailbox");
-                    dispatch(closePanel());
-                    setEditingId(null);
-                  }}
-                  editingId={editingId}
-                  form={form}
-                  setForm={setForm}
-                  handleChangeSMTP={handleChangeSMTP}
-                  handleSubmitSMTP={handleSubmitSMTP}
-                  smtpLoading={smtpLoading}
-                  setEditingId={setEditingId}
-                  effectiveUserId={effectiveUserId!!}
-                  token={token}
-                  onSuccess={(message) => {
-                    setToastMessage(message);
-                    setShowSuccessToast(true);
-                    setTimeout(() => setShowSuccessToast(false), 6000);
-                    fetchSmtp();
-                    fetchInboxCredentials();
-                  }}
-                  onError={(message) => {
-                    setToastMessage(message);
-                    setShowErrorToast(true);
-                    setTimeout(() => setShowErrorToast(false), 6000);
-                  }}
-                />
-
-                {/* SMTP Edit Modal */}
-                <CommonSidePanel
-                  isOpen={showSMTPEditModal}
-                  onClose={() => {
-                    //handleModalClose("modal-edit-smtp");
-                    dispatch(closePanel());
-                    setEditingId(null);
-                    setForm({
-                      server: "",
-                      port: "",
-                      username: "",
-                      password: "",
-                      fromEmail: "",
-                      senderName: "",
-                      usessl: "Auto",
-                      incomingServer: "",
-                      incomingPort: "",
-                      fullInboxSync: false,
-                      incomingSecurityType: "Auto",
-                    });
-                  }}
-                  title="Edit SMTP configuration"
-                  width={500}
-                  footerContent={
-                    <>
-                      <button
-                        onClick={() => {
-                          //handleModalClose("modal-edit-smtp");
-                          dispatch(closePanel());
-                          setEditingId(null);
-                          setForm({
-                            server: "",
-                            port: "",
-                            username: "",
-                            password: "",
-                            fromEmail: "",
-                            senderName: "",
-                            usessl: "Auto",
-                            incomingServer: "",
-                            incomingPort: "",
-                            fullInboxSync: false,
-                            incomingSecurityType: "Auto",
-                          });
-                        }}
-                        style={{
-                          padding: "10px 32px",
-                          border: "1px solid #ddd",
-                          background: "#fff",
-                          borderRadius: "24px",
-                          cursor: "pointer",
-                          fontSize: "14px",
-                          fontWeight: "500",
-                          color: "#333",
-                        }}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleSubmitSMTP}
-                        disabled={smtpLoading}
-                        style={{
-                          padding: "10px 32px",
-                          background: "#fff",
-                          color: smtpLoading ? "#ccc" : "#ef4444",
-                          border: `1px solid ${smtpLoading ? "#ccc" : "#ef4444"}`,
-                          borderRadius: "24px",
-                          cursor: smtpLoading ? "not-allowed" : "pointer",
-                          fontSize: "14px",
-                          fontWeight: "500",
-                        }}
-                      >
-                        {smtpLoading ? "Updating..." : "Update"}
-                      </button>
-                    </>
-                  }
-                >
-                  <form onSubmit={handleSubmitSMTP}>
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr 1fr",
-                        gap: "20px",
-                        marginBottom: "24px",
-                      }}
-                    >
-                      <div className="form-group">
-                        <label>
-                          Server <span style={{ color: "red" }}>*</span>
-                        </label>
-                        <input
-                          type="text"
-                          name="server"
-                          value={form.server}
-                          onChange={handleChangeSMTP}
-                          required
-                          style={{ width: "100%" }}
-                          placeholder="smtp.gmail.com"
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label>
-                          Port <span style={{ color: "red" }}>*</span>
-                        </label>
-                        <input
-                          type="number"
-                          name="port"
-                          value={form.port}
-                          onChange={handleChangeSMTP}
-                          required
-                          style={{ width: "100%" }}
-                          placeholder="587"
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label>
-                          Username <span style={{ color: "red" }}>*</span>
-                        </label>
-                        <input
-                          type="text"
-                          name="username"
-                          value={form.username}
-                          onChange={handleChangeSMTP}
-                          required
-                          style={{ width: "100%" }}
-                          placeholder="username"
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label>
-                          Password <span style={{ color: "red" }}>*</span>
-                        </label>
-                        <input
-                          type="password"
-                          name="password"
-                          value={form.password}
-                          onChange={handleChangeSMTP}
-                          required
-                          style={{ width: "100%" }}
-                          placeholder="••••••••"
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label>
-                          From Email <span style={{ color: "red" }}>*</span>
-                        </label>
-                        <input
-                          type="email"
-                          name="fromEmail"
-                          value={form.fromEmail}
-                          onChange={handleChangeSMTP}
-                          required
-                          style={{ width: "100%" }}
-                          placeholder="user@example.com"
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label>
-                          Sender Name
-                        </label>
-                        <input
-                          type="text"
-                          name="senderName"
-                          value={form.senderName}
-                          onChange={handleChangeSMTP}
-                          style={{ width: "100%" }}
-                          placeholder="Your Name"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="form-group">
-                      <label>
-                        Encryption <span style={{ color: "red" }}>*</span>
-                      </label>
-                      <select
-                        name="usessl"
-                        value={form.usessl}
-                        onChange={handleChangeSMTP}
-                        required
-                        style={{ width: "100%" }}
-                      >
-                        <option value="None">None</option>
-                        <option value="SSL/TLS">SSL/TLS</option>
-                        <option value="STARTTLS">STARTTLS</option>
-                        <option value="Auto">Auto</option>
-                      </select>
-                    </div>
-                  </form>
-                </CommonSidePanel>
-
-                {/* Inbox Edit Modal */}
-                <CommonSidePanel
-                  isOpen={openModals["modal-edit-inbox"] || false}
-                  onClose={() => {
-                    handleModalClose("modal-edit-inbox");
-                    setEditingInboxId(null);
-                    setInboxForm({
-                      emailAddress: "",
-                      protocol: "IMAP",
-                      host: "",
-                      port: "",
-                      username: "",
-                      password: "",
-                      encryption: "Auto",
-                      fullInboxSync: false,
-                    });
-                  }}
-                  title="Edit Inbox configuration"
-                  width={500}
-                  footerContent={
-                    <>
-                      <button
-                        onClick={() => {
-                          handleModalClose("modal-edit-inbox");
-                          setEditingInboxId(null);
-                          setInboxForm({
-                            emailAddress: "",
-                            protocol: "IMAP",
-                            host: "",
-                            port: "",
-                            username: "",
-                            password: "",
-                            encryption: "Auto",
-                            fullInboxSync: false,
-                          });
-                        }}
-                        style={{
-                          padding: "10px 32px",
-                          border: "1px solid #ddd",
-                          background: "#fff",
-                          borderRadius: "24px",
-                          cursor: "pointer",
-                          fontSize: "14px",
-                          fontWeight: "500",
-                          color: "#333",
-                        }}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleSubmitInbox}
-                        disabled={inboxLoading}
-                        style={{
-                          padding: "10px 32px",
-                          background: "#fff",
-                          color: inboxLoading ? "#ccc" : "#ef4444",
-                          border: `1px solid ${inboxLoading ? "#ccc" : "#ef4444"}`,
-                          borderRadius: "24px",
-                          cursor: inboxLoading ? "not-allowed" : "pointer",
-                          fontSize: "14px",
-                          fontWeight: "500",
-                        }}
-                      >
-                        {inboxLoading ? "Updating..." : "Update"}
-                      </button>
-                    </>
-                  }
-                >
-                  <form onSubmit={handleSubmitInbox}>
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr 1fr",
-                        gap: "20px",
-                        marginBottom: "24px",
-                      }}
-                    >
-                      <div className="form-group">
-                        <label>
-                          Email Address <span style={{ color: "red" }}>*</span>
-                        </label>
-                        <input
-                          type="email"
-                          name="emailAddress"
-                          value={inboxForm.emailAddress}
-                          onChange={handleChangeInbox}
-                          required
-                          style={{ width: "100%" }}
-                          placeholder="user@example.com"
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label>
-                          Username <span style={{ color: "red" }}>*</span>
-                        </label>
-                        <input
-                          type="text"
-                          name="username"
-                          value={inboxForm.username}
-                          onChange={handleChangeInbox}
-                          required
-                          style={{ width: "100%" }}
-                          placeholder="username"
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label>
-                          Host <span style={{ color: "red" }}>*</span>
-                        </label>
-                        <input
-                          type="text"
-                          name="host"
-                          value={inboxForm.host}
-                          onChange={handleChangeInbox}
-                          required
-                          style={{ width: "100%" }}
-                          placeholder="imap.gmail.com"
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label>
-                          Port <span style={{ color: "red" }}>*</span>
-                        </label>
-                        <input
-                          type="number"
-                          name="port"
-                          value={inboxForm.port}
-                          onChange={handleChangeInbox}
-                          required
-                          style={{ width: "100%" }}
-                          placeholder="993"
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label>
-                          Password <span style={{ color: "red" }}>*</span>
-                        </label>
-                        <input
-                          type="password"
-                          name="password"
-                          value={inboxForm.password}
-                          onChange={handleChangeInbox}
-                          required
-                          style={{ width: "100%" }}
-                          placeholder="••••••••"
-                        />
-                      </div>
-
-                      <div className="form-group">
-                        <label>Encryption</label>
-                        <select
-                          name="encryption"
-                          value={inboxForm.encryption}
-                          onChange={handleChangeInbox}
-                          style={{
-                            width: "100%",
-                            padding: "8px 12px",
-                            border: "1px solid #ccc",
-                            borderRadius: "4px",
-                            fontSize: "14px",
-                            backgroundColor: "white",
-                          }}
-                        >
-                          <option value="None">None</option>
-                          <option value="SSL/TLS">SSL/TLS</option>
-                          <option value="STARTTLS">STARTTLS</option>
-                          <option value="Auto">Auto</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div style={{ display: "flex", alignItems: "center", marginTop: "16px" }}>
-                      <input
-                        type="checkbox"
-                        id="fullInboxSync"
-                        name="fullInboxSync"
-                        checked={inboxForm.fullInboxSync}
-                        onChange={handleChangeInbox}
-                        style={{ marginRight: "8px" }}
-                      />
-                      <label htmlFor="fullInboxSync" style={{ marginBottom: 0, cursor: "pointer" }}>
-                        Full inbox sync
-                      </label>
-                    </div>
-                  </form>
-                </CommonSidePanel>
-
-                {/* SMTP OTP Modal */}
-                {showSmtpOtpModal && (
-                  <div
-                    style={{
-                      position: "fixed",
-                      zIndex: 99999,
-                      inset: 0,
-                      background: "rgba(0,0,0,0.6)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <div
-                      style={{
-                        background: "#fff",
-                        padding: "24px",
-                        borderRadius: "8px",
-                        width: "400px",
-                        boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <h3 style={{ marginBottom: 16, color: "#333" }}>Verify SMTP Email</h3>
-                      <p style={{ marginBottom: 16, color: "#666" }}>
-                        Please enter the OTP sent to {smtpOtpEmail}
-                      </p>
-                      <input
-                        type="text"
-                        placeholder="Enter OTP"
-                        style={{
-                          width: "100%",
-                          padding: "8px",
-                          marginBottom: "16px",
-                          border: "1px solid #ccc",
-                          borderRadius: "4px",
-                        }}
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter') {
-                            const otp = (e.target as HTMLInputElement).value;
-                            if (otp) {
-                              handleSmtpOtpVerify(otp);
-                            }
-                          }
-                        }}
-                      />
-                      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-                        <button
-                          className="button secondary small"
-                          onClick={() => {
-                            setShowSmtpOtpModal(false);
-                            setForm({
-                              server: "",
-                              port: "",
-                              username: "",
-                              password: "",
-                              fromEmail: "",
-                              senderName: "",
-                              usessl: "Auto",
-                              incomingServer: "",
-                              incomingPort: "",
-                              fullInboxSync: false,
-                              incomingSecurityType: "Auto",
-                            });
-                            //handleModalClose("modal-add-mailbox");
-                            dispatch(closePanel());
-                          }}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          className="save-button button small"
-                          onClick={() => {
-                            const otpInput = document.querySelector('input[placeholder="Enter OTP"]') as HTMLInputElement;
-                            if (otpInput?.value) {
-                              handleSmtpOtpVerify(otpInput.value);
-                            }
-                          }}
-                          disabled={smtpOtpVerifying}
-                        >
-                          {smtpOtpVerifying ? 'Verifying...' : 'Verify'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* BCC Email Management Section */}
-            {configTab === "bcc" && (
-              <div className="section-wrapper">
-                {/* <h2 style={{ color: "black", textAlign: "left" }} className="section-title">
-                  BCC email management
-                </h2> */}
-                <div style={{  color: "#555", }}>
-                  Add BCC email addresses to receive copies of all sent emails.
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    marginBottom: 16,
-                    gap: 16,
-                  }}
-                >
-                  {/* <input
-                    type="email"
-                    className="search-input"
-                    style={{ width: 340 }}
-                    placeholder="Enter BCC email address"
-                    value={newBccEmail}
-                    onChange={(e) => setNewBccEmail(e.target.value)}
-                  /> */}
-                  <button
-                    className="save-button button auto-width small d-flex justify-between align-center mt-10"
-                    style={{ marginLeft: "auto", borderRadius: "12px" }}
-                    // onClick={handleAddBcc}
-                    onClick={() => 
-                     // setShowPopup(true)
-                      dispatch(openPanel("bcc-email-modal"))
-                    }
-                    //disabled={bccLoading || !newBccEmail}
-                    disabled={bccLoading} // disable only during API call
-                  >
-                    {bccLoading ? "Adding..." : "+ Add BCC"}
-                  </button>
-                </div>
-
-                {/* {bccError && <div style={{ color: "#c00", marginBottom: 16 }}>{bccError}</div>} */}
-
-                <table className="contacts-table" style={{ background: "#fff" }}>
-                  <thead>
-                    <tr>
-                      <th onClick={() => toggleSort("bccEmailAddress", bccSortKey, setBccSortKey, setBccSortDirection)} style={{ cursor: "pointer" }}>BCC email address{renderSortArrow("bccEmailAddress", bccSortKey, bccSortDirection)}</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {bccLoading && safeBccEmails.length === 0 ? (
-                      <tr>
-                        <td colSpan={2} style={{ textAlign: "center" }}>
-                          Loading BCC emails...
-                        </td>
-                      </tr>
-                    ) : paginatedBccEmails.length === 0 ? (
-                      <tr>
-                        <td colSpan={2} style={{ textAlign: "center" }}>
-                          No BCC emails configured.
-                        </td>
-                      </tr>
-                    ) : (
-                      paginatedBccEmails.map((email) => (
-                        <tr key={email.id}>
-                          <td>{email.bccEmailAddress}</td>
-                          <td>
-                            {!isDemoAccount && (
-                              <button
-                                className="button secondary small"
-                                onClick={() => handleDeleteBcc(email.id)}
-                                disabled={bccLoading}
-                                style={{
-                                  padding: "6px 12px",
-                                  fontSize: "14px",
-                                  background: "#dc3545",
-                                  color: "#fff",
-                                  border: "none",
-                                  borderRadius: "12px",
-                                  cursor: bccLoading ? "not-allowed" : "pointer",
-                                }}
-                              >
-                                Delete
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-                <PaginationControls
-                  currentPage={bccPage}
-                  totalPages={totalPagesBCC}
-                  totalRecords={sortedBccEmails.length}
-                  pageSize={pageSize}
-                  setCurrentPage={setBccPage}
-                   setPageSize={(size) => setPageSize(Number(size))}
-                   showPageSizeDropdown={true}
-                   pageLabel="Page:"
-                />
-                {/* Popup Modal */}
-                <CommonSidePanel
-                  isOpen={showBCCEmailModal}
-                  onClose={() => 
-                    //setShowPopup(false)
-                    dispatch(closePanel())
-
-                  }
-                  title="Add BCC email"
-                  footerContent={
-                    <>
-                      <button
-                        onClick={() => 
-                          //setShowPopup(false)
-                          dispatch(closePanel())
-
-                        }
-                        style={{
-                          padding: "10px 32px",
-                          border: "1px solid #ddd",
-                          background: "#fff",
-                          borderRadius: "12px",
-                          cursor: "pointer",
-                          fontSize: "14px",
-                          fontWeight: "500",
-                          color: "#333",
-                        }}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleSave}
-                        disabled={bccLoading || !newBccEmail}
-                        style={{
-                          padding: "10px 32px",
-                          background: "#fff",
-                          color: bccLoading || !newBccEmail ? "#ccc" : "#ef4444",
-                          border: `1px solid ${bccLoading || !newBccEmail ? "#ccc" : "#ef4444"}`,
-                          borderRadius: "12px",
-                          cursor: bccLoading || !newBccEmail ? "not-allowed" : "pointer",
-                          fontSize: "14px",
-                          fontWeight: "500",
-                        }}
-                      >
-                        {bccLoading ? "Adding..." : "Add"}
-                      </button>
-                    </>
-                  }
-                >
-                  <div className="form-group">
-                    <label>
-                      BCC email address <span style={{ color: "red" }}>*</span>
-                    </label>
-                    <input
-                      type="email"
-                      placeholder="Enter BCC email address"
-                      value={newBccEmail}
-                      onChange={(e) => setNewBccEmail(e.target.value)}
-                      style={{
-                        width: "100%",
-                        padding: "8px 12px",
-                        border: "1px solid #ddd",
-                        borderRadius: "4px",
-                        fontSize: "14px",
-                      }}
-                    />
-                  </div>
-                </CommonSidePanel>
-              </div>
-            )}
-
-            {/* Domain Authentication Section */}
-            {configTab === "domain" && (
-              <div className="section-wrapper">
-                <div style={{ marginBottom: "20px", color: "#555" }}>
-                  Configure domain authentication settings for improved email deliverability.
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    marginBottom: 16,
-                    gap: 16,
-                  }}
-                >
-                </div>
-
-                <table className="contacts-table" style={{ background: "#fff" }}>
-                  <thead>
-                    <tr>
-                      <th onClick={() => toggleSort("domain", domainSortKey, setDomainSortKey, setDomainSortDirection)} style={{ cursor: "pointer" }}>Domain{renderSortArrow("domain", domainSortKey, domainSortDirection)}</th>
-                      <th onClick={() => toggleSort("ownerAuth", domainSortKey, setDomainSortKey, setDomainSortDirection)} style={{ cursor: "pointer" }}>Domain owner authentication{renderSortArrow("ownerAuth", domainSortKey, domainSortDirection)}</th>
-                      <th onClick={() => toggleSort("status", domainSortKey, setDomainSortKey, setDomainSortDirection)} style={{ cursor: "pointer" }}>Domain status{renderSortArrow("status", domainSortKey, domainSortDirection)}</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {fetchingDomain ? (
-                      <tr>
-                        <td colSpan={4} style={{ textAlign: "center" }}>
-                          Loading domain data...
-                        </td>
-                      </tr>
-                    ) : sortedDomainData.length > 0 ? (
-                      sortedDomainData.map((domain, index) => (
-                        <tr key={domain.emailDomainId || index}>
-                          <td>{domain.domain || "-"}</td>
-                          <td>
-                            {domain.domainverified ? (
-                              <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                                <span style={{ color: "#28a745", fontSize: "14px" }}>✓</span>
-                                <span style={{ color: "#28a745", fontSize: "14px" }}>Verified</span>
-                              </div>
-                            ) : (
-                              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                                <span style={{ color: "#dc3545", fontSize: "14px" }}>Pending</span>
-                                <span
-                                  style={{
-                                    color: "#007bff",
-                                    fontSize: "14px",
-                                    cursor: "pointer",
-                                    textDecoration: "underline",
-                                  }}
-                                  onClick={() => {
-                                    setSelectedDomain(domain);
-                                    //setShowValidatePopup(true);
-                                    dispatch(openPanel("validate-modal"));
-                                  }}
-                                >
-                                  Validate Records
-                                </span>
-                              </div>
-                            )}
-                          </td>
-                          <td>
-                            <DomainAuthColumn 
-                              domain={domain} 
-                              onValidateClick={handleDomainValidateClick} 
-                            />
-                          </td>
-                          <td>
-                            <button
-                              onClick={() => handleDomainDeleteClick(domain)}
-                              style={{
-                                padding: "6px 12px",
-                                fontSize: "14px",
-                                background: "#dc3545",
-                                color: "#fff",
-                                border: "none",
-                                borderRadius: "12px",
-                                cursor: "pointer",
-                              }}
-                            >
-                              Delete
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={4} style={{ textAlign: "center" }}>
-                          No domains configured.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-
-                {/* OTP Modal */}
-                <OtpModal
-                  isOpen={showOtpModal}
-                  onClose={() => setShowOtpModal(false)}
-                  emailDomain={selectedOtpDomain?.emailDomain || ''}
-                  onSubmit={async (otp) => {
-                    try {
-                      const response = await fetch(
-                        `${API_BASE_URL}/api/domain-verification/domain-verify-email-otp?Otp=${encodeURIComponent(otp)}&email=${encodeURIComponent(selectedOtpDomain.emailDomain)}&clientId=${effectiveUserId}`,
-                        {
-                          method: 'POST',
-                          headers: {
-                            'accept': '*/*'
-                          },
-                          body: ''
-                        }
-                      );
-                      
-                      if (response.ok) {
-                        appModal.showSuccess('Email verification successful!');
-                        fetchDomainData(); // Refresh domain data
-                      } else {
-                        appModal.showError('Invalid verification code. Please try again.');
-                      }
-                    } catch (error) {
-                      console.error('Error verifying OTP:', error);
-                      appModal.showError('Error verifying code. Please check your connection.');
-                    }
-                  }}
-                />
-
-                {/* Validate Records Modal */}
-                <ValidateRecordsModal
-                  //isOpen={showValidatePopup}
-                  isOpen={showValidateModal}
-                  onClose={() => {
-                    //setShowValidatePopup(false);
-                    dispatch(closePanel());
-                  }}
-                  selectedDomain={selectedDomain}
-                  onValidate={(domain) => {
-                    console.log('Validate Records for:', domain.emailDomain);
-                    // Refresh domain data after validation
-                    setTimeout(() => fetchDomainData(), 1000);
-                  }}
-                  showSuccess={appModal.showSuccess}
-                  showError={appModal.showError}
-                  refreshDomainData={() => setTimeout(() => fetchDomainData(), 1000)}
-                  effectiveUserId={effectiveUserId}
-                />
-              </div>
-            )}
-          </div>
-        </>
+        <MailConfiguration
+          configTab={configTab}
+          setConfigTab={setConfigTab}
+          mailboxSubTab={mailboxSubTab}
+          setMailboxSubTab={setMailboxSubTab}
+          isDemoAccount={isDemoAccount}
+          dispatch={dispatch}
+          mailboxSearch={mailboxSearch}
+          setMailboxSearch={setMailboxSearch}
+          toggleSort={toggleSort}
+          smtpSortKey={smtpSortKey}
+          setSmtpSortKey={setSmtpSortKey}
+          setSmtpSortDirection={setSmtpSortDirection}
+          renderSortArrow={renderSortArrow}
+          smtpSortDirection={smtpSortDirection}
+          currentMailboxes={currentMailboxes}
+          mailboxActionsAnchor={mailboxActionsAnchor}
+          setMailboxActionsAnchor={setMailboxActionsAnchor}
+          handleEdit={handleEdit}
+          handleDelete={handleDelete}
+          menuBtnStyle={menuBtnStyle}
+          actionIconStyle={actionIconStyle}
+          currentPageMailbox={currentPageMailbox}
+          totalPagesMailbox={totalPagesMailbox}
+          filteredMailboxes={filteredMailboxes}
+          pageSize={pageSize}
+          setCurrentPageMailbox={setCurrentPageMailbox}
+          setPageSize={setPageSize}
+          inboxSortKey={inboxSortKey}
+          setInboxSortKey={setInboxSortKey}
+          setInboxSortDirection={setInboxSortDirection}
+          inboxSortDirection={inboxSortDirection}
+          inboxLoading={inboxLoading}
+          currentInboxes={currentInboxes}
+          handleEditInbox={handleEditInbox}
+          handleDeleteInbox={handleDeleteInbox}
+          currentPageInbox={currentPageInbox}
+          totalPagesInbox={totalPagesInbox}
+          filteredInboxes={filteredInboxes}
+          setCurrentPageInbox={setCurrentPageInbox}
+          showAddEditMailBoxModal={showAddEditMailBoxModal}
+          editingId={editingId}
+          form={form}
+          setForm={setForm}
+          handleChangeSMTP={handleChangeSMTP}
+          handleSubmitSMTP={handleSubmitSMTP}
+          smtpLoading={smtpLoading}
+          setEditingId={setEditingId}
+          effectiveUserId={effectiveUserId}
+          token={token}
+          fetchSmtp={fetchSmtp}
+          fetchInboxCredentials={fetchInboxCredentials}
+          setToastMessage={setToastMessage}
+          setShowSuccessToast={setShowSuccessToast}
+          setShowErrorToast={setShowErrorToast}
+          showSMTPEditModal={showSMTPEditModal}
+          showIMAPEditModal={showIMAPEditModal}
+          inboxForm={inboxForm}
+          setInboxForm={setInboxForm}
+          handleChangeInbox={handleChangeInbox}
+          handleSubmitInbox={handleSubmitInbox}
+          setEditingInboxId={setEditingInboxId}
+          showSmtpOtpModal={showSmtpOtpModal}
+          smtpOtpEmail={smtpOtpEmail}
+          handleSmtpOtpVerify={handleSmtpOtpVerify}
+          smtpOtpVerifying={smtpOtpVerifying}
+          setShowSmtpOtpModal={setShowSmtpOtpModal}
+          bccLoading={bccLoading}
+          handleDeleteBcc={handleDeleteBcc}
+          safeBccEmails={safeBccEmails}
+          paginatedBccEmails={paginatedBccEmails}
+          bccPage={bccPage}
+          totalPagesBCC={totalPagesBCC}
+          sortedBccEmails={sortedBccEmails}
+          setBccPage={setBccPage}
+          showBCCEmailModal={showBCCEmailModal}
+          handleSave={handleSave}
+          newBccEmail={newBccEmail}
+          setNewBccEmail={setNewBccEmail}
+          fetchingDomain={fetchingDomain}
+          sortedDomainData={sortedDomainData}
+          domainSortKey={domainSortKey}
+          setDomainSortKey={setDomainSortKey}
+          setDomainSortDirection={setDomainSortDirection}
+          domainSortDirection={domainSortDirection}
+          setSelectedDomain={setSelectedDomain}
+          handleDomainValidateClick={handleDomainValidateClick}
+          handleDomainDeleteClick={handleDomainDeleteClick}
+          showOtpModal={showOtpModal}
+          setShowOtpModal={setShowOtpModal}
+          selectedOtpDomain={selectedOtpDomain}
+          appModal={appModal}
+          fetchDomainData={fetchDomainData}
+          showValidateModal={showValidateModal}
+          selectedDomain={selectedDomain}
+        />
       )}
 
       {/* Schedule Tab */}
@@ -3884,6 +2810,21 @@ const actionIconStyle = {
         isOpen={appModal.isOpen}
         onClose={appModal.hideModal}
         {...appModal.config}
+      />
+
+      <ToastMessage
+        show={showSuccessToast}
+        message={toastMessage}
+        type="success"
+        onClose={() => setShowSuccessToast(false)}
+        position="bottom-center"
+      />
+      <ToastMessage
+        show={showErrorToast}
+        message={toastMessage}
+        type="error"
+        onClose={() => setShowErrorToast(false)}
+        position="bottom-center"
       />
 
       {/* Loading Spinners */}

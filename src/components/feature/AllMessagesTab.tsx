@@ -5,6 +5,17 @@ import LoadingSpinner from '../common/LoadingSpinner';
 import DeleteConfirmationModal from '../common/DeleteConfirmationModal';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrashAlt } from '@fortawesome/free-regular-svg-icons';
+import { faPaperclip } from '@fortawesome/free-solid-svg-icons';
+
+interface InboxAttachment {
+  id?: number;
+  messageId?: string;
+  fileName?: string;
+  originalFileName?: string;
+  contentType?: string;
+  filePath?: string;
+  fileSize?: number;
+}
 
 interface InboxMessage {
   type: string;
@@ -17,6 +28,7 @@ interface InboxMessage {
   isRead: boolean;
   contactId: number | null;
   contactName?: string;
+  attachments?: InboxAttachment[];
 }
 
 interface InboxThread {
@@ -249,6 +261,10 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
     return 'Older';
   };
 
+  const getThreadAttachmentCount = (thread: InboxThread): number => {
+    return thread.messages.reduce((count, message) => count + (message.attachments?.length || 0), 0);
+  };
+
   const groupedThreads = threads.reduce((acc, thread) => {
     const group = getTimeGroup(thread.lastMessageDate);
     if (!acc[group]) acc[group] = [];
@@ -426,6 +442,7 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
             {groupThreads.map((thread) => {
               const lastMessage = thread.messages[thread.messages.length - 1];
               const isSelected = selectedThreadIds.includes(thread.trackingId);
+              const attachmentCount = getThreadAttachmentCount(thread);
               return (
                 <div
                   key={thread.trackingId}
@@ -465,6 +482,14 @@ const AllMessagesTab: React.FC<AllMessagesTabProps> = ({
                     </div>
                     <div className="mail-subject">
                       {thread.totalMessages > 1 && <span className="reply-icon">↩ {thread.totalMessages}</span>}
+                      {attachmentCount > 0 && (
+                        <span
+                          title={`${attachmentCount} attachment${attachmentCount > 1 ? 's' : ''}`}
+                          style={{ display: 'inline-flex', alignItems: 'center', marginRight: '6px', color: '#6b7280' }}
+                        >
+                          <FontAwesomeIcon icon={faPaperclip} />
+                        </span>
+                      )}
                       {thread.subject}
                     </div>
                     <div className="mail-preview">

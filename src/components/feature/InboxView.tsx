@@ -10,7 +10,7 @@ import Modal from '../common/Modal';
 import ToastMessage from '../common/ToastMessage';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrashAlt } from '@fortawesome/free-regular-svg-icons';
-import { faShare } from '@fortawesome/free-solid-svg-icons';
+import { faPaperclip, faReply, faShare } from '@fortawesome/free-solid-svg-icons';
 import UnassignedTab from './UnassignedTab';
 import SentTab from './SentTab';
 import AllMessagesTab from './AllMessagesTab';
@@ -70,6 +70,17 @@ interface InboxMessage {
   isRead: boolean;
   contactId: number | null;
   contactName?: string;
+  attachments?: InboxAttachment[];
+}
+
+interface InboxAttachment {
+  id?: number;
+  messageId?: string;
+  fileName?: string;
+  originalFileName?: string;
+  contentType?: string;
+  filePath?: string;
+  fileSize?: number;
 }
 
 interface InboxThread {
@@ -101,6 +112,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
   const [replyText, setReplyText] = useState<string>('');
+  const [replyAttachments, setReplyAttachments] = useState<File[]>([]);
   const [isSending, setIsSending] = useState(false);
   const [blueprints, setBlueprints] = useState<BlueprintTemplate[]>([]);
   const [selectedBlueprint, setSelectedBlueprint] = useState<number | null>(null);
@@ -138,6 +150,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setShowReplySection(false);
     setShowForwardSection(false);
     setReplyText('');
+    setReplyAttachments([]);
     setCollapsedEmails({});
   }, [initialTab]);
   
@@ -151,6 +164,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setShowReplySection(false);
     setShowForwardSection(false);
     setReplyText('');
+    setReplyAttachments([]);
     setCollapsedEmails({});
     
     if (onTabChange) {
@@ -190,6 +204,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     setForwardMessage('');
     setForwardTrackingId('');
     setShowForwardBcc(false);
+    setReplyAttachments([]);
   }, [
     activeTab,
     selectedThread?.trackingId,
@@ -625,33 +640,173 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
     }
   };
 
+  const sendReplyEmail = (trackingId: string) => {
+    const formData = new FormData();
+    formData.append('TrackingId', trackingId);
+    formData.append('ClientId', String(parseInt(effectiveUserId)));
+    formData.append('ReplyBody', replyText);
+    formData.append('Outboxid', String(selectedInboxId || 0));
+    formData.append('BccEmail', '');
+    formData.append('Provider', selectedProvider);
+    replyAttachments.forEach((file) => {
+      formData.append('Attachments', file);
+    });
+
+    return axios.post(
+      `${API_BASE_URL}/api/email/reply_email`,
+      formData,
+      {
+        headers: {
+          accept: '*/*',
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      }
+    );
+  };
+
+  const renderReplyAttachments = () => (
+    <div style={{ marginBottom: '12px', display: 'grid', gap: '8px' }}>
+      <label
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 'fit-content',
+          padding: '8px 14px',
+          border: '1px solid #d1d5db',
+          borderRadius: '6px',
+          cursor: 'pointer',
+          fontSize: '13px',
+          fontWeight: '500',
+          color: '#374151',
+          background: '#fff'
+        }}
+      >
+        Attach file
+        <input
+          type="file"
+          multiple
+          onChange={(e) => {
+            const files = Array.from(e.target.files || []);
+            setReplyAttachments((prev) => [...prev, ...files]);
+            e.target.value = '';
+          }}
+          style={{ display: 'none' }}
+        />
+      </label>
+      {replyAttachments.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+          {replyAttachments.map((file, index) => (
+            <span
+              key={`${file.name}-${file.lastModified}-${index}`}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 10px',
+                border: '1px solid #e5e7eb',
+                borderRadius: '999px',
+                fontSize: '12px',
+                color: '#374151',
+                background: '#f9fafb'
+              }}
+            >
+              {file.name}
+              <button
+                type="button"
+                onClick={() => {
+                  setReplyAttachments((prev) => prev.filter((_, fileIndex) => fileIndex !== index));
+                }}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  cursor: 'pointer',
+                  color: '#ef4444',
+                  fontSize: '14px',
+                  lineHeight: 1
+                }}
+                aria-label={`Remove ${file.name}`}
+              >
+                x
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const getAttachmentUrl = (attachment: InboxAttachment) => {
+    const path = attachment.filePath || '';
+    if (!path) return '#';
+    if (/^https?:\/\//i.test(path)) return path;
+    return `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
+  };
+
+  const formatAttachmentSize = (bytes?: number) => {
+    if (!bytes) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const renderMessageAttachments = (attachments?: InboxAttachment[]) => {
+    if (!attachments || attachments.length === 0) return null;
+
+    return (
+      <div style={{ margin: '12px 24px 0', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+        {attachments.map((attachment, index) => {
+          const fileName = attachment.originalFileName || attachment.fileName || `Attachment ${index + 1}`;
+          const fileSize = formatAttachmentSize(attachment.fileSize);
+
+          return (
+            <a
+              key={`${attachment.id || attachment.filePath || fileName}-${index}`}
+              href={getAttachmentUrl(attachment)}
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                maxWidth: '100%',
+                padding: '8px 10px',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                color: '#1f2937',
+                background: '#fff',
+                textDecoration: 'none',
+                fontSize: '13px'
+              }}
+              title={fileName}
+            >
+              <FontAwesomeIcon icon={faPaperclip} style={{ color: '#3f9f42', flexShrink: 0 }} />
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {fileName}
+              </span>
+              {fileSize && (
+                <span style={{ color: '#6b7280', flexShrink: 0 }}>
+                  {fileSize}
+                </span>
+              )}
+            </a>
+          );
+        })}
+      </div>
+    );
+  };
+
   const handleSendReply = async () => {
     if (!replyText.trim() || !selectedThread) return;
     
     setIsSending(true);
     setError('');
     try {
-      const response = await axios.post(
-        `${API_BASE_URL}/api/email/reply_email`,
-        {
-          trackingId: selectedThread.trackingId,
-          clientId: parseInt(effectiveUserId),
-          replyBody: replyText,
-          outboxId: selectedInboxId,
-          bccEmail: '',
-          Provider: selectedProvider
-        },                          
-        {
-          headers: {
-            'accept': '*/*',
-            'Content-Type': 'application/json',
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        }
-      );
+      const response = await sendReplyEmail(selectedThread.trackingId);
 
       if (response.data.success) {
         setReplyText('');
+        setReplyAttachments([]);
         // Refresh the thread to show the new reply
         const refreshResponse = await axios.get(
           `${API_BASE_URL}/api/Inbox/inbox?inboxId=${selectedInboxId}&Provider=${selectedProvider}`,
@@ -1908,6 +2063,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       <div className="mail-body" dangerouslySetInnerHTML={{ __html: formatEmailBody(message.body) }} style={{ maxWidth: '100%', overflowX: 'auto' }} />
                     </div>
                   )}
+                  {renderMessageAttachments(message.attachments)}
                 </div>
               );})}
               {showForwardSection && renderForwardSection()}
@@ -1916,24 +2072,11 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
               {!showReplySection && !showForwardSection && (
                 <div className="reply-button-sticky">
                   <button
+                    type="button"
+                    className="reply-pill-button"
                     onClick={() => setShowReplySection(true)}
-                    style={{
-                      padding: '10px 24px',
-                      background: '#3b82f6',
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: '500',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
-                    </svg>
+                    <FontAwesomeIcon icon={faReply} className="reply-pill-icon" />
                     Reply
                   </button>
                 </div>
@@ -2129,6 +2272,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     <RichTextEditor value={replyText} onChange={setReplyText} />
                   </div>
                 </Modal>
+                {renderReplyAttachments()}
                 <div style={{ display: 'flex', gap: '12px' }}>
                   <button
                     onClick={handleSendReply}
@@ -2150,6 +2294,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                     onClick={() => {
                       setShowReplySection(false);
                       setReplyText('');
+                      setReplyAttachments([]);
                     }}
                     style={{
                       padding: '10px 24px',
@@ -2364,6 +2509,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         <div className="mail-body" dangerouslySetInnerHTML={{ __html: formatEmailBody(message.body) }} style={{ maxWidth: '100%', overflowX: 'auto' }} />
                       </div>
                     )}
+                    {renderMessageAttachments(message.attachments)}
                   </div>
                 );})}
               </div>
@@ -2640,6 +2786,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         <div className="mail-body" dangerouslySetInnerHTML={{ __html: formatEmailBody(message.body) }} style={{ maxWidth: '100%', overflowX: 'auto' }} />
                       </div>
                     )}
+                    {renderMessageAttachments(message.attachments)}
                   </div>
                 );})}
                 {showForwardSection && renderForwardSection()}
@@ -2648,24 +2795,11 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 {!showReplySection && !showForwardSection && (
                   <div className="reply-button-sticky">
                     <button
+                      type="button"
+                      className="reply-pill-button"
                       onClick={() => setShowReplySection(true)}
-                      style={{
-                        padding: '10px 24px',
-                        background: '#3b82f6',
-                        color: '#fff',
-                        border: 'none',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                        fontWeight: '500',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                      }}
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
-                      </svg>
+                      <FontAwesomeIcon icon={faReply} className="reply-pill-icon" />
                       Reply
                     </button>
                   </div>
@@ -2744,7 +2878,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                           color: '#fff',
                           border: 'none',
                           borderRadius: '6px',
-                          cursor: (!selectedBlueprint || isKrafting || !selectedUnassignedEmail.contactId) ? 'not-allowed' : 'pointer',
+                          cursor: (!selectedBlueprint || isKrafting || !selectedUnassignedThread.contactId) ? 'not-allowed' : 'pointer',
                           fontSize: '13px',
                           fontWeight: '500',
                           whiteSpace: 'nowrap'
@@ -2896,6 +3030,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       <RichTextEditor value={replyText} onChange={setReplyText} />
                     </div>
                   </Modal>
+                  {renderReplyAttachments()}
                   <div style={{ display: 'flex', gap: '12px' }}>
                     <button
                       onClick={async () => {
@@ -2914,24 +3049,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         setIsSending(true);
                         setError('');
                         try {
-                          const response = await axios.post(
-                            `${API_BASE_URL}/api/email/reply_email`,
-                            {
-                              trackingId: emailTrackingId,
-                              clientId: parseInt(effectiveUserId),
-                              replyBody: replyText,
-                              outboxId: selectedInboxId,
-                              bccEmail: '',
-                              Provider: selectedProvider
-                            },
-                            {
-                              headers: {
-                                'accept': '*/*',
-                                'Content-Type': 'application/json',
-                                ...(token && { Authorization: `Bearer ${token}` }),
-                              },
-                            }
-                          );
+                          const response = await sendReplyEmail(emailTrackingId);
 
                           if (response.data.success) {
                             // Add the sent message to the thread immediately
@@ -2944,8 +3062,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                               toEmail: selectedUnassignedThread.contactEmail,
                               date: new Date().toISOString(),
                               isRead: true,
-                              contactId: selectedUnassignedThread.contactId,
-                              contactName: null
+                              contactId: selectedUnassignedThread.contactId
                             };
                             
                             // Update the thread with the new message
@@ -2958,6 +3075,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             
                             setSelectedUnassignedThread(updatedThread);
                             setReplyText('');
+                            setReplyAttachments([]);
                             setShowReplySection(false);
                             setToastMessage('Reply sent successfully!');
                             setToastType('success');
@@ -2997,6 +3115,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       onClick={() => {
                         setShowReplySection(false);
                         setReplyText('');
+                        setReplyAttachments([]);
                       }}
                       style={{
                         padding: '10px 24px',
@@ -3236,6 +3355,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         <div className="mail-body" dangerouslySetInnerHTML={{ __html: formatEmailBody(message.body) }} style={{ maxWidth: '100%', overflowX: 'auto' }} />
                       </div>
                     )}
+                    {renderMessageAttachments(message.attachments)}
                   </div>
                 );})}
                 {showForwardSection && renderForwardSection()}
@@ -3244,24 +3364,11 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                 {!showReplySection && !showForwardSection && (
                   <div className="reply-button-sticky">
                     <button
+                      type="button"
+                      className="reply-pill-button"
                       onClick={() => setShowReplySection(true)}
-                      style={{
-                        padding: '10px 24px',
-                        background: '#3b82f6',
-                        color: '#fff',
-                        border: 'none',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                        fontWeight: '500',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                      }}
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
-                      </svg>
+                      <FontAwesomeIcon icon={faReply} className="reply-pill-icon" />
                       Reply
                     </button>
                   </div>
@@ -3435,6 +3542,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       <RichTextEditor value={replyText} onChange={setReplyText} />
                     </div>
                   </Modal>
+                  {renderReplyAttachments()}
                   <div style={{ display: 'flex', gap: '12px' }}>
                     <button
                       onClick={async () => {
@@ -3453,24 +3561,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                         setIsSending(true);
                         setError('');
                         try {
-                          const response = await axios.post(
-                            `${API_BASE_URL}/api/email/reply_email`,
-                            {
-                              trackingId: emailTrackingId,
-                              clientId: parseInt(effectiveUserId),
-                              replyBody: replyText,
-                              outboxId: selectedInboxId,
-                              bccEmail: '',
-                              Provider: selectedProvider
-                            },
-                            {
-                              headers: {
-                                'accept': '*/*',
-                                'Content-Type': 'application/json',
-                                ...(token && { Authorization: `Bearer ${token}` }),
-                              },
-                            }
-                          );
+                          const response = await sendReplyEmail(emailTrackingId);
 
                           if (response.data.success) {
                             const sentMessage: InboxMessage = {
@@ -3482,8 +3573,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                               toEmail: selectedAllMessagesThread.contactEmail,
                               date: new Date().toISOString(),
                               isRead: true,
-                              contactId: selectedAllMessagesThread.contactId,
-                              contactName: null
+                              contactId: selectedAllMessagesThread.contactId
                             };
 
                             const updatedThread = {
@@ -3496,6 +3586,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                             setSelectedAllMessagesThread(updatedThread);
                             setRefreshAllMessagesTab(prev => prev + 1);
                             setReplyText('');
+                            setReplyAttachments([]);
                             setShowReplySection(false);
                             setToastMessage('Reply sent successfully!');
                             setToastType('success');
@@ -3535,6 +3626,7 @@ const InboxView: React.FC<InboxViewProps> = ({ effectiveUserId, token, isVisible
                       onClick={() => {
                         setShowReplySection(false);
                         setReplyText('');
+                        setReplyAttachments([]);
                       }}
                       style={{
                         padding: '10px 24px',

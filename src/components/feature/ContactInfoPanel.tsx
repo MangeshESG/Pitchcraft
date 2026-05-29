@@ -280,7 +280,7 @@ const ContactInfoPanel: React.FC<ContactInfoPanelProps> = ({ contactId, token })
       {/* Notes */}
       <div style={{ marginBottom: '16px' }}>
         <textarea
-          placeholder="Notes"
+          placeholder="Html"
           value={editedNote}
           onChange={(e) => setEditedNote(e.target.value)}
           rows={4}
