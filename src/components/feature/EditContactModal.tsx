@@ -1351,8 +1351,8 @@ case "boolean":
           </div>
 
           {/* Pinned Notes */}
+          {pinnedNotes.length > 0 && (
           <div className="bg-white rounded-lg p-6 shadow-[5px_5px_12px_rgba(0,0,0,0.15)] border border border-[#cccccc]">
-            {pinnedNotes.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-4">
                   <span className='text-[#3f9f42]'>
@@ -1476,13 +1476,13 @@ case "boolean":
                   </div>
                 ))}
               </div>
-            )}
           </div>
+          )}
 
           {/* LinkedIn Summary */}
+          {savedLinkedInSummary && (
           <div
             className="bg-white rounded-lg p-6 shadow-[5px_5px_12px_rgba(0,0,0,0.15)] border border border-[#cccccc]"
-            style={{ minHeight: 160 }}   // ✅ better than fixed height
           >
            
             <div className="flex items-center  justify-between" style={{ position: "relative" }}>
@@ -1592,11 +1592,9 @@ case "boolean":
               className='py-[16px]'
                dangerouslySetInnerHTML={{
                 __html: DOMPurify.sanitize(
-                  !savedLinkedInSummary  
-                    ? "<p>No LinkedIn summary available</p>"
-                    : isLinkedInExpanded 
-                      ? savedLinkedInSummary
-                      : `<p>${getTruncatedLinkedIn(savedLinkedInSummary)}</p>`
+                  isLinkedInExpanded
+                    ? savedLinkedInSummary
+                    : `<p>${getTruncatedLinkedIn(savedLinkedInSummary)}</p>`
                 ),
               }}
             />
@@ -1619,6 +1617,7 @@ case "boolean":
               </button>
             )}
           </div>
+          )}
 
         </div>
       </div>

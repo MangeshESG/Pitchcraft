@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import RichTextEditor from "../../common/RTEEditor";
 import ElementsTab from "./ElementsTab";
 import type { PlaceholderDefinitionUI } from "./EmailCampaignBuilder";
+import { Loader2 } from "lucide-react";
 
 export interface BlueprintBuilderPanelProps {
   activeBuildTab: "chat" | "elements";
@@ -151,9 +151,10 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
   const totalPages = Math.max(1, Math.ceil((contacts.length || 1) / rowsPerPage));
   const setPageSize = () => {};
 
-  // Expanded placeholder modal (elements tab)
-  const [expandedPlaceholder, setExpandedPlaceholder] = useState<{ key: string; friendlyName: string } | null>(null);
-  const [expandedDraft, setExpandedDraft] = useState("");
+  // Element side panel drawer
+  const [sidePanelElement, setSidePanelElement] = useState<PlaceholderDefinitionUI | null>(null);
+  const [sidePanelTab, setSidePanelTab] = useState<"manual" | "chat">("manual");
+  const [chatStartedForKey, setChatStartedForKey] = useState<string | null>(null);
 
   // Reset pagination when data file changes
   useEffect(() => {
@@ -441,31 +442,6 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
           </div>
         </div>
 
-        {/* ===== EXPANDED PLACEHOLDER MODAL ===== */}
-        {expandedPlaceholder && (
-          <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              background: "rgba(0,0,0,0.35)",
-              zIndex: 9999,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <div style={{ width: "80%", maxWidth: 900, background: "#fff", borderRadius: 10, padding: 20, boxShadow: "0 20px 40px rgba(0,0,0,0.25)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <h3 style={{ fontSize: 18, fontWeight: 600 }}>{expandedPlaceholder.friendlyName}</h3>
-                <button onClick={() => setExpandedPlaceholder(null)} style={{ border: "none", background: "transparent", fontSize: 20, cursor: "pointer" }}>✕</button>
-              </div>
-              <RichTextEditor value={expandedDraft} height={320} onChange={setExpandedDraft} />
-              <div style={{ textAlign: "right", marginTop: 12 }}>
-                <button onClick={() => { setFormValues((prev) => ({ ...prev, [expandedPlaceholder.key]: expandedDraft })); setExpandedPlaceholder(null); }}>Done</button>
-              </div>
-            </div>
-          </div>
-        )}
       </>
     );
   }
@@ -581,9 +557,10 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
               groupedPlaceholders={groupedPlaceholders}
               formValues={formValues}
               setFormValues={setFormValues}
-              setExpandedKey={(key, friendlyName) => {
-                setExpandedPlaceholder({ key, friendlyName });
-                setExpandedDraft(formValues[key] || "");
+              onExpandElement={(p) => {
+                setSidePanelElement(p);
+                setSidePanelTab("manual");
+                setChatStartedForKey(null);
               }}
               saveAllPlaceholders={saveAllPlaceholders}
               dataFiles={dataFiles}
@@ -652,20 +629,292 @@ const BlueprintBuilderPanel: React.FC<BlueprintBuilderPanelProps> = ({
         </div>
       </div>
 
-      {/* ===== EXPANDED PLACEHOLDER MODAL ===== */}
-      {expandedPlaceholder && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ width: "80%", maxWidth: 900, background: "#fff", borderRadius: 10, padding: 20, boxShadow: "0 20px 40px rgba(0,0,0,0.25)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <h3 style={{ fontSize: 18, fontWeight: 600 }}>{expandedPlaceholder.friendlyName}</h3>
-              <button onClick={() => setExpandedPlaceholder(null)} style={{ border: "none", background: "transparent", fontSize: 20, cursor: "pointer" }}>✕</button>
+      {/* ===== ELEMENT SIDE PANEL DRAWER ===== */}
+      {sidePanelElement && (
+        <>
+          {/* Backdrop */}
+          <div
+            onClick={() => setSidePanelElement(null)}
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.12)", zIndex: 999 }}
+          />
+
+          {/* Drawer */}
+          <div style={{
+            position: "fixed",
+            top: 0,
+            right: 0,
+            bottom: 0,
+            width: 440,
+            background: "#fff",
+            boxShadow: "-4px 0 28px rgba(0,0,0,0.14)",
+            zIndex: 1000,
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+          }}>
+            {/* Drawer Header */}
+            <div style={{ padding: "16px 20px", borderBottom: "1px solid #e5e7eb", display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexShrink: 0, background: "#fff" }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#111827", marginBottom: 2 }}>
+                  {sidePanelElement.friendlyName}
+                </div>
+                <div style={{ fontSize: 11, color: "#9ca3af", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  {sidePanelElement.category}
+                </div>
+              </div>
+              <button
+                onClick={() => setSidePanelElement(null)}
+                style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #e5e7eb", background: "#fafafa", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#6b7280", fontSize: 14, flexShrink: 0 }}
+              >
+                ✕
+              </button>
             </div>
-            <RichTextEditor value={expandedDraft} height={320} onChange={setExpandedDraft} />
-            <div style={{ textAlign: "right", marginTop: 12 }}>
-              <button onClick={() => { setFormValues((prev) => ({ ...prev, [expandedPlaceholder.key]: expandedDraft })); setExpandedPlaceholder(null); }}>Done</button>
+
+            {/* Tab Bar */}
+            <div style={{ display: "flex", borderBottom: "1px solid #e5e7eb", background: "#fafafa", flexShrink: 0 }}>
+              {(["manual", "chat"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => {
+                    setSidePanelTab(tab);
+                    if (tab === "chat" && chatStartedForKey !== sidePanelElement.placeholderKey) {
+                      onPlaceholderSelect(sidePanelElement.placeholderKey);
+                      setChatStartedForKey(sidePanelElement.placeholderKey);
+                    }
+                  }}
+                  style={{
+                    flex: 1, padding: "12px 14px",
+                    border: "none", background: "none",
+                    borderBottom: sidePanelTab === tab ? "2px solid #3f9f42" : "2px solid transparent",
+                    color: sidePanelTab === tab ? "#3f9f42" : "#6b7280",
+                    fontWeight: sidePanelTab === tab ? 700 : 500,
+                    fontSize: 13,
+                    cursor: "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                    transition: "color 0.15s",
+                  }}
+                >
+                  {tab === "manual" ? (
+                    <>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                      </svg>
+                      Manual
+                    </>
+                  ) : (
+                    <>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                      </svg>
+                      Chat AI
+                    </>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* Content Area */}
+            <div style={{ flex: 1, overflow: "auto", display: "flex", flexDirection: "column", minHeight: 0 }}>
+
+              {/* ── MANUAL TAB ── */}
+              {sidePanelTab === "manual" && (
+                <div style={{ padding: "20px" }}>
+                  <p style={{ fontSize: 12, color: "#9ca3af", marginBottom: 14, lineHeight: 1.5 }}>
+                    Edit <strong style={{ color: "#374151" }}>{sidePanelElement.friendlyName}</strong> directly below. Changes are saved when you click "Save all" on the elements page.
+                  </p>
+                  <div style={{ width: "100%" }}>
+                    {renderPlaceholderInput({
+                      ...sidePanelElement,
+                      uiSize: "xl",
+                      options: sidePanelElement.options || [],
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* ── CHAT TAB ── */}
+              {sidePanelTab === "chat" && (
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0, height: "100%" }}>
+
+                  {/* Pre-start state */}
+                  {chatStartedForKey !== sidePanelElement.placeholderKey ? (
+                    <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "28px 24px", textAlign: "center", gap: 16 }}>
+                      <div style={{ width: 56, height: 56, background: "#f0fdf4", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26 }}>
+                        💬
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 700, color: "#111827", fontSize: 15, marginBottom: 6 }}>
+                          Edit with AI
+                        </div>
+                        <div style={{ color: "#6b7280", fontSize: 13, lineHeight: 1.6, maxWidth: 280 }}>
+                          The AI will help you craft the perfect value for <strong>"{sidePanelElement.friendlyName}"</strong> based on your blueprint.
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          onPlaceholderSelect(sidePanelElement.placeholderKey);
+                          setChatStartedForKey(sidePanelElement.placeholderKey);
+                        }}
+                        disabled={isTyping}
+                        style={{
+                          padding: "10px 22px",
+                          background: "#3f9f42",
+                          color: "#fff",
+                          borderRadius: 8,
+                          border: "none",
+                          fontWeight: 600,
+                          fontSize: 14,
+                          cursor: isTyping ? "not-allowed" : "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          opacity: isTyping ? 0.7 : 1,
+                        }}
+                      >
+                        {isTyping ? (
+                          <>
+                            <Loader2 size={14} style={{ animation: "campaign-builder-spin 1s linear infinite" }} />
+                            Starting…
+                          </>
+                        ) : (
+                          "Start AI chat →"
+                        )}
+                      </button>
+                    </div>
+
+                  ) : (
+                    /* Active chat */
+                    <>
+                      {/* Messages */}
+                      <div style={{ flex: 1, overflow: "auto", padding: "14px 16px" }}>
+                        {messages.map((msg: any, idx: number) => {
+                          const raw: string = msg.content || "";
+                          const content = raw
+                            .replace(/==PLACEHOLDER_VALUES_START==[\s\S]*?==PLACEHOLDER_VALUES_END==/g, "")
+                            .replace(/\{\s*"status"[\s\S]*?\}/g, "")
+                            .trim();
+                          const isHtml = /<[a-z][\s\S]*>/i.test(content);
+
+                          return (
+                            <div
+                              key={idx}
+                              style={{
+                                marginBottom: 10,
+                                display: "flex",
+                                justifyContent: msg.type === "user" ? "flex-end" : "flex-start",
+                                alignItems: "flex-start",
+                                gap: 6,
+                              }}
+                            >
+                              {msg.type === "bot" && (
+                                <span style={{
+                                  width: 26, height: 26,
+                                  background: "#f0fdf4",
+                                  border: "1px solid #86efac",
+                                  borderRadius: "50%",
+                                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                                  fontSize: 13, flexShrink: 0, marginTop: 2,
+                                }}>🤖</span>
+                              )}
+                              <div style={{
+                                maxWidth: "82%",
+                                padding: "9px 13px",
+                                borderRadius: msg.type === "user" ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
+                                background: msg.type === "user" ? "#3f9f42" : "#f9fafb",
+                                border: msg.type === "user" ? "none" : "1px solid #e5e7eb",
+                                color: msg.type === "user" ? "#fff" : "#111827",
+                                fontSize: 13,
+                                lineHeight: 1.55,
+                              }}>
+                                {isHtml
+                                  ? <div dangerouslySetInnerHTML={{ __html: content }} />
+                                  : <p style={{ margin: 0 }}>{content}</p>
+                                }
+                                <div style={{ fontSize: 10, opacity: 0.6, marginTop: 4, textAlign: "right" }}>
+                                  {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {/* Typing indicator */}
+                        {isTyping && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0" }}>
+                            <span style={{ width: 26, height: 26, background: "#f0fdf4", border: "1px solid #86efac", borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>🤖</span>
+                            <div style={{ background: "#f3f4f6", border: "1px solid #e5e7eb", borderRadius: 10, padding: "8px 14px", display: "flex", gap: 4, alignItems: "center" }}>
+                              {[0, 1, 2].map((i) => (
+                                <div key={i} style={{
+                                  width: 6, height: 6, borderRadius: "50%", background: "#9ca3af",
+                                  animation: "campaign-builder-dot-bounce 1.4s ease-in-out infinite",
+                                  animationDelay: `${i * 0.16}s`,
+                                }} />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Chat Input */}
+                      <div style={{ borderTop: "1px solid #e5e7eb", padding: "12px 16px", flexShrink: 0, background: "#fff" }}>
+                        <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+                          <textarea
+                            value={currentAnswer}
+                            onChange={(e) => setCurrentAnswer(e.target.value)}
+                            onKeyPress={handleKeyPress}
+                            placeholder="Type your reply…"
+                            style={{
+                              flex: 1,
+                              padding: "9px 12px",
+                              border: "1px solid #d1d5db",
+                              borderRadius: 8,
+                              fontSize: 13,
+                              resize: "none",
+                              minHeight: 42,
+                              maxHeight: 120,
+                              fontFamily: "inherit",
+                              color: "#111827",
+                              outline: "none",
+                              lineHeight: 1.5,
+                            }}
+                            rows={1}
+                            disabled={isTyping}
+                          />
+                          <button
+                            onClick={() => handleSendMessage()}
+                            disabled={isTyping || !currentAnswer.trim()}
+                            style={{
+                              padding: "9px 14px",
+                              background: isTyping || !currentAnswer.trim() ? "#e5e7eb" : "#3f9f42",
+                              color: isTyping || !currentAnswer.trim() ? "#9ca3af" : "#fff",
+                              borderRadius: 8,
+                              border: "none",
+                              cursor: isTyping || !currentAnswer.trim() ? "not-allowed" : "pointer",
+                              flexShrink: 0,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              transition: "background 0.15s",
+                            }}
+                          >
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <line x1="22" y1="2" x2="11" y2="13" />
+                              <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                            </svg>
+                          </button>
+                        </div>
+                        <p style={{ fontSize: 11, color: "#9ca3af", margin: "6px 0 0", textAlign: "center" }}>
+                          The AI will update this element based on your conversation.
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </div>
-        </div>
+        </>
       )}
     </>
   );

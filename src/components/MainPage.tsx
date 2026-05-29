@@ -1814,6 +1814,7 @@ const resolvePromptSafely = async () => {
       promptText: string,
       replacements: Record<string, any>,
       promptConfig?: Prompt | null,
+      contactId?: number | string | null,
     ) => {
       if (isGptModel(selectedModelNameA)) {
         return {
@@ -1854,6 +1855,7 @@ const resolvePromptSafely = async () => {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             instructions: filledInstructions,
+            contactId: contactId ? Number(contactId) : undefined,
           }),
         },
       );
@@ -2102,6 +2104,7 @@ const resolvePromptSafely = async () => {
           replacedPromptText,
           replacements,
           safePrompt,
+          entry.id,
         );
         replacedPromptText = webSearchResult.promptText;
         replacements.search_output_summary = webSearchResult.webSearchData || "";
@@ -2699,6 +2702,7 @@ const resolvePromptSafely = async () => {
             replacedPromptText,
             replacements,
             promptForRun,
+            entry.id,
           );
           replacedPromptText = webSearchResult.promptText;
           replacements.search_output_summary = webSearchResult.webSearchData || "";
