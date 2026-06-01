@@ -75,6 +75,10 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
   totalPagesBCC,
   sortedBccEmails,
   setBccPage,
+  bccSortKey,
+  setBccSortKey,
+  bccSortDirection,
+  setBccSortDirection,
   showBCCEmailModal,
   handleSave,
   newBccEmail,
@@ -186,7 +190,7 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
     ];
 
   return (
-        <>
+        <div style={{ padding: "24px 28px" }}>
           {/* --- SUB TABS --- */}
           <div className="config-tab-container" style={{ display: "flex", gap: "20px", marginBottom: "20px" }}>
             <button
@@ -1133,7 +1137,7 @@ const MailConfiguration: React.FC<MailConfigurationProps> = ({
               </div>
             )}
           </div>
-        </>
+        </div>
   );
 };
 

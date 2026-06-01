@@ -2209,26 +2209,6 @@ const fetchLogsByCampaign = async (campaignId: string) => {
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
-                {/* Totals panel */}
-                <div className="md-chart-totals">
-                  <p className="md-totals-header">
-                    Total{startDate && endDate ? ` (${startDate} – ${endDate})` : ""}
-                  </p>
-                  <div className="md-totals-list">
-                    {[
-                      { label: "Sent",          val: requestCount,          color: "#00C49F" },
-                      { label: "Unique opens",  val: totalStats.opens,      color: "#FF8042" },
-                      { label: "Unique clicks", val: totalStats.clicks,     color: "#8b5cf6" },
-                      { label: "Errors",        val: totalStats.errors,     color: "#ef4444" },
-                    ].map(r => (
-                      <div key={r.label} className="md-totals-row">
-                        <span className="md-totals-dot" style={{ background: r.color }} />
-                        <span className="md-totals-label">{r.label}</span>
-                        <span className="md-totals-value" style={{ color: r.color }}>{r.val.toLocaleString()}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
               </div>
             </div>
 
